@@ -1,0 +1,12 @@
+,buns_heavy_total,buns_hpol_total,buns_total,contact_count,cst_weight,fsp_energy,fsp_total_stability,full_stability,int_area_hydrophobic,int_area_polar,int_area_res_summary_hydrophobic_A_oligomer,int_area_res_summary_hydrophobic_B_oligomer,int_area_res_summary_polar_A_oligomer,int_area_res_summary_polar_B_oligomer,int_area_res_summary_total_A_oligomer,int_area_res_summary_total_B_oligomer,int_area_total,int_connectivity_A,int_connectivity_B,int_energy_context_A_oligomer,int_energy_context_B_oligomer,int_energy_context_complex,int_energy_context_delta,int_energy_context_oligomer,int_energy_res_summary_A_oligomer,int_energy_res_summary_B_oligomer,int_energy_res_summary_complex,int_energy_res_summary_delta,int_energy_res_summary_oligomer,int_separation,interaction_energy_complex,number_hbonds,ref,rmsd,shape_complementarity,nanohedra_score,average_fragment_z_score,unique_fragments,total_interface_residues,interface_b_factor_per_res
+sort,min,min,min,max,min,max,min,min,min,max,min,min,max,max,max,max,max,max,max,max,max,min,min,min,min,min,min,max,min,min,min,max,max,min,max,max,min,max,max,max
+function,sort,sort,sort,sort,normalize,normalize,normalize,normalize,sort,sort,sort,sort,sort,sort,sort,sort,sort,normalize,normalize,normalize,normalize,sort,sort,sort,normalize,normalize,normalize,sort,normalize,normalize,sort,normalize,sort,normalize,normalize,sort,normalize,sort,sort,sort
+filter,filter,filter,filter,filter,nan,nan,nan,nan,filter,filter,filter,filter,filter,filter,filter,filter,filter,filter,filter,nan,nan,filter,filter,filter,nan,nan,nan,filter,nan,filter,filter,filter,nan,filter,filter,filter,filter,filter,filter,nan
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+...,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+N,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
