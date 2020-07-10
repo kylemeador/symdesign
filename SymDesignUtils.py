@@ -13,7 +13,7 @@ import sklearn.neighbors
 from itertools import repeat
 import PDB
 from Bio.SeqUtils import IUPACData
-from Bio.SubsMat import MatrixInfo
+from Bio.SubsMat import MatrixInfo as matlist
 from Bio import pairwise2
 import PathUtils as PUtils
 import CmdUtils as CUtils
@@ -238,7 +238,7 @@ def unpickle(filename):
 
 
 def pickle_object(target_object, name, out_path=os.getcwd()):
-    """Pickle (serialize) an object into a file with out_path/name.pkl.
+    """Pickle (serialize) an object into a file named 'out_path/name.pkl'
 
     Args:
         target_object (any): Any python object
@@ -1200,6 +1200,85 @@ def gather_profile_info(pdb, des_dir, names):
     return pssm_file, full_pssm
 
 
+def sequence_difference(seq1, seq2, d=None, matrix='blosum62'):  # TODO AMS
+    """Returns the sequence difference between two sequence iterators
+
+    Args:
+        seq1 (any): Either an iterable with residue type as array, or key, with residue type as d[seq1][residue]['type']
+        seq2 (any): Either an iterable with residue type as array, or key, with residue type as d[seq2][residue]['type']
+    Keyword Args:
+        d=None (dict): The dictionary to look up seq1 and seq2 if they are keys and the iterable is a dictionary
+        matrix='blosum62' (str): The type of matrix to score the sequence differences on
+    Returns:
+        (float): The computed sequence difference between seq1 and seq2
+    """
+    # s = 0
+    if d:
+        # seq1 = d[seq1]
+        # seq2 = d[seq2]
+        # for residue in d[seq1]:
+            # s.append((d[seq1][residue]['type'], d[seq2][residue]['type']))
+        pairs = [(d[seq1][residue]['type'], d[seq2][residue]['type']) for residue in d[seq1]]
+    else:
+        pairs = [(seq1_res, seq2[i]) for i, seq1_res in enumerate(seq1)]
+            # s.append((seq1[i], seq2[i]))
+    #     residue_iterator1 = seq1
+    #     residue_iterator2 = seq2
+    m = getattr(matlist, matrix)
+    s = 0
+    for tup in pairs:
+        try:
+            s += m[tup]
+        except KeyError:
+            s += m[(tup[1], tup[0])]
+
+    return s
+
+
+def all_vs_all(iterable, func, symmetrize=True):  # TODO SDUtils
+    """Calculate an all versus all comparison using a defined function. Matrix is symmetrized by default
+
+    Args:
+        iterable (iter): Dict or array like object
+        func (function): Function to calculate different iterations of the iterable
+    Keyword Args:
+        symmetrize=True (Bool): Whether or not to make the resulting matrix symmetric
+    Returns:
+        all_vs_all (numpy array): Matrix with resulting calculations
+    """
+    if type(iterable) == dict:
+        # func(iterable[obj1], iterable[obj2])
+        _dict = iterable
+    else:
+        _dict = None
+    pairwise = np.zeros((len(iterable), (len(iterable))))
+    for i, obj1 in enumerate(iterable):
+        for j, obj2 in enumerate(iterable):
+            if j < i:
+                continue
+            # if type(iterable) == dict:  # _dict
+            pairwise[i][j] = func(obj1, obj2, d=_dict)
+            # pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)
+            # else:
+            #     pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)
+
+    if symmetrize:
+        return sym(pairwise)
+    else:
+        return pairwise
+
+
+def sym(a):
+    """Symmetrize a NumPy array. i.e. if a_ij = 0, then the returned array is such that _ij = a_ji
+
+    Args:
+        a (numpy array): square NumPy array
+    Returns:
+        (numpy array): Symmetrized NumPy array
+    """
+    return a + a.T - np.diag(a.diagonal())
+
+
 def condensed_to_square(k, n):
     """Return the i, j indices of a scipy condensed matrix from element k and matrix dimension n"""
     def calc_row_idx(_k, _n):
@@ -2157,13 +2236,13 @@ def generate_mutations_from_seq(seq1, seq2, offset=True, remove_blanks=True):  #
 ##############
 
 
-def generate_alignment(seq1, seq2):
+def generate_alignment(seq1, seq2, matrix='blosum62'):
     """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*"""
-    matrix = MatrixInfo.blosum62
+    _matrix = getattr(matlist, matrix)
     gap_penalty = -10
     gap_ext_penalty = -1
     # Create sequence alignment
-    alignment = pairwise2.align.localds(seq1, seq2, matrix, gap_penalty, gap_ext_penalty)
+    alignment = pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
     return alignment
 

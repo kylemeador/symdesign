@@ -15,6 +15,7 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp
+from AnalyzeMutatedSequences import select_sequences
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -360,7 +361,7 @@ if __name__ == '__main__':
                 mp_threads = SDUtils.calculate_mp_threads(maximum=True)
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
                 zipped_args = zip(all_design_directories, repeat(args.increment))
-                # results = SDUtils.mp_starmap(rename, zipped_args, mp_threads)
+                results = SDUtils.mp_starmap(rename, zipped_args, mp_threads)
                 results2 = SDUtils.mp_map(merge_directory_pair, directory_pairs, mp_threads)
             else:
                 logger.info('Starting processing. If single process is taking awhile, use -m during submission')
@@ -388,7 +389,17 @@ if __name__ == '__main__':
                                 % (stage, PUtils.stage_f[stage]['len']))
 
     elif args.sub_module == 'sequence':
-        dummy = True
+        if args.multi_processing:
+            # Calculate the number of threads to use depending on computer resources
+            mp_threads = SDUtils.calculate_mp_threads(maximum=True)
+            logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
+            zipped_args = zip(all_design_directories, repeat(number=args.number))
+            results = SDUtils.mp_starmap(select_sequences, zipped_args, mp_threads)
+        else:
+            for des_directory in all_design_directories:
+                result = select_sequences(des_directory, number=args.number)
+                results.append(result)
+                # exceptions.append(error)
 
     any_exceptions = list(set(exceptions))
     if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:

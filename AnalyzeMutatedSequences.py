@@ -2,12 +2,17 @@ import sys
 import os
 import argparse
 import math
-import glob
+from glob import glob
+from itertools import combinations
 import PDB
 from Bio.Alphabet import generic_protein
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import DBSCAN
+from sklearn.neighbors import BallTree
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 
@@ -209,8 +214,8 @@ def generate_sequences(wild_type_seq_dict, all_design_mutations):
 
 def get_wildtype_file(des_directory):
     """Retrieve the wild-type file name from Design Directory"""
-    # wt_file = glob.glob(os.path.join(des_directory.building_blocks, PUtils.clean))
-    wt_file = glob.glob(os.path.join(des_directory.path, PUtils.clean))
+    # wt_file = glob(os.path.join(des_directory.building_blocks, PUtils.clean))
+    wt_file = glob(os.path.join(des_directory.path, PUtils.clean))
     assert len(wt_file) == 1, '%s: More than one matching file found with %s' % (des_directory.path, PUtils.asu)
     return wt_file[0]
     # for file in os.listdir(des_directory.building_blocks):
@@ -405,6 +410,55 @@ def analyze_mutations(des_dir, mutated_sequences, residues=None, print_results=F
         logger('Evolution Divergence values:', evolution_divergence)
 
     return final_mutation_dict
+
+
+def select_sequences(des_dir, number=1):
+    # Load relevant data from the design directory
+    # trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
+    # assert len(trajectory_file) == 1, 'Multiples files found for %s' % \
+    #                                   os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+    # trajectory_df = pd.read_csv(trajectory_file[0])
+    # designs = trajectory_df.index.to_list()
+
+    sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
+    assert len(sequences_pickle) == 1, 'Multiples files found for %s' % \
+                                       os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+    # {chain: {name: sequence, ...}, ...}
+    all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
+    # residue_dict.pop(PUtils.stage[1])  # Remove refine from sequences?
+    chains = list(all_design_sequences.keys())
+    designs = list(all_design_sequences[chains[0]].keys())
+    concatenated_sequences = {design: ''.join([all_design_sequences[chain][design] for chain in chains])
+                              for design in designs}
+
+    # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, SDUtils.sequence_difference)
+    pairwise_sequence_diff_l = map(SDUtils.sequence_difference, combinations([concatenated_sequences[design]
+                                                                              for design in concatenated_sequences], 2))
+    pairwise_sequence_diff_np = np.zeros((len(designs), len(designs)))
+    for k, dist in enumerate(pairwise_sequence_diff_l):
+        i, j = SDUtils.condensed_to_square(k, len(designs))
+        pairwise_sequence_diff_np[i, j] = dist
+    pairwise_sequence_diff_np = SDUtils.sym(pairwise_sequence_diff_np)
+    pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
+    epsilon = math.sqrt(pairwise_sequence_diff_np.mean())
+
+    # Find the nearest neighbors for pairwise matrix # could I need the X*X^T (PCA) matrix?
+    seq_neighbors = BallTree(pairwise_sequence_diff_np)
+    top_seqs = seq_neighbors.query_radius(pairwise_sequence_diff_np, epsilon, count_only=True, sort_results=True)
+    final_seqs = top_seqs[:number]
+
+    # Compute the highest density cluster using the DBSCAN algorithm
+    # seq_cluster = DBSCAN(eps=epsilon)
+    # seq_cluster.fit(pairwise_sequence_diff_np)
+
+    # seq_pca = PCA(0.8)
+    # seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
+    #
+    # seq_pc_df = pd.DataFrame(seq_pc, index=designs,
+    #                          columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
+    # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+
+    return final_seqs
 
 
 def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):

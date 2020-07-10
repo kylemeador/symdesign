@@ -14,7 +14,6 @@ from scipy.spatial.distance import euclidean, pdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from itertools import repeat, combinations
-from Bio.SubsMat import MatrixInfo as matlist
 # import PDB
 import SymDesignUtils as SDUtils
 import PathUtils as PUtils
@@ -784,82 +783,6 @@ def hydrophobic_collapse_index(sequence):  # UNUSED # TODO Validate, AMS
     return hci
 
 
-def all_vs_all(iterable, func, symmetrize=True):  # TODO SDUtils
-    """Calculate an all versus all comparison using a defined function. Matrix is symmetrized by default
-
-    Args:
-        iterable (iter): Dict or array like object
-        func (function): Function to calculate different iterations of the iterable
-    Keyword Args:
-        symmetrize=True (Bool): Whether or not to make the resulting matrix symmetric
-    Returns:
-        all_vs_all (numpy array): Matrix with resulting calculations
-    """
-    def sym(a):
-        """Symmetrize a NumPy array. i.e. if a_ij = 0, then the returned array is such that _ij = a_ji
-
-        Args:
-            a (numpy array): square NumPy array
-        Returns:
-            (numpy array): Symmetrized NumPy array
-        """
-        return a + a.T - np.diag(a.diagonal())
-
-    if type(iterable) == dict:
-        # func(iterable[obj1], iterable[obj2])
-        _dict = iterable
-    else:
-        _dict = None
-    pairwise = np.zeros((len(iterable), (len(iterable))))
-    for i, obj1 in enumerate(iterable):
-        for j, obj2 in enumerate(iterable):
-            if j < i:
-                continue
-            # if type(iterable) == dict:  # _dict
-            pairwise[i][j] = func(obj1, obj2, d=_dict)
-            # pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)
-            # else:
-            #     pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)
-
-    if symmetrize:
-        return sym(pairwise)
-    else:
-        return pairwise
-
-
-def sequence_difference(seq1, seq2, d=None, matrix='blosum62'):  # TODO AMS
-    """Returns the sequence difference between two sequence iterators
-
-    Args:
-        seq1 (any): Either an iterable with residue type as array, or key, with residue type as d[seq1][residue]['type']
-        seq2 (any): Either an iterable with residue type as array, or key, with residue type as d[seq2][residue]['type']
-    Keyword Args:
-         d=None (dict): If the iterable is a dictionary
-         matrix='blosum62' (str): The type of matrix to score the sequence differences on
-    """
-    # s = 0
-    if d:
-        # seq1 = d[seq1]
-        # seq2 = d[seq2]
-        # for residue in d[seq1]:
-            # s.append((d[seq1][residue]['type'], d[seq2][residue]['type']))
-        pairs = [(d[seq1][residue]['type'], d[seq2][residue]['type']) for residue in d[seq1]]
-    else:
-        pairs = [(seq1[i], seq2[i]) for i, residue in enumerate(seq1)]
-            # s.append((seq1[i], seq2[i]))
-    #     residue_iterator1 = seq1
-    #     residue_iterator2 = seq2
-    m = getattr(matlist, matrix)
-    s = 0
-    for tup in pairs:
-        try:
-            s += m[tup]
-        except KeyError:
-            s += m[(tup[1], tup[0])]
-
-    return s
-
-
 def calculate_column_number(num_groups=1, misc=0, sig=0):
     total = len(final_metrics) * len(stats_metrics)
     total += len(protocol_specific_columns) * num_groups * len(stats_metrics)
@@ -1301,7 +1224,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Compute sequence differences between each protocol
     residue_energy_df = clean_residue_df.loc[:, idx[:, clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
-    res_pca = PCA(0.8)
+    # num_components = 3  # TODO choose number of componenents
+    # pca = PCA(num_components)
+    res_pca = PCA(0.8)  # P432 designs used 0.8 percent of the variance
     residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
     residue_energy_pc = res_pca.fit_transform(residue_energy_np)
     residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
@@ -1309,16 +1234,14 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                                                  for x in range(len(res_pca.components_))])
     #                                    ,columns=residue_energy_df.columns)
 
-    # num_components = 3  # TODO choose number of componenents
-    # pca = PCA(num_components)
-    seq_pca = PCA(0.8)
+    seq_pca = copy.deepcopy(res_pca)
     residue_dict.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
-    pairwise_sequence_diff_np = all_vs_all(residue_dict, sequence_difference)
+    pairwise_sequence_diff_np = SDUtils.all_vs_all(residue_dict, SDUtils.sequence_difference)
     pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
     seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
     # Compute the euclidean distance
     # pairwise_pca_distance_np = pdist(seq_pc)
-    # pairwise_pca_distance_np = all_vs_all(seq_pc, euclidean)
+    # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
     # print(seq_pc)
 
     # Make PC DataFrame?
@@ -1416,7 +1339,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     if save_trajectories:
         trajectory_df.to_csv('%s_Trajectories.csv' % _path)
         clean_residue_df.to_csv('%s_Residues.csv' % _path)
-        SDUtils.pickle_object(all_design_sequences, str(des_dir) + '_Sequences', out_path=des_dir.all_scores)
+        SDUtils.pickle_object(all_design_sequences, '%s_Sequences' % str(des_dir), out_path=des_dir.all_scores)
 
     # CONSTRUCT: Create pose series and format index names
     pose_stat_s, protocol_stat_s = {}, {}
