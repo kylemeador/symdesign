@@ -1756,6 +1756,15 @@ def get_directory_pdb_file_paths(pdb_dir):
 
 
 def collect_designs(directory, file=None):
+    """Grab all poses from an input source
+
+    Args:
+        directory (str): Disk location of the design directory
+    Keyword Args:
+        file=None (str): Disk location of file containing design directories
+    Returns:
+        (list), (location): All pose directories found, Path to where they were located
+    """
     if file:
         _file = file
         if not os.path.exists(_file):
