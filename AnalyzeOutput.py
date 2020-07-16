@@ -863,45 +863,19 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)
     for chain in all_design_sequences:
         all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
-    # Ensure data is present for both scores and sequences before proceeding with analysis
+
+    # Ensure data is present for both scores and sequences, then initialize DataFrames
     good_designs = list(set([design for chain in all_design_sequences for design in all_design_sequences[chain]])
                         & set([design for design in all_design_scores]))
     logger.info('All Designs: %s' % ', '.join(good_designs))
     all_design_scores = SDUtils.clean_dictionary(all_design_scores, good_designs, remove=False)
-    # all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, good_designs, remove=False)
     all_design_sequences = {chain: SDUtils.clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
                             for chain in all_design_sequences}
     logger.debug('All Sequences: %s' % all_design_sequences)
-    logger.info('All Sequences: %s' % all_design_sequences)
-    # logger.info('All Score Design Names: %s' % ', '.join(list(all_design_scores.keys())))
-    logger.info('All Sequence Design Names: %s' % ', '.join(list(all_design_sequences.keys())))
-
-    # all_design_scores = {design: all_design_scores[design] for design in good_designs
-    #                      if design in all_design_scores}
-    # all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, all_design_scores.keys(), remove=False)
-    # all_design_sequences = {design: all_design_sequences[design] for design in all_design_scores}
-    #                         if design in all_design_sequences}
-
-    # logger.debug('Design Scores: %s' % str(all_design_scores))
-    interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
-    # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
-    # TODO when columns are correct and column tabulation preceeds residue/hbond_processing
-
-    all_mutations = Ams.generate_mutations(all_design_files, wild_type_file, pose_num=True)
-    all_mutations_no_chains = Ams.make_mutations_chain_agnostic(all_mutations)
-    all_mutations_simplified = Ams.simplify_mutation_dict(all_mutations_no_chains)
-    cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
-    residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
-                                            hbonds=interface_hbonds)
-    # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
-    #                                   hbonds=interface_hbonds)  # TODO when columns are correct
-
-    # Initialize DataFrames
+    # pd.set_option('display.max_columns', None)
     idx = pd.IndexSlice
     scores_df = pd.DataFrame(all_design_scores).T
-    # residue_df - returns multi-index column with residue number as first (top) column index, metric as second index
-    # during residue_df unstack, all residues with missing dicts are copied as nan
-    residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
+    pvalue_df = pd.DataFrame()
 
     # Gather all columns into specific types for processing and formatting TODO move up
     report_columns, per_res_columns, hbonds_columns = {}, [], []
@@ -955,10 +929,27 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Remove unnecessary and Rosetta score terms TODO learn know how to produce them. Not in FastRelax...
     scores_df.drop(unnecessary + rosetta_terms, axis=1, inplace=True, errors='ignore')
 
+    # TODO remove dirty when columns are correct (after P432) and column tabulation precedes residue/hbond_processing
+    interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
+    # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
+
+    all_mutations = Ams.generate_mutations(all_design_files, wild_type_file, pose_num=True)
+    all_mutations_no_chains = Ams.make_mutations_chain_agnostic(all_mutations)
+    all_mutations_simplified = Ams.simplify_mutation_dict(all_mutations_no_chains)
+    cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
+    residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
+                                            hbonds=interface_hbonds)
+    # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
+    #                                   hbonds=interface_hbonds)  # TODO when columns are correct
+
     # Process H-bond and Residue metrics to dataframe
+    residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
+    # residue_df - returns multi-index column with residue number as first (top) column index, metric as second index
+    # during residue_df unstack, all residues with missing dicts are copied as nan
     number_hbonds = {entry: len(interface_hbonds[entry]) for entry in interface_hbonds}
-    number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
-    scores_df = pd.merge(scores_df, number_hbonds_df, left_index=True, right_index=True)
+    # number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
+    number_hbonds_s = pd.Series(number_hbonds, name='number_hbonds')
+    scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
 
     # Calculate amino acid observation percent from residue dict and background SSM's
     obs_d = {}
@@ -979,20 +970,18 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         scores_df['observed_%s' % profile] = pd.Series(pose_observed_bkd[profile])
 
     # Add design specific residue information to scores_df
-    for classif in residue_classificiation:
-        scores_df[classif] = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == classif]].sum(axis=1)
+    for r_class in residue_classificiation:
+        scores_df[r_class] = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
     scores_df['int_composition_diff'] = scores_df.apply(residue_composition_diff, axis=1)
 
-    # TODO test
     interior_residue_df = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)
-    # interior_residues = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == 'interior']].column == 1], .any(axis=0, level=1).unique().to_list()  # .loc[:, idx[:, ['interior']]]
-    # check if any of the values in a column are 1. If so, return true for that column
-    interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()  # .unique()
-    # interior_residues = interior_residue_df[interior_residue_df.any().index[interior_residue_df.any()]].columns.to_list()  # .unique()
+    # Check if any of the values in columns are 1. If so, return True for that column
+    interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()
     int_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
 
     if set(int_residues) != set(des_residues):
-        logger.info('Residues %s are located in the interior' % ', '.join(map(str, list(set(des_residues) - set(int_residues)))))
+        logger.info('Residues %s are located in the interior' %
+                    ', '.join(map(str, list(set(des_residues) - set(int_residues)))))
 
     pose_alignment = Ams.multi_chain_alignment(all_design_sequences)
     mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], int_residues, remove=False)
@@ -1022,12 +1011,10 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Drop refine row and any rows with nan values
     scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
     residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
-    # print(residue_df.isna())  #.any(axis=1).to_list())  # scores_df.where()
-    # pd.set_option('display.max_columns', None)
     clean_scores_df = scores_df.dropna()
-    # First remove completely empty columns (obs_interface)
-    residue_df = residue_df.dropna(how='all', axis=1)
+    residue_df = residue_df.dropna(how='all', axis=1)  # remove completely empty columns (obs_interface)
     clean_residue_df = residue_df.dropna()
+    # print(residue_df.isna())  #.any(axis=1).to_list())  # scores_df.where()
     scores_na_index = scores_df[~scores_df.index.isin(clean_scores_df.index)].index.to_list()
     residue_na_index = residue_df[~residue_df.index.isin(clean_residue_df.index)].index.to_list()
     if scores_na_index:
@@ -1041,7 +1028,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Get unique protocols for protocol specific metrics and drop unneeded protocol values
     # TODO protocol switch or no design switch
     unique_protocols = protocol_s.unique().tolist()
-    # unique_protocols = protocol_s[groups].unique().tolist()
     for value in ['refine', '']:  # TODO remove '' after P432 MinMatch6 upon future script deployment
         try:
             unique_protocols.remove(value)
@@ -1077,9 +1063,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             stats_by_protocol[protocol][res_class] = clean_residue_df.loc[
                 designs_by_protocol[protocol],
                 idx[:, clean_residue_df.columns.get_level_values(1) == res_class]].mean().sum()
-        # protocol_residue_class_d = {res_class: clean_residue_df.loc[
-        #     protocol, idx[:, clean_residue_df.columns.get_level_values(1) == res_class]].mean().sum() for res_class in
-        #                             residue_classificiation}
         stats_by_protocol[protocol]['observations'] = len(designs_by_protocol[protocol])
     protocols_by_design = {v: k for k, _list in designs_by_protocol.items() for v in _list}
 
@@ -1100,30 +1083,16 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         protocol_stat_df[stat].index = protocol_stat_df[stat].index.to_series().map(
             {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
     trajectory_df = trajectory_df.append([traj_stats[stat] for stat in traj_stats])
-    # Here we add consensus back to the trajectory_df after removing above (line 1125)
+    # Here we add consensus back to the trajectory_df after removing above (line 1073)
     trajectory_df = trajectory_df.append([protocol_stat_df[stat] for stat in protocol_stat_df])
-    # trajectory_df = trajectory_df.append(trajectory_df.mean().rename('mean'))
-    # trajectory_df = trajectory_df.append(trajectory_df.std().rename('stdev'))
-    # protocol_mean_df = clean_scores_df.groupby(groups).mean()
-    # protocol_std_df = clean_scores_df.groupby(groups).std()
-    # protocol_std_df.index = protocol_std_df.index.to_series().map(
-    #     {protocol: protocol + '_stdev' for protocol in sorted(unique_protocols)})
-    # # trajectory_df = trajectory_df.drop('consensus', axis=0)  # remove if consensus protocol run multiple times
-    # trajectory_df = trajectory_df.append(protocol_mean_df)
-    # trajectory_df = trajectory_df.append(protocol_std_df)
+
     if merge_residue_data:
         trajectory_df = pd.merge(trajectory_df, clean_residue_df, left_index=True, right_index=True)
 
     # Calculate protocol significance
-    protocol_subset_df = trajectory_df.loc[:, protocol_specific_columns]
-    pvalue_df = pd.DataFrame()
     # Find all unique combinations of protocols using 'mean' as all protocol combination source. Excludes Consensus
+    protocol_subset_df = trajectory_df.loc[:, protocol_specific_columns]
     sig_df = protocol_stat_df[stats_metrics[0]]
-    # sig_df = protocol_mean_df
-    # stat_strip = -(len(stats_metrics[0]) + 1)
-    # protocol_pairs = combinations(unique_protocols, 2)
-    # protocol_pairs = combinations(map(str.rstrip, sig_df.index.to_list()), 2)
-    # protocol_pairs = combinations(protocol_mean_df.index, 2)
     assert len(sig_df.index.to_list()) > 1, 'Can\'t measure protocol significance'
     for pair in combinations(sig_df.index.to_list(), 2):
         select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]  # [:stat_strip]
@@ -1241,7 +1210,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # protocol_similarity_s = pd.Series()
     for measure in sim_measures:
         measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
-        sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum(axis=1)
+        sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
 
     _path = os.path.join(des_dir.all_scores, str(des_dir))
     # Create figures
