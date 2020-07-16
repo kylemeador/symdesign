@@ -1171,7 +1171,10 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     sim_measures = {'similarity': None, 'seq_distance': {}, 'energy_distance': {}}
     # sim_measures = {'similarity': similarity_s, 'seq_distance': seq_distance_dict, 'energy_distance': energy_distance_dict}
     # Find similarity between each type of protocol by taking row average of all p-values for each metric
-    sim_measures['similarity'] = pvalue_df.mean(axis=1)  # .rename(str(des_dir))
+    mean_pvalue_s = pvalue_df.mean(axis=1)  # .rename(str(des_dir))
+    print('mean_pvalue', mean_pvalue_s)
+    sim_measures['similarity'] = mean_pvalue_s  # .rename(str(des_dir))
+    # sim_measures['similarity'] = pvalue_df.mean(axis=1)  # .rename(str(des_dir))
     # similarity_s = pvalue_df.mean(axis=1).rename(str(des_dir))
     # TODO protocol switch or no design switch
     grouped_pc_stat_df_dict, grouped_pc_energy_df_dict = {}, {}
@@ -1328,8 +1331,11 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # seq_distance_s = pd.concat([seq_distance_s], keys=['seq_distance'])
     # energy_distance_s.index = pd.MultiIndex.from_tuples(energy_distance_s.index)
     # energy_distance_s = pd.concat([energy_distance_s], keys=['energy_distance'])
+
+    sim_measures_s = pd.concat([pd.Series(sim_measures[measure]) for measure in sim_measures])
     sim_measures_s = pd.concat([pd.Series(sim_measures[measure]) for measure in sim_measures],
                                keys=[measure for measure in sim_measures])
+    print(sim_measures_s.index)
     print(sim_measures_s)
     # making a pd.Series call on a Series results in a Series
 
@@ -1338,7 +1344,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Combine all series
     pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] + [protocol_stat_s[stat] for stat in protocol_stat_s]
-                       + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s]).swaplevel(0, 1)
+                       + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s])
+    # pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] + [protocol_stat_s[stat] for stat in protocol_stat_s]
+                       # + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s]).swaplevel(0, 1)
     # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df TODO protocol switch or no design switch
     pose_s.drop([groups, ], level=2, inplace=True)
     pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
