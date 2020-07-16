@@ -1330,6 +1330,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # energy_distance_s = pd.concat([energy_distance_s], keys=['energy_distance'])
     sim_measures_s = pd.concat([pd.Series(sim_measures[measure]) for measure in sim_measures],
                                keys=[measure for measure in sim_measures])
+    print(sim_measures_s)
     # making a pd.Series call on a Series results in a Series
 
     # similarity_s = pd.concat([similarity_s], keys=[tuple(reversed(pair))
@@ -1348,7 +1349,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # misc_columns = len(stats_by_protocol[unique_protocols[-1]]) * len(unique_protocols) + len(other_pose_metrics)  # \
     # + len(pvalue_df.columns.to_list())  # last term is 'similarity' of protocol pairs. was pvalue_df.index.to_list()
     # intended_columns = calculate_column_number(num_groups=len(unique_protocols), misc=misc_columns,
-    #                                            sig=len(pvalue_df.index.to_list()))  # sig=len(pvalue_df.columns.to_list(
+    #                                          sig=len(pvalue_df.index.to_list()))  # sig=len(pvalue_df.columns.to_list(
     # if pose_s.size != intended_columns:  # TODO add distance columns
     #     logger.error('%s: The number of columns %d does not match the intended amount (%d), underlying data might be '
     #                  'mutated. Proceed with CAUTION!' % (des_dir.path, pose_s.size, intended_columns))
