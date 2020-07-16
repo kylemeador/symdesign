@@ -863,45 +863,17 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)
     for chain in all_design_sequences:
         all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
-    # Ensure data is present for both scores and sequences before proceeding with analysis
+
+    # Ensure data is present for both scores and sequences, then initialize scores_df
     good_designs = list(set([design for chain in all_design_sequences for design in all_design_sequences[chain]])
                         & set([design for design in all_design_scores]))
     logger.info('All Designs: %s' % ', '.join(good_designs))
     all_design_scores = SDUtils.clean_dictionary(all_design_scores, good_designs, remove=False)
-    # all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, good_designs, remove=False)
     all_design_sequences = {chain: SDUtils.clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
                             for chain in all_design_sequences}
     logger.debug('All Sequences: %s' % all_design_sequences)
-    logger.info('All Sequences: %s' % all_design_sequences)
-    # logger.info('All Score Design Names: %s' % ', '.join(list(all_design_scores.keys())))
-    logger.info('All Sequence Design Names: %s' % ', '.join(list(all_design_sequences.keys())))
-
-    # all_design_scores = {design: all_design_scores[design] for design in good_designs
-    #                      if design in all_design_scores}
-    # all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, all_design_scores.keys(), remove=False)
-    # all_design_sequences = {design: all_design_sequences[design] for design in all_design_scores}
-    #                         if design in all_design_sequences}
-
-    # logger.debug('Design Scores: %s' % str(all_design_scores))
-    interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
-    # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
-    # TODO when columns are correct and column tabulation preceeds residue/hbond_processing
-
-    all_mutations = Ams.generate_mutations(all_design_files, wild_type_file, pose_num=True)
-    all_mutations_no_chains = Ams.make_mutations_chain_agnostic(all_mutations)
-    all_mutations_simplified = Ams.simplify_mutation_dict(all_mutations_no_chains)
-    cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
-    residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
-                                            hbonds=interface_hbonds)
-    # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
-    #                                   hbonds=interface_hbonds)  # TODO when columns are correct
-
-    # Initialize DataFrames
     idx = pd.IndexSlice
     scores_df = pd.DataFrame(all_design_scores).T
-    # residue_df - returns multi-index column with residue number as first (top) column index, metric as second index
-    # during residue_df unstack, all residues with missing dicts are copied as nan
-    residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
 
     # Gather all columns into specific types for processing and formatting TODO move up
     report_columns, per_res_columns, hbonds_columns = {}, [], []
@@ -955,10 +927,27 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Remove unnecessary and Rosetta score terms TODO learn know how to produce them. Not in FastRelax...
     scores_df.drop(unnecessary + rosetta_terms, axis=1, inplace=True, errors='ignore')
 
+    # TODO remove dirty when columns are correct (after P432) and column tabulation precedes residue/hbond_processing
+    interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
+    # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
+
+    all_mutations = Ams.generate_mutations(all_design_files, wild_type_file, pose_num=True)
+    all_mutations_no_chains = Ams.make_mutations_chain_agnostic(all_mutations)
+    all_mutations_simplified = Ams.simplify_mutation_dict(all_mutations_no_chains)
+    cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
+    residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
+                                            hbonds=interface_hbonds)
+    # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
+    #                                   hbonds=interface_hbonds)  # TODO when columns are correct
+
     # Process H-bond and Residue metrics to dataframe
+    residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
+    # residue_df - returns multi-index column with residue number as first (top) column index, metric as second index
+    # during residue_df unstack, all residues with missing dicts are copied as nan
     number_hbonds = {entry: len(interface_hbonds[entry]) for entry in interface_hbonds}
-    number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
-    scores_df = pd.merge(scores_df, number_hbonds_df, left_index=True, right_index=True)
+    # number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
+    number_hbonds_s = pd.Series(number_hbonds, name='number_hbonds')
+    scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
 
     # Calculate amino acid observation percent from residue dict and background SSM's
     obs_d = {}
@@ -1241,7 +1230,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # protocol_similarity_s = pd.Series()
     for measure in sim_measures:
         measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
-        sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum(axis=1)
+        sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
 
     _path = os.path.join(des_dir.all_scores, str(des_dir))
     # Create figures
