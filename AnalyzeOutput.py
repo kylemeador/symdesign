@@ -863,12 +863,18 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)
     for chain in all_design_sequences:
         all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
-    designs_to_examine = list(set([name for chain in all_design_sequences for name in all_design_sequences[chain]]))
-    logger.debug('All Sequences: %s' % all_design_sequences)
     # Ensure data is present for both scores and sequences before proceeding with analysis
-    all_design_scores = {design: all_design_scores[design] for design in designs_to_examine
-                         if design in all_design_scores}
-    all_design_sequences = {design: all_design_sequences[design] for design in all_design_scores}
+    designs_to_examine = list(set([design for chain in all_design_sequences for design in all_design_sequences[chain]])
+                              & set([design for design in all_design_scores]))
+    logger.info('All Designs: %s' % ', '.join(designs_to_examine))
+    all_design_scores = SDUtils.clean_dictionary(all_design_scores, designs_to_examine, remove=False)
+    all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, designs_to_examine, remove=False)
+    logger.debug('All Sequences: %s' % all_design_sequences)
+
+    # all_design_scores = {design: all_design_scores[design] for design in designs_to_examine
+    #                      if design in all_design_scores}
+    # all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, all_design_scores.keys(), remove=False)
+    # all_design_sequences = {design: all_design_sequences[design] for design in all_design_scores}
     #                         if design in all_design_sequences}
 
     # logger.debug('Design Scores: %s' % str(all_design_scores))
