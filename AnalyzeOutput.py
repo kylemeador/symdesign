@@ -821,7 +821,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # TODO add fraction_buried_atoms
     # Set up pose, ensure proper input
-    global columns_to_remove, columns_to_rename
+    global columns_to_remove, columns_to_rename, protocols_of_interest
     remove_columns = copy.deepcopy(columns_to_remove)
     rename_columns = copy.deepcopy(columns_to_rename)
     all_design_scores = read_scores(os.path.join(des_dir.scores, PUtils.scores_file))
@@ -1046,7 +1046,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Get unique protocols for protocol specific metrics and drop unneeded protocol values
     unique_protocols = protocol_s.unique().tolist()
     protocol_union = set(protocols_of_interest) & set(unique_protocols)
-    # TODO protocol switch or no design switch
+    # if len(unique_protocols) == 1: TODO protocol switch or no design switch
     assert protocol_union == set(protocols_of_interest), \
         'Missing %s protocol required for significance measurements! Analysis failed' \
         % ', '.join(set(protocols_of_interest) - protocol_union)
