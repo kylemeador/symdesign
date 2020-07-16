@@ -26,7 +26,6 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
-# logger = SDUtils.start_log(level=3)
 
 
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))

@@ -19,7 +19,7 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import AnalyzeMutatedSequences as Ams
 # import CmdUtils as CUtils
-# logger = SDUtils.start_log(level=3)
+
 
 # Globals
 groups = 'protocol'
@@ -868,7 +868,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                         & set([design for design in all_design_scores]))
     logger.info('All Designs: %s' % ', '.join(good_designs))
     all_design_scores = SDUtils.clean_dictionary(all_design_scores, good_designs, remove=False)
-    all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, good_designs, remove=False)
+    # all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, good_designs, remove=False)
     all_design_sequences = {chain: SDUtils.clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
                             for chain in all_design_sequences}
     logger.debug('All Sequences: %s' % all_design_sequences)
