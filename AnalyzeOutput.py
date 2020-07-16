@@ -982,6 +982,25 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         logger.info('Residues %s are located in the interior' %
                     ', '.join(map(str, list(set(des_residues) - set(int_residues)))))
 
+    # Gather miscellaneous pose specific metrics
+    other_pose_metrics = SDUtils.gather_fragment_metrics(des_dir)
+    # nanohedra_score, average_fragment_z_score, unique_fragments
+    other_pose_metrics['observations'] = len(designs)
+    other_pose_metrics['symmetry'] = symmetry
+    other_pose_metrics['total_interface_residues'] = len(int_residues)
+    other_pose_metrics['percent_fragment'] = len(issm) / len(int_residues)
+
+    # Interface B Factor TODO ensure clean_asu.pdb has B-factors
+    wt_pdb = SDUtils.read_pdb(wild_type_file)
+    chain_sep = wt_pdb.getTermCAAtom('C', wt_pdb.chain_id_list[0]).residue_number  # this only works with 2 chains TODO
+    int_b_factor = 0
+    for residue in int_residues:
+        if residue <= chain_sep:
+            int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[0], residue)
+        else:
+            int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[1], residue)
+    other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(int_residues), 2)
+
     pose_alignment = Ams.multi_chain_alignment(all_design_sequences)
     mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], int_residues, remove=False)
     # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
@@ -1075,7 +1094,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     protocol_stat_df = {}
     for stat in stats_metrics:
         traj_stats[stat] = getattr(trajectory_df, stat)().rename(stat)
-        # trajectory_df = trajectory_df.append(getattr(trajectory_df, stat)().rename(stat))
         protocol_stat_df[stat] = getattr(clean_scores_df.groupby(groups), stat)()
         if stat == 'mean':
             continue
@@ -1093,7 +1111,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     protocol_subset_df = trajectory_df.loc[:, protocol_specific_columns]
     sig_df = protocol_stat_df[stats_metrics[0]]
     assert len(sig_df.index.to_list()) > 1, 'Can\'t measure protocol significance'
-    # pvalue_df = {}
     pvalue_df = pd.DataFrame()
     for pair in combinations(sig_df.index.to_list(), 2):
         select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]
@@ -1102,41 +1119,15 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         pvalue_df[pair] = df_permutation_test(select_df, difference_s, group1_size=len(designs_by_protocol[pair[0]]),
                                               compare=stats_metrics[0])
     logger.debug(pvalue_df)
-    # trajectory_df = trajectory_df.append(pd.concat([pvalue_df], axis=1, keys=['similarity']).swaplevel(0, 1, 1).T)
     pvalue_df = pvalue_df.T  # change the significance pairs to the indices and protocol specific columns to columns
     trajectory_df = trajectory_df.append(pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1))
 
-    # Gather miscellaneous pose specific metrics
-    # nanohedra_score, average_fragment_z_score, unique_fragments
-    other_pose_metrics = SDUtils.gather_fragment_metrics(des_dir)
-    other_pose_metrics['observations'] = len(designs)
-    other_pose_metrics['symmetry'] = symmetry
-    other_pose_metrics['total_interface_residues'] = len(int_residues)
-    other_pose_metrics['percent_fragment'] = len(issm) / len(int_residues)
-
-    # Interface B Factor TODO ensure clean_asu.pdb has B-factors
-    wt_pdb = SDUtils.read_pdb(wild_type_file)
-    chain_sep = wt_pdb.getTermCAAtom('C', wt_pdb.chain_id_list[0]).residue_number  # this only works with 2 chains TODO
-    int_b_factor = 0
-    for residue in int_residues:
-        if residue <= chain_sep:
-            int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[0], residue)
-        else:
-            int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[1], residue)
-    other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(int_residues), 2)
-
-    # TODO protocol switch
-    # Get pose sequence divergence
+    # Get pose sequence divergence TODO protocol switch
     sim_sum_and_divergence_stats = {'%s_per_res' % key: per_res_metric(pose_res_dict[key]) for key in pose_res_dict}
-    # for key in pose_res_dict:
-    #     sim_sum_and_divergence_stats[key + '_per_res'] = per_res_metric(pose_res_dict[key])
-    # for res_class in residue_classificiation:
-    #     sim_sum_and_divergence_stats[res_class] = \
-    #         clean_residue_df.loc[:, idx[:, clean_residue_df.columns.get_level_values(1) == res_class]].mean().sum()
 
     # Compute sequence differences between each protocol
     residue_energy_df = clean_residue_df.loc[:, idx[:, clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
-    # num_components = 3  # TODO choose number of componenents
+    # num_components = 3  # TODO choose number of componenents or percent variance explained
     # pca = PCA(num_components)
     res_pca = PCA(0.8)  # P432 designs used 0.8 percent of the variance
     residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
@@ -1156,8 +1147,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
     # print(seq_pc)
 
-    # Make PC DataFrame?
-    # The intention here is to first take all the principal components identified from above and merge with labels
+    # Make PC DataFrame
+    # First take all the principal components identified from above and merge with labels
     # Next the labels will be grouped and stats are taken for each group (mean is important)
     # All protocol means will have pairwise distance measured as a means of accessing similarity
     # These distance metrics will be reported in the final pose statistics
@@ -1166,18 +1157,15 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Merge principle components with labels
     residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
     seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-    # seq_pc_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
 
     # Gather protocol similarity/distance metrics
     sim_measures = {'similarity': None, 'seq_distance': {}, 'energy_distance': {}}
-    # sim_measures = {'similarity': similarity_s, 'seq_distance': seq_distance_dict, 'energy_distance': energy_distance_dict}
     # Find similarity between each type of protocol by taking row average of all p-values for each metric
     mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance
     mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
-    print('mean_pvalue', mean_pvalue_s)
-    sim_measures['similarity'] = mean_pvalue_s  # .rename(str(des_dir))
-    # sim_measures['similarity'] = pvalue_df.mean(axis=1)  # .rename(str(des_dir))
-    # similarity_s = pvalue_df.mean(axis=1).rename(str(des_dir))
+    sim_measures['similarity'] = mean_pvalue_s
+    # sim_measures['similarity'] = pvalue_df.mean(axis=1)
+
     # TODO protocol switch or no design switch
     grouped_pc_stat_df_dict, grouped_pc_energy_df_dict = {}, {}
     for stat in stats_metrics:
@@ -1191,28 +1179,20 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df_dict[stat])
             # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
             #                             for k in seq_pca_mean_distance_vector)
-            # seq_distance_dict = {}
             for k, dist in enumerate(seq_pca_mean_distance_vector):
                 i, j = SDUtils.condensed_to_square(k, len(grouped_pc_stat_df_dict[stat].index))
                 sim_measures['seq_distance'][(grouped_pc_stat_df_dict[stat].index[i],
                                               grouped_pc_stat_df_dict[stat].index[j])] = dist
-                # seq_distance_dict[(grouped_pc_stat_df_dict[stat].index[i], grouped_pc_stat_df_dict[stat].index[j])] \
-                #     = dist
-            # energy_distance_dict = {}
+
             for k, e_dist in enumerate(energy_pca_mean_distance_vector):
                 i, j = SDUtils.condensed_to_square(k, len(grouped_pc_energy_df_dict[stat].index))
                 sim_measures['energy_distance'][(grouped_pc_energy_df_dict[stat].index[i],
                                                  grouped_pc_energy_df_dict[stat].index[j])] = e_dist
-                # energy_distance_dict[(grouped_pc_energy_df_dict[stat].index[i],
-                #                       grouped_pc_energy_df_dict[stat].index[j])] = e_dist
 
     for pc_stat in grouped_pc_stat_df_dict:
         logger.info(grouped_pc_stat_df_dict[pc_stat])
 
     # Find total protocol similarity for different metrics
-    # sim_measures = {'similarity': similarity_s, 'seq_distance': seq_distance_dict, 'energy_distance': energy_distance_dict}
-    # protocol_similarity_s = {}
-    # protocol_similarity_s = pd.Series()
     for measure in sim_measures:
         measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
         sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
@@ -1279,7 +1259,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # CONSTRUCT: Create pose series and format index names
     pose_stat_s, protocol_stat_s = {}, {}
     for stat in stats_metrics:
-        pose_stat_s[stat] = trajectory_df.loc[stat, :]  # .rename(str(des_dir))
+        pose_stat_s[stat] = trajectory_df.loc[stat, :]
         pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=['pose'])
         pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=[stat])
         # Collect protocol specific metrics in series
@@ -1290,15 +1270,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                                            for protocol in unique_protocols], keys=unique_protocols)
         protocol_stat_s[stat] = pd.concat([protocol_stat_s[stat]], keys=[stat])
 
-    # pose_mean_s = trajectory_df.loc['mean', :]  # .rename(str(des_dir))  # READY
-    # pose_stdev_s = trajectory_df.loc['stdev', :]  # .rename(str(des_dir))  # READY
-
-    # Collect protocol specific metrics in series
-    # protocol_mean_s = pd.concat([protocol_subset_df.loc[protocol, :] for protocol in unique_protocols],
-    #                             keys=unique_protocols)  # .rename(str(des_dir))  # READY
-    # protocol_stdev_s = pd.concat([protocol_subset_df.loc[protocol + '_stdev', :] for protocol in unique_protocols],
-    #                              keys=unique_protocols)  # .rename(str(des_dir))  # READY
-
     # Find the significance between each pair of protocols
     protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
                                keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
@@ -1307,48 +1278,22 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                                  keys=unique_protocols)
     other_metrics_s = pd.Series(other_pose_metrics)
     other_stats_s = pd.Series(sim_sum_and_divergence_stats)
-    # seq_distance_s = pd.Series(seq_distance_dict)
-    # energy_distance_s = pd.Series(energy_distance_dict)
 
     # Add series specific Multi-index names to data
-    # pose_mean_s = pd.concat([pose_mean_s], keys=['pose'])  # READY
-    # pose_mean_s = pd.concat([pose_mean_s], keys=['average'])  # READY
-    # pose_stdev_s = pd.concat([pose_stdev_s], keys=['pose'])  # READY
-    # pose_stdev_s = pd.concat([pose_stdev_s], keys=['stdev'])  # READY
-    # protocol_mean_s = pd.concat([protocol_mean_s], keys=['average'])  # READY
-    # protocol_stdev_s = pd.concat([protocol_stdev_s], keys=['stdev'])  # READY
-    # protocol_sig_s = pd.concat([protocol_sig_s], keys=['sig'])  # UNUSED
     protocol_stats_s = pd.concat([protocol_stats_s], keys=['stats'])
     other_metrics_s = pd.concat([other_metrics_s], keys=['pose'])
     other_metrics_s = pd.concat([other_metrics_s], keys=['dock'])
     other_stats_s = pd.concat([other_stats_s], keys=['pose'])
     other_stats_s = pd.concat([other_stats_s], keys=['seq_design'])
-    # protocol_similarity_s = pd.concat([protocol_similarity_s], keys=['pose'])
-    # protocol_similarity_s = pd.concat([protocol_similarity_s], keys=['similarity'])
 
     # Process similarity between protocols
-    # similarity_s.index = pd.MultiIndex.from_tuples(similarity_s.index)
-    # similarity_s = pd.concat([similarity_s], keys=['similarity'])  # .swaplevel(0, 2)  # .swaplevel(0, 1) for reversed
-    # seq_distance_s.index = pd.MultiIndex.from_tuples(seq_distance_s.index)
-    # seq_distance_s = pd.concat([seq_distance_s], keys=['seq_distance'])
-    # energy_distance_s.index = pd.MultiIndex.from_tuples(energy_distance_s.index)
-    # energy_distance_s = pd.concat([energy_distance_s], keys=['energy_distance'])
-
-    sim_measures_s = pd.concat([pd.Series(sim_measures[measure]) for measure in sim_measures])
     sim_measures_s = pd.concat([pd.Series(sim_measures[measure]) for measure in sim_measures],
                                keys=[measure for measure in sim_measures])
-    print(sim_measures_s.index)
-    print(sim_measures_s)
-    # making a pd.Series call on a Series results in a Series
-
-    # similarity_s = pd.concat([similarity_s], keys=[tuple(reversed(pair))
-    #                                                for pair in similarity_s.index.get_level_values(0)])  # BROKEN
 
     # Combine all series
-    # pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] + [protocol_stat_s[stat] for stat in protocol_stat_s]
-    #                    + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s])
     pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] + [protocol_stat_s[stat] for stat in protocol_stat_s]
                        + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s]).swaplevel(0, 1)
+
     # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df TODO protocol switch or no design switch
     pose_s.drop([groups, ], level=2, inplace=True)
     pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
