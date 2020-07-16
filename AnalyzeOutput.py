@@ -683,9 +683,9 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
         shuffled_df = grouped_df.sample(n=len(grouped_df))
         permut_s_array.append(getattr(shuffled_df.iloc[:group1_size, :], compare)().sub(
             getattr(shuffled_df.iloc[group1_size:, :], compare)()))
-    abs_s = diff_s.abs()
     # How many times the absolute permuted set is less than the absolute difference set. Returns bool, which when taking
     # the mean of, True value reflects 1 while False (more significant/greater than or equal) is 0, giving the p-value
+    abs_s = diff_s.abs()
     bool_df = pd.DataFrame([permut_s.abs().lt(abs_s) for permut_s in permut_s_array])
 
     return bool_df.mean()
@@ -875,7 +875,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # pd.set_option('display.max_columns', None)
     idx = pd.IndexSlice
     scores_df = pd.DataFrame(all_design_scores).T
-    pvalue_df = pd.DataFrame()
 
     # Gather all columns into specific types for processing and formatting TODO move up
     report_columns, per_res_columns, hbonds_columns = {}, [], []
@@ -1094,15 +1093,17 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     protocol_subset_df = trajectory_df.loc[:, protocol_specific_columns]
     sig_df = protocol_stat_df[stats_metrics[0]]
     assert len(sig_df.index.to_list()) > 1, 'Can\'t measure protocol significance'
+    # pvalue_df = {}
+    pvalue_df = pd.DataFrame()
     for pair in combinations(sig_df.index.to_list(), 2):
-        select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]  # [:stat_strip]
+        select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]
         difference_s = sig_df.loc[pair[0], protocol_specific_columns].sub(
             sig_df.loc[pair[1], protocol_specific_columns])
         pvalue_df[pair] = df_permutation_test(select_df, difference_s, group1_size=len(designs_by_protocol[pair[0]]),
                                               compare=stats_metrics[0])
     logger.debug(pvalue_df)
     # trajectory_df = trajectory_df.append(pd.concat([pvalue_df], axis=1, keys=['similarity']).swaplevel(0, 1, 1).T)
-    pvalue_df = pvalue_df.T
+    pvalue_df = pvalue_df.T  # change the significance pairs to the indices and protocol specific columns to columns
     trajectory_df = trajectory_df.append(pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1))
 
     # Gather miscellaneous pose specific metrics
@@ -1171,7 +1172,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     sim_measures = {'similarity': None, 'seq_distance': {}, 'energy_distance': {}}
     # sim_measures = {'similarity': similarity_s, 'seq_distance': seq_distance_dict, 'energy_distance': energy_distance_dict}
     # Find similarity between each type of protocol by taking row average of all p-values for each metric
-    mean_pvalue_s = pvalue_df.mean(axis=1)  # .rename(str(des_dir))
+    mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance
+    mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
     print('mean_pvalue', mean_pvalue_s)
     sim_measures['similarity'] = mean_pvalue_s  # .rename(str(des_dir))
     # sim_measures['similarity'] = pvalue_df.mean(axis=1)  # .rename(str(des_dir))
@@ -1343,10 +1345,10 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     #                                                for pair in similarity_s.index.get_level_values(0)])  # BROKEN
 
     # Combine all series
-    pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] + [protocol_stat_s[stat] for stat in protocol_stat_s]
-                       + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s])
     # pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] + [protocol_stat_s[stat] for stat in protocol_stat_s]
-                       # + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s]).swaplevel(0, 1)
+    #                    + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s])
+    pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] + [protocol_stat_s[stat] for stat in protocol_stat_s]
+                       + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s]).swaplevel(0, 1)
     # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df TODO protocol switch or no design switch
     pose_s.drop([groups, ], level=2, inplace=True)
     pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
