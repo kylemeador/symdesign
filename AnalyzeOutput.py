@@ -19,7 +19,7 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import AnalyzeMutatedSequences as Ams
 # import CmdUtils as CUtils
-logger = SDUtils.start_log(level=3)
+# logger = SDUtils.start_log(level=3)
 
 # Globals
 groups = 'protocol'
@@ -864,17 +864,19 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     for chain in all_design_sequences:
         all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
     # Ensure data is present for both scores and sequences before proceeding with analysis
-    designs_to_examine = list(set([design for chain in all_design_sequences for design in all_design_sequences[chain]])
-                              & set([design for design in all_design_scores]))
-    logger.info('All Designs: %s' % ', '.join(designs_to_examine))
-    all_design_scores = SDUtils.clean_dictionary(all_design_scores, designs_to_examine, remove=False)
-    all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, designs_to_examine, remove=False)
+    good_designs = list(set([design for chain in all_design_sequences for design in all_design_sequences[chain]])
+                        & set([design for design in all_design_scores]))
+    logger.info('All Designs: %s' % ', '.join(good_designs))
+    all_design_scores = SDUtils.clean_dictionary(all_design_scores, good_designs, remove=False)
+    all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, good_designs, remove=False)
+    all_design_sequences = {chain: SDUtils.clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
+                            for chain in all_design_sequences}
     logger.debug('All Sequences: %s' % all_design_sequences)
     logger.info('All Sequences: %s' % all_design_sequences)
-    logger.info('All Score Design Names: %s' % ', '.join(list(all_design_scores.keys())))
+    # logger.info('All Score Design Names: %s' % ', '.join(list(all_design_scores.keys())))
     logger.info('All Sequence Design Names: %s' % ', '.join(list(all_design_sequences.keys())))
 
-    # all_design_scores = {design: all_design_scores[design] for design in designs_to_examine
+    # all_design_scores = {design: all_design_scores[design] for design in good_designs
     #                      if design in all_design_scores}
     # all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, all_design_scores.keys(), remove=False)
     # all_design_sequences = {design: all_design_sequences[design] for design in all_design_scores}
