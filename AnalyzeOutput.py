@@ -870,6 +870,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     all_design_scores = SDUtils.clean_dictionary(all_design_scores, designs_to_examine, remove=False)
     all_design_sequences = SDUtils.clean_dictionary(all_design_sequences, designs_to_examine, remove=False)
     logger.debug('All Sequences: %s' % all_design_sequences)
+    logger.info('All Sequence Design Names: %s' % ', '.join(list(all_design_sequences.keys())))
 
     # all_design_scores = {design: all_design_scores[design] for design in designs_to_examine
     #                      if design in all_design_scores}
@@ -987,8 +988,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     int_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
 
     if set(int_residues) != set(des_residues):
-        logger.critical('%s: %s' % (des_dir.path, set(des_residues) - set(int_residues)))
-    # int_residues = scores_df[scores_df[residue_classificiation]]
+        logger.info('Residues %s are located in the interior' % ', '.join(list(set(des_residues) - set(int_residues))))
 
     pose_alignment = Ams.multi_chain_alignment(all_design_sequences)
     mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], int_residues, remove=False)
