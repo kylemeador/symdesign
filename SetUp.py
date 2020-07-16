@@ -23,14 +23,14 @@ def main():
                   'This can be done with the command tar -zxvf [put_tarball_name_here] in a new shell')
             input('This command may take some time. Once this is finished press Enter.\nIn the meantime, you may be '
                   'interested in reading about compilation \'%s\' and different features available with increased '
-                  'computation time \'%s\'.\nInput:' % (rosetta_compile_url, rosetta_extras_url))
-            input('Finally, Rosetta needs to be compiled. If you haven\'t taken a look, the process can be found at '
-                  '\'%s\'. To take full advantage of computation time, think carefully about how your computing '
-                  'environment can be set up to work with Rosetta. It is recommended for large design batches to '
-                  'simply use default options for compilation. If you will want to have individual jobs finish quicker,'
-                  'MPI compatability may be of interest. Navigate to the MPI resources in rosettacommons.org (links '
-                  'above) for more information on setting this up.\n'
-                  'Press Enter once you have completed the compilation process.\nInput:' % rosetta_compile_url)
+                  'computation speed \'%s\'.\nInput:' % (rosetta_compile_url, rosetta_extras_url))
+            input('Finally, lets compile Rosetta. If you aren\'t familiar with this process and haven\'t looked at the '
+                  'above links, check them out for assistance. To take full advantage of computation time, think '
+                  'carefully about how your computing environment can be set up to work with Rosetta. It is recommended'
+                  ' for large design batches to simply use default options for compilation. If you want to have '
+                  'individual jobs finish quicker, MPI compatibility may be of interest. Navigate to the MPI resources '
+                  'in rosettacommons.org for more information on setting this up.\nPress Enter once you have completed '
+                  'compilation.\nInput:')
             break
         elif choice1.strip() == 'S':
             break
@@ -51,17 +51,18 @@ def main():
             i += 1
             if i >= 3:
                 while rosetta_env_variable == '':
-                    print('Failed detection of Rosetta environmental variable = %s' % ', '.join(rosetta_variable_dictionary[i] for i in rosetta_variable_dictionary))
+                    print('Failed detection of Rosetta environmental variable = %s' % ', '.join(
+                        rosetta_variable_dictionary[i] for i in rosetta_variable_dictionary))
                     print('For setup to be successful, the location of your Rosetta install needs to be accessed. It is'
                           ' recommended to modify your shell to include an environmental variable \'ROSETTA\' (accessed'
                           ' by \'$ROSETTA\'), leading to the \'main\' directory of Rosetta.')
-                    choice2 = input('If you have one, please enter it below (without $) or reply N to set one up.\n'
-                                    'Input:')
+                    choice2 = input('If you have one, please enter it below or reply N to set one up.\nInput:')
+                    choice2 = choice2.lstrip('$')
                     if choice2.strip() == 'N':
                         print('To make the ROSETTA environmental variable always present at the command line, the '
                               'variable needs to be declared in your ~/.profile file (or analogous shell specific file '
-                              'like .bashrc (or csh, zsh) if you prefer) To add yourself, append the command below to '
-                              'your ~/.profile file, replacing the path/to/rosetta_src_20something.version#/main '
+                              'like .bashrc (cshrc, zshrc, or tcshrc if you prefer) To add yourself, append the command'
+                              ' below to your ~/.profile file, replacing path/to/rosetta_src_20something.version#/main '
                               'with your actual path.\nexport ROSETTA=path/to/rosetta_src_20something.version#/main\n')
                         input('Once completed, press Enter.\nInput:')
                     else:
@@ -70,18 +71,20 @@ def main():
                     if rosetta.endswith('/main'):
                         rosetta_env_variable = choice2
                     else:
-                        i = -1
+                        j = -1
                         while True:
-                            i += 1
-                            rosetta = str(os.environ.get(rosetta_variable_dictionary[i]))
+                            j += 1
+                            rosetta = str(os.environ.get(rosetta_variable_dictionary[j]))
                             if rosetta.endswith('/main'):
-                                rosetta_env_variable = rosetta_variable_dictionary[i]
+                                rosetta_env_variable = rosetta_variable_dictionary[j]
                                 break
-                            elif i >= 3:
+                            elif j >= 3:
                                 break
+            else:
+                continue
         if os.path.exists(rosetta):
-            print('Wonderful, Rosetta environment located and exists. You can now use all the features of %s to interface with Rosetta'
-                   % PUtils.program_name)
+            print('Wonderful, Rosetta environment located and exists. You can now use all the features of %s to '
+                  'interface with Rosetta' % PUtils.program_name)
             print('All %s files are located in %s' % (PUtils.program_name, PUtils.source))
             break
         else:

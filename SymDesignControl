@@ -177,15 +177,18 @@ if __name__ == '__main__':
     parser_merge.add_argument('-i', '--increment', type=int, help='How many to increment each design by?\nDefault=%d'
                                                                   % PUtils.nstruct)
 
-    parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
-    parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
-
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
                                default=None)
     parser_status.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
                                help='The stage of design to check status of. One of %s'
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
+
+    parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
+    parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
+                                 default=1)
+    parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
+
     args = parser.parse_args()
 
     # Start logging output
@@ -201,8 +204,8 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
-    assert all_poses != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct'
-                                                'location.' % (PUtils.nano, location))
+    assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
+                                                % (PUtils.nano, location))
 
     all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
     logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
@@ -347,8 +350,7 @@ if __name__ == '__main__':
             # Grab all poses (directories) to be processed from either directory name or file
             all_poses2, location2 = SDUtils.collect_designs(args.directory2, file=args.file2)
             assert all_poses2 != list(), logger.critical(
-                'No %s directories found within \'%s\' input! Please ensure correct'
-                'location.' % (PUtils.nano, location2))
+                'No %s directories found within \'%s\'! Please ensure correct location' % (PUtils.nano, location2))
             all_design_directories2 = SDUtils.set_up_directory_objects(all_poses2)
             logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location2))
 
@@ -394,12 +396,17 @@ if __name__ == '__main__':
             mp_threads = SDUtils.calculate_mp_threads(maximum=True)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
             zipped_args = zip(all_design_directories, repeat(number=args.number))
-            results = SDUtils.mp_starmap(select_sequences, zipped_args, mp_threads)
+            results = SDUtils.mp_starmap(select_sequences, zipped_args, mp_threads)  # , exceptions
         else:
             for des_directory in all_design_directories:
                 result = select_sequences(des_directory, number=args.number)
                 results.append(result)
                 # exceptions.append(error)
+        outfile = os.path.join(os.path.dirname(location), 'Selected_Sequences')
+        with open(outfile, 'w') as out_f:
+            for des_dir_idx, result in enumerate(results):
+                out_f.write('%s\n' % '\n'.join(os.path.join(all_design_directories[des_dir_idx].design_pdbs, seq)
+                                               for seq in result))
 
     any_exceptions = list(set(exceptions))
     if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:

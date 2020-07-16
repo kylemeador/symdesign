@@ -10,7 +10,10 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from scipy.spatial.distance import euclidean, pdist
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 import PathUtils as PUtils
@@ -414,11 +417,11 @@ def analyze_mutations(des_dir, mutated_sequences, residues=None, print_results=F
 
 def select_sequences(des_dir, number=1):
     # Load relevant data from the design directory
-    # trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
-    # assert len(trajectory_file) == 1, 'Multiples files found for %s' % \
-    #                                   os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
-    # trajectory_df = pd.read_csv(trajectory_file[0])
-    # designs = trajectory_df.index.to_list()
+    trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
+    assert len(trajectory_file) == 1, 'Multiples files found for %s' % \
+                                      os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+    trajectory_df = pd.read_csv(trajectory_file[0], index_col=0)
+    designs = trajectory_df.index.to_list()
 
     sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
     assert len(sequences_pickle) == 1, 'Multiples files found for %s' % \
@@ -428,35 +431,80 @@ def select_sequences(des_dir, number=1):
     # residue_dict.pop(PUtils.stage[1])  # Remove refine from sequences?
     chains = list(all_design_sequences.keys())
     designs = list(all_design_sequences[chains[0]].keys())
-    concatenated_sequences = {design: ''.join([all_design_sequences[chain][design] for chain in chains])
-                              for design in designs}
+    logger.debug(chains)
+    concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains]) for design in designs]
+    # concatenated_sequences = {design: ''.join([all_design_sequences[chain][design] for chain in chains])
+    #                           for design in designs}
+    logger.debug(concatenated_sequences)
 
     # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, SDUtils.sequence_difference)
-    pairwise_sequence_diff_l = map(SDUtils.sequence_difference, combinations([concatenated_sequences[design]
-                                                                              for design in concatenated_sequences], 2))
-    pairwise_sequence_diff_np = np.zeros((len(designs), len(designs)))
-    for k, dist in enumerate(pairwise_sequence_diff_l):
+    # using concatenated seauences makes the values incredibly similar and inflated. Trying to min/max normalize to see
+    # variation
+    pairwise_sequence_diff_l = [SDUtils.sequence_difference(*seq_pair) for seq_pair in combinations(concatenated_sequences, 2)]  # for design in concatenated_sequences], 2))]
+    _min = min(pairwise_sequence_diff_l)
+    # _max = max(pairwise_sequence_diff_l)
+    pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
+    pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
+    # max = np.array(pairwise_sequence_diff_l).max()
+    # logger.info(pairwise_sequence_diff_l)
+    # PCA analysis of distances
+    pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
+    for k, dist in enumerate(pairwise_sequence_diff_np):
         i, j = SDUtils.condensed_to_square(k, len(designs))
-        pairwise_sequence_diff_np[i, j] = dist
-    pairwise_sequence_diff_np = SDUtils.sym(pairwise_sequence_diff_np)
-    pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
-    epsilon = math.sqrt(pairwise_sequence_diff_np.mean())
+        pairwise_sequence_diff_mat[i, j] = dist
+    pairwise_sequence_diff_mat = SDUtils.sym(pairwise_sequence_diff_mat)
+    # logger.info(pairwise_sequence_diff_mat)
+    pairwise_sequence_diff_mat = StandardScaler().fit_transform(pairwise_sequence_diff_mat)
+    seq_pca = PCA(0.8)
+    seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
+    seq_pca_distance_vector = pdist(seq_pc_np)
 
+    # logger.info(pairwise_sequence_diff_np)
+    # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
+    epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+    # epsilon = math.sqrt(seq_pc_np.mean()) * 0.5
+    # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
+    logger.info('Finding maximum neighbors within distance of %f' % epsilon)
     # Find the nearest neighbors for pairwise matrix # could I need the X*X^T (PCA) matrix?
-    seq_neighbors = BallTree(pairwise_sequence_diff_np)
-    top_seqs = seq_neighbors.query_radius(pairwise_sequence_diff_np, epsilon, count_only=True, sort_results=True)
-    final_seqs = top_seqs[:number]
+    seq_neighbors = BallTree(seq_pc_np)
+    top_seqs = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # , sort_results=True)
+    top_count, top_idx = 0, None
+    for idx, count in enumerate(top_seqs):
+        if count > top_count:
+            top_count = count
+            top_idx = idx
+
+    sorted_seqs = sorted(top_seqs, reverse=True)
+    min_neighbor_count = sorted(set(sorted_seqs[:number]), reverse=True)
+    final_designs = {designs[idx]: neighbors for neighbors in min_neighbor_count for idx, count in enumerate(top_seqs)
+                     if count == neighbors}  # final_idxs
+
+    # final_designs = [designs[idx] for idx in final_idxs]
+    # final_seqs = top_seqs[:number]
+    logger.info('The final sequence(s) and file(s):\n%s'
+                % '\n'.join('%d %s' % (min_neighbor_count.index(neighbors) + SDUtils.index_offset,
+                                       os.path.join(des_dir.design_pdbs, des))
+                            for des, neighbors in final_designs.items()))
+    # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.design_pdbs, seq))
+                                                            # for i, seq in enumerate(final_designs, 1)))
 
     # Compute the highest density cluster using the DBSCAN algorithm
     # seq_cluster = DBSCAN(eps=epsilon)
     # seq_cluster.fit(pairwise_sequence_diff_np)
-
-    # seq_pca = PCA(0.8)
-    # seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
     #
     # seq_pc_df = pd.DataFrame(seq_pc, index=designs,
     #                          columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
     # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+
+    # If more sequences than specified, find the one with the lowest energy
+    if len(final_designs) > number:
+        energy_s = pd.Series()
+        for design in final_designs:
+            energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']
+        energy_s.sort_values(inplace=True)
+        final_seqs = energy_s.index.to_list()[:number]
+    else:
+        final_seqs = list(final_designs.keys())
 
     return final_seqs
 
