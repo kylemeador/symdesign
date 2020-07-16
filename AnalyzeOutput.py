@@ -821,7 +821,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # TODO add fraction_buried_atoms
     # Set up pose, ensure proper input
-    global columns_to_remove, columns_to_rename
+    global columns_to_remove, columns_to_rename, protocols_of_interest
     remove_columns = copy.deepcopy(columns_to_remove)
     rename_columns = copy.deepcopy(columns_to_rename)
     all_design_scores = read_scores(os.path.join(des_dir.scores, PUtils.scores_file))
@@ -1044,8 +1044,12 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                        (des_dir.path, ', '.join(residue_na_index)))
 
     # Get unique protocols for protocol specific metrics and drop unneeded protocol values
-    # TODO protocol switch or no design switch
     unique_protocols = protocol_s.unique().tolist()
+    protocol_union = set(protocols_of_interest) & set(unique_protocols)
+    # if len(unique_protocols) == 1: TODO protocol switch or no design switch
+    assert protocol_union == set(protocols_of_interest), \
+        'Missing %s protocol required for significance measurements! Analysis failed' \
+        % ', '.join(set(protocols_of_interest) - protocol_union)
     for value in ['refine', '']:  # TODO remove '' after P432 MinMatch6 upon future script deployment
         try:
             unique_protocols.remove(value)
@@ -1112,7 +1116,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     sig_df = protocol_stat_df[stats_metrics[0]]
     assert len(sig_df.index.to_list()) > 1, 'Can\'t measure protocol significance'
     pvalue_df = pd.DataFrame()
-    for pair in combinations(sig_df.index.to_list(), 2):
+    for pair in combinations(sorted(sig_df.index.to_list()), 2):
         select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]
         difference_s = sig_df.loc[pair[0], protocol_specific_columns].sub(
             sig_df.loc[pair[1], protocol_specific_columns])
