@@ -982,7 +982,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     interior_residue_df = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)
     # interior_residues = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == 'interior']].column == 1], .any(axis=0, level=1).unique().to_list()  # .loc[:, idx[:, ['interior']]]
     # check if any of the values in a column are 1. If so, return true for that column
-    interior_residues = interior_residue_df[interior_residue_df.any()].columns.to_list()  # .unique()
+    interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()  # .unique()
+    # interior_residues = interior_residue_df[interior_residue_df.any().index[interior_residue_df.any()]].columns.to_list()  # .unique()
     int_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
 
     if set(int_residues) != set(des_residues):
