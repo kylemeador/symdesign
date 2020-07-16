@@ -23,21 +23,20 @@ logger = SDUtils.start_log(level=3)
 
 # Globals
 groups = 'protocol'
-metric_master = {'buns_heavy_total': 'Buried unsaturated hydrogen bonding heavy atoms in the pose',
-                 'buns_hpol_total': 'Buried unsaturated hydrogen bonding hydrogen atoms in the pose',
-                 'buns_total': 'Buried unsaturated hydrogen bonds in the pose',
-                 'contact_count': 'Number of carbon carbon contacts across interface residues',
+metric_master = {'buns_heavy_total': 'Buried unsaturated Hbonding heavy atoms in the pose',
+                 'buns_hpol_total': 'Buried unsaturated Hbonding hydrogen atoms in the pose',
+                 'buns_total': 'Total buried unsaturated Hbonds in the pose',
+                 'contact_count': 'Number of carbon-carbon contacts across interface',
                  'cst_weight': 'Total weight of coordinate constraints to keep pose stationary in 3D space',
-                 'fragment_percent': 'Percent of residues with fragment data out of total residues',
                  'fsp_energy': 'Total weight of sequence constraints used to favor certain amino acids in design. '
                                'Only some protocols have values',
-                 'fsp_total_stability': 'fsp_energy + total pose energy',
-                 'full_stability_complex': 'Total pose energy (essentially REU)',
-                 'full_stability_A_oligomer': 'Total A oligomer pose energy (essentially REU)',
-                 'full_stability_B_oligomer': 'Total B oligomer pose energy (essentially REU)',
-                 'full_stability_oligomer': 'Total oligomer pose energy (essentially REU)',
-                 'int_area_hydrophobic': 'Total interface solvent accessible surface area hydrophobic',
-                 'int_area_polar': 'Total interface solvent accessible surface area polar',
+                 'fsp_total_stability': 'fsp_energy + total pose energy',  # DEPRECIATED
+                 'full_stability_complex': 'Total pose energy (essentially REU)',  # DEPRECIATED
+                 'full_stability_A_oligomer': 'Total A oligomer pose energy (essentially REU)',  # DEPRECIATED
+                 'full_stability_B_oligomer': 'Total B oligomer pose energy (essentially REU)',  # DEPRECIATED
+                 'full_stability_oligomer': 'Total oligomer pose energy (essentially REU)',  # DEPRECIATED
+                 'int_area_hydrophobic': 'Total interface buried surface area hydrophobic',
+                 'int_area_polar': 'Total interface buried surface area polar',
                  'int_area_res_summary_hydrophobic_A_oligomer': 'Sum of each interface residue\'s hydrophobic area for '
                                                                 'oligomer A',
                  'int_area_res_summary_hydrophobic_B_oligomer': 'Sum of each interface residue\'s hydrophobic area for '
@@ -51,39 +50,42 @@ metric_master = {'buns_heavy_total': 'Buried unsaturated hydrogen bonding heavy 
                  'int_connectivity_B': '"Interface connection chainB to the rest of the protein',
                  'int_energy_context_A_oligomer': 'Interface energy of the A oligomer',  # DEPRECIATED
                  'int_energy_context_B_oligomer': 'Interface energy of the B oligomer',  # DEPRECIATED
-                 'int_energy_context_oligomer_A': 'Interface energy of the A oligomer',
-                 'int_energy_context_oligomer_B': 'Interface energy of the B oligomer',
-                 'int_energy_context_complex': 'interface energy of the complex',
+                 'int_energy_context_oligomer_A': 'Interface energy of the A oligomer',  # DEPRECIATED
+                 'int_energy_context_oligomer_B': 'Interface energy of the B oligomer',  # DEPRECIATED
+                 'int_energy_context_complex': 'interface energy of the complex',  # DEPRECIATED
                  'int_energy_res_summary_A_oligomer': 'Sum of each interface residue\'s energy for oligomer A',
                  'int_energy_res_summary_B_oligomer': 'Sum of each interface residue\'s energy for oligomer B',
                  'int_energy_res_summary_complex': 'Sum of each interface residue\'s energy for the complex',
                  'int_energy_res_summary_delta': 'Delta of int_energy_res_summary_complex and _oligomer',
                  'int_energy_res_summary_oligomer': 'Sum of each interface residue\'s energy for total oligomer',
-                 'shape_complementarity': 'Interface shape complementarity. Measure of fit between two surfaces',
-                 'int_separation': 'Distance between the mean atoms on two sides of a interface',
-                 'number_hbonds': 'The number of h-bonding residues present in the interface',
+                 'shape_complementarity': 'Interface shape complementarity (SC). Measure of fit between two surfaces',
+                 'int_separation': 'Median distance between all atom points on two sides of a interface (SC term)',
+                 'number_hbonds': 'The number of Hbonding residues present in the interface',
                  'observed_combined': 'Percent of observed residues in combined profile',
                  'observed_evolution': 'Percent of observed residues in evolutionary profile',
                  'observed_interface': 'Percent of observed residues in fragment profile',
+                 'percent_fragment': 'Percent of residues with fragment data out of total residues',
+                 'percent_int_area_hydrophobic': 'The percent of interface area which is occupied by hydrophobic atoms',
+                 'percent_int_area_polar': 'The percent of interface area which is occupied by polar atoms',
+                 'percent_core': 'The percentage of total residues which are \'core\' according to Levy, E. 2010',
+                 'percent_rim': 'The percentage of total residues which are \'rim\' according to Levy, E. 2010',
+                 'percent_support': 'The percentage of total residues which are \'support\' according to Levy, E. 2010',
+                 'buns_per_ang': 'Buried Unsaturated Hbonds per Angstrom^2 of interface',
                  'ref': 'Rosetta Energy Term - A metric for the unfolded protein energy and some sequence fitting '
                         'corrections to the score function',
-                 'rmsd': 'Root Mean Square Deviation of all CA atoms between a reference and design state',
-                 groups: 'Protocol I have created to search sequence space',
-                 'nanohedra_score': 'The Nanohedra score that Josh outputs from Nanohedra docking',
+                 'rmsd': 'Root Mean Square Deviation of all CA atoms between relaxed and design state',
+                 groups: 'Protocols I to search sequence space for fragments and evolutionary information',
+                 'solvation_energy': 'Solvation energy to hydrate the docked complex',
+                 'nanohedra_score': 'Sum of the inverse of each fragments Z-score capped at 3 = 1 / Z-score (maximum3)',
                  'fragment_z_score_total': 'The sum of all fragments Z-Scores',
                  'unique_fragments': 'The number of unique fragments placed on the pose',
                  'total_interface_residues': 'The number of interface residues found in the pose',
-                 'interface_b_factor_per_res': 'The average B factor for each atom in every interface residue in the '
-                                               'pose',
+                 'interface_b_factor_per_res': 'The average B factor for each atom in each interface residue',
                  'REU': 'Rosetta Energy Units. Always 0. We can disregard',
-                 'buns_asu': 'Buried unsaturated hydrogen bonds. This column helps with buns_total '
-                             '- can be disregarded',
-                 'buns_asu_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total '
-                                  '- can be disregarded',
-                 'buns_nano': 'Buried unsaturated hydrogen bonds. This column helps with buns_total '
-                              '- can be disregarded',
-                 'buns_nano_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total '
-                                   '- can be disregarded',
+                 'buns_asu': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
+                 'buns_asu_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
+                 'buns_nano': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
+                 'buns_nano_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
                  'int_area_asu_hydrophobic': 'Buried surface area in asu interface hydrophobic',  # UNUSED
                  'int_area_asu_polar': 'Buried surface area in asu interface area polar',  # UNUSED
                  'int_area_asu_total': 'Buried surface area in asu interface area total',  # UNUSED
@@ -92,27 +94,19 @@ metric_master = {'buns_heavy_total': 'Buried unsaturated hydrogen bonding heavy 
                  'int_area_ex_asu_total': 'Buried surface area in extra-asu interface area total',  # UNUSED
                  'int_connectivity1': 'Old connectivity',  # DEPRECIATED
                  'int_connectivity2': 'Old connectivity',  # DEPRECIATED
-                 'int_energy_context_asu': 'Interface energy of the ASU',  # UNUSED
-                 'int_energy_context_unbound': 'Interface energy of the unbound complex',  # UNUSED
+                 'int_energy_context_asu': 'Interface energy of the ASU',  # UNUSED, DEPRECIATED
+                 'int_energy_context_unbound': 'Interface energy of the unbound complex',  # UNUSED, DEPRECIATED
                  'coordinate_constraint': 'Same as cst_weight',
-                 'int_energy_res_summary_asu': 'Sum of each interface residues individual energy for the ASU '
-                                               '- DEPRECIATED',
-                 'int_energy_res_summary_unbound': 'Sum of each interface residues individual energy for the unbound '
-                                                   '- DEPRECIATED',
-                 'interaction_energy': 'interaction energy between two sets of residues '
-                                       '(excludes intra-residue terms I believe) I think this is left over '
-                                       '- DEPRECIATED',
-                 'interaction_energy_asu': 'interaction energy between two sets of residues in ASU state '
-                                           '(excludes intra-residue terms I believe) - DEPRECIATED',
-                 'interaction_energy_oligomerA': 'interaction energy between two sets of residues in oligomerA '
-                                                 '(excludes intra-residue terms I believe)',
-                 'interaction_energy_oligomerB': 'interaction energy between two sets of residues in oligomerB '
-                                                 '(excludes intra-residue terms I believe)',
-                 'interaction_energy_unbound': 'interaction energy between two sets of residues in unbound state '
-                                               '(excludes intra-residue terms I believe) - DEPRECIATED',
+                 'int_energy_res_summary_asu': 'Sum of each interface residues individual energy for the ASU',  # DEPRECIATED
+                 'int_energy_res_summary_unbound': 'Sum of each interface residues individual energy for the unbound',  # DEPRECIATED
+                 'interaction_energy': 'Interaction energy between two sets of residues',  # DEPRECIATED
+                 'interaction_energy_asu': 'Interaction energy between two sets of residues in ASU state',  # DEPRECIATED
+                 'interaction_energy_oligomerA': 'Interaction energy between two sets of residues in oligomerA',  # DEPRECIATED
+                 'interaction_energy_oligomerB': 'Interaction energy between two sets of residues in oligomerB',  # DEPRECIATED
+                 'interaction_energy_unbound': 'Interaction energy between two sets of residues in unbound state', # DEPRECIATED
                  'res_type_constraint': 'Same as fsp_energy',
                  'time': 'Time for the protocol to complete',
-                 'hbonds_res_selection_complex': 'The specific hbonds present in the Nanohedra pose',
+                 'hbonds_res_selection_complex': 'The specific hbonds present in the bound pose',
                  'hbonds_res_selection_A_oligomer': 'The specific hbonds present in the oligomeric pose A',
                  'hbonds_res_selection_B_oligomer': 'The specific hbonds present in the oligomeric pose B',
                  'dslf_fa13': 'Rosetta Energy Term - disulfide bonding',
@@ -125,7 +119,7 @@ metric_master = {'buns_heavy_total': 'Buried unsaturated hydrogen bonding heavy 
                  'fa_sol': 'Rosetta Energy Term - full atom solvent forces',
                  'hbond_bb_sc': 'Rosetta Energy Term - backbone/sidechain hydrogen bonding',
                  'hbond_lr_bb': 'Rosetta Energy Term - long range backbone hydrogen bonding',
-                 'hbond_sc': 'Rosetta Energy Term - sidechain hydrogen bonding',
+                 'hbond_sc': 'Rosetta Energy Term - side-chain hydrogen bonding',
                  'hbond_sr_bb': 'Rosetta Energy Term - short range backbone hydrogen bonding',
                  'lk_ball_wtd': 'Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
                  'omega': 'Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
@@ -141,8 +135,8 @@ necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano',
                      'int_connectivity_A', 'int_connectivity_B', 'int_energy_context_oligomer_A',
                      'int_energy_context_oligomer_B', 'int_energy_context_complex', 'int_energy_res_summary_oligomer_A',
                      'int_energy_res_summary_oligomer_B', 'int_energy_res_summary_complex', 'int_separation',
-                     'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch'
-                     , 'hbonds_res_selection_complex', 'hbonds_res_selection_A_oligomer',
+                     'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch',
+                     'hbonds_res_selection_complex', 'hbonds_res_selection_A_oligomer',
                      'hbonds_res_selection_B_oligomer'}
 
 #                      'fsp_total_stability', 'full_stability_complex',
@@ -155,11 +149,11 @@ necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano',
 #                      'int_energy_res_summary_oligomer', 'int_energy_context_oligomer',
 
 final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'cst_weight', 'fsp_energy',
-                 'fragment_percent', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total', 'int_connectivity_A',
+                 'percent_fragment', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total', 'int_connectivity_A',
                  'int_connectivity_B', 'int_energy_res_summary_A_oligomer', 'int_energy_res_summary_B_oligomer',
                  'int_energy_res_summary_complex', 'int_energy_res_summary_delta', 'int_energy_res_summary_oligomer',
                  'int_separation', 'interaction_energy_complex', 'number_hbonds', 'observed_combined',
-                 'observed_evolution', 'observed_interface', 'ref', 'rmsd', 'shape_complementarity'}
+                 'observed_evolution', 'observed_interface', 'ref', 'rmsd', 'shape_complementarity', 'solvation_energy'}
 #               These are missing the bb_hb contribution and are inaccurate
 #                  'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
 #                  'int_energy_context_delta', 'int_energy_context_oligomer',
@@ -198,8 +192,8 @@ summation_pairs = {'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
 #                    'hbonds_oligomer': ('hbonds_res_selection_A_oligomer', 'hbonds_res_selection_B_oligomer')}
 
 # subtract columns using tuple [0] - [1] to make delta column
-delta_pairs = {'int_energy_res_summary_delta': (
-               'int_energy_res_summary_complex', 'int_energy_res_summary_oligomer')}
+delta_pairs = {'int_energy_res_summary_delta': ('int_energy_res_summary_complex', 'int_energy_res_summary_oligomer'),
+               'solvation_energy': ('interaction_energy_complex', 'int_energy_res_summary_delta')}
 #                'int_energy_context_delta': ('int_energy_context_complex', 'int_energy_context_oligomer'),
 #                'full_stability_delta': ('full_stability_complex', 'full_stability_oligomer')}
 #                'number_hbonds': ('hbonds_res_selection_complex', 'hbonds_oligomer')}
@@ -234,7 +228,8 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
                  'hbond_bb_sc', 'hbond_lr_bb', 'hbond_sc', 'hbond_sr_bb']  # 'ref'
 
 # Current protocols in use in design.xml
-protocols = ['limit_to_profile_switch', 'favor_profile_switch', 'combo_profile_switch', 'no_constraint_switch']
+protocols = ['combo_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'no_constraint_switch']
+protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']
 
 # Specific columns of interest to distinguish between design trajectories
 protocol_specific_columns = ['shape_complementarity', 'buns_total', 'contact_count', 'int_energy_res_summary_delta',
@@ -249,45 +244,6 @@ residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 # from table 1, theoretical values of Tien et al. 2013
 gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225, 'G': 104, 'H': 224, 'I': 197,
             'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174}
-
-
-def clean_index(row):  # UNUSED
-    row.index = row.index.split('_')[-1]
-    return row
-
-
-def design_mutations_for_metrics(design_directory, wild_type_file=None):  # DEPRECIATED
-    """Given a design directory, find the Wild-type sequence and mutations made in comparison
-
-    Args:
-        design_directory (DesignDirectory): Single DesignDirectory object
-    Keyword Args:
-        wildtype=None (str): The location of a wildtype PDB file
-    Returns:
-        parsed_design_mutations (dict): {'file_name': {chain_id: {mutation_index: ('From AA', 'To AA'), ...}, ...}, ...}
-    """
-    if not wild_type_file:
-        wild_type_file = Ams.get_wildtype_file(design_directory)
-    all_design_files = SDUtils.get_directory_pdb_file_paths(design_directory.design_pdbs)
-
-    return Ams.generate_mutations(all_design_files, wild_type_file, pose_num=True)
-
-
-def design_mutations_for_sequence(design_directory, wild_type_file=None):  # DEPRECIATED
-    """Given a design directory, find the Wild-type sequence and mutations made in comparison
-
-    Args:
-        design_directory (DesignDirectory): Single DesignDirectory object
-    Keyword Args:
-        wildtype=None (str): The location of a wildtype PDB file
-    Returns:
-        parsed_design_mutations (dict): {'file_name': {chain_id: {mutation_index: ('From AA', 'To AA'), ...}, ...}, ...}
-    """
-    if not wild_type_file:
-        wild_type_file = Ams.get_wildtype_file(design_directory)
-    all_design_files = SDUtils.get_directory_pdb_file_paths(design_directory.design_pdbs)
-
-    return Ams.generate_mutations(all_design_files, wild_type_file)
 
 
 def read_scores(file, key='decoy'):
@@ -460,6 +416,41 @@ def hot_spot(residue_dict, energy=-1.5):  # UNUSED
     return residue_dict
 
 
+def residue_composition_diff(row):
+    """Calculate the composition difference for pose residue classification
+
+    Args:
+        row (pandas.Series): Series with 'int_area_total', 'core', 'rim', and 'support' indices
+    Returns:
+        (float): Difference of expected residue classification and observed
+    """
+    # Calculate modelled number of residues according to buried surface area (Levy, E 2010)
+    def core_res_fn(bsa):
+        return 0.01 * bsa + 0.6
+
+    def rim_res_fn(bsa):
+        return 0.01 * bsa - 2.5
+
+    def support_res_fn(bsa):
+        return 0.006 * bsa + 5
+
+    classification_fxn_d = {'core': core_res_fn, 'rim': rim_res_fn, 'support': support_res_fn}
+    class_ratio_diff_d = {}
+    int_area = row['int_area_total']  # buried surface area
+    if int_area <= 250:
+        return np.nan
+    #     assert int_area > 250, 'int_area_total gives negative value for support'
+
+    for _class in classification_fxn_d:
+        expected = classification_fxn_d[_class](int_area)
+        class_ratio_diff_d[_class] = (1 - abs(row[_class] - expected) / expected)
+    _sum = 0
+    for value in class_ratio_diff_d.values():
+        _sum += value
+
+    return _sum / 3.0
+
+
 def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None):
     """Process Residue Metrics from Rosetta score dictionary
 
@@ -476,10 +467,10 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
             22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}
     """  # , 'hot_spot': 1
-    dict_template = {'type': None, 'energy': {'complex': 0, 'oligomer': 0, 'fsp': 0, 'cst': 0},
+    dict_template = {'energy': {'complex': 0, 'oligomer': 0, 'fsp': 0, 'cst': 0},
                      'sasa': {'polar': {'complex': 0, 'oligomer': 0}, 'hydrophobic': {'complex': 0, 'oligomer': 0},
-                              'total': {'complex': 0, 'oligomer': 0}}, 'hbond': 0, 'core': 0, 'rim': 0, 'support': 0}
-    #                , 'hot_spot': 0}
+                              'total': {'complex': 0, 'oligomer': 0}},
+                     'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
     total_residue_dict = {}
     for entry in score_dict:
         residue_dict = {}
@@ -502,48 +493,44 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
             else:
                 # Ex. per_res_energy_A_oligomer_15 or per_res_energy_complex_15
                 residue_dict[res][r_type][pose_state] = round(score_dict[entry][column], 3)
-
-        if residue_dict:
-            for res in residue_dict:
-                try:
-                    residue_dict[res]['type'] = mutations[entry][res]
-                except KeyError:
-                    # fill the value with the wild_type sequence
-                    residue_dict[res]['type'] = mutations['ref'][res]
-                if hbonds:
-                    if res in hbonds[entry]:
-                        residue_dict[res]['hbond'] = 1
-                residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                    - residue_dict[res]['energy']['oligomer']  # - residue_dict[res]['energy']['fsp']
-                rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                     residue_dict[res]['sasa']['total']['oligomer'])
-                rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                    residue_dict[res]['sasa']['total']['complex'])
+        # if residue_dict:
+        for res in residue_dict:
+            try:
+                residue_dict[res]['type'] = mutations[entry][res]
+            except KeyError:
+                residue_dict[res]['type'] = mutations['ref'][res]  # fill with aa from wild_type sequence
+            if hbonds:
+                if res in hbonds[entry]:
+                    residue_dict[res]['hbond'] = 1
+            residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
+                - residue_dict[res]['energy']['oligomer']  # - residue_dict[res]['energy']['fsp']
+            rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
+                                                 residue_dict[res]['sasa']['total']['oligomer'])
+            rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
+                                                residue_dict[res]['sasa']['total']['complex'])
+            for polarity in residue_dict[res]['sasa']:
+                # convert sasa measurements into bsa measurements
+                residue_dict[res]['bsa_' + polarity] = round(
+                    residue_dict[res]['sasa'][polarity]['oligomer'] - residue_dict[res]['sasa'][polarity][
+                        'complex'], 2)
+            if residue_dict[res]['bsa_total'] > 0:
                 if rel_oligomer_sasa < 0.25:
                     residue_dict[res]['support'] = 1
-                elif rel_complex_sasa > 0.25:
-                    residue_dict[res]['rim'] = 1
-                else:
+                elif rel_complex_sasa < 0.25:
                     residue_dict[res]['core'] = 1
-                for polarity in residue_dict[res]['sasa']:
-                    # convert sasa measurments into bsa measurements
-                    residue_dict[res]['bsa_' + polarity] = round(
-                        residue_dict[res]['sasa'][polarity]['oligomer'] - residue_dict[res]['sasa'][polarity][
-                            'complex'], 2)
-                    # if residue_dict[res]['bsa_' + polarity] < 0:
-                    #     residue_dict[res]['bsa_' + polarity] = 0
-                # rel_sasa = calc_relative_sa(residue_dict[res]['type'], residue_dict[res]['bsa_total'])
-                # if rel_oligomer_sasa < 0.25:
-                #     residue_dict[res]['support'] = 1
-                # elif rel_complex_sasa > 0.25:  # rel_sasa > 0.25 is the metric from Levy E. 2010
-                #     residue_dict[res]['rim'] = 1
+                else:
+                    residue_dict[res]['rim'] = 1
+            else:  # remove residue from dictionary as no interface design should be done? keep interior residues
+                if rel_complex_sasa < 0.25:
+                    residue_dict[res]['interior'] = 1
                 # else:
-                #     residue_dict[res]['core'] = 1
-                residue_dict[res].pop('sasa')
-                residue_dict[res].pop('energy')
-                # if residue_dict[res]['energy'] <= hot_spot_energy:
-                #     residue_dict[res]['hot_spot'] = 1
-            total_residue_dict[entry] = residue_dict
+                #     residue_dict[res]['surface'] = 1
+
+            residue_dict[res].pop('sasa')
+            residue_dict[res].pop('energy')
+            # if residue_dict[res]['energy'] <= hot_spot_energy:
+            #     residue_dict[res]['hot_spot'] = 1
+        total_residue_dict[entry] = residue_dict
 
     return total_residue_dict
 
@@ -561,12 +548,12 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
-            22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}
-    """  # , 'hot_spot': 1
-    dict_template = {'type': None, 'energy': {'complex': 0, 'oligomer': 0, 'fsp': 0, 'cst': 0},
+            22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}  # , 'hot_spot': 1
+    """
+    dict_template = {'energy': {'complex': 0, 'oligomer': 0, 'fsp': 0, 'cst': 0},
                      'sasa': {'polar': {'complex': 0, 'oligomer': 0}, 'hydrophobic': {'complex': 0, 'oligomer': 0},
-                              'total': {'complex': 0, 'oligomer': 0}}, 'hbond': 0, 'core': 0, 'rim': 0, 'support': 0}
-    #                , 'hot_spot': 0}
+                              'total': {'complex': 0, 'oligomer': 0}},
+                     'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
     total_residue_dict = {}
     for entry in score_dict:
         residue_dict = {}
@@ -590,49 +577,43 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                 else:
                     # Ex. per_res_energy_A_oligomer_15 or per_res_energy_complex_15
                     residue_dict[res][r_type][pose_state] = round(score_dict[entry][key], 3)
-                    # residue_dict[res][r_type][pose_state] = round(score_dict[entry][column], 3)
-
-        if residue_dict:
-            for res in residue_dict:
-                try:
-                    residue_dict[res]['type'] = mutations[entry][res]
-                except KeyError:
-                    # fill the value with the wild_type sequence
-                    residue_dict[res]['type'] = mutations['ref'][res]
-                if hbonds:
-                    if res in hbonds[entry]:
-                        residue_dict[res]['hbond'] = 1
-                residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                    - residue_dict[res]['energy']['oligomer']  # - residue_dict[res]['energy']['fsp']
-                rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                     residue_dict[res]['sasa']['total']['oligomer'])
-                rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                    residue_dict[res]['sasa']['total']['complex'])
+        # if residue_dict:
+        for res in residue_dict:
+            try:
+                residue_dict[res]['type'] = mutations[entry][res]
+            except KeyError:
+                residue_dict[res]['type'] = mutations['ref'][res]  # fill with aa from wild_type sequence
+            if hbonds:
+                if res in hbonds[entry]:
+                    residue_dict[res]['hbond'] = 1
+            residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
+                - residue_dict[res]['energy']['oligomer']  # - residue_dict[res]['energy']['fsp']
+            rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
+                                                 residue_dict[res]['sasa']['total']['oligomer'])
+            rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
+                                                residue_dict[res]['sasa']['total']['complex'])
+            for polarity in residue_dict[res]['sasa']:
+                # convert sasa measurements into bsa measurements
+                residue_dict[res]['bsa_' + polarity] = round(residue_dict[res]['sasa'][polarity]['oligomer']
+                                                             - residue_dict[res]['sasa'][polarity]['complex'], 2)
+            if residue_dict[res]['bsa_total'] > 0:
                 if rel_oligomer_sasa < 0.25:
                     residue_dict[res]['support'] = 1
-                elif rel_complex_sasa > 0.25:
-                    residue_dict[res]['rim'] = 1
-                else:
+                elif rel_complex_sasa < 0.25:
                     residue_dict[res]['core'] = 1
-                for polarity in residue_dict[res]['sasa']:
-                    # convert sasa measurments into bsa measurements
-                    residue_dict[res]['bsa_' + polarity] = round(
-                        residue_dict[res]['sasa'][polarity]['oligomer'] - residue_dict[res]['sasa'][polarity][
-                            'complex'], 2)
-                    # if residue_dict[res]['bsa_' + polarity] < 0:
-                    #     residue_dict[res]['bsa_' + polarity] = 0
-                # rel_sasa = calc_relative_sa(residue_dict[res]['type'], residue_dict[res]['bsa_total'])
-                # if rel_oligomer_sasa < 0.25:
-                #     residue_dict[res]['support'] = 1
-                # elif rel_complex_sasa > 0.25:  # rel_sasa > 0.25 is the metric from Levy E. 2010
-                #     residue_dict[res]['rim'] = 1
+                else:
+                    residue_dict[res]['rim'] = 1
+            else:  # remove residue from dictionary as no interface design should be done? keep interior residues
+                if rel_complex_sasa < 0.25:
+                    residue_dict[res]['interior'] = 1
                 # else:
-                #     residue_dict[res]['core'] = 1
-                residue_dict[res].pop('sasa')
-                residue_dict[res].pop('energy')
-                # if residue_dict[res]['energy'] <= hot_spot_energy:
-                #     residue_dict[res]['hot_spot'] = 1
-            total_residue_dict[entry] = residue_dict
+                #     residue_dict[res]['surface'] = 1
+
+            residue_dict[res].pop('sasa')
+            residue_dict[res].pop('energy')
+            # if residue_dict[res]['energy'] <= hot_spot_energy:
+            #     residue_dict[res]['hot_spot'] = 1
+        total_residue_dict[entry] = residue_dict
 
     return total_residue_dict
 
@@ -710,7 +691,7 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
     return bool_df.mean()
 
 
-def hydrophobic_collapse_index(sequence):  # UNUSED # TODO Validate, AMS
+def hydrophobic_collapse_index(sequence):  # UNUSED TODO Validate, AMS
     """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return a HCI array
 
     """
@@ -783,7 +764,7 @@ def hydrophobic_collapse_index(sequence):  # UNUSED # TODO Validate, AMS
     return hci
 
 
-def calculate_column_number(num_groups=1, misc=0, sig=0):
+def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
     total = len(final_metrics) * len(stats_metrics)
     total += len(protocol_specific_columns) * num_groups * len(stats_metrics)
     total += misc
@@ -849,7 +830,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Get design information including: interface residues, SSM's, and wild_type/design files
     design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
-    int_residues = SDUtils.get_interface_residues(design_flags)
+    des_residues = SDUtils.get_interface_residues(design_flags)  # Changed in favor of residue_processing identification
     if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):  # TODO Wrap into DesignDirectory data object?
         pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
     else:
@@ -884,39 +865,34 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
     designs_to_examine = list(set([name for chain in all_design_sequences for name in all_design_sequences[chain]]))
     logger.debug('All Sequences: %s' % all_design_sequences)
-
-    pose_alignment = Ams.multi_chain_alignment(all_design_sequences)
-    mutation_frequencies = Ams.remove_non_mutations(pose_alignment['counts'], int_residues)  # TODO SDUtils.clean_dictionary
-    # ranked_frequencies = SDUtils.rank_possibilities(mutation_frequencies)
-
-    # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
-    # pose_res_dict = Ams.analyze_mutations(des_dir, all_design_sequences)
-    pose_res_dict = {}
-    for profile in profile_dict:
-        pose_res_dict['divergence_%s' % profile] = Ams.pos_specific_jsd(mutation_frequencies, profile_dict[profile])
-    # evolution_divergence = Ams.pos_specific_jsd(mutation_frequencies, pssm)  # both are zero indexed
-    # issm_divergence = Ams.pos_specific_jsd(mutation_frequencies, issm)  # both are zero indexed
-    # design_divergence = Ams.pos_specific_jsd(mutation_frequencies, dssm)  # both are zero indexed
-    # interface_divergence = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
-    pose_res_dict['divergence_interface'] = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
-    # pose_res_dict = Ams.weave_sequence_dict(**pose_res_dict)  # Removed for simplicity
-    # pose_res_dict = Ams.weave_sequence_dict(jsd=evolution_divergence, frag_jsd=issm_divergence,
-    #                                         des_jsd=design_divergence, int_jsd=interface_divergence)
-    #                                         rank=ranked_frequencies, frequency=mutation_frequencies)
-    # hci=
-
-    # combine_sequence_metrics = {'rank': ranked_frequencies, 'frequency': mutation_frequencies,
-    #                             'jsd': evolution_divergence, 'des_jsd': design_divergence,
-    #                             'int_jsd': interface_divergence}
-    # pose_res_dict = Ams.weave_sequence_dict(combine_sequence_metrics)
-    # pose_res_dict = Ams.weave_mutation_dict(ranked_frequencies, mutation_frequencies, evolution_divergence,
-    #                                         interface_divergence)
+    # Ensure data is present for both scores and sequences before proceeding with analysis
     all_design_scores = {design: all_design_scores[design] for design in designs_to_examine
                          if design in all_design_scores}
-    scores_df = pd.DataFrame(all_design_scores).T
-    idx = pd.IndexSlice
+    all_design_sequences = {design: all_design_sequences[design] for design in all_design_scores}
+    #                         if design in all_design_sequences}
 
-    # Gather all columns into specific types for processing and formatting
+    # logger.debug('Design Scores: %s' % str(all_design_scores))
+    interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
+    # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
+    # TODO when columns are correct and column tabulation preceeds residue/hbond_processing
+
+    all_mutations = Ams.generate_mutations(all_design_files, wild_type_file, pose_num=True)
+    all_mutations_no_chains = Ams.make_mutations_chain_agnostic(all_mutations)
+    all_mutations_simplified = Ams.simplify_mutation_dict(all_mutations_no_chains)
+    cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
+    residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
+                                            hbonds=interface_hbonds)
+    # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
+    #                                   hbonds=interface_hbonds)  # TODO when columns are correct
+
+    # Initialize DataFrames
+    idx = pd.IndexSlice
+    scores_df = pd.DataFrame(all_design_scores).T
+    # residue_df - returns multi-index column with residue number as first (top) column index, metric as second index
+    # during residue_df unstack, all residues with missing dicts are copied as nan
+    residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
+
+    # Gather all columns into specific types for processing and formatting TODO move up
     report_columns, per_res_columns, hbonds_columns = {}, [], []
     for column in list(scores_df.columns):
         if column.startswith('R_'):
@@ -945,7 +921,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Check proper input
     metric_set = necessary_metrics.copy() - set(scores_df.columns)
     assert metric_set == set(), 'Missing required metrics: %s' % metric_set
-    # assert metric_set == set(), logger.critical('Missing required metrics: %s' % metric_set)
     # assert metric_set == set(), logger.critical('%s: Missing required metrics: %s' % (des_dir.path, metric_set))
     # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
     # TODO protocol switch or no_design switch?
@@ -959,7 +934,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             # change design index value to PUtils.stage[i] (for consensus and refine)
             protocol_s[stage] = stage  # TODO remove in future scripts
             # protocol_s.at[PUtils.stage[stage], groups] = PUtils.stage[stage]
-    # Replace any empty strings with numpy.notanumber, drop all string columns, and convert all remaining data to float
+    # Replace empty strings with numpy.notanumber (np.nan), drop all str columns, and convert remaining data to float
     scores_df = scores_df.replace('', np.nan)
     scores_df = scores_df.drop(remove_columns, axis=1, errors='ignore').astype(float)
     if delta_refine:
@@ -970,73 +945,53 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     scores_df.drop(unnecessary + rosetta_terms, axis=1, inplace=True, errors='ignore')
 
     # Process H-bond and Residue metrics to dataframe
-    # logger.debug('Design Scores: %s' % str(all_design_scores))
-    interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
-    # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
     number_hbonds = {entry: len(interface_hbonds[entry]) for entry in interface_hbonds}
     number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
     scores_df = pd.merge(scores_df, number_hbonds_df, left_index=True, right_index=True)
 
-    all_mutations = Ams.generate_mutations(all_design_files, wild_type_file, pose_num=True)
-    all_mutations_no_chains = Ams.make_mutations_chain_agnostic(all_mutations)
-    all_mutations_simplified = Ams.simplify_mutation_dict(all_mutations_no_chains)
-    cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
-    residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
-                                            hbonds=interface_hbonds)
-    # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
-    #                                   hbonds=interface_hbonds)
-
-    # Calculate mutation observation from residue dict and background SSM's
+    # Calculate amino acid observation percent from residue dict and background SSM's
     obs_d = {}
     for profile in profile_dict:
         obs_d[profile] = {design: mutation_conserved(residue_dict[design], SDUtils.offset_index(profile_dict[profile]))
                           for design in residue_dict}
-    # conservation_dict = {design: mutation_conserved(residue_dict[design], SDUtils.offset_index(pssm))
-    #                      for design in residue_dict}
-    # interface_dict = {design: mutation_conserved(residue_dict[design], SDUtils.offset_index(issm))
-    #                   for design in residue_dict}
-    # combined_dict = {design: mutation_conserved(residue_dict[design], SDUtils.offset_index(dssm))
-    #                  for design in residue_dict}
+
     # Remove residues from fragment dict if no fragment information available for them
     obs_d['fragment'] = SDUtils.clean_interior_keys(obs_d['fragment'], issm_residues, remove=False)
-    # clean_interface_dict = SDUtils.clean_interior_keys(interface_dict, issm_residues, remove=False)
     for design in residue_dict:
         res_dict = {'observed_%s' % profile: obs_d[profile][design] for profile in obs_d}
         residue_dict[design] = Ams.weave_sequence_dict(base_dict=residue_dict[design], **res_dict)
-                                                       # evol_obs=conservation_dict[design],
-                                                       # int_obs=clean_interface_dict[design],
-                                                       # combined_obs=combined_dict[design])
-    # pose_observed_bkd = {profile: {design: per_res_metric(obs_d[profile][design]) for design in obs_d[profile]}
-    #                          for profile in obs_d}
+
     # Find the observed background for each design in the pose
-    pose_observed_bkd = {}
-    for profile in profile_dict:  # obs_d:
-        pose_observed_bkd[profile] = {design: per_res_metric(obs_d[profile][design]) for design in obs_d[profile]}
-    # pose_seq_evol_obs = {design: per_res_metric(conservation_dict[design]) for design in conservation_dict}
-    # pose_seq_int_obs = {design: per_res_metric(clean_interface_dict[design]) for design in clean_interface_dict}
-    # pose_seq_combined_obs = {design: per_res_metric(combined_dict[design]) for design in combined_dict}
-
-    # other_pose_metrics['mutation_conservation'] = np.mean([pose_seq_evol_obs[design]
-    #                                                        for design in pose_seq_evol_obs])
-    # other_pose_metrics['interface_tendency'] = np.mean([pose_seq_int_obs[design]
-    #                                                     for design in pose_seq_int_obs])
-    # pose_observed_bkd = {'evolution': pose_seq_evol_obs, 'interface': pose_seq_int_obs,
-    #                          'combined': pose_seq_combined_obs}
-    for profile in profile_dict:  # pose_observed_bkd:
+    pose_observed_bkd = {profile: {design: per_res_metric(obs_d[profile][design]) for design in obs_d[profile]}
+                         for profile in profile_dict}
+    for profile in profile_dict:
         scores_df['observed_%s' % profile] = pd.Series(pose_observed_bkd[profile])
-    # scores_df['interface_observed'] = pd.Series(pose_seq_int_obs)
-    # scores_df['combined_observed'] = pd.Series(pose_seq_combined_obs)
-
-    # Make residue DataFrame from residue_dict. During unstack, all residues with missing dicts are copied as nan
-    residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
-    # returns multi-index column dataframe with residue number as first (top) column index, metric as second index
-    # dummy_residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()})
-    # print(dummy_residue_df)
-    # print(residue_df)
 
     # Add design specific residue information to scores_df
     for classif in residue_classificiation:
         scores_df[classif] = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == classif]].sum(axis=1)
+    scores_df['int_composition_diff'] = scores_df.apply(residue_composition_diff, axis=1)
+
+    # TODO test
+    interior_residue_df = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)
+    # interior_residues = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == 'interior']].column == 1], .any(axis=0, level=1).unique().to_list()  # .loc[:, idx[:, ['interior']]]
+    # check if any of the values in a column are 1. If so, return true for that column
+    interior_residues = interior_residue_df[interior_residue_df.any()].columns.to_list()  # .unique()
+    int_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
+
+    if set(int_residues) != set(des_residues):
+        logger.critical('%s: %s' % (des_dir.path, set(des_residues) - set(int_residues)))
+    # int_residues = scores_df[scores_df[residue_classificiation]]
+
+    pose_alignment = Ams.multi_chain_alignment(all_design_sequences)
+    mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], int_residues, remove=False)
+    # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
+    pose_res_dict = {}
+    for profile in profile_dict:  # both mut_freq and profile_dict[profile] are zero indexed
+        pose_res_dict['divergence_%s' % profile] = Ams.pos_specific_jsd(mutation_frequencies, profile_dict[profile])
+
+    pose_res_dict['divergence_interface'] = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
+    # pose_res_dict['hydrophobic_collapse_index'] = hci()  # TODO HCI
 
     # Subtract residue info from reference (refine)
     if delta_refine:
@@ -1047,8 +1002,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Divide/Multiply column pairs to new columns
     scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
 
-    # Prepare/Merge processed dataframes
-    # scores_df.columns = pd.MultiIndex.from_product([['pose'], scores_df.columns])
+    # Merge processed dataframes
     scores_df = pd.merge(protocol_s, scores_df, left_index=True, right_index=True)
     protocol_df = pd.DataFrame(protocol_s)
     protocol_df.columns = pd.MultiIndex.from_product([[''], protocol_df.columns])
@@ -1057,12 +1011,10 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Drop refine row and any rows with nan values
     scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
     residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
-    # print(residue_df.columns.to_list())  # scores_df.where()
     # print(residue_df.isna())  #.any(axis=1).to_list())  # scores_df.where()
     # pd.set_option('display.max_columns', None)
-    # print(scores_df)
     clean_scores_df = scores_df.dropna()
-    # First remove completely empty columns (obs_interface
+    # First remove completely empty columns (obs_interface)
     residue_df = residue_df.dropna(how='all', axis=1)
     clean_residue_df = residue_df.dropna()
     scores_na_index = scores_df[~scores_df.index.isin(clean_scores_df.index)].index.to_list()
@@ -1090,45 +1042,24 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     stats_by_protocol = {protocol: {} for protocol in unique_protocols}
     for protocol in unique_protocols:
         designs_by_protocol[protocol] = protocol_s.index[protocol_s == protocol].tolist()
-        # designs_by_protocol[protocol] = protocol_s.index[protocol_s[groups] == protocol].tolist()
         sequences_by_protocol[protocol] = {chain: {name: all_design_sequences[chain][name]
                                                    for name in all_design_sequences[chain]
                                                    if name in designs_by_protocol[protocol]}
                                            for chain in all_design_sequences}
-        # logger.debug(sequences_by_protocol[protocol])
         protocol_alignment = Ams.multi_chain_alignment(sequences_by_protocol[protocol])
         protocol_mutation_freq = Ams.remove_non_mutations(protocol_alignment['counts'], int_residues)
         protocol_res_dict = {'divergence_%s' % profile: Ams.pos_specific_jsd(protocol_mutation_freq, profile_dict[profile])
                              for profile in profile_dict}  # both prot_freq and profile_dict[profile] are zero indexed
-        # sa_evo_divergence = Ams.pos_specific_jsd(protocol_mutation_freq, pssm)  # both are zero indexed
-        # sa_issm_divergence = Ams.pos_specific_jsd(protocol_mutation_freq, issm)  # both are zero indexed
-        # sa_design_divergence = Ams.pos_specific_jsd(protocol_mutation_freq, dssm)  # both are zero indexed
-        # sa_interface_divergence = SDUtils.compute_jsd(protocol_mutation_freq, interface_bkgd)
         protocol_res_dict['divergence_interface'] = SDUtils.compute_jsd(protocol_mutation_freq, interface_bkgd)
-        # The whole weave may be unnecessary TODO
-        # protocol_res_dict = Ams.weave_sequence_dict(**protocol_res_dict)
-        # protocol_res_dict = Ams.weave_sequence_dict(jsd=sa_evo_divergence, frag_jsd=sa_issm_divergence,
-        #                                             des_jsd=sa_design_divergence, int_jsd=sa_interface_divergence)
-        # res_profile = Ams.calculate_sequence_metrics(des_dir, protocol_alignment)
-        # res_profile = Ams.analyze_mutations(des_dir, sequences_by_protocol[protocol])
 
         # Get per residue divergence metric by protocol
-        # for key in per_res_keys:
         for key in protocol_res_dict:
-            stats_by_protocol[protocol]['%s_per_res' % key] = per_res_metric(protocol_res_dict[key])
-            # stats_by_protocol[protocol][key + '_per_res'] = per_res_metric(protocol_res_dict, key=key)
-            # stats_by_protocol[protocol][key + '_per_res'] = per_res_metric(res_profile, key=key)
+            stats_by_protocol[protocol]['%s_per_res' % key] = per_res_metric(protocol_res_dict[key])  # , key=key)
             # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
         # Get per design observed background metric by protocol
-        for profile in profile_dict:  # pose_observed_bkd:
+        for profile in profile_dict:
             stats_by_protocol[protocol]['observed_%s' % profile] = per_res_metric(
                 {des: pose_observed_bkd[profile][des] for des in designs_by_protocol[protocol]})
-            # stats_by_protocol[protocol]['observed_%s' % profile] = per_res_metric(
-            #     {des: pose_observed_bkd[profile][des] for des in designs_by_protocol})
-        # stats_by_protocol[protocol]['evolution_observed'] = per_res_metric({design: pose_seq_evol_obs[design]
-        #                                                                     for design in designs_by_protocol})
-        # stats_by_protocol[protocol]['interface_observed'] = per_res_metric({design: pose_seq_int_obs[design]
-        #                                                                     for design in designs_by_protocol})
 
         # Gather the average number of residue classifications for each protocol
         for res_class in residue_classificiation:
@@ -1200,7 +1131,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     other_pose_metrics['observations'] = len(designs)
     other_pose_metrics['symmetry'] = symmetry
     other_pose_metrics['total_interface_residues'] = len(int_residues)
-    other_pose_metrics['fragment_percent'] = len(issm) / len(int_residues)
+    other_pose_metrics['percent_fragment'] = len(issm) / len(int_residues)
 
     # Interface B Factor TODO ensure clean_asu.pdb has B-factors
     wt_pdb = SDUtils.read_pdb(wild_type_file)
@@ -1214,12 +1145,12 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(int_residues), 2)
 
     # TODO protocol switch
-    # Get pose sequence divergence and mean number of residues matching different classification
-    other_pose_stats = {}
-    for key in pose_res_dict:
-        other_pose_stats[key + '_per_res'] = per_res_metric(pose_res_dict[key])
+    # Get pose sequence divergence
+    sim_sum_and_divergence_stats = {'%s_per_res' % key: per_res_metric(pose_res_dict[key]) for key in pose_res_dict}
+    # for key in pose_res_dict:
+    #     sim_sum_and_divergence_stats[key + '_per_res'] = per_res_metric(pose_res_dict[key])
     # for res_class in residue_classificiation:
-    #     other_pose_stats[res_class] = \
+    #     sim_sum_and_divergence_stats[res_class] = \
     #         clean_residue_df.loc[:, idx[:, clean_residue_df.columns.get_level_values(1) == res_class]].mean().sum()
 
     # Compute sequence differences between each protocol
@@ -1256,6 +1187,12 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
     # seq_pc_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
 
+    # Gather protocol similarity/distance metrics
+    sim_measures = {'similarity': None, 'seq_distance': {}, 'energy_distance': {}}
+    # sim_measures = {'similarity': similarity_s, 'seq_distance': seq_distance_dict, 'energy_distance': energy_distance_dict}
+    # Find similarity between each type of protocol by taking row average of all p-values for each metric
+    sim_measures['similarity'] = pvalue_df.mean(axis=1)  # .rename(str(des_dir))
+    # similarity_s = pvalue_df.mean(axis=1).rename(str(des_dir))
     # TODO protocol switch or no design switch
     grouped_pc_stat_df_dict, grouped_pc_energy_df_dict = {}, {}
     for stat in stats_metrics:
@@ -1269,18 +1206,31 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df_dict[stat])
             # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
             #                             for k in seq_pca_mean_distance_vector)
-            seq_distance_dict = {}
+            # seq_distance_dict = {}
             for k, dist in enumerate(seq_pca_mean_distance_vector):
                 i, j = SDUtils.condensed_to_square(k, len(grouped_pc_stat_df_dict[stat].index))
-                seq_distance_dict[(grouped_pc_stat_df_dict[stat].index[i], grouped_pc_stat_df_dict[stat].index[j])] \
-                    = dist
-            energy_distance_dict = {}
+                sim_measures['seq_distance'][(grouped_pc_stat_df_dict[stat].index[i],
+                                              grouped_pc_stat_df_dict[stat].index[j])] = dist
+                # seq_distance_dict[(grouped_pc_stat_df_dict[stat].index[i], grouped_pc_stat_df_dict[stat].index[j])] \
+                #     = dist
+            # energy_distance_dict = {}
             for k, e_dist in enumerate(energy_pca_mean_distance_vector):
                 i, j = SDUtils.condensed_to_square(k, len(grouped_pc_energy_df_dict[stat].index))
-                energy_distance_dict[(grouped_pc_energy_df_dict[stat].index[i],
-                                      grouped_pc_energy_df_dict[stat].index[j])] = e_dist
+                sim_measures['energy_distance'][(grouped_pc_energy_df_dict[stat].index[i],
+                                                 grouped_pc_energy_df_dict[stat].index[j])] = e_dist
+                # energy_distance_dict[(grouped_pc_energy_df_dict[stat].index[i],
+                #                       grouped_pc_energy_df_dict[stat].index[j])] = e_dist
+
     for pc_stat in grouped_pc_stat_df_dict:
         logger.info(grouped_pc_stat_df_dict[pc_stat])
+
+    # Find total protocol similarity for different metrics
+    # sim_measures = {'similarity': similarity_s, 'seq_distance': seq_distance_dict, 'energy_distance': energy_distance_dict}
+    # protocol_similarity_s = {}
+    # protocol_similarity_s = pd.Series()
+    for measure in sim_measures:
+        measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
+        sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum(axis=1)
 
     _path = os.path.join(des_dir.all_scores, str(des_dir))
     # Create figures
@@ -1335,7 +1285,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         ax.set_zlabel('PC3')
         plt.savefig('%s_res_energy_pca.png' % _path)
 
-    # Save Trajectory and Residue dataframes
+    # Save Trajectory, Residue DataFrames, and PDB Sequences
     if save_trajectories:
         trajectory_df.to_csv('%s_Trajectories.csv' % _path)
         clean_residue_df.to_csv('%s_Residues.csv' % _path)
@@ -1357,26 +1307,23 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # pose_mean_s = trajectory_df.loc['mean', :]  # .rename(str(des_dir))  # READY
     # pose_stdev_s = trajectory_df.loc['stdev', :]  # .rename(str(des_dir))  # READY
+
     # Collect protocol specific metrics in series
     # protocol_mean_s = pd.concat([protocol_subset_df.loc[protocol, :] for protocol in unique_protocols],
     #                             keys=unique_protocols)  # .rename(str(des_dir))  # READY
     # protocol_stdev_s = pd.concat([protocol_subset_df.loc[protocol + '_stdev', :] for protocol in unique_protocols],
     #                              keys=unique_protocols)  # .rename(str(des_dir))  # READY
+
     # Find the significance between each pair of protocols
-    # try:
     protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
                                keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
-    # except ValueError:
-    #     logger.warning('%s: pvalue_df misformatted %s' % (des_dir.path, ', '.join(pvalue_df.index.to_list())))
-    #     raise SDUtils.DesignError('pvalue_df misformatted')
+    # squeeze turns the column headers into series indices. Keys appends to make a multi-index
     protocol_stats_s = pd.concat([pd.Series(stats_by_protocol[protocol]) for protocol in stats_by_protocol],
-                                 keys=unique_protocols)  # .rename(str(des_dir))
-    other_metrics_s = pd.Series(other_pose_metrics)  # , name=str(des_dir))
-    other_stats_s = pd.Series(other_pose_stats)  # , name=str(des_dir))
-    seq_distance_s = pd.Series(seq_distance_dict)
-    energy_distance_s = pd.Series(energy_distance_dict)
-    # Find similarity between each type of protocol by taking row average of all p-values for each metric
-    similarity_s = pvalue_df.mean(axis=1).rename(str(des_dir))
+                                 keys=unique_protocols)
+    other_metrics_s = pd.Series(other_pose_metrics)
+    other_stats_s = pd.Series(sim_sum_and_divergence_stats)
+    # seq_distance_s = pd.Series(seq_distance_dict)
+    # energy_distance_s = pd.Series(energy_distance_dict)
 
     # Add series specific Multi-index names to data
     # pose_mean_s = pd.concat([pose_mean_s], keys=['pose'])  # READY
@@ -1385,28 +1332,33 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # pose_stdev_s = pd.concat([pose_stdev_s], keys=['stdev'])  # READY
     # protocol_mean_s = pd.concat([protocol_mean_s], keys=['average'])  # READY
     # protocol_stdev_s = pd.concat([protocol_stdev_s], keys=['stdev'])  # READY
-    # protocol_sig_s = pd.concat([protocol_sig_s], keys=['sig'])
+    # protocol_sig_s = pd.concat([protocol_sig_s], keys=['sig'])  # UNUSED
     protocol_stats_s = pd.concat([protocol_stats_s], keys=['stats'])
     other_metrics_s = pd.concat([other_metrics_s], keys=['pose'])
     other_metrics_s = pd.concat([other_metrics_s], keys=['dock'])
     other_stats_s = pd.concat([other_stats_s], keys=['pose'])
     other_stats_s = pd.concat([other_stats_s], keys=['seq_design'])
-    seq_distance_s.index = pd.MultiIndex.from_tuples(seq_distance_s.index)
-    seq_distance_s = pd.concat([seq_distance_s], keys=['seq_distance'])
-    energy_distance_s.index = pd.MultiIndex.from_tuples(energy_distance_s.index)
-    energy_distance_s = pd.concat([energy_distance_s], keys=['energy_distance'])
-    similarity_s.index = pd.MultiIndex.from_tuples(similarity_s.index)
-    similarity_s = pd.concat([similarity_s], keys=['similarity'])  # .swaplevel(0, 2)  # .swaplevel(0, 1) for reversed
+    # protocol_similarity_s = pd.concat([protocol_similarity_s], keys=['pose'])
+    # protocol_similarity_s = pd.concat([protocol_similarity_s], keys=['similarity'])
+
+    # Process similarity between protocols
+    # similarity_s.index = pd.MultiIndex.from_tuples(similarity_s.index)
+    # similarity_s = pd.concat([similarity_s], keys=['similarity'])  # .swaplevel(0, 2)  # .swaplevel(0, 1) for reversed
+    # seq_distance_s.index = pd.MultiIndex.from_tuples(seq_distance_s.index)
+    # seq_distance_s = pd.concat([seq_distance_s], keys=['seq_distance'])
+    # energy_distance_s.index = pd.MultiIndex.from_tuples(energy_distance_s.index)
+    # energy_distance_s = pd.concat([energy_distance_s], keys=['energy_distance'])
+    sim_measures_s = pd.concat([pd.Series(sim_measures[measure]) for measure in sim_measures],
+                               keys=[measure for measure in sim_measures])
+    # making a pd.Series call on a Series results in a Series
+
     # similarity_s = pd.concat([similarity_s], keys=[tuple(reversed(pair))
     #                                                for pair in similarity_s.index.get_level_values(0)])  # BROKEN
 
     # Combine all series
     pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] + [protocol_stat_s[stat] for stat in protocol_stat_s]
-                       + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, seq_distance_s,
-                          energy_distance_s, similarity_s]).swaplevel(0, 1)
-    # pose_s = pd.concat([pose_mean_s, pose_stdev_s, protocol_mean_s, protocol_stdev_s, protocol_sig_s, protocol_stats_s,
-    #                     other_metrics_s, similarity_s]).swaplevel(0, 1)  # READY
-    # Remove pose specific metrics from pose_s, sort, and nameprotocol_mean_df TODO protocol switch or no design switch
+                       + [protocol_sig_s, protocol_stats_s, other_metrics_s, other_stats_s, sim_measures_s]).swaplevel(0, 1)
+    # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df TODO protocol switch or no design switch
     pose_s.drop([groups, ], level=2, inplace=True)
     pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
     pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)

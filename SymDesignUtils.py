@@ -254,8 +254,28 @@ def pickle_object(target_object, name, out_path=os.getcwd()):
     return os.path.join(out_path + name) + '.pkl'
 
 
+def clean_dictionary(dictionary, keys, remove=True):
+    """Clean specified keys from a dictionary. Default removes the specified keys
+
+    Args:
+        dictionary (dict): {outer_dictionary: {key: value, key2: value2, ...}, ...}
+        keys (iter): [key2, key10] Iterator of keys to be removed from dictionary
+    Keyword Args:
+        remove=True (bool): Whether or not to remove (True) or keep (False) specified keys
+    Returns:
+        (dict): {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
+    """
+    if remove:
+        for key in keys:
+            dictionary.pop(key)
+
+        return dictionary
+    else:
+        return {key: dictionary[key] for key in keys if key in dictionary}
+
+
 def clean_interior_keys(dictionary, keys, remove=True):
-    """Clean specified keys from a dictionaries internal dictionary. Default removes specified keys
+    """Clean specified keys from a dictionaries internal dictionary. Default removes the specified keys
 
     Args:
         dictionary (dict): {outer_dictionary: {key: value, key2: value2, ...}, ...}
