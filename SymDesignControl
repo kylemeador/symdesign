@@ -15,7 +15,7 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp
-from AnalyzeMutatedSequences import select_sequences
+from AnalyzeMutatedSequences import select_sequences_s, select_sequences_mp
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -185,6 +185,7 @@ if __name__ == '__main__':
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
 
     parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
+    parser_sequence.add_argument('-s', '--selection_string', type=str, help='Identifier for sequence selection')
     parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
                                  default=1)
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
@@ -395,18 +396,24 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(maximum=True)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            zipped_args = zip(all_design_directories, repeat(number=args.number))
-            results = SDUtils.mp_starmap(select_sequences, zipped_args, mp_threads)  # , exceptions
+            zipped_args = zip(all_design_directories, repeat(args.number))
+            results, exceptions = SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads)  # , exceptions
         else:
             for des_directory in all_design_directories:
-                result = select_sequences(des_directory, number=args.number)
+                result, error = select_sequences_s(des_directory, number=args.number)
                 results.append(result)
-                # exceptions.append(error)
-        outfile = os.path.join(os.path.dirname(location), 'Selected_Sequences')
+                exceptions.append(error)
+        outfile = os.path.join(os.path.dirname(location), 'Selected_Sequences' % args.selection_string)  # %s_
+        outdir = os.path.join(os.path.dirname(location), 'Selected_PDBs' % args.selection_string)  # %s_
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
         with open(outfile, 'w') as out_f:
             for des_dir_idx, result in enumerate(results):
                 out_f.write('%s\n' % '\n'.join(os.path.join(all_design_directories[des_dir_idx].design_pdbs, seq)
                                                for seq in result))
+                for seq in result:
+                    file = glob('%s*%s' % (all_design_directories[des_dir_idx].design_pdbs, seq))[0]
+                    os.symlink(file, os.path.join(outdir, '%s_design_%s' % (str(all_design_directories[des_dir_idx]), seq)))
 
     any_exceptions = list(set(exceptions))
     if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
