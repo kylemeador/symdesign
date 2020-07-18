@@ -213,8 +213,7 @@ if __name__ == '__main__':
         with open(args.pose_design_file) as csv_file:
             csv_lines = [line for line in reader(csv_file)]
         all_poses, pose_design_numbers = zip(*csv_lines)
-        pose_design_numbers = list(map(list, pose_design_numbers))
-        print(pose_design_numbers)
+        # pose_design_numbers = list(map(list, pose_design_numbers))
         # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
         location = args.pose_design_file
     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
@@ -438,15 +437,18 @@ if __name__ == '__main__':
             os.makedirs(outdir)
 
         final_sequences = {}
-        for des_idx, pose in enumerate(results):
-            print(pose)
-            for design in pose:
-                file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
-                if file != list():
-                    final_sequences[design] = get_pdb_sequences(file[0])
-                    # coming in as (chain: seq}
-                    os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
-                                                     (str(all_design_directories[des_idx]), design)))
+        # for des_idx, pose in enumerate(results):
+        for pose in results:
+            # (DesignDirectory.path, design index)
+            file = glob('%s*%s*' % pose)
+            # file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
+            # for design in pose:  # make an iteration over the returned lists
+            if file == list():  # If no file found, skip
+                continue
+            # coming in as (chain: seq}
+            final_sequences[design] = get_pdb_sequences(file[0])
+            os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
+                                                 (str(all_design_directories[des_idx]), design)))
 
         # Format sequences for expression
         # sequences = add_expression_tags(final_sequences)
