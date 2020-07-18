@@ -420,19 +420,29 @@ def analyze_mutations(des_dir, mutated_sequences, residues=None, print_results=F
 
 
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
-def select_sequences_s(des_dir, number=1):
-    return select_sequences(des_dir, number=number)
+def select_sequences_s(des_dir, number=1, debug=False):
+    return select_sequences(des_dir, number=number, debug=debug)
 
 
-def select_sequences_mp(des_dir, number=1):
+def select_sequences_mp(des_dir, number=1, debug=False):
     try:
-        pose = select_sequences(des_dir, number=number)
+        pose = select_sequences(des_dir, number=number, debug=debug)
         return pose, None
     except (SDUtils.DesignError, AssertionError) as e:
         return None, (des_dir.path, e)
 
 
 def select_sequences(des_dir, number=1, debug=False):
+    """From a design directory find the sequences with the most neighbors to select for further characterization
+
+    Args:
+        des_dir (DesignDirectory)
+    Keyword Args:
+        number=1 (int): The number of sequences to consider for each design
+        debug=False (bool): Whether or not to debug
+    Returns:
+        (list): Containing tuples with (DesignDirectory.path, design index) for each sequence found
+    """
     # Log output
     if debug:
         global logger
@@ -506,9 +516,9 @@ def select_sequences(des_dir, number=1, debug=False):
     # Find only the designs which match the top x (number) of neighbor counts
     final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
                      for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
-    logger.info('The final sequence(s) and file(s):\n%s'
-                % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
-                                       os.path.join(des_dir.design_pdbs, des))
+    logger.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
+                # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
+                % '\n'.join('%d\t%s' % (neighbors, os.path.join(des_dir.design_pdbs, des))
                             for des, neighbors in final_designs.items()))
 
     # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.design_pdbs, seq))
@@ -532,9 +542,9 @@ def select_sequences(des_dir, number=1, debug=False):
         for design in final_designs:
             energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']
         energy_s.sort_values(inplace=True)
-        final_seqs = energy_s.index.to_list()[:number]
+        final_seqs = zip(repeat(des_dir.path), energy_s.index.to_list()[:number])
     else:
-        final_seqs = list(final_designs.keys())
+        final_seqs = zip(repeat(des_dir.path), final_designs.keys())
 
     return final_seqs
 
