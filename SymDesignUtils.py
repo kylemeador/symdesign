@@ -1702,7 +1702,7 @@ class DesignDirectory:
                     self.directory_string_to_path()
                     self.make_directory_structure(symmetry=symmetry)
                 else:
-                    self.make_directory_structure(symmetry=symmetry)
+                    self.make_directory_structure(symmetry=symmetry) # g
             else:
                 self.make_directory_structure()
 
