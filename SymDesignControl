@@ -403,9 +403,9 @@ if __name__ == '__main__':
                 result, error = select_sequences_s(des_directory, number=args.number)
                 results.append(result)
                 exceptions.append(error)
-        outfile = os.path.join(os.path.dirname(location), 'Selected_Sequences'  # % args.selection_string)  # %s_
+        outfile = os.path.join(os.path.dirname(location), 'Selected_Sequences')  # % args.selection_string)  # %s_
         # outfile = os.path.join(os.path.dirname(location), 'Selected_Sequences' % args.selection_string)  # %s_
-        outdir = os.path.join(os.path.dirname(location), 'Selected_PDBs'  # % args.selection_string)  # %s_
+        outdir = os.path.join(os.path.dirname(location), 'Selected_PDBs')  # % args.selection_string)  # %s_
         if not os.path.exists(outdir):
             os.makedirs(outdir)
         with open(outfile, 'w') as out_f:
