@@ -1700,6 +1700,7 @@ class DesignDirectory:
             if symmetry:
                 if len(self.path.split('/')) == 1:
                     self.directory_string_to_path()
+                    self.make_directory_structure(symmetry=symmetry)
                 else:
                     self.make_directory_structure(symmetry=symmetry)
             else:
