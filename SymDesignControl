@@ -210,7 +210,10 @@ if __name__ == '__main__':
     all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
     if args.pose_design_file:
         # Grab all poses (directories) to be processed from either directory name or file
-        all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
+        with open(args.pose_design_file) as csv_file:
+            csv_lines = [line for line in reader(csv_file)]
+        all_poses, pose_design_numbers = zip(*csv_lines)
+        # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
         location = args.pose_design_file
     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
                                                 % (PUtils.nano, location))
