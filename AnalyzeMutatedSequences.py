@@ -226,18 +226,22 @@ def get_wildtype_file(des_directory):
     #         return os.path.join(des_directory.building_blocks, file)
 
 
-def get_pdb_sequences(wild_type_file):
+def get_pdb_sequences(pdb_file, chain=None):
     """Return all sequences from a PDB file
 
     Args:
-        wild_type_file (str): Location on disk of a reference .pdb file
+        pdb_file (str): Location on disk of a reference .pdb file
+    Keyword Args:
+        chain=None (str): If a particular chain is desired, specify it
     Returns:
         wt_seq_dict (dict): {chain: sequence, ...}
     """
-    wt_pdb = SDUtils.read_pdb(wild_type_file)
+    wt_pdb = SDUtils.read_pdb(pdb_file)
     wt_seq_dict = {}
-    for chain in wt_pdb.chain_id_list:
-        wt_seq_dict[chain], fail = SDUtils.extract_aa_seq(wt_pdb, chain=chain)
+    for _chain in wt_pdb.chain_id_list:
+        wt_seq_dict[chain], fail = SDUtils.extract_aa_seq(wt_pdb, chain=_chain)
+    if chain:
+        wt_seq_dict = SDUtils.clean_dictionary(wt_seq_dict, chain, remove=False)
 
     return wt_seq_dict
 
@@ -413,6 +417,19 @@ def analyze_mutations(des_dir, mutated_sequences, residues=None, print_results=F
         logger('Evolution Divergence values:', evolution_divergence)
 
     return final_mutation_dict
+
+
+@SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
+def select_sequences_s(des_dir, number=1):
+    return select_sequences(des_dir, number=number)
+
+
+def select_sequences_mp(des_dir, number=1):
+    try:
+        pose = select_sequences(des_dir, number=number)
+        return pose, None
+    except (SDUtils.DesignError, AssertionError) as e:
+        return None, (des_dir.path, e)
 
 
 def select_sequences(des_dir, number=1):
