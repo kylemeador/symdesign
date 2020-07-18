@@ -404,7 +404,7 @@ if __name__ == '__main__':
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
             # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
-            results = pose_design_numbers
+            results = zip(all_design_directories, pose_design_numbers)
             location = args.pose_design_file
         else:
             if args.multi_processing:
