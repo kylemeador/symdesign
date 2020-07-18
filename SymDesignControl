@@ -440,7 +440,8 @@ if __name__ == '__main__':
         # for des_idx, pose in enumerate(results):
         for pose in results:
             # (DesignDirectory.path, design index)
-            file = glob('%s*%s*' % pose)
+            pose_dir, design = pose
+            file = glob('%s*%s*' % (pose_dir.path, design))
             # file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
             # for design in pose:  # make an iteration over the returned lists
             if file == list():  # If no file found, skip
