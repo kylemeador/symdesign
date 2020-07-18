@@ -213,6 +213,7 @@ if __name__ == '__main__':
         with open(args.pose_design_file) as csv_file:
             csv_lines = [line for line in reader(csv_file)]
         all_poses, pose_design_numbers = zip(*csv_lines)
+        pose_design_numbers = list(map(list, pose_design_numbers))
         # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
         location = args.pose_design_file
     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
