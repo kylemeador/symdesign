@@ -413,8 +413,8 @@ if __name__ == '__main__':
                 out_f.write('%s\n' % '\n'.join(os.path.join(all_design_directories[des_dir_idx].design_pdbs, seq)
                                                for seq in result))
                 for seq in result:
-                    file = glob('%s*%s' % (all_design_directories[des_dir_idx].design_pdbs, seq))
-                    print('%s*%s' % (all_design_directories[des_dir_idx].design_pdbs, seq))  #g
+                    file = glob('%s*%s*' % (all_design_directories[des_dir_idx].design_pdbs, seq))
+                    print(file)  # g
                     os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
                                                      (str(all_design_directories[des_dir_idx]), seq)))
 
