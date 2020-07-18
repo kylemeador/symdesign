@@ -397,7 +397,7 @@ if __name__ == '__main__':
             mp_threads = SDUtils.calculate_mp_threads(maximum=True)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
             zipped_args = zip(all_design_directories, repeat(args.number))
-            results, exceptions = SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads)  # , exceptions
+            results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))  # , exceptions
         else:
             for des_directory in all_design_directories:
                 result, error = select_sequences_s(des_directory, number=args.number)
