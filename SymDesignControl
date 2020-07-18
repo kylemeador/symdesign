@@ -409,6 +409,8 @@ if __name__ == '__main__':
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
+        results = list(results)
+        exception = list(exception)
         failures = [index for index, exception in enumerate(exceptions) if exception]
         for index in reversed(failures):
             del results[index]
