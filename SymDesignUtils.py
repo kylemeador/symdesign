@@ -1698,30 +1698,30 @@ class DesignDirectory:
         self.log = None
         if auto_structure:
             if symmetry:
-                if len(self.path.split('/')) == 1:
+                if len(self.path.split(os.sep)) == 1:
                     self.directory_string_to_path()
             self.make_directory_structure(symmetry=symmetry)
 
     def __str__(self):
         if self.symmetry:
-            return self.path.replace(self.symmetry + '/', '').replace('/', '-')  # TODO integration with DB what to do?
+            return self.path.replace(self.symmetry + os.sep, '').replace(os.sep, '-')  # TODO integration with DB what to do?
         else:
             # When is this relevant?
-            return self.path.replace('/', '-')[1:]
+            return self.path.replace(os.sep, '-')[1:]
 
     def directory_string_to_path(self):  # string, symmetry
-        self.path = self.path.replace('-', '/')
+        self.path = self.path.replace('-', os.sep)
 
     def make_directory_structure(self, symmetry=None):
         # Prepare Output Directory/Files. path always has format:
         if symmetry:
-            self.symmetry = symmetry.rstrip('/')
+            self.symmetry = symmetry.rstrip(os.sep)
             self.path = os.path.join(symmetry, self.path)
         else:
-            self.symmetry = self.path[:self.path.find(self.path.split('/')[-4]) - 1]
+            self.symmetry = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
         self.sequences = os.path.join(self.symmetry, PUtils.sequence_info)
         self.all_scores = os.path.join(self.symmetry, 'All_' + PUtils.scores_outdir.title())
-        self.building_blocks = self.path[:self.path.find(self.path.split('/')[-3]) - 1]
+        self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.design_pdbs = os.path.join(self.path, PUtils.pdbs_outdir)
         self.frags = os.path.join(self.path, PUtils.frag_dir)
