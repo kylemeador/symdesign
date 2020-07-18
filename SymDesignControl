@@ -447,11 +447,6 @@ if __name__ == '__main__':
 
         # Write output sequences to fasta file
         seq_file = write_fasta_file(sequences, '%s_Selected_Sequences' % args.selection_string, path=os.path.dirname(location))
-        # outfile = os.path.join(os.path.dirname(location), '%s_Selected_Sequences' % args.selection_string)
-        # with open(outfile, 'w') as out_f:
-        #     for des_idx, result in enumerate(results):
-        #         out_f.write('%s\n' % '\n'.join(os.path.join(all_design_directories[des_idx].design_pdbs, seq)
-        #                                        for seq in result))
 
     # Report any program exceptions
     any_exceptions = list(set(exceptions))
