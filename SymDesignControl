@@ -443,7 +443,7 @@ if __name__ == '__main__':
                     final_sequences[design] = get_pdb_sequences(file[0])
                     # coming in as (chain: seq}
                     os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
-                                                     (str(all_design_directories[des_dir_idx]), design)))
+                                                     (str(all_design_directories[des_idx]), design)))
 
         # Format sequences for expression
         # sequences = add_expression_tags(final_sequences)
