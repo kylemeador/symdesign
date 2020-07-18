@@ -214,6 +214,7 @@ if __name__ == '__main__':
             csv_lines = [line for line in reader(csv_file)]
         all_poses, pose_design_numbers = zip(*csv_lines)
         pose_design_numbers = list(map(list, pose_design_numbers))
+        print(pose_design_numbers)
         # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
         location = args.pose_design_file
     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
@@ -438,6 +439,7 @@ if __name__ == '__main__':
 
         final_sequences = {}
         for des_idx, pose in enumerate(results):
+            print(pose)
             for design in pose:
                 file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
                 if file != list():
