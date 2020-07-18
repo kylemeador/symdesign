@@ -440,17 +440,15 @@ if __name__ == '__main__':
         # for des_idx, pose in enumerate(results):
         for pose in results:
             # (DesignDirectory.path, design index)
-            print(pose)
-            print(*pose)
             file = glob('%s*%s*' % pose)
             # file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
             # for design in pose:  # make an iteration over the returned lists
             if file == list():  # If no file found, skip
+                print('skipped')
                 continue
             # coming in as (chain: seq}
             final_sequences[design] = get_pdb_sequences(file[0])
-            os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
-                                             (str(all_design_directories[des_idx]), design)))
+            os.symlink(file[0], os.path.join(outdir, '%s_design_%s' % pose))
 
         # Format sequences for expression
         # sequences = add_expression_tags(final_sequences)
