@@ -408,6 +408,11 @@ if __name__ == '__main__':
         outdir = os.path.join(os.path.dirname(location), 'Selected_PDBs')  # % args.selection_string)  # %s_
         if not os.path.exists(outdir):
             os.makedirs(outdir)
+
+        failures = [index for index, exception in enumerate(exceptions) if exception]
+        for index in reversed(failures):
+            del results[index]
+
         with open(outfile, 'w') as out_f:
             for des_dir_idx, result in enumerate(results):
                 out_f.write('%s\n' % '\n'.join(os.path.join(all_design_directories[des_dir_idx].design_pdbs, seq)
