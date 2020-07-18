@@ -413,7 +413,6 @@ if __name__ == '__main__':
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
                 zipped_args = zip(all_design_directories, repeat(args.number))
                 results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
-                results = list(results)
             else:
                 # results, exceptions = zip(*list(select_sequences_s(des_directory, number=args.number)
                 #                                 for des_directory in all_design_directories))
@@ -422,6 +421,7 @@ if __name__ == '__main__':
                     results.append(result)
                     exceptions.append(error)
 
+        results = list(results)
         failures = [index for index, exception in enumerate(exceptions) if exception]
         for index in reversed(failures):
             del results[index]
@@ -435,7 +435,7 @@ if __name__ == '__main__':
         outdir = os.path.join(os.path.dirname(location), '%sSelected_PDBs' % args.selection_string)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-        print(results[0])
+        # print(results[0])
         final_sequences = {}
         # for des_idx, pose in enumerate(results):
         for pose in results:
@@ -450,7 +450,7 @@ if __name__ == '__main__':
             # coming in as (chain: seq}
             final_sequences[design] = get_pdb_sequences(file[0])
             os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
-                                                 (str(all_design_directories[des_idx]), design)))
+                                             (str(all_design_directories[des_idx]), design)))
 
         # Format sequences for expression
         # sequences = add_expression_tags(final_sequences)
