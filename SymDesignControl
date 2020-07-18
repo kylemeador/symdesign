@@ -210,8 +210,8 @@ if __name__ == '__main__':
     all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
     if args.pose_design_file:
         # Grab all poses (directories) to be processed from either directory name or file
-        all_poses, pose_design_numbers = zip(*reader(args.design_number_file))
-        location = args.design_number_file
+        all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
+        location = args.pose_design_file
     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
                                                 % (PUtils.nano, location))
 
@@ -399,9 +399,9 @@ if __name__ == '__main__':
     elif args.sub_module == 'sequence':  # -n --number, -f --pose_design_file, -s --selection_string
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
-            # all_poses, pose_design_numbers = zip(*reader(args.design_number_file))
+            # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
             results = pose_design_numbers
-            location = args.design_number_file
+            location = args.pose_design_file
         else:
             if args.multi_processing:
                 # Calculate the number of threads to use depending on computer resources
