@@ -516,6 +516,10 @@ def select_sequences(des_dir, number=1):
     # If more sequences than specified, find the one with the lowest energy
     if len(final_designs) > number:
         energy_s = pd.Series()
+        try:
+            final_designs.pop('refine')
+        except KeyError:
+            pass
         for design in final_designs:
             energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']
         energy_s.sort_values(inplace=True)
