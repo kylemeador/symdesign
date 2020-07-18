@@ -410,7 +410,7 @@ if __name__ == '__main__':
             os.makedirs(outdir)
 
         results = list(results)
-        exception = list(exception)
+        exception = list(exceptions)
         failures = [index for index, exception in enumerate(exceptions) if exception]
         for index in reversed(failures):
             del results[index]
@@ -421,7 +421,7 @@ if __name__ == '__main__':
                                                for seq in result))
                 for seq in result:
                     file = glob('%s*%s*' % (all_design_directories[des_dir_idx].design_pdbs, seq))
-                    print(file)  # g
+                    print(file)
                     os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
                                                      (str(all_design_directories[des_dir_idx]), seq)))
 
