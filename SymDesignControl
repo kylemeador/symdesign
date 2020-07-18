@@ -410,7 +410,7 @@ if __name__ == '__main__':
             os.makedirs(outdir)
 
         results = list(results)
-        exception = list(exception)
+        exception = list(exceptions)
         failures = [index for index, exception in enumerate(exceptions) if exception]
         for index in reversed(failures):
             del results[index]
