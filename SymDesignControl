@@ -441,6 +441,7 @@ if __name__ == '__main__':
         for pose in results:
             # (DesignDirectory.path, design index)
             pose_dir, design = pose
+            print('%s*%s*' % (pose_dir.path, design))
             file = glob('%s*%s*' % (pose_dir.path, design))
             # file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
             # for design in pose:  # make an iteration over the returned lists
