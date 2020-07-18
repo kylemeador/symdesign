@@ -817,7 +817,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     else:
         logger = SDUtils.start_log(name=__name__, handler=2, level=2,
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
-    logger.info('Processing directory \'%s\'' % des_dir.path)
 
     # TODO add fraction_buried_atoms
     # Set up pose, ensure proper input
@@ -1133,7 +1132,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     residue_energy_df = clean_residue_df.loc[:, idx[:, clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
     # num_components = 3  # TODO choose number of componenents or percent variance explained
     # pca = PCA(num_components)
-    res_pca = PCA(0.8)  # P432 designs used 0.8 percent of the variance
+    res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
     residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
     residue_energy_pc = res_pca.fit_transform(residue_energy_np)
     residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,

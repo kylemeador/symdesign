@@ -10,7 +10,7 @@ stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus'} 
 stage_f = {'refine': {'path': '*_refine.pdb', 'len': 1}, 'design': {'path': '*_design_*.pdb', 'len': nstruct},
            'metrics': {'path': '', 'len': None}, 'analysis': {'path': '', 'len': None},
            'consensus': {'path': '*_consensus.pdb', 'len': 1}}
-rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at setup
+rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at config
 sb_flag = '#SBATCH --'
 sbatch = '_sbatch.sh'
 temp = 'temp.hold'
@@ -32,24 +32,38 @@ directory_structure = './design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\
                       '\nIn design directory \'tx_c/\', output is located in \'%s\' and \'%s\'.' \
                       '\nTotal design_symmetry score are located in ./design_symmetry/building_blocks/%s' \
                       % (pdbs_outdir, scores_outdir, scores_outdir)
+variance = 0.8
 
 # Project paths
-command = 'SymDesign.py -h'
+# command = 'SymDesign.py -h'
+command = 'SymDesignControl -h'
 source = '/'.join(os.path.dirname(os.path.realpath(__file__)).split('/')[:-2])
-dependencies = os.path.join(source, 'dependencies')
+# source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-2])  # TODO
+dependencies = os.path.join(source, 'dependencies')  # TODO remove
+pdb_uniprot_map = os.path.join(source, 'uniprot_map')  # TODO
+uniprot_pdb_map = os.path.join(source, 'uniprot_map')  # TODO
+database = os.path.join(source, 'database')
 binaries = os.path.join(dependencies, 'bin')
+# binaries = os.path.join(source, 'bin')  # TODO
 process_commands = os.path.join(binaries, 'ProcessDesignCommands.sh `pwd`')
 disbatch = os.path.join(binaries, 'diSbatch.sh')
 fragment_database = os.path.join(dependencies, 'fragment_database')
+# fragment_db = os.path.join(database, 'fragment_db')  # TODO
 python_scripts = os.path.join(dependencies, 'python')
+# python_scripts = os.path.join(source, 'python')  # TODO
 rosetta_scripts = os.path.join(dependencies, 'rosetta')
+# rosetta_scripts = os.path.join(source, 'rosetta')  # TODO
 symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 
 # External Program Dependencies
+affinity_tags = os.path.join(database, 'modified-affinity-tags.csv')
 alignmentdb = os.path.join(dependencies, 'ncbi_databases/uniref90')
-uniclustdb = os.path.join(dependencies, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO make dynamic at setup
+# alignment_db = os.path.join(dependencies, 'databases/uniref90')  # TODO
+# TODO set up hh-suite in source or elsewhere on system and dynamically modify config file
+uniclustdb = os.path.join(dependencies, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
+# uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
 rosetta = str(os.environ.get('ROSETTA'))
 make_symmdef = os.path.join(rosetta, 'source/src/apps/public/symmetry/make_symmdef_file.pl')
 
@@ -60,26 +74,19 @@ cmd_dist = os.path.join(python_scripts, 'CommandDistributer.py')
 # Fragment Database
 biological_fragmentDB = os.path.join(fragment_database, 'biological_interfaces')
 bio_fragmentDB = os.path.join(fragment_database, 'bio')
+# bio_frag_db = os.path.join(fragment_db, 'bio')  # TODO
 xtal_fragmentDB = os.path.join(fragment_database, 'xtal')
+# xtal_frag_db = os.path.join(fragment_db, 'xtal')  # TODO
 full_fragmentDB = os.path.join(fragment_database, 'bio+xtal')
+# full_frag_db = os.path.join(fragment_db, 'bio+xtal')  # TODO
 frag_directory = {'biological_interfaces': biological_fragmentDB, 'bio': bio_fragmentDB, 'xtal': xtal_fragmentDB,
                   'bio+xtal': full_fragmentDB}
+# frag_directory = {'biological_interfaces': biological_frag_db, 'bio': bio_frag_db, 'xtal': xtal_frag_db,
+#                   'bio+xtal': full_frag_db}  # TODO
 
 # Rosetta Scripts and Files
 sym_weights = (os.path.join(rosetta_scripts, 'ref2015_sym.wts_patch'))
-protocol = {1: 'make_point_group',  #: os.path.join(rosetta_scripts, 'point_')}
-            2: 'make_layer',  # : os.path.join(rosetta_scripts, 'layer_'),
-            3: 'make_lattice'}  # xtal' : os.path.join(rosetta_scripts, 'xtal_'),
-
-# xtal_protocol = {1: os.path.join(rosetta_scripts, 'xtal_refine.xml'),
-#                  2: os.path.join(rosetta_scripts, 'xtal_design.xml'),
-#                  3: os.path.join(rosetta_scripts, 'xtal_design2.xml')}
-# layer_protocol = {1: os.path.join(rosetta_scripts, 'layer_refine.xml'),
-#                   2: os.path.join(rosetta_scripts, 'layer_design.xml'),
-#                   3: os.path.join(rosetta_scripts, 'layer_design2.xml')}
-# point_protocol = {1: os.path.join(rosetta_scripts, 'point_refine.xml'),
-#                   2: os.path.join(rosetta_scripts, 'point_design.xml'),
-#                   3: os.path.join(rosetta_scripts, 'point_design2.xml')}
+protocol = {1: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 
 # Cluster Dependencies and Multiprocessing
 # stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus'}

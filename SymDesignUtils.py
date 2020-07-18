@@ -1700,24 +1700,17 @@ class DesignDirectory:
             if symmetry:
                 if len(self.path.split('/')) == 1:
                     self.directory_string_to_path()
-                    self.make_directory_structure(symmetry=symmetry)
-                else:
-                    self.make_directory_structure(symmetry=symmetry) # g
-            else:
-                self.make_directory_structure()
+            self.make_directory_structure(symmetry=symmetry)
 
     def __str__(self):
         if self.symmetry:
-            return self.path.replace(self.symmetry + '/', '').replace('/', '-')
+            return self.path.replace(self.symmetry + '/', '').replace('/', '-')  # TODO integration with DB what to do?
         else:
             # When is this relevant?
             return self.path.replace('/', '-')[1:]
 
     def directory_string_to_path(self):  # string, symmetry
         self.path = self.path.replace('-', '/')
-        # design_path = string.replace('-', '/')
-        # self.path = os.path.join(symmetry, self.path)
-        # self.make_directory_structure()
 
     def make_directory_structure(self, symmetry=None):
         # Prepare Output Directory/Files. path always has format:
@@ -1843,49 +1836,70 @@ def set_up_pseudo_design_dir(wildtype, directory, score):
 #####################
 
 
-def write_fasta_file(sequence, name, outpath=os.getcwd(), multi_sequence=False):
-    outfile_name = os.path.join(outpath, name + '.fasta')
-    if type(sequence) is list:
-        if multi_sequence:
-            with open(outfile_name, 'w') as outfile:
-                for seq in sequence:
-                    header = '>' + seq[0] + '\n'
-                    line = seq[2] + '\n'
-                    outfile.write(header + line)
+def write_fasta_file(sequence, name, outpath=os.getcwd()):  # , multi_sequence=False):
+    """Write a fasta file from sequence(s)
 
-        with open(outfile_name, 'w') as outfile:
-            if type(sequence[0]) is list:
-                header = '>' + name + '\n'
-                outfile.write(header)
-                for aa in sequence:
-                    outfile.write(aa + ' ')
-            elif type(sequence[0]) is tuple:
-                for seq in sequence:
-                    header = seq[0]
-                    line = seq[1]
-                    outfile.write(header)
-                    outfile.write(line)
+    Args:
+        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(seq second),
+            list of lists, etc. Smart solver using object type
+        name (str): The name of the file to output
+    Keyword Args:
+        path=os.getcwd() (str): The location on disk to output file
+    Returns:
+        (str): The name of the output file
+    """
+    file_name = os.path.join(outpath, name + '.fasta')
+    with open(file_name, 'w') as outfile:
+        if type(sequence) is list:
+            # if multi_sequence:
+            #     with open(outfile_name, 'w') as outfile:
+            #         for seq in sequence:
+            #             header = '>' + seq[0] + '\n'
+            #             line = seq[2] + '\n'
+            #             outfile.write(header + line)
+            if type(sequence[0]) is list:  # Where inside list is of alphabet (AA or DNA)
+                for idx, seq in enumerate(sequence):
+                    outfile.write('>%s_%d\n' % (name, idx))  # header
+                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
+                        outfile.write(' '.join(aa for aa in seq))
+                    else:
+                        outfile.write(''.join(aa for aa in seq))
+            elif isinstance(sequence[0], str):
+                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
+            elif type(sequence[0]) is tuple:  # where
+                # for seq in sequence:
+                #     header = seq[0]
+                #     line = seq[1]
+                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
             else:
                 raise DesignError('Cannot parse data to make fasta')
-    elif isinstance(sequence, str):
-        header = '>' + name + '\n'
-        with open(outfile_name, 'w') as outfile:
-            outfile.write(header)
-            outfile.write(sequence + '\n')
-    else:
-        raise DesignError('Cannot parse data to make fasta')
+        elif isinstance(sequence, dict):
+            f.write('\n'.join('>%s\n%s' % (seq_name, sequences[seq_name]) for seq_name in sequences))
+        elif isinstance(sequence, str):
+            outfile.write('>%s\n%s\n' % (name, sequence))
+        else:
+            raise DesignError('Cannot parse data to make fasta')
 
-    return outfile_name
+    return file_name
 
 
-def write_multi_line_fasta_file(sequence_dict, name, path=os.getcwd()):
-    file = os.path.join(path, name)
-    with open(file, 'r') as f:
-        for seq in sequence_dict:
-            f.write('>' + seq + '\n')
-            f.write(sequence_dict[seq] + '\n')
+def write_multi_line_fasta_file(sequences, name, path=os.getcwd()):  # REDUNDANT DEPRECIATED
+    """Write a multi-line fasta file from a dictionary where the keys are >headers and values are sequences
 
-    return file
+    Args:
+        sequences (dict): {'my_protein': 'MSGFGHKLGNLIGV...', ...}
+        name (str): The name of the file to output
+    Keyword Args:
+        path=os.getcwd() (str): The location on disk to output file
+    Returns:
+        (str): The name of the output file
+    """
+    file_name = os.path.join(path, name)
+    with open(file_name, 'r') as f:
+        # f.write('>%s\n' % seq)
+        f.write('\n'.join('>%s\n%s' % (seq_name, sequences[seq_name]) for seq_name in sequences))
+
+    return file_name
 
 
 def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
