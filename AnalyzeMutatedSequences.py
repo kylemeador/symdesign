@@ -227,7 +227,7 @@ def get_wildtype_file(des_directory):
 
 
 def get_pdb_sequences(pdb_file, chain=None):
-    """Return all sequences from a PDB file
+    """Return all sequences or those specified by a chain from a PDB file
 
     Args:
         pdb_file (str): Location on disk of a reference .pdb file
@@ -432,80 +432,89 @@ def select_sequences_mp(des_dir, number=1):
         return None, (des_dir.path, e)
 
 
-def select_sequences(des_dir, number=1):
+def select_sequences(des_dir, number=1, debug=False):
+    # Log output
+    if debug:
+        global logger
+    else:
+        logger = SDUtils.start_log(name=__name__, handler=2, level=2,
+                                   location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
+
     # Load relevant data from the design directory
     trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
     assert len(trajectory_file) == 1, 'Multiples files found for %s' % \
                                       os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
-    trajectory_df = pd.read_csv(trajectory_file[0], index_col=0)
-    designs = trajectory_df.index.to_list()
+    trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0,1,2])
 
     sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
     assert len(sequences_pickle) == 1, 'Multiples files found for %s' % \
                                        os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+
     # {chain: {name: sequence, ...}, ...}
     all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
-    # residue_dict.pop(PUtils.stage[1])  # Remove refine from sequences?
+    # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so its unnecessary
     chains = list(all_design_sequences.keys())
-    designs = list(all_design_sequences[chains[0]].keys())
-    logger.debug(chains)
+    designs = trajectory_df.index.to_list()
+    # designs = list(all_design_sequences[chains[0]].keys())
     concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains]) for design in designs]
     # concatenated_sequences = {design: ''.join([all_design_sequences[chain][design] for chain in chains])
     #                           for design in designs}
+    logger.debug(chains)
     logger.debug(concatenated_sequences)
 
     # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, SDUtils.sequence_difference)
-    # using concatenated seauences makes the values incredibly similar and inflated. Trying to min/max normalize to see
-    # variation
-    pairwise_sequence_diff_l = [SDUtils.sequence_difference(*seq_pair) for seq_pair in combinations(concatenated_sequences, 2)]  # for design in concatenated_sequences], 2))]
+    # Using concatenated sequences makes the values incredibly similar and inflated as most residues are the same
+    # doing min/max normalization to see variation
+    pairwise_sequence_diff_l = [SDUtils.sequence_difference(*seq_pair)
+                                for seq_pair in combinations(concatenated_sequences, 2)]  # for design in concatenated_sequences], 2))]
+    pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
     _min = min(pairwise_sequence_diff_l)
     # _max = max(pairwise_sequence_diff_l)
-    pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
     pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
-    # max = np.array(pairwise_sequence_diff_l).max()
     # logger.info(pairwise_sequence_diff_l)
+
     # PCA analysis of distances
     pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
     for k, dist in enumerate(pairwise_sequence_diff_np):
         i, j = SDUtils.condensed_to_square(k, len(designs))
         pairwise_sequence_diff_mat[i, j] = dist
     pairwise_sequence_diff_mat = SDUtils.sym(pairwise_sequence_diff_mat)
-    # logger.info(pairwise_sequence_diff_mat)
+
     pairwise_sequence_diff_mat = StandardScaler().fit_transform(pairwise_sequence_diff_mat)
-    seq_pca = PCA(0.8)
+    seq_pca = PCA(PUtils.variance)
     seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
     seq_pca_distance_vector = pdist(seq_pc_np)
+    epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+    logger.info('Finding maximum neighbors within distance of %f' % epsilon)
 
     # logger.info(pairwise_sequence_diff_np)
     # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
-    epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
     # epsilon = math.sqrt(seq_pc_np.mean()) * 0.5
     # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
-    logger.info('Finding maximum neighbors within distance of %f' % epsilon)
-    # Find the nearest neighbors for pairwise matrix # could I need the X*X^T (PCA) matrix?
+
+    # Find the nearest neighbors for the pairwise distance matrix using the X*X^T (PCA) matrix, linear transform
     seq_neighbors = BallTree(seq_pc_np)
-    top_seqs = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # , sort_results=True)
+    seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # , sort_results=True)
     top_count, top_idx = 0, None
-    for idx, count in enumerate(top_seqs):
+    for count in seq_neighbor_counts:  # idx, enumerate()
         if count > top_count:
             top_count = count
-            top_idx = idx
 
-    sorted_seqs = sorted(top_seqs, reverse=True)
-    min_neighbor_count = sorted(set(sorted_seqs[:number]), reverse=True)
-    final_designs = {designs[idx]: neighbors for neighbors in min_neighbor_count for idx, count in enumerate(top_seqs)
-                     if count == neighbors}  # final_idxs
+    sorted_seqs = sorted(seq_neighbor_counts, reverse=True)
+    top_neighbor_counts = sorted(set(sorted_seqs[:number]), reverse=True)
 
-    # final_designs = [designs[idx] for idx in final_idxs]
-    # final_seqs = top_seqs[:number]
+    # Find only the designs which match the top x (number) of neighbor counts
+    final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
+                     for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
     logger.info('The final sequence(s) and file(s):\n%s'
-                % '\n'.join('%d %s' % (min_neighbor_count.index(neighbors) + SDUtils.index_offset,
+                % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
                                        os.path.join(des_dir.design_pdbs, des))
                             for des, neighbors in final_designs.items()))
-    # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.design_pdbs, seq))
-                                                            # for i, seq in enumerate(final_designs, 1)))
 
-    # Compute the highest density cluster using the DBSCAN algorithm
+    # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.design_pdbs, seq))
+    #                                                         for i, seq in enumerate(final_designs, 1)))
+
+    # Compute the highest density cluster using DBSCAN algorithm
     # seq_cluster = DBSCAN(eps=epsilon)
     # seq_cluster.fit(pairwise_sequence_diff_np)
     #
@@ -513,13 +522,13 @@ def select_sequences(des_dir, number=1):
     #                          columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
     # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
 
-    # If more sequences than specified, find the one with the lowest energy
+    # If final designs contains more sequences than specified, find the one with the lowest energy
     if len(final_designs) > number:
         energy_s = pd.Series()
-        try:
-            final_designs.pop('refine')
-        except KeyError:
-            pass
+        # try:
+        #     final_designs.pop('refine')
+        # except KeyError:
+        #     pass
         for design in final_designs:
             energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']
         energy_s.sort_values(inplace=True)

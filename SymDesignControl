@@ -6,6 +6,7 @@ SLURM/PBS computational clusters, analysis of designed poses, and renaming of co
 import os
 import argparse
 import shutil
+from csv import reader
 from json import loads, dumps
 from glob import glob
 from itertools import repeat
@@ -15,7 +16,7 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp
-from AnalyzeMutatedSequences import select_sequences_s, select_sequences_mp
+from AnalyzeMutatedSequences import get_pdb_sequences, select_sequences_s, select_sequences_mp
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -111,9 +112,9 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
-    parser.add_argument('-s', '--design_string', type=str, help='If pose names are specified by strings instead of '
-                                                                'directories, which design directory string to prefix'
-                                                                '\nDefault=None', default=None)
+    parser.add_argument('-s', '--design_string', type=str, help='If pose names are specified by design string instead '
+                                                                'of directories, which directory path to '
+                                                                'prefix with?\nDefault=None', default=None)
 
     subparsers = parser.add_subparsers(title='SubModules', dest='sub_module',
                                        description='These are the different modes that designs are processed',
@@ -128,7 +129,6 @@ if __name__ == '__main__':
                                   '\nDefault=%s' %
                                   (','.join(list(PUtils.frag_directory.keys())), list(PUtils.frag_directory.keys())[0]),
                              default=list(PUtils.frag_directory.keys())[0])
-    # changed to string from pathname so that user can easily define
     parser_pose.add_argument('symmetry_group', type=int,
                              help='What type of symmetry group does your design belong too? One of 0-Point Group, '
                                   '2-Plane Group, or 3-Space Group')  # TODO remove from input, make automatic
@@ -185,9 +185,12 @@ if __name__ == '__main__':
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
 
     parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
-    parser_sequence.add_argument('-s', '--selection_string', type=str, help='Identifier for sequence selection')
+    parser_sequence.add_argument('-f', '--pose_design_file', type=str, help='Name of pose, design csv file to serve as '
+                                                                            'sequence selector')
+    parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
     parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
                                  default=1)
+
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
 
     args = parser.parse_args()
@@ -205,6 +208,10 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
+    if args.pose_design_file:
+        # Grab all poses (directories) to be processed from either directory name or file
+        all_poses, pose_design_numbers = zip(*reader(args.design_number_file))
+        location = args.design_number_file
     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
                                                 % (PUtils.nano, location))
 
@@ -246,7 +253,6 @@ if __name__ == '__main__':
             # results, exceptions = SDUtils.mp_try_starmap(initialization_mp, zipped_args, mp_threads)
             results, exceptions = zip(*SDUtils.mp_starmap(initialization_mp, zipped_args, mp_threads))
             results = list(results)
-            exceptions = list(exceptions)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
             for des_directory in all_design_directories:
@@ -323,7 +329,6 @@ if __name__ == '__main__':
             # results, exceptions = SDUtils.mp_try_starmap(analyze_output_mp, zipped_args, mp_threads)
             results, exceptions = zip(*SDUtils.mp_starmap(analyze_output_mp, zipped_args, mp_threads))
             results = list(results)
-            exceptions = list(exceptions)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
             for des_directory in all_design_directories:
@@ -391,41 +396,59 @@ if __name__ == '__main__':
                     logger.info('For \'%s\' stage, default settings should generate %d files'
                                 % (stage, PUtils.stage_f[stage]['len']))
 
-    elif args.sub_module == 'sequence':
-        if args.multi_processing:
-            # Calculate the number of threads to use depending on computer resources
-            mp_threads = SDUtils.calculate_mp_threads(maximum=True)
-            logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            zipped_args = zip(all_design_directories, repeat(args.number))
-            results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))  # , exceptions
+    elif args.sub_module == 'sequence':  # -n --number, -f --pose_design_file, -s --selection_string
+        if args.pose_design_file:
+            # Grab all poses (directories) to be processed from either directory name or file
+            # all_poses, pose_design_numbers = zip(*reader(args.design_number_file))
+            results = pose_design_numbers
+            location = args.design_number_file
         else:
-            for des_directory in all_design_directories:
-                result, error = select_sequences_s(des_directory, number=args.number)
-                results.append(result)
-                exceptions.append(error)
-        outfile = os.path.join(os.path.dirname(location), 'Selected_Sequences')  # % args.selection_string)  # %s_
-        # outfile = os.path.join(os.path.dirname(location), 'Selected_Sequences' % args.selection_string)  # %s_
-        outdir = os.path.join(os.path.dirname(location), 'Selected_PDBs')  # % args.selection_string)  # %s_
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
+            if args.multi_processing:
+                # Calculate the number of threads to use depending on computer resources
+                mp_threads = SDUtils.calculate_mp_threads(maximum=True)
+                logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
+                zipped_args = zip(all_design_directories, repeat(args.number))
+                results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
+                results = list(results)
+            else:
+                # results, exceptions = zip(*list(select_sequences_s(des_directory, number=args.number)
+                #                                 for des_directory in all_design_directories))
+                for des_directory in all_design_directories:
+                    result, error = select_sequences_s(des_directory, number=args.number)
+                    results.append(result)
+                    exceptions.append(error)
 
-        results = list(results)
-        exception = list(exceptions)
         failures = [index for index, exception in enumerate(exceptions) if exception]
         for index in reversed(failures):
             del results[index]
 
-        with open(outfile, 'w') as out_f:
-            for des_dir_idx, result in enumerate(results):
-                out_f.write('%s\n' % '\n'.join(os.path.join(all_design_directories[des_dir_idx].design_pdbs, seq)
-                                               for seq in result))
-                for seq in result:
-                    file = glob('%s*%s*' % (all_design_directories[des_dir_idx].design_pdbs, seq))
-                    print(file)
-                    if file != list():
-                        os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
-                                                     (str(all_design_directories[des_dir_idx]), seq)))
+        if not args.selection_string:
+            args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
+        else:
+            args.selection_string += '_'
 
+        # Create symbolic links to the output PDB's
+        outdir = os.path.join(os.path.dirname(location), '%sSelected_PDBs' % args.selection_string)
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+
+        final_sequences = {}
+        for des_idx, pose in enumerate(results):
+            for design in pose:
+                file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
+                if file != list():
+                    final_sequences[design] = get_pdb_sequences(file)
+                    # coming in as (chain: seq}
+                    os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
+                                                     (str(all_design_directories[des_dir_idx]), design)))
+
+        # Format sequences for expression
+        sequences = add_expression_tags(final_sequences)
+
+        # Write output sequences to fasta file
+        seq_file = write_fasta_file(sequences, '%s_Selected_Sequences' % args.selection_string, path=os.path.dirname(location))
+
+    # Report any program exceptions
     any_exceptions = list(set(exceptions))
     if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
         logger.warning('\nThe following exceptions were thrown. Design for these directories is inaccurate!!!\n')
