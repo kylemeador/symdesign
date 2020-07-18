@@ -440,16 +440,16 @@ if __name__ == '__main__':
             for design in pose:
                 file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
                 if file != list():
-                    final_sequences[design] = get_pdb_sequences(file)
+                    final_sequences[design] = get_pdb_sequences(file[0])
                     # coming in as (chain: seq}
                     os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
                                                      (str(all_design_directories[des_dir_idx]), design)))
 
         # Format sequences for expression
-        sequences = add_expression_tags(final_sequences)
+        # sequences = add_expression_tags(final_sequences)
 
         # Write output sequences to fasta file
-        seq_file = write_fasta_file(sequences, '%s_Selected_Sequences' % args.selection_string, path=os.path.dirname(location))
+        # seq_file = write_fasta_file(sequences, '%s_Selected_Sequences' % args.selection_string, path=os.path.dirname(location))
 
     # Report any program exceptions
     any_exceptions = list(set(exceptions))
