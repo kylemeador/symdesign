@@ -413,8 +413,9 @@ if __name__ == '__main__':
                 out_f.write('%s\n' % '\n'.join(os.path.join(all_design_directories[des_dir_idx].design_pdbs, seq)
                                                for seq in result))
                 for seq in result:
-                    file = glob('%s*%s' % (all_design_directories[des_dir_idx].design_pdbs, seq))[0]
-                    os.symlink(file, os.path.join(outdir, '%s_design_%s' % (str(all_design_directories[des_dir_idx]), seq)))
+                    file = glob('%s*%s' % (all_design_directories[des_dir_idx].design_pdbs, seq))
+                    os.symlink(file[0], os.path.join(outdir, '%s_design_%s' %
+                                                     (str(all_design_directories[des_dir_idx]), seq)))
 
     any_exceptions = list(set(exceptions))
     if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
