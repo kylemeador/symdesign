@@ -435,12 +435,12 @@ if __name__ == '__main__':
         final_sequences = {}
         for pose in results:
             pose_des_dir, design = pose
-            file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design + '.pdb'))
+            file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design))
             if file == list():  # If no file found, skip
                 continue
             # coming in as (chain: seq}
             final_sequences[design] = get_pdb_sequences(file[0])
-            os.symlink(file[0], os.path.join(outdir, '%s_design_%s' % pose))
+            os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % pose))
 
         # Format sequences for expression
         # sequences = add_expression_tags(final_sequences)
