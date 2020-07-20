@@ -854,7 +854,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Gather mutations for residue specific processing and design sequences
     wild_type_file = Ams.get_wildtype_file(des_dir)
     wt_sequence = Ams.get_pdb_sequences(wild_type_file)
-    print(wt_sequence)
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     # logger.debug('Design Files: %s' % ', '.join(all_design_files))
     sequence_mutations = Ams.generate_mutations(all_design_files, wild_type_file)
@@ -1163,7 +1162,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Compute the euclidean distance
     # pairwise_pca_distance_np = pdist(seq_pc)
     # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
-    # print(seq_pc)
 
     # Make PC DataFrame
     # First take all the principal components identified from above and merge with labels
@@ -1402,7 +1400,6 @@ if __name__ == '__main__':
             logger.warning(exception)
 
     if len(all_poses) >= 1:
-        # print(type(pose_results[0]))
         design_df = pd.DataFrame(pose_results)
         # Save Design dataframe
         out_path = os.path.join('/gscratch/kmeador/crystal_design/NanohedraEntry65MinMatched6_2nd', PUtils.analysis_file)  # args.directory
