@@ -432,18 +432,11 @@ if __name__ == '__main__':
         outdir = os.path.join(os.path.dirname(location), '%sSelected_PDBs' % args.selection_string)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-        # print(results[0])
         final_sequences = {}
-        # for des_idx, pose in enumerate(results):
         for pose in results:
-            # (DesignDirectory.path, design index)
-            pose_dir, design = pose
-            print('%s*%s*' % (pose_dir.design_pdbs, design))
-            file = glob('%s*%s*' % (pose_dir.design_pdbs, design))
-            # file = glob('%s*%s*' % (all_design_directories[des_idx].design_pdbs, design))
-            # for design in pose:  # make an iteration over the returned lists
+            pose_des_dir, design = pose
+            file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design + '.pdb'))
             if file == list():  # If no file found, skip
-                print('skipped')
                 continue
             # coming in as (chain: seq}
             final_sequences[design] = get_pdb_sequences(file[0])
