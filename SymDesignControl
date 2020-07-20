@@ -466,7 +466,6 @@ if __name__ == '__main__':
     print('\n')
 
     # except_file = os.path.join(args.location, 'EXCEPTIONS.log')
-    except_file = SDUtils.write_list_to_file([pose for pose, _except in exceptions], name='EXCEPTIONS.log',
-                                     location=args.location)
+    except_file = SDUtils.write_list_to_file([pose for pose, _except in exceptions], name='EXCEPTIONS.log', location=location)
     logger.info('All poses with exceptions written to file: %s' % except_file)
     print('\n')

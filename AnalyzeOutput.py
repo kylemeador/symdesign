@@ -863,6 +863,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Remove wt sequence and find all designs which have corresponding pdb files
     sequence_mutations.pop('ref')
+    print(sequence_mutations)
     all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)  # TODO just pull from design pdbs...
     logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
                                                         for name in all_design_sequences[chain]))

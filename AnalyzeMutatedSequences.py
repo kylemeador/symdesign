@@ -611,6 +611,7 @@ def generate_sequences(wild_type_seq_dict, all_design_mutations):
     """
     mutated_sequences = {}
     for chain in wild_type_seq_dict:
+        print(chain)
         chain_mutation_dict = {}
         for pdb in all_design_mutations:
             if chain in all_design_mutations[pdb]:
