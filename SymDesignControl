@@ -463,9 +463,10 @@ if __name__ == '__main__':
         for exception in exceptions:
             if exception:
                 logger.warning('%s: %s' % exception)
-    print('\n')
+        print('\n')
+        # except_file = os.path.join(args.location, 'EXCEPTIONS.log')
+        except_file = SDUtils.write_list_to_file([pose for pose, _except in exceptions], name='EXCEPTIONS.log',
+                                                 location=args.directory)
+        logger.info('All poses with exceptions written to file: %s' % except_file)
 
-    # except_file = os.path.join(args.location, 'EXCEPTIONS.log')
-    except_file = SDUtils.write_list_to_file([pose for pose, _except in exceptions], name='EXCEPTIONS.log', location=location)
-    logger.info('All poses with exceptions written to file: %s' % except_file)
     print('\n')
