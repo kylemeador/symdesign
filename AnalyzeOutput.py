@@ -854,6 +854,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Gather mutations for residue specific processing and design sequences
     wild_type_file = Ams.get_wildtype_file(des_dir)
     wt_sequence = Ams.get_pdb_sequences(wild_type_file)
+    print(wt_sequence)
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     # logger.debug('Design Files: %s' % ', '.join(all_design_files))
     sequence_mutations = Ams.generate_mutations(all_design_files, wild_type_file)
@@ -863,7 +864,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Remove wt sequence and find all designs which have corresponding pdb files
     sequence_mutations.pop('ref')
-    print(sequence_mutations)
     all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)  # TODO just pull from design pdbs...
     logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
                                                         for name in all_design_sequences[chain]))
