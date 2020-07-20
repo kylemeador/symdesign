@@ -5,6 +5,7 @@ import math
 from glob import glob
 from itertools import combinations
 import PDB
+from Bio.SeqUtils import IUPACData
 from Bio.Alphabet import generic_protein
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
