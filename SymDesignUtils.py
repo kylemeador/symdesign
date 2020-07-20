@@ -2002,11 +2002,11 @@ def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', muta
     Keyword Args:
         aa_code=1 (int): Whether to return sequence with one-letter or three-letter code [1,3]
         seq_source='atom' (str): Whether to return the ATOM or SEQRES record ['atom','seqres','compare']
-        mutations=False (bool): Whether to return mutations in sequences compared to a reference.
+        mutation=False (bool): Whether to return mutations in sequences compared to a reference.
             Specified by pdb_code='ref'
         outpath=None (str): Where to save the results to disk
     Returns:
-        mutation_dict (dict): IF mutations=True {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...},
+        mutation_dict (dict): IF mutation=True {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...},
             ...}
         or
         sequence_dict (dict): ELSE {pdb: {chain_id: 'Sequence', ...}, ...}
@@ -2075,31 +2075,12 @@ def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', muta
         logger.error('The following residues were not extracted:\n%s' % str(error_list))
 
     if mutation:
-        # if offset:
-        #     pass
-        # else:
-        # all_mutated_residues = {}
-        # for chain in reference_seq_dict:
-        #     all_mutated_residues[chain] = []
-        #     for pdb in mutation_dict:
-        #         for mutation in mutation_dict[pdb][chain]:
-        #             all_mutated_residues[chain].append(mutation)
-        #     # for chain in reference_seq_dict:
-        #     all_mutated_residues[chain] = set(all_mutated_residues[chain])
-        #     # print(all_mutated_residues[chain])
-        #     for mutation in all_mutated_residues[chain]:
-        #         mutation_dict['ref'][chain][mutation] = {'from': reference_seq_dict[chain][mutation - index_offset],
-        #                                                  'to': reference_seq_dict[chain][mutation - index_offset]}
         for chain in reference_seq_dict:
             for i, aa in enumerate(reference_seq_dict[chain]):
                 mutation_dict['ref'][chain][i + index_offset] = {'from': reference_seq_dict[chain][i],
                                                                  'to': reference_seq_dict[chain][i]}
         if pose_num:
             new_mutation_dict = {}
-            # prior_chain, prior_chain_len = None, 0
-            # for i, chain in enumerate(reference_seq_dict):
-            #     if i > 0:
-            #         prior_chain_len += len(reference_seq_dict[prior_chain])
             offset_dict = pdb_to_pose_num(reference_seq_dict)
             for chain in offset_dict:
                 for pdb in mutation_dict:
@@ -2107,9 +2088,7 @@ def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', muta
                         new_mutation_dict[pdb] = {}
                     new_mutation_dict[pdb][chain] = {}
                     for mutation in mutation_dict[pdb][chain]:
-                        # new_mutation_dict[pdb][chain][mutation + prior_chain_len] = mutation_dict[pdb][chain][mutation]
-                        new_mutation_dict[pdb][chain][mutation + offset_dict[chain]] = mutation_dict[pdb][chain][mutation]
-                # prior_chain = chain
+                        new_mutation_dict[pdb][chain][mutation+offset_dict[chain]] = mutation_dict[pdb][chain][mutation]
             mutation_dict = new_mutation_dict
 
         return mutation_dict

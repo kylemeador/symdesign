@@ -861,9 +861,14 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Remove wt sequence and find all designs which have corresponding pdb files
     sequence_mutations.pop('ref')
     all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)
+    logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
+                                                        for name in all_design_sequences[chain]))
     for chain in all_design_sequences:
         all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
 
+    logger.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
+                                                         for name in all_design_sequences[chain]))
+    logger.debug('all_design_scores: %s' % ', '.join(design for design in all_design_scores))
     # Ensure data is present for both scores and sequences, then initialize DataFrames
     good_designs = list(set([design for chain in all_design_sequences for design in all_design_sequences[chain]])
                         & set([design for design in all_design_scores]))
