@@ -854,7 +854,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     wt_sequence = Ams.get_pdb_sequences(wild_type_file)
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     # Make mutations to design sequences and gather mutations alone for residue specific processing
+    logger.debug('Design Files: %s' % ', '.join(all_design_files))
     sequence_mutations = Ams.generate_mutations(all_design_files, wild_type_file)
+    logger.debug('Design Files: %s' % ', '.join(sequence_mutations))
     offset_dict = SDUtils.pdb_to_pose_num(sequence_mutations['ref'])
     logger.debug('Chain offset: %s' % str(offset_dict))
 
@@ -866,8 +868,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     for chain in all_design_sequences:
         all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
 
-    logger.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
-                                                         for name in all_design_sequences[chain]))
+    # logger.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
+    #                                                      for name in all_design_sequences[chain]))
     logger.debug('all_design_scores: %s' % ', '.join(design for design in all_design_scores))
     # Ensure data is present for both scores and sequences, then initialize DataFrames
     good_designs = list(set([design for chain in all_design_sequences for design in all_design_sequences[chain]])
