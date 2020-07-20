@@ -185,8 +185,8 @@ if __name__ == '__main__':
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
 
     parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
-    parser_sequence.add_argument('-f', '--pose_design_file', type=str, help='Name of pose, design csv file to serve as '
-                                                                            'sequence selector')
+    parser_sequence.add_argument('-f', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
+                                                                            ' sequence selector')
     parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
     parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
                                  default=1)
@@ -208,14 +208,6 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
-    if args.pose_design_file:
-        # Grab all poses (directories) to be processed from either directory name or file
-        with open(args.pose_design_file) as csv_file:
-            csv_lines = [line for line in reader(csv_file)]
-        all_poses, pose_design_numbers = zip(*csv_lines)
-        # pose_design_numbers = list(map(list, pose_design_numbers))
-        # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
-        location = args.pose_design_file
     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
                                                 % (PUtils.nano, location))
 
@@ -403,7 +395,12 @@ if __name__ == '__main__':
     elif args.sub_module == 'sequence':  # -n --number, -f --pose_design_file, -s --selection_string
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
+            with open(args.pose_design_file) as csv_file:
+                csv_lines = [line for line in reader(csv_file)]
+            all_poses, pose_design_numbers = zip(*csv_lines)
+            # pose_design_numbers = list(map(list, pose_design_numbers))
             # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
+            all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
             results = zip(all_design_directories, pose_design_numbers)
             location = args.pose_design_file
         else:
