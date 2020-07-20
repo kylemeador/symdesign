@@ -135,6 +135,144 @@ def generate_mutations(all_design_files, wild_type_file, pose_num=False):
     return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
 
 
+#####################
+# Sequence handling
+#####################
+
+
+def write_fasta_file(sequence, name, outpath=os.getcwd()):
+    """Write a fasta file from sequence(s)
+
+    Args:
+        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(seq second),
+            list of lists, etc. Smart solver using object type
+        name (str): The name of the file to output
+    Keyword Args:
+        path=os.getcwd() (str): The location on disk to output file
+    Returns:
+        (str): The name of the output file
+    """
+    file_name = os.path.join(outpath, name + '.fasta')
+    with open(file_name, 'w') as outfile:
+        if type(sequence) is list:
+            if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
+                for idx, seq in enumerate(sequence):
+                    outfile.write('>%s_%d\n' % (name, idx))  # header
+                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
+                        outfile.write(' '.join(aa for aa in seq))
+                    else:
+                        outfile.write(''.join(aa for aa in seq))
+            elif isinstance(sequence[0], str):
+                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
+            elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
+                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
+            else:
+                raise DesignError('Cannot parse data to make fasta')
+        elif isinstance(sequence, dict):
+            f.write('\n'.join('>%s\n%s' % (seq_name, sequences[seq_name]) for seq_name in sequences))
+        elif isinstance(sequence, str):
+            outfile.write('>%s\n%s\n' % (name, sequence))
+        else:
+            raise DesignError('Cannot parse data to make fasta')
+
+    return file_name
+
+
+def write_multi_line_fasta_file(sequences, name, path=os.getcwd()):  # REDUNDANT DEPRECIATED
+    """Write a multi-line fasta file from a dictionary where the keys are >headers and values are sequences
+
+    Args:
+        sequences (dict): {'my_protein': 'MSGFGHKLGNLIGV...', ...}
+        name (str): The name of the file to output
+    Keyword Args:
+        path=os.getcwd() (str): The location on disk to output file
+    Returns:
+        (str): The name of the output file
+    """
+    file_name = os.path.join(path, name)
+    with open(file_name, 'r') as f:
+        # f.write('>%s\n' % seq)
+        f.write('\n'.join('>%s\n%s' % (seq_name, sequences[seq_name]) for seq_name in sequences))
+
+    return file_name
+
+
+def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
+    # Extracts amino acid sequence from either ATOM or SEQRES record of PDB object
+    if type(chain) == int:
+        chain = pdb.chain_id_list[chain]
+    final_sequence = None
+    sequence_list = []
+    failures = []
+    aa_code = int(aa_code)
+
+    if source == 'atom':
+        # Extracts sequence from ATOM records
+        if aa_code == 1:
+            for atom in pdb.all_atoms:
+                if atom.chain == chain and atom.type == 'N' and (atom.alt_location == '' or atom.alt_location == 'A'):
+                    try:
+                        sequence_list.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
+                    except KeyError:
+                        sequence_list.append('X')
+                        failures.append((atom.residue_number, atom.residue_type))
+            final_sequence = ''.join(sequence_list)
+        elif aa_code == 3:
+            for atom in pdb.all_atoms:
+                if atom.chain == chain and atom.type == 'N' and atom.alt_location == '' or atom.alt_location == 'A':
+                    sequence_list.append(atom.residue_type)
+            final_sequence = sequence_list
+        else:
+            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
+
+    elif source == 'seqres':
+        # Extract sequence from the SEQRES record
+        fail = False
+        while True:
+            if chain in pdb.sequence_dictionary:
+                sequence = pdb.sequence_dictionary[chain]
+                break
+            else:
+                if not fail:
+                    temp_pdb = PDB.PDB()
+                    temp_pdb.readfile(pdb.filepath, coordinates_only=False)
+                    fail = True
+                else:
+                    raise DesignError('Invalid PDB input, no SEQRES record found')
+        if aa_code == 1:
+            final_sequence = sequence
+            for i in range(len(sequence)):
+                if sequence[i] == 'X':
+                    failures.append((i, sequence[i]))
+        elif aa_code == 3:
+            for i, residue in enumerate(sequence):
+                sequence_list.append(IUPACData.protein_letters_1to3[residue])
+                if residue == 'X':
+                    failures.append((i, residue))
+            final_sequence = sequence_list
+        else:
+            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
+    else:
+        raise DesignError('Invalid sequence input')
+
+    return final_sequence, failures
+
+
+def pdb_to_pose_num(reference_dict):
+    """Take a dictionary with chain name as keys and return the length of values as reference length"""
+    offset_dict = {}
+    prior_chain, prior_chains_len = None, 0
+    for i, chain in enumerate(reference_dict):
+        if i > 0:
+            prior_chains_len += len(reference_dict[prior_chain])
+        offset_dict[chain] = prior_chains_len
+        # insert function here? Make this a decorator!?
+
+        prior_chain = chain
+
+    return offset_dict
+
+
 def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', mutation=False, pose_num=True,
                               outpath=None):
     """Extract the sequence from PDB objects
