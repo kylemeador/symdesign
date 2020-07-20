@@ -609,12 +609,10 @@ def generate_sequences(wild_type_seq_dict, all_design_mutations):
     """
     mutated_sequences = {}
     for chain in wild_type_seq_dict:
-        print(chain)
         chain_mutation_dict = {}
         for pdb in all_design_mutations:
             if chain in all_design_mutations[pdb]:
                 chain_mutation_dict[pdb] = all_design_mutations[pdb][chain]
-                print(all_design_mutations[pdb][chain])
         mutated_sequences[chain] = make_sequences_from_mutations(wild_type_seq_dict[chain], chain_mutation_dict,
                                                                  aligned=True)
 
