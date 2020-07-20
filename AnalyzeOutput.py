@@ -858,7 +858,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # logger.debug('Design Files: %s' % ', '.join(all_design_files))
     sequence_mutations = Ams.generate_mutations(all_design_files, wild_type_file)
     # logger.debug('Design Files: %s' % ', '.join(sequence_mutations))
-    offset_dict = SDUtils.pdb_to_pose_num(sequence_mutations['ref'])
+    offset_dict = Ams.pdb_to_pose_num(sequence_mutations['ref'])
     logger.debug('Chain offset: %s' % str(offset_dict))
 
     # Remove wt sequence and find all designs which have corresponding pdb files
