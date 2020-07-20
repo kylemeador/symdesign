@@ -1337,6 +1337,14 @@ def write_commands(command_list, name='all_commands', loc=os.getcwd()):
     return file
 
 
+def write_list_to_file(_list, name=None, location=os.getcwd()):
+    file_name = os.path.join(location, name)  # + '.cmd')
+    with open(file_name, 'w') as f:
+        f.write('\n'.join(item for item in _list))
+
+    return file_name
+
+
 def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', loc=os.getcwd(), additional=None):
     file_name = os.path.join(loc, 'pdb_file_list.txt')
     with open(file_name, 'w') as f:

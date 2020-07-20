@@ -458,9 +458,15 @@ if __name__ == '__main__':
     # Report any program exceptions
     any_exceptions = list(set(exceptions))
     if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
-        logger.warning('\nThe following exceptions were thrown. Design for these directories is inaccurate!!!\n')
+        logger.warning('\nThe following exceptions were thrown. Design for these %d directories is inaccurate!!!\n' %
+                       len(exceptions))
         for exception in exceptions:
             if exception:
                 logger.warning('%s: %s' % exception)
+    print('\n')
 
+    # except_file = os.path.join(args.location, 'EXCEPTIONS.log')
+    except_file = write_list_to_file([pose for pose, _except in exceptions], name='EXCEPTIONS.log',
+                                     location=args.location)
+    logger.info('All poses with exceptions written to file: %s' % except_file)
     print('\n')

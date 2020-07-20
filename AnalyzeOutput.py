@@ -815,7 +815,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     """
     # Log output
     if debug:
-        global logger
+        # global logger
+        logger = SDUtils.start_log(name=__name__, handler=2, level=1,
+                                   location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     else:
         logger = SDUtils.start_log(name=__name__, handler=2, level=2,
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
@@ -852,9 +854,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     wt_sequence = Ams.get_pdb_sequences(wild_type_file)
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     # Make mutations to design sequences and gather mutations alone for residue specific processing
-    # all_mutations = design_mutations_for_metrics(des_dir, wild_type_file=wild_type_file)
-    # sequence_mutations = design_mutations_for_sequence(des_dir, wild_type_file)
-    # Removed above to combine into one function for mutations, one for offset
     sequence_mutations = Ams.generate_mutations(all_design_files, wild_type_file)
     offset_dict = SDUtils.pdb_to_pose_num(sequence_mutations['ref'])
     logger.debug('Chain offset: %s' % str(offset_dict))
