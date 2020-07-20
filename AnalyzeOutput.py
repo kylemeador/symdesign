@@ -233,9 +233,10 @@ protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']
 
 # Specific columns of interest to distinguish between design trajectories
 protocol_specific_columns = ['shape_complementarity', 'buns_total', 'contact_count', 'int_energy_res_summary_delta',
-                             'int_area_total', 'number_hbonds', 'percent_int_area_hydrophobic']
+                             'int_area_total', 'number_hbonds', 'percent_int_area_hydrophobic',  # ]
+                             'interaction_energy_complex']
 #                              'int_area_hydrophobic', 'int_area_polar',
-#                              'full_stability_delta', 'int_energy_context_delta', 'interaction_energy_complex',]
+#                              'full_stability_delta', 'int_energy_context_delta',
 
 stats_metrics = ['mean', 'std']
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
@@ -481,7 +482,7 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
             # metadata = key.split('_')
             res = int(metadata[-1])
             r_type = metadata[2]  # energy or sasa
-            pose_state = metadata[-2]  # oligomer or complex
+            pose_state = metadata[-2]  # oligomer or complex or cst or fsp
             if pose_state == 'oligomer' and offset:
                 res += offset[metadata[-3]]  # get oligomer chain offset
             if res not in residue_dict:
@@ -503,7 +504,8 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
                 if res in hbonds[entry]:
                     residue_dict[res]['hbond'] = 1
             residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                - residue_dict[res]['energy']['oligomer']  # - residue_dict[res]['energy']['fsp']
+                - residue_dict[res]['energy']['oligomer'] - residue_dict[res]['energy']['cst']
+            # - residue_dict[res]['energy']['fsp']
             rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
                                                  residue_dict[res]['sasa']['total']['oligomer'])
             rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
@@ -1041,6 +1043,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     if residue_na_index:
         logger.warning('%s: Residue DataFrame dropped rows with missing values: %s' %
                        (des_dir.path, ', '.join(residue_na_index)))
+
+    # Fix reported per_residue_energy to contain only interface. BUT With delta, these residues should be subtracted
+    # int_residue_df = residue_df.loc[:, idx[int_residues, :]]
 
     # Get unique protocols for protocol specific metrics and drop unneeded protocol values
     unique_protocols = protocol_s.unique().tolist()
