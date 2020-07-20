@@ -645,7 +645,7 @@ def get_pdb_sequences(pdb_file, chain=None):
     wt_pdb = SDUtils.read_pdb(pdb_file)
     wt_seq_dict = {}
     for _chain in wt_pdb.chain_id_list:
-        wt_seq_dict[chain], fail = SDUtils.extract_aa_seq(wt_pdb, chain=_chain)
+        wt_seq_dict[chain], fail = extract_aa_seq(wt_pdb, chain=_chain)
     if chain:
         wt_seq_dict = SDUtils.clean_dictionary(wt_seq_dict, chain, remove=False)
 
