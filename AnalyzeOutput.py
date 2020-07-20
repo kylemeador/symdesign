@@ -827,9 +827,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     global columns_to_remove, columns_to_rename, protocols_of_interest
     remove_columns = copy.deepcopy(columns_to_remove)
     rename_columns = copy.deepcopy(columns_to_rename)
-    all_design_scores = read_scores(os.path.join(des_dir.scores, PUtils.scores_file))
-    all_design_scores = remove_pdb_prefixes(all_design_scores)
-    all_design_scores = SDUtils.clean_interior_keys(all_design_scores, remove_score_columns)
 
     # Get design information including: interface residues, SSM's, and wild_type/design files
     design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
@@ -850,23 +847,29 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[frag_db])
     profile_dict = {'evolution': pssm, 'fragment': issm, 'combined': dssm}
 
+    # Get the scores from all design trajectories
+    all_design_scores = read_scores(os.path.join(des_dir.scores, PUtils.scores_file))
+    all_design_scores = SDUtils.clean_interior_keys(all_design_scores, remove_score_columns)
+
+    # Gather mutations for residue specific processing and design sequences
     wild_type_file = Ams.get_wildtype_file(des_dir)
     wt_sequence = Ams.get_pdb_sequences(wild_type_file)
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
-    # Make mutations to design sequences and gather mutations alone for residue specific processing
-    logger.debug('Design Files: %s' % ', '.join(all_design_files))
+    # logger.debug('Design Files: %s' % ', '.join(all_design_files))
     sequence_mutations = Ams.generate_mutations(all_design_files, wild_type_file)
-    logger.debug('Design Files: %s' % ', '.join(sequence_mutations))
+    # logger.debug('Design Files: %s' % ', '.join(sequence_mutations))
     offset_dict = SDUtils.pdb_to_pose_num(sequence_mutations['ref'])
     logger.debug('Chain offset: %s' % str(offset_dict))
 
     # Remove wt sequence and find all designs which have corresponding pdb files
     sequence_mutations.pop('ref')
-    all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)
+    all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)  # TODO just pull from design pdbs...
     logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
                                                         for name in all_design_sequences[chain]))
-    for chain in all_design_sequences:
-        all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
+    all_design_scores = remove_pdb_prefixes(all_design_scores)
+    all_design_sequences = {chain: remove_pdb_prefixes(all_design_sequences[chain]) for chain in all_design_sequences}
+    # for chain in all_design_sequences:
+    #     all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
 
     # logger.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
     #                                                      for name in all_design_sequences[chain]))
