@@ -268,7 +268,6 @@ def pdb_to_pose_num(reference_dict):
             prior_chains_len += len(reference_dict[prior_chain])
         offset_dict[chain] = prior_chains_len
         # insert function here? Make this a decorator!?
-
         prior_chain = chain
 
     return offset_dict
@@ -429,7 +428,6 @@ def make_mutations(seq, mutation_dict, find_orf=True):
             print(key - offset)
     if index_errors:
         logger.warning('Index errors:\n%s' % str(index_errors))
-    print('MAKE_MUTATIONS:', seq)
 
     return seq
 
@@ -649,6 +647,7 @@ def get_pdb_sequences(pdb_file, chain=None):
     for _chain in wt_pdb.chain_id_list:
         wt_seq_dict[chain], fail = extract_aa_seq(wt_pdb, chain=_chain)
     if chain:
+        print(chain)
         wt_seq_dict = SDUtils.clean_dictionary(wt_seq_dict, chain, remove=False)
 
     return wt_seq_dict
