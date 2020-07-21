@@ -935,11 +935,12 @@ def select_sequences(des_dir, number=1, debug=False):
 
     # If final designs contains more sequences than specified, find the one with the lowest energy
     if len(final_designs) > number:
-        energy_s = pd.Series()
-        for design in final_designs:
-            energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']  # includes solvation energy
-        energy_s.sort_values(inplace=True)
-        final_seqs = zip(repeat(des_dir.path), energy_s.index.to_list()[:number])
+        # energy_s = pd.Series()
+        # for design in final_designs:
+        #     energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']  # includes solvation energy
+        energy_s = trajectory_df.loc[final_designs, 'int_energy_res_summary_delta']  # includes solvation energy
+        energy_s.sort_values('int_energy_res_summary_delta', inplace=True)
+        final_seqs = zip(repeat(des_dir.path), energy_s.iloc[:number, :].index.to_list())
     else:
         final_seqs = zip(repeat(des_dir.path), final_designs.keys())
 
