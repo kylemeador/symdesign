@@ -904,7 +904,7 @@ def select_sequences(des_dir, number=1, debug=False):
 
     # logger.info(pairwise_sequence_diff_np)
     # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
-    # epsilon = math.sqrt(seq_pc_np.mean()) * 0.5
+    # epsilon = math.sqrt(seq_pc_np.myean()) * 0.5
     # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
 
     # Find the nearest neighbors for the pairwise distance matrix using the X*X^T (PCA) matrix, linear transform
