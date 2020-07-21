@@ -854,7 +854,7 @@ def select_sequences(des_dir, number=1, debug=False):
     trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
     assert len(trajectory_file) == 1, 'Multiples files found for %s' % \
                                       os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
-    trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0,1,2])
+    trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0, 1, 2])
 
     sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
     assert len(sequences_pickle) == 1, 'Multiples files found for %s' % \
@@ -941,8 +941,11 @@ def select_sequences(des_dir, number=1, debug=False):
         energy_s = trajectory_df.loc[final_designs, 'int_energy_res_summary_delta']  # includes solvation energy
         # energy_s.sort_values('int_energy_res_summary_delta', inplace=True)
         # print(energy_s.dtype, des_dir.path)
-        print(energy_s)
-        energy_s = pd.Series(energy_s)
+        # print(energy_s)
+        try:
+            energy_s = pd.Series(energy_s)
+        except ValueError:
+            raise SDUtils.DesignError('no dataframe')
         energy_s.sort_values(inplace=True)
         final_seqs = zip(repeat(des_dir.path), energy_s.iloc[:number, :].index.to_list())
     else:
