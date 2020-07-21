@@ -898,7 +898,8 @@ def select_sequences(des_dir, number=1, debug=False):
     seq_pca = PCA(PUtils.variance)
     seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
     seq_pca_distance_vector = pdist(seq_pc_np)
-    epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+    # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+    epsilon = seq_pca_distance_vector.mean() * 0.5
     logger.info('Finding maximum neighbors within distance of %f' % epsilon)
 
     # logger.info(pairwise_sequence_diff_np)
