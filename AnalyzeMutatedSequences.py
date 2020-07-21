@@ -868,8 +868,8 @@ def select_sequences(des_dir, number=1, debug=False):
     all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
     # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so its unnecessary
     chains = list(all_design_sequences.keys())
-    designs = trajectory_df.index.to_list()
-    # designs = list(all_design_sequences[chains[0]].keys())
+    # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
+    designs = list(all_design_sequences[chains[0]].keys())
     concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains]) for design in designs]
     # concatenated_sequences = {design: ''.join([all_design_sequences[chain][design] for chain in chains])
     #                           for design in designs}
