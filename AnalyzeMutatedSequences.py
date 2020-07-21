@@ -3,7 +3,7 @@ import os
 import argparse
 import math
 from glob import glob
-from itertools import combinations
+from itertools import combinations, repeat
 import PDB
 from Bio.SeqUtils import IUPACData
 from Bio.Alphabet import generic_protein
@@ -145,7 +145,7 @@ def write_fasta_file(sequence, name, outpath=os.getcwd()):
     """Write a fasta file from sequence(s)
 
     Args:
-        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(seq second),
+        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(name, sequence),
             list of lists, etc. Smart solver using object type
         name (str): The name of the file to output
     Keyword Args:
@@ -168,13 +168,13 @@ def write_fasta_file(sequence, name, outpath=os.getcwd()):
             elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
                 outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
             else:
-                raise DesignError('Cannot parse data to make fasta')
+                raise SDUtils.DesignError('Cannot parse data to make fasta')
         elif isinstance(sequence, dict):
-            f.write('\n'.join('>%s\n%s' % (seq_name, sequences[seq_name]) for seq_name in sequences))
+            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
         elif isinstance(sequence, str):
             outfile.write('>%s\n%s\n' % (name, sequence))
         else:
-            raise DesignError('Cannot parse data to make fasta')
+            raise SDUtils.DesignError('Cannot parse data to make fasta')
 
     return file_name
 
@@ -239,7 +239,7 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
                     temp_pdb.readfile(pdb.filepath, coordinates_only=False)
                     fail = True
                 else:
-                    raise DesignError('Invalid PDB input, no SEQRES record found')
+                    raise SDUtils.DesignError('Invalid PDB input, no SEQRES record found')
         if aa_code == 1:
             final_sequence = sequence
             for i in range(len(sequence)):
@@ -254,7 +254,7 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
         else:
             logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
     else:
-        raise DesignError('Invalid sequence input')
+        raise SDUtils.DesignError('Invalid sequence input')
 
     return final_sequence, failures
 
@@ -371,7 +371,7 @@ def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', muta
         return sequence_dict
 
 
-def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False, output=False, name=None):
+def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False):
     """Takes a list of sequence mutations and returns the mutated form on wildtype
 
     Args:
@@ -383,27 +383,15 @@ def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False, outpu
     Returns:
         all_sequences (dict): {name: sequence, ...}
     """
-    all_sequences = {pdb: make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned) for pdb in mutation_dict}
-    # for pdb in mutation_dict:
-    #     all_sequences[pdb] = make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned)
-
-    if output:
-        _file_list = []
-        for seq in all_sequences:
-            seq_file = write_fasta_file(all_sequences[seq], name, multi_sequence=True)
-            _file_list.append(seq_file)
-        filepath = write_multi_line_fasta_file(all_sequences, pdb)
-        return filepath
-    else:
-        return all_sequences
+    return {pdb: make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned) for pdb in mutation_dict}
 
 
-def make_mutations(seq, mutation_dict, find_orf=True):
+def make_mutations(seq, mutations, find_orf=True):
     """Modify a sequence to contain mutations specified by a mutation dictionary
 
     Args:
         seq (str): 'Wild-type' sequence to mutate
-        mutation_dict (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
+        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
     Keyword Args:
         find_orf=True (bool): Whether or not to find the correct ORF for the mutations and the seq
     Returns:
@@ -411,17 +399,17 @@ def make_mutations(seq, mutation_dict, find_orf=True):
     """
     # Seq can be either list or string
     if find_orf:
-        offset = -find_orf_offset()
+        offset = -find_orf_offset(seq, mutations)
         logger.info('Found ORF. Offset = %d' % -offset)
     else:
         offset = index_offset
 
     # zero index seq and 1 indexed mutation_dict
     index_errors = []
-    for key in mutation_dict:
+    for key in mutations:
         try:
-            if seq[key - offset] == mutation_dict[key]['from']:  # adjust seq for zero index slicing
-                seq = seq[:key - offset] + mutation_dict[key]['to'] + seq[key - offset + 1:]
+            if seq[key - offset] == mutations[key]['from']:  # adjust seq for zero index slicing
+                seq = seq[:key - offset] + mutations[key]['to'] + seq[key - offset + 1:]
             else:  # find correct offset, or mark mutation source as doomed
                 index_errors.append(key)
         except IndexError:
@@ -432,7 +420,15 @@ def make_mutations(seq, mutation_dict, find_orf=True):
     return seq
 
 
-def find_orf_offset():
+def find_orf_offset(seq, mutations):
+    """Using one sequence and mutation data, find the sequence offset which matches mutations closest
+
+    Args:
+        seq (str): 'Wild-type' sequence to mutate
+        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
+    Returns:
+        orf_offset (int): The index to offset the sequence by in order to match the mutations the best
+    """
     met_offset_list = []
     for i, aa in enumerate(seq):
         if aa == 'M':
@@ -443,9 +439,9 @@ def find_orf_offset():
         for index in met_offset_list:
             index -= index_offset
             s = 0
-            for mut in mutation_dict:
+            for mut in mutations:
                 try:
-                    if seq[mut + index] == mutation_dict[mut][0]:
+                    if seq[mut + index] == mutations[mut][0]:
                         s += 1
                 except IndexError:
                     break
@@ -455,13 +451,13 @@ def find_orf_offset():
         max_count = 0
 
     # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
-    if max_count < len(mutation_dict) / 2:
+    if max_count < len(mutations) / 2:
         upper_range = 50  # This corresponds to how far away the max seq start is from the ORF MET start site
         offset_list = []
         for i in range(0, upper_range):
             s = 0
-            for mut in mutation_dict:
-                if seq[mut + i] == mutation_dict[mut]['from']:
+            for mut in mutations:
+                if seq[mut + i] == mutations[mut]['from']:
                     s += 1
             offset_list.append(s)
         max_count = np.max(offset_list)
@@ -504,7 +500,7 @@ def generate_mutations_from_seq(seq1, seq2, offset=True, remove_blanks=True):
         mutations (dict): {index: {'from': 'A', 'to': 'K'}, ...}
     """
     if offset:
-        alignment = generate_alignment(seq1, seq2)
+        alignment = SDUtils.generate_alignment(seq1, seq2)
         align_seq_1 = alignment[0][0]
         align_seq_2 = alignment[0][1]
     else:
@@ -940,12 +936,8 @@ def select_sequences(des_dir, number=1, debug=False):
     # If final designs contains more sequences than specified, find the one with the lowest energy
     if len(final_designs) > number:
         energy_s = pd.Series()
-        # try:
-        #     final_designs.pop('refine')
-        # except KeyError:
-        #     pass
         for design in final_designs:
-            energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']
+            energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']  # includes solvation energy
         energy_s.sort_values(inplace=True)
         final_seqs = zip(repeat(des_dir.path), energy_s.index.to_list()[:number])
     else:
