@@ -224,7 +224,7 @@ if __name__ == '__main__':
 
     # Parse SubModule specific commands
     results, exceptions = [], []
-    if args.sub_module == 'pose':
+    if args.sub_module == 'pose':  # -c --command_only, -i --fragment_library, -p --mpi, -x --suspend
         if args.mpi:
             args.command_only = True
             extras = ' mpi %d' % CUtils.mpi

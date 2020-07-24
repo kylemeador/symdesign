@@ -137,7 +137,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #         if line[:15] == 'CRYST1 RECORD: ' and sym in [2, 3]:  # TODO Josh providing in PDB now... can remove here?
     #             cryst = line[15:].strip()
 
-    cluster_residue_d = SDUtils.gather_fragment_metrics(des_dir)
+    cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir)
     cluster_residue_d = {cluster: cluster_residue_d[cluster]['pair'] for cluster in cluster_residue_d}
     cluster_freq_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'])
                       for cluster in cluster_residue_d}  # orange mapped to cluster tag
