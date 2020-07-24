@@ -885,7 +885,7 @@ def residue_object_to_number(residue_dict):  # TODO supplement with names info a
         for j, _set in enumerate(residue_dict[entry]):
             residue_num_set = []
             # for i, residue in enumerate(residue_dict[entry][_set]):
-            for i, residue in _set:
+            for residue in _set:
                 resi_number = residue.number
                 # resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
                 # assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
