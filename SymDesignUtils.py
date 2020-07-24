@@ -1841,7 +1841,7 @@ def gather_fragment_metrics(_des_dir, init=False):
 
     if init:
         for cluster in residue_cluster_d:
-            residue_cluster_d[cluster]['pair'] = set(residue_cluster_d[cluster]['pair'])
+            residue_cluster_d[cluster]['pair'] = list(set(residue_cluster_d[cluster]['pair']))
 
         return residue_cluster_d, transform_d
     else:
