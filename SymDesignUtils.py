@@ -780,36 +780,46 @@ def format_frequencies(frequency_list):
     return freq_d
 
 
-def fragment_overlap(p, g, b):
+def fragment_overlap(residues, interaction_graph, freq_map):
     """Take fragment contact list to find the possible AA types allowed in fragment pairs from the contact list
+
     Args:
-
-
+        residues (iter): Iterable of residue numbers
+        interaction_graph (dict): {52: [54, 56, 72, 206], ...}
+        freq_map (dict): {(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
     Returns:
         overlap (dict): {residue: {'A', 'I', 'M', 'V'}, ...}
     """
-    overlap = set()
-    for res in p:
-        for partner in g[res]:
-            overlap[res] |= set(b[(res, partner)].keys())
+    overlap = {}
+    for res in residues:
+        overlap[res] = set()
+        if res in interaction_graph:  # check for existence as some fragment info is not in the interface set
+            # overlap[res] = set()
+            for partner in interaction_graph[res]:
+                overlap[res] |= set(freq_map[(res, partner)].keys())
+        # else:
 
-    for res in p:
-        for partner in g[res]:
-            overlap[res] &= set(b[(res, partner)].keys())
+    for res in residues:
+        if res in interaction_graph:  # check for existence as some fragment info is not in the interface set
+            for partner in interaction_graph[res]:
+                overlap[res] &= set(freq_map[(res, partner)].keys())
 
     return overlap
 
 
-def overlap_consensus(light_b, issm):
+def overlap_consensus(issm, aa_set):
     """Find the overlap constrained consensus sequence
 
+    Args:
+        issm (dict): {1: {'A': 0.1, 'C': 0.0, ...}, 14: {...}, ...}
+        aa_set (dict): {residue: {'A', 'I', 'M', 'V'}, ...}
     Returns:
         (dict): {23: 'T', 29: 'A', ...}
     """
     consensus = {}
-    for res in light_b:
+    for res in aa_set:
         max_freq = 0.0
-        for aa in light_b:
+        for aa in aa_set[res]:
             # if max_freq < issm[(res, partner)][]:
             if max_freq < issm[res][aa]:
                 consensus[res] = aa

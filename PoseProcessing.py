@@ -424,10 +424,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Set up consensus design
     # Combine residue fragment information to find residue sets for consensus
     # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
-    print(interface_residue_edges)
     final_issm = SDUtils.offset_index(final_issm)
-    frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # I, I, I
-    consensus_residues = SDUtils.overlap_consensus(frag_overlap, final_issm)
+    frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)
+    consensus_residues = SDUtils.overlap_consensus(final_issm, frag_overlap)
     # ^ {23: 'T', 29: 'A', ...}
     # figure out how to make the whole dictionary integrate with a sequence dictionary in the pssm/dssm
     consensus = {residue: dssm[residue]['type'] for residue in dssm}
