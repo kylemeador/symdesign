@@ -5,7 +5,7 @@ import subprocess
 import logging
 import pickle
 import copy
-import glob
+from glob import glob
 from json import loads, dumps
 import numpy as np
 import multiprocessing as mp
@@ -452,15 +452,111 @@ def make_issm(cluster_freq_dict, background):  # UNUSED
     return issm
 
 
+def subdirectory(name):  # TODO PDBdb
+    return name
+
 ###################
 # PDB Handling # TODO PDB.py
 ###################
 
 
+def clean_to_iterable(code):
+    """Takes a file, a list or a string, and converts to cleaned list removing excess punctuation capitalizing string"""
+    pdb_list = []
+    try:
+        with open(code, 'r') as f:
+            pdb_list = f.readlines()
+    except FileNotFoundError:
+        if isinstance(code, list):
+            pdb_list = code
+        else:
+            pdb_list.append(code)
+
+    clean_list = []
+    for pdb in pdb_list:
+        pdb = pdb.strip().split(',')
+        pdb = list(map(str.strip, pdb))
+        for i in pdb:
+            clean_list.append(i.upper())
+
+    clean_list = list(set(clean_list))
+
+    return clean_list
+
+
+def download_pdb(pdb, location=os.getcwd(), asu=False):
+    """Download a pdbs from a file, a supplied list, or a single entry
+
+    Args:
+        pdb (str, list): PDB's of interest
+    Keyword Args:
+        asu=False (bool): Whether or not to download the asymmetric unit file
+    Returns:
+        (None)
+    """
+    clean_list = clean_to_iterable(pdb)
+
+    failures = []
+    for pdb in clean_list:
+        clean_pdb = pdb[0:4]  # .upper() redundant call
+        if asu:
+            assembly = ''
+        else:
+            assembly = pdb[-3:]
+            try:
+                assembly = assembly.split('_')[1]
+            except IndexError:
+                assembly = '1'
+
+        clean_pdb = '%s.pdb%s' % (clean_pdb, assembly)
+        file_name = os.path.join(location, clean_pdb)
+        current_file = glob(file_name)
+        # current_files = os.listdir(location)
+        # if clean_pdb not in current_files:
+        if not current_file:
+            # TODO subprocess.POPEN()
+            status = os.system('wget -q -O %s http://files.rcsb.org/download/%s' % (file_name, clean_pdb))
+            if status != 0:
+                failures.append(pdb)
+
+    if failures:
+        logger.error('PDB download ran into the following failures:\n%s' % ', '.join(failures))
+
+    return
+
+
+def fetch_pdbs(des_dir, codes):
+    """Fetch PDB object of each chain from PDBdb or PDB server
+
+    Args:
+        des_dir (DesignDirectory): Location of the design on disk
+        codes (iter): Any iterable of PDB codes
+    Returns:
+        (dict): {pdb_code: PDB.py object, ...}
+    """
+    if PUtils.pdb_source == 'download_pdb':
+        get_pdb = download_pdb
+        # doesn't return anything at the moment
+    else:
+        get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_location, subdirectory(pdb_code),
+                                                             '%s.pdb' % pdb_code)))
+        # returns a list with matching file (should only be one)
+    oligomers = {}
+    for code in codes:
+        pdb_file_name = get_pdb(code, location=des_dir.pdbs)
+        assert len(pdb_file_name) == 1, 'More than one matching file found for pdb code %s' % code
+        oligomers[code] = read_pdb(pdb_file_name[0])
+        oligomers[code].AddName(code)
+        oligomers[code].reorder_chains()
+
+    return oligomers
+
+
 def read_pdb(file):
     """Wrapper on the PDB __init__ and readfile functions
+
     Args:
-        file (str): disk location of pdb file
+        file (str): Disk location of pdb file
     Returns:
         pdb (PDB): Initialized PDB object
     """
@@ -468,6 +564,43 @@ def read_pdb(file):
     pdb.readfile(file)
 
     return pdb
+
+
+def fill_pdb(atom_list):
+    """Wrapper on the PDB __init__ and readfile functions
+
+    Args:
+        atom_list (list): List of Atom objects
+    Returns:
+        pdb (PDB): Initialized PDB object
+    """
+    pdb = PDB.PDB()
+    pdb.read_atom_list(atom_list)
+
+    return pdb
+
+
+def residue_interaction_graph(pdb, distance=8, gly_ca=True):
+    """Create a atom tree using CB atoms from two PDB's
+
+    Args:
+        pdb (PDB): First PDB to query against
+    Keyword Args:
+        distance=8 (int): The distance to query in Angstroms
+        gly_ca=True (bool): Whether glycine CA should be included in the tree
+    Returns:
+        query (list()): sklearn query object of pdb2 coordinates within dist of pdb1 coordinates
+    """
+    # Get CB Atom Coordinates including CA coordinates for Gly residues
+    coords = np.array(pdb.extract_CB_coords(InclGlyCA=gly_ca))
+
+    # Construct CB Tree for PDB1
+    pdb1_tree = sklearn.neighbors.BallTree(coords)
+
+    # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
+    query = pdb1_tree.query_radius(coords, distance)
+
+    return query
 
 
 def construct_cb_atom_tree(pdb1, pdb2, distance=8, gly_ca=True):
@@ -626,6 +759,63 @@ def parameterize_frag_length(length):
         raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
 
 
+def format_frequencies(frequency_list):
+    """Format list of paired frequency data into parsable paired format
+
+    Args:
+        frequency_list (list): [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
+    Returns:
+        (dict): {'A': {'S': 0.02, 'T': 0.12}, ...}
+    """
+    freq_d = {}
+    for tup in frequency_list:
+        aa_mapped = tup[0][0]
+        aa_paired = tup[0][1]
+        freq = tup[1]
+        if aa_mapped in freq_d:
+            freq_d[aa_mapped][aa_paired] = freq
+        else:
+            freq_d[aa_mapped] = {aa_paired: freq}
+
+    return freq_d
+
+
+def fragment_overlap(p, g, b):
+    """Take fragment contact list to find the possible AA types allowed in fragment pairs from the contact list
+    Args:
+
+
+    Returns:
+        overlap (dict): {residue: {'A', 'I', 'M', 'V'}, ...}
+    """
+    overlap = set()
+    for res in p:
+        for partner in g[res]:
+            overlap[res] |= set(b[(res, partner)].keys())
+
+    for res in p:
+        for partner in g[res]:
+            overlap[res] &= set(b[(res, partner)].keys())
+
+    return overlap
+
+
+def overlap_consensus(light_b, issm):
+    """Find the overlap constrained consensus sequence
+
+    Returns:
+        (dict): {23: 'T', 29: 'A', ...}
+    """
+    consensus = {}
+    for res in light_b:
+        max_freq = 0.0
+        for aa in light_b:
+            # if max_freq < issm[(res, partner)][]:
+            if max_freq < issm[res][aa]:
+                consensus[res] = aa
+
+    return consensus
+
 ######################
 # Sequence Handling
 ######################
@@ -675,6 +865,32 @@ def residue_number_to_object(pdb, residue_dict):  # TODO supplement with names i
                 assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
                 residue_obj_set.append(resi_object)
             pairs.append(tuple(residue_obj_set))
+        residue_dict[entry] = pairs
+
+    return residue_dict
+
+
+def residue_object_to_number(residue_dict):  # TODO supplement with names info and pull out by names
+    """Convert sets of PDB.Residue objects to residue numbers
+
+    Args:
+        pdb (PDB): PDB object to extract residues from. Chain order matches residue order in residue_dict
+        residue_dict (dict): {'key1': [(residue1_ca_atom, residue2_ca_atom, ...), ...] ...}
+    Returns:
+        residue_dict (dict): {'key1': [(78, 87, ...),], ...} - Entry mapped to residue sets
+    """
+    for entry in residue_dict:
+        pairs = []
+        # for _set in range(len(residue_dict[entry])):
+        for j, _set in enumerate(residue_dict[entry]):
+            residue_num_set = []
+            # for i, residue in enumerate(residue_dict[entry][_set]):
+            for i, residue in _set:
+                resi_number = residue.number
+                # resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
+                # assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
+                residue_num_set.append(resi_number)
+            pairs.append(tuple(residue_num_set))
         residue_dict[entry] = pairs
 
     return residue_dict
@@ -1049,8 +1265,8 @@ def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=T
 
     All input must be zero indexed
     Args:
-        pssm (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-                         'weight': 0.00}, {...}}
+        pssm (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W',
+            'info': 0.00, 'weight': 0.00}, {...}}
               PSIBLAST -  {0: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
                           'weight': 0.73}, {...}} CURRENTLY IMPOSSIBLE, NEED TO CHANGE THE LOD SCORE IN PARSING
         issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
@@ -1063,7 +1279,8 @@ def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=T
             residue reference weight.
         a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
     Returns:
-        pssm (dict): combined PSSM dictionary
+        pssm (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+            'weight': 0.00}, ...}} - combined PSSM dictionary
     """
 
     # Combine fragment and evolutionary probability profile according to alpha parameter
@@ -1156,7 +1373,7 @@ def consensus_sequence(pssm):
     Args:
         pssm (dict): pssm dictionary
     Return:
-        consensus_identities (dict): {1: 'M', 2: 'H', ...}
+        consensus_identities (dict): {1: 'M', 2: 'H', ...} One-indexed
     """
     consensus_identities = {}
     for residue in pssm:
@@ -1512,44 +1729,92 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
-def gather_fragment_metrics(_des_dir, clusters=False):
+def gather_fragment_metrics(_des_dir, init=False):
     """Gather docking metrics from Nanohedra output
     Args:
         _des_dir (DesignDirectory): DesignDirectory Object
+    Keyword Args:
+        init=False (bool): Whether the information requested is for pose initialization
     Returns:
-        (dict): Either {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': } when clusters=False or
-            {'1_2_24': [(78, 87, ...), ...], ...}
+        (dict): Either {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': }
+            transform_d {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
+            when clusters=False or {'1_2_24': [(78, 87, ...), ...], ...}
     """
     with open(os.path.join(_des_dir.path, PUtils.frag_file), 'r') as f:
         frag_match_info_file = f.readlines()
-        residue_cluster_dict, z_value_dict = {}, {}
+        residue_cluster_dict, transform_d, z_value_dict = {}, {}, {}
         for line in frag_match_info_file:
             if line[:12] == 'Cluster ID: ':
                 cluster = line[12:].split()[0].strip().replace('i', '').replace('j', '').replace('k', '')
                 if cluster not in residue_cluster_dict:
-                    residue_cluster_dict[cluster] = []
+                    # residue_cluster_dict[cluster] = []  # TODO make compatible
+                    residue_cluster_dict[cluster] = {'pair': []}
                 continue
-            if line[:43] == 'Surface Fragment Oligomer1 Residue Number: ':
+            elif line[:40] == 'Cluster Central Residue Pair Frequency: ':
+                pair_freq = loads(line[40:])
+                residue_cluster_dict[cluster]['freq'] = pair_freq
+                continue
+            # Cluster Central Residue Pair Frequency:
+            # [(('L', 'Q'), 0.2429), (('A', 'D'), 0.0571), (('V', 'D'), 0.0429), (('L', 'E'), 0.0429),
+            # (('T', 'L'), 0.0429), (('L', 'S'), 0.0429), (('T', 'D'), 0.0429), (('V', 'L'), 0.0286),
+            # (('I', 'K'), 0.0286), (('V', 'E'), 0.0286), (('L', 'L'), 0.0286), (('L', 'M'), 0.0286),
+            # (('L', 'K'), 0.0286), (('T', 'Q'), 0.0286), (('S', 'D'), 0.0286), (('Y', 'G'), 0.0286),
+            # (('I', 'F'), 0.0286), (('T', 'K'), 0.0286), (('V', 'I'), 0.0143), (('W', 'I'), 0.0143),
+            # (('V', 'Q'), 0.0143), (('I', 'L'), 0.0143), (('F', 'G'), 0.0143), (('E', 'H'), 0.0143),
+            # (('L', 'D'), 0.0143), (('N', 'M'), 0.0143), (('K', 'D'), 0.0143), (('L', 'H'), 0.0143),
+            # (('L', 'V'), 0.0143), (('L', 'R'), 0.0143)]
+
+            elif line[:43] == 'Surface Fragment Oligomer1 Residue Number: ':
                 # Always contains I fragment? #JOSH
                 res_chain1 = int(line[43:].strip())
                 continue
-            if line[:43] == 'Surface Fragment Oligomer2 Residue Number: ':
+            elif line[:43] == 'Surface Fragment Oligomer2 Residue Number: ':
                 # Always contains J fragment and Guide Atoms? #JOSH
                 res_chain2 = int(line[43:].strip())
-                residue_cluster_dict[cluster].append((res_chain1, res_chain2))
+                # residue_cluster_dict[cluster].append((res_chain1, res_chain2))
+                residue_cluster_dict[cluster]['pair'].append((res_chain1, res_chain2))
                 continue
-            if line[:17] == 'Overlap Z-Value: ':
+            elif line[:17] == 'Overlap Z-Value: ':
                 z_value_dict[cluster] = float(line[17:].strip())
                 continue
-            if line[:17] == 'Nanohedra Score: ':
+            elif line[:17] == 'Nanohedra Score: ':
                 nanohedra_score = float(line[17:].strip())
                 continue
         #             if line[:39] == 'Unique Interface Fragment Match Count: ':
         #                 int_match = int(line[39:].strip())
         #             if line[:39] == 'Unique Interface Fragment Total Count: ':
         #                 int_total = int(line[39:].strip())
-    if clusters:
-        return residue_cluster_dict
+            elif line[:20] == 'ROT/DEGEN MATRIX PDB':
+                _matrix = np.array(loads(line[23:]))
+                transform_d[int(line[20:21])] = {'rot/deg': _matrix}  # dict[pdb# (1, 2)] = {'transform_type': matrix}
+                continue
+            elif line[:15] == 'INTERNAL Tx PDB':  # without PDB1 or PDB2
+                _matrix = np.array(loads(line[18:]))
+                transform_d[int(line[15:16])]['tx_int'] = _matrix
+                continue
+            elif line[:18] == 'SETTING MATRIX PDB':
+                _matrix = np.array(loads(line[21:]))
+                transform_d[int(line[18:19])]['setting'] = _matrix
+                continue
+            elif line[:21] == 'REFERENCE FRAME Tx PDB':
+                _matrix = np.array(loads(line[24:]))
+                transform_d[int(line[21:22])]['tx_ref'] = _matrix
+                continue
+
+
+
+            # elif line[:23] == 'ROT/DEGEN MATRIX PDB1: ':
+            # elif line[:18] == 'INTERNAL Tx PDB1: ':  # with PDB1 or PDB2
+            # elif line[:21] == 'SETTING MATRIX PDB1: ':
+            # elif line[:24] == 'REFERENCE FRAME Tx PDB1: ':
+
+            # ROT/DEGEN MATRIX PDB1: [[1.0, -0.0, 0], [0.0, 1.0, 0], [0, 0, 1]]
+            # INTERNAL Tx PDB1: [0, 0, 45.96406061067895]
+            # SETTING MATRIX PDB1: [[0.707107, 0.408248, 0.57735], [-0.707107, 0.408248, 0.57735], [0.0, -0.816497, 0.57735]]
+            # REFERENCE FRAME Tx PDB1: None
+
+    if init:
+        return residue_cluster_dict, transform_d
     else:
         fragment_z_total = 0
         for cluster in z_value_dict:
@@ -1684,8 +1949,13 @@ class DesignDirectory:
     def __init__(self, directory, auto_structure=True, symmetry=None):
         self.symmetry = None
         # design_symmetry (P432)
+        self.protein_data = None  # TODO
+        # design_symmetry/sequences (P432/Protein_Data)
+        self.pdbs = None  # TODO
+        # design_symmetry/sequences (P432/Protein_Data/PDBs)
         self.sequences = None
         # design_symmetry/sequences (P432/Sequence_Info)
+        # design_symmetry/sequences (P432/Protein_Data/Sequence_Info)  # TODO
         self.all_scores = None
         # design_symmetry/all_scores (P432/All_Scores)
         self.building_blocks = None
@@ -1694,7 +1964,7 @@ class DesignDirectory:
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
         self.scores = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scores (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scores)
-        self.design_pdbs = None  # TODO .designs
+        self.design_pdbs = None  # TODO .designs?
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/rosetta_pdbs
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/rosetta_pdbs)
         self.frags = None
@@ -1727,14 +1997,20 @@ class DesignDirectory:
             self.path = os.path.join(symmetry, self.path)
         else:
             self.symmetry = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
-        self.sequences = os.path.join(self.symmetry, PUtils.sequence_info)
-        self.all_scores = os.path.join(self.symmetry, 'All_' + PUtils.scores_outdir.title())
+        self.protein_data = os.path.join(self.symmetry, 'Protein_Data')
+        self.pdbs = os.path.join(self.protein_data, 'PDBs')
+        self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
+        self.all_scores = os.path.join(self.symmetry, 'All_' + PUtils.scores_outdir.title())  # db integration
         self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.design_pdbs = os.path.join(self.path, PUtils.pdbs_outdir)
         self.frags = os.path.join(self.path, PUtils.frag_dir)
         self.data = os.path.join(self.path, PUtils.data)
 
+        if not os.path.exists(self.protein_data):
+            os.makedirs(self.protein_data)
+        if not os.path.exists(self.pdbs):
+            os.makedirs(self.pdbs)
         if not os.path.exists(self.sequences):
             os.makedirs(self.sequences)
         if not os.path.exists(self.all_scores):
@@ -1774,7 +2050,7 @@ def get_all_pdb_file_paths(pdb_dir):
 
 
 def get_directory_pdb_file_paths(pdb_dir):
-    return glob.glob(os.path.join(pdb_dir, '*.pdb'))
+    return glob(os.path.join(pdb_dir, '*.pdb'))
 
 
 def collect_designs(directory, file=None):
