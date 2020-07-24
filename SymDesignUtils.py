@@ -1752,7 +1752,8 @@ def gather_fragment_metrics(_des_dir, init=False):
                 continue
             elif line[:40] == 'Cluster Central Residue Pair Frequency: ':
                 # pair_freq = loads(line[40:])
-                pair_freq = list(eval(line[40:].lstrip('[').rstrip(']')))  # .split(', ')
+                # pair_freq = list(eval(line[40:].lstrip('[').rstrip(']')))  # .split(', ')
+                pair_freq = list(eval(line[40:]))  # .split(', ')
                 # pair_freq = list(map(eval, pair_freq_list))
                 residue_cluster_dict[cluster]['freq'] = pair_freq
                 continue
