@@ -426,9 +426,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Combine residue fragment information to find residue sets for consensus
     # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
     final_issm = SDUtils.offset_index(final_issm)
-    frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)
+    frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map) # all one index
     logger.debug('Residue frequency map:\n%s' % residue_freq_map)
-    logger.debug('Residue interface edges:\n%s' % interface_residue_edges)
+    logger.debug('Residue interface edges:\n%s' % interface_residue_edges)  # This is perfect for Bale 2016 int connect
     logger.debug('Residue fragment overlap:\n%s' % frag_overlap)
     consensus_residues = SDUtils.overlap_consensus(final_issm, frag_overlap)
     # ^ {23: 'T', 29: 'A', ...}
