@@ -140,8 +140,11 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             cryst = line[15:].strip()
 
     cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir, init=True)
+    # cluster_freq_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
     cluster_freq_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'])
                       for cluster in cluster_residue_d}  # orange mapped to cluster tag
+    cluster_freq_twin_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'], flip=True)
+                           for cluster in cluster_residue_d}  # orange mapped to cluster tag
     cluster_residue_d = {cluster: cluster_residue_d[cluster]['pair'] for cluster in cluster_residue_d}
 
     # cryst = template_pdb.cryst_record
@@ -211,9 +214,10 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     interface_residue_edges = {}
     for idx, residue_contacts in enumerate(interface_tree):
         if interface_tree[idx].tolist() != list():
-            contacts = [interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
-                        for contact_idx in interface_tree[idx]]
-            interface_residue_edges[interface.all_atoms[interface_cb_indices[idx]].residue_number] = contacts
+            residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
+            contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
+                        for contact_idx in interface_tree[idx]}
+            interface_residue_edges[residue] = contacts - set(residue)
     # ^ {78: [14, 67, 87, 109], ...}  green
 
     # Renumber PDB to Rosetta Numbering
@@ -395,10 +399,15 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # ^cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
     #             Where the key is the 0 indexed residue id
     cluster_residue_pose_d = SDUtils.residue_object_to_number(frag_residue_object_d)
+    logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
     # ^{cluster: [(78, 87, ...), ...]...}
     residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
                         for residue_set in cluster_residue_pose_d[cluster]}  # blue
     # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
+    # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
+    logger.debug('Residue frequency map:\n%s' % residue_freq_map)
+    residue_freq_map.update({(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
+                             for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
 
     # remove entries which don't exist on protein because of fragment_index +- residues
     not_available = []
