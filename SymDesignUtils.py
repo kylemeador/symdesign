@@ -1742,20 +1742,20 @@ def gather_fragment_metrics(_des_dir, init=False):
     """
     with open(os.path.join(_des_dir.path, PUtils.frag_file), 'r') as f:
         frag_match_info_file = f.readlines()
-        residue_cluster_dict, transform_d, z_value_dict = {}, {}, {}
+        residue_cluster_d, transform_d, z_value_dict = {}, {}, {}
         for line in frag_match_info_file:
             if line[:12] == 'Cluster ID: ':
                 cluster = line[12:].split()[0].strip().replace('i', '').replace('j', '').replace('k', '')
-                if cluster not in residue_cluster_dict:
-                    # residue_cluster_dict[cluster] = []  # TODO make compatible
-                    residue_cluster_dict[cluster] = {'pair': []}
+                if cluster not in residue_cluster_d:
+                    # residue_cluster_d[cluster] = []  # TODO make compatible
+                    residue_cluster_d[cluster] = {'pair': []}
                 continue
             elif line[:40] == 'Cluster Central Residue Pair Frequency: ':
                 # pair_freq = loads(line[40:])
                 # pair_freq = list(eval(line[40:].lstrip('[').rstrip(']')))  # .split(', ')
                 pair_freq = list(eval(line[40:]))  # .split(', ')
                 # pair_freq = list(map(eval, pair_freq_list))
-                residue_cluster_dict[cluster]['freq'] = pair_freq
+                residue_cluster_d[cluster]['freq'] = pair_freq
                 continue
             # Cluster Central Residue Pair Frequency:
             # [(('L', 'Q'), 0.2429), (('A', 'D'), 0.0571), (('V', 'D'), 0.0429), (('L', 'E'), 0.0429),
@@ -1774,8 +1774,8 @@ def gather_fragment_metrics(_des_dir, init=False):
             elif line[:43] == 'Surface Fragment Oligomer2 Residue Number: ':
                 # Always contains J fragment and Guide Atoms? #JOSH
                 res_chain2 = int(line[43:].strip())
-                # residue_cluster_dict[cluster].append((res_chain1, res_chain2))
-                residue_cluster_dict[cluster]['pair'].append((res_chain1, res_chain2))
+                # residue_cluster_d[cluster].append((res_chain1, res_chain2))
+                residue_cluster_d[cluster]['pair'].append((res_chain1, res_chain2))
                 continue
             elif line[:17] == 'Overlap Z-Value: ':
                 z_value_dict[cluster] = float(line[17:].strip())
@@ -1819,7 +1819,7 @@ def gather_fragment_metrics(_des_dir, init=False):
             # REFERENCE FRAME Tx PDB1: None
 
     if init:
-        return residue_cluster_dict, transform_d
+        return residue_cluster_d, transform_d
     else:
         fragment_z_total = 0
         for cluster in z_value_dict:
