@@ -202,24 +202,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 #                           'optimal script performance.'
                 #                           % (des_dir.path, name, names[name](k), residue))
 
-    # Construct CB Tree for full interface to map residue contacts TODO remove self identification
-    # interface = PDB()
-    total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]]
-    interface_atoms = [atom for residue in total_int_residue_objects for atom in residue.atom_list]
-    # interface.read_atom_list([atom for residue in total_int_residue_objects for atom in residue.atom_list])
-    interface = SDUtils.fill_pdb(interface_atoms)
-    interface_tree = SDUtils.residue_interaction_graph(interface)
-    interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
-
-    interface_residue_edges = {}
-    for idx, residue_contacts in enumerate(interface_tree):
-        if interface_tree[idx].tolist() != list():
-            residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
-            contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
-                        for contact_idx in interface_tree[idx]}
-            interface_residue_edges[residue] = contacts - {residue}
-    # ^ {78: [14, 67, 87, 109], ...}  green
-
     # Renumber PDB to Rosetta Numbering
     logger.info('Converting to standard Rosetta numbering. 1st residue of chain A is 1, 1st residue of chain B is last '
                 'residue in chain A + 1, etc')
@@ -238,20 +220,29 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Cleaned PDB: \'%s\'' % cleaned_pdb)
 
     # Set Up Interface Residues after renumber, remove Side Chain Atoms to Ala NECESSARY for all chains to ASU chain map
-    int_res_numbers = {}  # [[] for j in range(num_chains)]
-    for c, name in enumerate(int_residue_objects):  # for c, chain in enumerate(int_res_atoms):
+    total_int_residue_objects = []
+    int_res_numbers = {}
+    for c, name in enumerate(names):  # int_residue_objects):
         int_res_numbers[name] = []
-        for residue in int_residue_objects[name]:  # for res_atoms in int_res_atoms[chain]:
-            int_res_numbers[name].append(residue.ca.residue_number)  # must call .ca.residue_number as .number is static
-            mutated_pdb.mutate_to(names[name](c), residue.ca.residue_number)
+        for residue_obj in int_residue_objects[name]:
+            total_int_residue_objects.append(residue_obj)
+            int_res_numbers[name].append(residue_obj.ca.residue_number)  # must use .ca.residue_number,.number is static
+            mutated_pdb.mutate_to(names[name](c), residue_obj.ca.residue_number)
 
-    # # Set Up Interface Residues after renumber, remove Side Chain Atoms to Ala
-    # int_res_numbers = {}
-    # for c, name in enumerate(int_residue_objects):
-    #     int_res_numbers[name] = []
-    #     for residue in int_residue_objects[name]:
-    #         int_res_numbers[name].append(residue.residue_number)
-    #         template_pdb.mutate_to(names[name](c), residue)
+    # Construct CB Tree for full interface atoms to map residue residue contacts
+    # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]]
+    interface = SDUtils.fill_pdb([atom for residue in total_int_residue_objects for atom in residue.atom_list])
+    interface_tree = SDUtils.residue_interaction_graph(interface)
+    interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
+
+    interface_residue_edges = {}
+    for idx, residue_contacts in enumerate(interface_tree):
+        if interface_tree[idx].tolist() != list():
+            residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
+            contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
+                        for contact_idx in interface_tree[idx]}
+            interface_residue_edges[residue] = contacts - {residue}
+    # ^ {78: [14, 67, 87, 109], ...}  green
 
     # Old residue numbering system, keep for backwards compatibility
     # logger.info('Interface Residues: %s' % ', '.join(str(n) for name in int_res_numbers
@@ -405,8 +396,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                         for residue_set in cluster_residue_pose_d[cluster]}  # blue
     # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
     # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
-    logger.debug('Residue frequency map:\n%s' % residue_freq_map)
-    residue_freq_map.update({(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
+    residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
                              for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
 
     # remove entries which don't exist on protein because of fragment_index +- residues
