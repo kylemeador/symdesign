@@ -421,13 +421,16 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     fragment_alpha = SDUtils.find_alpha(final_issm, residue_cluster_map, db=frag_db)
     dssm = SDUtils.combine_ssm(full_pssm, final_issm, fragment_alpha, db=frag_db, boltzmann=True)
     dssm_file = SDUtils.make_pssm_file(dssm, PUtils.dssm, outpath=des_dir.path)
-    logger.debug('Design Specific Scoring Matrix: %s' % dssm)
+    # logger.debug('Design Specific Scoring Matrix: %s' % dssm)
 
     # Set up consensus design
     # Combine residue fragment information to find residue sets for consensus
     # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
     final_issm = SDUtils.offset_index(final_issm)
     frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)
+    logger.debug('Residue frequency map:\n%s' % residue_freq_map)
+    logger.debug('Residue interface edges:\n%s' % interface_residue_edges)
+    logger.debug('Residue fragment overlap:\n%s' % frag_overlap)
     consensus_residues = SDUtils.overlap_consensus(final_issm, frag_overlap)
     # ^ {23: 'T', 29: 'A', ...}
     # figure out how to make the whole dictionary integrate with a sequence dictionary in the pssm/dssm
