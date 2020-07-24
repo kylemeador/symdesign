@@ -759,18 +759,24 @@ def parameterize_frag_length(length):
         raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
 
 
-def format_frequencies(frequency_list):
+def format_frequencies(frequency_list, flip=False):
     """Format list of paired frequency data into parsable paired format
 
     Args:
         frequency_list (list): [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
+    Keyword Args:
+        flip=False (bool): Whether to invert the mapping of internal tuple
     Returns:
         (dict): {'A': {'S': 0.02, 'T': 0.12}, ...}
     """
+    if flip:
+        i, j = 1, 0
+    else:
+        i, j = 0, 1
     freq_d = {}
     for tup in frequency_list:
-        aa_mapped = tup[0][0]
-        aa_paired = tup[0][1]
+        aa_mapped = tup[0][i]  # 0
+        aa_paired = tup[0][j]  # 1
         freq = tup[1]
         if aa_mapped in freq_d:
             freq_d[aa_mapped][aa_paired] = freq
@@ -898,7 +904,7 @@ def residue_object_to_number(residue_dict):  # TODO supplement with names info a
             residue_num_set = []
             # for i, residue in enumerate(residue_dict[entry][_set]):
             for residue in _set:
-                resi_number = residue.number
+                resi_number = residue.residue_number
                 # resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
                 # assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
                 residue_num_set.append(resi_number)
