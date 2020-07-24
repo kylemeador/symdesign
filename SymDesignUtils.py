@@ -1548,13 +1548,15 @@ def condensed_to_square(k, n):
 # File Handling
 #################
 
+
 def write_shell_script(command, name='script', outpath=os.getcwd(), additional=None):
-    with open(os.path.join(outpath, name + '.sh'), 'w') as f:
-        f.write('#!/bin/bash\n\n')
-        f.write('%s\n' % command)
+    file_name = os.path.join(outpath, name + '.sh')
+    with open(file_name, 'w') as f:
+        f.write('#!/bin/bash\n\n%s\n' % command)
         if additional:
             f.write('%s\n' % '\n'.join(x for x in additional))
-            # f.write('%s\n' % additional)
+
+    return file_name
 
 
 def write_commands(command_list, name='all_commands', loc=os.getcwd()):
