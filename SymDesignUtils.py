@@ -829,7 +829,8 @@ def overlap_consensus(issm, aa_set):
         max_freq = 0.0
         for aa in aa_set[res]:
             # if max_freq < issm[(res, partner)][]:
-            if max_freq < issm[res][aa]:
+            if issm[res][aa] > max_freq:
+                max_freq = issm[res][aa]
                 consensus[res] = aa
 
     return consensus
@@ -1839,6 +1840,9 @@ def gather_fragment_metrics(_des_dir, init=False):
             # REFERENCE FRAME Tx PDB1: None
 
     if init:
+        for cluster in residue_cluster_d:
+            residue_cluster_d[cluster]['pair'] = set(residue_cluster_d[cluster]['pair'])
+
         return residue_cluster_d, transform_d
     else:
         fragment_z_total = 0
