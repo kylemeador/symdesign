@@ -267,7 +267,8 @@ class PDB:
 
     def replace_coords(self, new_cords):
         for i in range(len(self.all_atoms)):
-            self.all_atoms[i].x, self.all_atoms[i].y, self.all_atoms[i].z = new_cords[i][0], new_cords[i][1], new_cords[i][2]
+            self.all_atoms[i].x, self.all_atoms[i].y, self.all_atoms[i].z = \
+                new_cords[i][0], new_cords[i][1], new_cords[i][2]
 
     def mat_vec_mul3(self, a, b):
         c = [0. for i in range(3)]
@@ -584,15 +585,15 @@ class PDB:
         return one_letter
 
     def orient(self, symm, orient_dir, generate_oriented_pdb=False):
-        os.system('cp %s input.pdb' %self.filepath)
-        os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' %(orient_dir, orient_dir, symm))
-        os.system('mv output.pdb %s_orient.pdb' %os.path.splitext(self.filepath)[0])
+        os.system('cp %s input.pdb' % self.filepath)
+        os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' % (orient_dir, orient_dir, symm))
+        os.system('mv output.pdb %s_orient.pdb' % os.path.splitext(self.filepath)[0])
         os.system('rm input.pdb')
-        if os.path.exists('%s_orient.pdb' %os.path.splitext(self.filepath)[0]):
+        if os.path.exists('%s_orient.pdb' % os.path.splitext(self.filepath)[0]):
             if not generate_oriented_pdb:
                 oriented_pdb = PDB()
                 oriented_pdb.readfile('%s_orient.pdb' % os.path.splitext(self.filepath)[0])
-                os.system('rm %s_orient.pdb' %os.path.splitext(self.filepath)[0])
+                os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])
                 return oriented_pdb
             else:
                 return 0
@@ -859,7 +860,9 @@ class PDB:
 
     def get_surface_resdiue_info(self, free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
-        proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %(free_sasa_exe_path, str(probe_radius), self.filepath), stdout=subprocess.PIPE, shell=True)
+        proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %
+                                (free_sasa_exe_path, str(probe_radius), self.filepath),
+                                stdout=subprocess.PIPE, shell=True)
         (out, err) = proc.communicate()
         out_lines = out.split("\n")
         sasa_out = []

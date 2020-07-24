@@ -70,18 +70,33 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # if out:file:o works, could use, os.path.join(des_dir.design_pdbs, PUtils.stage[1] + '.pdb') but it won't register
 
     # Extract information from SymDock Output
+    pdb_codes = str(os.path.basename(des_dir.building_blocks)).split('_')
+    # cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir)
+
+    # Fetch PDB object of each chain from PDBdb or PDB server # TODO set up pdb database
+    # UNCOMMMENT WHEN DATABASE IS SET UP
+    # oligomers = SDUtils.fetch_pdbs(des_dir, pdb_codes)
+    #
+    # for i, name in enumerate(oligomers):
+    #     # oligomers[name].translate(oligomers[name].center_of_mass())
+    #     # TODO get orient program into source, get symm files from Josh
+    #     oligomers[name].orient(symm, PUtils.orient)
+    #     oligomers[name].rotate_translate(transformation_dict[i]['rot/deg'], transformation_dict[i]['tx_int'])
+    #     oligomers[name].rotate_translate(transformation_dict[i]['setting'], transformation_dict[i]['tx_ref'])
+    #     # {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
+
     template_pdb = SDUtils.read_pdb(os.path.join(des_dir.path, PUtils.asu))
     num_chains = len(template_pdb.chain_id_list)
-    pdb_codes = str(os.path.basename(des_dir.building_blocks)).split('_')
 
     # TODO JOSH Get rid of same chain ID problem....
-    if num_chains != 2:
+    # if num_chains != 2:
+    if num_chains != len(pdb_codes):
         oligomer_file = glob(os.path.join(des_dir.path, pdb_codes[0] + '_tx_*.pdb'))
         assert len(oligomer_file) == 1, 'More than one matching file found with %s' % pdb_codes[0] + '_tx_*.pdb'
         # assert len(oligomer_file) == 1, '%s: More than one matching file found with %s' % \
         #                                 (des_dir.path, pdb_codes[0] + '_tx_*.pdb')
         first_oligomer = SDUtils.read_pdb(oligomer_file[0])
-        # find the number of ATOM records for template_pdb chain1 using the oligomeric chain as model
+        # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
         for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
             template_pdb.all_atoms[atom_idx].chain = 'x'
         template_pdb.chain_id_list = ['x', template_pdb.chain_id_list[0]]
@@ -89,7 +104,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         logger.warning('%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
                        ' %s' % (des_dir.path, num_chains, template_pdb.chain_id_list))
 
-    assert len(pdb_codes) == num_chains, 'Number of chains \'%d\' in ASU doesn\'t match number of building blocks '\
+    assert len(pdb_codes) == num_chains, 'Number of chains \'%d\' in ASU doesn\'t match number of building blocks ' \
                                          '\'%d\'' % (num_chains, len(pdb_codes))
     # assert len(pdb_codes) == num_chains, '%s: Number of chains \'%d\' in ASU doesn\'t match number of building blocks '\
     #                                      '\'%d\'' % (des_dir.path, num_chains, len(pdb_codes))
@@ -118,25 +133,15 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # TODO insert mechanism to Decorate and then gather my own fragment decoration statistics
     # TODO supplement with names info and pull out by names
-    # with open(os.path.join(des_dir.path, PUtils.frag_file), 'r') as f:
-    #     frag_match_info_file = f.readlines()
-    #     residue_cluster_dict = {}
-    #     for line in frag_match_info_file:
-    #         if line[:12] == 'Cluster ID: ':
-    #             cluster = line[12:].split()[0].strip().replace('i', '').replace('j', '').replace('k', '')
-    #             if cluster not in residue_cluster_dict:
-    #                 residue_cluster_dict[cluster] = []
-    #         if line[:43] == 'Surface Fragment Oligomer1 Residue Number: ':
-    #             # Always contains I fragment? #JOSH
-    #             res_chain1 = int(line[43:].strip())
-    #         if line[:43] == 'Surface Fragment Oligomer2 Residue Number: ':
-    #             # Always contains J fragment and Guide Atoms? #JOSH
-    #             res_chain2 = int(line[43:].strip())
-    #             residue_cluster_dict[cluster].append((res_chain1, res_chain2))
+
     #         if line[:15] == 'CRYST1 RECORD: ' and sym in [2, 3]:  # TODO Josh providing in PDB now... can remove here?
     #             cryst = line[15:].strip()
 
-    residue_cluster_dict = SDUtils.gather_fragment_metrics(des_dir)
+    cluster_residue_d = SDUtils.gather_fragment_metrics(des_dir)
+    cluster_residue_d = {cluster: cluster_residue_d[cluster]['pair'] for cluster in cluster_residue_d}
+    cluster_freq_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'])
+                      for cluster in cluster_residue_d}  # orange mapped to cluster tag
+
     # cryst = template_pdb.cryst_record
 
     # Set up protocol symmetry
@@ -149,18 +154,18 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         logger.error('Not possible to input point groups just yet...')
         sys.exit()
 
+    # logger.info('Symmetry Information: %s' % cryst)
     logger.info('Symmetry Option: %s' % protocol)
-    logger.info('Symmetry Information: %s' % cryst)
     logger.info('Input PDBs: %s' % ', '.join(name for name in names))
-    logger.info('Pulling fragment info from clusters: %s' % ', '.join(residue_cluster_dict))
-    for h, pdb_id in enumerate(names):
-        logger.info('Fragments identified: %s' % 'Oligomer ' + pdb_id + ', residues: ' +
-                    ', '.join(str(residue_cluster_dict[cluster][pair][h]) for cluster in residue_cluster_dict
-                              for pair in range(len(residue_cluster_dict[cluster]))))
+    logger.info('Pulling fragment info from clusters: %s' % ', '.join(cluster_residue_d))
+    for j, pdb_id in enumerate(names):
+        logger.info('Fragments identified: Oligomer %s, residues: %s' %
+                    (pdb_id, ', '.join(str(cluster_residue_d[cluster][k][j]) for cluster in cluster_residue_d
+                                       for k, pair in enumerate(cluster_residue_d[cluster]))))
 
     # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
-    frag_residue_object_dict = SDUtils.residue_number_to_object(template_pdb, residue_cluster_dict)
-    logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_dict))
+    frag_residue_object_d = SDUtils.residue_number_to_object(template_pdb, cluster_residue_d)
+    logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
     int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
     # int_residues1, int_residues2 = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
@@ -191,6 +196,23 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 #                           'this error and make sure that all input oligomers are symmetrized for '
                 #                           'optimal script performance.'
                 #                           % (des_dir.path, name, names[name](k), residue))
+
+    # Construct CB Tree for full interface to map residue contacts TODO remove self identification
+    # interface = PDB()
+    total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]]
+    interface_atoms = [atom for residue in total_int_residue_objects for atom in residue.atom_list]
+    # interface.read_atom_list([atom for residue in total_int_residue_objects for atom in residue.atom_list])
+    interface = SDUtils.fill_pdb(interface_atoms)
+    interface_tree = SDUtils.residue_interaction_graph(interface)
+    interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
+
+    interface_residue_edges = {}
+    for idx, residue_contacts in enumerate(interface_tree):
+        if interface_tree[idx].tolist() != list():
+            contacts = [interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
+                        for contact_idx in interface_tree[idx]]
+            interface_residue_edges[interface.all_atoms[interface_cb_indices[idx]].residue_number] = contacts
+    # ^ {78: [14, 67, 87, 109], ...}  green
 
     # Renumber PDB to Rosetta Numbering
     logger.info('Converting to standard Rosetta numbering. 1st residue of chain A is 1, 1st residue of chain B is last '
@@ -367,7 +389,14 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
     fragment_range = SDUtils.parameterize_frag_length(frag_size)
     full_design_dict = SDUtils.populate_design_dict(len(full_pssm), [j for j in range(*fragment_range)])
-    residue_cluster_map = SDUtils.convert_to_residue_cluster_map(frag_residue_object_dict, fragment_range)
+    residue_cluster_map = SDUtils.convert_to_residue_cluster_map(frag_residue_object_d, fragment_range)
+    # ^cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
+    #             Where the key is the 0 indexed residue id
+    cluster_residue_pose_d = SDUtils.residue_object_to_number(frag_residue_object_d)
+    # ^{cluster: [(78, 87, ...), ...]...}
+    residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
+                        for residue_set in cluster_residue_pose_d[cluster]}  # blue
+    # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
 
     # remove entries which don't exist on protein because of fragment_index +- residues
     not_available = []
@@ -380,7 +409,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         residue_cluster_map.pop(residue)
     logger.debug('Residue Cluster Map: %s' % str(residue_cluster_map))
 
-    cluster_dicts = SDUtils.get_cluster_dicts(db=frag_db, id_list=[j for j in residue_cluster_dict])
+    cluster_dicts = SDUtils.get_cluster_dicts(db=frag_db, id_list=[j for j in cluster_residue_d])
     full_cluster_dict = SDUtils.deconvolve_clusters(cluster_dicts, full_design_dict, residue_cluster_map)
     final_issm = SDUtils.flatten_for_issm(full_cluster_dict, keep_extras=False)  # =False added for pickling 6/14/20
     interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_type, out_path=des_dir.data)
@@ -393,7 +422,18 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Design Specific Scoring Matrix: %s' % dssm)
 
     # Set up consensus design
-    consensus = SDUtils.consensus_sequence(dssm)
+    # Combine residue fragment information to find residue sets for consensus
+    # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
+    frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # I, I, I
+    consensus_residues = SDUtils.overlap_consensus(frag_overlap, final_issm)
+    # ^ {23: 'T', 29: 'A', ...}
+    # figure out how to make the whole dictionary integrate with a sequence dictionary in the pssm/dssm
+    consensus = {residue: dssm[residue]['type'] for residue in dssm}
+    # ^{0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
+    consensus.update(consensus_residues)
+    # consensus = SDUtils.consensus_sequence(dssm)
+    logger.debug('Consensus Residues only:\n%s' % consensus_residues)
+    logger.debug('Consensus:\n%s' % consensus)
     for n, name in enumerate(names):
         for residue in int_res_numbers[name]:  # one-indexed
             mutated_pdb.mutate_to(names[name](n), residue, IUPACData.protein_letters_1to3[consensus[residue]].upper())
@@ -413,8 +453,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     flags_refine = SDUtils.prepare_rosetta_flags(refine_variables, PUtils.stage[1], outpath=des_dir.path)
     relax_cmd = main_cmd + \
-        ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file),
-         '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
+                ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file),
+                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
     refine_cmd = relax_cmd + ['-in:file:s', ala_mut_pdb,  '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
     consensus_cmd = relax_cmd + ['-in:file:s', consensus_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
 
@@ -440,10 +480,10 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     flags_design = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[2], outpath=des_dir.path)
     # TODO back out nstruct label to command distribution
     design_cmd = main_cmd + \
-        ['-in:file:s', refined_pdb, '-in:file:native', cleaned_pdb, '-nstruct', str(PUtils.nstruct),
-         '@' + os.path.join(des_dir.path, flags_design), '-in:file:pssm', pssm_file, '-parser:protocol',
-         os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
-         '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file)]
+                 ['-in:file:s', refined_pdb, '-in:file:native', cleaned_pdb, '-nstruct', str(PUtils.nstruct),
+                  '@' + os.path.join(des_dir.path, flags_design), '-in:file:pssm', pssm_file, '-parser:protocol',
+                  os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
+                  '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file)]
 
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
     # TODO if nstruct is backed out, create pdb_list for metrics distribution
@@ -453,9 +493,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     flags_metric = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[3], outpath=des_dir.path)
     metric_cmd = main_cmd + \
-        ['-in:file:l', pdb_list_file, '-in:file:native', refined_pdb, '@' + os.path.join(des_dir.path, flags_metric),
-         '-out:file:score_only', os.path.join(des_dir.scores, PUtils.scores_file),
-         '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
+                 ['-in:file:l', pdb_list_file, '-in:file:native', refined_pdb, '@' + os.path.join(des_dir.path, flags_metric),
+                  '-out:file:score_only', os.path.join(des_dir.scores, PUtils.scores_file),
+                  '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
 
     if mpi:
         design_cmd = CUtils.run_cmds[PUtils.rosetta_extras] + design_cmd

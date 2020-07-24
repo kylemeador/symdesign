@@ -5,6 +5,7 @@ class Residue:
     def __init__(self, atom_list):
         self.atom_list = atom_list
         self.ca = self.get_ca()
+        self.cb = self.get_cb()
         self.number = self.ca.residue_number
         self.type = self.ca.residue_type
         self.chain = self.ca.chain
@@ -14,11 +15,23 @@ class Residue:
             if atom.is_CA():
                 return atom
         else:
-            print('RESIDUE OBJECT REQUIRES CA ATOM. No CA found in: %s\nSelecting CB instead' % str(self.atom_list[0]))
+            # print('RESIDUE OBJECT REQUIRES CA ATOM. No CA found in: %s\nSelecting CB instead' % str(self.atom_list[0]))
             for atom in self.atom_list:
                 if atom.is_CB():
                     return atom
-            print('RESIDUE OBJECT MISSING CB ATOM. Severely flawed residue, fix your PDB input!')
+            # print('RESIDUE OBJECT MISSING CB ATOM. Severely flawed residue, fix your PDB input!')
+            return None
+
+    def get_cb(self):
+        for atom in self.atom_list:
+            if atom.is_CB():
+                return atom
+        else:
+            # print('No CB found in: %s\nSelecting CB instead' % str(self.atom_list[0]))
+            for atom in self.atom_list:
+                if atom.is_CA():
+                    return atom
+            # print('RESIDUE OBJECT MISSING CB ATOM. Severely flawed residue, fix your PDB input!')
             return None
 
     def distance(self, other_residue):

@@ -40,9 +40,11 @@ command = 'SymDesignControl -h'
 source = '/'.join(os.path.dirname(os.path.realpath(__file__)).split('/')[:-2])
 # source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-2])  # TODO
 dependencies = os.path.join(source, 'dependencies')  # TODO remove
-pdb_uniprot_map = os.path.join(source, 'uniprot_map')  # TODO
-uniprot_pdb_map = os.path.join(source, 'uniprot_map')  # TODO
+pdb_uniprot_map = os.path.join(source, 'pdb_uniprot_map')  # TODO
+uniprot_pdb_map = os.path.join(source, 'uniprot_pdb_map')  # TODO
 database = os.path.join(source, 'database')
+pdb_db = os.path.join(database, 'PDB.db')  # TODO pointer to pdb database or to pdb website?
+pdb_source = 'db'  # 'download_pdb'
 binaries = os.path.join(dependencies, 'bin')
 # binaries = os.path.join(source, 'bin')  # TODO
 process_commands = os.path.join(binaries, 'ProcessDesignCommands.sh `pwd`')
@@ -58,6 +60,7 @@ scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 
 # External Program Dependencies
+orient = os.path.join(source, 'orient_oligomer')  # TODO
 affinity_tags = os.path.join(database, 'modified-affinity-tags.csv')
 alignmentdb = os.path.join(dependencies, 'ncbi_databases/uniref90')
 # alignment_db = os.path.join(dependencies, 'databases/uniref90')  # TODO
