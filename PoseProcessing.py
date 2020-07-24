@@ -53,7 +53,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Log output
     if debug:
-        global logger
+        # global logger
+        logger = SDUtils.start_log(name=__name__, handler=2, level=1,
+                                   location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     else:
         logger = SDUtils.start_log(name=__name__, handler=2, level=2,
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
@@ -463,7 +465,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     if script:
         SDUtils.write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1], outpath=des_dir.path,
                                    additional=[subprocess.list2cmdline(consensus_cmd)])
-        # SDUtils.write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5], outpath=des_dir.path)
+        SDUtils.write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5], outpath=des_dir.path)
     else:
         if not suspend:
             logger.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
