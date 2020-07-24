@@ -217,7 +217,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
             contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
                         for contact_idx in interface_tree[idx]}
-            interface_residue_edges[residue] = contacts - set(residue)
+            interface_residue_edges[residue] = contacts - {residue}
     # ^ {78: [14, 67, 87, 109], ...}  green
 
     # Renumber PDB to Rosetta Numbering
