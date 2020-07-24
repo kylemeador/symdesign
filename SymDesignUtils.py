@@ -1788,23 +1788,25 @@ def gather_fragment_metrics(_des_dir, init=False):
         #             if line[:39] == 'Unique Interface Fragment Total Count: ':
         #                 int_total = int(line[39:].strip())
             elif line[:20] == 'ROT/DEGEN MATRIX PDB':
-                _matrix = np.array(loads(line[23:]))
+                # _matrix = np.array(loads(line[23:]))
+                _matrix = np.array(eval(line[23:]))
                 transform_d[int(line[20:21])] = {'rot/deg': _matrix}  # dict[pdb# (1, 2)] = {'transform_type': matrix}
                 continue
             elif line[:15] == 'INTERNAL Tx PDB':  # without PDB1 or PDB2
-                _matrix = np.array(loads(line[18:]))
+                # _matrix = np.array(loads(line[18:]))
+                _matrix = np.array(eval(line[18:]))
                 transform_d[int(line[15:16])]['tx_int'] = _matrix
                 continue
             elif line[:18] == 'SETTING MATRIX PDB':
-                _matrix = np.array(loads(line[21:]))
+                # _matrix = np.array(loads(line[21:]))
+                _matrix = np.array(eval(line[21:]))
                 transform_d[int(line[18:19])]['setting'] = _matrix
                 continue
             elif line[:21] == 'REFERENCE FRAME Tx PDB':
-                _matrix = np.array(loads(line[24:]))
+                # _matrix = np.array(loads(line[24:]))
+                _matrix = np.array(eval(line[24:]))
                 transform_d[int(line[21:22])]['tx_ref'] = _matrix
                 continue
-
-
 
             # elif line[:23] == 'ROT/DEGEN MATRIX PDB1: ':
             # elif line[:18] == 'INTERNAL Tx PDB1: ':  # with PDB1 or PDB2
