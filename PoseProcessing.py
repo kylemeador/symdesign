@@ -448,8 +448,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
 
     consensus_residues = {}
-    all_pose_fragment_pairs = residue_freq_map.keys()
-    print(all_pose_fragment_pairs)
+    all_pose_fragment_pairs = list(residue_freq_map.keys())
     residue_cluster_map = SDUtils.offset_index(residue_cluster_map)  # change so it is one-indexed
     # for residue in residue_cluster_map:
     for residue, partner in all_pose_fragment_pairs:
@@ -462,10 +461,11 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                             aa_i, aa_j = 0, 1
                         else:  # choose second AA from AA tuple in residue frequency d
                             aa_i, aa_j = 1, 0
-                        for k, pair_freq in cluster_freq_tuple_d[cluster]:
-                            # for l in cluster_freq_tuple_d[cluster][k]: JUST NEED 0
-                            if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
-                                if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
+                        for k, pair_freq in enumerate(cluster_freq_tuple_d[cluster]):
+                            # if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
+                            if pair_freq[0][aa_i] in frag_overlap[residue]:
+                                # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
+                                if pair_freq[0][aa_j] in frag_overlap[partner]:
                                     consensus_residues[residue] = cluster_freq_tuple_d[cluster][k][0][aa_i]
 
     consensus = {residue: dssm[residue]['type'] for residue in dssm}
