@@ -141,8 +141,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir, init=True)
     # vUsed for central pair fragment mapping of the biological interface generated fragments
-    cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
-                            for cluster in cluster_residue_d}
+    cluster_freq_tuple_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
+    # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
+    #                         for cluster in cluster_residue_d}
 
     # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
     cluster_freq_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'])
