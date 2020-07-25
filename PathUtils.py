@@ -97,4 +97,4 @@ sbatch_templates = {stage[1]: os.path.join(binaries, sbatch[1:7], stage[1]),
                     stage[2]: os.path.join(binaries, sbatch[1:7], stage[2]),
                     stage[3]: os.path.join(binaries, sbatch[1:7], stage[2]),
                     stage[4]: os.path.join(binaries, sbatch[1:7], stage[1]),
-                    stage[5]: os.path.join(binaries, sbatch[1:7], stage[5])}
+                    stage[5]: os.path.join(binaries, sbatch[1:7], stage[1])}
