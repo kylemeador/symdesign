@@ -472,7 +472,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     consensus = {residue: dssm[residue]['type'] for residue in dssm}
     # ^{0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
     consensus.update(consensus_residues)
-    consensus = SDUtils.index_offset(consensus)
+    consensus = SDUtils.offset_index(consensus)
     # consensus = SDUtils.consensus_sequence(dssm)
     logger.debug('Consensus Residues only:\n%s' % consensus_residues)
     logger.debug('Consensus:\n%s' % consensus)
