@@ -140,7 +140,11 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             cryst = line[15:].strip()
 
     cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir, init=True)
-    # cluster_freq_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
+    # vUsed for central pair fragment mapping of the biological interface generated fragments
+    cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
+                            for cluster in cluster_residue_d}
+
+    # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
     cluster_freq_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'])
                       for cluster in cluster_residue_d}  # orange mapped to cluster tag
     cluster_freq_twin_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'], flip=True)
@@ -173,16 +177,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
     int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
-    # int_residues1, int_residues2 = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
-    # int_residue_objects = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
-    # int_res_atoms_pair = [None for j in range(math.factorial(len(template_pdb.chain_id_list) - 1))]
-    # int_res_atoms1 = [None for j in range(math.factorial(len(template_pdb.chain_id_list) - 1))]
-    # int_res_atoms2 = copy.deepcopy(int_res_atoms1)
-    # i = 0
-    # for j in range(len(oligomer) - 1):
-    #     for k in range(j + 1, len(oligomer)):
-    #         int_res_atoms_pair[i] = SDUtils.find_interface_residues(oligomer[j], oligomer[k])
-    #         i += 1
 
     # Get residue numbers as Residue objects to map across chain renumbering
     int_residue_objects = {}
@@ -196,11 +190,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                                           'missing density at oligomer \'%s\', chain \'%s\', residue \'%d\'. Resolve '
                                           'this error and make sure that all input oligomers are symmetrized for '
                                           'optimal script performance.' % (name, names[name](k), residue))
-                # raise SDUtils.DesignError('%s: Oligomeric and ASU chains do not match. Interface likely involves '
-                #                           'missing density at oligomer \'%s\', chain \'%s\', residue \'%d\'. Resolve '
-                #                           'this error and make sure that all input oligomers are symmetrized for '
-                #                           'optimal script performance.'
-                #                           % (des_dir.path, name, names[name](k), residue))
 
     # Renumber PDB to Rosetta Numbering
     logger.info('Converting to standard Rosetta numbering. 1st residue of chain A is 1, 1st residue of chain B is last '
@@ -230,7 +219,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             mutated_pdb.mutate_to(names[name](c), residue_obj.ca.residue_number)
 
     # Construct CB Tree for full interface atoms to map residue residue contacts
-    # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]]
+    # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
     interface = SDUtils.fill_pdb([atom for residue in total_int_residue_objects for atom in residue.atom_list])
     interface_tree = SDUtils.residue_interaction_graph(interface)
     interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
@@ -389,9 +378,11 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     residue_cluster_map = SDUtils.convert_to_residue_cluster_map(frag_residue_object_d, fragment_range)
     # ^cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
     #             Where the key is the 0 indexed residue id
+
+    # # TODO all_frags
     cluster_residue_pose_d = SDUtils.residue_object_to_number(frag_residue_object_d)
-    logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
-    # ^{cluster: [(78, 87, ...), ...]...}
+    # logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
+    # # ^{cluster: [(78, 87, ...), ...]...}
     residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
                         for residue_set in cluster_residue_pose_d[cluster]}  # blue
     # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
@@ -422,17 +413,58 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     dssm_file = SDUtils.make_pssm_file(dssm, PUtils.dssm, outpath=des_dir.path)
     # logger.debug('Design Specific Scoring Matrix: %s' % dssm)
 
-    # Set up consensus design
-    # Combine residue fragment information to find residue sets for consensus
-    # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
-    final_issm = SDUtils.offset_index(final_issm)
-    frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map) # all one index
-    logger.debug('Residue frequency map:\n%s' % residue_freq_map)
-    logger.debug('Residue interface edges:\n%s' % interface_residue_edges)  # This is perfect for Bale 2016 int connect
-    logger.debug('Residue fragment overlap:\n%s' % frag_overlap)
-    consensus_residues = SDUtils.overlap_consensus(final_issm, frag_overlap)
-    # ^ {23: 'T', 29: 'A', ...}
-    # figure out how to make the whole dictionary integrate with a sequence dictionary in the pssm/dssm
+    # # Set up consensus design # TODO all_frags
+    # # Combine residue fragment information to find residue sets for consensus
+    # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
+    final_issm = SDUtils.offset_index(final_issm)  # change so it is one-indexed
+    frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
+    # logger.debug('Residue frequency map:\n%s' % residue_freq_map)
+    # logger.debug('Residue interface edges:\n%s' % interface_residue_edges)  # This is perfect for Bale 2016 int connect
+    # logger.debug('Residue fragment overlap:\n%s' % frag_overlap)
+    #
+    # for pair in residue_freq_map:
+    #     for res in pair:
+    #         if frag_overlap[res] == set():
+    #             consensus = False  # if no amino acids are possible for residue, quit
+    #             break
+    #     if consensus:
+    #         for pair in cluster_freq_tuple_d:
+    #
+    # consensus_residues = SDUtils.overlap_consensus(final_issm, frag_overlap)
+    # # ^ {23: 'T', 29: 'A', ...}
+
+    # residue_cluster_map
+    # ^{48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
+    #             Where the key is the 0 indexed residue id
+    # cluster_freq_tuple_d
+    # ^{1_1_54: [(('A', 'G'), 0.2963), (('G', 'A'), 0.1728), (('G', 'G'), 0.1235), (('G', 'S'), 0.0741), (('G', 'M'),
+    #            0.0741), (('G', 'L'), 0.0741), (('H', 'G'), 0.0741), (('A', 'A'), 0.0247), (('G', 'T'), 0.0247),
+    #            (('G', 'N'), 0.0247), (('G', 'I'), 0.0247), (('G', 'Q'), 0.0123)], ...}
+    # frag_overlap
+    # {55: {'A', 'G', 'H'}, 56: set(), 223: set(), 224: {'I', 'N', 'L', 'A', 'G', 'T', 'M', 'Q', 'S'}, 225: set()}
+    #
+    # residue_freq_map
+    # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
+
+    consensus_residues = {}
+    all_pose_fragment_pairs = residue_freq_map.keys()
+    # for residue in residue_cluster_map:
+    for residue, partner in all_pose_fragment_pairs:
+        for idx, cluster in residue_cluster_map[residue]['cluster']:
+            if idx == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
+                for idx_p, cluster_p in residue_cluster_map[partner]['cluster']:
+                    if idx_p == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
+                        if residue_cluster_map[residue]['chain'] == 'mapped':
+                            # choose first AA from AA tuple in residue frequency d
+                            aa_i, aa_j = 0, 1
+                        else:  # choose second AA from AA tuple in residue frequency d
+                            aa_i, aa_j = 1, 0
+                        for k, pair_freq in cluster_freq_tuple_d[cluster]:
+                            # for l in cluster_freq_tuple_d[cluster][k]: JUST NEED 0
+                            if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
+                                if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
+                                    consensus_residues[residue] = cluster_freq_tuple_d[cluster][k][0][aa_i]
+
     consensus = {residue: dssm[residue]['type'] for residue in dssm}
     # ^{0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
     consensus.update(consensus_residues)

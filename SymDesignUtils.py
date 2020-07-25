@@ -802,14 +802,13 @@ def fragment_overlap(residues, interaction_graph, freq_map):
         if res in interaction_graph:  # check for existence as some fragment info is not in the interface set
             # overlap[res] = set()
             for partner in interaction_graph[res]:
-                if (res, partner) in freq_map:  # Check is for fragment_pair where only central res pair is used
+                if (res, partner) in freq_map:
                     overlap[res] |= set(freq_map[(res, partner)].keys())
-        # else:
 
     for res in residues:
         if res in interaction_graph:  # check for existence as some fragment info is not in the interface set
             for partner in interaction_graph[res]:
-                if (res, partner) in freq_map:  # Check is for fragment_pair where only central res pair is used
+                if (res, partner) in freq_map:
                     overlap[res] &= set(freq_map[(res, partner)].keys())
 
     return overlap
