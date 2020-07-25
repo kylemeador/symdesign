@@ -466,7 +466,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                             if pair_freq[0][aa_i] in frag_overlap[residue]:
                                 # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
                                 if pair_freq[0][aa_j] in frag_overlap[partner]:
-                                    consensus_residues[residue] = cluster_freq_tuple_d[cluster][k][0][aa_i]
+                                    consensus_residues[residue] = pair_freq[0][aa_i]
                                     break  # because pair_freq's are sorted we end at the highest matching pair
 
     consensus = {residue: dssm[residue]['type'] for residue in dssm}
