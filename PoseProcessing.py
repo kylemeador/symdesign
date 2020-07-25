@@ -461,12 +461,13 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                             aa_i, aa_j = 0, 1
                         else:  # choose second AA from AA tuple in residue frequency d
                             aa_i, aa_j = 1, 0
-                        for k, pair_freq in enumerate(cluster_freq_tuple_d[cluster]):
+                        for pair_freq in cluster_freq_tuple_d[cluster]:
                             # if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
                             if pair_freq[0][aa_i] in frag_overlap[residue]:
                                 # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
                                 if pair_freq[0][aa_j] in frag_overlap[partner]:
                                     consensus_residues[residue] = cluster_freq_tuple_d[cluster][k][0][aa_i]
+                                    break  # because pair_freq's are sorted we end at the highest matching pair
 
     consensus = {residue: dssm[residue]['type'] for residue in dssm}
     # ^{0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
