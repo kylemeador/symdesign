@@ -269,10 +269,9 @@ if __name__ == '__main__':
                     break
                 command_files[i] = SDUtils.write_commands(all_commands[i], name=stage, loc=args.directory)
                 logger.info('All \'%s\' commands were written to \'%s\'' % (stage, command_files[i]))
-            logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s\n%s\n%s' %
-                        (args.directory, 'python ' + __file__ + ' distribute -s refine',
-                         'python ' + __file__ + ' distribute -s design',
-                         'python ' + __file__ + ' distribute -s metrics'))
+            logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s' %
+                        (args.directory, '\n'.join(['python %s -f %s distribute -s %s' % (__file__, args.file, stage)
+                                                    for stage in list(PUtils.stage_f.keys())[:3]])))
 
     elif args.sub_module == 'distribute':  # -s --stage, -y --success_file, -n --failure_file, -m --max_jobs
         # Create success and failures files
