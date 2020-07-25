@@ -418,9 +418,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
     final_issm = SDUtils.offset_index(final_issm)  # change so it is one-indexed
     frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
-    # logger.debug('Residue frequency map:\n%s' % residue_freq_map)
-    # logger.debug('Residue interface edges:\n%s' % interface_residue_edges)  # This is perfect for Bale 2016 int connect
-    # logger.debug('Residue fragment overlap:\n%s' % frag_overlap)
+    logger.debug('Residue frequency map:\n%s' % residue_freq_map)
+    logger.debug('Residue interface edges:\n%s' % interface_residue_edges)  # This is perfect for Bale 2016 int connect
+    logger.debug('Residue fragment overlap:\n%s' % frag_overlap)
     #
     # for pair in residue_freq_map:
     #     for res in pair:
@@ -448,6 +448,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     consensus_residues = {}
     all_pose_fragment_pairs = residue_freq_map.keys()
+    print(all_pose_fragment_pairs)
+    residue_cluster_map = SDUtils.offset_index(residue_cluster_map)  # change so it is one-indexed
     # for residue in residue_cluster_map:
     for residue, partner in all_pose_fragment_pairs:
         for idx, cluster in residue_cluster_map[residue]['cluster']:
