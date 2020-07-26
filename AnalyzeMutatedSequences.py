@@ -836,7 +836,7 @@ def df_filter_index_by_value(df, **kwargs):
     return kwargs
 
 
-def filter_pose(df_file, filters, weights, num_designs=1, filter_file=PUtils.filter_and_sort):
+def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filter_file=PUtils.filter_and_sort):
     idx = pd.IndexSlice
     df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
     filter_df = pd.read_csv(filter_file, index_col=0)
@@ -864,6 +864,16 @@ def filter_pose(df_file, filters, weights, num_designs=1, filter_file=PUtils.fil
 
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
+    if consensus:
+        protocol_df = \
+            df.loc[:, idx[df.columns.get_level_values(0) == 'consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
+        #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', ['mean', 'stats'], :]].droplevel(1, axis=1)
+        # stats_protocol_df = \
+        #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', df.columns.get_level_values(1) == 'stats',
+        #     :]].droplevel(1, axis=1)
+        # design_protocols_df = pd.merge(protocol_df, stats_protocol_df, left_index=True, right_index=True)
+        df = pd.merge(protocol_df.loc[:, idx['consensus', :]].droplevel(0, axis=1),
+                      df.loc[:, idx['percent_fragment']], left_index=True, right_index=True).droplevel(0, axis=1)
     logger.info('Number of starting designs = %d' % len(df))
     logger.info('Using filter parameters: %s' % str(filters))
     logger.debug('Using weighting parameters: %s' % str(weights))

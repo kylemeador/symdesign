@@ -223,6 +223,8 @@ if __name__ == '__main__':
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
 
     parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
+    parser_sequence.add_argument('-c', '--consensus', action='store_true', help='Whether to grab the consensus sequence'
+                                                                                '\nDefault=False')
     parser_sequence.add_argument('-d', '--dataframe', type=str, help='Dataframe.csv from analysis containing pose info')
     # TODO ^ require this or pose_design_file
     parser_sequence.add_argument('-f', '--filters', type=dict, help='Metrics with which to filter on\nDefault=None',
@@ -448,7 +450,7 @@ if __name__ == '__main__':
                     logger.info('For \'%s\' stage, default settings should generate %d files'
                                 % (stage, PUtils.stage_f[stage]['len']))
 
-    elif args.sub_module == 'sequence':  # -n number, -d dataframe, -p pose_design_file, -f filters, -s selection_string, -w weights
+    elif args.sub_module == 'sequence':  # -c consensus, -d dataframe, -f filters, -n number, -p pose_design_file, -s selection_string, -w weights
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
             with open(args.pose_design_file) as csv_file:
@@ -460,6 +462,7 @@ if __name__ == '__main__':
             results.append(zip(all_design_directories, pose_design_numbers))
             location = args.pose_design_file
         else:
+            output = False
             if args.dataframe:  # Figure out poses from a dataframe, filters, and weights
                 # TODO parameterize
                 # if not args.filters:
@@ -469,15 +472,23 @@ if __name__ == '__main__':
                 symmetry_requirements = crystal_means
                 filters = {}
                 filters.update(design_requirements)
-                filters.update(symmetry_requirements)
+                if args.consensus:
+                    consensus_weights = {'interaction_energy_complex': 0.5, 'percent_fragment': 0.5}
+                    filters.update(consensus_weights)
+                else:
+                    filters.update(symmetry_requirements)
                 # if not args.weights:
                 #     sys.exit('VY made this and I am going to put in here!')
                 weights = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25,
                            'observed_evolution': 0.25, 'int_composition_diff': 0.25}
-                designs = filter_pose(args.dataframe, filters, weights, num_designs=args.number,
-                                      filter_file=PUtils.filter_and_sort)
-                all_design_directories = SDUtils.set_up_directory_objects(designs, symmetry=args.design_string)
-            if args.multi_processing:
+                select_poses = filter_pose(args.dataframe, filters, weights, num_designs=args.number,
+                                           consensus=args.consensus, filter_file=PUtils.filter_and_sort)
+                all_design_directories = SDUtils.set_up_directory_objects(select_poses, symmetry=args.design_string)
+                results.append(zip(all_design_directories, 'consensus'))
+                output = True
+            if output:
+                pass
+            elif args.multi_processing:
                 # Calculate the number of threads to use depending on computer resources
                 mp_threads = SDUtils.calculate_mp_threads(maximum=True)
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
