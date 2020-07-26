@@ -836,19 +836,20 @@ def df_filter_index_by_value(df, **kwargs):
     return kwargs
 
 
-def filter_pose(df_file, filters, sort, num_designs=1, filter_file=PUtils.filter_and_sort):
+def filter_pose(df_file, filters, weights, num_designs=1, filter_file=PUtils.filter_and_sort):
     idx = pd.IndexSlice
-    df = pd.read_csv(df_file, index_col=0, header=[0,1,2])
+    df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
     filter_df = pd.read_csv(filter_file, index_col=0)
 
     # design_requirements = {'percent_int_area_polar': 0.4, 'buns_per_ang': 0.002}
     # crystal_means = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
     # sort = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25, 'observed_evolution': 0.25,
     #         'int_composition_diff': 0.25}
-    sort_s = pd.Series(sort)
+    weights_s = pd.Series(weights)
 
     # When df is not ranked by percentage
-    _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': filters[metric]} for metric in filters}
+    _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': filters[metric]}
+                for metric in filters}
 
     # When df IS ranked by percentage
     # bottom_percent = (num_designs / len(df))
@@ -865,7 +866,7 @@ def filter_pose(df_file, filters, sort, num_designs=1, filter_file=PUtils.filter
     df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
     logger.info('Number of starting designs = %d' % len(df))
     logger.info('Using filter parameters: %s' % str(filters))
-    logger.debug('Using sorting parameters: %s' % str(_sort))
+    logger.debug('Using weighting parameters: %s' % str(weights))
 
     # filtered_indices = {}
     # for metric in filters:
@@ -890,7 +891,7 @@ def filter_pose(df_file, filters, sort, num_designs=1, filter_file=PUtils.filter
     # {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
 
     # display(ranked_df[weights_s.index.to_list()] * weights_s)
-    design_scores_s = (ranked_df[sort_s.index.to_list()] * sort_s).sum(axis=1).sort_values(ascending=False)
+    design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
     design_list = design_scores_s.index.to_list()[:num_designs]
 
     return design_list
