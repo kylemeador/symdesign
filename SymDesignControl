@@ -483,7 +483,7 @@ if __name__ == '__main__':
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
                 # zipped_args = zip(all_design_directories, repeat(args.number))
                 # results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
-                results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, all_design_directories, mp_threads))
+                results, exceptions = zip(*SDUtils.mp_map(select_sequences_mp, all_design_directories, mp_threads))
             else:
                 # results, exceptions = zip(*list(select_sequences_s(des_directory, number=args.number)
                 #                                 for des_directory in all_design_directories))
