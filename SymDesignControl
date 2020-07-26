@@ -129,7 +129,7 @@ def fix_files_mp(des_dir):
         # f1.write('\n')
         # f1.truncate()
 
-        if lines[-1].startswith('{"decoy":"clean_asu_for_consensus"'):
+        if lines[-1].startswith('{"decoy":"clean_asu_for_consenus"'):
             j = True
         else:
             j = False
