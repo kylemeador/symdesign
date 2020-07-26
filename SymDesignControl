@@ -103,6 +103,24 @@ def status(design_directories, _stage, number=None):
     return True
 
 
+def fix_files_mp(des_dir):
+    with open(os.path.join(des_dir.scores, PUtils.scores_file), 'r+') as f1:
+        lines = f1.readlines()
+        new_line = {}
+        for z, line in enumerate(lines):
+            if len(line.split('}{')) == 2:
+                sep = line.find('}{') + 1
+                new_line[i] = line[sep:]
+                line[i] = line[:sep]
+        for error_idx in new_line:
+            lines.insert(error_idx, new_line[error_idx])
+
+        f1.seek(0)
+        f1.write('\n'.join(lines))
+        f1.write('\n')
+        file.truncate()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='\nControl all input/output of %s including:\n1. Pose initialization\n'
                                                  '2. Command distribution to computational nodes\n'
@@ -389,23 +407,6 @@ if __name__ == '__main__':
             SDUtils.rename_decoy_protocols(des_directory, rename)
 
     elif args.sub_module == 'modify':
-        def fix_files_mp(des_dir):
-            with open(os.path.join(des_dir.scores, PUtils.scores_file), 'r+') as f1:
-                lines = f1.readlines()
-                new_line = {}
-                for z, line in enumerate(lines):
-                    if len(line.split('}{')) == 2:
-                        sep = line.find('}{') + 1
-                        new_line[i] = line[sep:]
-                        line[i] = line[:sep]
-                for error_idx in new_line:
-                    lines.insert(error_idx, new_line[error_idx])
-
-                f1.seek(0)
-                f1.write('\n'.join(lines))
-                f1.write('\n')
-                file.truncate()
-
         mp_threads = SDUtils.calculate_mp_threads(maximum=True)
         results, exceptions = SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads)
 
