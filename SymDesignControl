@@ -513,7 +513,9 @@ if __name__ == '__main__':
             for i, pose_des_dir in enumerate(pose_des_dirs):
                 # print(pose_des_dir, design)
                 file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design))
+                print('%s*%s*' % (pose_des_dir.design_pdbs, design))
                 if file == list():  # If no file found, skip
+                    print(skipped)
                     continue
                 os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
                 # coming in as (chain: seq}
