@@ -932,12 +932,12 @@ def select_sequences(des_dir, number=1, debug=False):
 
     # Load relevant data from the design directory
     trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
-    assert len(trajectory_file) == 1, 'Multiples files found for %s' % \
-                                      os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+    assert len(trajectory_file) == 1, 'Couldn\'t find files for %s' % \
+                                      os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir))
     trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0])  # , 1, 2]
 
     sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
-    assert len(sequences_pickle) == 1, 'Multiples files found for %s' % \
+    assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
                                        os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
 
     # {chain: {name: sequence, ...}, ...}
