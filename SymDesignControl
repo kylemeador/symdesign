@@ -106,11 +106,15 @@ def status(design_directories, _stage, number=None):
 def fix_files_mp(des_dir):
     with open(os.path.join(des_dir.scores, PUtils.scores_file), 'r+') as f1:
         lines = f1.readlines()
-        clean_lines = []
-        for line in lines:
-            if line == '\n':
-                continue
-            clean_lines.append(line.strip())
+
+        # Remove extra newlines from file
+        # clean_lines = []
+        # for line in lines:
+        #     if line == '\n':
+        #         continue
+        #     clean_lines.append(line.strip())
+
+        # Take multi-entry '{}{}' json record and make multi-line
         # new_line = {}
         # for z, line in enumerate(lines):
         #     if len(line.split('}{')) == 2:
@@ -119,11 +123,18 @@ def fix_files_mp(des_dir):
         #         lines[z] = line[:sep]
         # for error_idx in new_line:
         #     lines.insert(error_idx, new_line[error_idx])
-        #
-        f1.seek(0)
-        f1.write('\n'.join(clean_lines))
-        f1.write('\n')
-        f1.truncate()
+
+        # f1.seek(0)
+        # f1.write('\n'.join(clean_lines))
+        # f1.write('\n')
+        # f1.truncate()
+
+        if lines[-1].startswith('{"decoy":"clean_asu_for_consensus"'):
+            j = True
+        else:
+            j = False
+
+    return j, None
 
 
 if __name__ == '__main__':
@@ -415,6 +426,15 @@ if __name__ == '__main__':
         mp_threads = SDUtils.calculate_mp_threads(maximum=True)
         results, exceptions = SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads)
 
+        errors = []
+        for i, result in enumerate(results):
+            if not result:
+                errors.append(all_design_directories[i].path)
+
+        logger.error('%d directories missing consensus metrics!' % len(errors))
+        with open('missing_consensus_metrics', 'w') as f:
+            f.write('\n'.join(errors))
+
     elif args.sub_module == 'status':  # -n --number, -s --stage
         if args.number_designs:
             logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but design '
@@ -500,9 +520,10 @@ if __name__ == '__main__':
         # seq_file = write_fasta_file(sequences, '%s_Selected_Sequences' % args.selection_string, path=os.path.dirname(location))
 
     # Report any program exceptions
-    any_exceptions = list(set(exceptions))
+    any_exceptions = [exception for exception in exceptions if exception]
+    # any_exceptions = list(set(exceptions))
     if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
-        logger.warning('\nThe following exceptions were thrown. Design for these %d directories is inaccurate!!!\n' %
+        logger.warning('\nThe following exceptions were thrown. Design for %d directories is inaccurate!!!\n' %
                        len(exceptions))
         all_exception_poses = []
         for exception in exceptions:

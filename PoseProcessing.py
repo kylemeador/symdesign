@@ -252,7 +252,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     for com_dist in asu_oligomer_com_dist:
         if com_dist > max_com_dist:
             max_com_dist = com_dist
-    dist = round(math.sqrt(math.ceil(max_com_dist)), 0)  # OPTIMIZE reasonable amount for first tests...
+    dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
     logger.info('Expanding ASU by %f Angstroms' % dist)
 
     # Check to see if other poses have collected design sequence info and grab PSSM
