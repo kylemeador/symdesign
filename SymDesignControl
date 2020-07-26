@@ -118,7 +118,7 @@ def fix_files_mp(des_dir):
         f1.seek(0)
         f1.write('\n'.join(lines))
         f1.write('\n')
-        file.truncate()
+        f1.truncate()
 
 
 if __name__ == '__main__':
