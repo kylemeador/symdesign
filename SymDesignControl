@@ -66,6 +66,7 @@ def merge_directory_pair(pair):
             with open(os.path.join(pair[0].scores, PUtils.scores_file), 'r') as f2:
                 lines = [loads(line) for line in f2.readlines()]
             f1.write('\n'.join(dumps(line) for line in lines))
+            f1.write('\n')  # first a new line at the end of the combined file
 
     def merge_designs():
         for pdb in os.listdir(pair[0].design_pdbs):
@@ -177,6 +178,8 @@ if __name__ == '__main__':
                                                                'to location 1 poses', default=None)
     parser_merge.add_argument('-i', '--increment', type=int, help='How many to increment each design by?\nDefault=%d'
                                                                   % PUtils.nstruct)
+
+    parser_modify = subparsers.add_parser('modify', help='Modify something for testing')
 
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
@@ -384,6 +387,27 @@ if __name__ == '__main__':
         rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
         for des_directory in all_design_directories:
             SDUtils.rename_decoy_protocols(des_directory, rename)
+
+    elif args.sub_module == 'modify':
+        def fix_files_mp(des_dir):
+            with open(os.path.join(des_dir.scores, PUtils.scores_file), 'r+') as f1:
+                lines = f1.readlines()
+                new_line = {}
+                for z, line in enumerate(lines):
+                    if len(line.split('}{')) == 2:
+                        sep = line.find('}{') + 1
+                        new_line[i] = line[sep:]
+                        line[i] = line[:sep]
+                for error_idx in new_line:
+                    lines.insert(error_idx, new_line[error_idx])
+
+                f1.seek(0)
+                f1.write('\n'.join(lines))
+                f1.write('\n')
+                file.truncate()
+
+        mp_threads = SDUtils.calculate_mp_threads(maximum=True)
+        results, exceptions = SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads)
 
     elif args.sub_module == 'status':  # -n --number, -s --stage
         if args.number_designs:
