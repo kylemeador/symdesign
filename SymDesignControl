@@ -510,6 +510,7 @@ if __name__ == '__main__':
             os.makedirs(outdir)
         final_sequences = {}
         for pose in results:
+            print(pose)
             pose_des_dir, design = pose
             # pose_des_dir, design = zip(*pose)
             print(pose_des_dir, design)
