@@ -121,7 +121,7 @@ def fix_files_mp(des_dir):
         #     lines.insert(error_idx, new_line[error_idx])
         #
         f1.seek(0)
-        f1.write('\n'.join(lines))
+        f1.write('\n'.join(clean_lines))
         f1.write('\n')
         f1.truncate()
 
