@@ -1022,7 +1022,7 @@ def select_sequences(des_dir, number=1, debug=False):
         except ValueError:
             raise SDUtils.DesignError('no dataframe')
         energy_s.sort_values(inplace=True)
-        final_seqs = zip(repeat(des_dir.path), energy_s.iloc[:number, :].index.to_list())
+        final_seqs = zip(repeat(des_dir.path), energy_s.iloc[:number].index.to_list())  # , :].index.to_list())
     else:
         final_seqs = zip(repeat(des_dir.path), final_designs.keys())
 
