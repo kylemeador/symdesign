@@ -474,7 +474,9 @@ if __name__ == '__main__':
                 #     sys.exit('VY made this and I am going to put in here!')
                 weights = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25,
                            'observed_evolution': 0.25, 'int_composition_diff': 0.25}
-                filter_pose(args.dataframe, filters, weights, num_designs=args.number, filter_file=PUtils.filter_and_sort)
+                designs = filter_pose(args.dataframe, filters, weights, num_designs=args.number,
+                                      filter_file=PUtils.filter_and_sort)
+                all_design_directories = SDUtils.set_up_directory_objects(designs, symmetry=args.design_string)
             if args.multi_processing:
                 # Calculate the number of threads to use depending on computer resources
                 mp_threads = SDUtils.calculate_mp_threads(maximum=True)
