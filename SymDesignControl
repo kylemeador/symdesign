@@ -4,6 +4,7 @@ SLURM/PBS computational clusters, analysis of designed poses, and renaming of co
 
 """
 import os
+import sys
 import argparse
 import shutil
 from csv import reader
@@ -16,7 +17,7 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp
-from AnalyzeMutatedSequences import get_pdb_sequences, select_sequences_s, select_sequences_mp
+from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -185,11 +186,17 @@ if __name__ == '__main__':
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
 
     parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
-    parser_sequence.add_argument('-f', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
-                                                                            ' sequence selector')
-    parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
+    parser_sequence.add_argument('-d', '--dataframe', type=str, help='Dataframe.csv from analysis containing pose info')
+    # TODO ^ require this or pose_design_file
+    parser_sequence.add_argument('-f', '--filters', type=dict, help='Metrics with which to filter on\nDefault=None',
+                                 default=None)
     parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
                                  default=1)
+    parser_sequence.add_argument('-p', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
+                                                                            ' sequence selector')
+    parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
+    parser_sequence.add_argument('-w', '--weights', type=str, help='Weights of various metrics to final poses\n'
+                                                                   'Default=1/number of --filters')
 
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
 
@@ -283,7 +290,7 @@ if __name__ == '__main__':
             args.failure_file = os.path.join(args.directory, args.stage + '_stage_pose_failures')
         # with open(args.failure_file, 'w') as f:
         #     dummy = True
-        logger.info('Successful poses will be listed in \'%s\'\nFailed poses will be listed in \'%s\''
+        logger.info('\nSuccessful poses will be listed in \'%s\'\nFailed poses will be listed in \'%s\''
                     % (args.success_file, args.failure_file))
 
         # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
@@ -391,7 +398,7 @@ if __name__ == '__main__':
                     logger.info('For \'%s\' stage, default settings should generate %d files'
                                 % (stage, PUtils.stage_f[stage]['len']))
 
-    elif args.sub_module == 'sequence':  # -n --number, -f --pose_design_file, -s --selection_string
+    elif args.sub_module == 'sequence':  # -n number, -d dataframe, -p pose_design_file, -f filters, -s selection_string, -w weights
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
             with open(args.pose_design_file) as csv_file:
@@ -403,6 +410,21 @@ if __name__ == '__main__':
             results = zip(all_design_directories, pose_design_numbers)
             location = args.pose_design_file
         else:
+            if args.dataframe:  # Figure out poses from a dataframe, filters, and weights
+                # TODO parameterize
+                # if not args.filters:
+                #     sys.exit('VY made this and I am going to put in here!')
+                design_requirements = {'percent_int_area_polar': 0.4, 'buns_per_ang': 0.002}
+                crystal_means = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
+                symmetry_requirements = crystal_means
+                filters = {}
+                filters.update(design_requirements)
+                filters.update(symmetry_requirements)
+                # if not args.weights:
+                #     sys.exit('VY made this and I am going to put in here!')
+                weights = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25,
+                           'observed_evolution': 0.25, 'int_composition_diff': 0.25}
+                filter_pose(args.dataframe, filters, weights, num_designs=args.number, filter_file=PUtils.filter_and_sort)
             if args.multi_processing:
                 # Calculate the number of threads to use depending on computer resources
                 mp_threads = SDUtils.calculate_mp_threads(maximum=True)

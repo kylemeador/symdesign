@@ -978,7 +978,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     for profile in profile_dict:
         scores_df['observed_%s' % profile] = pd.Series(pose_observed_bkd[profile])
 
-    # Add design specific residue information to scores_df
+    # Add design residue information to scores_df such as core, rim, and support measures
     for r_class in residue_classificiation:
         scores_df[r_class] = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
     scores_df['int_composition_diff'] = scores_df.apply(residue_composition_diff, axis=1)
@@ -987,17 +987,17 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Check if any of the values in columns are 1. If so, return True for that column
     interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()
     int_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
-
     if set(int_residues) != set(des_residues):
         logger.info('Residues %s are located in the interior' %
                     ', '.join(map(str, list(set(des_residues) - set(int_residues)))))
+    scores_df['total_interface_residues'] = len(int_residues)
 
     # Gather miscellaneous pose specific metrics
     other_pose_metrics = SDUtils.gather_fragment_metrics(des_dir)
     # nanohedra_score, average_fragment_z_score, unique_fragments
     other_pose_metrics['observations'] = len(designs)
     other_pose_metrics['symmetry'] = symmetry
-    other_pose_metrics['total_interface_residues'] = len(int_residues)
+    # other_pose_metrics['total_interface_residues'] = len(int_residues)
     other_pose_metrics['percent_fragment'] = len(issm) / len(int_residues)
 
     # Interface B Factor TODO ensure clean_asu.pdb has B-factors
