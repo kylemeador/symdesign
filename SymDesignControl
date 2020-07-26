@@ -479,8 +479,9 @@ if __name__ == '__main__':
                 # Calculate the number of threads to use depending on computer resources
                 mp_threads = SDUtils.calculate_mp_threads(maximum=True)
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-                zipped_args = zip(all_design_directories, repeat(args.number))
-                results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
+                # zipped_args = zip(all_design_directories, repeat(args.number))
+                # results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
+                results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, all_design_directories, mp_threads))
             else:
                 # results, exceptions = zip(*list(select_sequences_s(des_directory, number=args.number)
                 #                                 for des_directory in all_design_directories))
@@ -522,9 +523,10 @@ if __name__ == '__main__':
     # Report any program exceptions
     any_exceptions = [exception for exception in exceptions if exception]
     # any_exceptions = list(set(exceptions))
-    if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
+    # if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
+    if len(any_exceptions) > 1:
         logger.warning('\nThe following exceptions were thrown. Design for %d directories is inaccurate!!!\n' %
-                       len(exceptions))
+                       len(any_exceptions))
         all_exception_poses = []
         for exception in exceptions:
             if exception:
