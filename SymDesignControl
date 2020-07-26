@@ -111,7 +111,7 @@ def fix_files_mp(des_dir):
             if len(line.split('}{')) == 2:
                 sep = line.find('}{') + 1
                 new_line[z] = line[sep:]
-                line[z] = line[:sep]
+                lines[z] = line[:sep]
         for error_idx in new_line:
             lines.insert(error_idx, new_line[error_idx])
 
