@@ -424,7 +424,7 @@ if __name__ == '__main__':
 
     elif args.sub_module == 'modify':
         mp_threads = SDUtils.calculate_mp_threads(maximum=True)
-        results, exceptions = SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads)
+        results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads))
 
         errors = []
         for i, result in enumerate(results):
