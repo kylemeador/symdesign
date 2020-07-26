@@ -508,14 +508,10 @@ if __name__ == '__main__':
             os.makedirs(outdir)
         final_sequences = {}
         for pose in results:
-            # pose_des_dir, design = pose
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
-                # print(pose_des_dir, design)
-                file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design))
-                print('%s*%s*' % (pose_des_dir.design_pdbs, design))
+                file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design[i]))
                 if file == list():  # If no file found, skip
-                    print(skipped)
                     continue
                 os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
                 # coming in as (chain: seq}
