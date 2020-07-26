@@ -893,6 +893,7 @@ def filter_pose(df_file, filters, weights, num_designs=1, filter_file=PUtils.fil
     # display(ranked_df[weights_s.index.to_list()] * weights_s)
     design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
     design_list = design_scores_s.index.to_list()[:num_designs]
+    logger.info('%d poses were selected:%s' % (num_designs, '\n'.join(design_list)))
 
     return design_list
 
@@ -933,7 +934,7 @@ def select_sequences(des_dir, number=1, debug=False):
     trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
     assert len(trajectory_file) == 1, 'Multiples files found for %s' % \
                                       os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
-    trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0, 1, 2])
+    trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0])  # , 1, 2]
 
     sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
     assert len(sequences_pickle) == 1, 'Multiples files found for %s' % \
