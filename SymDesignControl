@@ -457,7 +457,7 @@ if __name__ == '__main__':
             # pose_design_numbers = list(map(list, pose_design_numbers))
             # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
             all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
-            results = zip(all_design_directories, pose_design_numbers)
+            results.append(zip(all_design_directories, pose_design_numbers))
             location = args.pose_design_file
         else:
             if args.dataframe:  # Figure out poses from a dataframe, filters, and weights
@@ -491,8 +491,6 @@ if __name__ == '__main__':
                     result, error = select_sequences_s(des_directory, number=args.number)
                     results.append(result)
                     exceptions.append(error)
-        print(results[0])
-        print(exceptions[0])
 
         results = list(results)
         failures = [index for index, exception in enumerate(exceptions) if exception]
@@ -510,16 +508,16 @@ if __name__ == '__main__':
             os.makedirs(outdir)
         final_sequences = {}
         for pose in results:
-            print(pose)
-            pose_des_dir, design = pose
-            # pose_des_dir, design = zip(*pose)
-            print(pose_des_dir, design)
-            file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design))
-            if file == list():  # If no file found, skip
-                continue
-            os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % pose))
-            # coming in as (chain: seq}
-            final_sequences[design] = get_pdb_sequences(file[0])
+            # pose_des_dir, design = pose
+            pose_des_dirs, design = zip(*pose)
+            for i, pose_des_dir in enumerate(pose_des_dirs):
+                # print(pose_des_dir, design)
+                file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design))
+                if file == list():  # If no file found, skip
+                    continue
+                os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
+                # coming in as (chain: seq}
+                final_sequences[design] = get_pdb_sequences(file[0])
 
         # Format sequences for expression
         # sequences = add_expression_tags(final_sequences)
