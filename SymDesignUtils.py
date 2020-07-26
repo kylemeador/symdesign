@@ -306,6 +306,19 @@ def clean_interior_keys(dictionary, keys, remove=True):
         return new_dictionary
 
 
+def index_intersection(indices):
+    final_indices = set()
+    # find all set union
+    for metric in indices:
+        final_indices = set(final_indices) | set(indices[metric])
+
+    # find all set intersection
+    for metric in indices:
+        final_indices = set(final_indices) & set(indices[metric])
+
+    return list(final_indices)
+
+
 def reduce_pose_to_chains(pdb, chains):  # UNUSED
     new_pdb = PDB.PDB()
     new_pdb.read_atom_list(pdb.chains(chains))

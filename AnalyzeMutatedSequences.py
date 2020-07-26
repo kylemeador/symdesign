@@ -819,6 +819,83 @@ def analyze_mutations(des_dir, mutated_sequences, residues=None, print_results=F
     return final_mutation_dict
 
 
+def df_filter_index_by_value(df, **kwargs):
+    """Take a df and retrieve the indices which have column values greater_equal/less_equal to a value depending
+    on whether the column should be sorted max/min
+    Args:
+        df (pandas.DataFrame): DataFrame to filter indices on
+    Keyword Args:
+        kwargs (dict): {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
+    """
+    for idx in kwargs:
+        if kwargs[idx]['direction'] == 'max':
+            kwargs[idx]['idx'] = df[df[idx] >= kwargs[idx]['value']].index.to_list()
+        if kwargs[idx]['direction'] == 'min':
+            kwargs[idx]['idx'] = df[df[idx] <= kwargs[idx]['value']].index.to_list()
+
+    return kwargs
+
+
+def filter_pose(df_file, filters, sort, num_designs=1, filter_file=PUtils.filter_and_sort):
+    idx = pd.IndexSlice
+    df = pd.read_csv(df_file, index_col=0, header=[0,1,2])
+    filter_df = pd.read_csv(filter_file, index_col=0)
+
+    # design_requirements = {'percent_int_area_polar': 0.4, 'buns_per_ang': 0.002}
+    # crystal_means = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
+    # sort = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25, 'observed_evolution': 0.25,
+    #         'int_composition_diff': 0.25}
+    sort_s = pd.Series(sort)
+
+    # When df is not ranked by percentage
+    _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': filters[metric]} for metric in filters}
+
+    # When df IS ranked by percentage
+    # bottom_percent = (num_designs / len(df))
+    # top_percent = 1 - bottom_percent
+    # min_max_to_top_bottom = {'min': bottom_percent, 'max': top_percent}
+    # _filters = {metric: {'direction': filter_df.loc['direction', metric],
+    #                      'value': min_max_to_top_bottom[filter_df.loc['direction', metric]]} for metric in filters}
+
+    # _sort = {metric: {'direction': filter_df.loc['direction', metric],
+    #                   'value': min_max_to_top_bottom[filter_df.loc['direction', metric]]} for metric in sort_s.index}
+    # filters_with_idx = df_filter_index_by_value(ranked_df, **_sort)
+
+    # Grab pose info from the DateFrame and drop all classifiers in top two rows.
+    df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
+    logger.info('Number of starting designs = %d' % len(df))
+    logger.info('Using filter parameters: %s' % str(filters))
+    logger.debug('Using sorting parameters: %s' % str(_sort))
+
+    # filtered_indices = {}
+    # for metric in filters:
+    #     filtered_indices[metric] = set(df[df.droplevel(0, axis=1)[metric] >= filters[metric]].index.to_list())
+    #     logger.info('Number of designs passing %s = %d' % (metric, len(filtered_indices[metric])))
+
+    # Filter the DataFrame to include only those values which are lower or higher than the specified filter
+    filters_with_idx = df_filter_index_by_value(df, **_filters)
+    filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
+    logger.info('\n%s' % '\n'.join('Number of designs passing \'%s\' = %d' %
+                                   (metric, len(filtered_indices[metric])) for metric in filtered_indices))
+    final_indices = SDUtils.index_intersection(filtered_indices)
+    logger.info('Final set of designs passing all metric filters has %d members' % len(final_indices))
+    _df = df.loc[final_indices, :]
+    ranked_df = _df.rank(method='min', pct=True, )
+    # need {column: {'direction': 'max', 'value': 0.5, 'idx': []}, ...}
+
+    # only used to check out the number of designs in each filter
+    # for _filter in crystal_filters_with_idx:
+    #     print('%s designs = %d' % (_filter, len(crystal_filters_with_idx[_filter]['idx'])))
+
+    # {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
+
+    # display(ranked_df[weights_s.index.to_list()] * weights_s)
+    design_scores_s = (ranked_df[sort_s.index.to_list()] * sort_s).sum(axis=1).sort_values(ascending=False)
+    design_list = design_scores_s.index.to_list()[:num_designs]
+
+    return design_list
+
+
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
 def select_sequences_s(des_dir, number=1, debug=False):
     return select_sequences(des_dir, number=number, debug=debug)
@@ -843,6 +920,7 @@ def select_sequences(des_dir, number=1, debug=False):
     Returns:
         (list): Containing tuples with (DesignDirectory.path, design index) for each sequence found
     """
+    desired_protocol = 'combo_profile'
     # Log output
     if debug:
         global logger
@@ -865,7 +943,8 @@ def select_sequences(des_dir, number=1, debug=False):
     # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so its unnecessary
     chains = list(all_design_sequences.keys())
     # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
-    designs = list(all_design_sequences[chains[0]].keys())
+    designs = trajectory_df[trajectory_df['protocol'] == desired_protocol].index.to_list()
+    # designs = list(all_design_sequences[chains[0]].keys())
     concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains]) for design in designs]
     # concatenated_sequences = {design: ''.join([all_design_sequences[chain][design] for chain in chains])
     #                           for design in designs}
@@ -876,7 +955,7 @@ def select_sequences(des_dir, number=1, debug=False):
     # Using concatenated sequences makes the values incredibly similar and inflated as most residues are the same
     # doing min/max normalization to see variation
     pairwise_sequence_diff_l = [SDUtils.sequence_difference(*seq_pair)
-                                for seq_pair in combinations(concatenated_sequences, 2)]  # for design in concatenated_sequences], 2))]
+                                for seq_pair in combinations(concatenated_sequences, 2)]
     pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
     _min = min(pairwise_sequence_diff_l)
     # _max = max(pairwise_sequence_diff_l)
@@ -935,13 +1014,7 @@ def select_sequences(des_dir, number=1, debug=False):
 
     # If final designs contains more sequences than specified, find the one with the lowest energy
     if len(final_designs) > number:
-        # energy_s = pd.Series()
-        # for design in final_designs:
-        #     energy_s[design] = trajectory_df.loc[design, 'int_energy_res_summary_delta']  # includes solvation energy
         energy_s = trajectory_df.loc[final_designs, 'int_energy_res_summary_delta']  # includes solvation energy
-        # energy_s.sort_values('int_energy_res_summary_delta', inplace=True)
-        # print(energy_s.dtype, des_dir.path)
-        # print(energy_s)
         try:
             energy_s = pd.Series(energy_s)
         except ValueError:
