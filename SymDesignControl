@@ -484,7 +484,7 @@ if __name__ == '__main__':
                 select_poses = filter_pose(args.dataframe, filters, weights, num_designs=args.number,
                                            consensus=args.consensus, filter_file=PUtils.filter_and_sort)
                 all_design_directories = SDUtils.set_up_directory_objects(select_poses, symmetry=args.design_string)
-                results.append(zip(all_design_directories, 'consensus'))
+                results.append(zip(all_design_directories, repeat('consensus')))
                 output = True
             if output:
                 pass
@@ -522,7 +522,9 @@ if __name__ == '__main__':
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
                 file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design[i]))
-                if file == list():  # If no file found, skip
+                if file == list():  # If no file found, skip and add to exceptions
+                    exceptions.append((pose_des_dir.path, 'No file found for %s*%s*' %
+                                       (pose_des_dir.design_pdbs, design[i])))
                     continue
                 os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
                 # coming in as (chain: seq}
