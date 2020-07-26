@@ -510,8 +510,8 @@ if __name__ == '__main__':
             os.makedirs(outdir)
         final_sequences = {}
         for pose in results:
-            # pose_des_dir, design = pose
-            pose_des_dir, design = zip(*pose)
+            pose_des_dir, design = pose
+            # pose_des_dir, design = zip(*pose)
             print(pose_des_dir, design)
             file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design))
             if file == list():  # If no file found, skip
