@@ -942,14 +942,12 @@ def select_sequences(des_dir, number=1, debug=False):
 
     # {chain: {name: sequence, ...}, ...}
     all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
-    # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so its unnecessary
+    # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so unnecessary
     chains = list(all_design_sequences.keys())
     # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
-    designs = trajectory_df[trajectory_df['protocol'] == desired_protocol].index.to_list()
     # designs = list(all_design_sequences[chains[0]].keys())
+    designs = trajectory_df[trajectory_df['protocol'] == desired_protocol].index.to_list()
     concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains]) for design in designs]
-    # concatenated_sequences = {design: ''.join([all_design_sequences[chain][design] for chain in chains])
-    #                           for design in designs}
     logger.debug(chains)
     logger.debug(concatenated_sequences)
 
@@ -1000,7 +998,7 @@ def select_sequences(des_dir, number=1, debug=False):
                      for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
     logger.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
                 # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
-                % '\n'.join('%d\t%s' % (neighbors, os.path.join(des_dir.design_pdbs, des))
+                % '\n'.join('\t%d\t%s' % (neighbors, os.path.join(des_dir.design_pdbs, des))
                             for des, neighbors in final_designs.items()))
 
     # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.design_pdbs, seq))

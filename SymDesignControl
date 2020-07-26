@@ -491,6 +491,8 @@ if __name__ == '__main__':
                     result, error = select_sequences_s(des_directory, number=args.number)
                     results.append(result)
                     exceptions.append(error)
+        print(results[0])
+        print(exceptions[0])
 
         results = list(results)
         failures = [index for index, exception in enumerate(exceptions) if exception]
