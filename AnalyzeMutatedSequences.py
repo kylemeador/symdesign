@@ -840,6 +840,8 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
     idx = pd.IndexSlice
     df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
     filter_df = pd.read_csv(filter_file, index_col=0)
+    logger.info('Number of starting designs = %d' % len(df))
+    logger.info('Using filter parameters: %s' % str(filters))
 
     # design_requirements = {'percent_int_area_polar': 0.4, 'buns_per_ang': 0.002}
     # crystal_means = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
@@ -851,6 +853,14 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
     _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': filters[metric]}
                 for metric in filters}
 
+    # Grab pose info from the DateFrame and drop all classifiers in top two rows.
+    _df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
+    # Filter the DataFrame to include only those values which are lower or higher than the specified filter
+    filters_with_idx = df_filter_index_by_value(_df, **_filters)
+    filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
+    logger.info('\n%s' % '\n'.join('Number of designs passing \'%s\' filter = %d' %
+                                   (metric, len(filtered_indices[metric])) for metric in filtered_indices))
+    final_indices = SDUtils.index_intersection(filtered_indices)
     # When df IS ranked by percentage
     # bottom_percent = (num_designs / len(df))
     # top_percent = 1 - bottom_percent
@@ -862,7 +872,6 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
     #                   'value': min_max_to_top_bottom[filter_df.loc['direction', metric]]} for metric in sort_s.index}
     # filters_with_idx = df_filter_index_by_value(ranked_df, **_sort)
 
-    # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     if consensus:
         protocol_df = df.loc[:, idx['consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
         #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', ['mean', 'stats'], :]].droplevel(1, axis=1)
@@ -870,29 +879,17 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
         #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', df.columns.get_level_values(1) == 'stats',
         #     :]].droplevel(1, axis=1)
         # design_protocols_df = pd.merge(protocol_df, stats_protocol_df, left_index=True, right_index=True)
-        df = pd.merge(protocol_df.loc[:, idx['consensus', :]],
-                      df.droplevel(0, axis=1).loc[:, idx[:, 'percent_fragment']],
-                      left_index=True, right_index=True).droplevel(0, axis=1)
-    else:
-        df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
-
-    logger.info('Number of starting designs = %d' % len(df))
-    logger.info('Using filter parameters: %s' % str(filters))
-    logger.info('Using weighting parameters: %s' % str(weights))
-
+        _df = pd.merge(protocol_df.loc[:, idx['consensus', :]],
+                       df.droplevel(0, axis=1).loc[:, idx[:, 'percent_fragment']],
+                       left_index=True, right_index=True).droplevel(0, axis=1)
     # filtered_indices = {}
+    logger.info('Using weighting parameters: %s' % str(weights))
     # for metric in filters:
     #     filtered_indices[metric] = set(df[df.droplevel(0, axis=1)[metric] >= filters[metric]].index.to_list())
     #     logger.info('Number of designs passing %s = %d' % (metric, len(filtered_indices[metric])))
 
-    # Filter the DataFrame to include only those values which are lower or higher than the specified filter
-    filters_with_idx = df_filter_index_by_value(df, **_filters)
-    filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
-    logger.info('\n%s' % '\n'.join('Number of designs passing \'%s\' = %d' %
-                                   (metric, len(filtered_indices[metric])) for metric in filtered_indices))
-    final_indices = SDUtils.index_intersection(filtered_indices)
     logger.info('Final set of designs passing all metric filters has %d members' % len(final_indices))
-    _df = df.loc[final_indices, :]
+    _df = _df.loc[final_indices, :]
     ranked_df = _df.rank(method='min', pct=True, )
     # need {column: {'direction': 'max', 'value': 0.5, 'idx': []}, ...}
 
