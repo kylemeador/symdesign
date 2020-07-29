@@ -865,15 +865,15 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
     if consensus:
-        protocol_df = \
-            df.loc[:, idx[df.columns.get_level_values(0) == 'consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
+        protocol_df = df.loc[:, idx['consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
         #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', ['mean', 'stats'], :]].droplevel(1, axis=1)
         # stats_protocol_df = \
         #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', df.columns.get_level_values(1) == 'stats',
         #     :]].droplevel(1, axis=1)
         # design_protocols_df = pd.merge(protocol_df, stats_protocol_df, left_index=True, right_index=True)
-        df = pd.merge(protocol_df.loc[:, idx['consensus', :]].droplevel(0, axis=1),
-                      df.loc[:, idx['percent_fragment']], left_index=True, right_index=True).droplevel(0, axis=1)
+        df = pd.merge(protocol_df.loc[:, idx['consensus', :]],
+                      df.droplevel(0, axis=1).loc[:, idx[:, 'percent_fragment']],
+                      left_index=True, right_index=True).droplevel(0, axis=1)
     logger.info('Number of starting designs = %d' % len(df))
     logger.info('Using filter parameters: %s' % str(filters))
     logger.info('Using weighting parameters: %s' % str(weights))
@@ -903,7 +903,7 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
     # display(ranked_df[weights_s.index.to_list()] * weights_s)
     design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
     design_list = design_scores_s.index.to_list()[:num_designs]
-    logger.info('%d poses were selected:%s' % (num_designs, '\n'.join(design_list)))
+    logger.info('%d poses were selected:\n%s' % (num_designs, '\n'.join(design_list)))
 
     return design_list
 
