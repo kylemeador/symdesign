@@ -876,7 +876,7 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
                       df.loc[:, idx['percent_fragment']], left_index=True, right_index=True).droplevel(0, axis=1)
     logger.info('Number of starting designs = %d' % len(df))
     logger.info('Using filter parameters: %s' % str(filters))
-    logger.debug('Using weighting parameters: %s' % str(weights))
+    logger.info('Using weighting parameters: %s' % str(weights))
 
     # filtered_indices = {}
     # for metric in filters:
