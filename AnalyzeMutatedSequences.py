@@ -863,7 +863,6 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
     # filters_with_idx = df_filter_index_by_value(ranked_df, **_sort)
 
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
-    df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
     if consensus:
         protocol_df = df.loc[:, idx['consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
         #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', ['mean', 'stats'], :]].droplevel(1, axis=1)
@@ -874,6 +873,9 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
         df = pd.merge(protocol_df.loc[:, idx['consensus', :]],
                       df.droplevel(0, axis=1).loc[:, idx[:, 'percent_fragment']],
                       left_index=True, right_index=True).droplevel(0, axis=1)
+    else:
+        df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
+
     logger.info('Number of starting designs = %d' % len(df))
     logger.info('Using filter parameters: %s' % str(filters))
     logger.info('Using weighting parameters: %s' % str(weights))
