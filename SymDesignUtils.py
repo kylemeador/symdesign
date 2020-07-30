@@ -492,8 +492,6 @@ def get_biopdb_ca(structure):
 
 
 def superimpose(atoms, rmsd_thresh):
-    print(atoms[0][0])
-    print(atoms[0][0].get_full_id)
     biopdb_1_id = atoms[0][0].get_full_id()[0]
     biopdb_2_id = atoms[1][0].get_full_id()[0]
 
