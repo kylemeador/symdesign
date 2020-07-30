@@ -126,8 +126,10 @@ def pose_rmsd(all_des_dirs):
             # des_residues = SDUtils.unpickle(os.path.join(des_dir.data, PUtils.des_residues))
             # # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data
             # pair should be a structure...
+            print(des_residue_list)
             rmsd_residue_list = [residue for n, structure in enumerate(pair_structures)
                                  for residue in structure.get_residues() if residue in des_residue_list[n]]
+            print(rmsd_residue_list)
             pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
             # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
             print(pair_atom_list)
