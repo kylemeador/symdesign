@@ -611,7 +611,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     des_dir.info['dssm'] = dssm_file
     des_dir.info['db'] = frag_db
     des_dir.info['des_residues'] = [j for name in names for j in int_res_numbers[name]]
-    SDUtils.pickle_object(des_dir.info, 'info', out_path=des_dir.data)
+    info_pickle = SDUtils.pickle_object(des_dir.info, 'info', out_path=des_dir.data)
 
     # RELAX: Prepare command and flags file
     refine_variables = [('pdb_reference', des_dir.asu), ('scripts', PUtils.rosetta_scripts),
