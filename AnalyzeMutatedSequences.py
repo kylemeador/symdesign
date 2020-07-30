@@ -861,6 +861,7 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
     logger.info('\n%s' % '\n'.join('Number of designs passing \'%s\' filter = %d' %
                                    (metric, len(filtered_indices[metric])) for metric in filtered_indices))
     final_indices = SDUtils.index_intersection(filtered_indices)
+    logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
     # When df IS ranked by percentage
     # bottom_percent = (num_designs / len(df))
     # top_percent = 1 - bottom_percent
@@ -887,8 +888,6 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
     # for metric in filters:
     #     filtered_indices[metric] = set(df[df.droplevel(0, axis=1)[metric] >= filters[metric]].index.to_list())
     #     logger.info('Number of designs passing %s = %d' % (metric, len(filtered_indices[metric])))
-
-    logger.info('Final set of designs passing all metric filters has %d members' % len(final_indices))
     _df = _df.loc[final_indices, :]
     ranked_df = _df.rank(method='min', pct=True, )
     # need {column: {'direction': 'max', 'value': 0.5, 'idx': []}, ...}
