@@ -120,9 +120,9 @@ def pose_rmsd(all_des_dirs):
             # could use the union as well...
             des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
                                                           for n, pose_residues in enumerate(des_residue_list)})
-            if len(des_residue_set) < 10:
-                continue
-
+            # if len(des_residue_set) < 10:  # when the two structures are not significantly overlapped
+            #     pair_rmsd = np.nan
+            # else:
             pdb_parser = PDBParser()
             # pdb = parser.get_structure(pdb_name, filepath)
             pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]

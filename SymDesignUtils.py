@@ -1977,6 +1977,8 @@ def handle_errors(errors=(Exception, )):
 class DesignDirectory:
 
     def __init__(self, directory, auto_structure=True, symmetry=None):
+        self.path = directory
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
         self.symmetry = None
         # design_symmetry (P432)
         self.protein_data = None  # TODO
@@ -1990,8 +1992,6 @@ class DesignDirectory:
         # design_symmetry/all_scores (P432/All_Scores)
         self.building_blocks = None
         # design_symmetry/building_blocks (P432/4ftd_5tch)
-        self.path = directory
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
         self.scores = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scores (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scores)
         self.design_pdbs = None  # TODO .designs?
@@ -2031,6 +2031,9 @@ class DesignDirectory:
             self.path = os.path.join(symmetry, self.path)
         else:
             self.symmetry = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
+        if not os.path.exists(self.path):
+            raise DesignError('Path does not exist!\n%s' % self.path)
+
         self.protein_data = os.path.join(self.symmetry, 'Protein_Data')
         self.pdbs = os.path.join(self.protein_data, 'PDBs')
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
