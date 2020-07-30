@@ -130,6 +130,7 @@ def pose_rmsd(all_des_dirs):
                                  for residue in structure.get_residues() if residue in des_residue_list[n]]
             pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
             # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
+            print(pair_atom_list)
             pair_rmsd = SDUtils.superimpose(pair_atom_list, threshold)
             if not pair_rmsd:
                 continue
