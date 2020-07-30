@@ -428,8 +428,9 @@ if __name__ == '__main__':
         mp_threads = SDUtils.calculate_mp_threads(maximum=True)
         # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads))
         pose_map = pose_rmsd(all_design_directories)
+        print(pose_map)
         for protein_pair in pose_map:
-            if protein_pair == '4f47_4grd':
+            if os.path.basename(protein_pair) == '4f47_4grd':
                 logger.info('\n'.join({pose1: pose_map[protein_pair][pose1] for pose1 in pose_map[protein_pair]}))
         errors = []
         for i, result in enumerate(results):
