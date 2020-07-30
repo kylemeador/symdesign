@@ -2031,13 +2031,11 @@ class DesignDirectory:
             self.path = os.path.join(symmetry, self.path)
         else:
             self.symmetry = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
-        if not os.path.exists(self.path):
-            raise DesignError('Path does not exist!\n%s' % self.path)
 
         self.protein_data = os.path.join(self.symmetry, 'Protein_Data')
         self.pdbs = os.path.join(self.protein_data, 'PDBs')
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
-        self.all_scores = os.path.join(self.symmetry, 'All_' + PUtils.scores_outdir.title())  # db integration
+        self.all_scores = os.path.join(self.symmetry, 'All_' + PUtils.scores_outdir.title())  # TODO db integration
         self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.design_pdbs = os.path.join(self.path, PUtils.pdbs_outdir)
@@ -2046,6 +2044,8 @@ class DesignDirectory:
 
         self.asu = os.path.join(self.path, PUtils.clean)
 
+        if not os.path.exists(self.path):
+            raise DesignError('Path does not exist!\n%s' % self.path)
         if not os.path.exists(self.protein_data):
             os.makedirs(self.protein_data)
         if not os.path.exists(self.pdbs):
