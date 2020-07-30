@@ -121,7 +121,6 @@ def pose_rmsd(all_des_dirs):
             # pdb = parser.get_structure(pdb_name, filepath)
             pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
             # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
-            logger.info(pair[0].info)
             # grabs stats['des_resides'] from the design_directory
             des_residue_list = [pose.info['des_residues'] for pose in pair]
             # des_residues = SDUtils.unpickle(os.path.join(des_dir.data, PUtils.des_residues))
