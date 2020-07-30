@@ -117,6 +117,7 @@ def pose_rmsd(all_des_dirs):
         if pair[0].building_blocks == pair[1].building_blocks:
             # Grab designed resides from the design_directory
             des_residue_list = [pose.info['des_residues'] for pose in pair]
+            # could use the union as well...
             des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
                                                           for n, pose_residues in enumerate(des_residue_list)})
             if len(des_residue_set) < 10:
