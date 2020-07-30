@@ -155,12 +155,12 @@ def pose_rmsd(all_des_dirs):
             if pair[0].building_blocks in pose_map:
                 # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
                 if str(pair[0]) in pose_map[pair[0].building_blocks]:
-                    pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd[2]  # 2 is the rmsd value
+                    pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd
                 else:
-                    pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd[2]}
+                    pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd}
                 # pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
             else:
-                pose_map[pair[0].building_blocks] = {str(pair[0]): {str(pair[1]): pair_rmsd[2]}}
+                pose_map[pair[0].building_blocks] = {str(pair[0]): {str(pair[1]): pair_rmsd}}
                 # pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
 
     return pose_map
