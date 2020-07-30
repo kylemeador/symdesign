@@ -115,34 +115,42 @@ def pose_rmsd(all_des_dirs):
     pose_map = {}
     for pair in combinations(all_des_dirs, 2):
         if pair[0].building_blocks == pair[1].building_blocks:
-            # returns a list with all ca atoms from a structure
-            # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
+            # Grab designed resides from the design_directory
+            des_residue_list = [pose.info['des_residues'] for pose in pair]
+            des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
+                                                          for n, pose_residues in enumerate(des_residue_list)})
+            if len(des_residue_set) < 10:
+                continue
+
             pdb_parser = PDBParser()
             # pdb = parser.get_structure(pdb_name, filepath)
             pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+            # returns a list with all ca atoms from a structure
+            # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
             # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
-            # grabs stats['des_resides'] from the design_directory
-            des_residue_list = [pose.info['des_residues'] for pose in pair]
-            # des_residues = SDUtils.unpickle(os.path.join(des_dir.data, PUtils.des_residues))
-            # # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data
+
             # pair should be a structure...
             # for structure in pair_structures:
             #     for residue in structure.get_residues():
             #         print(residue)
             #         print(residue[0])
-            rmsd_residue_list = [[residue for residue in structure.get_residues()
-                                  if residue.get_id()[1] in des_residue_list[n]]
-                                 for n, structure in enumerate(pair_structures)]  # residue[1] is the residue number
+            rmsd_residue_list = [[residue for residue in structure.get_residues()  # residue.get_id()[1] is res number
+                                  if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
+
+            # rmsd_residue_list = [[residue for residue in structure.get_residues()
+            #                       if residue.get_id()[1] in des_residue_list[n]]
+            #                      for n, structure in enumerate(pair_structures)]
+
             # print(rmsd_residue_list)
             pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
                               for entity_list in rmsd_residue_list]
             # [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
             # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
             # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
-            print(pair_atom_list)
-            pair_rmsd = SDUtils.superimpose(pair_atom_list, threshold)
-            if not pair_rmsd:
-                continue
+
+            pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
+            # if not pair_rmsd:
+            #     continue
             if pair[0].building_blocks in pose_map:
                 # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
                 if str(pair[0]) in pose_map[pair[0].building_blocks]:

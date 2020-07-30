@@ -309,14 +309,16 @@ def clean_interior_keys(dictionary, keys, remove=True):
 
 
 def index_intersection(indices):
+    """Find the overlap of sets in a dictionary
+    """
     final_indices = set()
     # find all set union
     for metric in indices:
         final_indices = set(final_indices) | set(indices[metric])
-
     # find all set intersection
     for metric in indices:
         final_indices = set(final_indices) & set(indices[metric])
+
 
     return list(final_indices)
 
@@ -491,16 +493,17 @@ def get_biopdb_ca(structure):
     return [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
 
 
-def superimpose(atoms, rmsd_thresh):
-    biopdb_1_id = atoms[0][0].get_full_id()[0]
-    biopdb_2_id = atoms[1][0].get_full_id()[0]
-
+def superimpose(atoms)  # , rmsd_thresh):
+    # biopdb_1_id = atoms[0][0].get_full_id()[0]
+    # biopdb_2_id = atoms[1][0].get_full_id()[0]
     sup = Superimposer()
-    sup.set_atoms(atoms[0], atoms[1])
-    if sup.rms <= rmsd_thresh:
-        return biopdb_1_id, biopdb_2_id, sup.rms
-    else:
-        return None
+    # sup.set_atoms(atoms[0], atoms[1])
+    sup.set_atoms(*atoms)
+    # if sup.rms <= rmsd_thresh:
+    return sup.rms
+    # return biopdb_1_id, biopdb_2_id, sup.rms
+    # else:
+    #     return None
 
 
 ###################
