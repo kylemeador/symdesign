@@ -122,7 +122,7 @@ def pose_rmsd(all_des_dirs):
             pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
             # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
             # grabs stats['des_resides'] from the design_directory
-            des_residue_list = [pair[n].stats['des_residues'] for n in pair]
+            des_residue_list = [pose.info['des_residues'] for pose in pair]
             # des_residues = SDUtils.unpickle(os.path.join(des_dir.data, PUtils.des_residues))
             # # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data
             # pair should be a structure...
@@ -187,7 +187,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'
     consensus_pdb = os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb'
     consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
-    refined_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '.pdb')
+    refined_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '_%s.pdb' % PUtils.stage[1])
+    # '.pdb')
     # '_%s.pdb' % PUtils.stage[1]) TODO clean this stupid mechanism
     # if out:file:o works, could use, os.path.join(des_dir.design_pdbs, PUtils.stage[1] + '.pdb') but it won't register
 
