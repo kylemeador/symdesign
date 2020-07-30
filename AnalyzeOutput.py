@@ -831,21 +831,34 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Get design information including: interface residues, SSM's, and wild_type/design files
     design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
     des_residues = SDUtils.get_interface_residues(design_flags)  # Changed in favor of residue_processing identification
-    if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):  # TODO Wrap into DesignDirectory data object?
-        pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
-    else:
-        pssm = SDUtils.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
-    frag_pickle = glob(os.path.join(des_dir.data, '*' + PUtils.frag_type + '*'))
-    assert len(frag_pickle) == 1, 'Couldn\'t match file *%s*' % PUtils.frag_type
-    # assert len(frag_pickle) == 1, '%s: error matching file %s' % (des_dir.path, '*' + PUtils.frag_type + '*')
-    frag_pickle = frag_pickle[0]
-    issm = SDUtils.unpickle(frag_pickle)  # issm only has residue info if interface info was available for residue
-    issm_residues = list(set(issm.keys()))
+
+    # # used to be found from strings, now associated with the des_dir
+    # pssm = SDUtils.parse_pssm(des_dir.info['pssm'])
+    # # if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):
+    # #     pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
+    # # else:
+    # #     pssm = SDUtils.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
+
+    # # frag_pickle = glob(os.path.join(des_dir.data, '*%s*' % PUtils.frag_type))
+    # # assert len(frag_pickle) == 1, 'Couldn\'t match file *%s*' % PUtils.frag_type
+    # # # assert len(frag_pickle) == 1, '%s: error matching file %s' % (des_dir.path, '*' + PUtils.frag_type + '*')
+    # # frag_pickle = frag_pickle[0]
+    # # issm = SDUtils.unpickle(frag_pickle)  # issm only has residue info if interface info was available for residue
+    # issm = SDUtils.unpickle(des_dir.info['issm'])
+    # issm_residues = list(set(issm.keys()))
+    # assert len(issm_residues) > 0, 'issm has no fragment information'
+    # # dssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
+    # dssm = SDUtils.parse_pssm(des_dir.info['dssm'])
+
+    # frag_db = os.path.basename(des_dir.info['issm'].split(PUtils.frag_type)[0])
+    # interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[os.path.basename(des_dir.info['db'])])
+    interface_bkgd = SDUtils.get_db_aa_frequencies(des_dir.info['db'])
+    # profile_dict = {'evolution': pssm, 'fragment': issm, 'combined': dssm}
+    profile_dict = {'evolution': SDUtils.parse_pssm(des_dir.info['pssm']),
+                    'fragment': SDUtils.unpickle(des_dir.info['issm']),
+                    'combined': SDUtils.parse_pssm(des_dir.info['dssm'])}
+    issm_residues = list(set(profile_dict['fragment'].keys()))
     assert len(issm_residues) > 0, 'issm has no fragment information'
-    dssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
-    frag_db = os.path.basename(frag_pickle.split(PUtils.frag_type)[0])
-    interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[frag_db])
-    profile_dict = {'evolution': pssm, 'fragment': issm, 'combined': dssm}
 
     # Get the scores from all design trajectories
     all_design_scores = read_scores(os.path.join(des_dir.scores, PUtils.scores_file))

@@ -481,9 +481,9 @@ if __name__ == '__main__':
                                'observed_evolution': 0.25, 'int_composition_diff': 0.25}
                 # if not args.weights:
                 #     sys.exit('VY made this and I am going to put in here!')
-                select_poses = filter_pose(args.dataframe, filters, weights, num_designs=args.number,
-                                           consensus=args.consensus, filter_file=PUtils.filter_and_sort)
-                all_design_directories = SDUtils.set_up_directory_objects(select_poses, symmetry=args.design_string)
+                selected_poses = filter_pose(args.dataframe, filters, weights, num_designs=args.number,
+                                             consensus=args.consensus, filter_file=PUtils.filter_and_sort)
+                all_design_directories = SDUtils.set_up_directory_objects(selected_poses, symmetry=args.design_string)
                 if args.consensus:
                     results.append(zip(all_design_directories, repeat('consensus')))
                     output = True

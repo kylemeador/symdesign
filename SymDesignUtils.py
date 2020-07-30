@@ -15,8 +15,10 @@ import PDB
 from Bio.SeqUtils import IUPACData
 from Bio.SubsMat import MatrixInfo as matlist
 from Bio import pairwise2
+from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 import PathUtils as PUtils
 import CmdUtils as CUtils
+from AnalyzeMutatedSequences import write_fasta_file, extract_aa_seq
 # logging.getLogger().setLevel(logging.INFO)
 
 # Globals
@@ -248,10 +250,11 @@ def pickle_object(target_object, name, out_path=os.getcwd()):
     Returns:
         (str): The pickled filename
     """
-    with open(os.path.join(out_path, name + '.pkl'), 'wb') as f:
+    file_name = os.path.join(out_path + name) + '.pkl'
+    with open(file_name, 'wb') as f:
         pickle.dump(target_object, f, pickle.HIGHEST_PROTOCOL)
 
-    return os.path.join(out_path + name) + '.pkl'
+    return file_name
 
 
 def clean_dictionary(dictionary, keys, remove=True):
@@ -467,6 +470,39 @@ def make_issm(cluster_freq_dict, background):  # UNUSED
 
 def subdirectory(name):  # TODO PDBdb
     return name
+
+
+###################
+# Bio.PDB Handling
+###################
+
+
+def get_rmsd_atoms(filepaths, function):
+    all_rmsd_atoms = []
+    for filepath in filepaths:
+        parser = PDBParser()
+        pdb_name = os.path.splitext(os.path.basename(filepath))[0]
+        pdb = parser.get_structure(pdb_name, filepath)
+        all_rmsd_atoms.append(function(pdb))
+
+    return all_rmsd_atoms
+
+
+def get_biopdb_ca(structure):
+    return [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
+
+
+def superimpose(atoms, rmsd_thresh):
+    biopdb_1_id = atoms[0][0].get_full_id()[0]
+    biopdb_2_id = atoms[1][0].get_full_id()[0]
+
+    sup = Superimposer()
+    sup.set_atoms(atoms[0], atoms[1])
+    if sup.rms <= rmsd_thresh:
+        return biopdb_1_id, biopdb_2_id, sup.rms
+    else:
+        return None
+
 
 ###################
 # PDB Handling # TODO PDB.py
@@ -2013,6 +2049,10 @@ class DesignDirectory:
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
         self.data = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data
+        self.asu = None
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu.pdb
+        self.info = {}
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
         self.log = None
         if auto_structure:
@@ -2023,7 +2063,7 @@ class DesignDirectory:
 
     def __str__(self):
         if self.symmetry:
-            return self.path.replace(self.symmetry + os.sep, '').replace(os.sep, '-')  # TODO integration with DB what to do?
+            return self.path.replace(self.symmetry + os.sep, '').replace(os.sep, '-')  # TODO how integrate with designDB?
         else:
             # When is this relevant?
             return self.path.replace(os.sep, '-')[1:]
@@ -2048,6 +2088,8 @@ class DesignDirectory:
         self.frags = os.path.join(self.path, PUtils.frag_dir)
         self.data = os.path.join(self.path, PUtils.data)
 
+        self.asu = os.path.join(self.path, PUtils.clean)
+
         if not os.path.exists(self.protein_data):
             os.makedirs(self.protein_data)
         if not os.path.exists(self.pdbs):
@@ -2062,6 +2104,8 @@ class DesignDirectory:
             os.makedirs(self.design_pdbs)
         if not os.path.exists(self.data):
             os.makedirs(self.data)
+        else:
+            self.info = unpickle(os.path.join(self.data, 'info.pkl'))
 
     def start_log(self, name=None, level=2):
         _name = __name__

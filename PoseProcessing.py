@@ -28,6 +28,42 @@ import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
 
 
+def cluster_poses(all_des_dirs):
+    from Bio.PDB import PDBParser
+    from Bio.PDB.Selection import unfold_entities
+    from itertools import combinations
+    threshold = 1.0  # TODO test
+
+    pose_map = {}
+    for pair in combinations(all_des_dirs, 2):
+        if pair[0].building_blocks == pair[1].building_blocks:
+            # returns a list with all ca atoms from a structure
+            # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
+            pdb_parser = PDBParser()
+            # pdb = parser.get_structure(pdb_name, filepath)
+            pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+            # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
+            # grabs stats['des_resides'] from the design_directory
+            des_residue_list = [pair[n].stats['des_residues'] for n in pair]
+            # des_residues = SDUtils.unpickle(os.path.join(des_dir.data, PUtils.des_residues))
+            # # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data
+            # pair should be a structure...
+            rmsd_residue_list = [residue for n, structure in enumerate(pair_structures)
+                                 for residue in structure.get_residues() if residue in des_residue_list[n]]
+            pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
+            # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
+            pair_rmsd = SDUtils.superimpose(pair_atom_list, threshold)
+            if not pair_rmsd:
+                continue
+            if pair[0].building_blocks in pose_map:
+                # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
+                pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]  # 2 is the rmsd value
+            else:
+                pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
+
+    return pose_map
+
+
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
 def initialization_s(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
     return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
@@ -63,10 +99,11 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Set up Rosetta command, files
     main_cmd = copy.deepcopy(CUtils.script_cmd)
-    cleaned_pdb = os.path.join(des_dir.path, PUtils.clean)
-    ala_mut_pdb = os.path.splitext(cleaned_pdb)[0] + '_for_refine.pdb'
-    consensus_pdb = os.path.splitext(cleaned_pdb)[0] + '_for_consensus.pdb'
-    consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(cleaned_pdb)[0] + '_for_consensus.pdb')
+    # cleaned_pdb = os.path.join(des_dir.path, PUtils.clean)
+    # ala_mut_pdb = os.path.splitext(cleaned_pdb)[0] + '_for_refine.pdb'
+    ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'
+    consensus_pdb = os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb'
+    consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
     refined_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '_%s.pdb' % PUtils.stage[1])
     # REMOVED EXTRA PUtils.stage: '_' + PUtils.stage[1] +  TODO clean this stupid mechanism
     # if out:file:o works, could use, os.path.join(des_dir.design_pdbs, PUtils.stage[1] + '.pdb') but it won't register
@@ -483,6 +520,14 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             mutated_pdb.mutate_to(names[name](n), residue, IUPACData.protein_letters_1to3[consensus[residue]].upper())
     mutated_pdb.write(consensus_pdb)
     # mutated_pdb.write(consensus_pdb, cryst1=cryst)
+
+    # Update DesignDirectory with design information
+    des_dir.info['pssm'] = pssm_file
+    des_dir.info['issm'] = interface_data_file
+    des_dir.info['dssm'] = dssm_file
+    des_dir.info['db'] = frag_db
+    des_dir.info['des_residues'] = [j for name in names for j in int_res_numbers[name]]
+    SDUtils.pickle_object(des_dir.info, 'stats', out_path=des_dir.data)
 
     # RELAX: Prepare command and flags file
     refine_variables = [('pdb_reference', cleaned_pdb), ('scripts', PUtils.rosetta_scripts),
