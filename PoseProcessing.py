@@ -239,12 +239,11 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
     logger.info('Total number of residues is %d' % len(template_residues))
-    template_pdb.write(cleaned_pdb)
-    # template_pdb.write(cleaned_pdb, cryst1=cryst)
+    template_pdb.write(des_dir.asu)
 
     # Mutate all design positions to Ala
     mutated_pdb = copy.deepcopy(template_pdb)
-    logger.debug('Cleaned PDB: \'%s\'' % cleaned_pdb)
+    logger.debug('Cleaned PDB: \'%s\'' % des_dir.asu)
 
     # Set Up Interface Residues after renumber, remove Side Chain Atoms to Ala NECESSARY for all chains to ASU chain map
     total_int_residue_objects = []
@@ -296,7 +295,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     temp_file = os.path.join(des_dir.building_blocks, PUtils.temp)
     rerun = False
     if PUtils.clean not in os.listdir(des_dir.building_blocks):
-        shutil.copy(cleaned_pdb, des_dir.building_blocks)
+        shutil.copy(des_dir.asu, des_dir.building_blocks)
         with open(temp_file, 'w') as f:
             f.write('Still fetching data. Process will resume once data is gathered\n')
 
@@ -530,7 +529,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     SDUtils.pickle_object(des_dir.info, 'stats', out_path=des_dir.data)
 
     # RELAX: Prepare command and flags file
-    refine_variables = [('pdb_reference', cleaned_pdb), ('scripts', PUtils.rosetta_scripts),
+    refine_variables = [('pdb_reference', des_dir.asu), ('scripts', PUtils.rosetta_scripts),
                         ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),
                         ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
     for k, name in enumerate(names):
@@ -569,7 +568,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     flags_design = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[2], outpath=des_dir.path)
     # TODO back out nstruct label to command distribution
     design_cmd = main_cmd + \
-                 ['-in:file:s', refined_pdb, '-in:file:native', cleaned_pdb, '-nstruct', str(PUtils.nstruct),
+                 ['-in:file:s', refined_pdb, '-in:file:native', des_dir.asu, '-nstruct', str(PUtils.nstruct),
                   '@' + os.path.join(des_dir.path, flags_design), '-in:file:pssm', pssm_file, '-parser:protocol',
                   os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
                   '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file)]
