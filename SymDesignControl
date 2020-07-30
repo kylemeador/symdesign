@@ -431,7 +431,10 @@ if __name__ == '__main__':
         print(pose_map)
         for protein_pair in pose_map:
             if os.path.basename(protein_pair) == '4f47_4grd':
-                logger.info('\n'.join({pose1: pose_map[protein_pair][pose1] for pose1 in pose_map[protein_pair]}))
+                logger.info('\n'.join(['%s\n%s' % (pose1, '\n'.join(['%s\t%f' %
+                                                                     (pose2, pose_map[protein_pair][pose1][pose2])
+                                                                     for pose2 in pose_map[protein_pair][pose1]]))
+                                       for pose1 in pose_map[protein_pair]]))
         errors = []
         for i, result in enumerate(results):
             if not result:
