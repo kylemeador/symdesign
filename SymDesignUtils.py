@@ -18,7 +18,6 @@ from Bio import pairwise2
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 import PathUtils as PUtils
 import CmdUtils as CUtils
-from AnalyzeMutatedSequences import write_fasta_file, extract_aa_seq
 # logging.getLogger().setLevel(logging.INFO)
 
 # Globals
