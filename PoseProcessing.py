@@ -28,9 +28,87 @@ import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
 
 
-def cluster_poses(all_des_dirs):
+def cluster_distances():
+    from itertools import chain
+    if line[0] in rmsd_dict:
+        rmsd_dict[line[0]].append(line[1])
+    else:
+        rmsd_dict[line[0]] = [line[1]]
+
+    if line[1] in rmsd_dict:
+        rmsd_dict[line[1]].append(line[0])
+    else:
+        rmsd_dict[line[1]] = [line[0]]
+
+    # Cluster
+    return_clusters = []
+    flattened_query = list(chain.from_iterable(rmsd_dict.values()))
+
+    while flattened_query != list():
+        # Find Structure With Most Neighbors within RMSD Threshold
+        max_neighbor_structure = None
+        max_neighbor_count = 0
+        for query_structure in rmsd_dict:
+            neighbor_count = len(rmsd_dict[query_structure])
+            if neighbor_count > max_neighbor_count:
+                max_neighbor_structure = query_structure
+                max_neighbor_count = neighbor_count
+
+        # Create Cluster Containing Max Neighbor Structure (Cluster Representative) and its Neighbors
+        cluster = rmsd_dict[max_neighbor_structure]
+        return_clusters.append((max_neighbor_structure, cluster))
+
+        # Remove Claimed Structures from rmsd_dict
+        claimed_structures = [max_neighbor_structure] + cluster
+        updated_dict = {}
+        for query_structure in rmsd_dict:
+            if query_structure not in claimed_structures:
+                tmp_list = []
+                for idx in rmsd_dict[query_structure]:
+                    if idx not in claimed_structures:
+                        tmp_list.append(idx)
+                updated_dict[query_structure] = tmp_list
+            else:
+                updated_dict[query_structure] = []
+
+        rmsd_dict = updated_dict
+        flattened_query = list(chain.from_iterable(rmsd_dict.values()))
+
+    return return_clusters
+
+
+def cluster_poses(pose_map):
+    for building_block in pose_map:
+        building_block_rmsd_map = pd.DataFrame(pose_map[building_block])
+
+        # PCA analysis of distances
+        # pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
+        # for k, dist in enumerate(pairwise_sequence_diff_np):
+        #     i, j = SDUtils.condensed_to_square(k, len(designs))
+        #     pairwise_sequence_diff_mat[i, j] = dist
+
+        building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_map.values)
+
+        building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
+        pca = PCA(PUtils.variance)
+        building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
+        pca_distance_vector = pdist(building_block_rmsd_pc_np)
+        # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+        epsilon = pca_distance_vector.mean() * 0.5
+        logger.info('Finding maximum neighbors within distance of %f' % epsilon)
+
+    # Compute the highest density cluster using DBSCAN algorithm
+    # seq_cluster = DBSCAN(eps=epsilon)
+    # seq_cluster.fit(pairwise_sequence_diff_np)
+    #
+    # seq_pc_df = pd.DataFrame(seq_pc, index=designs,
+    #                          columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
+    # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+
+
+def pose_rmsd(all_des_dirs):
     from Bio.PDB import PDBParser
-    from Bio.PDB.Selection import unfold_entities
+    # from Bio.PDB.Selection import unfold_entities
     from itertools import combinations
     threshold = 1.0  # TODO test
 
@@ -57,9 +135,14 @@ def cluster_poses(all_des_dirs):
                 continue
             if pair[0].building_blocks in pose_map:
                 # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
-                pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]  # 2 is the rmsd value
+                if str(pair[0]) in pose_map[pair[0].building_blocks]:
+                    pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd[2]  # 2 is the rmsd value
+                else:
+                    pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd[2]}
+                # pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
             else:
-                pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
+                pose_map[pair[0].building_blocks] = {str(pair[0]): {str(pair[1]): pair_rmsd[2]}}
+                # pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
 
     return pose_map
 

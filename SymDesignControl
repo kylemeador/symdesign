@@ -16,7 +16,7 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
-from PoseProcessing import initialization_s, initialization_mp
+from PoseProcessing import initialization_s, initialization_mp, pose_rmsd
 from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp
 
 
@@ -426,8 +426,11 @@ if __name__ == '__main__':
 
     elif args.sub_module == 'modify':
         mp_threads = SDUtils.calculate_mp_threads(maximum=True)
-        results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads))
-
+        # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads))
+        pose_map = pose_rmsd(all_design_directories)
+        for protein_pair in pose_map:
+            if protein_pair == '4f47_4grd':
+                logger.info('\n'.join({pose1: pose_map[protein_pair][pose1] for pose1 in pose_map[protein_pair]}))
         errors = []
         for i, result in enumerate(results):
             if not result:
