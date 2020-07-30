@@ -27,6 +27,55 @@ db = PUtils.biological_fragmentDB
 index_offset = SDUtils.index_offset
 
 
+def gather_profile_info(pdb, des_dir, names):
+    """For a given PDB, find the chain wise profile (pssm) then combine into one continuous pssm
+
+    Args:
+        pdb (PDB): PDB to generate a profile from. Sequence is taken from the ATOM record
+        des_dir (DesignDirectory): Location of which to write output files in the design tree
+        names (dict): The pdb names and corresponding chain of each protomer in the pdb object
+        log_stream (logging): Which log to pass logging directives to
+    Returns:
+        pssm_file (str): Location of the combined pssm file written to disk
+        full_pssm (dict): A combined pssm with all chains concatenated in the same order as pdb sequence
+    """
+    pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
+    logger.debug('Fetching PSSM Files')
+
+    # Extract/Format Sequence Information
+    for n, name in enumerate(names):
+        # if pssm_files[name] == dict():
+        logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
+        pdb_seq[name], errors[name] = extract_aa_seq(pdb, chain=names[name](n))
+        logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
+        if errors[name]:
+            logger.warning('Sequence generation ran into the following residue errors: %s' % ', '.join(errors[name]))
+        pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name + '_' + os.path.basename(des_dir.path),
+                                              outpath=des_dir.sequences)
+        if not pdb_seq_file[name]:
+            logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
+            raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
+
+    # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
+    for name in names:
+        logger.info('Generating PSSM file for %s' % name)
+        pssm_files[name], pssm_process[name] = SDUtils.hhblits(pdb_seq_file[name], outpath=des_dir.sequences)
+        logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
+
+    # Wait for PSSM command to complete
+    for name in names:
+        pssm_process[name].communicate()
+
+    # Extract PSSM for each protein and combine into single PSSM
+    pssm_dict = {}
+    for name in names:
+        pssm_dict[name] = SDUtils.parse_hhblits_pssm(pssm_files[name])
+    full_pssm = SDUtils.combine_pssm([pssm_dict[name] for name in pssm_dict])
+    pssm_file = SDUtils.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
+
+    return pssm_file, full_pssm
+
+
 def remove_non_mutations(frequency_msa, residue_list):
     """Keep residues which are present in provided list
 
