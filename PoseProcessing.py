@@ -121,6 +121,7 @@ def pose_rmsd(all_des_dirs):
             # pdb = parser.get_structure(pdb_name, filepath)
             pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
             # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
+            logger.info(pair[0].info)
             # grabs stats['des_resides'] from the design_directory
             des_residue_list = [pose.info['des_residues'] for pose in pair]
             # des_residues = SDUtils.unpickle(os.path.join(des_dir.data, PUtils.des_residues))
@@ -189,7 +190,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
     refined_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '_%s.pdb' % PUtils.stage[1])
     # '.pdb')
-    # '_%s.pdb' % PUtils.stage[1]) TODO clean this stupid mechanism
+    # '_%s.pdb' % PUtils.stage[1]) TODO clean this stupid mechanism only for P432
     # if out:file:o works, could use, os.path.join(des_dir.design_pdbs, PUtils.stage[1] + '.pdb') but it won't register
 
     # Extract information from SymDock Output
