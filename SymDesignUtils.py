@@ -2054,8 +2054,8 @@ class DesignDirectory:
             os.makedirs(self.design_pdbs)
         if not os.path.exists(self.data):
             os.makedirs(self.data)
-        else:
-            self.info = unpickle(os.path.join(self.data, 'info.pkl'))
+        # else:
+        #     self.info = unpickle(os.path.join(self.data, 'info.pkl'))
 
     def start_log(self, name=None, level=2):
         _name = __name__
