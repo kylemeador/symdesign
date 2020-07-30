@@ -108,7 +108,7 @@ def cluster_poses(pose_map):
 
 def pose_rmsd(all_des_dirs):
     from Bio.PDB import PDBParser
-    # from Bio.PDB.Selection import unfold_entities
+    from Bio.PDB.Selection import unfold_entities
     from itertools import combinations
     threshold = 1.0  # TODO test
 
@@ -130,10 +130,14 @@ def pose_rmsd(all_des_dirs):
             #     for residue in structure.get_residues():
             #         print(residue)
             #         print(residue[0])
-            rmsd_residue_list = [residue for n, structure in enumerate(pair_structures)
-                                 for residue in structure.get_residues() if residue.get_id()[1] in des_residue_list[n]]  # residue[1] is the residue number
-            print(rmsd_residue_list)
-            pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
+            rmsd_residue_list = [[residue for residue in structure.get_residues()
+                                  if residue.get_id()[1] in des_residue_list[n]]
+                                 for n, structure in enumerate(pair_structures)]  # residue[1] is the residue number
+            # print(rmsd_residue_list)
+            pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
+                              for entity_list in rmsd_residue_list]
+            # [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
+            # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
             # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
             print(pair_atom_list)
             pair_rmsd = SDUtils.superimpose(pair_atom_list, threshold)
