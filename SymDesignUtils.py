@@ -249,7 +249,7 @@ def pickle_object(target_object, name, out_path=os.getcwd()):
     Returns:
         (str): The pickled filename
     """
-    file_name = os.path.join(out_path + name) + '.pkl'
+    file_name = os.path.join(out_path, '%s.pkl' % name)
     with open(file_name, 'wb') as f:
         pickle.dump(target_object, f, pickle.HIGHEST_PROTOCOL)
 
