@@ -493,7 +493,7 @@ def get_biopdb_ca(structure):
     return [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
 
 
-def superimpose(atoms)  # , rmsd_thresh):
+def superimpose(atoms):  # , rmsd_thresh):
     # biopdb_1_id = atoms[0][0].get_full_id()[0]
     # biopdb_2_id = atoms[1][0].get_full_id()[0]
     sup = Superimposer()
