@@ -151,6 +151,7 @@ def pose_rmsd(all_des_dirs):
     pose_map = {}
     for pair in combinations(all_des_dirs, 2):
         if pair[0].building_blocks == pair[1].building_blocks:
+            protein_pair_path = pair[0].building_blocks
             # Grab designed resides from the design_directory
             des_residue_list = [pose.info['des_residues'] for pose in pair]
             # could use the union as well...
@@ -188,12 +189,12 @@ def pose_rmsd(all_des_dirs):
             pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
             # if not pair_rmsd:
             #     continue
-            if pair[0].building_blocks in pose_map:
+            if protein_pair_path in pose_map:
                 # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
-                if str(pair[0]) in pose_map[pair[0].building_blocks]:
-                    pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd
-                    if str(pair[1]) not in pose_map[pair[0].building_blocks]:
-                        pose_map[pair[0].building_blocks][str(pair[1])] = {str(pair[1]): 0.0}
+                if str(pair[0]) in pose_map[protein_pair_path]:
+                    pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
+                    if str(pair[1]) not in pose_map[protein_pair_path]:
+                        pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
                     # else:
                     #     print('\n' * 6 + 'NEVER ACCESSED' + '\n' * 6)
                     #     pose_map[pair[0].building_blocks][str(pair[1])][str(pair[1])] = 0.0
@@ -203,9 +204,9 @@ def pose_rmsd(all_des_dirs):
                 #     pose_map[pair[0].building_blocks][str(pair[0])][str(pair[0])] = 0.0
                 # pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
             else:
-                pose_map[pair[0].building_blocks] = {str(pair[0]): {str(pair[0]): 0.0}}
-                pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd
-                pose_map[pair[0].building_blocks][str(pair[1])] = {str(pair[1]): 0.0}
+                pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}
+                pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
+                pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
                 # pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
 
     return pose_map
