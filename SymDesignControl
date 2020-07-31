@@ -498,30 +498,22 @@ if __name__ == '__main__':
 
                 selected_poses = filter_pose(args.dataframe, filters, weights,  # num_designs=args.number,
                                              consensus=args.consensus, filter_file=PUtils.filter_and_sort)
-                all_design_directories = SDUtils.set_up_directory_objects(selected_poses, symmetry=args.design_string)
+
                 # Sort results according to clustered poses
                 pose_cluster_map = SDUtils.unpickle(
                     os.path.join(all_design_directories[0].protein_data, '%s.pkl' % PUtils.clustered_poses))
                 # {building_blocks: {design_string: cluster_representative}, ...}
-                # pose_clusters_found = {}
-                # count = 1
                 pose_clusters_found, final_poses = [], []
-                for des_dir in all_design_directories:
-                    if pose_cluster_map[des_dir.building_blocks][str(des_dir)] not in pose_clusters_found:
-                        # for key, values in pose_cluster_map[design_directory.building_blocks].items():
-                        #     if str(design_directory) in values:
-                        #         if key not in pose_clusters_found:
-                        #             pose_clusters_found[key].append(str(design_directory))
-                        #         else:
-                        # pose_clusters_found[pose_cluster_map[des_dir.building_blocks][str(des_dir)]] = {
-                        #     count: str(des_dir)}
-                        pose_clusters_found.append(pose_cluster_map[des_dir.building_blocks][str(des_dir)])
-                        final_poses.append(des_dir)
-                        # count += 1
+                # for des_dir in all_design_directories:
+                for pose in selected_poses:
+                    if pose_cluster_map[pose.split('-')[0]][pose] not in pose_clusters_found:
+                        pose_clusters_found.append(pose_cluster_map[pose.split('-')[0]][pose])
+                        final_poses.append(pose)
 
                 if len(final_poses) > args.number:
-                    all_design_directories = final_poses[:args.number]
+                    final_poses = final_poses[:args.number]
 
+                all_design_directories = SDUtils.set_up_directory_objects(final_poses, symmetry=args.design_string)
                 if args.consensus:
                     results.append(zip(all_design_directories, repeat('consensus')))
                     output = True
