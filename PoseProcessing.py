@@ -20,7 +20,7 @@ from glob import glob, iglob
 from itertools import repeat
 import math
 import numpy as np
-# import pandas as pd
+import pandas as pd
 from Bio.SeqUtils import IUPACData
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
