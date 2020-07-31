@@ -16,8 +16,8 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
-from PoseProcessing import initialization_s, initialization_mp, pose_rmsd
-from AnalyzeMutatedSequences import cluster_poses, filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp
+from PoseProcessing import initialization_s, initialization_mp, pose_rmsd, cluster_poses
+from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp
 
 
 def rename(des_dir, increment=PUtils.nstruct):
