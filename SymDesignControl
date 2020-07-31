@@ -501,7 +501,7 @@ if __name__ == '__main__':
                 all_design_directories = SDUtils.set_up_directory_objects(selected_poses, symmetry=args.design_string)
                 # Sort results according to clustered poses
                 pose_cluster_map = SDUtils.unpickle(
-                    os.path.join(all_design_directories[0].protein_data, PUtils.clustered_poses))
+                    os.path.join(all_design_directories[0].protein_data, '%s.pkl' % PUtils.clustered_poses))
                 # {building_blocks: {design_string: cluster_representative}, ...}
                 # pose_clusters_found = {}
                 # count = 1
