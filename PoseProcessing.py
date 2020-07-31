@@ -85,6 +85,9 @@ def cluster_poses(pose_map):
     pose_cluster_map = {}
     for building_block in pose_map:
         building_block_rmsd_df = pd.DataFrame(pose_map[building_block]).fillna(0.0)
+        print(pose_map[building_block])
+        print(building_block_rmsd_df)
+
         # building_block_rmsd_df.fillna(0.0, inplace=True)
 
         # PCA analysis of distances
@@ -113,7 +116,6 @@ def cluster_poses(pose_map):
         cluster_members_map = {cluster_id: [pose_indices[n] for n, cluster in enumerate(dbscan.labels_)
                                          if cluster == cluster_id] for cluster_id in cluster_ids}
         print(cluster_members_map)
-        print(building_block_rmsd_df)
         # cluster_representative_map = {}
         clustered_poses = {}
         for cluster in cluster_members_map:
@@ -199,8 +201,6 @@ def pose_rmsd(all_des_dirs):
             else:
                 pose_map[pair[0].building_blocks] = {str(pair[0]): {str(pair[1]): pair_rmsd}}
                 # pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
-
-
 
     return pose_map
 
