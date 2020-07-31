@@ -884,7 +884,7 @@ def df_filter_index_by_value(df, **kwargs):
     return kwargs
 
 
-def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filter_file=PUtils.filter_and_sort):
+def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.filter_and_sort):  # num_designs=1,
     idx = pd.IndexSlice
     df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
     filter_df = pd.read_csv(filter_file, index_col=0)
@@ -948,8 +948,9 @@ def filter_pose(df_file, filters, weights, num_designs=1, consensus=False, filte
 
     # display(ranked_df[weights_s.index.to_list()] * weights_s)
     design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
-    design_list = design_scores_s.index.to_list()[:num_designs]
-    logger.info('%d poses were selected:\n%s' % (num_designs, '\n'.join(design_list)))
+    design_list = design_scores_s.index.to_list()
+    # design_list = design_scores_s.index.to_list()[:num_designs]
+    logger.info('%d poses were selected:\n%s' % (len(design_list), '\n'.join(design_list)))
 
     return design_list
 
