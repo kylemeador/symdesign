@@ -101,7 +101,7 @@ def cluster_poses(pose_map):
         # epsilon = pca_distance_vector.mean() * 0.5
 
         # Compute the highest density cluster using DBSCAN algorithm
-        logger.info('Finding pose clusters within RMSD of %f' % SDUtils.rmsd_threshold)
+        # logger.info('Finding pose clusters within RMSD of %f' % SDUtils.rmsd_threshold) # TODO
         dbscan = DBSCAN(eps=SDUtils.rmsd_threshold, min_samples=2, metric='precomputed')
         dbscan.fit(building_block_rmsd_matrix)
 
