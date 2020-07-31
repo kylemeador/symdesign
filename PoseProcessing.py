@@ -67,6 +67,7 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
             pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
     # Add all singlets
     for protein_path in singlets:
+        protein_path = os.path.basename(protein_path)
         if protein_path in pose_map:
             # This logic is impossible
             pose_map[protein_pair_path][str(singlets[protein_path])] = {str(singlets[protein_path]): 0.0}
