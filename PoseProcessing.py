@@ -17,13 +17,15 @@ import argparse
 import shutil
 import copy
 from glob import glob, iglob
-from itertools import repeat
+from itertools import repeat, combinations
 import math
 import numpy as np
 import pandas as pd
 from Bio.SeqUtils import IUPACData
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
+from Bio.PDB import PDBParser
+from Bio.PDB.Selection import unfold_entities
+# from sklearn.preprocessing import StandardScaler
+# from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
 from sklearn.cluster import DBSCAN
 import SymDesignUtils as SDUtils
@@ -32,122 +34,60 @@ import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
 
 
-def cluster_distances():
-    from itertools import chain
-    if line[0] in rmsd_dict:
-        rmsd_dict[line[0]].append(line[1])
-    else:
-        rmsd_dict[line[0]] = [line[1]]
+def pose_rmsd_mp(all_des_dirs):
+    pose_map = {}
+    pairs_to_process = []
+    # pairs_to_process = {}
+    for pair in combinations(all_des_dirs, 2):
+        if pair[0].building_blocks == pair[1].building_blocks:
+            # if pair[0].building_blocks in pairs_to_process:
+            #     pairs_to_process[pair[0].building_blocks].append(pair)
+            # else:
+            #     pairs_to_process[pair[0].building_blocks] = [pair]
+            pairs_to_process.append(pair)
 
-    if line[1] in rmsd_dict:
-        rmsd_dict[line[1]].append(line[0])
-    else:
-        rmsd_dict[line[1]] = [line[0]]
+    results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process)
 
-    # Cluster
-    return_clusters = []
-    flattened_query = list(chain.from_iterable(rmsd_dict.values()))
+    for pair, pair_rmsd in zip(pairs_to_process, results):
+        protein_pair_path = pair[0].building_blocks
+        # pose_map[result[0]] = result[1]
 
-    while flattened_query != list():
-        # Find Structure With Most Neighbors within RMSD Threshold
-        max_neighbor_structure = None
-        max_neighbor_count = 0
-        for query_structure in rmsd_dict:
-            neighbor_count = len(rmsd_dict[query_structure])
-            if neighbor_count > max_neighbor_count:
-                max_neighbor_structure = query_structure
-                max_neighbor_count = neighbor_count
+        if protein_pair_path in pose_map:
+            # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
+            if str(pair[0]) in pose_map[protein_pair_path]:
+                pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
+                if str(pair[1]) not in pose_map[protein_pair_path]:
+                    pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
+        else:
+            pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}
+            pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
+            pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
 
-        # Create Cluster Containing Max Neighbor Structure (Cluster Representative) and its Neighbors
-        cluster = rmsd_dict[max_neighbor_structure]
-        return_clusters.append((max_neighbor_structure, cluster))
-
-        # Remove Claimed Structures from rmsd_dict
-        claimed_structures = [max_neighbor_structure] + cluster
-        updated_dict = {}
-        for query_structure in rmsd_dict:
-            if query_structure not in claimed_structures:
-                tmp_list = []
-                for idx in rmsd_dict[query_structure]:
-                    if idx not in claimed_structures:
-                        tmp_list.append(idx)
-                updated_dict[query_structure] = tmp_list
-            else:
-                updated_dict[query_structure] = []
-
-        rmsd_dict = updated_dict
-        flattened_query = list(chain.from_iterable(rmsd_dict.values()))
-
-    return return_clusters
+    return pose_map
 
 
-def cluster_poses(pose_map):
-    pose_cluster_map = {}
-    for building_block in pose_map:
-        building_block_rmsd_df = pd.DataFrame(pose_map[building_block]).fillna(0.0)
+def pose_pair_rmsd(pair):
+    protein_pair_path = pair[0].building_blocks
+    # Grab designed resides from the design_directory
+    des_residue_list = [pose.info['des_residues'] for pose in pair]
+    # could use the union as well...
+    des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
+                                                  for n, pose_residues in enumerate(des_residue_list)})
 
-        # PCA analysis of distances
-        # pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
-        # for k, dist in enumerate(pairwise_sequence_diff_np):
-        #     i, j = SDUtils.condensed_to_square(k, len(designs))
-        #     pairwise_sequence_diff_mat[i, j] = dist
-        building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
-        # print(building_block_rmsd_df.values)
-        # print(building_block_rmsd_matrix)
-        # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
-        # pca = PCA(PUtils.variance)
-        # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
-        # pca_distance_vector = pdist(building_block_rmsd_pc_np)
-        # epsilon = pca_distance_vector.mean() * 0.5
+    pdb_parser = PDBParser()
+    pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+    rmsd_residue_list = [[residue for residue in structure.get_residues()  # residue.get_id()[1] is res number
+                          if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
+    pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
+                      for entity_list in rmsd_residue_list]
 
-        # Compute the highest density cluster using DBSCAN algorithm
-        # logger.info('Finding pose clusters within RMSD of %f' % SDUtils.rmsd_threshold) # TODO
-        dbscan = DBSCAN(eps=SDUtils.rmsd_threshold, min_samples=2, metric='precomputed')
-        dbscan.fit(building_block_rmsd_matrix)
+    return SDUtils.superimpose(pair_atom_list)
 
-        # find the cluster representative by minimizing the cluster mean
-        cluster_ids = set(dbscan.labels_)
-        # print(dbscan.labels_)
-        # print(dbscan.core_sample_indices_)
-        if -1 in cluster_ids:
-            cluster_ids.remove(-1)  # remove outlier label, will add all these later
-        pose_indices = building_block_rmsd_df.index.to_list()
-        cluster_members_map = {cluster_id: [pose_indices[n] for n, cluster in enumerate(dbscan.labels_)
-                                            if cluster == cluster_id] for cluster_id in cluster_ids}
-        # print(cluster_members_map)
-        # cluster_representative_map = {}
-        clustered_poses = {}
-        for cluster in cluster_members_map:
-            cluster_df = building_block_rmsd_df.loc[cluster_members_map[cluster], cluster_members_map[cluster]]
-            cluster_representative = cluster_df.mean().sort_values().index[0]
-            clustered_poses[cluster_representative] = cluster_members_map[cluster]  # includes representative
-            # cluster_representative_map[cluster] = cluster_representative
-            # cluster_representative_map[cluster_representative] = cluster_members_map[cluster]
-
-        # make dictionary with the core representative as the label and the matches as a list
-        # clustered_poses = {cluster_representative_map[cluster]: cluster_members_map[cluster]
-        #                    for cluster in cluster_representative_map}
-
-        # clustered_poses = {building_block_rmsd_df.iloc[idx, :].index:
-        #                    building_block_rmsd_df.iloc[idx, [n
-        #                                                      for n, cluster in enumerate(dbscan.labels_)
-        #                                                      if cluster == dbscan.labels_[idx]]].index.to_list()
-        #                    for idx in dbscan.core_sample_indices_}
-
-        # add all outliers to the clustered poses as a representative
-        clustered_poses.update({building_block_rmsd_df.iloc[idx, :].index: []
-                                for idx, cluster in enumerate(dbscan.labels_) if cluster == -1})
-        pose_cluster_map[building_block] = clustered_poses
-
-    return pose_cluster_map
+    # return pair_rmsd
+    # return {protein_pair_path: {str(pair[0]): {str(pair[0]): pair_rmsd}}}
 
 
-def pose_rmsd(all_des_dirs):
-    from Bio.PDB import PDBParser
-    from Bio.PDB.Selection import unfold_entities
-    from itertools import combinations
-    threshold = 1.0  # TODO test
-
+def pose_rmsd_s(all_des_dirs):
     pose_map = {}
     for pair in combinations(all_des_dirs, 2):
         if pair[0].building_blocks == pair[1].building_blocks:
@@ -210,6 +150,68 @@ def pose_rmsd(all_des_dirs):
                 # pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
 
     return pose_map
+
+
+def cluster_poses(pose_map):
+    pose_cluster_map = {}
+    for building_block in pose_map:
+        building_block_rmsd_df = pd.DataFrame(pose_map[building_block]).fillna(0.0)
+
+        # PCA analysis of distances
+        # pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
+        # for k, dist in enumerate(pairwise_sequence_diff_np):
+        #     i, j = SDUtils.condensed_to_square(k, len(designs))
+        #     pairwise_sequence_diff_mat[i, j] = dist
+        building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
+        # print(building_block_rmsd_df.values)
+        # print(building_block_rmsd_matrix)
+        # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
+        # pca = PCA(PUtils.variance)
+        # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
+        # pca_distance_vector = pdist(building_block_rmsd_pc_np)
+        # epsilon = pca_distance_vector.mean() * 0.5
+
+        # Compute the highest density cluster using DBSCAN algorithm
+        # logger.info('Finding pose clusters within RMSD of %f' % SDUtils.rmsd_threshold) # TODO
+        dbscan = DBSCAN(eps=SDUtils.rmsd_threshold, min_samples=2, metric='precomputed')
+        dbscan.fit(building_block_rmsd_matrix)
+
+        # find the cluster representative by minimizing the cluster mean
+        cluster_ids = set(dbscan.labels_)
+        # print(dbscan.labels_)
+        # print(dbscan.core_sample_indices_)
+        if -1 in cluster_ids:
+            cluster_ids.remove(-1)  # remove outlier label, will add all these later
+        pose_indices = building_block_rmsd_df.index.to_list()
+        cluster_members_map = {cluster_id: [pose_indices[n] for n, cluster in enumerate(dbscan.labels_)
+                                            if cluster == cluster_id] for cluster_id in cluster_ids}
+        # print(cluster_members_map)
+        # cluster_representative_map = {}
+        clustered_poses = {}
+        for cluster in cluster_members_map:
+            cluster_df = building_block_rmsd_df.loc[cluster_members_map[cluster], cluster_members_map[cluster]]
+            cluster_representative = cluster_df.mean().sort_values().index[0]
+            for member in cluster_members_map[cluster]:
+                clustered_poses[member] = cluster_representative  # includes representative
+            # cluster_representative_map[cluster] = cluster_representative
+            # cluster_representative_map[cluster_representative] = cluster_members_map[cluster]
+
+        # make dictionary with the core representative as the label and the matches as a list
+        # clustered_poses = {cluster_representative_map[cluster]: cluster_members_map[cluster]
+        #                    for cluster in cluster_representative_map}
+
+        # clustered_poses = {building_block_rmsd_df.iloc[idx, :].index:
+        #                    building_block_rmsd_df.iloc[idx, [n
+        #                                                      for n, cluster in enumerate(dbscan.labels_)
+        #                                                      if cluster == dbscan.labels_[idx]]].index.to_list()
+        #                    for idx in dbscan.core_sample_indices_}
+
+        # add all outliers to the clustered poses as a representative
+        clustered_poses.update({building_block_rmsd_df.iloc[idx, :].index: building_block_rmsd_df.iloc[idx, :].index
+                                for idx, cluster in enumerate(dbscan.labels_) if cluster == -1})
+        pose_cluster_map[building_block] = clustered_poses
+
+    return pose_cluster_map
 
 
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))

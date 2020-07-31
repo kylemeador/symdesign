@@ -16,7 +16,7 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
-from PoseProcessing import initialization_s, initialization_mp, pose_rmsd, cluster_poses
+from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
 from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp
 
 
@@ -425,9 +425,13 @@ if __name__ == '__main__':
             SDUtils.rename_decoy_protocols(des_directory, rename)
 
     elif args.sub_module == 'modify':
-        mp_threads = SDUtils.calculate_mp_threads(maximum=True)
-        # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads))
-        pose_map = pose_rmsd(all_design_directories)
+        if args.multi_processing:
+            mp_threads = SDUtils.calculate_mp_threads(maximum=True)
+            # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads))
+            pose_map = pose_rmsd_mp(all_design_directories)
+        else:
+            pose_map = pose_rmsd_s(all_design_directories)
+
         pose_cluster_map = cluster_poses(pose_map)
         pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, PUtils.clustered_poses,
                                                   out_path=all_design_directories[0].protein_data)
