@@ -93,7 +93,6 @@ def cluster_poses(pose_map):
         #     i, j = SDUtils.condensed_to_square(k, len(designs))
         #     pairwise_sequence_diff_mat[i, j] = dist
         building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
-        print(building_block_rmsd_matrix)
 
         # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
         # pca = PCA(PUtils.variance)
@@ -106,14 +105,32 @@ def cluster_poses(pose_map):
         dbscan = DBSCAN(eps=SDUtils.rmsd_threshold, min_samples=2, metric='precomputed')
         dbscan.fit(building_block_rmsd_matrix)
 
-        print(dbscan.core_sample_indices_)
-        print(building_block_rmsd_df.index.to_list())
+        # find the cluster representative by minimizing the cluster mean
+        clusters = set(dbscan.labels_)
+        clusters.remove(-1)  # remove outlier label, will add all these later
+        pose_indices = building_block_rmsd_df.index.to_list()
+        cluster_members_map = {cluster: [pose_indices[n] for n, cluster_id in enumerate(dbscan.labels_)
+                                         if cluster_id == cluster] for cluster in clusters}
+
+        # cluster_representative_map = {}
+        clustered_poses = {}
+        for cluster in cluster_members_map:
+            cluster_df = building_block_rmsd_df.loc[cluster_members_map[cluster], cluster_members_map[cluster]]
+            cluster_representative = cluster_df.mean().sort_values().index[0]
+            clustered_poses[cluster_representative] = cluster_members_map[cluster]  # includes representative
+            # cluster_representative_map[cluster] = cluster_representative
+            # cluster_representative_map[cluster_representative] = cluster_members_map[cluster]
+
         # make dictionary with the core representative as the label and the matches as a list
-        clustered_poses = {building_block_rmsd_df.iloc[idx, :].index:
-                           building_block_rmsd_df.iloc[idx, [dbscan.labels_[n]
-                                                             for n, cluster in enumerate(dbscan.labels_)
-                                                             if cluster == dbscan.labels_[idx]]].column.to_list()
-                           for idx in dbscan.core_sample_indices_}
+        # clustered_poses = {cluster_representative_map[cluster]: cluster_members_map[cluster]
+        #                    for cluster in cluster_representative_map}
+
+        # clustered_poses = {building_block_rmsd_df.iloc[idx, :].index:
+        #                    building_block_rmsd_df.iloc[idx, [n
+        #                                                      for n, cluster in enumerate(dbscan.labels_)
+        #                                                      if cluster == dbscan.labels_[idx]]].index.to_list()
+        #                    for idx in dbscan.core_sample_indices_}
+
         # add all outliers to the clustered poses as a representative
         clustered_poses.update({building_block_rmsd_df.iloc[idx, :].index: []
                                 for idx, cluster in enumerate(dbscan.labels_) if cluster == -1})
