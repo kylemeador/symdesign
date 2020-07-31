@@ -15,7 +15,6 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from scipy.spatial.distance import euclidean, pdist
-from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
