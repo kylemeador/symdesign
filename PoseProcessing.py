@@ -22,6 +22,10 @@ import math
 import numpy as np
 # import pandas as pd
 from Bio.SeqUtils import IUPACData
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+# from scipy.spatial.distance import euclidean, pdist
+from sklearn.cluster import DBSCAN
 import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
@@ -78,32 +82,43 @@ def cluster_distances():
 
 
 def cluster_poses(pose_map):
+    pose_cluster_map = {}
     for building_block in pose_map:
-        building_block_rmsd_map = pd.DataFrame(pose_map[building_block])
+        building_block_rmsd_df = pd.DataFrame(pose_map[building_block])
 
         # PCA analysis of distances
         # pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
         # for k, dist in enumerate(pairwise_sequence_diff_np):
         #     i, j = SDUtils.condensed_to_square(k, len(designs))
         #     pairwise_sequence_diff_mat[i, j] = dist
+        building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
+        print(building_block_rmsd_matrix)
 
-        building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_map.values)
+        # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
+        # pca = PCA(PUtils.variance)
+        # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
+        # pca_distance_vector = pdist(building_block_rmsd_pc_np)
+        # epsilon = pca_distance_vector.mean() * 0.5
 
-        building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
-        pca = PCA(PUtils.variance)
-        building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
-        pca_distance_vector = pdist(building_block_rmsd_pc_np)
-        # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
-        epsilon = pca_distance_vector.mean() * 0.5
-        logger.info('Finding maximum neighbors within distance of %f' % epsilon)
+        # Compute the highest density cluster using DBSCAN algorithm
+        logger.info('Finding pose clusters within RMSD of %f' % SDUtils.rmsd_threshold)
+        dbscan = DBSCAN(eps=SDUtils.rmsd_threshold, min_samples=2, metric='precomputed')
+        dbscan.fit(building_block_rmsd_matrix)
 
-    # Compute the highest density cluster using DBSCAN algorithm
-    # seq_cluster = DBSCAN(eps=epsilon)
-    # seq_cluster.fit(pairwise_sequence_diff_np)
-    #
-    # seq_pc_df = pd.DataFrame(seq_pc, index=designs,
-    #                          columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
-    # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+        print(dbscan.core_sample_indices_)
+        print(building_block_rmsd_df.index.to_list())
+        # make dictionary with the core representative as the label and the matches as a list
+        clustered_poses = {building_block_rmsd_df.iloc[idx, :].index:
+                           building_block_rmsd_df.iloc[idx, [dbscan.labels_[n]
+                                                             for n, cluster in enumerate(dbscan.labels_)
+                                                             if cluster == dbscan.labels_[idx]]].column.to_list()
+                           for idx in dbscan.core_sample_indices_}
+        # add all outliers to the clustered poses as a representative
+        clustered_poses.update({building_block_rmsd_df.iloc[idx, :].index: []
+                                for idx, cluster in enumerate(dbscan.labels_) if cluster == -1})
+        pose_cluster_map[building_block] = clustered_poses
+
+    return pose_cluster_map
 
 
 def pose_rmsd(all_des_dirs):
