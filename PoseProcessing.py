@@ -209,7 +209,7 @@ def cluster_poses(pose_map):
         #                    for idx in dbscan.core_sample_indices_}
 
         # add all outliers to the clustered poses as a representative
-        clustered_poses.update({building_block_rmsd_df.iloc[idx, :].index: building_block_rmsd_df.iloc[idx, :].index
+        clustered_poses.update({building_block_rmsd_df.index[idx]: building_block_rmsd_df.index[idx]
                                 for idx, cluster in enumerate(dbscan.labels_) if cluster == -1})
         pose_cluster_map[building_block] = clustered_poses
 
