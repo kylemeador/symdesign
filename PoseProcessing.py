@@ -49,7 +49,8 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
     results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
 
     for pair, pair_rmsd in zip(pairs_to_process, results):
-        protein_pair_path = pair[0].building_blocks
+        protein_pair_path = os.path.basename(pair[0].building_blocks)
+        # protein_pair_path = pair[0].building_blocks
         # pose_map[result[0]] = result[1]
 
         if protein_pair_path in pose_map:
