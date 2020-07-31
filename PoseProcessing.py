@@ -92,8 +92,8 @@ def cluster_poses(pose_map):
         #     i, j = SDUtils.condensed_to_square(k, len(designs))
         #     pairwise_sequence_diff_mat[i, j] = dist
         building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
-        print(building_block_rmsd_df.values)
-        print(building_block_rmsd_matrix)
+        # print(building_block_rmsd_df.values)
+        # print(building_block_rmsd_matrix)
         # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
         # pca = PCA(PUtils.variance)
         # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
@@ -107,14 +107,14 @@ def cluster_poses(pose_map):
 
         # find the cluster representative by minimizing the cluster mean
         cluster_ids = set(dbscan.labels_)
-        print(dbscan.labels_)
-        print(dbscan.core_sample_indices_)
+        # print(dbscan.labels_)
+        # print(dbscan.core_sample_indices_)
         if -1 in cluster_ids:
             cluster_ids.remove(-1)  # remove outlier label, will add all these later
         pose_indices = building_block_rmsd_df.index.to_list()
         cluster_members_map = {cluster_id: [pose_indices[n] for n, cluster in enumerate(dbscan.labels_)
                                             if cluster == cluster_id] for cluster_id in cluster_ids}
-        print(cluster_members_map)
+        # print(cluster_members_map)
         # cluster_representative_map = {}
         clustered_poses = {}
         for cluster in cluster_members_map:
@@ -194,13 +194,13 @@ def pose_rmsd(all_des_dirs):
                     pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd
                     if str(pair[1]) not in pose_map[pair[0].building_blocks]:
                         pose_map[pair[0].building_blocks][str(pair[1])] = {str(pair[1]): 0.0}
-                    else:
-                        print('\n' * 6 + 'NEVER ACCESSED' + '\n' * 6)
-                        pose_map[pair[0].building_blocks][str(pair[1])][str(pair[1])] = 0.0
-                else:
-                    print('\n' * 6 + 'ACCESSED' + '\n' * 6)
-                    # pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd}
-                    # pose_map[pair[0].building_blocks][str(pair[0])][str(pair[0])] = 0.0
+                    # else:
+                    #     print('\n' * 6 + 'NEVER ACCESSED' + '\n' * 6)
+                    #     pose_map[pair[0].building_blocks][str(pair[1])][str(pair[1])] = 0.0
+                # else:
+                #     print('\n' * 6 + 'ACCESSED' + '\n' * 6)
+                #     pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd}
+                #     pose_map[pair[0].building_blocks][str(pair[0])][str(pair[0])] = 0.0
                 # pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
             else:
                 pose_map[pair[0].building_blocks] = {str(pair[0]): {str(pair[0]): 0.0}}
