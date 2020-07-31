@@ -92,7 +92,7 @@ def cluster_poses(pose_map):
         #     i, j = SDUtils.condensed_to_square(k, len(designs))
         #     pairwise_sequence_diff_mat[i, j] = dist
         building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
-
+        print(building_block_rmsd_matrix)
         # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
         # pca = PCA(PUtils.variance)
         # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
@@ -106,6 +106,8 @@ def cluster_poses(pose_map):
 
         # find the cluster representative by minimizing the cluster mean
         cluster_ids = set(dbscan.labels_)
+        print(dbscan.labels_)
+        print(dbscan.core_sample_indices_)
         if -1 in cluster_ids:
             cluster_ids.remove(-1)  # remove outlier label, will add all these later
         pose_indices = building_block_rmsd_df.index.to_list()
