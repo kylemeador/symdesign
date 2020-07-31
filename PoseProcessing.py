@@ -37,16 +37,11 @@ from AnalyzeOutput import analyze_output
 def pose_rmsd_mp(all_des_dirs, threads=1):
     pose_map = {}
     pairs_to_process = []
-    # pairs_to_process = {}
     singlets = {}
     for pair in combinations(all_des_dirs, 2):
         singlets[pair[0].building_blocks] = pair[0]
         if pair[0].building_blocks == pair[1].building_blocks:
             singlets.pop(pair[0].building_blocks)
-            # if pair[0].building_blocks in pairs_to_process:
-            #     pairs_to_process[pair[0].building_blocks].append(pair)
-            # else:
-            #     pairs_to_process[pair[0].building_blocks] = [pair]
             pairs_to_process.append(pair)
     results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
 
@@ -66,13 +61,13 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
             pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
             pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
     # Add all singlets
-    for protein_path in singlets:
-        protein_path = os.path.basename(protein_path)
+    for protein_pair in singlets:
+        protein_path = os.path.basename(protein_pair)
         if protein_path in pose_map:
             # This logic is impossible
-            pose_map[protein_pair_path][str(singlets[protein_path])] = {str(singlets[protein_path]): 0.0}
+            pose_map[protein_path][str(singlets[protein_pair])] = {str(singlets[protein_pair]): 0.0}
         else:
-            pose_map[protein_pair_path] = {str(singlets[protein_path]): {str(singlets[protein_path]): 0.0}}
+            pose_map[protein_path] = {str(singlets[protein_pair]): {str(singlets[protein_pair]): 0.0}}
 
     return pose_map
 
