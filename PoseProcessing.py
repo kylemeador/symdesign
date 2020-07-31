@@ -92,6 +92,7 @@ def cluster_poses(pose_map):
         #     i, j = SDUtils.condensed_to_square(k, len(designs))
         #     pairwise_sequence_diff_mat[i, j] = dist
         building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
+        print(building_block_rmsd_df.values)
         print(building_block_rmsd_matrix)
         # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
         # pca = PCA(PUtils.variance)
