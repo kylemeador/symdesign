@@ -33,6 +33,7 @@ directory_structure = './design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\
                       '\nTotal design_symmetry score are located in ./design_symmetry/building_blocks/%s' \
                       % (pdbs_outdir, scores_outdir, scores_outdir)
 variance = 0.8
+clustered_poses = 'ClusteredPoses.pkl'
 
 # Project paths
 # command = 'SymDesign.py -h'

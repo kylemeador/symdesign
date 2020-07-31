@@ -429,7 +429,9 @@ if __name__ == '__main__':
         # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads))
         pose_map = pose_rmsd(all_design_directories)
         pose_cluster_map = cluster_poses(pose_map)
-        print(pose_cluster_map)
+        pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, PUtils.clustered_poses,
+                                                  out_path=all_design_directories[0].protein_data)
+
         # for protein_pair in pose_map:
         #     if os.path.basename(protein_pair) == '4f47_4grd':
         #     logger.info('\n'.join(['%s\n%s' % (pose1, '\n'.join(['%s\t%f' %
@@ -489,14 +491,37 @@ if __name__ == '__main__':
                                'observed_evolution': 0.25, 'int_composition_diff': 0.25}
                 # if not args.weights:
                 #     sys.exit('VY made this and I am going to put in here!')
-                pose_map = pose_rmsd(all_design_directories)
 
-                selected_poses = filter_pose(args.dataframe, filters, weights, num_designs=args.number,
+                selected_poses = filter_pose(args.dataframe, filters, weights,  # num_designs=args.number,
                                              consensus=args.consensus, filter_file=PUtils.filter_and_sort)
                 all_design_directories = SDUtils.set_up_directory_objects(selected_poses, symmetry=args.design_string)
+                # Sort results according to clustered poses
+                pose_cluster_map = SDUtils.unpickle(
+                    os.path.join(all_design_directories[0].protein_data, PUtils.clustered_poses))
+                # {building_blocks: {design_string: cluster_representative}, ...}
+                # pose_clusters_found = {}
+                # count = 1
+                pose_clusters_found, final_poses = [], []
+                for des_dir in all_design_directories:
+                    if pose_cluster_map[des_dir.building_blocks][str(des_dir)] not in pose_clusters_found:
+                        # for key, values in pose_cluster_map[design_directory.building_blocks].items():
+                        #     if str(design_directory) in values:
+                        #         if key not in pose_clusters_found:
+                        #             pose_clusters_found[key].append(str(design_directory))
+                        #         else:
+                        # pose_clusters_found[pose_cluster_map[des_dir.building_blocks][str(des_dir)]] = {
+                        #     count: str(des_dir)}
+                        pose_clusters_found.append(pose_cluster_map[des_dir.building_blocks][str(des_dir)])
+                        final_poses.append(des_dir)
+                        # count += 1
+
+                if len(final_poses) > args.number:
+                    all_design_directories = final_poses[:args.number]
+
                 if args.consensus:
                     results.append(zip(all_design_directories, repeat('consensus')))
                     output = True
+
             if output:
                 pass
             elif args.multi_processing:
@@ -507,12 +532,12 @@ if __name__ == '__main__':
                 # results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
                 results, exceptions = zip(*SDUtils.mp_map(select_sequences_mp, all_design_directories, mp_threads))
             else:
-                # results, exceptions = zip(*list(select_sequences_s(des_directory, number=args.number)
-                #                                 for des_directory in all_design_directories))
-                for des_directory in all_design_directories:
-                    result, error = select_sequences_s(des_directory, number=args.number)
-                    results.append(result)
-                    exceptions.append(error)
+                results, exceptions = zip(*list(select_sequences_s(des_directory, number=args.number)
+                                                for des_directory in all_design_directories))
+                # for des_directory in all_design_directories:
+                #     result, error = select_sequences_s(des_directory, number=args.number)
+                #     results.append(result)
+                #     exceptions.append(error)
 
         results = list(results)
         failures = [index for index, exception in enumerate(exceptions) if exception]
