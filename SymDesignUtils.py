@@ -2118,10 +2118,10 @@ def collect_designs(directory, file=None):
         location = directory
         all_directories = get_design_directories(directory)
 
-    return all_directories, location
+    return sorted(set(all_directories)), location
 
 
-def get_design_directories(base_directory):
+def get_design_directories(base_directory):  # DEPRECIATED
     """Returns a sorted list of all unique directories that contain designable poses
 
     Args:
