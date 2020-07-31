@@ -428,7 +428,7 @@ if __name__ == '__main__':
         if args.multi_processing:
             mp_threads = SDUtils.calculate_mp_threads(maximum=True)
             # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, all_design_directories, threads=mp_threads))
-            pose_map = pose_rmsd_mp(all_design_directories)
+            pose_map = pose_rmsd_mp(all_design_directories, threads=mp_threads)
         else:
             pose_map = pose_rmsd_s(all_design_directories)
 

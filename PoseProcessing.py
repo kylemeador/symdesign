@@ -34,7 +34,7 @@ import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
 
 
-def pose_rmsd_mp(all_des_dirs):
+def pose_rmsd_mp(all_des_dirs, threads=1):
     pose_map = {}
     pairs_to_process = []
     # pairs_to_process = {}
@@ -46,7 +46,7 @@ def pose_rmsd_mp(all_des_dirs):
             #     pairs_to_process[pair[0].building_blocks] = [pair]
             pairs_to_process.append(pair)
 
-    results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process)
+    results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
 
     for pair, pair_rmsd in zip(pairs_to_process, results):
         protein_pair_path = pair[0].building_blocks
