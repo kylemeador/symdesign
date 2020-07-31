@@ -106,12 +106,14 @@ def cluster_poses(pose_map):
         dbscan.fit(building_block_rmsd_matrix)
 
         # find the cluster representative by minimizing the cluster mean
-        clusters = set(dbscan.labels_)
-        clusters.remove(-1)  # remove outlier label, will add all these later
+        cluster_ids = set(dbscan.labels_)
+        cluster_ids.remove(-1)  # remove outlier label, will add all these later
         pose_indices = building_block_rmsd_df.index.to_list()
-        cluster_members_map = {cluster: [pose_indices[n] for n, cluster_id in enumerate(dbscan.labels_)
-                                         if cluster_id == cluster] for cluster in clusters}
-
+        print(pose_indices)
+        cluster_members_map = {cluster_id: [pose_indices[n] for n, cluster in enumerate(dbscan.labels_)
+                                         if cluster == cluster_id] for cluster_id in cluster_ids}
+        print(cluster_members_map)
+        print(building_block_rmsd_df)
         # cluster_representative_map = {}
         clustered_poses = {}
         for cluster in cluster_members_map:
