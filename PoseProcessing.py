@@ -84,7 +84,8 @@ def cluster_distances():
 def cluster_poses(pose_map):
     pose_cluster_map = {}
     for building_block in pose_map:
-        building_block_rmsd_df = pd.DataFrame(pose_map[building_block])
+        building_block_rmsd_df = pd.DataFrame(pose_map[building_block]).fillna(inplace=True)
+        # building_block_rmsd_df.fillna(inplace=True)
 
         # PCA analysis of distances
         # pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
@@ -173,6 +174,7 @@ def pose_rmsd(all_des_dirs):
                     pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd
                 else:
                     pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd}
+                    pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[0]): 0.0}
                 # pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
             else:
                 pose_map[pair[0].building_blocks] = {str(pair[0]): {str(pair[1]): pair_rmsd}}
