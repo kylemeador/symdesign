@@ -192,15 +192,20 @@ def pose_rmsd(all_des_dirs):
                 # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
                 if str(pair[0]) in pose_map[pair[0].building_blocks]:
                     pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd
-                    pose_map[pair[0].building_blocks][str(pair[1])] = {str(pair[1]): 0.0}
+                    if str(pair[1]) not in pose_map[pair[0].building_blocks]:
+                        pose_map[pair[0].building_blocks][str(pair[1])] = {str(pair[1]): 0.0}
+                    else:
+                        print('\n' * 6 + 'NEVER ACCESSED' + '\n' * 6)
+                        pose_map[pair[0].building_blocks][str(pair[1])][str(pair[1])] = 0.0
                 else:
-                    # print('\n' * 6 + 'ACCESSED' + '\n' * 6)
-                    pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd}
-                    pose_map[pair[0].building_blocks][str(pair[0])][str(pair[0])] = 0.0
+                    print('\n' * 6 + 'ACCESSED' + '\n' * 6)
+                    # pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd}
+                    # pose_map[pair[0].building_blocks][str(pair[0])][str(pair[0])] = 0.0
                 # pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
             else:
                 pose_map[pair[0].building_blocks] = {str(pair[0]): {str(pair[0]): 0.0}}
                 pose_map[pair[0].building_blocks][str(pair[0])][str(pair[1])] = pair_rmsd
+                pose_map[pair[0].building_blocks][str(pair[1])] = {str(pair[1]): 0.0}
                 # pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
 
     return pose_map
