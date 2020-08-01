@@ -61,7 +61,11 @@ class PDB:
                 elif line[0:6] == 'SEQRES':
                     chain = line[11:12].strip()
                     sequence = line[19:71]
-                    seq_list.append([chain, sequence])
+                    if chain in self.sequence_dictionary:
+                        self.sequence_dictionary[chain] += sequence
+                    else:
+                        self.sequence_dictionary[chain] = sequence
+                    # seq_list.append([chain, sequence])
                     continue
                 elif line[0:6] == "CRYST1" or line[0:5] == "SCALE":
                     self.header.append(line)
@@ -138,35 +142,52 @@ class PDB:
                 self.cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
                 continue
         self.chain_id_list = chain_ids
-        self.retrieve_sequences(seq_list)
+        self.clean_sequences()
+        # self.retrieve_sequences(seq_list)
 
     # KM added 7/25/19 to deal with SEQRES info
-    def retrieve_sequences(self, seq_list):
-        if seq_list != list():
-            for line in seq_list:
-                if line[0] not in self.sequence_dictionary:
-                    self.sequence_dictionary[line[0]] = line[1]
-                else:
-                    self.sequence_dictionary[line[0]] += line[1]
-
+    def clean_sequences(self):
+        if self.sequence_dictionary:
             for chain in self.sequence_dictionary:
-                self.sequence_dictionary[chain] = self.sequence_dictionary[chain].strip().split(' ')
-                i = 1
-                sequence = []
-                for residue in self.sequence_dictionary[chain]:
+                sequence = self.sequence_dictionary[chain].strip().split(' ')  # split each 3 AA into list
+                # self.sequence_dictionary[chain] = []
+                for i, residue in enumerate(sequence):
                     try:
-                        sequence.append(IUPACData.protein_letters_3to1_extended[residue.title()])
+                        sequence[i] = IUPACData.protein_letters_3to1_extended[residue.title()]
                     except KeyError:
-                        sequence.append('X')
-                    i += 1
+                        if residue.title() == 'Mse':
+                            sequence.append('M')
+                        else:
+                            sequence.append('X')
                 self.sequence_dictionary[chain] = ''.join(sequence)
-        else:
-            self.sequence_dictionary = None
-            # # File originated from outside the official PDB distribution. Probably a design
-            # print('%s has no SEQRES, extracting sequence from ATOM record' % self.filepath)
-            # for chain in self.chain_id_list:
-            #     sequence, failures = extract(self.all_atoms, chain=chain)
-            #     self.sequence_dictionary[chain] = sequence
+
+    # def retrieve_sequences(self, seq_list):
+    #     if seq_list != list():
+    #         for line in seq_list:
+    #             if line[0] not in self.sequence_dictionary:
+    #                 self.sequence_dictionary[line[0]] = line[1]
+    #             else:
+    #                 self.sequence_dictionary[line[0]] += line[1]
+    #
+    #         for chain in self.sequence_dictionary:
+    #             self.sequence_dictionary[chain] = self.sequence_dictionary[chain].strip().split(' ')  # split each 3 AA
+    #             sequence = []
+    #             for residue in self.sequence_dictionary[chain]:
+    #                 try:
+    #                     sequence.append(IUPACData.protein_letters_3to1_extended[residue.title()])
+    #                 except KeyError:
+    #                     if residue.title() == 'Mse':
+    #                         sequence.append('M')
+    #                     else:
+    #                         sequence.append('X')
+    #             self.sequence_dictionary[chain] = ''.join(sequence)
+    #     else:
+    #         self.sequence_dictionary = None
+    #         # # File originated from outside the official PDB distribution. Probably a design
+    #         # print('%s has no SEQRES, extracting sequence from ATOM record' % self.filepath)
+    #         # for chain in self.chain_id_list:
+    #         #     sequence, failures = extract(self.all_atoms, chain=chain)
+    #         #     self.sequence_dictionary[chain] = sequence
 
     def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):
         # reads a python list of Atoms and feeds PDB instance

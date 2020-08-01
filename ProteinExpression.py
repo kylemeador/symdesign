@@ -3,6 +3,7 @@ import os
 import sys
 import csv
 from numpy import array
+from Bio.SeqUtils import IUPACData
 import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import AnalyzeMutatedSequences as Ams
@@ -343,17 +344,18 @@ def add_expression_tag(tag, sequence):
     alignment = Ams.generate_alignment(tag, sequence)
     tag_seq = alignment[0][0]
     seq = alignment[0][1]
-    print(alignment[0])
-    print(tag_seq)
-    print(seq)
+    # print(alignment[0])
+    # print(tag_seq)
+    # print(seq)
     # starting_index_of_seq2 = seq.find(sequence[0])
     # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
     final_seq = ''
     for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
-        if seq1_aa != seq2_aa:
-            final_seq += seq1_aa[i]
+        if seq2_aa == '-':
+            if seq1_aa in IUPACData.protein_letters:
+                final_seq += seq1_aa
         else:
-            final_seq += seq2_aa[i]
+            final_seq += seq2_aa
 
     return final_seq
 
