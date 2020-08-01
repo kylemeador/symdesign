@@ -88,7 +88,8 @@ def find_expression_tags(pdb_code, chain):
     if pdb_tag_tally['C'] != dict():
         c_term = [pdb_tag_tally['C'][_type] for _type in pdb_tag_tally['C']]
         c_term = array(c_term).sum()
-    # if n_term == 0 and c_term == 0:
+    if n_term == 0 and c_term == 0:
+        return {'name': None, 'seq': None}
         # if len(pdb_tag_tally[pdb]['N']) > len(pdb_tag_tally[pdb]['C']):
     if n_term > c_term:
         # final_tags[pdb]['termini'] = 'N'
@@ -127,9 +128,11 @@ def find_expression_tags(pdb_code, chain):
     final_choice = {}
     # for pdb in pdbs:
     default = input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is undesired, '
-                    'you can see the underlying options by specifying \'o\'. Otherwise, the first will be chosen.\n'
-                    'If you would like to proceed with the RECOMMENDED options, enter \'y\'.\nInput [y/o]:'
-                    % (pdb_code, final_tags['termini'], final_tags['name']))
+                    'you can see the underlying options by specifying \'o\'. Otherwise, %s will be chosen.\n'
+                    'If you would like to proceed with the RECOMMENDED options, enter \'y\'. .\nInput [o/y]:'
+                    % (pdb_code, final_tags['termini'], final_tags['name'], final_tags['name'][0]))
+    if default.lower() == 'n':
+
     if default.lower() == 'y':
         if len(final_tags['name']) > 1:
             if 'His Tag' in final_tags:
@@ -138,24 +141,28 @@ def find_expression_tags(pdb_code, chain):
         final_choice['name'] = final_tags['name'][0]
         final_choice['termini'] = final_tags['termini']
     elif default.lower() == 'o':
-        print('For %s, the FULL tag options are: %s\n' % (pdb_code, pdb_tag_tally))
-        while True:
-            termini_input = input('What termini would you like to use?\nInput [n/c]:')
-            termini_input = termini_input.upper()
-            if termini_input == 'N' or termini_input == 'C':
-                final_choice['termini'] = termini_input
-                break
-            else:
-                print('Input doesn\'t match. Please try again')
-        while True:
-            tag_input = input('What tag would you like to use? Enter the number of the below options.\n%s' %
-                              '\n'.join(['%d - %s' % (i, tag) for i, tag in enumerate(pdb_tag_tally[termini_input])]))
-            tag_input = int(tag_input)
-            if tag_input < len(pdb_tag_tally[termini_input]):
-                final_choice['name'] = pdb_tag_tally[termini_input][tag_input]
-                break
-            else:
-                print('Input doesn\'t match. Please try again')
+        _input = input('For %s, the FULL tag options are: %s\nIf none of these are appealing, enter \'n\', otherwise '
+                       'hit enter.' % (pdb_code, pdb_tag_tally))
+        if _input.upper() == 'N':
+            return {'name': None, 'seq': None}
+        else:
+            while True:
+                termini_input = input('What termini would you like to use?\nInput [n/c]:')
+                termini_input = termini_input.upper()
+                if termini_input == 'N' or termini_input == 'C':
+                    final_choice['termini'] = termini_input
+                    break
+                else:
+                    print('Input doesn\'t match. Please try again')
+            while True:
+                tag_input = input('What tag would you like to use? Enter the number of the below options.\n%s' %
+                                  '\n'.join(['%d - %s' % (i, tag) for i, tag in enumerate(pdb_tag_tally[termini_input])]))
+                tag_input = int(tag_input)
+                if tag_input < len(pdb_tag_tally[termini_input]):
+                    final_choice['name'] = pdb_tag_tally[termini_input][tag_input]
+                    break
+                else:
+                    print('Input doesn\'t match. Please try again')
 
     # final_tag_sequence = {}
     # for pdb in pdbs:
@@ -335,7 +342,7 @@ def add_expression_tag(tag, sequence):
     # starting_index_of_seq2 = align_seq_2.find(sequence[0])
     # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
     final_seq = {}
-    for i, seq1_aa, seq2_aa in enumerate(zip(align_seq_1, align_seq_2), SDUtils.index_offset):
+    for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), SDUtils.index_offset):
         if seq1_aa != seq2_aa:
             final_seq[i] = seq1_aa
         else:
