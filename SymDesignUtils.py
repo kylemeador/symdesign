@@ -590,12 +590,13 @@ def fetch_pdb(code, location=PUtils.pdb_db):
         get_pdb = download_pdb
         # doesn't return anything at the moment
     else:
-        get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_db, 'pdb%s.ent' % pdb_code.lower())))
+        get_pdb = (lambda pdb_code, location=None: glob(os.path.join(PUtils.pdb_db, 'pdb%s.ent' % pdb_code.lower())))
         # The below set up is my local pdb and the format of escher. cassini is slightly different, ughhh
         # get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code),
         #                                                      '%s.pdb' % pdb_code)))
         # returns a list with matching file (should only be one)
 
+    # pdb_file = get_pdb(code, location)
     pdb_file = get_pdb(code, location=location)
     # pdb_file = get_pdb(code, location=des_dir.pdbs)
     assert len(pdb_file) == 1, 'More than one matching file found for PDB: %s' % code
