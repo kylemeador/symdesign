@@ -126,7 +126,7 @@ def find_expression_tags(pdb_code, chain):
                     'ambiguous, or undesired, you can see the underlying options and specify. Otherwise, one will '
                     'be randomly chosen.\nIf you '
                     'would like to proceed with the RECOMMENDED options, enter \'y\'. To choose from other options, specify '
-                    '\'o\'.' % (pdb_code, final_tags['termini'], final_tags['type']))
+                    '\'o\'.' % (pdb_code, final_tags['termini'], final_tags['name']))
     if default.lower() == 'y':
         if len(final_tags['name']) > 1:
             if 'His Tag' in final_tags:
@@ -275,7 +275,7 @@ def find_expression_tags_multi(des_dir):
                         'ambiguous, or undesired, you can see the underlying options and specify. Otherwise, one will '
                         'be randomly chosen.\nIf you '
                         'would like to proceed with the RECOMMENDED options, enter \'y\'. To choose from other options, specify '
-                        '\'o\'.' % (des_dir, pdb, final_tags[pdb]['termini'], final_tags[pdb]['type']))
+                        '\'o\'.' % (des_dir, pdb, final_tags[pdb]['termini'], final_tags[pdb]['name']))
         if default.lower() == 'y':
             if len(final_tags[pdb]['name']) > 1:
                 if 'His Tag' in final_tags:
