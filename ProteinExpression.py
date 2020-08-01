@@ -127,40 +127,46 @@ def find_expression_tags(pdb_code, chain):
     # Finally report results to the user and solve ambiguous tags
     final_choice = {}
     # for pdb in pdbs:
-    default = input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is undesired, '
-                    'you can see the underlying options by specifying \'o\'. Otherwise, \'%s\' will be chosen.\n'
-                    'If you would like to proceed with the RECOMMENDED options, enter \'y\'.\nInput [o/y]:'
-                    % (pdb_code, final_tags['termini'], final_tags['name'], final_tags['name'][0]))
-    if default.lower() == 'y':
-        if len(final_tags['name']) > 1:
-            if 'His Tag' in final_tags:
-                final_choice['name'] = 'His Tag'
-                # else choose the first choice
-        final_choice['name'] = final_tags['name'][0]
-        final_choice['termini'] = final_tags['termini']
-    elif default.lower() == 'o':
-        _input = input('For %s, the FULL tag options are: %s\nIf none of these are appealing, enter \'n\', otherwise '
-                       'hit enter.' % (pdb_code, pdb_tag_tally))
-        if _input.upper() == 'N':
-            return {'name': None, 'seq': None}
+    while True:
+        default = input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is undesired, '
+                        'you can see the underlying options by specifying \'o\'. Otherwise, \'%s\' will be chosen.\n'
+                        'If you would like to proceed with the RECOMMENDED options, enter \'y\'.\nInput [o/y]:'
+                        % (pdb_code, final_tags['termini'], final_tags['name'], final_tags['name'][0]))
+        if default.lower() == 'y':
+            if len(final_tags['name']) > 1:
+                if 'His Tag' in final_tags:
+                    final_choice['name'] = 'His Tag'
+                    # else choose the first choice
+            final_choice['name'] = final_tags['name'][0]
+            final_choice['termini'] = final_tags['termini']
+            break
+        elif default.lower() == 'o':
+            _input = input('For %s, the FULL tag options are: %s\nIf none of these are appealing, enter \'n\', '
+                           'otherwise hit enter.' % (pdb_code, pdb_tag_tally))
+            if _input.upper() == 'N':
+                return {'name': None, 'seq': None}
+            else:
+                while True:
+                    termini_input = input('What termini would you like to use?\nInput [n/c]:')
+                    termini_input = termini_input.upper()
+                    if termini_input == 'N' or termini_input == 'C':
+                        final_choice['termini'] = termini_input
+                        break
+                    else:
+                        print('Input doesn\'t match. Please try again')
+                while True:
+                    tag_input = input('What tag would you like to use? Enter the number of the below options.\n%s' %
+                                      '\n'.join(['%d - %s' % (i, tag)
+                                                 for i, tag in enumerate(pdb_tag_tally[termini_input])]))
+                    tag_input = int(tag_input)
+                    if tag_input < len(pdb_tag_tally[termini_input]):
+                        final_choice['name'] = pdb_tag_tally[termini_input][tag_input]
+                        break
+                    else:
+                        print('Input doesn\'t match. Please try again')
+            break
         else:
-            while True:
-                termini_input = input('What termini would you like to use?\nInput [n/c]:')
-                termini_input = termini_input.upper()
-                if termini_input == 'N' or termini_input == 'C':
-                    final_choice['termini'] = termini_input
-                    break
-                else:
-                    print('Input doesn\'t match. Please try again')
-            while True:
-                tag_input = input('What tag would you like to use? Enter the number of the below options.\n%s' %
-                                  '\n'.join(['%d - %s' % (i, tag) for i, tag in enumerate(pdb_tag_tally[termini_input])]))
-                tag_input = int(tag_input)
-                if tag_input < len(pdb_tag_tally[termini_input]):
-                    final_choice['name'] = pdb_tag_tally[termini_input][tag_input]
-                    break
-                else:
-                    print('Input doesn\'t match. Please try again')
+            print('Input doesn\'t match. Please try again')
 
     # final_tag_sequence = {}
     # for pdb in pdbs:
@@ -398,17 +404,17 @@ def find_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
                 # print('Tag is at the N-term. \n')
                 tag_dict[count]['termini'] = 'N'
                 # tag_dict[chain][tag_name]['termini'] = 'N'
-                while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
-                    alignment_index -= 1
-                tag_dict[count]['seq'] = seq[tag_index:alignment_index]
+                # while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
+                #     alignment_index -= 1
+                tag_dict[count]['seq'] = seq[tag_index:tag_index + alignment_index]
                 # tag_dict[chain][tag_name]['seq'] = seq[tag_index:alignment_index]
             else:  # tag_index + len(tag_seq) == len(test_seq):
                 # print('Tag is at the C-term.\n')
                 tag_dict[count]['termini'] = 'C'
                 # op = operator.sub()
-                while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
-                    alignment_index -= 1
-                tag_dict[count]['seq'] = seq[alignment_index:tag_index + len(tags[tag])]
+                # while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
+                #     alignment_index -= 1
+                tag_dict[count]['seq'] = seq[tag_index - alignment_index:tag_index + len(tags[tag])]
             print('Original Seq: %s' % seq)
             print('Alignment index are from %d to %d' % (tag_index, alignment_index))
             print('Final Seq: %s' % tag_dict[count]['seq'])
