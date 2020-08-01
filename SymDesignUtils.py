@@ -565,7 +565,7 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
         current_file = glob(file_name)
         # current_files = os.listdir(location)
         # if clean_pdb not in current_files:
-        if not current_file:
+        if not current_file:  # glob should return an empty list
             # TODO subprocess.POPEN()
             status = os.system('wget -q -O %s http://files.rcsb.org/download/%s' % (file_name, clean_pdb))
             if status != 0:
@@ -574,15 +574,46 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
     if failures:
         logger.error('PDB download ran into the following failures:\n%s' % ', '.join(failures))
 
-    return
+    return file_name  # if list then will only return the last file
 
 
-def fetch_pdbs(des_dir, codes):
+def fetch_pdb(code, location=PUtils.pdb_db):
+    """Fetch PDB object of each chain from PDBdb or PDB server
+
+        Args:
+            code (iter): Any iterable of PDB codes
+        Keyword Args:
+            location= : Location of the  on disk
+        Returns:
+            (dict): {pdb_code: PDB.py object, ...}
+        """
+    if PUtils.pdb_source == 'download_pdb':
+        get_pdb = download_pdb
+        # doesn't return anything at the moment
+    else:
+        get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_db, 'pdb%s.ent' % pdb_code.lower())))
+        # The below set up is my local pdb and the format of escher. cassini is slightly different, ughhh
+        # get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code),
+        #                                                      '%s.pdb' % pdb_code)))
+        # returns a list with matching file (should only be one)
+
+    pdb_file = get_pdb(code, location=location)
+    # pdb_file = get_pdb(code, location=des_dir.pdbs)
+    assert len(pdb_file) == 1, 'More than one matching file found for PDB: %s' % code
+    pdb = read_pdb(pdb_file[0])
+    pdb.AddName(code)
+    pdb.reorder_chains()
+
+    return pdb
+
+
+def fetch_pdbs(codes, location=PUtils.pdb_location):
     """Fetch PDB object of each chain from PDBdb or PDB server
 
     Args:
-        des_dir (DesignDirectory): Location of the design on disk
         codes (iter): Any iterable of PDB codes
+    Keyword Args:
+        location= : Location of the  on disk
     Returns:
         (dict): {pdb_code: PDB.py object, ...}
     """
@@ -2003,6 +2034,8 @@ class DesignDirectory:
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
         self.data = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data
+        self.source = None
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/central_asu.pdb
         self.asu = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu.pdb
         self.info = {}
@@ -2043,6 +2076,7 @@ class DesignDirectory:
         self.frags = os.path.join(self.path, PUtils.frag_dir)
         self.data = os.path.join(self.path, PUtils.data)
 
+        self.source = os.path.join(self.path, PUtils.asu)
         self.asu = os.path.join(self.path, PUtils.clean)
 
         if not os.path.exists(self.path):
@@ -2172,9 +2206,7 @@ def generate_alignment(seq1, seq2, matrix='blosum62'):
     gap_penalty = -10
     gap_ext_penalty = -1
     # Create sequence alignment
-    alignment = pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
-
-    return alignment
+    return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
 def find_gapped_columns(alignment_dict):

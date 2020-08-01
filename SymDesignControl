@@ -560,7 +560,7 @@ if __name__ == '__main__':
                     continue
                 os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
                 # coming in as (chain: seq}
-                final_sequences[design] = get_pdb_sequences(file[0])
+                final_sequences[design] = get_pdb_sequences(pose_des_dir)  #, file[0])
 
         # Format sequences for expression
         # sequences = add_expression_tags(final_sequences)
