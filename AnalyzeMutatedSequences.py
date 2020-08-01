@@ -700,7 +700,7 @@ def get_pdb_sequences(pdb_file, chain=None, source='atom'):
     Returns:
         wt_seq_dict (dict): {chain: sequence, ...}
     """
-    pdb = SDUtils.read_pdb(pdb_file)
+    pdb = SDUtils.read_pdb(pdb_file, coordinates_only=False)
     seq_dict = {}
     for _chain in pdb.chain_id_list:
         seq_dict[_chain], fail = extract_aa_seq(pdb, source=source, chain=_chain)

@@ -638,7 +638,7 @@ def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
     return oligomers
 
 
-def read_pdb(file):
+def read_pdb(file, coordinates_only=True):
     """Wrapper on the PDB __init__ and readfile functions
 
     Args:
@@ -647,7 +647,7 @@ def read_pdb(file):
         pdb (PDB): Initialized PDB object
     """
     pdb = PDB.PDB()
-    pdb.readfile(file)
+    pdb.readfile(file, coordinates_only=coordinates_only)
 
     return pdb
 
