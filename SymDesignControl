@@ -572,12 +572,15 @@ if __name__ == '__main__':
                 tag_sequences = {pdb: find_expression_tags(pdb, chain)
                                  for pdb, chain in zip(pose_pdbs, pose.chain_id_list)}
                 # coming in as (chain: seq}
-                final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'], design_sequences[chains[j]])
+                final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
+                                                                   design_sequences[chains[j]])
                                            for j, pdb in enumerate(tag_sequences)}
+                # format sequence for M start
+        print(final_sequences)
 
         # Write output sequences to fasta file
-        seq_file = write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
-                                    path=os.path.dirname(location))
+        # seq_file = write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
+        #                             path=os.path.dirname(location))
 
     # Report any program exceptions
     any_exceptions = [exception for exception in exceptions if exception]
