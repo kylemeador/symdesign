@@ -147,6 +147,7 @@ def find_expression_tags(pdb_code, chain):
         while True:
             tag_input = input('What tag would you like to use? Enter the number of the below options.\n%s' %
                               '\n'.join(['%d - %s' % (i, tag) for i, tag in enumerate(pdb_tag_tally[termini_input])]))
+            tag_input = int(tag_input)
             if tag_input < len(pdb_tag_tally[termini_input]):
                 final_choice['name'] = pdb_tag_tally[termini_input][tag_input]
                 break
@@ -323,6 +324,8 @@ def add_expression_tag(tag, sequence):
     Returns:
         tagged_sequence (str): The final sequence with the tag added
     """
+    if not tag:
+        return sequence
     alignment = Ams.generate_alignment(tag, sequence)
     align_seq_1 = alignment[0][0]
     align_seq_2 = alignment[0][1]
