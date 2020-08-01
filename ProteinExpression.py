@@ -29,7 +29,7 @@ def find_expression_tags(pdb_code, chain):
     # reference_seq_d =
     # all_matching_pdb_chain = []
     # for pdb_code, chain in zip(pdbs, pose.chain_id_list):
-    all_matching_pdb_chain = uniprot_pdb_d[pull_uniprot_ib_by_pdb(pdb_code, chain=chain)]['all']
+    all_matching_pdb_chain = uniprot_pdb_d[pull_uniprot_id_by_pdb(pdb_code, chain=chain)]['all']
     # reference_seq_d = reference_seq_d[chain]
 
     # {pdb: [{'A': 'MSGHHHHHHGKLKPNDLRI...'}, ...], ...}
@@ -336,9 +336,10 @@ def add_expression_tag(tag, sequence):
     return final_seq
 
 
-def pull_uniprot_ib_by_pdb(pdb_code, chain=False):
+def pull_uniprot_id_by_pdb(pdb_code, chain=False):
     # uniprot_pdb_d = pickle.load(unidictf)
     source = 'unique_pdb'
+    pdb_code = pdb_code.upper()
     if chain:
         pdb_code = '%s.%s' % (pdb_code, chain)
         source = 'all'
