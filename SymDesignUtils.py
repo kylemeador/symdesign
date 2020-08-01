@@ -13,8 +13,6 @@ import sklearn.neighbors
 from itertools import repeat
 import PDB
 from Bio.SeqUtils import IUPACData
-from Bio.SubsMat import MatrixInfo as matlist
-from Bio import pairwise2
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 import PathUtils as PUtils
 import CmdUtils as CUtils
@@ -2198,15 +2196,6 @@ def set_up_pseudo_design_dir(wildtype, directory, score):
 ##############
 # Alignments
 ##############
-
-
-def generate_alignment(seq1, seq2, matrix='blosum62'):
-    """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*"""
-    _matrix = getattr(matlist, matrix)
-    gap_penalty = -10
-    gap_ext_penalty = -1
-    # Create sequence alignment
-    return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
 def find_gapped_columns(alignment_dict):

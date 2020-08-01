@@ -17,7 +17,9 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
-from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp
+from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, \
+    write_fasta_file
+from ProteinExpression import find_expression_tags, add_expression_tag
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -527,6 +529,8 @@ if __name__ == '__main__':
                 # zipped_args = zip(all_design_directories, repeat(args.number))
                 # results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
                 results, exceptions = zip(*SDUtils.mp_map(select_sequences_mp, all_design_directories, mp_threads))
+                # results - contains tuple of (DesignDirectory, design index) for each sequence
+                # could simply return the design index then zip with the directory
             else:
                 results, exceptions = zip(*list(select_sequences_s(des_directory, number=args.number)
                                                 for des_directory in all_design_directories))
@@ -544,11 +548,11 @@ if __name__ == '__main__':
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
         else:
             args.selection_string += '_'
-
-        # Create symbolic links to the output PDB's
         outdir = os.path.join(os.path.dirname(location), '%sSelected_PDBs' % args.selection_string)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
+
+        # Create symbolic links to the output PDB's
         final_sequences = {}
         for pose in results:
             pose_des_dirs, design = zip(*pose)
@@ -558,15 +562,22 @@ if __name__ == '__main__':
                     exceptions.append((pose_des_dir.path, 'No file found for %s*%s*' %
                                        (pose_des_dir.design_pdbs, design[i])))
                     continue
-                os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
+                # os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
+                # Format sequences for expression
+                design_sequences = get_pdb_sequences(file[0])
+                pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
+                chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                pose = SDUtils.read_pdb(pose_des_dir.source)
+                # need the original pose chain identity
+                tag_sequences = {pdb: find_expression_tags(pdb, chain)
+                                 for pdb, chain in zip(pose_pdbs, pose.chain_id_list)}
                 # coming in as (chain: seq}
-                final_sequences[design] = get_pdb_sequences(pose_des_dir)  #, file[0])
-
-        # Format sequences for expression
-        # sequences = add_expression_tags(final_sequences)
+                final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'], design_sequences[chains[j]])
+                                           for j, pdb in enumerate(tag_sequences)}
 
         # Write output sequences to fasta file
-        # seq_file = write_fasta_file(sequences, '%s_Selected_Sequences' % args.selection_string, path=os.path.dirname(location))
+        seq_file = write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
+                                    path=os.path.dirname(location))
 
     # Report any program exceptions
     any_exceptions = [exception for exception in exceptions if exception]
