@@ -42,13 +42,13 @@ def find_expression_tags(pdb_code, chain):
         partner_sequences.append(partner_d[chain])
         # TODO chain can be not found!
 
-    # {pdb: {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...}
-    pdb_tags = {}
+    # {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}
+    matching_pdb_tags = {}
     # for pdb in pdbs:
-    #     pdb_tags[pdb] = {}
+    #     matching_pdb_tags[pdb] = {}
     for idx, seq in enumerate(partner_sequences):
         # tags[pdb][idx] = find_tags(partner_sequences[pdb][idx])
-        pdb_tags[idx] = find_tags(seq)
+        matching_pdb_tags[idx] = find_tags(seq)  # can return an empty dict
 
     # next, align all the tags to the reference sequence and tally the tag location and type
     # pdb_tag_tally = {}
@@ -56,16 +56,17 @@ def find_expression_tags(pdb_code, chain):
         # pdb_tag_tally[pdb] = {'N': 0, 'C': 0, 'types': {}}
         # pdb_tag_tally[pdb] = {'N': {}, 'C': {}}
     pdb_tag_tally = {'N': {}, 'C': {}}
-    for partner in pdb_tags:
-        for tags in pdb_tags[partner]:
-            if tags != dict():
-                for tag in tags:
+    for partner in matching_pdb_tags:
+        for partner_tags in matching_pdb_tags[partner]:
+            if partner_tags != dict():
+                for tag_idx in matching_pdb_tags[partner][partner_tags]:
                     # count the number of termini
-                    if tags[tag]['name'] in pdb_tag_tally[tags[tag]['termini']]:
+                    if matching_pdb_tags[partner][partner_tags][tag_idx]['name'] \
+                            in pdb_tag_tally[partner_tags[tag_idx]['termini']]:
                         # pdb_tag_tally[pdb]['N'][tag_name] +=1
-                        pdb_tag_tally[tags[tag]['termini']][tags[tag]['name']] += 1
+                        pdb_tag_tally[partner_tags[tag_idx]['termini']][partner_tags[tag_idx]['name']] += 1
                     else:
-                        pdb_tag_tally[tags[tag]['termini']][tags[tag]['name']] = 0
+                        pdb_tag_tally[partner_tags[tag_idx]['termini']][partner_tags[tag_idx]['name']] = 0
                     # # pdb_tag_tally[pdb][tags[tag]['termini']] += 1
                     # if tags[tag]['name'] in pdb_tag_tally[pdb]['types']:
                     #     # pdb_tag_tally[pdb]['types'][tag_name]
@@ -157,10 +158,10 @@ def find_expression_tags(pdb_code, chain):
     # final_tag_sequence = {}
     # for pdb in pdbs:
     final_tag_sequence = {'name': final_choice['name'], 'seq': None}
-    for partner_idx in pdb_tags:
-        for tag_idx in pdb_tags[partner_idx]:
-            if final_choice['name'] == pdb_tags[partner_idx][tag_idx]['name']:
-                final_tag_sequence['seq'] = pdb_tags[partner_idx][tag_idx]['seq']
+    for partner_idx in matching_pdb_tags:
+        for partner_tags in matching_pdb_tags[partner_idx]:
+            if final_choice['name'] == matching_pdb_tags[partner_idx][partner_tags]['name']:
+                final_tag_sequence['seq'] = matching_pdb_tags[partner_idx][partner_tags]['seq']
                 # TODO align multiple and choose the consensus
 
     return final_tag_sequence
