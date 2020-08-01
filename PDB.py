@@ -138,6 +138,7 @@ class PDB:
                 self.cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
                 continue
         self.chain_id_list = chain_ids
+        print(seq_list)
         self.retrieve_sequences(seq_list)
 
     # KM added 7/25/19 to deal with SEQRES info
