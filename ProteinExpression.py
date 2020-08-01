@@ -131,8 +131,6 @@ def find_expression_tags(pdb_code, chain):
                     'you can see the underlying options by specifying \'o\'. Otherwise, %s will be chosen.\n'
                     'If you would like to proceed with the RECOMMENDED options, enter \'y\'. .\nInput [o/y]:'
                     % (pdb_code, final_tags['termini'], final_tags['name'], final_tags['name'][0]))
-    if default.lower() == 'n':
-
     if default.lower() == 'y':
         if len(final_tags['name']) > 1:
             if 'His Tag' in final_tags:
