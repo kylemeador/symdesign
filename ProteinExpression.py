@@ -38,7 +38,7 @@ def find_expression_tags(pdb_code, chain):
     #     partner_sequences[pdb] = []
     for matching_pdb_chain in all_matching_pdb_chain:
         matching_pdb, chain = matching_pdb_chain.split('.')
-        partner_sequences.append(Ams.get_pdb_sequences(SDUtils.fetch_pdb(matching_pdb.lower()), chain=chain, source='seqres'))
+        partner_sequences.append(Ams.get_pdb_sequences(SDUtils.fetch_pdb(matching_pdb), chain=chain, source='seqres'))
 
     # {pdb: {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...}
     pdb_tags = {}
