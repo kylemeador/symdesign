@@ -335,15 +335,15 @@ def add_expression_tag(tag, sequence):
     if not tag:
         return sequence
     alignment = Ams.generate_alignment(tag, sequence)
-    align_seq_1 = alignment[0][0]
-    align_seq_2 = alignment[0][1]
+    tag_seq = alignment[0][0]
+    seq = alignment[0][1]
     print(alignment[0])
-    print(align_seq_1)
-    print(align_seq_2)
-    # starting_index_of_seq2 = align_seq_2.find(sequence[0])
+    print(tag_seq)
+    print(seq)
+    # starting_index_of_seq2 = seq.find(sequence[0])
     # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
     final_seq = ''
-    for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), SDUtils.index_offset):
+    for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
         if seq1_aa != seq2_aa:
             final_seq += seq1_aa[i]
         else:
@@ -409,5 +409,8 @@ def find_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
                 while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
                     alignment_index -= 1
                 tag_dict[count]['seq'] = seq[alignment_index:tag_index + len(tags[tag])]
+            print('Original Seq: %s' % seq)
+            print('Alignment index are from %d to %d' % (tag_index, alignment_index))
+            print('Final Seq: %s' % tag_dict[count]['seq'])
 
     return tag_dict
