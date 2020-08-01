@@ -64,7 +64,7 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
     for protein_pair in singlets:
         protein_path = os.path.basename(protein_pair)
         if protein_path in pose_map:
-            # This logic is impossible
+            # This logic is impossible??
             pose_map[protein_path][str(singlets[protein_pair])] = {str(singlets[protein_pair]): 0.0}
         else:
             pose_map[protein_path] = {str(singlets[protein_pair]): {str(singlets[protein_pair]): 0.0}}

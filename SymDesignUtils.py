@@ -13,6 +13,7 @@ import sklearn.neighbors
 from itertools import repeat
 import PDB
 from Bio.SeqUtils import IUPACData
+from Bio.SubsMat import MatrixInfo as matlist
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 import PathUtils as PUtils
 import CmdUtils as CUtils
