@@ -336,16 +336,15 @@ def add_expression_tag(tag, sequence):
     return final_seq
 
 
-def pull_uniprot_id_by_pdb(pdb_code, chain=False):
+def pull_uniprot_id_by_pdb(pdb_code, chain=None):
     # uniprot_pdb_d = pickle.load(unidictf)
     source = 'unique_pdb'
     pdb_code = pdb_code.upper()
     if chain:
-        pdb_code = '%s.%s' % (pdb_code, chain)
-        source = 'all'
+        # pdb_code = '%s.%s' % (pdb_code, chain)
+        # source = 'all'
+        dummy = 'TODO ensure that this works once the database is integrated'  # TODO
 
-    # pdb_chain = pdb_code + '.' + chain
-    print(pdb_code)
     for uniprot_id in uniprot_pdb_d:
         if pdb_code in uniprot_pdb_d[uniprot_id][source]:
             return uniprot_id, uniprot_pdb_d[uniprot_id]
