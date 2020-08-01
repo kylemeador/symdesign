@@ -600,11 +600,13 @@ def fetch_pdb(code, location=PUtils.pdb_db):
     pdb_file = get_pdb(code, location=location)
     # pdb_file = get_pdb(code, location=des_dir.pdbs)
     assert len(pdb_file) == 1, 'More than one matching file found for PDB: %s' % code
-    pdb = read_pdb(pdb_file[0])
-    pdb.AddName(code)
-    pdb.reorder_chains()
 
-    return pdb
+    return pdb_file
+    # pdb = read_pdb(pdb_file[0])
+    # pdb.AddName(code)
+    # pdb.reorder_chains()
+    #
+    # return pdb
 
 
 def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
