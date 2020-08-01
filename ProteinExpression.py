@@ -128,8 +128,8 @@ def find_expression_tags(pdb_code, chain):
     final_choice = {}
     # for pdb in pdbs:
     default = input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is undesired, '
-                    'you can see the underlying options by specifying \'o\'. Otherwise, %s will be chosen.\n'
-                    'If you would like to proceed with the RECOMMENDED options, enter \'y\'. .\nInput [o/y]:'
+                    'you can see the underlying options by specifying \'o\'. Otherwise, \'%s\' will be chosen.\n'
+                    'If you would like to proceed with the RECOMMENDED options, enter \'y\'.\nInput [o/y]:'
                     % (pdb_code, final_tags['termini'], final_tags['name'], final_tags['name'][0]))
     if default.lower() == 'y':
         if len(final_tags['name']) > 1:
@@ -337,14 +337,17 @@ def add_expression_tag(tag, sequence):
     alignment = Ams.generate_alignment(tag, sequence)
     align_seq_1 = alignment[0][0]
     align_seq_2 = alignment[0][1]
+    print(alignment[0])
+    print(align_seq_1)
+    print(align_seq_2)
     # starting_index_of_seq2 = align_seq_2.find(sequence[0])
     # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
-    final_seq = {}
+    final_seq = ''
     for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), SDUtils.index_offset):
         if seq1_aa != seq2_aa:
-            final_seq[i] = seq1_aa
+            final_seq += seq1_aa[i]
         else:
-            final_seq[i] = seq2_aa
+            final_seq += seq2_aa[i]
 
     return final_seq
 
