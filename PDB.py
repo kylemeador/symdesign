@@ -160,7 +160,7 @@ class PDB:
                             self.sequence_dictionary[chain][i] = 'M'
                         else:
                             self.sequence_dictionary[chain][i] = 'X'
-                # self.sequence_dictionary[chain] = ''.join(sequence)
+                self.sequence_dictionary[chain] = ''.join(self.sequence_dictionary[chain])
     # SEQRES   1 H  112  MSE PHE TYR GLU ILE ARG THR TYR ARG LEU LYS ASN GLY
     # def retrieve_sequences(self, seq_list):
     #     if seq_list != list():
