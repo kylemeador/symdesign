@@ -10,6 +10,8 @@ from Bio.Alphabet import generic_protein
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
+from Bio.SubsMat import MatrixInfo as matlist
+from Bio.pairwise2.align import localds
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -533,11 +535,24 @@ def parse_mutations(mutation_list):  # UNUSED
     return mutation_dict
 
 
+def generate_alignment(seq1, seq2, matrix='blosum62'):
+    """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
+
+    Returns:
+
+    """
+    _matrix = getattr(matlist, matrix)
+    gap_penalty = -10
+    gap_ext_penalty = -1
+    # Create sequence alignment
+    return localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+
+
 def generate_mutations_from_seq(seq1, seq2, offset=True, remove_blanks=True):
     """Create mutations with format A5K, one-indexed
 
     Index so residue value starts at 1. For PDB file comparison, seq1 should be crystal sequence (ATOM), seq2 should be
-     expression sequence (SEQRES)
+        expression sequence (SEQRES)
     Args:
         seq1 (str): Mutant sequence
         seq2 (str): Wild-type sequence
@@ -557,13 +572,13 @@ def generate_mutations_from_seq(seq1, seq2, offset=True, remove_blanks=True):
 
     # Extract differences from the alignment
     starting_index_of_seq2 = align_seq_2.find(seq2[0])
-    i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
+    # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
     mutations = {}
-    for seq1_aa, seq2_aa in zip(align_seq_1, align_seq_2):
+    for i, seq1_aa, seq2_aa in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
         if seq1_aa != seq2_aa:
             mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
             # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
-        i += 1
+        # i += 1
 
     if remove_blanks:
         # Remove any blank mutations and negative/zero indices
@@ -674,24 +689,25 @@ def get_wildtype_file(des_directory):
     #         return os.path.join(des_directory.building_blocks, file)
 
 
-def get_pdb_sequences(pdb_file, chain=None):
+def get_pdb_sequences(pdb_file, chain=None, source='atom'):
     """Return all sequences or those specified by a chain from a PDB file
 
     Args:
         pdb_file (str): Location on disk of a reference .pdb file
     Keyword Args:
         chain=None (str): If a particular chain is desired, specify it
+        source='atom' (str): One of 'atom' or 'seqres'
     Returns:
         wt_seq_dict (dict): {chain: sequence, ...}
     """
-    wt_pdb = SDUtils.read_pdb(pdb_file)
-    wt_seq_dict = {}
-    for _chain in wt_pdb.chain_id_list:
-        wt_seq_dict[_chain], fail = extract_aa_seq(wt_pdb, chain=_chain)
+    pdb = SDUtils.read_pdb(pdb_file)
+    seq_dict = {}
+    for _chain in pdb.chain_id_list:
+        seq_dict[_chain], fail = extract_aa_seq(pdb, source=source, chain=_chain)
     if chain:
-        wt_seq_dict = SDUtils.clean_dictionary(wt_seq_dict, chain, remove=False)
+        seq_dict = SDUtils.clean_dictionary(seq_dict, chain, remove=False)
 
-    return wt_seq_dict
+    return seq_dict
 
 
 def mutate_wildtype_sequences(sequence_dir_files, wild_type_file):
@@ -977,7 +993,7 @@ def select_sequences(des_dir, number=1, debug=False):
         number=1 (int): The number of sequences to consider for each design
         debug=False (bool): Whether or not to debug
     Returns:
-        (list): Containing tuples with (DesignDirectory.path, design index) for each sequence found
+        (list): Containing tuples with (DesignDirectory, design index) for each sequence found
     """
     desired_protocol = 'combo_profile'
     # Log output
