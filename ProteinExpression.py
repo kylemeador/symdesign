@@ -98,7 +98,7 @@ def find_expression_tags(pdb_code, chain):
                 termini = input('For %s, BOTH termini have the same number of matched tags.\n'
                                 'The tag options are as follows {terminus:{tag name: count}}:\n%s\n'
                                 'Which termini would you prefer?\n[n/c]:' % (pdb_code, pdb_tag_tally))
-                termini.upper()
+                termini = termini.upper()
                 if termini == 'N' or termini == 'C':
                     break
 
@@ -126,7 +126,7 @@ def find_expression_tags(pdb_code, chain):
                     'ambiguous, or undesired, you can see the underlying options and specify. Otherwise, one will '
                     'be randomly chosen.\nIf you '
                     'would like to proceed with the RECOMMENDED options, enter \'y\'. To choose from other options, specify '
-                    '\'o\'.' % (pdb_code, final_tags['termini'], final_tags['name']))
+                    '\'o\'.\nInput [y/o]:' % (pdb_code, final_tags['termini'], final_tags['name']))
     if default.lower() == 'y':
         if len(final_tags['name']) > 1:
             if 'His Tag' in final_tags:
@@ -323,7 +323,7 @@ def add_expression_tag(tag, sequence):
     Returns:
         tagged_sequence (str): The final sequence with the tag added
     """
-    alignment = SDUtils.generate_alignment(tag, sequence)
+    alignment = Ams.generate_alignment(tag, sequence)
     align_seq_1 = alignment[0][0]
     align_seq_2 = alignment[0][1]
     # starting_index_of_seq2 = align_seq_2.find(sequence[0])
