@@ -60,7 +60,7 @@ class PDB:
                         continue
                 elif line[0:6] == 'SEQRES':
                     chain = line[11:12].strip()
-                    sequence = line[20:71].strip().split()
+                    sequence = line[19:71].strip().split()
                     if chain in self.sequence_dictionary:
                         self.sequence_dictionary[chain] += sequence
                     else:
