@@ -155,7 +155,7 @@ def find_expression_tags(pdb_code, chain):
 
     # final_tag_sequence = {}
     # for pdb in pdbs:
-    final_tag_sequence = {'name': final_choice['name']}
+    final_tag_sequence = {'name': final_choice['name'], 'seq': None}
     for partner_idx in pdb_tags:
         for tag_idx in pdb_tags[partner_idx]:
             if final_choice['name'] == pdb_tags[partner_idx][tag_idx]['name']:
