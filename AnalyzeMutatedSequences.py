@@ -11,7 +11,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 from Bio.SubsMat import MatrixInfo as matlist
-from Bio.pairwise2.align import localds
+from Bio import pairwise2.align.localds
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
