@@ -605,7 +605,7 @@ def fetch_pdb(code, location=PUtils.pdb_db):
     return pdb
 
 
-def fetch_pdbs(codes, location=PUtils.pdb_location):
+def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
     """Fetch PDB object of each chain from PDBdb or PDB server
 
     Args:
