@@ -347,7 +347,7 @@ def pull_uniprot_id_by_pdb(pdb_code, chain=None):
 
     for uniprot_id in uniprot_pdb_d:
         if pdb_code in uniprot_pdb_d[uniprot_id][source]:
-            return uniprot_id, uniprot_pdb_d[uniprot_id]
+            return uniprot_id
 
 
 with open(PUtils.affinity_tags, 'r') as f:
