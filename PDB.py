@@ -60,7 +60,7 @@ class PDB:
                         continue
                 elif line[0:6] == 'SEQRES':
                     chain = line[11:12].strip()
-                    sequence = line[19:71]
+                    sequence = line[20:71].strip().split()
                     if chain in self.sequence_dictionary:
                         self.sequence_dictionary[chain] += sequence
                     else:
@@ -149,18 +149,19 @@ class PDB:
     def clean_sequences(self):
         if self.sequence_dictionary:
             for chain in self.sequence_dictionary:
-                sequence = self.sequence_dictionary[chain].strip().split(' ')  # split each 3 AA into list
+                # sequence = self.sequence_dictionary[chain].strip().split(' ')  # split each 3 AA into list
                 # self.sequence_dictionary[chain] = []
-                for i, residue in enumerate(sequence):
+                for i, residue in enumerate(self.sequence_dictionary[chain]):
+                # for i, residue in enumerate(sequence):
                     try:
-                        sequence[i] = IUPACData.protein_letters_3to1_extended[residue.title()]
+                        self.sequence_dictionary[chain][i] = IUPACData.protein_letters_3to1_extended[residue.title()]
                     except KeyError:
                         if residue.title() == 'Mse':
-                            sequence[i] = 'M'
+                            self.sequence_dictionary[chain][i] = 'M'
                         else:
-                            sequence[i] = 'X'
-                self.sequence_dictionary[chain] = ''.join(sequence)
-
+                            self.sequence_dictionary[chain][i] = 'X'
+                # self.sequence_dictionary[chain] = ''.join(sequence)
+    # SEQRES   1 H  112  MSE PHE TYR GLU ILE ARG THR TYR ARG LEU LYS ASN GLY
     # def retrieve_sequences(self, seq_list):
     #     if seq_list != list():
     #         for line in seq_list:
