@@ -38,7 +38,9 @@ def find_expression_tags(pdb_code, chain):
     #     partner_sequences[pdb] = []
     for matching_pdb_chain in all_matching_pdb_chain:
         matching_pdb, chain = matching_pdb_chain.split('.')
-        partner_sequences.append(Ams.get_pdb_sequences(SDUtils.fetch_pdb(matching_pdb), chain=chain, source='seqres'))
+        partner_d = Ams.get_pdb_sequences(SDUtils.fetch_pdb(matching_pdb), chain=chain, source='seqres')
+        partner_sequences.append(partner_d[chain])
+        # TODO chain can be not found!
 
     # {pdb: {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...}
     pdb_tags = {}
@@ -348,7 +350,6 @@ def pull_uniprot_id_by_pdb(pdb_code, chain=None):
     for uniprot_id in uniprot_pdb_d:
         if pdb_code in uniprot_pdb_d[uniprot_id][source]:
             return uniprot_id
-
 
 
 def find_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
