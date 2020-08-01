@@ -345,6 +345,7 @@ def pull_uniprot_id_by_pdb(pdb_code, chain=False):
         source = 'all'
 
     # pdb_chain = pdb_code + '.' + chain
+    print(pdb_code)
     for uniprot_id in uniprot_pdb_d:
         if pdb_code in uniprot_pdb_d[uniprot_id][source]:
             return uniprot_id, uniprot_pdb_d[uniprot_id]
