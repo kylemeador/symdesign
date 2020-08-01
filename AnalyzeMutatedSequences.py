@@ -11,7 +11,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 from Bio.SubsMat import MatrixInfo as matlist
-from Bio import pairwise2.align.localds
+from Bio import pairwise2
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -545,7 +545,7 @@ def generate_alignment(seq1, seq2, matrix='blosum62'):
     gap_penalty = -10
     gap_ext_penalty = -1
     # Create sequence alignment
-    return localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+    return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
 def generate_mutations_from_seq(seq1, seq2, offset=True, remove_blanks=True):
