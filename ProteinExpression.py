@@ -64,7 +64,8 @@ def find_expression_tags(pdb_code, chain):
                 if matching_pdb_tags[partner][partner_tag]['name'] \
                         in pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']]:
                     # pdb_tag_tally[pdb]['N'][tag_name] +=1
-                    pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']][matching_pdb_tags[partner][partner_tag]['name']] += 1
+                    pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']][
+                        matching_pdb_tags[partner][partner_tag]['name']] += 1
                 else:
                     pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']][
                         matching_pdb_tags[partner][partner_tag]['name']] = 0
@@ -87,40 +88,40 @@ def find_expression_tags(pdb_code, chain):
     if pdb_tag_tally['C'] != dict():
         c_term = [pdb_tag_tally['C'][_type] for _type in pdb_tag_tally['C']]
         c_term = array(c_term).sum()
-    if n_term == 0 and c_term == 0:
+    # if n_term == 0 and c_term == 0:
         # if len(pdb_tag_tally[pdb]['N']) > len(pdb_tag_tally[pdb]['C']):
-        if n_term > c_term:
-            # final_tags[pdb]['termini'] = 'N'
-            termini = 'N'
-        # elif len(pdb_tag_tally[pdb]['N']) < len(pdb_tag_tally[pdb]['C']):
-        elif n_term < c_term:
-            # final_tags[pdb]['termini'] = 'C'
-            termini = 'C'
-        else:  # termini = 'Both'
-            while True:
-                termini = input('For %s, BOTH termini have the same number of matched tags.\n'
-                                'The tag options are as follows {terminus:{tag name: count}}:\n%s\n'
-                                'Which termini would you prefer?\n[n/c]:' % (pdb_code, pdb_tag_tally))
-                termini = termini.upper()
-                if termini == 'N' or termini == 'C':
-                    break
+    if n_term > c_term:
+        # final_tags[pdb]['termini'] = 'N'
+        termini = 'N'
+    # elif len(pdb_tag_tally[pdb]['N']) < len(pdb_tag_tally[pdb]['C']):
+    elif n_term < c_term:
+        # final_tags[pdb]['termini'] = 'C'
+        termini = 'C'
+    else:  # termini = 'Both'
+        while True:
+            termini = input('For %s, BOTH termini have the same number of matched tags.\n'
+                            'The tag options are as follows {terminus:{tag name: count}}:\n%s\n'
+                            'Which termini would you prefer?\n[n/c]:' % (pdb_code, pdb_tag_tally))
+            termini = termini.upper()
+            if termini == 'N' or termini == 'C':
+                break
 
-        # find the most common tag at the specific termini
-        all_tags = []
-        max_type = None
-        max_count = 0
-        # for _type in pdb_tag_tally[pdb][termini]:
-        for _type in pdb_tag_tally[termini]:
-            if pdb_tag_tally[termini][_type] > max_count:
-                max_count = pdb_tag_tally[termini][_type]
-                max_type = _type
-        all_tags.append(max_type)
-        # check if there are equally represented tags
-        for _type in pdb_tag_tally[termini]:
-            if pdb_tag_tally[termini][_type] == max_count and _type != max_type:
-                all_tags.append(_type)
-        final_tags['name'] = all_tags
-        final_tags['termini'] = termini
+    # find the most common tag at the specific termini
+    all_tags = []
+    max_type = None
+    max_count = 0
+    # for _type in pdb_tag_tally[pdb][termini]:
+    for _type in pdb_tag_tally[termini]:
+        if pdb_tag_tally[termini][_type] > max_count:
+            max_count = pdb_tag_tally[termini][_type]
+            max_type = _type
+    all_tags.append(max_type)
+    # check if there are equally represented tags
+    for _type in pdb_tag_tally[termini]:
+        if pdb_tag_tally[termini][_type] == max_count and _type != max_type:
+            all_tags.append(_type)
+    final_tags['name'] = all_tags
+    final_tags['termini'] = termini
 
     # Finally report results to the user and solve ambiguous tags
     final_choice = {}
