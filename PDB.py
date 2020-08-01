@@ -156,9 +156,9 @@ class PDB:
                         sequence[i] = IUPACData.protein_letters_3to1_extended[residue.title()]
                     except KeyError:
                         if residue.title() == 'Mse':
-                            sequence.append('M')
+                            sequence[i] = 'M'
                         else:
-                            sequence.append('X')
+                            sequence[i] = 'X'
                 self.sequence_dictionary[chain] = ''.join(sequence)
 
     # def retrieve_sequences(self, seq_list):
