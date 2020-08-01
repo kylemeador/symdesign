@@ -350,11 +350,8 @@ def pull_uniprot_id_by_pdb(pdb_code, chain=None):
             return uniprot_id
 
 
-with open(PUtils.affinity_tags, 'r') as f:
-    affinity_tags = csv.reader(f)
 
-
-def find_tags(seq, tags=affinity_tags, alignment_length=12):
+def find_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
     """Find all strings (tags) on an input string (sequence) from a reference set of strings
 
     Args:
@@ -364,18 +361,23 @@ def find_tags(seq, tags=affinity_tags, alignment_length=12):
     Returns:
         tag_dict (dict): {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...}
     """
+    with open(tag_file, 'r') as f:
+        reader = csv.reader(f)
+        tags = {row[0]: row[1] for row in reader}
 
     tag_dict = {}
     count = 1
-    for j, tag in enumerate(tags):
-        tag_name = tag[0]
-        tag_seq = tag[1]
-        if seq.find(tag_seq) > -1:
+    # for j, tag in enumerate(tags):
+    for tag in tags:
+        # tag_name = tag[0]
+        # tag_seq = tag[1]
+        if seq.find(tags[tag]) > -1:
             # if tag is found save the tag name, the termini it is closer to, and the source sequence concatenation
             tag_dict[count] = {}
-            tag_index = seq.find(tag_seq)
-            tag_dict[count]['name'] = tag_name
-            alignment_index = len(tag_seq) + alignment_length
+            tag_index = seq.find(tags[tag])
+            tag_dict[count]['name'] = tag
+            # tag_dict[count]['name'] = tag_name
+            alignment_index = len(tags[tag]) + alignment_length
 
             if tag_index == 0 or tag_index < len(seq)/2:
                 # print('Tag is at the N-term. \n')
@@ -391,6 +393,6 @@ def find_tags(seq, tags=affinity_tags, alignment_length=12):
                 # op = operator.sub()
                 while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
                     alignment_index -= 1
-                tag_dict[count]['seq'] = seq[alignment_index:tag_index + len(tag_seq)]
+                tag_dict[count]['seq'] = seq[alignment_index:tag_index + len(tags[tag])]
 
     return tag_dict
