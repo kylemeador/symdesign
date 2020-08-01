@@ -601,7 +601,7 @@ def fetch_pdb(code, location=PUtils.pdb_db):
     # pdb_file = get_pdb(code, location=des_dir.pdbs)
     assert len(pdb_file) == 1, 'More than one matching file found for PDB: %s' % code
 
-    return pdb_file
+    return pdb_file[0]
     # pdb = read_pdb(pdb_file[0])
     # pdb.AddName(code)
     # pdb.reorder_chains()
