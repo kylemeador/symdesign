@@ -19,7 +19,7 @@ class PDB:
         self.cryst = None
         self.dbref = {}
         self.header = []
-        self.sequence_dictionary = {} # dictionary of SEQRES entries. key is chainID, value is ['3 letter AA Seq']. Ex: {'A': ['ALA GLN GLY PHE...']}
+        self.sequence_dictionary = {}  # dictionary of SEQRES entries. key is chainID, value is ['3 letter AA Seq']. Ex: {'A': ['ALA GLN GLY PHE...']}
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.chain_id_list = []  # list of unique chain IDs in PDB
         self.name = None
