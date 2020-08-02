@@ -577,6 +577,8 @@ if __name__ == '__main__':
                 oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb), coordinates_only=False) for pdb in pose_pdbs]
                 print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequence_dictionary[chain])
                                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
+                source_seqres = {chain: oligomers[k].sequence_dictionary[oligomers[k].chain_id_list[0]]
+                                 for k, chain in enumerate(chains[:len(oligomers)])}
                 seqres_pose = PDB.PDB()
                 for oligomer, _chain in zip(oligomers, reversed(chains)):
                     # print('Before', oligomer.chain_id_list)
@@ -588,8 +590,6 @@ if __name__ == '__main__':
                 # print('Out', seqres_pose.chain_id_list)
                 seqres_pose.reorder_chains()
                 seqres_pose.pose_numbering()
-                source_seqres = {chain: oligomers[k].sequence_dictionary[oligomers[k].chain_id_list[0]]
-                                 for k, chain in enumerate(chains[:len(oligomers)])}
                 seqres_pose.sequence_dictionary = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
                 # print('Reorder', seqres_pose.chain_id_list)
                 # Insert loops identified by comparison of SEQRES and ATOM
