@@ -476,11 +476,12 @@ class PDB:
         # Starts numbering PDB residues at 1 and numbers sequentially until reaches last atom in file
         last_atom_index = len(self.all_atoms)
         residues = len(self.get_all_residues())
-        idx, offset = 0, 1
-        for j in range(residues):
-            current_res_num = self.all_atoms[idx].residue_number
+        idx = 0  # offset , 1
+        for j, residue in enumerate(self.get_all_residues(), 1):
+            # current_res_num = self.all_atoms[idx].residue_number
+            current_res_num = residue.number
             while self.all_atoms[idx].residue_number == current_res_num:
-                self.all_atoms[idx].residue_number = j + offset
+                self.all_atoms[idx].residue_number = j  # + offset
                 idx += 1
                 if idx == last_atom_index:
                     break
@@ -904,26 +905,27 @@ class PDB:
         # Find atom insertion index, should be last atom in preceding residue
         if residue != 1:
             # This assumes atom numbers are proper idx
-            insert_atom_number = self.getResidueAtoms(chain, residue - 1)[-1].number
+            insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number - 1
         else:
-            insert_atom_number = self.getResidueAtoms(chain, residue)[0].number
+            insert_atom_idx = 0
+            # insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number
 
         temp_pdb = PDB()
         temp_pdb.readfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AAreference.pdb'))
         insert_atoms = temp_pdb.getResidueAtoms('A', IUPACData.protein_letters.find(residue_type))
 
         # Change all downstream residues
-        for atom in self.all_atoms[insert_atom_number:]:
+        for atom in self.all_atoms[insert_atom_idx:]:
             # atom.number += len(insert_atoms)
             if atom.chain == chain:
                 atom.residue_number += 1
 
         for atom in reversed(insert_atoms):  # essentially a push
-            # atom.number += insert_atom_number + 1
+            # atom.number += insert_atom_idx + 1
             atom.chain = chain
             atom.residue_number = residue
             atom.occ = 0
-            self.all_atoms.insert(insert_atom_number, atom)
+            self.all_atoms.insert(insert_atom_idx, atom)
         self.renumber_atoms()
 
     def apply(self, rot, tx):  # KM added 02/10/20 to run extract_pdb_interfaces.py
