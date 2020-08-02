@@ -575,6 +575,8 @@ if __name__ == '__main__':
                 source_pose.sequence_dictionary = Ams.get_pdb_sequences(source_pose, source='atom')
                 # if not source_pose.sequence_dictionary:
                 oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb)) for pdb in pose_pdbs]
+                print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequence_dictionary[chain])
+                                                 for oligomer in oligomers for chain in oligomer.chain_id_list]))
                 seqres_pose = PDB.PDB()
                 source_seqres = {chain: Ams.get_pdb_sequences(oligomers[k], chain=oligomers[k].chain_id_list[0],
                                                               source='seqres')
