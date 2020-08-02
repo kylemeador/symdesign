@@ -574,7 +574,7 @@ if __name__ == '__main__':
                 if not source_pose.sequence_dictionary:
                     oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb)) for pdb in pose_pdbs]
                     for oligomer in oligomers[1:]:
-                        oligomer[0].read_atom_list(oligomer.all_atoms)
+                        oligomers[0].read_atom_list(oligomer.all_atoms)
                     source_pose = oligomers[0]
                     source_pose.reorder_chains().pose_numbering()
                 # Insert loops identified by comparison of SEQRES and ATOM
@@ -619,11 +619,11 @@ if __name__ == '__main__':
                                  for chain in design_sequences_disordered}
 
                 print('Coding Offset:\n%s'
-                      % '\n'.join(['%s: %s' (chain, coding_offset[chain]) for chain in coding_offset]))
+                      % '\n'.join(['%s: %s' % (chain, coding_offset[chain]) for chain in coding_offset]))
 
                 pretag_sequences = {chain: design_sequences_disordered[chain][coding_offset[chain]:]
                                     for chain in coding_offset}
-                print('Pre-tag Sequences:\n%s' % '\n'.join([final_sequences[chain] for chain in final_sequences]))
+                print('Pre-tag Sequences:\n%s' % '\n'.join([pretag_sequences[chain] for chain in pretag_sequences]))
 
                 # for residue in all_missing_residues_d:
                 #     if all_missing_residues_d[residue]['from'] == 'M':
