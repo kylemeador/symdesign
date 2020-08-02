@@ -142,6 +142,7 @@ class PDB:
                 self.cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
                 continue
         self.chain_id_list = chain_ids
+        self.renumber_atoms()
         self.clean_sequences()
         # self.retrieve_sequences(seq_list)
 
@@ -161,34 +162,6 @@ class PDB:
                         else:
                             self.sequence_dictionary[chain][i] = 'X'
                 self.sequence_dictionary[chain] = ''.join(self.sequence_dictionary[chain])
-    # SEQRES   1 H  112  MSE PHE TYR GLU ILE ARG THR TYR ARG LEU LYS ASN GLY
-    # def retrieve_sequences(self, seq_list):
-    #     if seq_list != list():
-    #         for line in seq_list:
-    #             if line[0] not in self.sequence_dictionary:
-    #                 self.sequence_dictionary[line[0]] = line[1]
-    #             else:
-    #                 self.sequence_dictionary[line[0]] += line[1]
-    #
-    #         for chain in self.sequence_dictionary:
-    #             self.sequence_dictionary[chain] = self.sequence_dictionary[chain].strip().split(' ')  # split each 3 AA
-    #             sequence = []
-    #             for residue in self.sequence_dictionary[chain]:
-    #                 try:
-    #                     sequence.append(IUPACData.protein_letters_3to1_extended[residue.title()])
-    #                 except KeyError:
-    #                     if residue.title() == 'Mse':
-    #                         sequence.append('M')
-    #                     else:
-    #                         sequence.append('X')
-    #             self.sequence_dictionary[chain] = ''.join(sequence)
-    #     else:
-    #         self.sequence_dictionary = None
-    #         # # File originated from outside the official PDB distribution. Probably a design
-    #         # print('%s has no SEQRES, extracting sequence from ATOM record' % self.filepath)
-    #         # for chain in self.chain_id_list:
-    #         #     sequence, failures = extract(self.all_atoms, chain=chain)
-    #         #     self.sequence_dictionary[chain] = sequence
 
     def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):
         # reads a python list of Atoms and feeds PDB instance
@@ -212,6 +185,7 @@ class PDB:
                 if atom.chain not in chain_ids:
                     chain_ids.append(atom.chain)
             self.chain_id_list += chain_ids
+        self.renumber_atoms()
 
     # def retrieve_chain_ids(self):  # KM added 2/3/20 to deal with updating chain names after rename_chain(s) functions
     #     # creates a list of unique chain IDs in PDB and feeds it into chain_id_list maintaining order
@@ -494,6 +468,10 @@ class PDB:
         # Update chain_id_list
         self.chain_id_list = l_moved
 
+    def renumber_atoms(self):
+        for idx, atom in enumerate(self.all_atoms, 1):
+            atom.number = idx
+
     def pose_numbering(self):  # KM Added 12/16/19
         # Starts numbering PDB residues at 1 and numbers sequentially until reaches last atom in file
         last_atom_index = len(self.all_atoms)
@@ -506,6 +484,7 @@ class PDB:
                 idx += 1
                 if idx == last_atom_index:
                     break
+        self.renumber_atoms()
 
     def AddZAxis(self):
         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
@@ -922,11 +901,12 @@ class PDB:
         else:
             residue_type = residue_type.upper()
 
-        # Find atom insertion index
-        insert_atom_number = 0
-        for atom in self.getResidueAtoms(chain, residue - 1):  # TODO if first residue?
-            if atom.number > insert_atom_number:
-                insert_atom_number = atom.number
+        # Find atom insertion index, should be last atom in preceding residue
+        if residue != 1:
+            # This assumes atom numbers are proper idx
+            insert_atom_number = self.getResidueAtoms(chain, residue - 1)[-1].number
+        else:
+            insert_atom_number = 0
 
         temp_pdb = PDB()
         temp_pdb.readfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AAreference.pdb'))
@@ -934,16 +914,17 @@ class PDB:
 
         # Change all downstream residues
         for atom in self.all_atoms[insert_atom_number:]:
-            atom.number += len(insert_atoms)
+            # atom.number += len(insert_atoms)
             if atom.chain == chain:
                 atom.residue_number += 1
 
-        for atom in reversed(insert_atoms):
-            atom.number += insert_atom_number
+        for atom in reversed(insert_atoms):  # essentially a push
+            # atom.number += insert_atom_number + 1
             atom.chain = chain
             atom.residue_number = residue
             atom.occ = 0
             self.all_atoms.insert(insert_atom_number, atom)
+        self.renumber_atoms()
 
     def apply(self, rot, tx):  # KM added 02/10/20 to run extract_pdb_interfaces.py
         moved = []

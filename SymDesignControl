@@ -571,15 +571,19 @@ if __name__ == '__main__':
                 pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
                 chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                 # need the original pose chain identity
-                # source_pose = SDUtils.read_pdb(pose_des_dir.source)  # removed in favor of the clean asu
-                source_pose = SDUtils.read_pdb(pose_des_dir.asu)  # Why can't I  use design_sequences? localds quality!
+                # source_pose = SDUtils.read_pdb(pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
+                source_pose = SDUtils.read_pdb(pose_des_dir.source)  # Think this is the best, need to modify chains
+                source_pose.reorder_chains()
                 source_pose.sequence_dictionary = Ams.get_pdb_sequences(source_pose, source='atom')
                 # if not source_pose.sequence_dictionary:
                 oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb), coordinates_only=False) for pdb in pose_pdbs]
+                oligomer_chain_database_chain_map = {chain: oligomers[k].chain_id_list[0]
+                                                     for k, chain in enumerate(source_pose.chain_id_list)}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequence_dictionary[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
                 source_seqres = {chain: oligomers[k].sequence_dictionary[oligomers[k].chain_id_list[0]]
                                  for k, chain in enumerate(chains[:len(oligomers)])}
+
                 seqres_pose = PDB.PDB()
                 for oligomer, _chain in zip(oligomers, reversed(chains)):
                     # print('Before', oligomer.chain_id_list)
@@ -587,10 +591,8 @@ if __name__ == '__main__':
                     # print('After', oligomer.chain_id_list)
                     seqres_pose.read_atom_list(oligomer.chain(_chain))
                     # print('In', seqres_pose.chain_id_list)
-
                 # print('Out', seqres_pose.chain_id_list)
-                seqres_pose.reorder_chains()
-                seqres_pose.pose_numbering()
+                seqres_pose.pose_numbering()  # Why is this necessary
                 seqres_pose.sequence_dictionary = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
                 # print('Reorder', seqres_pose.chain_id_list)
                 # Insert loops identified by comparison of SEQRES and ATOM
@@ -600,32 +602,39 @@ if __name__ == '__main__':
                 #                                                         offset=True,
                 #                                                         termini=True)
                 #                      for chain in template_pdb.chain_id_list}
-                print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
-                                                           for chain in design_sequences]))
-                print('Source Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, seqres_pose.sequence_dictionary[chain])
-                                                           for chain in seqres_pose.sequence_dictionary]))
-                pose_offset_d = Ams.pdb_to_pose_num(seqres_pose.sequence_dictionary)
+                # print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
+                #                                            for chain in design_sequences]))
+                print('Source ATOM Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_pose.sequence_dictionary[chain])
+                                                                for chain in design_sequences]))
+                print('Source SEQRES Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_seqres[chain])
+                                                                  for chain in source_seqres]))
+                pose_offset_d = Ams.pdb_to_pose_num(source_seqres)
                 # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
                 #                                                                  seqres_pose.sequence_dictionary[chain],
                 #                                                                  offset=True, only_gaps=True)
                 #                           for chain in design_sequences}
                 all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary[chain],
-                                                                                 seqres_pose.sequence_dictionary[chain],
+                                                                                 source_seqres[chain],
                                                                                  offset=True, only_gaps=True)
-                                          for chain in design_sequences}
+                                          for chain in source_seqres}
 
-                print('Pre-pose numbering; %s' % all_missing_residues_d)
+                print('Pre-pose numbering:\n%s' %
+                      '\n'.join(['%s - %s' % (chain, ', '.join([res for res in all_missing_residues_d[chain]]))
+                                 for chain in all_missing_residues_d]))
 
                 # Modify residue indices to pose numbering
                 all_missing_residues_d = {chain: {residue + pose_offset_d[chain]: all_missing_residues_d[chain][residue]
                                                   for residue in all_missing_residues_d[chain]}
                                           for chain in all_missing_residues_d}
-                print('Post-pose numbering; %s' % all_missing_residues_d)
+                print('Post-pose numbering:\n%s' %
+                      '\n'.join(['%s - %s' % (chain, ', '.join([res for res in all_missing_residues_d[chain]]))
+                                 for chain in all_missing_residues_d]))
 
                 # Insert residues into design PDB object
                 for chain in all_missing_residues_d:
                     for residue in all_missing_residues_d[chain]:
                         design_pose.insert_residue(chain, residue, all_missing_residues_d[chain][residue]['from'])
+                        print('%s\tLocation %d' % (design_pose.getStructureSequence(chain), residue))
 
                 # Get modified sequence
                 design_sequences_disordered = Ams.get_pdb_sequences(design_pose)
@@ -634,7 +643,7 @@ if __name__ == '__main__':
                                  for chain in design_sequences_disordered]))
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
-                mutations = {chain: Ams.generate_mutations_from_seq(seqres_pose.sequence_dictionary[chain],
+                mutations = {chain: Ams.generate_mutations_from_seq(source_seqres[chain],
                                                                     design_sequences[chain], offset=True)
                              for chain in design_sequences}
                 print('Mutations:\n%s' %
@@ -657,8 +666,8 @@ if __name__ == '__main__':
                 #     for residue in gapped_residues_d[chain]:
 
                 # Look for compatible tags
-                tag_sequences = {pdb: find_expression_tags(pdb, chain)
-                                 for pdb, chain in zip(pose_pdbs, seqres_pose.chain_id_list)}
+                tag_sequences = {pdb: find_expression_tags(pdb, oligomer_chain_database_chain_map[chain])
+                                 for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
 
                 final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
                                                                    pretag_sequences[chains[j]])
