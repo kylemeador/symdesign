@@ -574,7 +574,7 @@ if __name__ == '__main__':
                 if not source_pose.sequence_dictionary:
                     oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb)) for pdb in pose_pdbs]
                     for oligomer in oligomers[1:]:
-                        oligomer[0].read_atom_list(oligomer.all_atoms)
+                        oligomers[0].read_atom_list(oligomer.all_atoms)
                     source_pose = oligomers[0]
                     source_pose.reorder_chains().pose_numbering()
                 # Insert loops identified by comparison of SEQRES and ATOM
