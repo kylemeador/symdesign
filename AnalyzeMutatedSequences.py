@@ -624,7 +624,7 @@ def generate_mutations_from_seq(seq1, seq2, offset=True, blanks=False, termini=F
     ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(seq2[-1])  # find offset end_index
     # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
     mutations = {}
-    for i, seq1_aa, seq2_aa in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
+    for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
         if seq1_aa != seq2_aa:
             mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
             # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
