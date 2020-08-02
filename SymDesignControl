@@ -576,15 +576,16 @@ if __name__ == '__main__':
                     oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb)) for pdb in pose_pdbs]
                     source_pose = PDB.PDB()
                     for oligomer, _chain in zip(oligomers, reversed(chains)):
-                        print('Before', oligomer.chain_id_list)
+                        # print('Before', oligomer.chain_id_list)
                         oligomer.rename_chain(oligomer.chain_id_list[0], _chain)
-                        print('After', oligomer.chain_id_list)
+                        # print('After', oligomer.chain_id_list)
                         source_pose.read_atom_list(oligomer.chain(_chain))
-                        print('In', source_pose.chain_id_list)
+                        # print('In', source_pose.chain_id_list)
                     print('Out', source_pose.chain_id_list)
                     source_pose.reorder_chains()
                     source_pose.pose_numbering()
                     source_pose.sequence_dictionary = Ams.get_pdb_sequences(source_pose)
+                    print('Reorder', source_pose.chain_id_list)
                 # Insert loops identified by comparison of SEQRES and ATOM
 
                 # missing_termini_d = {chain: Ams.generate_mutations_from_seq(pdb_atom_seq[chain],
@@ -592,7 +593,9 @@ if __name__ == '__main__':
                 #                                                         offset=True,
                 #                                                         termini=True)
                 #                      for chain in template_pdb.chain_id_list}
-                print('Source Sequences:\n%s' % '\n'.join([source_pose.sequence_dictionary[chain]
+                print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
+                                                           for chain in design_sequences]))
+                print('Source Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_pose.sequence_dictionary[chain])
                                                           for chain in source_pose.sequence_dictionary]))
                 pose_offset_d = Ams.pdb_to_pose_num(source_pose.sequence_dictionary)
                 all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
@@ -615,14 +618,16 @@ if __name__ == '__main__':
 
                 # Get modified sequence
                 design_sequences_disordered = Ams.get_pdb_sequences(design_pose)
-                print('Design Sequences:\n%s' % '\n'.join([design_sequences[chain] for chain in design_sequences]))
                 print('Disordered Insertions:\n%s' %
-                      '\n'.join([design_sequences_disordered[chain] for chain in design_sequences_disordered]))
+                      '\n'.join(['%s - %s' % (chain, design_sequences_disordered[chain])
+                                for chain in design_sequences_disordered]))
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
                 mutations = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary[chain],
                                                                     design_sequences[chain], offset=True)
                              for chain in design_sequences}
+                print('Mutations:\n%s' %
+                      '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
                 # Next I need the modified (residue inserted) design sequence to pull out the correct Met
                 coding_offset = {chain: Ams.find_orf_offset(design_sequences_disordered[chain], mutations)
                                  for chain in design_sequences_disordered}
