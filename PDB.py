@@ -493,7 +493,7 @@ class PDB:
         # Update chain_id_list
         self.chain_id_list = l_moved
 
-    def renumber_residues(self):  # KM Added 12/16/19
+    def pose_numbering(self):  # KM Added 12/16/19
         # Starts numbering PDB residues at 1 and numbers sequentially until reaches last atom in file
         last_atom_index = len(self.all_atoms)
         residues = len(self.get_all_residues())
@@ -914,6 +914,35 @@ class PDB:
             for j in delete:
                 i = residue_atom_list[j]
                 self.all_atoms.remove(i)
+
+    def insert_residue(self, chain, residue, residue_type):  # KM added 08/01/20
+        if residue_type.title() in IUPACData.protein_letters_3to1_extended:
+            residue_type = IUPACData.protein_letters_3to1_extended[residue_type.title()]
+        else:
+            residue_type = residue_type.upper()
+
+        # Find atom insertion index
+        insert_atom_number = None
+        for atom in self.getResidueAtoms(chain, residue - 1):  # TODO if first residue?
+            if atom.number > insert_atom_number:
+                insert_atom_number = atom.number
+
+        temp_pdb = PDB()
+        temp_pdb.readfile('AAreference.pdb')
+        insert_atoms = temp_pdb.getResidueAtoms('A', IUPACData.protein_letters.find[residue_type])
+
+        # Change all downstream residues
+        for atom in self.all_atoms[insert_atom_number:]:
+            atom.number += len(insert_atoms)
+            if atom.chain == chain:
+                atom.residue_number += 1
+
+        for atom in reversed(insert_atoms):
+            atom.number += insert_atom_number
+            atom.chain = chain
+            atom.residue_number = residue
+            atom.occ = 0
+            self.all_atoms.insert(insert_atom_number, atom)
 
     def apply(self, rot, tx):  # KM added 02/10/20 to run extract_pdb_interfaces.py
         moved = []

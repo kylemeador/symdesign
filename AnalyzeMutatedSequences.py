@@ -310,7 +310,10 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
 
 
 def pdb_to_pose_num(reference_dict):
-    """Take a dictionary with chain name as keys and return the length of values as reference length"""
+    """Take a dictionary with chain name as keys and return the length of values as reference length
+
+    Order of dictionary must maintain chain order, so 'A', 'B', 'C'. Python 3.6+ should be used
+    """
     offset_dict = {}
     prior_chain, prior_chains_len = None, 0
     for i, chain in enumerate(reference_dict):
@@ -364,12 +367,14 @@ def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', muta
         if _source == 'compare':
             sequence1, failures1 = extract_aa_seq(_pdb, _aa, 'atom', _chain)
             sequence2, failures2 = extract_aa_seq(_pdb, _aa, 'seqres', _chain)
+            _offset = True
         else:
             sequence1, failures1 = extract_aa_seq(_pdb, _aa, _source, _chain)
             sequence2 = reference_seq_dict[_chain]
             sequence_dict[pdb_code][_chain] = sequence1
+            _offset = False
         if mutation:
-            seq_mutations = generate_mutations_from_seq(sequence1, sequence2, offset=False, remove_blanks=False)
+            seq_mutations = generate_mutations_from_seq(sequence1, sequence2, offset=_offset)
             mutation_dict[pdb_code][_chain] = seq_mutations
         if failures1:
             error_list.append((_pdb, _chain, failures1))
@@ -474,47 +479,90 @@ def find_orf_offset(seq, mutations):
     """Using one sequence and mutation data, find the sequence offset which matches mutations closest
 
     Args:
-        seq (str): 'Wild-type' sequence to mutate
+        seq (str): 'Wild-type' sequence to mutate in 1 letter format
         mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
     Returns:
         orf_offset (int): The index to offset the sequence by in order to match the mutations the best
     """
-    met_offset_list = []
+    met_offset_d = {}
+    unsolvable = False
     for i, aa in enumerate(seq):
         if aa == 'M':
-            met_offset_list.append(i)
-    if met_offset_list:
-        # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
-        which_met_offset_counts = []
-        for index in met_offset_list:
-            index -= index_offset
-            s = 0
-            for mut in mutations:
-                try:
-                    if seq[mut + index] == mutations[mut][0]:
-                        s += 1
-                except IndexError:
-                    break
-            which_met_offset_counts.append(s)
-        max_count = np.max(which_met_offset_counts)
-    else:
-        max_count = 0
+            met_offset_d[i] = 0
+    methionine_positions = list(met_offset_d.keys())
 
-    # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
-    if max_count < len(mutations) / 2:
-        upper_range = 50  # This corresponds to how far away the max seq start is from the ORF MET start site
-        offset_list = []
-        for i in range(0, upper_range):
-            s = 0
-            for mut in mutations:
-                if seq[mut + i] == mutations[mut]['from']:
-                    s += 1
-            offset_list.append(s)
-        max_count = np.max(offset_list)
-        # find likely orf offset index
-        orf_offset = offset_list.index(max_count)  # + lower_range  # + mut_index_correct
-    else:
-        orf_offset = met_offset_list[which_met_offset_counts.index(max_count)] - index_offset
+    while True:
+        if met_offset_d != dict():
+            # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
+            # which_met_offset_counts = []
+            for met_index in met_offset_d:
+                # index -= index_offset
+                # s = 0
+                for mutation_index in mutations:
+                    try:
+                        if seq[mutation_index - index_offset + met_index] == mutations[mutation_index]['from']:
+                            met_offset_d[i] += 1
+                            # s += 1
+                    except IndexError:
+                        break
+                # which_met_offset_counts.append(s)
+            # max_count = np.max(which_met_offset_counts)
+            # max_count = np.max(list(met_offset_d.values()))
+        else:  # MET is missing/not the ORF start
+            # max_count = 0
+            # met_offset_d = {}
+            # offset_list = []
+            for start_idx in range(0, 50):  # How far away the max seq start is from the ORF MET start site
+                # s = 0
+                met_offset_d[i] = 0
+                for mutation_index in mutations:
+                    if seq[mutation_index - index_offset + start_idx] == mutations[mutation_index]['from']:
+                        met_offset_d += 1
+                        # s += 1
+                # offset_list.append(s)
+
+        max_count = np.max(list(met_offset_d.values()))
+        # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
+        if max_count < len(mutations) / 2:
+            if unsolvable:
+                return 0  # TODO return not index change?
+                # break
+            unsolvable = True
+            met_offset_d = {}
+            # upper_range = 50  # This corresponds to how far away the max seq start is from the ORF MET start site
+            # offset_list = {}
+            # # offset_list = []
+            # for i in range(0, upper_range):
+            #     # s = 0
+            #     offset_list[i] = 0
+            #     for mutation_index in mutations:
+            #         if seq[mutation_index + i] == mutations[mutation_index]['from']:
+            #             offset_list += 1
+            #             # s += 1
+            #     # offset_list.append(s)
+            # max_count = np.max(list(offset_list.values()))
+            # # max_count = np.max(offset_list)
+            # # find likely orf offset index
+            # for offset in offset_list:
+            #     if max_count == offset_list[offset]:
+            #         orf_offset = offset
+            # # orf_offset = offset_list.index(max_count)  # + lower_range  # + mut_index_correct
+        else:
+            for offset in met_offset_d:
+                if max_count == met_offset_d[offset]:
+                    orf_offset = offset  # + index_offset  # change to one-index
+                    break
+
+            closest_met = None
+            for met in methionine_positions:
+                if met <= orf_offset:
+                    closest_met = met
+                else:
+                    if closest_met:
+                        orf_offset = closest_met + index_offset  # change to one-index
+                    break
+            break
+            # orf_offset = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
 
     return orf_offset
 
@@ -548,7 +596,8 @@ def generate_alignment(seq1, seq2, matrix='blosum62'):
     return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
-def generate_mutations_from_seq(seq1, seq2, offset=True, remove_blanks=True):
+def generate_mutations_from_seq(seq1, seq2, offset=True, blanks=False, termini=False, reference_gaps=False,
+                                only_gaps=False):
     """Create mutations with format A5K, one-indexed
 
     Index so residue value starts at 1. For PDB file comparison, seq1 should be crystal sequence (ATOM), seq2 should be
@@ -572,6 +621,7 @@ def generate_mutations_from_seq(seq1, seq2, offset=True, remove_blanks=True):
 
     # Extract differences from the alignment
     starting_index_of_seq2 = align_seq_2.find(seq2[0])
+    ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(seq2[-1])  # find offset end_index
     # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
     mutations = {}
     for i, seq1_aa, seq2_aa in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
@@ -580,18 +630,30 @@ def generate_mutations_from_seq(seq1, seq2, offset=True, remove_blanks=True):
             # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
         # i += 1
 
-    if remove_blanks:
-        # Remove any blank mutations and negative/zero indices
-        remove_mutation_list = []
+    remove_mutation_list = []
+    if only_gaps:  # Find the actual mutations
         for entry in mutations:
-            if entry > 0:
-                # if mutations[entry].find('-') == -1:
-                for index in mutations[entry]:
-                    if mutations[entry][index] == '-':
-                    # if mutations[entry][index] == '0':
-                        remove_mutation_list.append(entry)
+            if entry > 0 or entry <= ending_index_of_seq2:
+                if mutations[entry]['to'] != '-':
+                    remove_mutation_list.append(entry)
+        termini, reference_gaps, blanks = True, True, True
+    if not termini:  # Remove indices outside of sequence 2
+        for entry in mutations:
+            if entry < 0 or entry > ending_index_of_seq2:
+                remove_mutation_list.append(entry)
+    if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
+        for entry in mutations:
+            if entry > 0 or entry <= ending_index_of_seq2:
+                if mutations[entry]['to'] == '-':
+                    remove_mutation_list.append(entry)
+    if not blanks:  # Remove any blank mutations
+        for entry in mutations:
+            for index in mutations[entry]:
+                if mutations[entry][index] == '-':
+                    remove_mutation_list.append(entry)
 
-        for entry in remove_mutation_list:
+    for entry in remove_mutation_list:
+        if entry in mutations:
             mutations.pop(entry)
 
     return mutations
@@ -689,7 +751,7 @@ def get_wildtype_file(des_directory):
     #         return os.path.join(des_directory.building_blocks, file)
 
 
-def get_pdb_sequences(pdb_file, chain=None, source='atom'):
+def get_pdb_sequences(pdb, chain=None, source='atom'):
     """Return all sequences or those specified by a chain from a PDB file
 
     Args:
@@ -700,7 +762,9 @@ def get_pdb_sequences(pdb_file, chain=None, source='atom'):
     Returns:
         wt_seq_dict (dict): {chain: sequence, ...}
     """
-    pdb = SDUtils.read_pdb(pdb_file, coordinates_only=False)
+    if not isinstance(pdb, PDB.PDB):
+        pdb = SDUtils.read_pdb(pdb, coordinates_only=False)
+
     seq_dict = {}
     for _chain in pdb.chain_id_list:
         seq_dict[_chain], fail = extract_aa_seq(pdb, source=source, chain=_chain)
