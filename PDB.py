@@ -906,7 +906,7 @@ class PDB:
             # This assumes atom numbers are proper idx
             insert_atom_number = self.getResidueAtoms(chain, residue - 1)[-1].number
         else:
-            insert_atom_number = 0
+            insert_atom_number = self.getResidueAtoms(chain, residue)[0].number
 
         temp_pdb = PDB()
         temp_pdb.readfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AAreference.pdb'))
