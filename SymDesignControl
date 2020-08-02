@@ -588,7 +588,7 @@ if __name__ == '__main__':
 
                 pose_offset_d = Ams.pdb_to_pose_num(source_pose.sequence_dictionary)
                 all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
-                                                                                 source_pose.sequence_dictionary,
+                                                                                 source_pose.sequence_dictionary[chain],
                                                                                  offset=True, only_gaps=True)
                                           for chain in design_sequences}
 
@@ -612,7 +612,7 @@ if __name__ == '__main__':
                       '\n'.join([design_sequences_disordered[chain] for chain in design_sequences_disordered]))
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
-                mutations = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary,
+                mutations = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary[chain],
                                                                     design_sequences[chain], offset=True)
                              for chain in design_sequences}
                 # Next I need the modified (residue inserted) design sequence to pull out the correct Met

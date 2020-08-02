@@ -755,7 +755,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
     """Return all sequences or those specified by a chain from a PDB file
 
     Args:
-        pdb_file (str): Location on disk of a reference .pdb file
+        pdb (str or PDB): Location on disk of a reference .pdb file or PDB object
     Keyword Args:
         chain=None (str): If a particular chain is desired, specify it
         source='atom' (str): One of 'atom' or 'seqres'
