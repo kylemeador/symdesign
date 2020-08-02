@@ -590,10 +590,10 @@ if __name__ == '__main__':
                 print('Source Sequences:\n%s' % '\n'.join([source_pose.sequence_dictionary[chain]
                                                           for chain in source_pose.sequence_dictionary]))
                 pose_offset_d = Ams.pdb_to_pose_num(source_pose.sequence_dictionary)
-                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chains[i]],
+                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
                                                                                  source_pose.sequence_dictionary[chain],
                                                                                  offset=True, only_gaps=True)
-                                          for i, chain in enumerate(source_pose.sequence_dictionary)}
+                                          for chain in design_sequences}
 
                 print('Pre-pose numbering; %s' % all_missing_residues_d)
 
@@ -616,8 +616,8 @@ if __name__ == '__main__':
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
                 mutations = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary[chain],
-                                                                    design_sequences[chains[i]], offset=True)
-                             for i, chain in enumerate(source_pose.sequence_dictionary)}
+                                                                    design_sequences[chain], offset=True)
+                             for chain in design_sequences}
                 # Next I need the modified (residue inserted) design sequence to pull out the correct Met
                 coding_offset = {chain: Ams.find_orf_offset(design_sequences_disordered[chain], mutations)
                                  for chain in design_sequences_disordered}
