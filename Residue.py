@@ -22,7 +22,7 @@ class Residue:
             # print('RESIDUE OBJECT MISSING CB ATOM. Severely flawed residue, fix your PDB input!')
             return None
 
-    def get_cb(self):
+    def get_cb(self):  # KM added 7/25/20 to retrieve CB for atom_tree
         for atom in self.atom_list:
             if atom.is_CB():
                 return atom

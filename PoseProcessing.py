@@ -32,6 +32,7 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
+from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_seq
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -259,7 +260,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     main_cmd = copy.deepcopy(CUtils.script_cmd)
     # cleaned_pdb = os.path.join(des_dir.path, PUtils.clean)
     # ala_mut_pdb = os.path.splitext(cleaned_pdb)[0] + '_for_refine.pdb'
-    ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'
+    ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'  # TODO DesignDirectory des_fir.for_refine
     consensus_pdb = os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb'
     consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
     refined_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '.pdb')
@@ -272,7 +273,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Fetch PDB object of each chain from PDBdb or PDB server # TODO set up pdb database
     # UNCOMMMENT WHEN DATABASE IS SET UP
-    # oligomers = SDUtils.fetch_pdbs(des_dir, pdb_codes)
+    # # oligomers = SDUtils.fetch_pdbs(des_dir, pdb_codes)
+    # oligomers = {pdb_code: SDUtils.read_pdb(SDUtils.fetch_pdbs(pdb_code)) for pdb_code in pdb_codes}
     #
     # for i, name in enumerate(oligomers):
     #     # oligomers[name].translate(oligomers[name].center_of_mass())
@@ -282,7 +284,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #     oligomers[name].rotate_translate(transformation_dict[i]['setting'], transformation_dict[i]['tx_ref'])
     #     # {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
 
-    template_pdb = SDUtils.read_pdb(os.path.join(des_dir.path, PUtils.asu))
+    template_pdb = SDUtils.read_pdb(des_dir.source)
     num_chains = len(template_pdb.chain_id_list)
 
     # TODO JOSH Get rid of same chain ID problem....
@@ -313,7 +315,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Chain, Name Pairs: %s' % ', '.join(oligomer + ', ' + str(value(c)) for c, (oligomer, value) in
                                                      enumerate(names.items())))
 
-    # Fetch PDB object of each chain individually from the design directory
+    # Fetch PDB object of each chain individually from the design directory TODO replaced above by database retrieval
     oligomer = {}
     sym_definition_files = {}
     for name in names:
@@ -387,18 +389,46 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                                           'this error and make sure that all input oligomers are symmetrized for '
                                           'optimal script performance.' % (name, names[name](k), residue))
 
-    # Renumber PDB to Rosetta Numbering
+    # Renumber PDB to Pose Numbering
     logger.info('Converting to standard Rosetta numbering. 1st residue of chain A is 1, 1st residue of chain B is last '
                 'residue in chain A + 1, etc')
     template_pdb.reorder_chains()
-    template_pdb.renumber_residues()
+
+    # # Insert loops identified by comparison of SEQRES and ATOM
+    # pdb_atom_seq = get_pdb_sequences(template_pdb, source='atom')
+    # pose_offset_d = Ams.pdb_to_pose_num(pdb_atom_seq)
+    # if template_pdb.sequence_dictionary:
+    #     missing_termini_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain],
+    #                                                             template_pdb.sequence_dictionary[chain], offset=True,
+    #                                                             termini=True) for chain in template_pdb.chain_id_list}
+    #     gapped_residues_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain], template_pdb.sequence_dictionary,
+    #                                                             offset=True, reference_gaps=True)
+    #                          for chain in template_pdb.chain_id_list}
+    #     all_missing_residues_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain],
+    #                                                                  template_pdb.sequence_dictionary,
+    #                                                                  offset=True, only_gaps=True)
+    #                               for chain in template_pdb.chain_id_list}
+    #
+    #     # Modify residue indices to pose numbering
+    #     all_missing_residues_d = {chain: {residue + pose_offset_d[chain]: all_missing_residues_d[chain][residue]
+    #                                   for residue in all_missing_residues_d[chain]} for chain in all_missing_residues_d}
+    #
+    #     for chain in gapped_residues_d:
+    #         for residue in gapped_residues_d[chain]:
+    #
+    #             if residue not in loops_file[loop]:
+    #             template_pdb.insert_residue(chain, residue, gapped_residues_d[chain][residue]['from'])
+
+
+    template_pdb.pose_numbering()
     jump = template_pdb.getTermCAAtom('C', template_pdb.chain_id_list[0]).residue_number
     template_residues = template_pdb.get_all_residues()
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
     logger.info('Total number of residues is %d' % len(template_residues))
-    template_pdb.write(des_dir.asu)
 
+    # Save renumbered PDB to clean_asu.pdb
+    template_pdb.write(des_dir.asu)
     # Mutate all design positions to Ala
     mutated_pdb = copy.deepcopy(template_pdb)
     logger.debug('Cleaned PDB: \'%s\'' % des_dir.asu)

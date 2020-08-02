@@ -17,8 +17,8 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
-from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, \
-    write_fasta_file
+import AnalyzeMutatedSequences as Ams
+# from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_expression_tags, add_expression_tag
 
 
@@ -498,7 +498,7 @@ if __name__ == '__main__':
                 # if not args.weights:
                 #     sys.exit('VY made this and I am going to put in here!')
 
-                selected_poses = filter_pose(args.dataframe, filters, weights,  # num_designs=args.number,
+                selected_poses = Ams.filter_pose(args.dataframe, filters, weights,  # num_designs=args.number,
                                              consensus=args.consensus, filter_file=PUtils.filter_and_sort)
 
                 # Sort results according to clustered poses
@@ -528,11 +528,11 @@ if __name__ == '__main__':
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
                 # zipped_args = zip(all_design_directories, repeat(args.number))
                 # results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
-                results, exceptions = zip(*SDUtils.mp_map(select_sequences_mp, all_design_directories, mp_threads))
+                results, exceptions = zip(*SDUtils.mp_map(Ams.select_sequences_mp, all_design_directories, mp_threads))
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
             else:
-                results, exceptions = zip(*list(select_sequences_s(des_directory, number=args.number)
+                results, exceptions = zip(*list(Ams.select_sequences_s(des_directory, number=args.number)
                                                 for des_directory in all_design_directories))
                 # for des_directory in all_design_directories:
                 #     result, error = select_sequences_s(des_directory, number=args.number)
@@ -564,18 +564,86 @@ if __name__ == '__main__':
                     continue
                 # os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
                 # Format sequences for expression
-                design_sequences = get_pdb_sequences(file[0])
+                # coming in as (chain: seq}
+                design_pose = SDUtils.read_pdb(file[0])
+                design_sequences = Ams.get_pdb_sequences(design_pose)
                 pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
-                chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                pose = SDUtils.read_pdb(pose_des_dir.source)
+
                 # need the original pose chain identity
+                source_pose = SDUtils.read_pdb(pose_des_dir.source)
+                if not source_pose.sequence_dictionary:
+                    oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb)) for pdb in pose_pdbs]
+                    for oligomer in oligomers[1:]:
+                        oligomer[0].read_atom_list(oligomer.all_atoms)
+                    source_pose = oligomers[0]
+                    source_pose.reorder_chains().pose_numbering()
+                # Insert loops identified by comparison of SEQRES and ATOM
+
+                # missing_termini_d = {chain: Ams.generate_mutations_from_seq(pdb_atom_seq[chain],
+                #                                                         template_pdb.sequence_dictionary[chain],
+                #                                                         offset=True,
+                #                                                         termini=True)
+                #                      for chain in template_pdb.chain_id_list}
+
+                pose_offset_d = Ams.pdb_to_pose_num(source_pose.sequence_dictionary)
+                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
+                                                                                 source_pose.sequence_dictionary,
+                                                                                 offset=True, only_gaps=True)
+                                          for chain in design_sequences}
+
+                print(all_missing_residues_d)
+
+                # Modify residue indices to pose numbering
+                all_missing_residues_d = {chain: {residue + pose_offset_d[chain]: all_missing_residues_d[chain][residue]
+                                                  for residue in all_missing_residues_d[chain]}
+                                          for chain in all_missing_residues_d}
+                print(all_missing_residues_d)
+
+                # Insert residues into design PDB object
+                for chain in all_missing_residues_d:
+                    for residue in all_missing_residues_d[chain]:
+                        design_pose.insert_residue(chain, residue, all_missing_residues_d[chain][residue]['from'])
+
+                # Get modified sequence
+                design_sequences_disordered = Ams.get_pdb_sequences(design_pose)
+                print('Design Sequence:\n%s' % '\n'.join([design_sequences[chain] for chain in design_sequences]))
+                print('Disordered Insertion:\n%s' %
+                      '\n'.join([design_sequences_disordered[chain] for chain in design_sequences_disordered]))
+
+                # I need the source sequence as mutations to get the mutation index on the design sequence
+                mutations = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary,
+                                                                    design_sequences[chain], offset=True)
+                             for chain in design_sequences}
+                # Next I need the modified (residue inserted) design sequence to pull out the correct Met
+                coding_offset = {chain: Ams.find_orf_offset(design_sequences_disordered[chain], mutations)
+                                 for chain in design_sequences_disordered}
+
+                print('Coding Offset:\n%s'
+                      % '\n'.join(['%s: %s' (chain, coding_offset[chain]) for chain in coding_offset]))
+
+                pretag_sequences = {chain: design_sequences_disordered[chain][coding_offset[chain]:]
+                                    for chain in coding_offset}
+                print('Pre-tag Sequences:\n%s' % '\n'.join([final_sequences[chain] for chain in final_sequences]))
+
+                # for residue in all_missing_residues_d:
+                #     if all_missing_residues_d[residue]['from'] == 'M':
+
+                # for chain in gapped_residues_d:
+                #     for residue in gapped_residues_d[chain]:
+
+                # Look for compatible tags
                 tag_sequences = {pdb: find_expression_tags(pdb, chain)
                                  for pdb, chain in zip(pose_pdbs, pose.chain_id_list)}
-                # coming in as (chain: seq}
+
+                chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                 final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
-                                                                   design_sequences[chains[j]])
+                                                                   pretag_sequences[chains[j]])
                                            for j, pdb in enumerate(tag_sequences)}
+                # final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
+                #                                                    design_sequences[chains[j]])
+                #                            for j, pdb in enumerate(tag_sequences)}
                 # format sequence for M start
+
         print(final_sequences)
 
         # Write output sequences to fasta file
