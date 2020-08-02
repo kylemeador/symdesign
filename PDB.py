@@ -929,7 +929,7 @@ class PDB:
                 insert_atom_number = atom.number
 
         temp_pdb = PDB()
-        temp_pdb.readfile('AAreference.pdb')
+        temp_pdb.readfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AAreference.pdb'))
         insert_atoms = temp_pdb.getResidueAtoms('A', IUPACData.protein_letters.find[residue_type])
 
         # Change all downstream residues
