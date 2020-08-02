@@ -1977,7 +1977,10 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
 # ERRORS
 ##########
 
-class DesignError(Exception):
+class DesignError(Exception):  # TODO make error messages one line instead of string iteration
+    # SymDesignUtils.DesignError: ('I', 'n', 'v', 'a', 'l', 'i', 'd', ' ', 'P', 'D', 'B', ' ', 'i', 'n', 'p', 'u', 't',
+    # ',', ' ', 'n', 'o', ' ', 'S', 'E', 'Q', 'R', 'E', 'S', ' ', 'r', 'e', 'c', 'o', 'r', 'd', ' ', 'f', 'o', 'u', 'n',
+    # 'd')
 
     def __init__(self, message):
         self.args = message
