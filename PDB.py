@@ -204,14 +204,14 @@ class PDB:
                     self.cb_coords.append([x, y, z])
                 if atom.chain not in chain_ids:
                     chain_ids.append(atom.chain)
-            self.chain_id_list = chain_ids
+            self.chain_id_list += chain_ids
         else:
             chain_ids = []
             for atom in atom_list:
                 self.all_atoms.append(atom)
                 if atom.chain not in chain_ids:
                     chain_ids.append(atom.chain)
-            self.chain_id_list = chain_ids
+            self.chain_id_list += chain_ids
 
     # def retrieve_chain_ids(self):  # KM added 2/3/20 to deal with updating chain names after rename_chain(s) functions
     #     # creates a list of unique chain IDs in PDB and feeds it into chain_id_list maintaining order
