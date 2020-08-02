@@ -574,24 +574,25 @@ if __name__ == '__main__':
                 source_pose = SDUtils.read_pdb(pose_des_dir.source)
                 source_pose.sequence_dictionary = Ams.get_pdb_sequences(source_pose, source='atom')
                 # if not source_pose.sequence_dictionary:
-                oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb)) for pdb in pose_pdbs]
+                oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb), coordinates_only=False) for pdb in pose_pdbs]
                 print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequence_dictionary[chain])
                                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
                 seqres_pose = PDB.PDB()
-                source_seqres = {chain: Ams.get_pdb_sequences(oligomers[k], chain=oligomers[k].chain_id_list[0],
-                                                              source='seqres')
-                                 for k, chain in enumerate(chains[:len(oligomers)])}
                 for oligomer, _chain in zip(oligomers, reversed(chains)):
                     # print('Before', oligomer.chain_id_list)
                     oligomer.rename_chain(oligomer.chain_id_list[0], _chain)
                     # print('After', oligomer.chain_id_list)
                     seqres_pose.read_atom_list(oligomer.chain(_chain))
                     # print('In', seqres_pose.chain_id_list)
+
                 # print('Out', seqres_pose.chain_id_list)
                 seqres_pose.reorder_chains()
                 seqres_pose.pose_numbering()
+                source_seqres = {chain: Ams.get_pdb_sequences(oligomers[k], chain=oligomers[k].chain_id_list[0],
+                                                              source='seqres')
+                                 for k, chain in enumerate(chains[:len(oligomers)])}
                 seqres_pose.sequence_dictionary = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
-                    # print('Reorder', seqres_pose.chain_id_list)
+                # print('Reorder', seqres_pose.chain_id_list)
                 # Insert loops identified by comparison of SEQRES and ATOM
 
                 # missing_termini_d = {chain: Ams.generate_mutations_from_seq(pdb_atom_seq[chain],
