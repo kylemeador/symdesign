@@ -629,7 +629,7 @@ if __name__ == '__main__':
                 print('Mutations:\n%s' %
                       '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
                 # Next I need the modified (residue inserted) design sequence to pull out the correct Met
-                coding_offset = {chain: Ams.find_orf_offset(design_sequences_disordered[chain], mutations)
+                coding_offset = {chain: Ams.find_orf_offset(design_sequences_disordered[chain], mutations[chain])
                                  for chain in design_sequences_disordered}
 
                 print('Coding Offset:\n%s'

@@ -499,7 +499,6 @@ def find_orf_offset(seq, mutations):
                 # index -= index_offset
                 # s = 0
                 for mutation_index in mutations:
-                    print(mutation_index, index_offset, met_index)
                     try:
                         if seq[mutation_index - index_offset + met_index] == mutations[mutation_index]['from']:
                             met_offset_d[met_index] += 1
