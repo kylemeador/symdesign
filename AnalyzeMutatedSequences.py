@@ -506,24 +506,6 @@ def find_orf_offset(seq, mutations):
                         # s += 1
                 except IndexError:
                     break
-            # which_met_offset_counts.append(s)
-        # max_count = np.max(which_met_offset_counts)
-        # max_count = np.max(list(met_offset_d.values()))
-        # else:  # MET is missing/not the ORF start
-            # max_count = 0
-            # met_offset_d = {}
-            # offset_list = []
-            # for start_idx in range(0, 50):  # How far away the max seq start is from the ORF MET start site
-            #     # s = 0
-            #     met_offset_d[start_idx] = 0
-            #     for mutation_index in mutations:
-            #         try:
-            #             if seq[mutation_index - index_offset + start_idx] == mutations[mutation_index]['from']:
-            #                 met_offset_d[start_idx] += 1
-            #         except IndexError:
-            #             break
-            #             # s += 1
-                # offset_list.append(s)
 
         max_count = np.max(list(met_offset_d.values()))
         # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
@@ -533,24 +515,6 @@ def find_orf_offset(seq, mutations):
                 # break
             unsolvable = True
             met_offset_d = {}
-            # upper_range = 50  # This corresponds to how far away the max seq start is from the ORF MET start site
-            # offset_list = {}
-            # # offset_list = []
-            # for i in range(0, upper_range):
-            #     # s = 0
-            #     offset_list[i] = 0
-            #     for mutation_index in mutations:
-            #         if seq[mutation_index + i] == mutations[mutation_index]['from']:
-            #             offset_list += 1
-            #             # s += 1
-            #     # offset_list.append(s)
-            # max_count = np.max(list(offset_list.values()))
-            # # max_count = np.max(offset_list)
-            # # find likely orf offset index
-            # for offset in offset_list:
-            #     if max_count == offset_list[offset]:
-            #         orf_offset = offset
-            # # orf_offset = offset_list.index(max_count)  # + lower_range  # + mut_index_correct
         else:
             for offset in met_offset_d:
                 if max_count == met_offset_d[offset]:
