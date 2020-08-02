@@ -486,9 +486,9 @@ def find_orf_offset(seq, mutations):
     """
     met_offset_d = {}
     unsolvable = False
-    for i, aa in enumerate(seq):
+    for idx, aa in enumerate(seq):
         if aa == 'M':
-            met_offset_d[i] = 0
+            met_offset_d[idx] = 0
     methionine_positions = list(met_offset_d.keys())
 
     while True:
@@ -499,9 +499,10 @@ def find_orf_offset(seq, mutations):
                 # index -= index_offset
                 # s = 0
                 for mutation_index in mutations:
+                    print(mutation_index, index_offset, met_index)
                     try:
                         if seq[mutation_index - index_offset + met_index] == mutations[mutation_index]['from']:
-                            met_offset_d[i] += 1
+                            met_offset_d[met_index] += 1
                             # s += 1
                     except IndexError:
                         break
@@ -514,10 +515,10 @@ def find_orf_offset(seq, mutations):
             # offset_list = []
             for start_idx in range(0, 50):  # How far away the max seq start is from the ORF MET start site
                 # s = 0
-                met_offset_d[i] = 0
+                met_offset_d[start_idx] = 0
                 for mutation_index in mutations:
                     if seq[mutation_index - index_offset + start_idx] == mutations[mutation_index]['from']:
-                        met_offset_d += 1
+                        met_offset_d[start_idx] += 1
                         # s += 1
                 # offset_list.append(s)
 
