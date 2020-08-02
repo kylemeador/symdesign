@@ -568,7 +568,7 @@ if __name__ == '__main__':
                 design_pose = SDUtils.read_pdb(file[0])
                 design_sequences = Ams.get_pdb_sequences(design_pose)
                 pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
-
+                chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                 # need the original pose chain identity
                 source_pose = SDUtils.read_pdb(pose_des_dir.source)
                 if not source_pose.sequence_dictionary:
@@ -587,10 +587,10 @@ if __name__ == '__main__':
                 #                      for chain in template_pdb.chain_id_list}
 
                 pose_offset_d = Ams.pdb_to_pose_num(source_pose.sequence_dictionary)
-                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
+                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chains[i]],
                                                                                  source_pose.sequence_dictionary[chain],
                                                                                  offset=True, only_gaps=True)
-                                          for chain in design_sequences}
+                                          for i, chain in enumerate(source_pose.sequence_dictionary)}
 
                 print(all_missing_residues_d)
 
@@ -613,8 +613,8 @@ if __name__ == '__main__':
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
                 mutations = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary[chain],
-                                                                    design_sequences[chain], offset=True)
-                             for chain in design_sequences}
+                                                                    design_sequences[chains[i]], offset=True)
+                             for i, chain in enumerate(source_pose.sequence_dictionary)}
                 # Next I need the modified (residue inserted) design sequence to pull out the correct Met
                 coding_offset = {chain: Ams.find_orf_offset(design_sequences_disordered[chain], mutations)
                                  for chain in design_sequences_disordered}
@@ -636,7 +636,6 @@ if __name__ == '__main__':
                 tag_sequences = {pdb: find_expression_tags(pdb, chain)
                                  for pdb, chain in zip(pose_pdbs, pose.chain_id_list)}
 
-                chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                 final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
                                                                    pretag_sequences[chains[j]])
                                            for j, pdb in enumerate(tag_sequences)}
