@@ -492,33 +492,37 @@ def find_orf_offset(seq, mutations):
     methionine_positions = list(met_offset_d.keys())
 
     while True:
-        if met_offset_d != dict():
+        if met_offset_d == dict():  # MET is missing/not the ORF start
+            met_offset_d = {start_idx: 0 for start_idx in range(0, 50)}
             # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
             # which_met_offset_counts = []
-            for met_index in met_offset_d:
-                # index -= index_offset
-                # s = 0
-                for mutation_index in mutations:
-                    try:
-                        if seq[mutation_index - index_offset + met_index] == mutations[mutation_index]['from']:
-                            met_offset_d[met_index] += 1
-                            # s += 1
-                    except IndexError:
-                        break
-                # which_met_offset_counts.append(s)
-            # max_count = np.max(which_met_offset_counts)
-            # max_count = np.max(list(met_offset_d.values()))
-        else:  # MET is missing/not the ORF start
+        for test_orf_index in met_offset_d:
+            # index -= index_offset
+            # s = 0
+            for mutation_index in mutations:
+                try:
+                    if seq[mutation_index - index_offset + test_orf_index] == mutations[mutation_index]['from']:
+                        met_offset_d[test_orf_index] += 1
+                        # s += 1
+                except IndexError:
+                    break
+            # which_met_offset_counts.append(s)
+        # max_count = np.max(which_met_offset_counts)
+        # max_count = np.max(list(met_offset_d.values()))
+        # else:  # MET is missing/not the ORF start
             # max_count = 0
             # met_offset_d = {}
             # offset_list = []
-            for start_idx in range(0, 50):  # How far away the max seq start is from the ORF MET start site
-                # s = 0
-                met_offset_d[start_idx] = 0
-                for mutation_index in mutations:
-                    if seq[mutation_index - index_offset + start_idx] == mutations[mutation_index]['from']:
-                        met_offset_d[start_idx] += 1
-                        # s += 1
+            # for start_idx in range(0, 50):  # How far away the max seq start is from the ORF MET start site
+            #     # s = 0
+            #     met_offset_d[start_idx] = 0
+            #     for mutation_index in mutations:
+            #         try:
+            #             if seq[mutation_index - index_offset + start_idx] == mutations[mutation_index]['from']:
+            #                 met_offset_d[start_idx] += 1
+            #         except IndexError:
+            #             break
+            #             # s += 1
                 # offset_list.append(s)
 
         max_count = np.max(list(met_offset_d.values()))
