@@ -896,29 +896,35 @@ class PDB:
                 i = residue_atom_list[j]
                 self.all_atoms.remove(i)
 
-    def insert_residue(self, chain, residue, residue_type):  # KM added 08/01/20
+    def insert_residue(self, chain, residue, residue_type):  # KM added 08/01/20, only works for pose_numbering now
         if residue_type.title() in IUPACData.protein_letters_3to1_extended:
             residue_type = IUPACData.protein_letters_3to1_extended[residue_type.title()]
         else:
             residue_type = residue_type.upper()
 
         # Find atom insertion index, should be last atom in preceding residue
-        if residue != 1:
-            # This assumes atom numbers are proper idx
-            insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number - 1
-        else:
+        if residue == 1:
             insert_atom_idx = 0
+        else:
+            # This assumes atom numbers are proper idx
+            residue_atoms = self.getResidueAtoms(chain, residue)
+            if residue_atoms:
+                insert_atom_idx = residue_atoms[0].number - 1
+            else:
+                # use length of all_atoms
+                insert_atom_idx = len(self.all_atoms)
+
             # insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number
 
-        temp_pdb = PDB()
+        temp_pdb = PDB()  # TODO clean up speed by include in Atom.py or Residue.py or as read_atom_list()
         temp_pdb.readfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AAreference.pdb'))
         insert_atoms = temp_pdb.getResidueAtoms('A', IUPACData.protein_letters.find(residue_type))
 
         # Change all downstream residues
         for atom in self.all_atoms[insert_atom_idx:]:
             # atom.number += len(insert_atoms)
-            if atom.chain == chain:
-                atom.residue_number += 1
+            # if atom.chain == chain: TODO for pdb numbering
+            atom.residue_number += 1
 
         for atom in reversed(insert_atoms):  # essentially a push
             # atom.number += insert_atom_idx + 1
