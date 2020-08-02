@@ -631,7 +631,7 @@ def generate_mutations_from_seq(seq1, seq2, offset=True, blanks=False, termini=F
         # i += 1
 
     remove_mutation_list = []
-    if only_gaps:  # Find the actual mutations
+    if only_gaps:  # Find the actual mutations and add to removal list
         for entry in mutations:
             if entry > 0 or entry <= ending_index_of_seq2:
                 if mutations[entry]['to'] != '-':
