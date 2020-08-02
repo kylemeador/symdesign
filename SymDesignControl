@@ -617,6 +617,7 @@ if __name__ == '__main__':
                                                                                  source_seqres[chain],
                                                                                  offset=True, only_gaps=True)
                                           for chain in source_seqres}
+                pose_insert_offset_d = Ams.pdb_to_pose_num(all_missing_residues_d)
 
                 print('Pre-pose numbering:\n%s' %
                       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
@@ -624,6 +625,10 @@ if __name__ == '__main__':
 
                 # Modify residue indices to pose numbering
                 all_missing_residues_d = {chain: {residue + pose_offset_d[chain]: all_missing_residues_d[chain][residue]
+                                                  for residue in all_missing_residues_d[chain]}
+                                          for chain in all_missing_residues_d}
+                # Modify residue indices to include prior pose inserts pose numbering
+                all_missing_residues_d = {chain: {residue + pose_insert_offset_d[chain]: all_missing_residues_d[chain][residue]
                                                   for residue in all_missing_residues_d[chain]}
                                           for chain in all_missing_residues_d}
                 print('Post-pose numbering:\n%s' %
