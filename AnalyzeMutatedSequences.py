@@ -612,7 +612,7 @@ def generate_mutations_from_seq(seq1, seq2, offset=True, blanks=False, termini=F
         mutations (dict): {index: {'from': 'A', 'to': 'K'}, ...}
     """
     if offset:
-        alignment = SDUtils.generate_alignment(seq1, seq2)
+        alignment = generate_alignment(seq1, seq2)
         align_seq_1 = alignment[0][0]
         align_seq_2 = alignment[0][1]
     else:
