@@ -632,6 +632,7 @@ if __name__ == '__main__':
 
                 # Insert residues into design PDB object
                 for chain in all_missing_residues_d:
+                    design_pose.pose_numbering()
                     for residue in all_missing_residues_d[chain]:
                         design_pose.insert_residue(chain, residue, all_missing_residues_d[chain][residue]['from'])
                         print('%s\tLocation %d' % (design_pose.getStructureSequence(chain), residue))
