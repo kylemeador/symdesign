@@ -923,7 +923,7 @@ class PDB:
         # Change all downstream residues
         for atom in self.all_atoms[insert_atom_idx:]:
             # atom.number += len(insert_atoms)
-            # if atom.chain == chain: TODO for pdb numbering
+            # if atom.chain == chain: TODO uncomment for pdb numbering
             atom.residue_number += 1
 
         for atom in reversed(insert_atoms):  # essentially a push
