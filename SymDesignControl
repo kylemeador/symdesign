@@ -619,7 +619,7 @@ if __name__ == '__main__':
                                           for chain in source_seqres}
 
                 print('Pre-pose numbering:\n%s' %
-                      '\n'.join(['%s - %s' % (chain, ', '.join([res for res in all_missing_residues_d[chain]]))
+                      '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
                                  for chain in all_missing_residues_d]))
 
                 # Modify residue indices to pose numbering
@@ -627,7 +627,7 @@ if __name__ == '__main__':
                                                   for residue in all_missing_residues_d[chain]}
                                           for chain in all_missing_residues_d}
                 print('Post-pose numbering:\n%s' %
-                      '\n'.join(['%s - %s' % (chain, ', '.join([res for res in all_missing_residues_d[chain]]))
+                      '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
                                  for chain in all_missing_residues_d]))
 
                 # Insert residues into design PDB object
