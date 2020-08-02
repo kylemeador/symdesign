@@ -455,8 +455,9 @@ class PDB:
 
     def rename_chain(self, chain_of_interest, new_chain):  # KM Added 8/19 Caution, will rename to already taken chain
         chain_atoms = self.chain(chain_of_interest)
-        for i in range(len(chain_atoms)):
-            self.chain_atoms[i].chain = new_chain
+        for atom in chain_atoms:
+            atom.chain = new_chain
+            # chain_atoms[i].chain = new_chain
 
         self.chain_id_list[self.chain_id_list.index(chain_of_interest)] = new_chain
 
