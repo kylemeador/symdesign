@@ -563,7 +563,7 @@ def find_orf_offset(seq, mutations):
                     closest_met = met
                 else:
                     if closest_met:
-                        orf_offset = closest_met + index_offset  # change to one-index
+                        orf_offset = closest_met  # + index_offset # change to one-index
                     break
             break
             # orf_offset = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
