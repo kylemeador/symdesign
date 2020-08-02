@@ -923,7 +923,7 @@ class PDB:
             residue_type = residue_type.upper()
 
         # Find atom insertion index
-        insert_atom_number = None
+        insert_atom_number = 0
         for atom in self.getResidueAtoms(chain, residue - 1):  # TODO if first residue?
             if atom.number > insert_atom_number:
                 insert_atom_number = atom.number
