@@ -585,20 +585,21 @@ if __name__ == '__main__':
                 #                                                         offset=True,
                 #                                                         termini=True)
                 #                      for chain in template_pdb.chain_id_list}
-
+                print('Source Sequences:\n%s' % '\n'.join([source_pose.sequence_dictionary[chain]
+                                                          for chain in source_pose.sequence_dictionary]))
                 pose_offset_d = Ams.pdb_to_pose_num(source_pose.sequence_dictionary)
                 all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chains[i]],
                                                                                  source_pose.sequence_dictionary[chain],
                                                                                  offset=True, only_gaps=True)
                                           for i, chain in enumerate(source_pose.sequence_dictionary)}
 
-                print(all_missing_residues_d)
+                print('Pre-pose numbering; %s' % all_missing_residues_d)
 
                 # Modify residue indices to pose numbering
                 all_missing_residues_d = {chain: {residue + pose_offset_d[chain]: all_missing_residues_d[chain][residue]
                                                   for residue in all_missing_residues_d[chain]}
                                           for chain in all_missing_residues_d}
-                print(all_missing_residues_d)
+                print('Post-pose numbering; %s' % all_missing_residues_d)
 
                 # Insert residues into design PDB object
                 for chain in all_missing_residues_d:
@@ -607,8 +608,8 @@ if __name__ == '__main__':
 
                 # Get modified sequence
                 design_sequences_disordered = Ams.get_pdb_sequences(design_pose)
-                print('Design Sequence:\n%s' % '\n'.join([design_sequences[chain] for chain in design_sequences]))
-                print('Disordered Insertion:\n%s' %
+                print('Design Sequences:\n%s' % '\n'.join([design_sequences[chain] for chain in design_sequences]))
+                print('Disordered Insertions:\n%s' %
                       '\n'.join([design_sequences_disordered[chain] for chain in design_sequences_disordered]))
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
@@ -634,7 +635,7 @@ if __name__ == '__main__':
 
                 # Look for compatible tags
                 tag_sequences = {pdb: find_expression_tags(pdb, chain)
-                                 for pdb, chain in zip(pose_pdbs, pose.chain_id_list)}
+                                 for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
 
                 final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
                                                                    pretag_sequences[chains[j]])
