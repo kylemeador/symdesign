@@ -572,8 +572,8 @@ if __name__ == '__main__':
                 chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                 # need the original pose chain identity
                 # source_pose = SDUtils.read_pdb(pose_des_dir.source)  # removed in favor of the clean asu
-                # source_pose = SDUtils.read_pdb(pose_des_dir.asu)  # Why couldn't I just use the design then?
-                # source_pose.sequence_dictionary = Ams.get_pdb_sequences(source_pose, source='atom')
+                source_pose = SDUtils.read_pdb(pose_des_dir.asu)  # Why can't I  use design_sequences? localds quality!
+                source_pose.sequence_dictionary = Ams.get_pdb_sequences(source_pose, source='atom')
                 # if not source_pose.sequence_dictionary:
                 oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb), coordinates_only=False) for pdb in pose_pdbs]
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequence_dictionary[chain])
@@ -605,14 +605,14 @@ if __name__ == '__main__':
                 print('Source Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, seqres_pose.sequence_dictionary[chain])
                                                            for chain in seqres_pose.sequence_dictionary]))
                 pose_offset_d = Ams.pdb_to_pose_num(seqres_pose.sequence_dictionary)
-                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
-                                                                                 seqres_pose.sequence_dictionary[chain],
-                                                                                 offset=True, only_gaps=True)
-                                          for chain in design_sequences}
-                # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary[chain],
+                # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
                 #                                                                  seqres_pose.sequence_dictionary[chain],
                 #                                                                  offset=True, only_gaps=True)
                 #                           for chain in design_sequences}
+                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary[chain],
+                                                                                 seqres_pose.sequence_dictionary[chain],
+                                                                                 offset=True, only_gaps=True)
+                                          for chain in design_sequences}
 
                 print('Pre-pose numbering; %s' % all_missing_residues_d)
 

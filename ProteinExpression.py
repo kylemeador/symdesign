@@ -29,13 +29,13 @@ def find_expression_tags(pdb_code, chain):
     pdb_chain_d = {}
     for matching_pdb_chain in all_matching_pdb_chain:
         matching_pdb, chain = matching_pdb_chain.split('.')
-        pdb_chain_d[matching_pdb] = chain
+        pdb_chain_d[matching_pdb] = chain  # This is essentially a set as duplicates are overwritten
 
     partner_sequences = []
-    for matching_pdb in pdb_chain_d:  # This is essentially a set as duplicates are overwritten
+    for matching_pdb in pdb_chain_d:
         partner_d = Ams.get_pdb_sequences(SDUtils.fetch_pdb(matching_pdb), chain=pdb_chain_d[matching_pdb],
                                           source='seqres')
-        partner_sequences.append(partner_d[chain])
+        partner_sequences.append(partner_d[pdb_chain_d[matching_pdb]])
         # TODO chain can be not found... Should this be available based on Uniprot-PDB Map creation? Need to extend this
 
     # {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}
