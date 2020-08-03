@@ -909,10 +909,10 @@ class PDB:
             # This assumes atom numbers are proper idx
             residue_atoms = self.getResidueAtoms(chain, residue)
             if residue_atoms:
-                insert_atom_idx = residue_atoms[0].number - 1
-            else:
-                # use length of all_atoms
-                insert_atom_idx = len(self.all_atoms)
+                insert_atom_idx = residue_atoms[0].number - 1  # subtract one from atom number to get the atom index
+            else:  # Atom index is not an insert as this is the C-term
+                # use length of all_chain_atoms
+                insert_atom_idx = len(self.chain(chain))
 
             # insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number
 
