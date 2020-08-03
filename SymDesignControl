@@ -633,8 +633,8 @@ if __name__ == '__main__':
                 #       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
                 #                  for chain in all_missing_residues_d]))
 
-                print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
-                                                           for chain in design_sequences]))
+                # print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
+                #                                            for chain in design_sequences]))
                 # Insert residues into design PDB object
                 for chain in all_missing_residues_d:
                     # design_pose.pose_numbering()  TODO for correct pdb_number considering insert_residues function
@@ -645,26 +645,26 @@ if __name__ == '__main__':
 
                 # Get modified sequence
                 design_sequences_disordered = Ams.get_pdb_sequences(design_pose)
-                print('Disordered Insertions:\n%s' %
-                      '\n'.join(['%s - %s' % (chain, design_sequences_disordered[chain])
-                                 for chain in design_sequences_disordered]))
+                # print('Disordered Insertions:\n%s' %
+                #       '\n'.join(['%s - %s' % (chain, design_sequences_disordered[chain])
+                #                  for chain in design_sequences_disordered]))
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
                 mutations = {chain: Ams.generate_mutations_from_seq(source_seqres[chain],
                                                                     design_sequences[chain], offset=True)
                              for chain in design_sequences}
-                print('Mutations:\n%s' %
-                      '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
+                # print('Mutations:\n%s' %
+                #       '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
                 # Next I need the modified (residue inserted) design sequence to pull out the correct Met
                 coding_offset = {chain: Ams.find_orf_offset(design_sequences_disordered[chain], mutations[chain])
                                  for chain in design_sequences_disordered}
 
-                print('Coding Offset:\n%s'
-                      % '\n'.join(['%s: %s' % (chain, coding_offset[chain]) for chain in coding_offset]))
-
+                # print('Coding Offset:\n%s'
+                #       % '\n'.join(['%s: %s' % (chain, coding_offset[chain]) for chain in coding_offset]))
+                # Apply the coding sequence constraint to the design sequence
                 pretag_sequences = {chain: design_sequences_disordered[chain][coding_offset[chain]:]
                                     for chain in coding_offset}
-                print('Pre-tag Sequences:\n%s' % '\n'.join([pretag_sequences[chain] for chain in pretag_sequences]))
+                # print('Pre-tag Sequences:\n%s' % '\n'.join([pretag_sequences[chain] for chain in pretag_sequences]))
 
                 # for residue in all_missing_residues_d:
                 #     if all_missing_residues_d[residue]['from'] == 'M':

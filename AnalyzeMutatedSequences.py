@@ -482,7 +482,7 @@ def find_orf_offset(seq, mutations):
         seq (str): 'Wild-type' sequence to mutate in 1 letter format
         mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
     Returns:
-        orf_offset (int): The index to offset the sequence by in order to match the mutations the best
+        orf_offset_index (int): The index to offset the sequence by in order to match the mutations the best
     """
     unsolvable = False
     # for idx, aa in enumerate(seq):
@@ -515,31 +515,22 @@ def find_orf_offset(seq, mutations):
         else:
             for offset in met_offset_d:  # offset is index here
                 if max_count == met_offset_d[offset]:
-                    orf_offset = offset  # + index_offset  # change to one-index
+                    orf_offset_index = offset  # + index_offset  # change to one-index
                     break
 
             closest_met = None
             for met in methionine_positions:
-                print('METH: %d' % met)
-                print('Offset: %d' % orf_offset)
-                if met <= orf_offset:
+                if met <= orf_offset_index:
                     closest_met = met
-                    print('Closer')
                 else:
-                    print(closest_met)
                     if closest_met is not None:
-                        orf_offset = closest_met  # + index_offset # change to one-index
-                        print('Selected METH %d' % orf_offset)
-                    #     break
-                    # else:
-                    #     print('closest_met is None')
-                    #     print(eval(closest_met))
+                        orf_offset_index = closest_met  # + index_offset # change to one-index
                     break
 
             break
-            # orf_offset = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
+            # orf_offset_index = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
 
-    return orf_offset
+    return orf_offset_index
 
 
 def parse_mutations(mutation_list):  # UNUSED

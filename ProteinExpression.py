@@ -55,7 +55,7 @@ def find_expression_tags(pdb_code, chain):
                 else:
                     pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']][
                         matching_pdb_tags[partner][partner_tag]['name']] = 0
-
+    print(pdb_tag_tally)
     final_tags = {}
     n_term, c_term = 0, 0
     if pdb_tag_tally['N'] != dict():
@@ -236,8 +236,8 @@ def find_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
                 # while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
                 #     alignment_index -= 1
                 tag_dict[count]['seq'] = seq[tag_index - alignment_index:tag_index + len(tags[tag])]
-            print('Original Seq: %s' % seq)
-            print('Alignment index are from %d to %d' % (tag_index, alignment_index))
-            print('Final Seq: %s' % tag_dict[count]['seq'])
+            # print('Original Seq: %s' % seq)
+            # print('Alignment index are from %d to +/- %d' % (tag_index, alignment_index))
+            # print('Final Seq: %s' % tag_dict[count]['seq'])
 
     return tag_dict
