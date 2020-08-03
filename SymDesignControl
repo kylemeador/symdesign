@@ -617,9 +617,9 @@ if __name__ == '__main__':
                                           for chain in source_seqres}
                 # pose_insert_offset_d = Ams.pdb_to_pose_num(all_missing_residues_d)
 
-                print('Pre-pose numbering:\n%s' %
-                      '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
-                                 for chain in all_missing_residues_d]))
+                # print('Pre-pose numbering:\n%s' %
+                #       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
+                #                  for chain in all_missing_residues_d]))
 
                 # Modify residue indices to pose numbering
                 all_missing_residues_d = {chain: {residue + pose_offset_d[chain]: all_missing_residues_d[chain][residue]
@@ -629,9 +629,9 @@ if __name__ == '__main__':
                 # all_missing_residues_d = {chain: {residue + pose_insert_offset_d[chain]: all_missing_residues_d[chain][residue]
                 #                                   for residue in all_missing_residues_d[chain]}
                 #                           for chain in all_missing_residues_d}
-                print('Post-pose numbering:\n%s' %
-                      '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
-                                 for chain in all_missing_residues_d]))
+                # print('Post-pose numbering:\n%s' %
+                #       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
+                #                  for chain in all_missing_residues_d]))
 
                 print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
                                                            for chain in design_sequences]))
@@ -640,8 +640,8 @@ if __name__ == '__main__':
                     # design_pose.pose_numbering()  TODO for correct pdb_number considering insert_residues function
                     for residue in all_missing_residues_d[chain]:
                         design_pose.insert_residue(chain, residue, all_missing_residues_d[chain][residue]['from'])
-                        if chain == 'B':
-                            print('%s\tLocation %d' % (design_pose.getStructureSequence(chain), residue))
+                        # if chain == 'B':
+                        #     print('%s\tLocation %d' % (design_pose.getStructureSequence(chain), residue))
 
                 # Get modified sequence
                 design_sequences_disordered = Ams.get_pdb_sequences(design_pose)
