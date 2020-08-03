@@ -692,7 +692,7 @@ if __name__ == '__main__':
                         seq = add_expression_tag(tag_sequences[pdb]['seq'], pretag_sequences[chains[j]])
                     else:
                         seq = pretag_sequences[chains[j]]
-                    final_sequences['%s_design_%s_%s' % (pose_des_dir.design_pdbs, design[i], pdb)] = seq
+                    final_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = seq
                 # final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
                 #                                                    design_sequences[chains[j]])
                 #                            for j, pdb in enumerate(tag_sequences)}
