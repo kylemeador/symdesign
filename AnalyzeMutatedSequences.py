@@ -521,6 +521,7 @@ def find_orf_offset(seq, mutations):
             closest_met = None
             for met in methionine_positions:
                 print('METH: %d' % met)
+                print('Offset: %d' % orf_offset)
                 if met <= orf_offset:
                     closest_met = met
                     print('Closer')
