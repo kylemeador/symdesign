@@ -527,13 +527,14 @@ def find_orf_offset(seq, mutations):
                     print('Closer')
                 else:
                     print(closest_met)
-                    if closest_met:
+                    if closest_met is None:
                         orf_offset = closest_met  # + index_offset # change to one-index
-                        print('Selected METH')
-                    else:
-                        print('closest_met is None')
-                        print(eval(closest_met))
-                        break
+                        print('Selected METH %d' % orf_offset)
+                    #     break
+                    # else:
+                    #     print('closest_met is None')
+                    #     print(eval(closest_met))
+                    break
 
             break
             # orf_offset = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
