@@ -41,7 +41,7 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):
     # {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}
     matching_pdb_tags = {}
     for idx, seq in enumerate(partner_sequences):
-        matching_pdb_tags[idx] = find_tags(seq)  # can return an empty dict
+        matching_pdb_tags[idx] = find_expression_tags(seq)  # can return an empty dict
 
     # Next, align all the tags to the reference sequence and tally the tag location and type
     pdb_tag_tally = {'N': {}, 'C': {}}
