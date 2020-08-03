@@ -484,26 +484,23 @@ def find_orf_offset(seq, mutations):
     Returns:
         orf_offset (int): The index to offset the sequence by in order to match the mutations the best
     """
-    met_offset_d = {}
     unsolvable = False
-    for idx, aa in enumerate(seq):
-        if aa == 'M':
-            met_offset_d[idx] = 0
+    # for idx, aa in enumerate(seq):
+    #     if aa == 'M':
+    #         met_offset_d[idx] = 0
+    met_offset_d = {idx: 0 for idx, aa in enumerate(seq) if aa == 'M'}
     methionine_positions = list(met_offset_d.keys())
 
     while True:
         if met_offset_d == dict():  # MET is missing/not the ORF start
             met_offset_d = {start_idx: 0 for start_idx in range(0, 50)}
-            # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
-            # which_met_offset_counts = []
+
+        # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
         for test_orf_index in met_offset_d:
-            # index -= index_offset
-            # s = 0
             for mutation_index in mutations:
                 try:
-                    if seq[mutation_index - index_offset + test_orf_index] == mutations[mutation_index]['from']:
+                    if seq[test_orf_index + mutation_index - index_offset] == mutations[mutation_index]['from']:
                         met_offset_d[test_orf_index] += 1
-                        # s += 1
                 except IndexError:
                     break
 
@@ -516,18 +513,21 @@ def find_orf_offset(seq, mutations):
             unsolvable = True
             met_offset_d = {}
         else:
-            for offset in met_offset_d:
+            for offset in met_offset_d:  # offset is index here
                 if max_count == met_offset_d[offset]:
                     orf_offset = offset  # + index_offset  # change to one-index
                     break
 
             closest_met = None
             for met in methionine_positions:
+                print('METH: %d' % met)
                 if met <= orf_offset:
                     closest_met = met
+                    print('Closer')
                 else:
                     if closest_met:
                         orf_offset = closest_met  # + index_offset # change to one-index
+                        print('Selected METH')
                     break
             break
             # orf_offset = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
