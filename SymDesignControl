@@ -20,7 +20,8 @@ from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
 import AnalyzeMutatedSequences as Ams
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
-from ProteinExpression import find_expression_tags, add_expression_tag
+from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
+
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -554,6 +555,7 @@ if __name__ == '__main__':
             os.makedirs(outdir)
 
         # Create symbolic links to the output PDB's
+        chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         final_sequences = {}
         for pose in results:
             pose_des_dirs, design = zip(*pose)
@@ -563,13 +565,12 @@ if __name__ == '__main__':
                     exceptions.append((pose_des_dir.path, 'No file found for %s*%s*' %
                                        (pose_des_dir.design_pdbs, design[i])))
                     continue
-                # os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
+                os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
                 # Format sequences for expression
                 # coming in as (chain: seq}
                 design_pose = SDUtils.read_pdb(file[0])
                 design_sequences = Ams.get_pdb_sequences(design_pose)
                 pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
-                chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                 # need the original pose chain identity
                 # source_pose = SDUtils.read_pdb(pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
                 source_pose = SDUtils.read_pdb(pose_des_dir.source)  # Think this is the best, need to modify chains
@@ -602,10 +603,10 @@ if __name__ == '__main__':
                 #                                                         offset=True,
                 #                                                         termini=True)
                 #                      for chain in template_pdb.chain_id_list}
-                print('Source ATOM Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_pose.sequence_dictionary[chain])
-                                                                for chain in design_sequences]))
-                print('Source SEQRES Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_seqres[chain])
-                                                                  for chain in source_seqres]))
+                # print('Source ATOM Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_pose.sequence_dictionary[chain])
+                #                                                 for chain in design_sequences]))
+                # print('Source SEQRES Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_seqres[chain])
+                #                                                   for chain in source_seqres]))
                 pose_offset_d = Ams.pdb_to_pose_num(source_seqres)
                 # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
                 #                                                                  seqres_pose.sequence_dictionary[chain],
@@ -672,13 +673,26 @@ if __name__ == '__main__':
                 # for chain in gapped_residues_d:
                 #     for residue in gapped_residues_d[chain]:
 
-                # Look for compatible tags
-                tag_sequences = {pdb: find_expression_tags(pdb, oligomer_chain_database_chain_map[chain])
-                                 for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
+                tag_sequences = {}
+                # Check if sequence already has tag and just re-use
+                for pdb, chain in zip(pose_pdbs, pretag_sequences):
+                    if find_expression_tags(pretag_sequences[chain]) == dict():
+                        # Look for compatible tags
+                        tag_sequences[pdb] = \
+                            find_all_matching_pdb_expression_tags(pdb, oligomer_chain_database_chain_map[chain])
+                    else:
+                        tag_sequences[pdb] = None
 
-                final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
-                                                                   pretag_sequences[chains[j]])
-                                           for j, pdb in enumerate(tag_sequences)}
+                # tag_sequences = {pdb: find_all_matching_pdb_expression_tags(pdb,
+                #                                                             oligomer_chain_database_chain_map[chain])
+                #                  for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
+
+                for j, pdb in enumerate(tag_sequences):
+                    if tag_sequences[pdb]:
+                        seq = add_expression_tag(tag_sequences[pdb]['seq'], pretag_sequences[chains[j]])
+                    else:
+                        seq = pretag_sequences[chains[j]]
+                    final_sequences['%s_design_%s_%s' % (pose_des_dir.design_pdbs, design[i], pdb)] = seq
                 # final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
                 #                                                    design_sequences[chains[j]])
                 #                            for j, pdb in enumerate(tag_sequences)}
@@ -687,8 +701,8 @@ if __name__ == '__main__':
         print(final_sequences)
 
         # Write output sequences to fasta file
-        # seq_file = write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
-        #                             path=os.path.dirname(location))
+        seq_file = Ams.write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
+                                        outpath=os.path.dirname(location))
 
     # Report any program exceptions
     any_exceptions = [exception for exception in exceptions if exception]
