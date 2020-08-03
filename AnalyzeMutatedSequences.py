@@ -527,7 +527,7 @@ def find_orf_offset(seq, mutations):
                     print('Closer')
                 else:
                     print(closest_met)
-                    if closest_met is None:
+                    if closest_met is not None:
                         orf_offset = closest_met  # + index_offset # change to one-index
                         print('Selected METH %d' % orf_offset)
                     #     break
