@@ -632,7 +632,7 @@ if __name__ == '__main__':
                 print('Post-pose numbering:\n%s' %
                       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
                                  for chain in all_missing_residues_d]))
-MWYTGTGDKGKTKVNSVGEVWKDSEIVKALGDLDELNSVLGVVSSLYPELLVVILKLQNDIFSISSEIAGFDMNFSDEKVKGIEELITNYSKELDALHDFVLPGGHIASSFLHLARAVCRRAERSVVTLLKESKAKEVHAKYLNRLSSLLFVLALVVNKRTNHLPHLWRGKdYYEIMRTYRLKNGAIPAYLKVVEDEGIEIQKQHLGELVGYFFSEIGPINEIVHIWAFESLRKRLAAALSLEDPRWLSFLPKIRDLIEVAENKIRPAPFSPL
+
                 print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
                                                            for chain in design_sequences]))
                 # Insert residues into design PDB object
@@ -640,13 +640,14 @@ MWYTGTGDKGKTKVNSVGEVWKDSEIVKALGDLDELNSVLGVVSSLYPELLVVILKLQNDIFSISSEIAGFDMNFSDEKV
                     # design_pose.pose_numbering()  TODO for correct pdb_number considering insert_residues function
                     for residue in all_missing_residues_d[chain]:
                         design_pose.insert_residue(chain, residue, all_missing_residues_d[chain][residue]['from'])
-                        print('%s\tLocation %d' % (design_pose.getStructureSequence(chain), residue))
+                        if chain == 'B':
+                            print('%s\tLocation %d' % (design_pose.getStructureSequence(chain), residue))
 
                 # Get modified sequence
                 design_sequences_disordered = Ams.get_pdb_sequences(design_pose)
                 print('Disordered Insertions:\n%s' %
                       '\n'.join(['%s - %s' % (chain, design_sequences_disordered[chain])
-                                 for chain in design_sequences_disordered if chain == 'B']))
+                                 for chain in design_sequences_disordered]))
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
                 mutations = {chain: Ams.generate_mutations_from_seq(source_seqres[chain],
