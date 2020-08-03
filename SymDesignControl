@@ -516,6 +516,7 @@ if __name__ == '__main__':
 
                 if len(final_poses) > args.number:
                     final_poses = final_poses[:args.number]
+                logger.info('Final poses after clustering:\n%s' % '\n'.join(pose for pose in final_poses))
 
                 all_design_directories = SDUtils.set_up_directory_objects(final_poses, symmetry=args.design_string)
                 if args.consensus:
