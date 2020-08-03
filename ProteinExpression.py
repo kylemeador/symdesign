@@ -12,7 +12,7 @@ import AnalyzeMutatedSequences as Ams
 uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 
 
-def find_expression_tags(pdb_code, chain):
+def find_all_matching_pdb_expression_tags(pdb_code, chain):
     """Take a pose and find expression tags from each PDB reference
 
     Args:
@@ -54,8 +54,8 @@ def find_expression_tags(pdb_code, chain):
                         matching_pdb_tags[partner][partner_tag]['name']] += 1
                 else:
                     pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']][
-                        matching_pdb_tags[partner][partner_tag]['name']] = 0
-    print(pdb_tag_tally)
+                        matching_pdb_tags[partner][partner_tag]['name']] = 1
+
     final_tags = {}
     n_term, c_term = 0, 0
     if pdb_tag_tally['N'] != dict():
@@ -144,7 +144,7 @@ def find_expression_tags(pdb_code, chain):
         for partner_tag in matching_pdb_tags[partner_idx]:
             if final_choice['name'] == matching_pdb_tags[partner_idx][partner_tag]['name']:
                 final_tag_sequence['seq'] = matching_pdb_tags[partner_idx][partner_tag]['seq']
-                # TODO align multiple and choose the consensus
+                # TODO align multiple and choose the consensus?
 
     return final_tag_sequence
 
@@ -193,15 +193,17 @@ def pull_uniprot_id_by_pdb(pdb_code, chain=None):
             return uniprot_id
 
 
-def find_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
+def find_expression_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
     """Find all strings (tags) on an input string (sequence) from a reference set of strings
 
     Args:
-        chain_seq_d (dict): {'A': 'MSGHHHHHHGKLKPNDLRI...', ...}
+        seq (str): 'MSGHHHHHHGKLKPNDLRI...'
     Keyword Args:
         tags=affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
+        alignment_length=12 (int): length to perform the clipping of the native sequence in addition to found tag
     Returns:
-        tag_dict (dict): {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...}
+        tag_dict (dict): {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...} if tags are
+            found, {} if none are found
     """
     with open(tag_file, 'r') as f:
         reader = csv.reader(f)
