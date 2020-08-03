@@ -632,7 +632,7 @@ if __name__ == '__main__':
                 print('Post-pose numbering:\n%s' %
                       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
                                  for chain in all_missing_residues_d]))
-
+MWYTGTGDKGKTKVNSVGEVWKDSEIVKALGDLDELNSVLGVVSSLYPELLVVILKLQNDIFSISSEIAGFDMNFSDEKVKGIEELITNYSKELDALHDFVLPGGHIASSFLHLARAVCRRAERSVVTLLKESKAKEVHAKYLNRLSSLLFVLALVVNKRTNHLPHLWRGKdYYEIMRTYRLKNGAIPAYLKVVEDEGIEIQKQHLGELVGYFFSEIGPINEIVHIWAFESLRKRLAAALSLEDPRWLSFLPKIRDLIEVAENKIRPAPFSPL
                 print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
                                                            for chain in design_sequences]))
                 # Insert residues into design PDB object
