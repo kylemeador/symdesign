@@ -1006,7 +1006,7 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
                                                     method=_weights[metric]['direction'], pct=True) \
                                    * _weights[metric]['value']
 
-    design_score_df = pd.merge(weight_score_s_d[weight] for weight in weights)
+    design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
     design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
     # these will be sorted by the largest value to the smallest
     # design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
