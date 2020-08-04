@@ -601,12 +601,18 @@ def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, te
         # i += 1
 
     remove_mutation_list = []
-    if only_gaps:  # Find the actual mutations and add to removal list
+    if only_gaps:  # remove the actual mutations
         for entry in mutations:
             if entry > 0 or entry <= ending_index_of_seq2:
                 if mutations[entry]['to'] != '-':
                     remove_mutation_list.append(entry)
         termini, reference_gaps, blanks = True, True, True
+    if blanks:  # if blanks is True leave all types of blanks, if blanks is False check for requested types
+        termini, reference_gaps = True, True
+        # for entry in mutations:
+        #     for index in mutations[entry]:
+        #         if mutations[entry][index] == '-':
+        #             remove_mutation_list.append(entry)
     if not termini:  # Remove indices outside of sequence 2
         for entry in mutations:
             if entry < 0 or entry > ending_index_of_seq2:
@@ -615,11 +621,6 @@ def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, te
         for entry in mutations:
             if entry > 0 or entry <= ending_index_of_seq2:
                 if mutations[entry]['to'] == '-':
-                    remove_mutation_list.append(entry)
-    if not blanks:  # Remove any blank mutations
-        for entry in mutations:
-            for index in mutations[entry]:
-                if mutations[entry][index] == '-':
                     remove_mutation_list.append(entry)
 
     for entry in remove_mutation_list:
