@@ -2028,6 +2028,10 @@ class DesignDirectory:
         # design_symmetry/sequences (P432/Protein_Data/Sequence_Info)  # TODO
         self.all_scores = None
         # design_symmetry/all_scores (P432/All_Scores)
+        self.trajectories = None
+        # design_symmetry/all_scores/str(self)_Trajectories.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Trajectories.csv)
+        self.residues = None
+        # design_symmetry/all_scores/str(self)_Residues.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Residues.csv)
         self.building_blocks = None
         # design_symmetry/building_blocks (P432/4ftd_5tch)
         self.scores = None
@@ -2076,6 +2080,8 @@ class DesignDirectory:
         self.pdbs = os.path.join(self.protein_data, 'PDBs')
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
         self.all_scores = os.path.join(self.symmetry, 'All_' + PUtils.scores_outdir.title())  # TODO db integration
+        self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__)
+        self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__)
         self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.design_pdbs = os.path.join(self.path, PUtils.pdbs_outdir)

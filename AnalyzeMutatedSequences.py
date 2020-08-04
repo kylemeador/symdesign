@@ -562,32 +562,36 @@ def generate_alignment(seq1, seq2, matrix='blosum62'):
     return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
-def generate_mutations_from_seq(seq1, seq2, offset=True, blanks=False, termini=False, reference_gaps=False,
+def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
                                 only_gaps=False):
     """Create mutations with format A5K, one-indexed
 
-    Index so residue value starts at 1. For PDB file comparison, seq1 should be crystal sequence (ATOM), seq2 should be
-        expression sequence (SEQRES)
+    Indexed so first residue is 1. For PDB file comparison, mutant should be crystal sequence (ATOM), reference should
+        be expression sequence (SEQRES). only_gaps=True will return only the gapped area while blanks=True will return
+        the entire sequence
     Args:
-        seq1 (str): Mutant sequence
-        seq2 (str): Wild-type sequence
+        mutant (str): Mutant sequence. Will be in the 'to' key
+        reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
     Keyword Args:
         offset=True (bool): Whether to calculate alignment offset
-        remove_blanks=True (bool): Whether to remove all sequence that has zero index or missing residues
+        blanks=False (bool): Whether to include all indices that are outside the reference sequence or missing residues
+        termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
+        reference_gaps=False (bool): Whether to include indices that are missing residues inside the reference sequence
+        only_gaps=False (bool): Whether to only include all indices that are missing residues
     Returns:
         mutations (dict): {index: {'from': 'A', 'to': 'K'}, ...}
     """
     if offset:
-        alignment = generate_alignment(seq1, seq2)
+        alignment = generate_alignment(mutant, reference)
         align_seq_1 = alignment[0][0]
         align_seq_2 = alignment[0][1]
     else:
-        align_seq_1 = seq1
-        align_seq_2 = seq2
+        align_seq_1 = mutant
+        align_seq_2 = reference
 
     # Extract differences from the alignment
-    starting_index_of_seq2 = align_seq_2.find(seq2[0])
-    ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(seq2[-1])  # find offset end_index
+    starting_index_of_seq2 = align_seq_2.find(reference[0])
+    ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
     # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
     mutations = {}
     for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
