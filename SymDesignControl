@@ -696,6 +696,7 @@ if __name__ == '__main__':
                 #                                                             oligomer_chain_database_chain_map[chain])
                 #                  for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
 
+                full_insertions = {}
                 for j, pdb in enumerate(tag_sequences):
                     if tag_sequences[pdb]:
                         seq = add_expression_tag(tag_sequences[pdb]['seq'], pretag_sequences[chains[j]])
@@ -704,12 +705,18 @@ if __name__ == '__main__':
                     # If no MET start site, include one
                     if seq[0] != 'M':
                         seq = 'M%s' % seq
-                    final_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = seq
 
-                # Find sequence additions compared to the design.
-                full_insertions = {pdb: Ams.generate_mutations_from_seq(design_sequences[chains[j]],
-                                                                        final_sequences[pdb], offset=True, blanks=True)
-                                   for j, pdb in enumerate(tag_sequences)}
+                    design_string = '%s_design_%s_%s' % (pose_des_dir, design[i], pdb)
+                    final_sequences[design_string] = seq
+                    # Find sequence additions compared to the design.
+                    full_insertions[design_string] = Ams.generate_mutations_from_seq(design_sequences[chains[j]],
+                                                                                     final_sequences[design_string],
+                                                                                     offset=True, blanks=True)
+
+                # full_insertions = {pdb: Ams.generate_mutations_from_seq(design_sequences[chains[j]],
+                #                                                         final_sequences['%s_design_%s_%s' %
+                #                                             (pose_des_dir, design[i], pdb)], offset=True, blanks=True)
+                #                    for j, pdb in enumerate(tag_sequences)}
                 # Reduce to sequence only
                 for pdb in full_insertions:
                     inserted_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = '%s\n%s' % \
