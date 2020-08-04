@@ -486,8 +486,9 @@ if __name__ == '__main__':
                 # if not args.filters:
                 #     sys.exit('VY made this and I am going to put in here!')
                 design_requirements = {'percent_int_area_polar': 0.4, 'buns_per_ang': 0.002}
-                crystal_means = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
-                symmetry_requirements = crystal_means
+                crystal_means1 = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
+                crystal_means2 = {'shape_complementarity': 0.63, 'number_hbonds': 5}  # 'int_area_total': 570,
+                symmetry_requirements = crystal_means1
                 filters = {}
                 filters.update(design_requirements)
                 filters.update(symmetry_requirements)
@@ -495,8 +496,12 @@ if __name__ == '__main__':
                     consensus_weights = {'interaction_energy_complex': 0.5, 'percent_fragment': 0.5}
                     weights = consensus_weights
                 else:
-                    weights = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25,
-                               'observed_evolution': 0.25, 'int_composition_diff': 0.25}
+                    weights1 = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25,
+                                'observed_evolution': 0.25, 'int_composition_diff': 0.25}
+                    # Used without the interface area filter
+                    weights2 = {'protocol_energy_distance_sum': 0.20, 'shape_complementarity': 0.20,
+                                'observed_evolution': 0.20, 'int_composition_diff': 0.20, 'int_area_total': 0.20}
+                    weights = weights1
                 # if not args.weights:
                 #     sys.exit('VY made this and I am going to put in here!')
 
@@ -529,9 +534,12 @@ if __name__ == '__main__':
                 # Calculate the number of threads to use depending on computer resources
                 mp_threads = SDUtils.calculate_mp_threads(maximum=True)
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-                # zipped_args = zip(all_design_directories, repeat(args.number))
-                # results, exceptions = zip(*SDUtils.mp_starmap(select_sequences_mp, zipped_args, mp_threads))
-                results, exceptions = zip(*SDUtils.mp_map(Ams.select_sequences_mp, all_design_directories, mp_threads))
+                sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
+                                    'int_energy_res_summary_delta': 0.25}
+                sequence_weights = None  # Remove once calculated
+                zipped_args = zip(all_design_directories, repeat(sequence_weights))
+                results, exceptions = zip(*SDUtils.mp_starmap(Ams.select_sequences_mp, zipped_args, mp_threads))
+                # results, exceptions = zip(*SDUtils.mp_map(Ams.select_sequences_mp, all_design_directories, mp_threads))
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
             else:
