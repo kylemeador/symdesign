@@ -75,7 +75,7 @@ metric_master = {'buns_heavy_total': 'Buried unsaturated Hbonding heavy atoms in
                         'corrections to the score function',
                  'rmsd': 'Root Mean Square Deviation of all CA atoms between relaxed and design state',
                  groups: 'Protocols I to search sequence space for fragments and evolutionary information',
-                 'solvation_energy': 'Solvation energy to hydrate the docked complex',
+                 'solvation_energy': 'Energy required to hydrate the unbound components.',
                  'nanohedra_score': 'Sum of the inverse of each fragments Z-score capped at 3 = 1 / Z-score (maximum3)',
                  'fragment_z_score_total': 'The sum of all fragments Z-Scores',
                  'unique_fragments': 'The number of unique fragments placed on the pose',
@@ -964,15 +964,6 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
     #                                   hbonds=interface_hbonds)  # TODO when columns are correct
 
-    # Process H-bond and Residue metrics to dataframe
-    residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
-    # residue_df - returns multi-index column with residue number as first (top) column index, metric as second index
-    # during residue_df unstack, all residues with missing dicts are copied as nan
-    number_hbonds = {entry: len(interface_hbonds[entry]) for entry in interface_hbonds}
-    # number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
-    number_hbonds_s = pd.Series(number_hbonds, name='number_hbonds')
-    scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
-
     # Calculate amino acid observation percent from residue dict and background SSM's
     obs_d = {}
     for profile in profile_dict:
@@ -981,6 +972,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Remove residues from fragment dict if no fragment information available for them
     obs_d['fragment'] = SDUtils.clean_interior_keys(obs_d['fragment'], issm_residues, remove=False)
+    # Add observation information into the residue dictionary
     for design in residue_dict:
         res_dict = {'observed_%s' % profile: obs_d[profile][design] for profile in obs_d}
         residue_dict[design] = Ams.weave_sequence_dict(base_dict=residue_dict[design], **res_dict)
@@ -990,6 +982,15 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                          for profile in profile_dict}
     for profile in profile_dict:
         scores_df['observed_%s' % profile] = pd.Series(pose_observed_bkd[profile])
+
+    # Process H-bond and Residue metrics to dataframe
+    residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
+    # residue_df - returns multi-index column with residue number as first (top) column index, metric as second index
+    # during residue_df unstack, all residues with missing dicts are copied as nan
+    number_hbonds = {entry: len(interface_hbonds[entry]) for entry in interface_hbonds}
+    # number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
+    number_hbonds_s = pd.Series(number_hbonds, name='number_hbonds')
+    scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
 
     # Add design residue information to scores_df such as core, rim, and support measures
     for r_class in residue_classificiation:
@@ -1011,7 +1012,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     other_pose_metrics['observations'] = len(designs)
     other_pose_metrics['symmetry'] = symmetry
     # other_pose_metrics['total_interface_residues'] = len(int_residues)
-    other_pose_metrics['percent_fragment'] = len(issm) / len(int_residues)
+    other_pose_metrics['percent_fragment'] = len(profile_dict['fragment']) / len(int_residues)
 
     # Interface B Factor TODO ensure clean_asu.pdb has B-factors
     wt_pdb = SDUtils.read_pdb(wild_type_file)

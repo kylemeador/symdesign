@@ -944,7 +944,6 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
     # crystal_means = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
     # sort = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25, 'observed_evolution': 0.25,
     #         'int_composition_diff': 0.25}
-    weights_s = pd.Series(weights)
 
     # When df is not ranked by percentage
     _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': filters[metric]}
@@ -981,12 +980,12 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
                        df.droplevel(0, axis=1).loc[:, idx[:, 'percent_fragment']],
                        left_index=True, right_index=True).droplevel(0, axis=1)
     # filtered_indices = {}
-    logger.info('Using weighting parameters: %s' % str(weights))
+
     # for metric in filters:
     #     filtered_indices[metric] = set(df[df.droplevel(0, axis=1)[metric] >= filters[metric]].index.to_list())
     #     logger.info('Number of designs passing %s = %d' % (metric, len(filtered_indices[metric])))
     _df = _df.loc[final_indices, :]
-    ranked_df = _df.rank(method='min', pct=True, )
+    # ranked_df = _df.rank(method='min', pct=True, )  # default is to rank lower values as closer to 1
     # need {column: {'direction': 'max', 'value': 0.5, 'idx': []}, ...}
 
     # only used to check out the number of designs in each filter
@@ -996,8 +995,22 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
     # {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
 
     # display(ranked_df[weights_s.index.to_list()] * weights_s)
-    design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
-    design_list = design_scores_s.index.to_list()
+    logger.info('Using weighting parameters: %s' % str(weights))
+    _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
+                for metric in weights}
+    weight_direction = {'max': False, 'min': True}  # max - ascending=False, min - ascending=True
+    # weights_s = pd.Series(weights)
+    weight_score_s_d = {}
+    for metric in _weights:
+        weight_score_s_d[metric] = _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+                                                    method=_weights[metric]['direction'], pct=True) \
+                                   * _weights[metric]['value']
+
+    design_score_df = pd.merge(weight_score_s_d[weight] for weight in weights)
+    design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+    # these will be sorted by the largest value to the smallest
+    # design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
+    # design_list = design_scores_s.index.to_list()
     # design_list = design_scores_s.index.to_list()[:num_designs]
     logger.info('%d poses were selected:\n%s' % (len(design_list), '\n'.join(design_list)))
 
@@ -1005,24 +1018,25 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
 
 
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
-def select_sequences_s(des_dir, number=1, debug=False):
-    return select_sequences(des_dir, number=number, debug=debug)
+def select_sequences_s(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
+    return select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
 
 
-def select_sequences_mp(des_dir, number=1, debug=False):
+def select_sequences_mp(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
     try:
-        pose = select_sequences(des_dir, number=number, debug=debug)
+        pose = select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
         return pose, None
     except (SDUtils.DesignError, AssertionError) as e:
         return None, (des_dir.path, e)
 
 
-def select_sequences(des_dir, number=1, debug=False):
+def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
     """From a design directory find the sequences with the most neighbors to select for further characterization
 
     Args:
         des_dir (DesignDirectory)
     Keyword Args:
+        weights=None (iter): The weights to use in sequence selection
         number=1 (int): The number of sequences to consider for each design
         debug=False (bool): Whether or not to debug
     Returns:
@@ -1037,17 +1051,41 @@ def select_sequences(des_dir, number=1, debug=False):
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
 
     # Load relevant data from the design directory
-    trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
-    assert len(trajectory_file) == 1, 'Couldn\'t find files for %s' % \
-                                      os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir))
-    trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0])  # , 1, 2]
+    # trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
+    # assert len(trajectory_file) == 1, 'Couldn\'t find files for %s' % \
+    #                                   os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir))
+    # trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0])  # , 1, 2]
+    trajectory_df = pd.read_csv(des_dir.trajectories, index_col=0, header=[0])  # , 1, 2]
+    logger.info('Number of starting trajectories = %d' % len(trajectory_df))
 
-    sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
-    assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
-                                       os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+    if weights:
+        filter_df = pd.read_csv(filter_file, index_col=0)
+        # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
+        # _df = trajectory_df.loc[final_indices, :]
+        _df = trajectory_df
+        logger.info('Using weighting parameters: %s' % str(weights))
+        _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
+                    for metric in weights}
+        weight_direction = {'max': False, 'min': True}  # max - ascending=False, min - ascending=True
+        # weights_s = pd.Series(weights)
+        weight_score_s_d = {}
+        for metric in _weights:
+            weight_score_s_d[metric] = _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+                                                        method=_weights[metric]['direction'], pct=True) \
+                                       * _weights[metric]['value']
 
+        design_score_df = pd.merge(weight_score_s_d[weight] for weight in weights)
+        design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+
+        return design_list[:number]
+
+    # sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
+    # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
+    #                                    os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+    #
+    # all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
     # {chain: {name: sequence, ...}, ...}
-    all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
+    all_design_sequences = SDUtils.unpickle(des_dir.design_sequences)
     # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so unnecessary
     chains = list(all_design_sequences.keys())
     # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
