@@ -712,8 +712,7 @@ if __name__ == '__main__':
                     full_insertions = Ams.generate_mutations_from_seq(design_sequences[chains[j]],
                                                                       final_sequences[design_string],
                                                                       offset=True, blanks=True)
-                    print(full_insertions)
-                    sys.exit()
+
                     # Reduce to sequence only
                     inserted_sequences[design_string] = '%s\n%s' % (''.join([full_insertions[idx]['to']
                                                                              for idx in full_insertions]),
