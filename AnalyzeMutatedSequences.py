@@ -592,13 +592,11 @@ def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, te
     # Extract differences from the alignment
     starting_index_of_seq2 = align_seq_2.find(reference[0])
     ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
-    # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
     mutations = {}
     for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
         if seq1_aa != seq2_aa:
             mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
             # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
-        # i += 1
 
     remove_mutation_list = []
     if only_gaps:  # remove the actual mutations
@@ -606,8 +604,8 @@ def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, te
             if entry > 0 or entry <= ending_index_of_seq2:
                 if mutations[entry]['to'] != '-':
                     remove_mutation_list.append(entry)
-        termini, reference_gaps, blanks = True, True, True
-    if blanks:  # if blanks is True leave all types of blanks, if blanks is False check for requested types
+        blanks = True
+    if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
         termini, reference_gaps = True, True
         # for entry in mutations:
         #     for index in mutations[entry]:

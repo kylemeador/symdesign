@@ -696,7 +696,6 @@ if __name__ == '__main__':
                 #                                                             oligomer_chain_database_chain_map[chain])
                 #                  for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
 
-                full_insertions = {}
                 for j, pdb in enumerate(tag_sequences):
                     if tag_sequences[pdb]:
                         seq = add_expression_tag(tag_sequences[pdb]['seq'], pretag_sequences[chains[j]])
@@ -709,9 +708,11 @@ if __name__ == '__main__':
                     design_string = '%s_design_%s_%s' % (pose_des_dir, design[i], pdb)
                     final_sequences[design_string] = seq
                     # Find sequence additions compared to the design.
-                    full_insertions = Ams.generate_mutations_from_seq(design_sequences[chains[j]],
-                                                                      final_sequences[design_string],
-                                                                      offset=True, blanks=True)
+                    full_insertions = {residue: {'to': aa}
+                                       for residue, aa in enumerate(final_sequences[design_string], 1)}
+                    full_insertions.update(Ams.generate_mutations_from_seq(design_sequences[chains[j]],
+                                                                           final_sequences[design_string],
+                                                                           offset=True, blanks=True))
 
                     # Reduce to sequence only
                     inserted_sequences[design_string] = '%s\n%s' % (''.join([full_insertions[idx]['to']
