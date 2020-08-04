@@ -709,19 +709,22 @@ if __name__ == '__main__':
                     design_string = '%s_design_%s_%s' % (pose_des_dir, design[i], pdb)
                     final_sequences[design_string] = seq
                     # Find sequence additions compared to the design.
-                    full_insertions[design_string] = Ams.generate_mutations_from_seq(design_sequences[chains[j]],
-                                                                                     final_sequences[design_string],
-                                                                                     offset=True, blanks=True)
+                    full_insertions = Ams.generate_mutations_from_seq(design_sequences[chains[j]],
+                                                                      final_sequences[design_string],
+                                                                      offset=True, blanks=True)
+                    # Reduce to sequence only
+                    inserted_sequences[design_string] = '%s\n%s' % (''.join([full_insertions[idx]['to']
+                                                                             for idx in full_insertions]),
+                                                                    final_sequences[design_string])
 
                 # full_insertions = {pdb: Ams.generate_mutations_from_seq(design_sequences[chains[j]],
                 #                                                         final_sequences['%s_design_%s_%s' %
                 #                                             (pose_des_dir, design[i], pdb)], offset=True, blanks=True)
                 #                    for j, pdb in enumerate(tag_sequences)}
-                # Reduce to sequence only
-                for pdb in full_insertions:
-                    inserted_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = '%s\n%s' % \
-                        (''.join([full_insertions[pdb][idx]['to'] for idx in full_insertions[pdb]]),
-                         final_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)])
+                # for pdb in full_insertions:
+                #     inserted_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = '%s\n%s' % \
+                #         (''.join([full_insertions[pdb][idx]['to'] for idx in full_insertions[pdb]]),
+                #          final_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)])
 
                 # final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
                 #                                                    design_sequences[chains[j]])
