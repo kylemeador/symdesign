@@ -703,7 +703,7 @@ if __name__ == '__main__':
                         seq = pretag_sequences[chains[j]]
                     # If no MET start site, include one
                     if seq[0] != 'M':
-                        seq.insert(0, 'M')
+                        seq = 'M%s' % seq
                     final_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = seq
 
                 # Find sequence additions compared to the design.
