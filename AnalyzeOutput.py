@@ -1226,9 +1226,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
         sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
 
-    _path = os.path.join(des_dir.all_scores, str(des_dir))
     # Create figures
     if figures:
+        _path = os.path.join(des_dir.all_scores, str(des_dir))
         # Set up Labels & Plot the PC data
         protocol_map = {protocol: i for i, protocol in enumerate(unique_protocols)}
         integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
@@ -1281,8 +1281,10 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Save Trajectory, Residue DataFrames, and PDB Sequences
     if save_trajectories:
-        trajectory_df.to_csv('%s_Trajectories.csv' % _path)
-        clean_residue_df.to_csv('%s_Residues.csv' % _path)
+        # trajectory_df.to_csv('%s_Trajectories.csv' % _path)
+        trajectory_df.to_csv(des_dir.trajectories)
+        # clean_residue_df.to_csv('%s_Residues.csv' % _path)
+        clean_residue_df.to_csv(des_dir.residues)
         SDUtils.pickle_object(all_design_sequences, '%s_Sequences' % str(des_dir), out_path=des_dir.all_scores)
 
     # CONSTRUCT: Create pose series and format index names

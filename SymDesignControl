@@ -501,7 +501,7 @@ if __name__ == '__main__':
                 #     sys.exit('VY made this and I am going to put in here!')
 
                 selected_poses = Ams.filter_pose(args.dataframe, filters, weights,  # num_designs=args.number,
-                                             consensus=args.consensus, filter_file=PUtils.filter_and_sort)
+                                                 consensus=args.consensus, filter_file=PUtils.filter_and_sort)
 
                 # Sort results according to clustered poses
                 pose_cluster_map = SDUtils.unpickle(
@@ -552,12 +552,17 @@ if __name__ == '__main__':
         else:
             args.selection_string += '_'
         outdir = os.path.join(os.path.dirname(location), '%sSelected_PDBs' % args.selection_string)
+        outdir_traj = os.path.join(outdir, 'Trajectories')
+        outdir_res = os.path.join(outdir, 'Residues')
+
         if not os.path.exists(outdir):
             os.makedirs(outdir)
+            os.makedirs(outdir_traj)
+            os.makedirs(outdir_res)
 
         # Create symbolic links to the output PDB's
         chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        final_sequences = {}
+        final_sequences, inserted_sequences = {}, {}
         for pose in results:
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
@@ -567,6 +572,9 @@ if __name__ == '__main__':
                                        (pose_des_dir.design_pdbs, design[i])))
                     continue
                 os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
+                os.symlink(pose_des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(pose_des_dir.trajectories)))
+                os.symlink(pose_des_dir.residues, os.path.join(outdir_res, os.path.basename(pose_des_dir.residues)))
+
                 # Format sequences for expression
                 # coming in as (chain: seq}
                 design_pose = SDUtils.read_pdb(file[0])
@@ -675,7 +683,7 @@ if __name__ == '__main__':
                 #     for residue in gapped_residues_d[chain]:
 
                 tag_sequences = {}
-                # Check if sequence already has tag and just re-use
+                # Check if sequence already has tag and re-use
                 for pdb, chain in zip(pose_pdbs, pretag_sequences):
                     if find_expression_tags(pretag_sequences[chain]) == dict():
                         # Look for compatible tags
@@ -693,17 +701,29 @@ if __name__ == '__main__':
                         seq = add_expression_tag(tag_sequences[pdb]['seq'], pretag_sequences[chains[j]])
                     else:
                         seq = pretag_sequences[chains[j]]
+                    # If no MET start site, include one
+                    if seq[0] != 'M':
+                        seq.insert(0, 'M')
                     final_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = seq
+
+                # Find sequence additions compared to the design.
+                full_insertions = {pdb: Ams.generate_mutations_from_seq(design_sequences[chains[j]],
+                                                                        final_sequences[pdb], offset=True, blanks=True)
+                                   for j, pdb in enumerate(final_sequences)}
+                # Reduce to sequence only
+                for pdb in full_insertions:
+                    inserted_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = '%s\n%s' % \
+                        (''.join([full_insertions[pdb][idx]['to'] for idx in full_insertions[pdb]]),
+                         final_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)])
+
                 # final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
                 #                                                    design_sequences[chains[j]])
                 #                            for j, pdb in enumerate(tag_sequences)}
-                # format sequence for M start
-
-        print(final_sequences)
 
         # Write output sequences to fasta file
-        seq_file = Ams.write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
-                                        outpath=os.path.dirname(location))
+        seq_comparison_file = Ams.write_fasta_file(inserted_sequences, '%sSelected_Sequences_Expression_Additions' %
+                                                   args.selection_string, outpath=outdir)
+        seq_file = Ams.write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string, outpath=outdir)
 
     # Report any program exceptions
     any_exceptions = [exception for exception in exceptions if exception]
