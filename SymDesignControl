@@ -709,7 +709,7 @@ if __name__ == '__main__':
                 # Find sequence additions compared to the design.
                 full_insertions = {pdb: Ams.generate_mutations_from_seq(design_sequences[chains[j]],
                                                                         final_sequences[pdb], offset=True, blanks=True)
-                                   for j, pdb in enumerate(final_sequences)}
+                                   for j, pdb in enumerate(tag_sequences)}
                 # Reduce to sequence only
                 for pdb in full_insertions:
                     inserted_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = '%s\n%s' % \
