@@ -1074,7 +1074,7 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
                                                         method=_weights[metric]['direction'], pct=True) \
                                        * _weights[metric]['value']
 
-        design_score_df = pd.merge(weight_score_s_d[weight] for weight in weights)
+        design_score_df = pd.concatente(weight_score_s_d[weight] for weight in weights, axis=1)
         design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
 
         return design_list[:number]
