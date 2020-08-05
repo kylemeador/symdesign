@@ -536,7 +536,7 @@ if __name__ == '__main__':
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
                 sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                                     'int_energy_res_summary_delta': 0.25}
-                sequence_weights = None  # Remove once calculated
+                # sequence_weights = None  # Remove once calculated
                 zipped_args = zip(all_design_directories, repeat(sequence_weights))
                 results, exceptions = zip(*SDUtils.mp_starmap(Ams.select_sequences_mp, zipped_args, mp_threads))
                 # results, exceptions = zip(*SDUtils.mp_map(Ams.select_sequences_mp, all_design_directories, mp_threads))
