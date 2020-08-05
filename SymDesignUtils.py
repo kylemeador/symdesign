@@ -2054,6 +2054,7 @@ class DesignDirectory:
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
         self.log = None
+
         if auto_structure:
             if symmetry:
                 if len(self.path.split(os.sep)) == 1:
