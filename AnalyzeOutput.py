@@ -852,7 +852,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # frag_db = os.path.basename(des_dir.info['issm'].split(PUtils.frag_type)[0])
     # interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[os.path.basename(des_dir.info['db'])])
-    interface_bkgd = SDUtils.get_db_aa_frequencies(des_dir.info['db'])
+    interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[des_dir.info['db']])
     # profile_dict = {'evolution': pssm, 'fragment': issm, 'combined': dssm}
     profile_dict = {'evolution': SDUtils.parse_pssm(des_dir.info['pssm']),
                     'fragment': SDUtils.unpickle(des_dir.info['issm']),
