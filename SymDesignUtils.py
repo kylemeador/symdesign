@@ -2096,28 +2096,30 @@ class DesignDirectory:
         self.asu = os.path.join(self.path, PUtils.clean)
 
         if not os.path.exists(self.path):
-            raise DesignError('Path does not exist!\n%s' % self.path)
-        if not os.path.exists(self.protein_data):
-            os.makedirs(self.protein_data)
-        if not os.path.exists(self.pdbs):
-            os.makedirs(self.pdbs)
-        if not os.path.exists(self.sequences):
-            os.makedirs(self.sequences)
-        if not os.path.exists(self.all_scores):
-            os.makedirs(self.all_scores)
-        if not os.path.exists(self.scores):
-            os.makedirs(self.scores)
-        if not os.path.exists(self.design_pdbs):
-            os.makedirs(self.design_pdbs)
-        if not os.path.exists(self.data):
-            os.makedirs(self.data)
+            # raise DesignError('Path does not exist!\n%s' % self.path)
+            logger.warning('%s: Path does not exist!' % self.path)
         else:
-            if os.path.exists(os.path.join(self.data, 'info.pkl')):
+            if not os.path.exists(self.protein_data):
+                os.makedirs(self.protein_data)
+            if not os.path.exists(self.pdbs):
+                os.makedirs(self.pdbs)
+            if not os.path.exists(self.sequences):
+                os.makedirs(self.sequences)
+            if not os.path.exists(self.all_scores):
+                os.makedirs(self.all_scores)
+            if not os.path.exists(self.scores):
+                os.makedirs(self.scores)
+            if not os.path.exists(self.design_pdbs):
+                os.makedirs(self.design_pdbs)
+            if not os.path.exists(self.data):
+                os.makedirs(self.data)
+            else:
+                if os.path.exists(os.path.join(self.data, 'info.pkl')):
 
-                # raise DesignError('%s: No information found for pose. Have you initialized it?\n'
-                #                   'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
-                #                   (self.path, PUtils.program_name))
-                self.info = unpickle(os.path.join(self.data, 'info.pkl'))
+                    # raise DesignError('%s: No information found for pose. Have you initialized it?\n'
+                    #                   'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
+                    #                   (self.path, PUtils.program_name))
+                    self.info = unpickle(os.path.join(self.data, 'info.pkl'))
 
     def start_log(self, name=None, level=2):
         _name = __name__
