@@ -23,7 +23,7 @@ import SymDesignUtils as SDUtils
 
 
 # Globals
-logger = SDUtils.start_log(__name__)
+# logger = SDUtils.start_log(__name__)
 db = PUtils.biological_fragmentDB
 index_offset = SDUtils.index_offset
 
@@ -1081,7 +1081,7 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
 
         design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
         design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
-        logger.info('Final ranking of trajectories:\n%s' % '\n'.join(pose for pose in design_list))
+        logger.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
 
         return zip(repeat(des_dir), design_list[:number])
 
