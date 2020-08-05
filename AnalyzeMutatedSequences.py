@@ -1081,8 +1081,9 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
 
         design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
         design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+        logger.info('Final ranking of trajectories:\n%s' % '\n'.join(pose for pose in design_list))
 
-        return design_list[:number]
+        return zip(repeat(des_dir), design_list[:number])
 
     # sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
     # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
