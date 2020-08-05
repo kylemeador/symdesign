@@ -1073,10 +1073,10 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Get unique protocols for protocol specific metrics and drop unneeded protocol values
     unique_protocols = protocol_s.unique().tolist()
     protocol_intersection = set(protocols_of_interest) & set(unique_protocols)
-    # if len(unique_protocols) == 1: TODO protocol switch or no design switch
-    # assert protocol_intersection == set(protocols_of_interest), \
-    #     'Missing %s protocol required for significance measurements! Analysis failed' \
-    #     % ', '.join(set(protocols_of_interest) - protocol_intersection)
+    if len(unique_protocols) == 1:  # TODO protocol switch or no design switch
+    assert protocol_intersection == set(protocols_of_interest), \
+        'Missing %s protocol required for significance measurements! Analysis failed' \
+        % ', '.join(set(protocols_of_interest) - protocol_intersection)
     for value in ['refine', '']:  # TODO remove '' after P432 MinMatch6 upon future script deployment
         try:
             unique_protocols.remove(value)
@@ -1223,9 +1223,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         logger.info(grouped_pc_stat_df_dict[pc_stat])
 
     # Find total protocol similarity for different metrics
-    # for measure in sim_measures:
-    #     measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
-    #     sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
+    for measure in sim_measures:
+        measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
+        sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
 
     # Create figures
     if figures:
