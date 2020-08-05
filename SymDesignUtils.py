@@ -2111,12 +2111,13 @@ class DesignDirectory:
             os.makedirs(self.design_pdbs)
         if not os.path.exists(self.data):
             os.makedirs(self.data)
-        else:  # TODO fix this
-            if not os.path.exists(os.path.join(self.data, 'info.pkl')):
-                raise DesignError('%s: No information found for pose. Have you initialized it?\n'
-                                  'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
-                                  (self.path, PUtils.program_name))
-            self.info = unpickle(os.path.join(self.data, 'info.pkl'))
+        else:
+            if os.path.exists(os.path.join(self.data, 'info.pkl')):
+
+                # raise DesignError('%s: No information found for pose. Have you initialized it?\n'
+                #                   'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
+                #                   (self.path, PUtils.program_name))
+                self.info = unpickle(os.path.join(self.data, 'info.pkl'))
 
     def start_log(self, name=None, level=2):
         _name = __name__
