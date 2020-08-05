@@ -298,7 +298,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
         for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
             template_pdb.all_atoms[atom_idx].chain = template_pdb.chain_id_list[0].lower()
-        template_pdb.chain_id_list = ['x', template_pdb.chain_id_list[0]]
+        template_pdb.chain_id_list = [template_pdb.chain_id_list[0].lower(), template_pdb.chain_id_list[0]]
         num_chains = len(template_pdb.chain_id_list)
         logger.warning('%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
                        ' %s' % (des_dir.path, num_chains, template_pdb.chain_id_list))
