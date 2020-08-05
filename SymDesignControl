@@ -605,16 +605,16 @@ if __name__ == '__main__':
                 source_seqres = {chain: oligomers[k].sequence_dictionary[oligomers[k].chain_id_list[0]]
                                  for k, chain in enumerate(chains[:len(oligomers)])}
 
-                seqres_pose = PDB.PDB()
-                for oligomer, _chain in zip(oligomers, reversed(chains)):
-                    # print('Before', oligomer.chain_id_list)
-                    oligomer.rename_chain(oligomer.chain_id_list[0], _chain)
-                    # print('After', oligomer.chain_id_list)
-                    seqres_pose.read_atom_list(oligomer.chain(_chain))
-                    # print('In', seqres_pose.chain_id_list)
-                # print('Out', seqres_pose.chain_id_list)
-                seqres_pose.pose_numbering()  # Why is this necessary
-                seqres_pose.sequence_dictionary = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
+                # seqres_pose = PDB.PDB()
+                # for oligomer, _chain in zip(oligomers, reversed(chains)):
+                #     # print('Before', oligomer.chain_id_list)
+                #     oligomer.rename_chain(oligomer.chain_id_list[0], _chain)
+                #     # print('After', oligomer.chain_id_list)
+                #     seqres_pose.read_atom_list(oligomer.chain(_chain))
+                #     # print('In', seqres_pose.chain_id_list)
+                # # print('Out', seqres_pose.chain_id_list)
+                # seqres_pose.pose_numbering()  # Why is this necessary
+                # seqres_pose.sequence_dictionary = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
                 # print('Reorder', seqres_pose.chain_id_list)
                 # Insert loops identified by comparison of SEQRES and ATOM
 
