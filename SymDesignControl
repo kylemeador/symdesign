@@ -582,9 +582,12 @@ if __name__ == '__main__':
                     exceptions.append((pose_des_dir.path, 'No file found for %s*%s*' %
                                        (pose_des_dir.design_pdbs, design[i])))
                     continue
-                os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
-                os.symlink(pose_des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(pose_des_dir.trajectories)))
-                os.symlink(pose_des_dir.residues, os.path.join(outdir_res, os.path.basename(pose_des_dir.residues)))
+                try:
+                    os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
+                    os.symlink(pose_des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(pose_des_dir.trajectories)))
+                    os.symlink(pose_des_dir.residues, os.path.join(outdir_res, os.path.basename(pose_des_dir.residues)))
+                except FileExistsError:
+                    pass
 
                 # Format sequences for expression
                 # coming in as (chain: seq}
