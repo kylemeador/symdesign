@@ -1005,13 +1005,18 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
     logger.info('Using weighting parameters: %s' % str(weights))
     _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
                 for metric in weights}
-    weight_direction = {'max': False, 'min': True}  # max - ascending=False, min - ascending=True
+    weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
     # weights_s = pd.Series(weights)
     weight_score_s_d = {}
     for metric in _weights:
+        print(metric)
+        print(_df[metric])
         weight_score_s_d[metric] = _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
                                                     method=_weights[metric]['direction'], pct=True) \
                                    * _weights[metric]['value']
+        print(weight_score_s_d[metric])
+        print(_weights[metric]['direction'])
+        print(_weights[metric]['value'])
 
     design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
     design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
@@ -1078,7 +1083,7 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
         logger.info('Using weighting parameters: %s' % str(weights))
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
                     for metric in weights}
-        weight_direction = {'max': False, 'min': True}  # max - ascending=False, min - ascending=True
+        weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
         # weights_s = pd.Series(weights)
         weight_score_s_d = {}
         for metric in _weights:
