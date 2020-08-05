@@ -1056,7 +1056,11 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
     #                                   os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir))
     # trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0])  # , 1, 2]
     trajectory_df = pd.read_csv(des_dir.trajectories, index_col=0, header=[0])  # , 1, 2]
+    trajectory_df = trajectory_df['protocol'].dropna()
+    # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
+    # designs = list(all_design_sequences[chains[0]].keys())
     logger.info('Number of starting trajectories = %d' % len(trajectory_df))
+    designs = trajectory_df[trajectory_df['protocol'] == desired_protocol].index.to_list()
 
     if weights:
         filter_df = pd.read_csv(filter_file, index_col=0)
@@ -1088,9 +1092,6 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
     all_design_sequences = SDUtils.unpickle(des_dir.design_sequences)
     # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so unnecessary
     chains = list(all_design_sequences.keys())
-    # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
-    # designs = list(all_design_sequences[chains[0]].keys())
-    designs = trajectory_df[trajectory_df['protocol'] == desired_protocol].index.to_list()
     concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains]) for design in designs]
     logger.debug(chains)
     logger.debug(concatenated_sequences)
