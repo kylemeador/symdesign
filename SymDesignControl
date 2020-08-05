@@ -488,7 +488,7 @@ if __name__ == '__main__':
                 design_requirements = {'percent_int_area_polar': 0.4, 'buns_per_ang': 0.002}
                 crystal_means1 = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
                 crystal_means2 = {'shape_complementarity': 0.63, 'number_hbonds': 5}  # 'int_area_total': 570,
-                symmetry_requirements = crystal_means2
+                symmetry_requirements = crystal_means1
                 filters = {}
                 filters.update(design_requirements)
                 filters.update(symmetry_requirements)
@@ -501,7 +501,7 @@ if __name__ == '__main__':
                     # Used without the interface area filter
                     weights2 = {'protocol_energy_distance_sum': 0.20, 'shape_complementarity': 0.20,
                                 'observed_evolution': 0.20, 'int_composition_diff': 0.20, 'int_area_total': 0.20}
-                    weights = weights2
+                    weights = weights1
                 # if not args.weights:
                 #     sys.exit('VY made this and I am going to put in here!')
 
