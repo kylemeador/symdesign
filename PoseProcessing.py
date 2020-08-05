@@ -297,11 +297,13 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         first_oligomer = SDUtils.read_pdb(oligomer_file[0])
         # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
         for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
-            template_pdb.all_atoms[atom_idx].chain = 'x'
+            template_pdb.all_atoms[atom_idx].chain = template_pdb.chain_id_list[0].lower()
         template_pdb.chain_id_list = ['x', template_pdb.chain_id_list[0]]
         num_chains = len(template_pdb.chain_id_list)
         logger.warning('%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
                        ' %s' % (des_dir.path, num_chains, template_pdb.chain_id_list))
+        # Save the renamed chain PDB to central_asu.pdb
+        template_pdb.write(des_dir.source)
 
     assert len(pdb_codes) == num_chains, 'Number of chains \'%d\' in ASU doesn\'t match number of building blocks ' \
                                          '\'%d\'' % (num_chains, len(pdb_codes))
