@@ -933,7 +933,14 @@ def df_filter_index_by_value(df, **kwargs):
     return kwargs
 
 
-def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.filter_and_sort):  # num_designs=1,
+def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.filter_and_sort):
+
+    # if debug:
+    #     global logger
+    # else:
+    logger = SDUtils.start_log(name=__name__, handler=1, level=2)
+                                   # location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
+
     idx = pd.IndexSlice
     df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
     filter_df = pd.read_csv(filter_file, index_col=0)
