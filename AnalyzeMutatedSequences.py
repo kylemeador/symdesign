@@ -1082,10 +1082,11 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
         # weights_s = pd.Series(weights)
         weight_score_s_d = {}
         for metric in _weights:
+            print(metric)
+            print(_df[metric])
             weight_score_s_d[metric] = _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
                                                         method=_weights[metric]['direction'], pct=True) \
                                        * _weights[metric]['value']
-            print(metric)
             print(weight_score_s_d[metric])
             print(_weights[metric]['direction'])
             print(_weights[metric]['value'])

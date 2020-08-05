@@ -1073,7 +1073,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Get unique protocols for protocol specific metrics and drop unneeded protocol values
     unique_protocols = protocol_s.unique().tolist()
     protocol_intersection = set(protocols_of_interest) & set(unique_protocols)
-    if len(unique_protocols) == 1:  # TODO protocol switch or no design switch
+    # if len(unique_protocols) == 1:  # TODO protocol switch or no design switch
     assert protocol_intersection == set(protocols_of_interest), \
         'Missing %s protocol required for significance measurements! Analysis failed' \
         % ', '.join(set(protocols_of_interest) - protocol_intersection)
