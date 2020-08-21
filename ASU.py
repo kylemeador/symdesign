@@ -28,10 +28,12 @@ if __name__ == '__main__':
         logger.error('No file list specified. Please specify one of -d or -f to collect the list of files')
         exit()
     elif args.directory:
-        location = SDUtils.get_all_pdb_file_paths(args.directory)
+        file_list = SDUtils.get_all_pdb_file_paths(args.directory)
+        # location = SDUtils.get_all_pdb_file_paths(args.directory)
     else:  # args.file
-        location = args.file
+        file_list = SDUtils.to_iterable(args.file)
+        # location = args.file
 
-    file_list = SDUtils.to_iterable(location)
+    # file_list = SDUtils.to_iterable(location)
     new_files = make_asu(file_list, args.chain, destination=args.output_destination)
     logger.info('ASU files were written to:\n%s' % '\n'.join(new_files))
