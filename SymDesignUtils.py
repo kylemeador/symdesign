@@ -9,7 +9,7 @@ from glob import glob
 from json import loads, dumps
 import numpy as np
 import multiprocessing as mp
-import sklearn.neighbors
+from sklearn.neighbors import BallTree
 from itertools import repeat
 import PDB
 from Bio.SeqUtils import IUPACData
@@ -666,6 +666,24 @@ def fill_pdb(atom_list):
     return pdb
 
 
+def extract_asu(file, chain='A', outpath=None):
+    """Takes a PDB file and extracts an ASU. ASU is defined as chain, plus all unique entities in contact with chain"""
+    if outpath:
+        asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0]) # TODO use below
+        # asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0] + '_%s' % 'asu.pdb')
+    else:
+        asu_file_name = os.path.splitext(file)[0] + '_%s' % 'asu.pdb'
+
+    pdb = read_pdb(file)
+    asu_pdb = PDB.PDB()
+    asu_pdb.__dict__ = pdb.__dict__.copy()
+    asu_pdb.all_atoms = pdb.get_asu(chain)
+    # asu_pdb = fill_pdb(pdb.get_asu(chain))
+    asu_pdb.write(asu_file_name, cryst1=asu_pdb.cryst)
+
+    return asu_file_name
+
+
 def residue_interaction_graph(pdb, distance=8, gly_ca=True):
     """Create a atom tree using CB atoms from two PDB's
 
@@ -681,7 +699,7 @@ def residue_interaction_graph(pdb, distance=8, gly_ca=True):
     coords = np.array(pdb.extract_CB_coords(InclGlyCA=gly_ca))
 
     # Construct CB Tree for PDB1
-    pdb1_tree = sklearn.neighbors.BallTree(coords)
+    pdb1_tree = BallTree(coords)
 
     # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
     query = pdb1_tree.query_radius(coords, distance)
@@ -708,7 +726,7 @@ def construct_cb_atom_tree(pdb1, pdb2, distance=8, gly_ca=True):
     pdb2_coords = np.array(pdb2.extract_CB_coords(InclGlyCA=gly_ca))
 
     # Construct CB Tree for PDB1
-    pdb1_tree = sklearn.neighbors.BallTree(pdb1_coords)
+    pdb1_tree = BallTree(pdb1_coords)
 
     # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
     query = pdb1_tree.query_radius(pdb2_coords, distance)
@@ -1590,6 +1608,32 @@ def condensed_to_square(k, n):
 #################
 # File Handling
 #################
+
+
+def to_iterable(_obj):
+    """Take a file/object and return a list of individual objects splitting on newline, space, or comma"""
+    _list = []
+    try:
+        with open(_obj, 'r') as f:
+            _list = f.readlines()
+    except FileNotFoundError:
+        if isinstance(_obj, list):
+            _list = _obj
+        else:
+            _list.append(_obj)
+
+    clean_list = []
+    for it in _list:
+        # pdb = pdb.strip()
+        it_list = it.split(',')
+        # if isinstance(pdb, list):
+        # pdb = list(map(str.strip(), pdb))
+        clean_list + [_it.strip() for _it in it_list]
+        # else:  # unreachable
+        #     clean_list.append(pdb.upper())  # unreachable
+    # clean_list = list(set(clean_list))
+
+    return clean_list
 
 
 def write_shell_script(command, name='script', outpath=os.getcwd(), additional=None):
