@@ -46,8 +46,9 @@ metric_master = {'buns_heavy_total': 'Buried unsaturated Hbonding heavy atoms in
                  'int_area_res_summary_total_A_oligomer': 'Sum of each interface residue\'s total area for oligomer A',
                  'int_area_res_summary_total_B_oligomer': 'Sum of each interface residue\'s total area for oligomer B',
                  'int_area_total': 'Total interface solvent accessible surface area',
-                 'int_connectivity_A': '"Interface connection chainA to the rest of the protein',
-                 'int_connectivity_B': '"Interface connection chainB to the rest of the protein',
+                 'int_composition_diff': 'The similarity to the expected interface composition given BSA. 1 is similar',
+                 'int_connectivity_A': 'Interface connection chainA to the rest of the protein',
+                 'int_connectivity_B': 'Interface connection chainB to the rest of the protein',
                  'int_energy_context_A_oligomer': 'Interface energy of the A oligomer',  # DEPRECIATED
                  'int_energy_context_B_oligomer': 'Interface energy of the B oligomer',  # DEPRECIATED
                  'int_energy_context_oligomer_A': 'Interface energy of the A oligomer',  # DEPRECIATED
@@ -444,7 +445,10 @@ def residue_composition_diff(row):
 
     for _class in classification_fxn_d:
         expected = classification_fxn_d[_class](int_area)
-        class_ratio_diff_d[_class] = (1 - abs(row[_class] - expected) / expected)
+        class_ratio_diff_d[_class] = (1 - (abs(row[_class] - expected) / expected))
+        if class_ratio_diff_d[_class] < 0:
+            # above calculation fails to bound between 0 and 1 with large obs values due to proportion > 1
+            class_ratio_diff_d[_class] = 0
     _sum = 0
     for value in class_ratio_diff_d.values():
         _sum += value

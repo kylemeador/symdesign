@@ -3,15 +3,16 @@ import os
 import argparse
 import math
 from glob import glob
-from itertools import combinations, repeat
+from itertools import combinations, repeat, chain
 import PDB
-from Bio.SeqUtils import IUPACData
-from Bio.Alphabet import generic_protein
+from Bio import SeqIO
+from Bio import pairwise2
 from Bio.Seq import Seq
+from Bio.SeqUtils import IUPACData
 from Bio.SeqRecord import SeqRecord
+from Bio.Alphabet import generic_protein
 from Bio.Align import MultipleSeqAlignment
 from Bio.SubsMat import MatrixInfo as matlist
-from Bio import pairwise2
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -189,6 +190,26 @@ def generate_mutations(all_design_files, wild_type_file, pose_num=False):
 #####################
 # Sequence handling
 #####################
+
+
+def read_fasta_file(file_name):
+    """Returns an iterator of SeqRecords"""
+    return SeqIO.parse(file_name, "fasta")
+    # sequence_records = [record for record in SeqIO.parse(file_name, "fasta")]
+    # return sequence_records
+
+
+def write_fasta(sequence_records, file_name):
+    """Writes an iterator of SeqRecords to a file. The file name is returned"""
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, "fasta")
+    return '%s.fasta' % file_name
+
+
+def concatenate_fasta_files(file_names, output='concatenated_fasta'):
+    """Take multiple fasta files and concatenate into a single file"""
+    seq_records = [read_fasta_file(file) for file in file_names]
+    return write_fasta(list(chain.from_iterable(seq_records)), output)
+
 
 
 def write_fasta_file(sequence, name, outpath=os.getcwd()):

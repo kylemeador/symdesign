@@ -3,6 +3,9 @@ import copy
 from Atom import Atom
 from Residue import Residue
 from Bio.SeqUtils import IUPACData
+from Bio import pairwise2
+from Bio.SubsMat import MatrixInfo as matlist
+from sklearn.neighbors import BallTree
 import subprocess
 from Stride import Stride
 # from functions import extract_aa_seq
@@ -22,6 +25,7 @@ class PDB:
         self.sequence_dictionary = {}  # dictionary of SEQRES entries. key is chainID, value is ['3 letter AA Seq']. Ex: {'A': ['ALA GLN GLY PHE...']}
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.chain_id_list = []  # list of unique chain IDs in PDB
+        self.entities = {}  # {0: {'chains': [], 'seq': 'GHIPLF...'}
         self.name = None
         self.pdb_ss_asg = []
         self.cb_coords = []
@@ -766,6 +770,14 @@ class PDB:
                 cb_indices.append(i)
         return cb_indices
 
+    def get_cb_indices_chain(self, chain, InclGlyCA=False):
+        cb_indices = []
+        for i in range(len(self.all_atoms)):
+            if self.all_atoms[i].chain == chain:
+                if self.all_atoms[i].is_CB(InclGlyCA=InclGlyCA):
+                    cb_indices.append(i)
+        return cb_indices
+
     def get_term_ca_indices(self, term):
         if term == "N":
             ca_term_list = []
@@ -952,3 +964,114 @@ class PDB:
             temp += atom.temp_fact
 
         return round(temp / len(residue_atoms), 2)
+
+    def get_all_entities(self):
+        """Find all unique entities in the pdb file, these are unique sequence structure objects"""
+        seq_d = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
+        count = 0
+        # self.entities[copy.copy(count)] = {'chains': [self.chain_id_list[0]], 'seq': seq_d[self.chain_id_list[0]]}
+        for chain in seq_d:
+            new_entity = True  # assume all chains are unique entities
+            for entity in self.entities:
+                alignment = pairwise2.align.localxx(seq_d[chain], self.entities[entity]['seq'])  # ,matlist.blosum62, 10, -1)
+                if alignment[0].score / len(self.entities[entity]['seq']) > 0.9:
+                    # rmsd = Bio.Superimposer()
+                    # if rmsd > 1:
+                    self.entities[entity]['chains'].append(chain)
+                    new_entity = False  # The entity is not unique, do not add
+                    break
+            if new_entity:  # nothing was found
+                self.entities[copy.copy(count)] = {'chains': [chain], 'seq': seq_d[chain]}
+                count += 1
+
+    def find_entity(self, chain):
+        for entity in self.entities:
+            if chain in self.entities[entity]['chains']:
+                return entity
+
+    def chain_interface_contacts(self, chain_id, distance=8, gly_ca=False):
+        """Create a atom tree using CB atoms from one chain and all other atoms
+
+        Args:
+            chain_id (PDB): First PDB to query against
+        Keyword Args:
+            distance=8 (int): The distance to query in Angstroms
+            gly_ca=False (bool): Whether glycine CA should be included in the tree
+        Returns:
+            chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
+        """
+        # Get chain CB Atom Coordinates
+        chain_coords = numpy.array(self.extract_CB_coords_chain(chain_id, InclGlyCA=gly_ca))
+
+        # Construct CB Tree for PDB1
+        chain_tree = BallTree(chain_coords)
+
+        # Get CB Atom indices for the chain CB and all_atoms CB
+        chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
+        all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
+        chain_coord_indices, contact_cb_indices = [], []
+        for i, idx in enumerate(all_cb_indices):
+            if idx not in chain_cb_indices:
+                contact_cb_indices.append(idx)
+            else:
+                chain_coord_indices.append(i)
+
+        # Get all CB Atom Coordinates including CA coordinates for Gly residues
+        all_coords = numpy.array(self.extract_CB_coords(InclGlyCA=gly_ca))
+        # Remove chain specific coords from all coords by
+        contact_coords = numpy.delete(all_coords, chain_coord_indices, axis=0)
+        # Query CB Tree for all Atoms within distance of PDB1 CB Atoms
+        chain_query = chain_tree.query_radius(contact_coords, distance)
+
+        all_contact_atoms, chain_atoms = [], []
+        for contact_idx, contacts in enumerate(chain_query):
+            if chain_query[contact_idx].tolist() != list():
+                all_contact_atoms.append(self.all_atoms[all_cb_indices[contact_idx]])
+                # residues2.append(pdb2.all_atoms[pdb2_cb_indices[pdb2_index]].residue_number)
+                # for pdb1_index in chain_query[contact_idx]:
+                for chain_idx in contacts:
+                    chain_atoms.append(self.all_atoms[chain_cb_indices[chain_idx]])
+
+        return chain_atoms, all_contact_atoms
+
+    def get_asu(self, chain=None):
+        """Return the atoms involved in the ASU with the provided chain
+
+        Keyword Args:
+            chain=None (str): The identity of the target asu
+        Returns:
+            (list): List of atoms involved in the identified asu
+        """
+        asu = self.chain(chain)
+        chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain, gly_ca=True)
+        self.get_all_entities()
+
+        interface_d = {}
+        for atom in all_contacting_interface_atoms:
+            if atom.chain not in interface_d:
+                interface_d[atom.chain] = [atom]
+            else:
+                interface_d[atom.chain].append(atom)
+
+        chain_entity = self.find_entity(chain)
+        for _chain in self.entities[chain_entity]['chains']:
+            if _chain != chain:
+                if _chain in interface_d:
+                    interface_d.pop(_chain)
+        partner_entities = set(self.entities.keys()) - {chain_entity}
+
+        unique_entity_chains = {}
+        for partner_entity in partner_entities:
+            max_contact, max_contact_chain = 0, None
+            for chain in interface_d:
+                if chain not in self.entities[partner_entity]['chains']:
+                    break  # ensure that the chain is relevant to this entity
+                if len(interface_d[chain]) > max_contact:
+                    max_contact = len(interface_d)
+                    max_contact_chain = chain
+            unique_entity_chains[partner_entity] = max_contact_chain  # set the maximum partner for this entity
+
+        for atoms in [self.chain(partner_chain) for partner_chain in unique_entity_chains.values()]:
+            asu += atoms
+
+        return asu
