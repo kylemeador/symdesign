@@ -966,15 +966,19 @@ class PDB:
         return round(temp / len(residue_atoms), 2)
 
     def get_all_entities(self):
-        """Find all unique entities in the pdb file, these are unique sequence structure objects"""
+        """Find all unique entities in the pdb file, these are unique sequence/structure objects"""
         seq_d = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
         count = 0
         # self.entities[copy.copy(count)] = {'chains': [self.chain_id_list[0]], 'seq': seq_d[self.chain_id_list[0]]}
         for chain in seq_d:
             new_entity = True  # assume all chains are unique entities
             for entity in self.entities:
-                alignment = pairwise2.align.localxx(seq_d[chain], self.entities[entity]['seq'])  # ,matlist.blosum62, 10, -1)
-                if alignment[0].score / len(self.entities[entity]['seq']) > 0.9:
+                if seq_d[chain] == self.entities[entity]['seq']:
+                    score = len(seq_d[chain])
+                else:
+                    alignment = pairwise2.align.localxx(seq_d[chain], self.entities[entity]['seq'])  # ,matlist.blosum62, 10, -1)
+                    score = alignment[0].score
+                if score / len(self.entities[entity]['seq']) > 0.9:
                     # rmsd = Bio.Superimposer()
                     # if rmsd > 1:
                     self.entities[entity]['chains'].append(chain)
@@ -1000,33 +1004,34 @@ class PDB:
         Returns:
             chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
         """
-        # Get chain CB Atom Coordinates
+        # Get chain CB Atom Coordinates into a numpy array [[x, y, z], ...]
         chain_coords = numpy.array(self.extract_CB_coords_chain(chain_id, InclGlyCA=gly_ca))
 
-        # Construct CB Tree for PDB1
+        # Construct CB Tree for the chain
         chain_tree = BallTree(chain_coords)
 
         # Get CB Atom indices for the chain CB and all_atoms CB
         chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
         all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
         chain_coord_indices, contact_cb_indices = [], []
+        # Find all the contacting CB indices and the indices where chain specific coords are located in all_coords
         for i, idx in enumerate(all_cb_indices):
             if idx not in chain_cb_indices:
                 contact_cb_indices.append(idx)
             else:
                 chain_coord_indices.append(i)
 
-        # Get all CB Atom Coordinates including CA coordinates for Gly residues
+        # Get all CB Atom Coordinates into a numpy array [[x, y, z], ...]
         all_coords = numpy.array(self.extract_CB_coords(InclGlyCA=gly_ca))
-        # Remove chain specific coords from all coords by
+        # Remove chain specific coords from all coords by deleting them from numpy
         contact_coords = numpy.delete(all_coords, chain_coord_indices, axis=0)
-        # Query CB Tree for all Atoms within distance of PDB1 CB Atoms
+        # Query chain CB Tree for all contacting Atoms within distance
         chain_query = chain_tree.query_radius(contact_coords, distance)
 
         all_contact_atoms, chain_atoms = [], []
         for contact_idx, contacts in enumerate(chain_query):
             if chain_query[contact_idx].tolist() != list():
-                all_contact_atoms.append(self.all_atoms[all_cb_indices[contact_idx]])
+                all_contact_atoms.append(self.all_atoms[contact_cb_indices[contact_idx]])
                 # residues2.append(pdb2.all_atoms[pdb2_cb_indices[pdb2_index]].residue_number)
                 # for pdb1_index in chain_query[contact_idx]:
                 for chain_idx in contacts:
@@ -1042,35 +1047,49 @@ class PDB:
         Returns:
             (list): List of atoms involved in the identified asu
         """
-        asu = self.chain(chain)
-        chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain, gly_ca=True)
         self.get_all_entities()
+        if not chain:
+            chain = self.chain_id_list[0]
 
-        interface_d = {}
-        for atom in all_contacting_interface_atoms:
-            if atom.chain not in interface_d:
-                interface_d[atom.chain] = [atom]
-            else:
-                interface_d[atom.chain].append(atom)
+        unique_entity_chains, chain_entity, iteration = {}, None, 0
+        while unique_entity_chains == dict():
+            # print(iteration, chain_entity)
+            if chain_entity is not None:
+                chain = self.entities[chain_entity]['chains'][iteration]
+                # print(chain)
+            chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain, gly_ca=True)
+            # print(self.entities)
+            interface_d = {}
+            for atom in all_contacting_interface_atoms:
+                if atom.chain not in interface_d:
+                    interface_d[atom.chain] = [atom]
+                else:
+                    interface_d[atom.chain].append(atom)
+            # print(interface_d)
+            chain_entity = self.find_entity(chain)
+            for _chain in self.entities[chain_entity]['chains']:
+                if _chain != chain:
+                    if _chain in interface_d:
+                        interface_d.pop(_chain)
+            partner_entities = set(self.entities.keys()) - {chain_entity}
 
-        chain_entity = self.find_entity(chain)
-        for _chain in self.entities[chain_entity]['chains']:
-            if _chain != chain:
-                if _chain in interface_d:
-                    interface_d.pop(_chain)
-        partner_entities = set(self.entities.keys()) - {chain_entity}
+            # Find the top contacting chain from each unique partner entity
+            for partner_entity in partner_entities:
+                max_contact, max_contact_chain = 0, None
+                for _chain in interface_d:
+                    # print('Partner: %s' % _chain)
+                    if _chain not in self.entities[partner_entity]['chains']:
+                        break  # ensure that the chain is relevant to this entity
+                    if len(interface_d[_chain]) > max_contact:
+                        # print('Partner GREATER!: %s' % _chain)
+                        max_contact = len(interface_d[_chain])
+                        max_contact_chain = _chain
+                if max_contact_chain:
+                    unique_entity_chains[partner_entity] = max_contact_chain  # set the maximum partner for this entity
+            # print('partners: %s' % unique_entity_chains)
+            iteration += 1
 
-        unique_entity_chains = {}
-        for partner_entity in partner_entities:
-            max_contact, max_contact_chain = 0, None
-            for chain in interface_d:
-                if chain not in self.entities[partner_entity]['chains']:
-                    break  # ensure that the chain is relevant to this entity
-                if len(interface_d[chain]) > max_contact:
-                    max_contact = len(interface_d)
-                    max_contact_chain = chain
-            unique_entity_chains[partner_entity] = max_contact_chain  # set the maximum partner for this entity
-
+        asu = self.chain(chain)
         for atoms in [self.chain(partner_chain) for partner_chain in unique_entity_chains.values()]:
             asu += atoms
 
