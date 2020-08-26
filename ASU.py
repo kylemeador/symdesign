@@ -59,16 +59,15 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             used_chains += oriented_pdb.chain_id_list
             oriented_pdb_seq_a = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
             chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a, force_closest=True)
-            print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
-            print('Orient\t: %s' % oriented_pdb_seq_a)
+            # print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
+            # print('Orient\t: %s' % oriented_pdb_seq_a)
             des_mutations_asu = Ams.generate_mutations_from_seq(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu],
                                                                 blanks=True)
             des_mutations_orient = Ams.generate_mutations_from_seq(asu.atom_sequences[chain_in_asu], oriented_pdb_seq_a,
                                                                    blanks=True)
-            # TODO need to ensure that the design mutations have the right index! This must be adjusted for the offset
-            #  of both sequences
-            print('ASU: %s' % des_mutations_asu)
-            print('Orient: %s' % des_mutations_orient)
+            # print('ASU: %s' % des_mutations_asu)
+            # print('Orient: %s' % des_mutations_orient)
+            # Ensure that the design mutations have the right index, must be adjusted for the offset of both sequences
             asu_offset, orient_offset = 0, 0
             for residue in des_mutations_asu:
                 if des_mutations_asu[residue]['from'] == '-' and residue > 0:
@@ -107,8 +106,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             oriented_pdb_seq_final = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
             final_mutations = Ams.generate_mutations_from_seq(oriented_pdb_seq_final, asu.atom_sequences[chain_in_asu],
                                                               offset=False, blanks=True)
-            print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
-            print('Orient\t: %s' % oriented_pdb_seq_final)
+            # print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
+            # print('Orient\t: %s' % oriented_pdb_seq_final)
             if final_mutations != dict():
                 exit('There is an error with indexing for Design %s, PDB %s. The index is %s' %
                      (design, pdb, final_mutations))
