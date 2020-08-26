@@ -88,6 +88,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                     for chain in oriented_pdb.chain_id_list:
                         # asu.delete_residue(chain, residue)
                         # print('Design %s: Deleted residue %d from Design ASU' % (design, residue))
+                        print(oriented_pdb.get_residue(chain, residue - orient_offset).type)
+                        print(oriented_pdb.get_residue(chain, residue - orient_offset).number)
                         oriented_pdb.delete_residue(chain, residue - orient_offset)
                         print('Design %s: Deleted residue %d from Oriented Input' % (design, residue - orient_offset))
                 # else:
