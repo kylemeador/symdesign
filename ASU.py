@@ -55,7 +55,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             # oriented_pdb.pose_numbering()  # Residue numbering needs to be same for each chain...
             for chain in oriented_pdb.chain_id_list:
                 oriented_pdb.reindex_chain_residues(chain)
-            oriented_pdb.reorder_chains(exclude_chains_list=used_chains)
+            oriented_pdb.reorder_chains(exclude_chains_list=used_chains)  # redoes sequences
             used_chains += oriented_pdb.chain_id_list
             oriented_pdb_seq_a = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
             chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a, force_closest=True)
@@ -79,8 +79,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                     asu.delete_residue(chain_in_asu, residue - asu_offset)
                     print('Design %s: Deleted residue %d from Design ASU' % (design, residue - asu_offset))
             for k in range(1, 34):
-                print(oriented_pdb.get_residue(chain, k).type)
-                print(oriented_pdb.get_residue(chain, k).number)
+                print(oriented_pdb.get_residue(oriented_pdb.chain_id_list[0], k).type)
+                print(oriented_pdb.get_residue(oriented_pdb.chain_id_list[0], k).number)
             print(oriented_pdb.get_residue(chain, 0).type)
             print(oriented_pdb.get_residue(chain, 0).number)
             for residue in des_mutations_orient:
