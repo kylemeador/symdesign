@@ -301,8 +301,8 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
         # Extract sequence from the SEQRES record
         fail = False
         while True:
-            if chain in pdb.sequence_dictionary:
-                sequence = pdb.sequence_dictionary[chain]
+            if chain in pdb.seqres_sequences:
+                sequence = pdb.seqres_sequences[chain]
                 break
             else:
                 if not fail:
@@ -585,11 +585,12 @@ def generate_alignment(seq1, seq2, matrix='blosum62'):
 
 def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
                                 only_gaps=False):
-    """Create mutations with format A5K, one-indexed
+    """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from' and
+        'to' keywords
 
     Indexed so first residue is 1. For PDB file comparison, mutant should be crystal sequence (ATOM), reference should
         be expression sequence (SEQRES). only_gaps=True will return only the gapped area while blanks=True will return
-        the entire sequence
+        all differences between the alignment sequences
     Args:
         mutant (str): Mutant sequence. Will be in the 'to' key
         reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
@@ -602,6 +603,7 @@ def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, te
     Returns:
         mutations (dict): {index: {'from': 'A', 'to': 'K'}, ...}
     """
+    # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
     if offset:
         alignment = generate_alignment(mutant, reference)
         align_seq_1 = alignment[0][0]

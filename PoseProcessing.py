@@ -399,15 +399,15 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # # Insert loops identified by comparison of SEQRES and ATOM
     # pdb_atom_seq = get_pdb_sequences(template_pdb, source='atom')
     # pose_offset_d = Ams.pdb_to_pose_num(pdb_atom_seq)
-    # if template_pdb.sequence_dictionary:
+    # if template_pdb.atom_sequences:
     #     missing_termini_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain],
-    #                                                             template_pdb.sequence_dictionary[chain], offset=True,
+    #                                                             template_pdb.atom_sequences[chain], offset=True,
     #                                                             termini=True) for chain in template_pdb.chain_id_list}
-    #     gapped_residues_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain], template_pdb.sequence_dictionary,
+    #     gapped_residues_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain], template_pdb.atom_sequences,
     #                                                             offset=True, reference_gaps=True)
     #                          for chain in template_pdb.chain_id_list}
     #     all_missing_residues_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain],
-    #                                                                  template_pdb.sequence_dictionary,
+    #                                                                  template_pdb.atom_sequences,
     #                                                                  offset=True, only_gaps=True)
     #                               for chain in template_pdb.chain_id_list}
     #

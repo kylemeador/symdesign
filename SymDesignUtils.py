@@ -539,7 +539,8 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
     """Download a pdbs from a file, a supplied list, or a single entry
 
     Args:
-        pdb (str, list): PDB's of interest
+        pdb (str, list): PDB's of interest. If asu=False, code_# is format for biological assembly specific pdb.
+            Ex: 1bkh_2 fetches biological assembly 2
     Keyword Args:
         asu=False (bool): Whether or not to download the asymmetric unit file
     Returns:
@@ -669,10 +670,10 @@ def fill_pdb(atom_list):
 def extract_asu(file, chain='A', outpath=None):
     """Takes a PDB file and extracts an ASU. ASU is defined as chain, plus all unique entities in contact with chain"""
     if outpath:
-        asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0]) # TODO use below
+        asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0] + '.pdb')
         # asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0] + '_%s' % 'asu.pdb')
     else:
-        asu_file_name = os.path.splitext(file)[0] + '_%s' % 'asu.pdb'
+        asu_file_name = os.path.splitext(file)[0] + '_asu.pdb'
 
     pdb = read_pdb(file)
     asu_pdb = PDB.PDB()

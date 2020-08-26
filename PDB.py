@@ -22,7 +22,8 @@ class PDB:
         self.cryst = None
         self.dbref = {}
         self.header = []
-        self.sequence_dictionary = {}  # dictionary of SEQRES entries. key is chainID, value is ['3 letter AA Seq']. Ex: {'A': ['ALA GLN GLY PHE...']}
+        self.seqres_sequences = {}  # SEQRES entries. key is chainID, value is 'AGHKLAIDL'
+        self.atom_sequences = {}  # ATOM sequences. key is chain, value is 'AGHKLAIDL'
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.chain_id_list = []  # list of unique chain IDs in PDB
         self.entities = {}  # {0: {'chains': [], 'seq': 'GHIPLF...'}
@@ -62,13 +63,13 @@ class PDB:
                     except ValueError:
                         self.res = None
                         continue
-                elif line[0:6] == 'SEQRES':
+                elif line[0:6] == 'SEQRES':  # KM added 7/25/19 to deal with SEQRES info
                     chain = line[11:12].strip()
                     sequence = line[19:71].strip().split()
-                    if chain in self.sequence_dictionary:
-                        self.sequence_dictionary[chain] += sequence
+                    if chain in self.seqres_sequences:
+                        self.seqres_sequences[chain] += sequence
                     else:
-                        self.sequence_dictionary[chain] = sequence
+                        self.seqres_sequences[chain] = sequence
                     # seq_list.append([chain, sequence])
                     continue
                 elif line[0:6] == "CRYST1" or line[0:5] == "SCALE":
@@ -147,25 +148,22 @@ class PDB:
                 continue
         self.chain_id_list = chain_ids
         self.renumber_atoms()
-        self.clean_sequences()
-        # self.retrieve_sequences(seq_list)
+        if self.seqres_sequences:
+            self.clean_sequences()
+        self.update_chain_sequences()
 
-    # KM added 7/25/19 to deal with SEQRES info
-    def clean_sequences(self):
-        if self.sequence_dictionary:
-            for chain in self.sequence_dictionary:
-                # sequence = self.sequence_dictionary[chain].strip().split(' ')  # split each 3 AA into list
-                # self.sequence_dictionary[chain] = []
-                for i, residue in enumerate(self.sequence_dictionary[chain]):
-                # for i, residue in enumerate(sequence):
-                    try:
-                        self.sequence_dictionary[chain][i] = IUPACData.protein_letters_3to1_extended[residue.title()]
-                    except KeyError:
-                        if residue.title() == 'Mse':
-                            self.sequence_dictionary[chain][i] = 'M'
-                        else:
-                            self.sequence_dictionary[chain][i] = 'X'
-                self.sequence_dictionary[chain] = ''.join(self.sequence_dictionary[chain])
+    def clean_sequences(self):  # Ensure the SEQRES information is accurate and convert to 1 AA format and {key: value}
+        # if self.sequences:
+        for chain in self.seqres_sequences:
+            for i, residue in enumerate(self.seqres_sequences[chain]):
+                try:
+                    self.seqres_sequences[chain][i] = IUPACData.protein_letters_3to1_extended[residue.title()]
+                except KeyError:
+                    if residue.title() == 'Mse':
+                        self.seqres_sequences[chain][i] = 'M'
+                    else:
+                        self.seqres_sequences[chain][i] = 'X'
+            self.seqres_sequences[chain] = ''.join(self.seqres_sequences[chain])
 
     def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):
         # reads a python list of Atoms and feeds PDB instance
@@ -190,6 +188,7 @@ class PDB:
                     chain_ids.append(atom.chain)
             self.chain_id_list += chain_ids
         self.renumber_atoms()
+        self.update_chain_sequences()
 
     # def retrieve_chain_ids(self):  # KM added 2/3/20 to deal with updating chain names after rename_chain(s) functions
     #     # creates a list of unique chain IDs in PDB and feeds it into chain_id_list maintaining order
@@ -397,6 +396,7 @@ class PDB:
         return return_pdb
 
     def rename_chains(self, chain_list_fixed):
+        # Caution, doesn't update SEQRES chain info
         lf = chain_list_fixed
         lm = self.chain_id_list[:]
 
@@ -430,16 +430,21 @@ class PDB:
             self.all_atoms[i].chain = l3[i]
 
         self.chain_id_list = lm
+        self.update_chain_sequences()
 
-    def rename_chain(self, chain_of_interest, new_chain):  # KM Added 8/19 Caution, will rename to already taken chain
+    def rename_chain(self, chain_of_interest, new_chain):  # KM Added 8/19 
+        # Caution, will rename to already taken chain. Also, doesn't update SEQRES chain info
+        
         chain_atoms = self.chain(chain_of_interest)
         for atom in chain_atoms:
             atom.chain = new_chain
             # chain_atoms[i].chain = new_chain
 
         self.chain_id_list[self.chain_id_list.index(chain_of_interest)] = new_chain
+        self.update_chain_sequences()
 
     def reorder_chains(self, exclude_chains_list=None):  # KM Added 12/16/19
+        # Caution, doesn't update SEQRES chain info
         # Renames chains starting from the first chain as A and the last as l_abc[len(self.chain_id_list) - 1]
         l_abc = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
                  'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
@@ -471,6 +476,7 @@ class PDB:
             self.all_atoms[i].chain = l3[i]
         # Update chain_id_list
         self.chain_id_list = l_moved
+        self.update_chain_sequences()
 
     def renumber_atoms(self):
         for idx, atom in enumerate(self.all_atoms, 1):
@@ -479,17 +485,31 @@ class PDB:
     def pose_numbering(self):  # KM Added 12/16/19
         # Starts numbering PDB residues at 1 and numbers sequentially until reaches last atom in file
         last_atom_index = len(self.all_atoms)
-        residues = len(self.get_all_residues())
+        # residues = len(self.get_all_residues())
         idx = 0  # offset , 1
-        for j, residue in enumerate(self.get_all_residues(), 1):
+        for i, residue in enumerate(self.get_all_residues(), 1):
             # current_res_num = self.all_atoms[idx].residue_number
             current_res_num = residue.number
             while self.all_atoms[idx].residue_number == current_res_num:
-                self.all_atoms[idx].residue_number = j  # + offset
+                self.all_atoms[idx].residue_number = i  # + offset
                 idx += 1
                 if idx == last_atom_index:
                     break
-        self.renumber_atoms()
+        self.renumber_atoms()  # should be unnecessary
+    
+    def reindex_chain_residues(self, chain):
+        # Starts numbering chain residues at 1 and numbers sequentially until reaches last atom in chain
+        chain_atoms = self.chain(chain)
+        last_atom_index = len(chain_atoms)
+        idx = chain_atoms[0].atom_number
+        for i, residue in enumerate(self.get_residues_chain(chain), 1):
+            current_res_num = residue.number
+            while self.all_atoms[idx].residue_number == current_res_num:
+                self.all_atoms[idx].residue_number = i
+                idx += 1
+                if idx == last_atom_index:
+                    break
+        self.renumber_atoms()  # should be unnecessary
 
     def AddZAxis(self):
         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
@@ -571,12 +591,10 @@ class PDB:
     def write(self, out_path, cryst1=None):
         if not cryst1:
             cryst1 = self.cryst_record
-        outfile = open(out_path, "w")
-        if cryst1 and isinstance(cryst1, str) and cryst1.startswith("CRYST1"):
-            outfile.write(str(cryst1) + "\n")
-        for atom in self.all_atoms:
-            outfile.write(str(atom))
-        outfile.close()
+        with open(out_path, "w") as outfile:
+            if cryst1 and isinstance(cryst1, str) and cryst1.startswith("CRYST1"):
+                outfile.write(str(cryst1) + "\n")
+            outfile.write('\n'.join(str(atom) for atom in self.all_atoms))
 
     def calculate_ss(self, chain_id="A", stride_exe_path='./stride/stride'):
         pdb_stride = Stride(self.filepath, chain_id, stride_exe_path)
@@ -591,13 +609,16 @@ class PDB:
         one_letter = ''.join([IUPACData.protein_letters_3to1[k.title()] for k in sequence_list if k.title() in IUPACData.protein_letters_3to1_extended])
         return one_letter
 
-    def orient(self, symm, orient_dir, generate_oriented_pdb=False):
+    def update_chain_sequences(self):
+        self.atom_sequences = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
+
+    def orient(self, symm, orient_dir, generate_oriented_pdb=True):
         os.system('cp %s input.pdb' % self.filepath)
         os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' % (orient_dir, orient_dir, symm))
         os.system('mv output.pdb %s_orient.pdb' % os.path.splitext(self.filepath)[0])
         os.system('rm input.pdb')
         if os.path.exists('%s_orient.pdb' % os.path.splitext(self.filepath)[0]):
-            if not generate_oriented_pdb:
+            if generate_oriented_pdb:
                 oriented_pdb = PDB()
                 oriented_pdb.readfile('%s_orient.pdb' % os.path.splitext(self.filepath)[0])
                 os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])
@@ -892,21 +913,31 @@ class PDB:
         return sasa_out
 
     def mutate_to(self, chain, residue, res_id='ALA'):  # KM added 12/31/19 to mutate pdb Residue objects to alanine
+        """Mutate specific chain and residue to a new residue type. Type can be 1 or 3 letter format"""
         # if using residue number, then residue_atom_list[i] is necessary
         # else using Residue object, residue.atom_list[i] is necessary
+        if res_id in IUPACData.protein_letters_1to3:
+            res_id = IUPACData.protein_letters_1to3[res_id]
+
         residue_atom_list = self.getResidueAtoms(chain, residue)  # residue.atom_list
         delete = []
-        for i in range(len(residue_atom_list)):
-            if residue_atom_list[i].is_backbone() or residue_atom_list[i].is_CB():
-                residue_atom_list[i].residue_type = res_id
+        # for i in range(len(residue_atom_list)):
+        for i, atom in enumerate(residue_atom_list):
+            # if residue_atom_list[i].is_backbone() or residue_atom_list[i].is_CB():
+            #     residue_atom_list[i].residue_type = res_id.upper()
+            if atom.is_backbone() or atom.is_CB():
+                residue_atom_list[i].residue_type = res_id.upper()
             else:
                 delete.append(i)
-
+        # TODO using AA reference lib, align the backbone + CB atoms of the residue then insert all side chain atoms
         if delete:
-            delete = sorted(delete, reverse=True)
-            for j in delete:
+            # delete = sorted(delete, reverse=True)
+            # for j in delete:
+            for j in reversed(delete):
                 i = residue_atom_list[j]
                 self.all_atoms.remove(i)
+            # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
+            self.renumber_atoms()
 
     def insert_residue(self, chain, residue, residue_type):  # KM added 08/01/20, only works for pose_numbering now
         if residue_type.title() in IUPACData.protein_letters_3to1_extended:
@@ -930,16 +961,16 @@ class PDB:
 
             # insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number
 
-        temp_pdb = PDB()  # TODO clean up speed by include in Atom.py or Residue.py or as read_atom_list()
-        temp_pdb.readfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AAreference.pdb'))
-        insert_atoms = temp_pdb.getResidueAtoms('A', IUPACData.protein_letters.find(residue_type))
-
         # Change all downstream residues
         for atom in self.all_atoms[insert_atom_idx:]:
             # atom.number += len(insert_atoms)
             # if atom.chain == chain: TODO uncomment for pdb numbering
             atom.residue_number += 1
 
+        # Grab the reference atom coordinates and push into the atom list
+        ref_aa = PDB()  # TODO clean up speed by include in Atom.py or Residue.py or as read_atom_list()
+        ref_aa.readfile(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AAreference.pdb'))
+        insert_atoms = ref_aa.getResidueAtoms('A', IUPACData.protein_letters.find(residue_type))
         for atom in reversed(insert_atoms):  # essentially a push
             # atom.number += insert_atom_idx + 1
             atom.chain = chain
@@ -947,6 +978,15 @@ class PDB:
             atom.occ = 0
             self.all_atoms.insert(insert_atom_idx, atom)
         self.renumber_atoms()
+
+    def delete_residue(self, chain, residue):  # KM added 08/25/20 to remove missing residues between two files
+        self.delete_atoms(self.getResidueAtoms(chain, residue))
+        self.renumber_atoms()
+
+    def delete_atoms(self, atoms):
+        # Need to call self.renumber_atoms() after every call to delete_atoms()
+        for atom in atoms:
+            self.all_atoms.remove(atom)
 
     def apply(self, rot, tx):  # KM added 02/10/20 to run extract_pdb_interfaces.py
         moved = []
@@ -965,18 +1005,18 @@ class PDB:
 
         return round(temp / len(residue_atoms), 2)
 
-    def get_all_entities(self):
+    def get_all_entities(self):  # KM added 08/21/20 to format or the ASU
         """Find all unique entities in the pdb file, these are unique sequence/structure objects"""
-        seq_d = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
-        count = 0
+        # seq_d = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
         # self.entities[copy.copy(count)] = {'chains': [self.chain_id_list[0]], 'seq': seq_d[self.chain_id_list[0]]}
-        for chain in seq_d:
+        count = 0
+        for chain in self.atom_sequences:
             new_entity = True  # assume all chains are unique entities
             for entity in self.entities:
-                if seq_d[chain] == self.entities[entity]['seq']:
-                    score = len(seq_d[chain])
+                if self.atom_sequences[chain] == self.entities[entity]['seq']:
+                    score = len(self.atom_sequences[chain])
                 else:
-                    alignment = pairwise2.align.localxx(seq_d[chain], self.entities[entity]['seq'])  # ,matlist.blosum62, 10, -1)
+                    alignment = pairwise2.align.localxx(self.atom_sequences[chain], self.entities[entity]['seq'])
                     score = alignment[0].score
                 if score / len(self.entities[entity]['seq']) > 0.9:
                     # rmsd = Bio.Superimposer()
@@ -985,13 +1025,38 @@ class PDB:
                     new_entity = False  # The entity is not unique, do not add
                     break
             if new_entity:  # nothing was found
-                self.entities[copy.copy(count)] = {'chains': [chain], 'seq': seq_d[chain]}
+                self.entities[copy.copy(count)] = {'chains': [chain], 'seq': self.atom_sequences[chain]}
                 count += 1
 
     def find_entity(self, chain):
         for entity in self.entities:
             if chain in self.entities[entity]['chains']:
                 return entity
+
+    def match_entity_by_struct(self, other_struct=None, entity=None, force_closest=False):
+        return None  # TODO when entities are structure compatible
+
+    def match_entity_by_seq(self, other_seq=None, force_closest=False, threshold=0.7):
+        """From another sequence or set of atoms, returns the first matching chain from the corresponding entity"""
+
+        if force_closest:
+            alignment_score_d = {}
+            for _entity in self.entities:
+                alignment = pairwise2.align.localxx(other_seq, self.entities[_entity]['seq'])  # TODO get a gap penalty
+                alignment_score_d[_entity] = alignment[0].score
+
+            max_score, max_score_entity = 0, None
+            for entity in alignment_score_d:
+                normalized_score = alignment_score_d[entity] / len(self.entities[entity]['seq'])
+                if normalized_score > max_score:
+                    max_score = alignment_score_d[entity]
+                    max_score_entity = entity
+            if max_score > threshold:
+                return self.entities[max_score_entity]['chains'][0]
+        else:
+            for _entity in self.entities:
+                if other_seq == self.entities[_entity]['seq']:
+                    return self.entities[_entity]['chains'][0]
 
     def chain_interface_contacts(self, chain_id, distance=8, gly_ca=False):
         """Create a atom tree using CB atoms from one chain and all other atoms
@@ -1039,7 +1104,7 @@ class PDB:
 
         return chain_atoms, all_contact_atoms
 
-    def get_asu(self, chain=None):
+    def get_asu(self, chain=None, extra=False):
         """Return the atoms involved in the ASU with the provided chain
 
         Keyword Args:
@@ -1051,46 +1116,127 @@ class PDB:
         if not chain:
             chain = self.chain_id_list[0]
 
-        unique_entity_chains, chain_entity, iteration = {}, None, 0
-        while unique_entity_chains == dict():
-            # print(iteration, chain_entity)
-            if chain_entity is not None:
-                chain = self.entities[chain_entity]['chains'][iteration]
-                # print(chain)
-            chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain, gly_ca=True)
-            # print(self.entities)
-            interface_d = {}
-            for atom in all_contacting_interface_atoms:
-                if atom.chain not in interface_d:
-                    interface_d[atom.chain] = [atom]
-                else:
-                    interface_d[atom.chain].append(atom)
-            # print(interface_d)
-            chain_entity = self.find_entity(chain)
-            for _chain in self.entities[chain_entity]['chains']:
-                if _chain != chain:
-                    if _chain in interface_d:
-                        interface_d.pop(_chain)
-            partner_entities = set(self.entities.keys()) - {chain_entity}
+        def get_unique_contacts(chain, chain_entity=0, iteration=0, extra=False, partner_entity=None):
+            unique_chains_entity = {}
+            # unique_chains_entity, chain_entity, iteration = {}, None, 0
+            while unique_chains_entity == dict():
+                # print(iteration, chain_entity)
+                if iteration != 0:  # search through the chains found in an entity
+                    chain = self.entities[chain_entity]['chains'][iteration]
+                    # print(chain)
+                chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain, gly_ca=True)
+                # print(self.entities)
+                interface_d = {}
+                for atom in all_contacting_interface_atoms:
+                    if atom.chain not in interface_d:
+                        interface_d[atom.chain] = [atom]
+                    else:
+                        interface_d[atom.chain].append(atom)
+                # print(interface_d)
+                # copy.deepcopy(interface_d)
+                partner_interface_d, self_interface_d = {}, {}
+                for _chain in self.entities[chain_entity]['chains']:
+                    if _chain != chain:
+                        if _chain in interface_d:
+                            self_interface_d[_chain] = interface_d[_chain]
+                partner_interface_d = {_chain: interface_d[_chain] for _chain in interface_d
+                                       if _chain not in self_interface_d}
 
-            # Find the top contacting chain from each unique partner entity
-            for partner_entity in partner_entities:
-                max_contact, max_contact_chain = 0, None
-                for _chain in interface_d:
-                    # print('Partner: %s' % _chain)
-                    if _chain not in self.entities[partner_entity]['chains']:
-                        break  # ensure that the chain is relevant to this entity
-                    if len(interface_d[_chain]) > max_contact:
-                        # print('Partner GREATER!: %s' % _chain)
-                        max_contact = len(interface_d[_chain])
-                        max_contact_chain = _chain
-                if max_contact_chain:
-                    unique_entity_chains[partner_entity] = max_contact_chain  # set the maximum partner for this entity
-            # print('partners: %s' % unique_entity_chains)
-            iteration += 1
+                if not partner_entity:  # if an entity in particular is desired as in the extras recursion
+                    partner_entity = set(self.entities.keys()) - {chain_entity}
+
+                if not extra:
+                    # Find the top contacting chain from each unique partner entity
+                    for p_entity in partner_entity:
+                        max_contact, max_contact_chain = 0, None
+                        for _chain in partner_interface_d:
+                            # print('Partner: %s' % _chain)
+                            if _chain not in self.entities[p_entity]['chains']:
+                                continue  # ensure that the chain is relevant to this entity
+                            if len(partner_interface_d[_chain]) > max_contact:
+                                # print('Partner GREATER!: %s' % _chain)
+                                max_contact = len(partner_interface_d[_chain])
+                                max_contact_chain = _chain
+                        if max_contact_chain:
+                            unique_chains_entity[max_contact_chain] = p_entity  # set the max partner for this entity
+
+                    # return list(unique_chains_entity.keys())
+                else:  # solve the asu by expansion to extra contacts
+                    # partner_entity_chains_first_entity_contact_d = {} TODO define here if iterate over all entities?
+                    extra_first_entity_chains, first_entity_chain_contacts = [], []
+                    for p_entity in partner_entity:  # search over all entities
+                        # Find all partner chains in the entity in contact with chain of interest
+                        # partner_chains_entity = {partner_chain: p_entity for partner_chain in partner_interface_d
+                        #                          if partner_chain in self.entities[p_entity]['chains']}
+                        # partner_chains_entity = [partner_chain for partner_chain in partner_interface_d
+                        #                          if partner_chain in self.entities[p_entity]['chains']]
+                        # found_chains += [found_chain for found_chain in unique_chains_entity.keys()]
+
+                        # Get the most contacted chain from first entity, in contact with chain of the partner entity
+                        for partner_chain in partner_interface_d:
+                            if partner_chain in self.entities[p_entity]['chains']:
+                                # print(partner_chain)
+                                partner_chains_first_entity_contact = \
+                                    get_unique_contacts(partner_chain, chain_entity=p_entity,
+                                                        partner_entity=chain_entity)
+                                print('Partner entity %s, original chain contacts: %s' %
+                                      (p_entity, partner_chains_first_entity_contact))
+                                # Only include chain/partner entities that are also in contact with chain of interest
+                        # for partner_chain in partner_chains_first_entity_contact_d:
+                                # Caution: this logic is flawed when contact is part of oligomer, but not touching
+                                # original chain... EX: A,B,C,D tetramer with first entity '0', chain C touching second
+                                # entity '1', chain R and chain R touching first entity '0', chain A. A and C don't
+                                # contact though. Is this even possible?
+
+                                # Choose only the partner chains that don't have first entity chain as the top contact
+                                if partner_chains_first_entity_contact[0] != chain:
+                                    # Check if there is a first entity contact as well, if so partner chain is a hit
+                                    # original_chain_partner_contacts = list(
+                                    #     set(self_interface_d.keys())  # this scope is still valid
+                                    #     & set(partner_entity_chains_first_entity_contact_d[p_entity][partner_chain]))
+                                    # if original_chain_partner_contacts != list():
+                                    if partner_chains_first_entity_contact in self_interface_d.keys():
+                                        # chain_contacts += list(
+                                        #     set(self_interface_d.keys())
+                                        #     & set(partner_entity_partner_chain_first_chain_d[entity][partner_chain]))
+                                        first_entity_chain_contacts.append(partner_chain)
+                                        extra_first_entity_chains += partner_chains_first_entity_contact
+
+                            # chain_contacts += list(
+                            #     set(self_interface_d.keys())
+                            #     & set(partner_entity_partner_chain_first_chain_d[entity][partner_chain]))
+                    print('All original chain contacts: %s' % extra_first_entity_chains)
+                    all_asu_chains = list(set(first_entity_chain_contacts)) + extra_first_entity_chains
+                    unique_chains_entity = {_chain: self.find_entity(_chain) for _chain in all_asu_chains}
+                    # need to make sure that the partner entity chains are all contacting as well...
+                    # for chain in found_chains:
+                # print('partners: %s' % unique_entity_chains)
+                iteration += 1
+            return list(unique_chains_entity.keys())
+            # return list(set(first_entity_chain_contacts)) + extra_first_entity_chains
+            # return unique_chains_entities
+
+        unique_chains = get_unique_contacts(chain, chain_entity=self.find_entity(chain), extra=extra)
 
         asu = self.chain(chain)
-        for atoms in [self.chain(partner_chain) for partner_chain in unique_entity_chains.values()]:
+        for atoms in [self.chain(partner_chain) for partner_chain in unique_chains]:
             asu += atoms
 
         return asu
+
+    def return_asu(self, chain='A'):  # , outpath=None):
+        """Returns the ASU as a new PDB object. See self.get_asu() for method"""
+        asu_pdb = PDB()
+        # asu_pdb.__dict__ = self.__dict__.copy()
+        return asu_pdb.read_atom_list(self.get_asu(chain=chain))
+
+        # if outpath:
+        #     asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(self.filepath))[0] + '.pdb')
+        #     # asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0] + '_%s' % 'asu.pdb')
+        # else:
+        #     asu_file_name = os.path.splitext(self.filepath)[0] + '_asu.pdb'
+
+        # asu_pdb = fill_pdb(pdb.get_asu(chain))
+        # asu_pdb.write(asu_file_name, cryst1=asu_pdb.cryst)
+        #
+        # return asu_file_name

@@ -46,6 +46,7 @@ pdb_uniprot_map = os.path.join(source, 'pdb_uniprot_map')  # TODO
 database = os.path.join(source, 'database')
 pdb_db = os.path.join(database, 'PDB.db')  # TODO pointer to pdb database or to pdb website?
 pdb_source = 'db'  # 'download_pdb'  # TODO set up
+qsbio = os.path.join(database, 'QSbio_Assemblies')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
 binaries = os.path.join(dependencies, 'bin')
 # binaries = os.path.join(source, 'bin')  # TODO
 process_commands = os.path.join(binaries, 'ProcessDesignCommands.sh `pwd`')
@@ -64,7 +65,8 @@ scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 
 # External Program Dependencies
-orient = os.path.join(source, 'orient_oligomer')  # TODO
+orient_dir = os.path.join(source, 'orient')  # TODO
+orient = os.path.join(orient_dir, 'orient_oligomer_rmsd')  # TODO
 affinity_tags = os.path.join(database, 'modified-affinity-tags.csv')
 alignmentdb = os.path.join(dependencies, 'ncbi_databases/uniref90')
 # alignment_db = os.path.join(dependencies, 'databases/uniref90')  # TODO
