@@ -74,10 +74,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                 if des_mutations_asu[residue]['from'] == '-' and residue > 0:
                     asu_offset += 1
                 if des_mutations_asu[residue]['to'] == '-':
-                    # oriented_pdb.delete_residue(chain_in_asu, residue)
-                    # print('Design %s: Deleted residue %d from Oriented Input' % (design, residue))
                     asu.delete_residue(chain_in_asu, residue - asu_offset)
-                    print('Design %s: Deleted residue %d from Design ASU' % (design, residue - asu_offset))
+                    # print('Design %s: Deleted residue %d from Design ASU' % (design, residue - asu_offset))
             # for k in range(1, 34):
             #     print(oriented_pdb.get_residue(oriented_pdb.chain_id_list[0], k).type)
             #     print(oriented_pdb.get_residue(oriented_pdb.chain_id_list[0], k).number)
@@ -91,11 +89,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                     orient_offset += 1
                 elif des_mutations_orient[residue]['to'] == '-':  # all need to be removed from reference
                     for chain in oriented_pdb.chain_id_list:
-                        # asu.delete_residue(chain, residue)
-                        # print('Design %s: Deleted residue %d from Design ASU' % (design, residue))
-
                         oriented_pdb.delete_residue(chain, residue - orient_offset)
-                        print('Design %s: Deleted residue %d from Oriented Input' % (design, residue - orient_offset))
+                        # print('Design %s: Deleted residue %d from Oriented Input' % (design, residue - orient_offset))
                 else:
                     for chain in oriented_pdb.chain_id_list:
                         oriented_pdb.mutate_to(chain, residue - orient_offset,
@@ -128,7 +123,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
 
         asu.write(os.path.join(output_dir, 'design_asus', '%s.pdb' % design))
 
-        with open(os.path.join(output_dir, design, '%s_components.dock' % design)) as f:
+        with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
             f.write('\n'.join('%s %s' % (pdb, sym) for pdb, sym in design_file_input[design]['source_pdb']))
             f.write('%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
 

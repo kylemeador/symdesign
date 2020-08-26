@@ -981,11 +981,11 @@ class PDB:
         self.renumber_atoms()
 
     def delete_residue(self, chain, residue):  # KM added 08/25/20 to remove missing residues between two files
-        start = len(self.all_atoms)
+        # start = len(self.all_atoms)
         # print(len(self.all_atoms))
         self.delete_atoms(self.getResidueAtoms(chain, residue))
         self.renumber_atoms()
-        print('Deleted: %d atoms' % (start - len(self.all_atoms)))
+        # print('Deleted: %d atoms' % (start - len(self.all_atoms)))
 
     def delete_atoms(self, atoms):
         # Need to call self.renumber_atoms() after every call to delete_atoms()
