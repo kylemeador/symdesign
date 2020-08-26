@@ -1052,7 +1052,6 @@ class PDB:
                         max_alignment = i
                 alignment_score_d[entity] = alignment[max_alignment].score
                 # alignment_score_d[entity] = alignment[0][2]
-                print(alignment[max_alignment])
 
             max_score, max_score_entity = 0, None
             for entity in alignment_score_d:
@@ -1062,6 +1061,8 @@ class PDB:
                     max_score_entity = entity
             if max_score > threshold:
                 return self.entities[max_score_entity]['chains'][0]
+            else:
+                return None
         else:
             for entity in self.entities:
                 if other_seq == self.entities[entity]['seq']:
