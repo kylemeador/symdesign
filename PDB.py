@@ -1018,7 +1018,7 @@ class PDB:
                     score = len(self.atom_sequences[chain])
                 else:
                     alignment = pairwise2.align.localxx(self.atom_sequences[chain], self.entities[entity]['seq'])
-                    score = alignment[0].score
+                    score = alignment[0][2]  # first alignment, score value
                 if score / len(self.entities[entity]['seq']) > 0.9:
                     # rmsd = Bio.Superimposer()
                     # if rmsd > 1:
