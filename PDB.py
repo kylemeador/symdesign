@@ -622,7 +622,7 @@ class PDB:
             if generate_oriented_pdb:
                 oriented_pdb = PDB()
                 oriented_pdb.readfile('%s_orient.pdb' % os.path.splitext(self.filepath)[0], remove_alt_location=True)
-                # os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])
+                os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])
                 return oriented_pdb
             else:
                 return 0
