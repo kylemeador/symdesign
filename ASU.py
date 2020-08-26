@@ -60,10 +60,10 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             design_mutations = Ams.generate_mutations_from_seq(asu.atom_sequences[chain_in_asu], oriented_pdb_seq_a,
                                                                blanks=True)
             for residue in design_mutations:
-                if design_mutations[residue]['from'] == '-':
+                if design_mutations[residue]['to'] == '-':
                     asu.delete_residue(chain_in_asu, residue)
                     print('Design %s: Deleted residue %d from Design ASU' % (design, residue))
-                elif design_mutations[residue]['to'] == '-':
+                elif design_mutations[residue]['from'] == '-':
                     for chain in oriented_pdb.chain_id_list:
                         oriented_pdb.delete_residue(chain, residue)
                         print('Design %s: Deleted residue %d from Oriented Input' % (design, residue))
