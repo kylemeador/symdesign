@@ -598,14 +598,14 @@ if __name__ == '__main__':
                 # source_pose = SDUtils.read_pdb(pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
                 source_pose = SDUtils.read_pdb(pose_des_dir.source)  # Think this is the best, need to modify chains
                 source_pose.reorder_chains()
-                source_pose.sequence_dictionary = Ams.get_pdb_sequences(source_pose, source='atom')
-                # if not source_pose.sequence_dictionary:
+                source_pose.atom_sequences = Ams.get_pdb_sequences(source_pose, source='atom')
+                # if not source_pose.sequences:
                 oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb), coordinates_only=False) for pdb in pose_pdbs]
                 oligomer_chain_database_chain_map = {chain: oligomers[k].chain_id_list[0]
                                                      for k, chain in enumerate(source_pose.chain_id_list)}
-                # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequence_dictionary[chain])
+                # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
-                source_seqres = {chain: oligomers[k].sequence_dictionary[oligomers[k].chain_id_list[0]]
+                source_seqres = {chain: oligomers[k].seqres_sequences[oligomers[k].chain_id_list[0]]
                                  for k, chain in enumerate(chains[:len(oligomers)])}
 
                 # seqres_pose = PDB.PDB()
@@ -617,25 +617,27 @@ if __name__ == '__main__':
                 #     # print('In', seqres_pose.chain_id_list)
                 # # print('Out', seqres_pose.chain_id_list)
                 # seqres_pose.pose_numbering()  # Why is this necessary
-                # seqres_pose.sequence_dictionary = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
+                # seqres_pose.seqres_sequences = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
                 # print('Reorder', seqres_pose.chain_id_list)
                 # Insert loops identified by comparison of SEQRES and ATOM
 
                 # missing_termini_d = {chain: Ams.generate_mutations_from_seq(pdb_atom_seq[chain],
-                #                                                         template_pdb.sequence_dictionary[chain],
+                #                                                         template_pdb.sequences[chain],
                 #                                                         offset=True,
                 #                                                         termini=True)
                 #                      for chain in template_pdb.chain_id_list}
-                # print('Source ATOM Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_pose.sequence_dictionary[chain])
+                # print('Source ATOM Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_pose.atom_sequences[chain])
                 #                                                 for chain in design_sequences]))
                 # print('Source SEQRES Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_seqres[chain])
                 #                                                   for chain in source_seqres]))
                 pose_offset_d = Ams.pdb_to_pose_num(source_seqres)
                 # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
-                #                                                                  seqres_pose.sequence_dictionary[chain],
+                #                                                                  seqres_pose.seqres_sequences[chain],
                 #                                                                  offset=True, only_gaps=True)
                 #                           for chain in design_sequences}
-                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(source_pose.sequence_dictionary[chain],
+
+                # Find all gaps between the SEQRES and ATOM record
+                all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(source_pose.atom_sequences[chain],
                                                                                  source_seqres[chain],
                                                                                  offset=True, only_gaps=True)
                                           for chain in source_seqres}
