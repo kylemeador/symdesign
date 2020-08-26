@@ -1229,7 +1229,8 @@ class PDB:
         """Returns the ASU as a new PDB object. See self.get_asu() for method"""
         asu_pdb = PDB()
         # asu_pdb.__dict__ = self.__dict__.copy()
-        return asu_pdb.read_atom_list(self.get_asu(chain=chain))
+        asu_pdb.read_atom_list(self.get_asu(chain=chain))
+        return asu_pdb
 
         # if outpath:
         #     asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(self.filepath))[0] + '.pdb')
