@@ -82,7 +82,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                 # if design_mutations[residue]['to'] == '-':
                 #     asu.delete_residue(chain_in_asu, residue)
                 #     print('Design %s: Deleted residue %d from Design ASU' % (design, residue))
-                if des_mutations_asu[residue]['from'] == '-':
+                if des_mutations_orient[residue]['from'] == '-':
                     orient_offset += 1
                 if des_mutations_orient[residue]['to'] == '-':
                     for chain in oriented_pdb.chain_id_list:
