@@ -1042,9 +1042,10 @@ class PDB:
 
         if force_closest:
             alignment_score_d = {}
-            for _entity in self.entities:
-                alignment = pairwise2.align.localxx(other_seq, self.entities[_entity]['seq'])  # TODO get a gap penalty
-                alignment_score_d[_entity] = alignment[0][2]
+            for entity in self.entities:
+                alignment = pairwise2.align.localxx(other_seq, self.entities[entity]['seq'])  # TODO get a gap penalty
+                alignment_score_d[entity] = alignment[0][2]
+                print(alignment[0])
 
             max_score, max_score_entity = 0, None
             for entity in alignment_score_d:
@@ -1055,9 +1056,9 @@ class PDB:
             if max_score > threshold:
                 return self.entities[max_score_entity]['chains'][0]
         else:
-            for _entity in self.entities:
-                if other_seq == self.entities[_entity]['seq']:
-                    return self.entities[_entity]['chains'][0]
+            for entity in self.entities:
+                if other_seq == self.entities[entity]['seq']:
+                    return self.entities[entity]['chains'][0]
 
     def chain_interface_contacts(self, chain_id, distance=8, gly_ca=False):
         """Create a atom tree using CB atoms from one chain and all other atoms
