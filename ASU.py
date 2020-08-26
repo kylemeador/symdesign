@@ -49,7 +49,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                                             location=os.path.join(output_dir, 'biological_assemblies'))
             downloaded_pdb = SDUtils.read_pdb(new_file)
             oriented_pdb = downloaded_pdb.orient(sym, PUtils.orient_dir)  # , generate_oriented_pdb=False)
-            oriented_pdb.name = pdb.lower()
+            # oriented_pdb.name = pdb.lower()
             # oriented_pdb.pose_numbering()  # Residue numbering needs to be same for each chain...
             for chain in oriented_pdb.chain_id_list:
                 oriented_pdb.reindex_chain_residues(chain)
