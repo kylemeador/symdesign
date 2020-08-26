@@ -65,7 +65,7 @@ scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 
 # External Program Dependencies
-orient_dir = os.path.join(source, 'orient')  # TODO
+orient_dir = os.path.join(dependencies, 'orient')
 orient = os.path.join(orient_dir, 'orient_oligomer_rmsd')  # TODO
 affinity_tags = os.path.join(database, 'modified-affinity-tags.csv')
 alignmentdb = os.path.join(dependencies, 'ncbi_databases/uniref90')
