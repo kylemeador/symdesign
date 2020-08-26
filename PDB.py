@@ -1043,9 +1043,16 @@ class PDB:
         if force_closest:
             alignment_score_d = {}
             for entity in self.entities:
-                alignment = pairwise2.align.localxx(other_seq, self.entities[entity]['seq'])  # TODO get a gap penalty
-                alignment_score_d[entity] = alignment[0][2]
-                print(alignment[0])
+                # TODO get a gap penalty and rework entire alignment function...
+                alignment = pairwise2.align.localxx(other_seq, self.entities[entity]['seq'])
+                max_align_score, max_alignment = 0, None
+                for i, align in enumerate(alignment):
+                    if align.score > max_align_score:
+                        max_align_score = align.score
+                        max_alignment = i
+                alignment_score_d[entity] = alignment[max_alignment].score
+                # alignment_score_d[entity] = alignment[0][2]
+                # print(alignment[0])
 
             max_score, max_score_entity = 0, None
             for entity in alignment_score_d:
