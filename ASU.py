@@ -86,6 +86,11 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                 else:
                     for chain in oriented_pdb.chain_id_list:
                         oriented_pdb.mutate_to(chain, residue, res_id=des_mutations_orient[residue]['to'])
+            # fix the residue numbering to account for deletions
+            asu.pose_numbering()
+            for chain in oriented_pdb.chain_id_list:
+                oriented_pdb.reindex_chain_residues(chain)
+            # Get the updated sequences
             asu.update_chain_sequences()
             oriented_pdb.update_chain_sequences()
             oriented_pdb_seq_final = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
