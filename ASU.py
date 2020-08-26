@@ -48,7 +48,6 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             new_file = SDUtils.download_pdb('%s_%s' % (pdb, biological_assembly),
                                             location=os.path.join(output_dir, 'biological_assemblies'))
             downloaded_pdb = SDUtils.read_pdb(new_file)
-            print(downloaded_pdb.filepath)
             oriented_pdb = downloaded_pdb.orient(sym, PUtils.orient_dir)  # , generate_oriented_pdb=False)
             oriented_pdb.name = pdb.lower()
             # oriented_pdb.pose_numbering()  # Residue numbering needs to be same for each chain...
@@ -57,7 +56,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             oriented_pdb.reorder_chains(exclude_chains_list=used_chains)
             used_chains += oriented_pdb.chain_id_list
             oriented_pdb_seq_a = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
-            chain_in_asu = asu.match_entitiy_by_seq(other_seq=oriented_pdb_seq_a, force_closest=True)
+            chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a, force_closest=True)
             design_mutations = Ams.generate_mutations_from_seq(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu],
                                                                blanks=True)
             for residue in design_mutations:
