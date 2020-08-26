@@ -1051,7 +1051,7 @@ class PDB:
             for entity in alignment_score_d:
                 normalized_score = alignment_score_d[entity] / len(self.entities[entity]['seq'])
                 if normalized_score > max_score:
-                    max_score = alignment_score_d[entity]
+                    max_score = normalized_score  # alignment_score_d[entity]
                     max_score_entity = entity
             if max_score > threshold:
                 return self.entities[max_score_entity]['chains'][0]
