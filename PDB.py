@@ -1052,7 +1052,7 @@ class PDB:
                         max_alignment = i
                 alignment_score_d[entity] = alignment[max_alignment].score
                 # alignment_score_d[entity] = alignment[0][2]
-                # print(alignment[0])
+                print(alignment[max_alignment])
 
             max_score, max_score_entity = 0, None
             for entity in alignment_score_d:
