@@ -500,8 +500,8 @@ class PDB:
     def reindex_chain_residues(self, chain):
         # Starts numbering chain residues at 1 and numbers sequentially until reaches last atom in chain
         chain_atoms = self.chain(chain)
-        last_atom_index = len(chain_atoms)
         idx = chain_atoms[0].number - 1  # offset to 0
+        last_atom_index = idx + len(chain_atoms)
         for i, residue in enumerate(self.get_residues_chain(chain), 1):
             current_res_num = residue.number
             while self.all_atoms[idx].residue_number == current_res_num:
