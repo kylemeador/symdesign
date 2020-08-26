@@ -78,11 +78,11 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                     # print('Design %s: Deleted residue %d from Oriented Input' % (design, residue))
                     asu.delete_residue(chain_in_asu, residue - asu_offset)
                     print('Design %s: Deleted residue %d from Design ASU' % (design, residue - asu_offset))
-            for k in range(1, 34):
-                print(oriented_pdb.get_residue(oriented_pdb.chain_id_list[0], k).type)
-                print(oriented_pdb.get_residue(oriented_pdb.chain_id_list[0], k).number)
-            print(oriented_pdb.get_residue(chain, 0).type)
-            print(oriented_pdb.get_residue(chain, 0).number)
+            # for k in range(1, 34):
+            #     print(oriented_pdb.get_residue(oriented_pdb.chain_id_list[0], k).type)
+            #     print(oriented_pdb.get_residue(oriented_pdb.chain_id_list[0], k).number)
+            # print(oriented_pdb.get_residue(chain, 0).type)
+            # print(oriented_pdb.get_residue(chain, 0).number)
             for residue in des_mutations_orient:
                 # if design_mutations[residue]['to'] == '-':
                 #     asu.delete_residue(chain_in_asu, residue)
@@ -96,10 +96,10 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
 
                         oriented_pdb.delete_residue(chain, residue - orient_offset)
                         print('Design %s: Deleted residue %d from Oriented Input' % (design, residue - orient_offset))
-                # else:
-                #     for chain in oriented_pdb.chain_id_list:
-                #         oriented_pdb.mutate_to(chain, residue - orient_offset,
-                #                                res_id=des_mutations_orient[residue]['to'])
+                else:
+                    for chain in oriented_pdb.chain_id_list:
+                        oriented_pdb.mutate_to(chain, residue - orient_offset,
+                                               res_id=des_mutations_orient[residue]['to'])
             # fix the residue numbering to account for deletions
             # asu.pose_numbering()
             for chain in asu.chain_id_list:

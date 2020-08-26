@@ -648,7 +648,7 @@ def read_pdb(file, coordinates_only=True):
         pdb (PDB): Initialized PDB object
     """
     pdb = PDB.PDB()
-    pdb.readfile(file, coordinates_only=coordinates_only)
+    pdb.readfile(file, remove_alt_location=True, coordinates_only=coordinates_only)
 
     return pdb
 
