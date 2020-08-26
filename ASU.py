@@ -78,8 +78,9 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                     # print('Design %s: Deleted residue %d from Oriented Input' % (design, residue))
                     asu.delete_residue(chain_in_asu, residue - asu_offset)
                     print('Design %s: Deleted residue %d from Design ASU' % (design, residue - asu_offset))
-            print(oriented_pdb.get_residue(chain, 1).type)
-            print(oriented_pdb.get_residue(chain, 1).number)
+            for k in range(1, 34):
+                print(oriented_pdb.get_residue(chain, k).type)
+                print(oriented_pdb.get_residue(chain, k).number)
             print(oriented_pdb.get_residue(chain, 0).type)
             print(oriented_pdb.get_residue(chain, 0).number)
             for residue in des_mutations_orient:
