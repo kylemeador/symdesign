@@ -67,22 +67,22 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             #  oriented_pdb_seq_a but not the asu sequence! This must be adjusted for the offset
             print('ASU: %s' % des_mutations_asu)
             print('Orient: %s' % des_mutations_orient)
-            for j, residue in enumerate(des_mutations_asu, 1):
-                if des_mutations_asu[residue]['from'] == '-':
-                    oriented_pdb.delete_residue(chain_in_asu, j)
-                    print('Design %s: Deleted residue %d from Oriented Input' % (design, j))
-                    # asu.delete_residue(chain_in_asu, residue)
-                    # print('Design %s: Deleted residue %d from Design ASU' % (design, residue))
-            for j, residue in enumerate(des_mutations_orient, 1):
+            for residue in des_mutations_asu:
+                if des_mutations_asu[residue]['to'] == '-':
+                    # oriented_pdb.delete_residue(chain_in_asu, residue)
+                    # print('Design %s: Deleted residue %d from Oriented Input' % (design, residue))
+                    asu.delete_residue(chain_in_asu, residue)
+                    print('Design %s: Deleted residue %d from Design ASU' % (design, residue))
+            for residue in des_mutations_orient, 1:
                 # if design_mutations[residue]['to'] == '-':
                 #     asu.delete_residue(chain_in_asu, residue)
                 #     print('Design %s: Deleted residue %d from Design ASU' % (design, residue))
-                if des_mutations_orient[residue]['from'] == '-':
+                if des_mutations_orient[residue]['to'] == '-':
                     for chain in oriented_pdb.chain_id_list:
-                        asu.delete_residue(chain, j)
-                        print('Design %s: Deleted residue %d from Design ASU' % (design, j))
-                        # oriented_pdb.delete_residue(chain, residue)
-                        # print('Design %s: Deleted residue %d from Oriented Input' % (design, residue))
+                        # asu.delete_residue(chain, residue)
+                        # print('Design %s: Deleted residue %d from Design ASU' % (design, residue))
+                        oriented_pdb.delete_residue(chain, residue)
+                        print('Design %s: Deleted residue %d from Oriented Input' % (design, residue))
                 else:
                     for chain in oriented_pdb.chain_id_list:
                         oriented_pdb.mutate_to(chain, residue, res_id=des_mutations_orient[residue]['to'])
