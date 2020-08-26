@@ -81,8 +81,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                 exit('There is an error with indexing for Design %s, PDB %s. The index is %s' %
                      (design, pdb, final_mutations))
 
-            if not os.path.exists(os.path.join(output_dir, design, pdb.lower())):
-                os.makedirs(os.path.join(output_dir, design, pdb.lower()))
+            if not os.path.exists(os.path.join(output_dir, design, sym)):
+                os.makedirs(os.path.join(output_dir, design, sym))
             oriented_pdb.write(os.path.join(output_dir, design, sym, '%s.pdb' % pdb.lower()))  # pdb.lower()
 
             chain_correspondence[design]['pdb%s' % i] = {'asu_chain': chain_in_asu,
