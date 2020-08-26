@@ -1045,7 +1045,7 @@ class PDB:
             alignment_score_d = {}
             for _entity in self.entities:
                 alignment = pairwise2.align.localxx(other_seq, self.entities[_entity]['seq'])  # TODO get a gap penalty
-                alignment_score_d[_entity] = alignment[0].score
+                alignment_score_d[_entity] = alignment[0][2]
 
             max_score, max_score_entity = 0, None
             for entity in alignment_score_d:
