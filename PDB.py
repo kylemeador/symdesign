@@ -444,7 +444,7 @@ class PDB:
         self.update_chain_sequences()
 
     def reorder_chains(self, exclude_chains_list=None):  # KM Added 12/16/19
-        # Caution, doesn't update SEQRES chain info
+        # Caution, doesn't update SEQRES_sequences chain info
         # Renames chains starting from the first chain as A and the last as l_abc[len(self.chain_id_list) - 1]
         l_abc = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
                  'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
