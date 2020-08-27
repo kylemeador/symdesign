@@ -44,6 +44,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
         for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'], 1):
             if pdb in qsbio_assemblies:
                 biological_assembly = qsbio_assemblies[pdb][0]  # find a verified biological assembly from QSBio
+                if pdb == '3E6Q':
+                    biological_assembly = 2
             else:
                 print('%s: %s is not verified in QSBio! Arbitrarily choosing assembly 1' % (design, pdb))
                 biological_assembly = 1
@@ -51,7 +53,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                                             location=os.path.join(output_dir, 'biological_assemblies'))
             downloaded_pdb = SDUtils.read_pdb(new_file)
             oriented_pdb = downloaded_pdb.orient(sym, PUtils.orient_dir)  # , generate_oriented_pdb=False)
-            if oriented_pdb.all_atoms != list():
+            if oriented_pdb.all_atoms == list():
                 print('%s failed! Skipping design %s' % (pdb, design))
                 break
             # oriented_pdb.name = pdb.lower()
