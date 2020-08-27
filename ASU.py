@@ -51,6 +51,9 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                                             location=os.path.join(output_dir, 'biological_assemblies'))
             downloaded_pdb = SDUtils.read_pdb(new_file)
             oriented_pdb = downloaded_pdb.orient(sym, PUtils.orient_dir)  # , generate_oriented_pdb=False)
+            if not oriented_pdb:
+                print('%s failed! Skipping design %s' % (pdb, design))
+                break
             # oriented_pdb.name = pdb.lower()
             # oriented_pdb.pose_numbering()  # Residue numbering needs to be same for each chain...
             for chain in oriented_pdb.chain_id_list:
@@ -109,8 +112,9 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             # print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
             # print('Orient\t: %s' % oriented_pdb_seq_final)
             if final_mutations != dict():
-                exit('There is an error with indexing for Design %s, PDB %s. The index is %s' %
-                     (design, pdb, final_mutations))
+                print('There is an error with indexing for Design %s, PDB %s. The index is %s' %
+                      (design, pdb, final_mutations))
+                break
 
             if not os.path.exists(os.path.join(output_dir, design, sym)):
                 os.makedirs(os.path.join(output_dir, design, sym))
@@ -125,6 +129,12 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
         with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
             f.write('\n'.join('%s %s' % (pdb, sym) for pdb, sym in design_file_input[design]['source_pdb']))
             f.write('%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
+
+    missing = []
+    for i, design in enumerate(chain_correspondence):
+        if len(chain_correspondence[design]) != 2:
+            missing.append(i)
+    print('Designs missing one of two chains:\n%s' % ', '.join(missing))
 
     SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance', out_path=output_dir)
 
