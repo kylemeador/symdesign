@@ -51,7 +51,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                                             location=os.path.join(output_dir, 'biological_assemblies'))
             downloaded_pdb = SDUtils.read_pdb(new_file)
             oriented_pdb = downloaded_pdb.orient(sym, PUtils.orient_dir)  # , generate_oriented_pdb=False)
-            if not oriented_pdb:
+            if oriented_pdb.all_atoms != list():
                 print('%s failed! Skipping design %s' % (pdb, design))
                 break
             # oriented_pdb.name = pdb.lower()
