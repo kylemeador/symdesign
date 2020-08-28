@@ -58,7 +58,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                 break
             # oriented_pdb.name = pdb.lower()
             # oriented_pdb.pose_numbering()  # Residue numbering needs to be same for each chain...
-            try:
+            try:  # Some pdb's are messed up and don't have CA or CB?!
                 for chain in oriented_pdb.chain_id_list:
                     oriented_pdb.reindex_chain_residues(chain)
             except AttributeError:
@@ -67,14 +67,14 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             used_chains += oriented_pdb.chain_id_list
             oriented_pdb_seq_a = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
             chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a, force_closest=True)
-            print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
-            print('Orient\t: %s' % oriented_pdb_seq_a)
+            # print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
+            # print('Orient\t: %s' % oriented_pdb_seq_a)
             des_mutations_asu = Ams.generate_mutations_from_seq(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu],
                                                                 blanks=True)
             des_mutations_orient = Ams.generate_mutations_from_seq(asu.atom_sequences[chain_in_asu], oriented_pdb_seq_a,
                                                                    blanks=True)
-            print('ASU: %s' % des_mutations_asu)
-            print('Orient: %s' % des_mutations_orient)
+            # print('ASU: %s' % des_mutations_asu)
+            # print('Orient: %s' % des_mutations_orient)
             # Ensure that the design mutations have the right index, must be adjusted for the offset of both sequences
             asu_offset, orient_offset = 0, 0
             for residue in des_mutations_asu:
@@ -114,8 +114,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             oriented_pdb_seq_final = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
             final_mutations = Ams.generate_mutations_from_seq(oriented_pdb_seq_final, asu.atom_sequences[chain_in_asu],
                                                               offset=False, blanks=True)
-            print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
-            print('Orient\t: %s' % oriented_pdb_seq_final)
+            # print('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
+            # print('Orient\t: %s' % oriented_pdb_seq_final)
             if final_mutations != dict():
                 print('There is an error with indexing for Design %s, PDB %s. The index is %s' %
                       (design, pdb, final_mutations))
@@ -139,7 +139,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
     for i, design in enumerate(chain_correspondence):
         if len(chain_correspondence[design]) != 2:
             missing.append(i)
-    print('Designs missing one of two chains:\n%s' % ', '.join(missing))
+    if missing != list():
+        print('Designs missing one of two chains:\n%s' % ', '.join(missing))
 
     SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance', out_path=output_dir)
 
