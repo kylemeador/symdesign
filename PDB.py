@@ -613,7 +613,8 @@ class PDB:
         self.atom_sequences = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
 
     def orient(self, symm, orient_dir, generate_oriented_pdb=True):
-        os.system('cp %s input.pdb' % self.filepath)
+        self.write('input.pdb')
+        # os.system('cp %s input.pdb' % self.filepath)
         os.system('%s/orient_oligomer_rmsd >> orient.out 2>&1 << eof\n%s/%s\neof' % (orient_dir, orient_dir, symm))
         # os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' % (orient_dir, orient_dir, symm))
         os.system('mv output.pdb %s_orient.pdb' % os.path.splitext(self.filepath)[0])
