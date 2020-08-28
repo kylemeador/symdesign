@@ -496,7 +496,11 @@ class PDB:
                 if idx == last_atom_index:
                     break
         self.renumber_atoms()  # should be unnecessary
-    
+
+    def reindex_all_chain_residues(self):
+        for chain in self.chain_id_list:
+            self.reindex_chain_residues(chain)
+
     def reindex_chain_residues(self, chain):
         # Starts numbering chain residues at 1 and numbers sequentially until reaches last atom in chain
         chain_atoms = self.chain(chain)
@@ -613,6 +617,7 @@ class PDB:
         self.atom_sequences = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
 
     def orient(self, symm, orient_dir, generate_oriented_pdb=True):
+        # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps.
         self.write('input.pdb')
         # os.system('cp %s input.pdb' % self.filepath)
         os.system('%s/orient_oligomer_rmsd >> orient.out 2>&1 << eof\n%s/%s\neof' % (orient_dir, orient_dir, symm))

@@ -33,8 +33,9 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
         asu = design_file_input[design]['design_pdb'].return_asu()
         asu.reorder_chains()
         # asu.pose_numbering()
-        for chain in asu.chain_id_list:
-            asu.reindex_chain_residues(chain)
+        # for chain in asu.chain_id_list:
+        #     asu.reindex_chain_residues(chain)
+        asu.reindex_all_chain_residues()
         asu.get_all_entities()
 
         if not os.path.exists(os.path.join(output_dir, design)):
@@ -104,10 +105,12 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                                                res_id=des_mutations_orient[residue]['to'])
             # fix the residue numbering to account for deletions
             # asu.pose_numbering()
-            for chain in asu.chain_id_list:
-                asu.reindex_chain_residues(chain)
-            for chain in oriented_pdb.chain_id_list:
-                oriented_pdb.reindex_chain_residues(chain)
+            # for chain in asu.chain_id_list:
+            #     asu.reindex_chain_residues(chain)
+            asu.reindex_all_chain_residues()
+            # for chain in oriented_pdb.chain_id_list:
+            #     oriented_pdb.reindex_chain_residues(chain)
+            oriented_pdb.reindex_all_chain_residues()
             # Get the updated sequences
             asu.update_chain_sequences()
             oriented_pdb.update_chain_sequences()
