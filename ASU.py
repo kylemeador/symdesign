@@ -15,7 +15,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
     with open(design_file, 'r') as f:
         reading_csv = reader(f)
         design_file_input = {os.path.splitext(row[0])[0]:
-                             {'design_pdb': SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),
+                             {'design_pdb': row[0],  # SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),
                               'source_pdb': {(row[1], row[3]), (row[2], row[4])}, 'final_sym': row[5]}
                              for row in reading_csv}  # 'pdb1': 'sym1': 'pdb2': 'sym2':
     # all_pdbs = {file: {'design': SDUtils.read_pdb(pdb_file) for pdb_file in all_pdb_files} for file in design_input
@@ -30,7 +30,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
     # {design: {'pdb1': {'asu_chain': None, 'dock_chains': []},
     #           'pdb2': {'asu_chain': None, 'dock_chains': []}}, ...}
     for design in design_file_input:
-        asu = design_file_input[design]['design_pdb'].return_asu()
+        # asu = design_file_input[design]['design_pdb'].return_asu()
+        asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))
         asu.reorder_chains()
         # asu.pose_numbering()
         # for chain in asu.chain_id_list:
