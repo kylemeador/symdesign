@@ -143,7 +143,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
         if len(chain_correspondence[design]) != 2:
             missing.append(i)
     if missing != list():
-        print('Designs missing one of two chains:\n%s' % ', '.join(missing))
+        missing_str = map(str, missing)
+        print('Designs missing one of two chains:\n%s' % ', '.join(missing_str))
 
     SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance', out_path=output_dir)
 
