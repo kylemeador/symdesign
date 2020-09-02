@@ -1637,10 +1637,11 @@ def to_iterable(_obj):
     return clean_list
 
 
-def write_shell_script(command, name='script', outpath=os.getcwd(), additional=None):
+def write_shell_script(command, name='script', outpath=os.getcwd(), additional=None, shell='bash'):
+    """Take a list with command flags formatted for subprocess and write to a name.sh script"""
     file_name = os.path.join(outpath, name + '.sh')
     with open(file_name, 'w') as f:
-        f.write('#!/bin/bash\n\n%s\n' % command)
+        f.write('#!/bin/%s\n\n%s\n' % (shell, command))
         if additional:
             f.write('%s\n' % '\n'.join(x for x in additional))
 
@@ -2224,23 +2225,40 @@ def collect_designs(directory, file=None):
     return sorted(set(all_directories)), location
 
 
-def get_design_directories(base_directory):  # DEPRECIATED
+def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  # DEPRECIATED
     """Returns a sorted list of all unique directories that contain designable poses
 
     Args:
         base_directory (str): Location on disk to search for Nanohedra.py poses
+    Keyword Args:
+        directory_type=PUtils.pose_prefix (str): The type of designs to search directories for
     Returns:
         all_design_directories (list): List containing all paths to designable poses
     """
     all_design_directories = []
-    for design_root, design_dirs, design_files in os.walk(base_directory):
-        if os.path.basename(design_root).startswith(PUtils.pose_prefix):
-            all_design_directories.append(design_root)
+    for root, dirs, files in os.walk(base_directory):
+        if os.path.basename(root).startswith(directory_type):
+            all_design_directories.append(root)
         else:
-            for directory in design_dirs:
+            for directory in dirs:
                 if directory.startswith(PUtils.pose_prefix):
-                    all_design_directories.append(os.path.join(design_root, directory))
+                    all_design_directories.append(os.path.join(root, directory))
     return sorted(set(all_design_directories))
+
+
+def get_dock_directories(base_directory, directory_type='.dock'):
+    all_directories = []
+    for root, dirs, files in os.walk(base_directory):
+        for directory in dirs:
+            for file in files:
+                if file.endswith(directory_type):
+        # if os.path.basename(root).startswith(directory_type):
+        #     all_design_directories.append(design_root)
+        # else:
+        #     for directory in design_dirs:
+        #         if directory.startswith(PUtils.pose_prefix):
+                    all_directories.append(os.path.join(root, directory, file))
+    return sorted(set(all_directories))
 
 
 def set_up_directory_objects(design_list, symmetry=None):

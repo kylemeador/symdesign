@@ -81,7 +81,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--stage', choices=tuple(CUtils.process_scale.keys()),
                         help='The stage of design to be prepared. One of %s'
                              % ', '.join(list(CUtils.process_scale.keys())))
-    parser.add_argument('-c', '--command_file', help='File with command(s) to be distributed. Required')
+    parser.add_argument('-c', '--command_file', help='File with command(s) to be distributed. Required')  # TODO REQ.
     parser.add_argument('-y', '--success_file', help='The disk location of file containing successful commands')
     parser.add_argument('-n', '--failure_file', help='The disk location of file containing failed commands')
     args = parser.parse_args()
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     commands = zip(commands_of_interest, log_files)
 
     # Run commands in parallel
-    # monitor = GracefulKiller()  # TODO TEST for solution to SIGTERM
+    # monitor = GracefulKiller()  # TODO TEST for solution to SIGTERM. Doesn't appear to be possible...
     signal.signal(signal.SIGINT, exit_gracefully)
     # signal.signal(signal.SIGKILL, exit_gracefully)  # Doesn't work, not possible
     signal.signal(signal.SIGTERM, exit_gracefully)

@@ -759,10 +759,10 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     flags_design = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[2], outpath=des_dir.path)
     # TODO back out nstruct label to command distribution
     design_cmd = main_cmd + \
-                 ['-in:file:s', refined_pdb, '-in:file:native', des_dir.asu, '-nstruct', str(PUtils.nstruct),
-                  '@' + os.path.join(des_dir.path, flags_design), '-in:file:pssm', pssm_file, '-parser:protocol',
-                  os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
-                  '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file)]
+        ['-in:file:s', refined_pdb, '-in:file:native', des_dir.asu, '-nstruct', str(PUtils.nstruct),
+         '@' + os.path.join(des_dir.path, flags_design), '-in:file:pssm', pssm_file, '-parser:protocol',
+         os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
+         '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file)]
 
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
     # TODO if nstruct is backed out, create pdb_list for metrics distribution
@@ -772,9 +772,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     flags_metric = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[3], outpath=des_dir.path)
     metric_cmd = main_cmd + \
-                 ['-in:file:l', pdb_list_file, '-in:file:native', refined_pdb, '@' + os.path.join(des_dir.path, flags_metric),
-                  '-out:file:score_only', os.path.join(des_dir.scores, PUtils.scores_file),
-                  '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
+        ['-in:file:l', pdb_list_file, '-in:file:native', refined_pdb, '@' + os.path.join(des_dir.path, flags_metric),
+         '-out:file:score_only', os.path.join(des_dir.scores, PUtils.scores_file),
+         '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
 
     if mpi:
         design_cmd = CUtils.run_cmds[PUtils.rosetta_extras] + design_cmd
