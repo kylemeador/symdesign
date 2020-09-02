@@ -161,6 +161,10 @@ if __name__ == '__main__':
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags')
 
+    parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py' % PUtils.nano)
+    parser_dock.add_argument('-c', '--command_only', action='store_true',
+                             help='Should commands be written but not executed?\nDefault=False')
+
     parser_pose = subparsers.add_parser('pose', help='Gather output from %s and format for input into Rosetta. '
                                                      'Sets up interface design constrained evolutionary profiles '
                                                      'of homologous sequences and by fragment profiles extracted '
@@ -382,7 +386,7 @@ if __name__ == '__main__':
                     % (args.success_file, args.failure_file))
 
         # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
-        with open(PUtils.sbatch_templates[args.stage]) as template_f:  # TODO Nanohedra sbatch template
+        with open(PUtils.sbatch_templates[args.stage]) as template_f:
             template_sbatch = template_f.readlines()
 
         # Make sbatch file from template, array details, and command distribution script

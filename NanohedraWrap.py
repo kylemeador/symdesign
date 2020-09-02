@@ -36,7 +36,6 @@ def nanohedra(dock_dir):
         # 4G41 C2
         # 2CHC C3final_symmetry I
 
-
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
     # des_dir_d = {}
     # for root, dirs, files in os.walk(des_dir):
