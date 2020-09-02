@@ -46,4 +46,4 @@ flag_options = {PUtils.stage[1]: ['-constrain_relax_to_start_coords', '-use_inpu
                 PUtils.stage[3]: ['-no_nstruct_label true',  # '-out:suffix _' + PUtils.stage[2],
                                   '-mute all', '-unmute protocols.rosetta_scripts.ParsedProtocol']}  # -out:pdb false
 
-process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 1, PUtils.stage[3]: 1, PUtils.stage[5]: 2}
+process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 1, PUtils.stage[3]: 1, PUtils.stage[5]: 2, PUtils.nano: 1}

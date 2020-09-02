@@ -18,6 +18,7 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
+from NanohedraWrap import nanohedra_mp, nanohedra_s
 import AnalyzeMutatedSequences as Ams
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
@@ -257,14 +258,17 @@ if __name__ == '__main__':
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Grab all poses (directories) to be processed from either directory name or file
-    all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
-    assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
-                                                % (PUtils.nano, location))
+    if args.sub_module == 'dock':
+        all_design_directories = SDUtils.get_dock_directories(args.directory)
+    else:
+        all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
+        assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
+                                                    % (PUtils.nano, location))
 
-    all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
-    logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
-    logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
-                os.path.join(all_design_directories[0].path, os.path.basename(all_design_directories[0].path) + '.log'))
+        all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
+        logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
+        logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
+                    os.path.join(all_design_directories[0].path, os.path.basename(all_design_directories[0].path) + '.log'))
     if not args.file:
         # Make single file with names of each directory
         args.file = os.path.join(args.directory, 'all_pose_directories')
@@ -274,7 +278,49 @@ if __name__ == '__main__':
 
     # Parse SubModule specific commands
     results, exceptions = [], []
-    if args.sub_module == 'pose':  # -c --command_only, -i --fragment_library, -p --mpi, -x --suspend
+    if args.sub_module == 'dock':  # -c --command_only, -i --fragment_library, -x --suspend
+        # if args.mpi:
+        #     args.command_only = True
+        #     extras = ' mpi %d' % CUtils.mpi
+        #     logger.info('Setting job up for submission to MPI capable computer. Pose trajectories will run in parallel,'
+        #                 ' %s at a time. This will speed up pose processing %f-fold.' %
+        #                 (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
+        # else:
+        #     extras = ''
+        if args.command_only:
+            args.suspend = True
+            logger.info(
+                'Writing modelling commands out to file only, no modelling will occur until commands are executed')
+
+        # Start pose processing and preparation for Rosetta
+        if args.multi_processing:
+            # Calculate the number of threads to use depending on computer resources
+            mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
+            logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
+            # zipped_args = zip(all_design_directories)
+            results, exceptions = zip(*SDUtils.mp_map(nanohedra_mp, all_design_directories, mp_threads))
+            results = list(results)
+        else:
+            logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+            for dock_directory in all_design_directories:
+                result, error = nanohedra_s(dock_directory)
+                results.append(result)
+                exceptions.append(error)
+
+        if args.command_only:
+            # all_commands = [[] for s in PUtils.stage_f]
+            # command_files = [[] for s in PUtils.stage_f]
+            # for des_directory in all_design_directories:
+            #     for i, stage in enumerate(PUtils.stage_f):
+            #         all_commands[i].append(os.path.join(des_directory.path, stage + '.sh'))
+            # for i, stage in enumerate(PUtils.stage_f):
+            all_commands = [result for result in results if result]
+            command_file = SDUtils.write_commands(all_commands, name='%s.cmd' % PUtils.nano, loc=args.directory)
+            logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
+            logger.info('\nTo process commands, execute:\ncd %s\n%s' %
+                        (args.directory, 'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano)))
+
+    elif args.sub_module == 'pose':  # -c --command_only, -i --fragment_library, -p --mpi, -x --suspend
         if args.mpi:
             args.command_only = True
             extras = ' mpi %d' % CUtils.mpi
@@ -296,7 +342,6 @@ if __name__ == '__main__':
             zipped_args = zip(all_design_directories, repeat(args.fragment_database), repeat(args.symmetry_group),
                               repeat(args.command_only), repeat(args.mpi), repeat(args.suspend),
                               repeat(args.debug))
-            # results, exceptions = SDUtils.mp_try_starmap(initialization_mp, zipped_args, mp_threads)
             results, exceptions = zip(*SDUtils.mp_starmap(initialization_mp, zipped_args, mp_threads))
             results = list(results)
         else:
@@ -337,7 +382,7 @@ if __name__ == '__main__':
                     % (args.success_file, args.failure_file))
 
         # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
-        with open(PUtils.sbatch_templates[args.stage]) as template_f:
+        with open(PUtils.sbatch_templates[args.stage]) as template_f:  # TODO Nanohedra sbatch template
             template_sbatch = template_f.readlines()
 
         # Make sbatch file from template, array details, and command distribution script
