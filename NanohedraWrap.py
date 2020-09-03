@@ -8,6 +8,8 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 
 
+# TODO multiprocessing compliant (picklable) error decorator
+@SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
 def nanohedra_s(dock_dir):
     return nanohedra(dock_dir)
 
