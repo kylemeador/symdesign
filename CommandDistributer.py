@@ -50,6 +50,24 @@ def exit_gracefully(signum, frame):
         # run(file, '/dev/null', program='rm')
 
 
+# 2.7 compatible #
+
+
+def merge_names(a, b):
+    return '{} & {}'.format(a, b)
+
+
+def merge_names_unpack(args):
+    return merge_names(*args)
+
+
+def unpack_mp_args(args):
+    return run(*args)
+
+
+# 2.7 compatible #
+
+
 def run(cmd, log_file, program='bash'):  # , log_file=None):
     """Executes specified command and appends command results to log file
 
@@ -115,7 +133,12 @@ if __name__ == '__main__':
     # signal.signal(signal.SIGKILL, exit_gracefully)  # Doesn't work, not possible
     signal.signal(signal.SIGTERM, exit_gracefully)
     # while not monitor.kill_now:
-    results = SDUtils.mp_starmap(run, commands, threads=len(commands_of_interest))
+
+    # python 2.7 compatibility NO MP here
+    for command, log_file in commands:
+        results = run(command, log_file)
+    # python 3.7 compatible
+    # results = SDUtils.mp_starmap(run, commands, threads=len(commands_of_interest))  # TODO reinstate
     #
     #     # Write out successful and failed commands TODO ensure write is only possible one at a time
     #     with open(args.success_file, 'a') as f:
