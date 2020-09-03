@@ -2229,7 +2229,7 @@ def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  
     """Returns a sorted list of all unique directories that contain designable poses
 
     Args:
-        base_directory (str): Location on disk to search for Nanohedra.py poses
+        base_directory (str): Location on disk to search for Nanohedra poses
     Keyword Args:
         directory_type=PUtils.pose_prefix (str): The type of designs to search directories for
     Returns:
@@ -2249,15 +2249,15 @@ def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  
 def get_dock_directories(base_directory, directory_type='.dock'):
     all_directories = []
     for root, dirs, files in os.walk(base_directory):
-        for directory in dirs:
-            for file in files:
-                if file.endswith(directory_type):
+        # for directory in dirs:
+        for file in files:
+            if file.endswith(directory_type):
         # if os.path.basename(root).startswith(directory_type):
         #     all_design_directories.append(design_root)
         # else:
         #     for directory in design_dirs:
         #         if directory.startswith(PUtils.pose_prefix):
-                    all_directories.append(os.path.join(root, directory, file))
+                all_directories.append(os.path.join(root, file))
     return sorted(set(all_directories))
 
 
