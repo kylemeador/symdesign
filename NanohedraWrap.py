@@ -66,7 +66,7 @@ def nanohedra(dock_dir):
     symmetries = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
     sym_hierarchy = {sym: i for i, sym in enumerate(symmetries, 1)}
     symmetry_rank, higher_sym = 0, None
-    for sym in des_dir_d:
+    for sym in syms:
         sym_l = sym.split('_')
         new_sym = sym_l[1]
         new_symmetry_rank = sym_hierarchy[new_sym]
