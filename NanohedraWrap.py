@@ -29,7 +29,7 @@ def nanohedra(dock_dir):
     des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))
     for i, sym in enumerate(set(des_dir_d.keys()) - set('final_symmetry'), 1):
         sym_l = sym.split('_')
-        sym_l[0] = int(sym_l[0]) + 1
+        sym_l[0] = str(int(sym_l[0]) + 1)
         new_sym = '_'.join(sym_l)
         # for pdb in des_dir_d[sym]:
             # if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
