@@ -52,6 +52,7 @@ def nanohedra(dock_dir):
             symmetry_rank = new_symmetry_rank
             lower_sym = higher_sym
             higher_sym = sym
+            print(lower_sym, higher_sym)
         else:  # The case where 1 is greater than 2
             lower_sym = sym
     print(dock_dir)
