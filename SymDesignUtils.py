@@ -2012,7 +2012,8 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
     Returns:
         results (list): The results produced from the function and process_args
     """
-    with mp.get_context(context).Pool(processes=threads, maxtasksperchild=1) as p:
+    with mp.Pool(processes=threads, maxtasksperchild=1) as p:
+    # with mp.get_context(context).Pool(processes=threads, maxtasksperchild=1) as p:
         results = p.starmap(function, process_args)  # , chunksize=1
     p.join()
 
