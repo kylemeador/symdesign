@@ -27,7 +27,8 @@ def nanohedra(dock_dir):
 
     # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
     des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))
-    for i, sym in enumerate(set(des_dir_d.keys()) - set('final_symmetry'), 1):
+    syms = list(set(des_dir_d.keys()) - {'final_symmetry'})
+    for i, sym in enumerate(syms, 1):
         sym_l = sym.split('_')
         sym_l[0] = str(int(sym_l[0]) + 1)
         new_sym = '_'.join(sym_l)
