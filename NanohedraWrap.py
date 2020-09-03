@@ -73,9 +73,9 @@ def nanohedra(dock_dir):
         if new_symmetry_rank >= symmetry_rank:  # the case where sym2 is greater than sym1 or equal to sym1
             symmetry_rank = new_symmetry_rank
             lower_sym = higher_sym
-            higher_sym = sym
+            higher_sym = new_sym
         else:  # The case where 1 is greater than 2
-            lower_sym = sym
+            lower_sym = new_sym
     if len(des_dir_d) == 1:
         lower_sym = higher_sym
 
