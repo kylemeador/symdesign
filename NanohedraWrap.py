@@ -27,6 +27,14 @@ def nanohedra(dock_dir):
 
     # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
     des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))
+
+    for i, sym in enumerate(set(des_dir_d.keys()) - set('final_symmetry'), 1):
+        for pdb in des_dir_d[sym]:
+            # if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
+            #    raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (sym, pdb.lower())])
+            if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
+                raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (sym, pdb.lower())])
+
     # {Sym: PDB1, Sym2: PDB2, 'final_symmetry': I}
     # des_dir_d = {}
     # dock_file = os.path.join(dock_dir, '%s_components.dock' % os.path.basename(dock_dir))  # TODO '.dock'
@@ -77,12 +85,6 @@ def nanohedra(dock_dir):
     entry_num = entry_d[des_dir_d['final_symmetry']][sym_tuple]
     out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
-    for i, sym in enumerate(sym_tuple, 1):
-        for pdb in des_dir_d[sym]:
-            # if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
-            #    raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (sym, pdb.lower())])
-            if not os.path.exists(os.path.join(dock_dir, '%s_%s' % (i, sym), '%s.pdb' % pdb.lower())):
-                raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % ('%s_%s' % (i, sym), pdb.lower())])
 
     _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
             os.path.join(dock_dir, '%s_%s' % (1, lower_sym)),
