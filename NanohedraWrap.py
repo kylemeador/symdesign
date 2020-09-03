@@ -27,11 +27,12 @@ def nanohedra(dock_dir):
 
     # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
     des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))
-
+    print(des_dir_d)
     for i, sym in enumerate(set(des_dir_d.keys()) - set('final_symmetry'), 1):
         for pdb in des_dir_d[sym]:
             # if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
             #    raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (sym, pdb.lower())])
+            print(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower()))
             if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
                 raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (sym, pdb.lower())])
 
