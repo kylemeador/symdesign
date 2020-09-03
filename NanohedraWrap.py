@@ -32,7 +32,7 @@ def nanohedra(dock_dir):
             if line.find('final_symmetry', 6) != -1:
                 final_sym = line.split('final_symmetry ')[1]
                 info[1] = info[1][:2]
-            des_dir_d[dock_dir][info[1]] = info[0]
+            des_dir_d[info[1]] = info[0]
         # 4G41 C2
         # 2CHC C3final_symmetry I
 
