@@ -2,7 +2,7 @@ import os
 
 
 # Project strings and file names
-nano = 'Nanohedra'
+nano = 'nanohedra'
 program_name = 'SymDesign'
 hhblits = 'hhblits'
 nstruct = 25  # back to 50?
