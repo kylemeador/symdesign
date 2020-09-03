@@ -58,7 +58,7 @@ def nanohedra(dock_dir):
     out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
 
-    _cmd = ['python', 'Nanohedra.py', '-dock', '-entry', entry_num, '-pdb_dir1_path',
+    _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', entry_num, '-pdb_dir1_path',
             os.path.join(dock_dir, lower_sym, '%s.pdb' % des_dir_d[lower_sym]), '-pdb_dir2_path',
             os.path.join(dock_dir, higher_sym, '%s.pdb' % des_dir_d[higher_sym]),
             '-rot_step1', '2', '-rot_step2', '2', '-outdir', out_dir]
