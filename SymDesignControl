@@ -320,10 +320,11 @@ if __name__ == '__main__':
             #         all_commands[i].append(os.path.join(des_directory.path, stage + '.sh'))
             # for i, stage in enumerate(PUtils.stage_f):
             all_commands = [result for result in results if result]
-            command_file = SDUtils.write_commands(all_commands, name='%s.cmd' % PUtils.nano, loc=args.directory)
+            command_file = SDUtils.write_commands(all_commands, name=PUtils.nano.lower(), loc=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
             logger.info('\nTo process commands, execute:\ncd %s\n%s' %
-                        (args.directory, 'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano)))
+                        (args.directory, 'python %s -f %s distribute -s %s' %
+                         (__file__, args.file, PUtils.nano.lower())))
 
     elif args.sub_module == 'pose':  # -c --command_only, -i --fragment_library, -p --mpi, -x --suspend
         if args.mpi:
