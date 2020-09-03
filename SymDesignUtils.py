@@ -2000,6 +2000,25 @@ def mp_try_starmap(function, process_args, threads, context='spawn'):  # UNUSED
     return results
 
 
+# to make mp compatible with 2.7
+from contextlib import contextmanager
+
+
+@contextmanager
+def poolcontext(*args, **kwargs):
+    pool = mp.Pool(*args, **kwargs)
+    yield pool
+    pool.terminate()
+
+
+def mp_starmap_python2(function, process_args, threads=1):
+    with poolcontext(processes=threads) as p:
+        results = p.map(function, process_args)
+    p.join()
+
+    return results
+
+
 def mp_starmap(function, process_args, threads=1, context='spawn'):
     """Maps iterable to a function using multiprocessing Pool
 
@@ -2012,8 +2031,7 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
     Returns:
         results (list): The results produced from the function and process_args
     """
-    with mp.Pool(processes=threads, maxtasksperchild=1) as p:
-    # with mp.get_context(context).Pool(processes=threads, maxtasksperchild=1) as p:
+    with mp.get_context(context).Pool(processes=threads, maxtasksperchild=1) as p:
         results = p.starmap(function, process_args)  # , chunksize=1
     p.join()
 
