@@ -29,8 +29,7 @@ def nanohedra(dock_dir):
         # parameters = map(str.split(), parameters)
         for line in parameters:
             info = line.split()
-            if line.find('final_symmetry', 6):
-                print(line)
+            if line.find('final_symmetry', 6) != -1:
                 final_sym = line.split('final_symmetry ')[1]
                 info[1] = info[1][:2]
             des_dir_d[dock_dir][info[1]] = info[0]
