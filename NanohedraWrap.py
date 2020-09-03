@@ -34,7 +34,10 @@ def nanohedra(dock_dir):
             if line.find('final_symmetry', 6) != -1:
                 final_sym = line.split('final_symmetry ')[1]
                 info[1] = info[1][:2]
-            des_dir_d[info[1]] = info[0]
+            if info[1] not in des_dir_d:
+                des_dir_d[info[1]] = [info[0]]
+            else:
+                des_dir_d[info[1]].append(info[0])
         # 4G41 C2
         # 2CHC C3final_symmetry I
 
@@ -52,21 +55,22 @@ def nanohedra(dock_dir):
             symmetry_rank = new_symmetry_rank
             lower_sym = higher_sym
             higher_sym = sym
-            print(lower_sym, higher_sym)
         else:  # The case where 1 is greater than 2
             lower_sym = sym
-    print(dock_dir)
+
+    if len(des_dir_d) == 1:
+        lower_sym = higher_sym
     sym_tuple = (lower_sym, higher_sym)
     entry_num = entry_d[final_sym][sym_tuple]
     out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
     for sym in sym_tuple:
-        if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % des_dir_d[sym])):
-            raise SDUtils.DesignError(['Missing symmetry %s PDB file!' % sym])
+        for pdb in des_dir_d[sym]:
+            if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb)):
+                raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (sym, pdb)])
 
     _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
-            os.path.join(dock_dir, lower_sym, '%s.pdb' % des_dir_d[lower_sym]), '-pdb_dir2_path',
-            os.path.join(dock_dir, higher_sym, '%s.pdb' % des_dir_d[higher_sym]),
+            os.path.join(dock_dir, lower_sym), '-pdb_dir2_path', os.path.join(dock_dir, higher_sym),
             '-rot_step1', '2', '-rot_step2', '2', '-outdir', out_dir]
     command_file = SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra',
                                               outpath=os.path.dirname(dock_dir))
