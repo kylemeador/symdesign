@@ -26,7 +26,7 @@ def nanohedra(dock_dir):
     # des_dir_d = {design: {Sym: PDB1, Sym2: PDB2, Final_Sym:I}}
 
     # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
-    des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl' % os.path.basename(dock_dir)))
+    des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))
     # {Sym: PDB1, Sym2: PDB2, 'final_symmetry': I}
     # des_dir_d = {}
     # dock_file = os.path.join(dock_dir, '%s_components.dock' % os.path.basename(dock_dir))  # TODO '.dock'
