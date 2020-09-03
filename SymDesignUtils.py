@@ -2046,7 +2046,8 @@ def handle_errors(errors=(Exception, )):
             try:
                 return func(*args, **kwargs), None
             except errors as e:
-                return None, (args[0].path, e)
+                return None, (args[0], e)  # requires a directory identifier as args[0]
+                # return None, (args[0].path, e)
             # finally:  TODO figure out how to run only when uncaught exception is found
             #     print('Error occurred in %s' % args[0].path)
         return wrapped
