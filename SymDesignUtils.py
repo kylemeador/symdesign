@@ -1648,7 +1648,7 @@ def write_shell_script(command, name='script', outpath=os.getcwd(), additional=N
     return file_name
 
 
-def write_commands(command_list, name='all_commands', loc=os.getcwd()):
+def write_commands(command_list, name='all_commands', loc=os.getcwd()):  # TODO loc, location, outpath. Standardize!!!
     file = os.path.join(loc, name + '.cmd')
     with open(file, 'w') as f:
         for command in command_list:

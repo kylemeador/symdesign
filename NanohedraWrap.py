@@ -73,7 +73,6 @@ def nanohedra(dock_file):
     _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
             os.path.join(dock_dir, lower_sym), '-pdb_dir2_path', os.path.join(dock_dir, higher_sym),
             '-rot_step1', '2', '-rot_step2', '2', '-outdir', out_dir]
-    command_file = SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra',
-                                              outpath=os.path.dirname(dock_dir))
+    command_file = SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=dock_dir)
 
     return command_file
