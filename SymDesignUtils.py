@@ -2250,15 +2250,9 @@ def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  
 def get_dock_directories(base_directory, directory_type='.dock'):
     all_directories = []
     for root, dirs, files in os.walk(base_directory):
-        # for directory in dirs:
         for file in files:
             if file.endswith(directory_type):
-        # if os.path.basename(root).startswith(directory_type):
-        #     all_design_directories.append(design_root)
-        # else:
-        #     for directory in design_dirs:
-        #         if directory.startswith(PUtils.pose_prefix):
-                all_directories.append(os.path.join(root, file))
+                all_directories.append(root)
     return sorted(set(all_directories))
 
 
