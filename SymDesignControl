@@ -263,7 +263,8 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     if args.sub_module == 'dock':
-        all_design_directories = SDUtils.get_dock_directories(args.directory)
+        all_poses = SDUtils.get_dock_directories(args.directory)
+        all_design_directories = all_poses
     else:
         all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
         assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
