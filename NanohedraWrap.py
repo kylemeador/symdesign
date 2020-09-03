@@ -67,8 +67,8 @@ def nanohedra(dock_file):
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
     for sym in sym_tuple:
         for pdb in des_dir_d[sym]:
-            if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb)):
-                raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (sym, pdb)])
+            if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
+                raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (sym, pdb.lower())])
 
     _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
             os.path.join(dock_dir, lower_sym), '-pdb_dir2_path', os.path.join(dock_dir, higher_sym),
