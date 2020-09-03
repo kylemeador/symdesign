@@ -9,7 +9,7 @@ import PathUtils as PUtils
 import AnalyzeMutatedSequences as Ams
 
 # Globals
-uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
+# uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 
 
 def find_all_matching_pdb_expression_tags(pdb_code, chain):
@@ -22,6 +22,7 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):
     Returns:
         (dict): {pdb: {'name': 'His Tag', 'seq': 'MSGHHHHHHGKLKPNDLRI'}, ...}
     """
+    uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
     # 'all' gives PDB.Chain, 'unique' gives only PDB handle
     all_matching_pdb_chain = uniprot_pdb_d[pull_uniprot_id_by_pdb(pdb_code, chain=chain)]['all']
 
@@ -180,6 +181,7 @@ def add_expression_tag(tag, sequence):
 
 
 def pull_uniprot_id_by_pdb(pdb_code, chain=None):
+    uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
     # uniprot_pdb_d = pickle.load(unidictf)
     source = 'unique_pdb'
     pdb_code = pdb_code.upper()
