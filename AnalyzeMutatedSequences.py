@@ -1262,12 +1262,12 @@ if __name__ == '__main__':
         logger.info('Design directory specified, using standard method and disregarding additional inputs '
                     '(-s, -score) and (-w, --wildtype).')
         analyze_mutations(design_directory, mutate_wildtype_sequences(args.directory, args.wildtype),
-                          print_results=args.print)
+                          print_results=True)  # args.print)
     else:
         if args.directory and args.wildtype and args.score:
             path_object = SDUtils.set_up_pseudo_design_dir(args.wildtype, args.directory, args.score)
             analyze_mutations(design_directory, mutate_wildtype_sequences(args.directory, args.wildtype),
-                              print_results=args.print)
+                              print_results=True)  # args.print)
         else:
             logger.critical('Must pass all three, wildtype, directory, and score if using non-standard %s '
                             'directory structure' % PUtils.program_name)
