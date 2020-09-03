@@ -93,7 +93,7 @@ if __name__ == '__main__':
     # Select exact poses to be handled according to array_ID and design stage
     array_task = int(os.environ.get('SLURM_ARRAY_TASK_ID'))
     cmd_slice = (array_task - SDUtils.index_offset) * CUtils.process_scale[args.stage]  # adjust from SLURM one index
-    if cmd_slice + CUtils.process_scale[args.stage] > len(all_commands):
+    if cmd_slice + CUtils.process_scale[args.stage] > len(all_commands):  # check to ensure list index isn't missing
         final_cmd_slice = None
     else:
         final_cmd_slice = cmd_slice + CUtils.process_scale[args.stage]
@@ -101,7 +101,10 @@ if __name__ == '__main__':
 
     # Prepare Commands
     # command_name = args.stage + '.sh'
-    commands_of_interest = list(map(os.path.join, poses, repeat(args.stage + '.sh')))  # repeat(command_name)))
+    # python2.7 compatibility
+    path_maker = lambda path_name: os.path.join(path_name, '%s.sh' % args.stage)
+    commands_of_interest = list(map(path_maker, poses))  # repeat(command_name)))
+    # commands_of_interest = list(map(os.path.join, poses, repeat(args.stage + '.sh')))  # repeat(command_name)))
     des_dirs = SDUtils.set_up_directory_objects(poses)
     log_files = list(os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log') for des_dir in des_dirs)
     commands = zip(commands_of_interest, log_files)
