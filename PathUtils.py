@@ -9,7 +9,7 @@ nstruct = 25  # back to 50?
 stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus'}  # ,
 stage_f = {'refine': {'path': '*_refine.pdb', 'len': 1}, 'design': {'path': '*_design_*.pdb', 'len': nstruct},
            'metrics': {'path': '', 'len': None}, 'analysis': {'path': '', 'len': None},
-           'consensus': {'path': '*_consensus.pdb', 'len': 1}}
+           'consensus': {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None}}
 rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at config
 sb_flag = '#SBATCH --'
 sbatch = '_sbatch.sh'
