@@ -161,14 +161,14 @@ if __name__ == '__main__':
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags')
 
-    parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py' % PUtils.nano)
+    parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py' % PUtils.nano.title())
     parser_dock.add_argument('-c', '--command_only', action='store_true',
                              help='Should commands be written but not executed?\nDefault=False')
 
     parser_pose = subparsers.add_parser('pose', help='Gather output from %s and format for input into Rosetta. '
                                                      'Sets up interface design constrained evolutionary profiles '
                                                      'of homologous sequences and by fragment profiles extracted '
-                                                     'from the PDB' % PUtils.nano)
+                                                     'from the PDB' % PUtils.nano.title())
     parser_pose.add_argument('-i', '--fragment_database', type=str,
                              help='Database to match fragments for interface specific scoring matrices. One of %s'
                                   '\nDefault=%s' %
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     else:
         all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
         assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
-                                                    % (PUtils.nano, location))
+                                                    % (PUtils.nano.title(), location))
 
         all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
         logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
@@ -320,11 +320,10 @@ if __name__ == '__main__':
             #         all_commands[i].append(os.path.join(des_directory.path, stage + '.sh'))
             # for i, stage in enumerate(PUtils.stage_f):
             all_commands = [result for result in results if result]
-            command_file = SDUtils.write_commands(all_commands, name=PUtils.nano.lower(), loc=args.directory)
+            command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
             logger.info('\nTo process commands, execute:\ncd %s\n%s' %
-                        (args.directory, 'python %s -f %s distribute -s %s' %
-                         (__file__, args.file, PUtils.nano.lower())))
+                        (args.directory, 'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano)))
 
     elif args.sub_module == 'pose':  # -c --command_only, -i --fragment_library, -p --mpi, -x --suspend
         if args.mpi:
@@ -452,7 +451,8 @@ if __name__ == '__main__':
             # Grab all poses (directories) to be processed from either directory name or file
             all_poses2, location2 = SDUtils.collect_designs(args.directory2, file=args.file2)
             assert all_poses2 != list(), logger.critical(
-                'No %s directories found within \'%s\'! Please ensure correct location' % (PUtils.nano, location2))
+                'No %s directories found within \'%s\'! Please ensure correct location' % (PUtils.nano.title(),
+                                                                                           location2))
             all_design_directories2 = SDUtils.set_up_directory_objects(all_poses2)
             logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location2))
 
