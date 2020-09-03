@@ -53,7 +53,7 @@ def nanohedra(dock_dir):
         else:  # The case where 1 is greater than 2
             lower_sym = sym
 
-    sym_tuple = (higher_sym, lower_sym)
+    sym_tuple = (lower_sym, higher_sym)
     entry_num = entry_d[final_sym][sym_tuple]
     out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
