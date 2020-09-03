@@ -15,7 +15,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
     with open(design_file, 'r') as f:
         reading_csv = reader(f)
         design_file_input = {os.path.splitext(row[0])[0]:
-                             {'design_pdb': row[0],  # SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),
+                             {'design_pdb': row[0],  # SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),  # TODO reinstate upon recap exp termination
                               'source_pdb': {(row[1], row[3]), (row[2], row[4])}, 'final_sym': row[5]}
                              for row in reading_csv}  # 'pdb1': 'sym1': 'pdb2': 'sym2':
     # all_pdbs = {file: {'design': SDUtils.read_pdb(pdb_file) for pdb_file in all_pdb_files} for file in design_input
@@ -31,7 +31,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
     #           'pdb2': {'asu_chain': None, 'dock_chains': []}}, ...}
     for design in design_file_input:
         # asu = design_file_input[design]['design_pdb'].return_asu()
-        asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))
+        asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # TODO reinstate upon recap exp termination
         asu.reorder_chains()
         # asu.pose_numbering()
         # for chain in asu.chain_id_list:
@@ -125,9 +125,14 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                       (design, pdb, final_mutations))
                 break
 
-            if not os.path.exists(os.path.join(output_dir, design, sym)):
-                os.makedirs(os.path.join(output_dir, design, sym))
-            oriented_pdb.write(os.path.join(output_dir, design, sym, '%s.pdb' % pdb.lower()))  # pdb.lower()
+            if not os.path.exists(os.path.join(output_dir, design, '%s_%s' % (i, sym))):
+                os.makedirs(os.path.join(output_dir, design, '%s_%s' % (i, sym)))
+            oriented_pdb.write(os.path.join(output_dir, design, '%s_%s' % (i, sym), '%s.pdb' % pdb.lower()))
+
+            # when sym of directory is not the same
+            # if not os.path.exists(os.path.join(output_dir, design, sym)):
+            #     os.makedirs(os.path.join(output_dir, design, sym))
+            # oriented_pdb.write(os.path.join(output_dir, design, sym, '%s.pdb' % pdb.lower()))
 
             chain_correspondence[design]['pdb%s' % i] = {'asu_chain': chain_in_asu,
                                                          'dock_chains': oriented_pdb.chain_id_list}
@@ -135,9 +140,14 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
 
         asu.write(os.path.join(output_dir, 'design_asus', '%s.pdb' % design))
 
-        with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
-            f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
-            f.write('\n%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
+        # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
+        sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
+        sym_d['final_symmetry'] = design_file_input[design]['final_sym']
+        SDUtils.pickle_object(sym_d, name='%s_dock.pkl' % design, out_path=os.path.join(output_dir, design))
+
+        # with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
+        #     f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
+        #     f.write('\n%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
 
     missing = []
     for i, design in enumerate(chain_correspondence):

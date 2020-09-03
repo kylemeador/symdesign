@@ -135,8 +135,9 @@ if __name__ == '__main__':
     # while not monitor.kill_now:
 
     # python 2.7 compatibility NO MP here
+    results = []
     for command, log_file in commands:
-        results = run(command, log_file)
+        results.append(run(command, log_file))
     # python 3.7 compatible
     # results = SDUtils.mp_starmap(run, commands, threads=len(commands_of_interest))  # TODO reinstate
     #
