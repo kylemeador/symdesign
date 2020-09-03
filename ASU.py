@@ -137,7 +137,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
 
         with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
             f.write('\n'.join('%s %s' % (pdb, sym) for pdb, sym in design_file_input[design]['source_pdb']))
-            f.write('%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
+            f.write('\n%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
 
     missing = []
     for i, design in enumerate(chain_correspondence):

@@ -48,7 +48,7 @@ def nanohedra(dock_dir):
     symmetry_rank, higher_sym = 0, None
     for sym in des_dir_d:
         new_symmetry_rank = sym_hierarchy[sym]
-        if new_symmetry_rank > symmetry_rank:  # the case where 2 is greater than 1
+        if new_symmetry_rank >= symmetry_rank:  # the case where sym2 is greater than sym1 or equal to sym1
             symmetry_rank = new_symmetry_rank
             lower_sym = higher_sym
             higher_sym = sym
@@ -59,6 +59,9 @@ def nanohedra(dock_dir):
     entry_num = entry_d[final_sym][sym_tuple]
     out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
+    for sym in sym_tuple:
+        if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % des_dir_d[sym])):
+            raise SDUtils.DesignError('Missing symmetry %s PDB file!' % sym)
 
     _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
             os.path.join(dock_dir, lower_sym, '%s.pdb' % des_dir_d[lower_sym]), '-pdb_dir2_path',
