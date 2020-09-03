@@ -22,11 +22,12 @@ def nanohedra_mp(dock_dir):
         return None, (dock_dir, e)
 
 
-def nanohedra(dock_dir):
+def nanohedra(dock_file):
     # des_dir_d = {design: {Sym: PDB1, Sym2: PDB2, Final_Sym:I}}
     # des_dir_d = {Sym: PDB1, Sym2: PDB2}
     des_dir_d = {}
-    with open(dock_dir, 'r') as f:
+    dock_dir = os.path.dirname(dock_file)
+    with open(dock_file, 'r') as f:
         parameters = f.readlines()
         # parameters = map(str.split(), parameters)
         for line in parameters:
