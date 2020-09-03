@@ -63,26 +63,28 @@ def nanohedra(dock_dir):
     #     # 2CHC C3
     #     # final_symmetry I
 
-    # symmetries = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
-    # sym_hierarchy = {sym: i for i, sym in enumerate(symmetries, 1)}
-    # symmetry_rank, higher_sym = 0, None
-    # for sym in des_dir_d:
-    #     new_symmetry_rank = sym_hierarchy[sym]
-    #     if new_symmetry_rank >= symmetry_rank:  # the case where sym2 is greater than sym1 or equal to sym1
-    #         symmetry_rank = new_symmetry_rank
-    #         lower_sym = higher_sym
-    #         higher_sym = sym
-    #     else:  # The case where 1 is greater than 2
-    #         lower_sym = sym
-    # if len(des_dir_d) == 1:
-    #     lower_sym = higher_sym
-
+    symmetries = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
+    sym_hierarchy = {sym: i for i, sym in enumerate(symmetries, 1)}
+    symmetry_rank, higher_sym = 0, None
     for sym in des_dir_d:
         sym_l = sym.split('_')
-        if sym_l[0] == '1':
-            lower_sym = sym_l[1]
-        elif sym_l[0] == '2':
-            higher_sym = sym_l[1]
+        new_sym = sym_l[1]
+        new_symmetry_rank = sym_hierarchy[new_sym]
+        if new_symmetry_rank >= symmetry_rank:  # the case where sym2 is greater than sym1 or equal to sym1
+            symmetry_rank = new_symmetry_rank
+            lower_sym = higher_sym
+            higher_sym = sym
+        else:  # The case where 1 is greater than 2
+            lower_sym = sym
+    if len(des_dir_d) == 1:
+        lower_sym = higher_sym
+
+    # for sym in des_dir_d:
+    #     sym_l = sym.split('_')
+    #     if sym_l[0] == '1':
+    #         lower_sym = sym_l[1]
+    #     elif sym_l[0] == '2':
+    #         higher_sym = sym_l[1]
 
     sym_tuple = (lower_sym, higher_sym)
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
