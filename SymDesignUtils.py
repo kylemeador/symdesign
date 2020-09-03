@@ -2266,7 +2266,7 @@ def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  
     return sorted(set(all_design_directories))
 
 
-def get_dock_directories(base_directory, directory_type='.dock'):
+def get_dock_directories(base_directory, directory_type='_dock.pkl'):
     all_directories = []
     for root, dirs, files in os.walk(base_directory):
         for file in files:
