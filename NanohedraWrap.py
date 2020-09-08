@@ -26,7 +26,7 @@ def nanohedra(dock_dir):
     # des_dir_d = {design: {Sym: PDB1, Sym2: PDB2, Final_Sym:I}}
 
     # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
-    des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))
+    des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))  # TODO remove .pkl
     syms = list(set(des_dir_d.keys()) - {'final_symmetry'})
     for i, sym in enumerate(syms, 1):
         sym_l = sym.split('_')
@@ -89,7 +89,8 @@ def nanohedra(dock_dir):
     sym_tuple = (lower_sym, higher_sym)
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
     entry_num = entry_d[des_dir_d['final_symmetry']][sym_tuple]
-    out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
+    out_dir = os.path.join(dock_dir, 'NanohedraEntry%sDockedPoses' % entry_num)
+    # out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
 
     _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',

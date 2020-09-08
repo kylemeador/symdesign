@@ -4,7 +4,8 @@ SLURM/PBS computational clusters, analysis of designed poses, and renaming of co
 
 """
 import os
-import sys
+# import sys
+from random import random
 import PDB
 import argparse
 import shutil
@@ -370,19 +371,18 @@ if __name__ == '__main__':
                 command_files[i] = SDUtils.write_commands(all_commands[i], name=stage, loc=args.directory)
                 logger.info('All \'%s\' commands were written to \'%s\'' % (stage, command_files[i]))
             logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s' %
-                        (args.directory, '\n'.join(['python %s -f %s distribute -s %s' % (__file__, args.file, stage)
+                        (args.directory, '\n'.join(['python %s -f %s -s %s' % (__file__, args.file, stage)
                                                     for stage in list(PUtils.stage_f.keys())[:3]])))
 
     elif args.sub_module == 'distribute':  # -s --stage, -y --success_file, -n --failure_file, -m --max_jobs
         # Create success and failures files
+        ran_num = int(100 * random())
         if not args.success_file:
-            args.success_file = os.path.join(args.directory, args.stage + '_stage_pose_success')
-        # with open(args.success_file, 'w') as f:
-        #     dummy = True
+            args.success_file = os.path.join(args.directory, '%s_sbatch-%d_success.log' % (args.stage, ran_num))
+
         if not args.failure_file:
-            args.failure_file = os.path.join(args.directory, args.stage + '_stage_pose_failures')
-        # with open(args.failure_file, 'w') as f:
-        #     dummy = True
+            args.failure_file = os.path.join(args.directory, '%s_sbatch-%d_failures.log' % (args.stage, ran_num))
+
         logger.info('\nSuccessful poses will be listed in \'%s\'\nFailed poses will be listed in \'%s\''
                     % (args.success_file, args.failure_file))
 
@@ -391,7 +391,7 @@ if __name__ == '__main__':
             template_sbatch = template_f.readlines()
 
         # Make sbatch file from template, array details, and command distribution script
-        filename = os.path.join(args.directory, args.stage + PUtils.sbatch)
+        filename = os.path.join(args.directory, '%s_%s-%d.sh' % (args.stage, PUtils.sbatch, ran_num))
         output = os.path.join(args.directory, 'output')
         if not os.path.exists(output):
             os.mkdir(output)
