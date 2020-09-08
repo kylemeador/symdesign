@@ -95,7 +95,7 @@ def run(cmd, log_file, program='bash'):  # , log_file=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=os.path.basename(__file__)
                                      + '\nGather commands set up by %s and distribute to computational nodes for '
-                                       'Rosetta processing.' % PUtils.program_name)
+                                     'Rosetta processing.' % PUtils.program_name)
     parser.add_argument('-s', '--stage', choices=tuple(CUtils.process_scale.keys()),
                         help='The stage of design to be prepared. One of %s'
                              % ', '.join(list(CUtils.process_scale.keys())))
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     commands = zip(commands_of_interest, log_files)
 
     # Run commands in parallel
-    # monitor = GracefulKiller()  # TODO TEST for solution to SIGTERM. Doesn't appear to be possible...
+    # monitor = GracefulKiller()  # TODO solution to SIGTERM. TEST shows this doesn't appear to be possible...
     signal.signal(signal.SIGINT, exit_gracefully)
     # signal.signal(signal.SIGKILL, exit_gracefully)  # Doesn't work, not possible
     signal.signal(signal.SIGTERM, exit_gracefully)
@@ -159,6 +159,13 @@ if __name__ == '__main__':
     # else:
 
     # Write out successful and failed commands TODO ensure write is only possible one at a time
+    if not os.path.exists(args.success_file):
+        with open(args.success_file, 'w') as f:
+            dummy = True
+    if not os.path.exists(args.failure_file):
+        with open(args.failure_file, 'w') as f:
+            dummy = True
+
     with open(args.success_file, 'a') as f:
         for i, pose in enumerate(poses):
             if results[i]:

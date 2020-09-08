@@ -12,7 +12,8 @@ stage_f = {'refine': {'path': '*_refine.pdb', 'len': 1}, 'design': {'path': '*_d
            'consensus': {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None}}
 rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at config
 sb_flag = '#SBATCH --'
-sbatch = '_sbatch.sh'
+sbatch = 'sbatch'
+# sbatch = '_sbatch.sh'
 temp = 'temp.hold'
 pose_prefix = 'tx_'
 asu = 'central_asu.pdb'
@@ -50,6 +51,7 @@ pdb_db = os.path.join(database, 'PDB.db')  # TODO pointer to pdb database or to 
 pdb_source = 'db'  # 'download_pdb'  # TODO set up
 qsbio = os.path.join(database, 'QSbio_Assemblies')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
 binaries = os.path.join(dependencies, 'bin')
+sbatch_templates = os.path.join(binaries, 'sbatch')
 # binaries = os.path.join(source, 'bin')  # TODO
 process_commands = os.path.join(binaries, 'ProcessDesignCommands.sh `pwd`')
 disbatch = os.path.join(binaries, 'diSbatch.sh')
@@ -101,9 +103,16 @@ protocol = {1: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 
 # Cluster Dependencies and Multiprocessing
 # stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus'}
-sbatch_templates = {stage[1]: os.path.join(binaries, sbatch[1:7], stage[1]),
-                    stage[2]: os.path.join(binaries, sbatch[1:7], stage[2]),
-                    stage[3]: os.path.join(binaries, sbatch[1:7], stage[2]),
-                    stage[4]: os.path.join(binaries, sbatch[1:7], stage[1]),
-                    stage[5]: os.path.join(binaries, sbatch[1:7], stage[1]),
-                    nano: os.path.join(binaries, sbatch[1:7], nano)}
+# sbatch_templates = {stage[1]: os.path.join(binaries, sbatch[1:7], stage[1]),
+#                     stage[2]: os.path.join(binaries, sbatch[1:7], stage[2]),
+#                     stage[3]: os.path.join(binaries, sbatch[1:7], stage[2]),
+#                     stage[4]: os.path.join(binaries, sbatch[1:7], stage[1]),
+#                     stage[5]: os.path.join(binaries, sbatch[1:7], stage[1]),
+#                     nano: os.path.join(binaries, sbatch[1:7], nano)}
+
+sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
+                    stage[2]: os.path.join(sbatch_templates, stage[2]),
+                    stage[3]: os.path.join(sbatch_templates, stage[2]),
+                    stage[4]: os.path.join(sbatch_templates, stage[1]),
+                    stage[5]: os.path.join(sbatch_templates, stage[1]),
+                    nano: os.path.join(sbatch_templates, nano)}
