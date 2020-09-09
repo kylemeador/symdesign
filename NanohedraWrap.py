@@ -32,7 +32,7 @@ def nanohedra(dock_dir):
     des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))  # TODO remove .pkl
     syms = list(set(des_dir_d.keys()) - {'final_symmetry'})  # ex: [0_C2, 1_C3]
     symmetry_rank = 0
-    sym_d = {'higher': None, 'lower': None}
+    sym_d = {'higher': None, 'higher_path': None, 'lower': None, 'lower_path': None}
     for i, sym in enumerate(syms):
         sym_l = sym.split('_')
         sym_l[0] = str(int(sym_l[0]) + 1)
@@ -52,7 +52,7 @@ def nanohedra(dock_dir):
             symmetry_rank = new_symmetry_rank
             # lower_sym = higher_sym
             sym_d['lower'] = sym_d['higher']
-            sym_d['lower_path'] = sym
+            sym_d['lower_path'] = sym_d['higher_path']
             # higher_sym = _sym
             sym_d['higher'] = _sym
             sym_d['higher_path'] = sym
