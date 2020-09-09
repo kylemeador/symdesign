@@ -24,7 +24,6 @@ def nanohedra_mp(dock_dir):
 
 def nanohedra(dock_dir):
     # des_dir_d = {design: {Sym: PDB1, Sym2: PDB2, Final_Sym:I}}
-
     # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
     symmetries = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
@@ -36,7 +35,6 @@ def nanohedra(dock_dir):
     sym_d = {}
     for i, sym in enumerate(syms):
         sym_l = sym.split('_')
-        sym_d[]
         sym_l[0] = str(int(sym_l[0]) + 1)
         new_sym = '_'.join(sym_l)
         # for pdb in des_dir_d[sym]:
