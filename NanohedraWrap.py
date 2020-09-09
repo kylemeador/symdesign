@@ -55,11 +55,11 @@ def nanohedra(dock_dir):
             sym_d['lower_path'] = sym_d['higher_path']
             # higher_sym = _sym
             sym_d['higher'] = _sym
-            sym_d['higher_path'] = sym
+            sym_d['higher_path'] = new_sym
         else:  # The case where 1 is greater than 2
             # lower_sym = _sym
             sym_d['lower'] = _sym
-            sym_d['lower_path'] = sym
+            sym_d['lower_path'] = new_sym
     if len(des_dir_d) == 1:
         sym_d['lower'] = sym_d['higher']
         # lower_sym = higher_sym
