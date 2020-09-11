@@ -201,7 +201,7 @@ def read_fasta_file(file_name):
 
 def write_fasta(sequence_records, file_name):
     """Writes an iterator of SeqRecords to a file. The file name is returned"""
-    SeqIO.write(sequence_records, '%s.fasta' % file_name, "fasta")
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
     return '%s.fasta' % file_name
 
 
@@ -209,7 +209,6 @@ def concatenate_fasta_files(file_names, output='concatenated_fasta'):
     """Take multiple fasta files and concatenate into a single file"""
     seq_records = [read_fasta_file(file) for file in file_names]
     return write_fasta(list(chain.from_iterable(seq_records)), output)
-
 
 
 def write_fasta_file(sequence, name, outpath=os.getcwd()):
