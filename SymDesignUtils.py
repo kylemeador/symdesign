@@ -3,7 +3,8 @@ import sys
 import math
 import subprocess
 import logging
-import pickle
+# import pickle
+import pickle5 as pickle
 import copy
 from glob import glob
 from json import loads, dumps
@@ -653,7 +654,7 @@ def read_pdb(file, coordinates_only=True):
     return pdb
 
 
-def fill_pdb(atom_list):
+def fill_pdb(atom_list=[]):
     """Wrapper on the PDB __init__ and readfile functions
 
     Args:
@@ -2086,12 +2087,12 @@ class DesignDirectory:
         self.symmetry = None
         # design_symmetry (P432)
         self.protein_data = None  # TODO
-        # design_symmetry/sequences (P432/Protein_Data)
+        # design_symmetry/protein_data (P432/Protein_Data)
         self.pdbs = None  # TODO
-        # design_symmetry/sequences (P432/Protein_Data/PDBs)
+        # design_symmetry/protein_data/pdbs (P432/Protein_Data/PDBs)
         self.sequences = None
         # design_symmetry/sequences (P432/Sequence_Info)
-        # design_symmetry/sequences (P432/Protein_Data/Sequence_Info)  # TODO
+        # design_symmetry/protein_data/sequences (P432/Protein_Data/Sequence_Info)  # TODO
         self.all_scores = None
         # design_symmetry/all_scores (P432/All_Scores)
         self.trajectories = None
