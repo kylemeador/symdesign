@@ -1,13 +1,36 @@
 import os
+from glob import glob
 from csv import reader
 import argparse
 import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import AnalyzeMutatedSequences as Ams
+from NanohedraCassiniV1.utils.BioPDBUtils import biopdb_aligned_chain
 
 
 def make_asu(files, chain, destination=os.getcwd):
     return [SDUtils.extract_asu(file, chain=chain, outpath=destination) for file in files]
+
+
+def make_asu_oligomer(asu, chain_map, location=os.getcwd):
+    # chain_map = {'pdb1': {'asu_chain': chain_in_asu, 'dock_chains': oriented_pdb.chain_id_list, 'path': path/to/.pdb}, {}}
+    # move each oligomer to correct asu chain
+
+    # for design in chain_map:  # TODO make correspondance design specific
+    moved_oligomer = {}
+    for pdb in chain_map:
+        asu_chain = chain_map[pdb]['asu_chain']
+        oriented_oligomer = SDUtils.read_pdb(chain_map[pdb]['path'])
+        oligomer_chain = chain_map[pdb]['dock_chains'][0]
+        moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
+        # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
+
+    final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))}
+    # final_comparison = {'nanohedra_output': os.path.join(os.path.dirname(location), 'NanohedraEntry%sDockedPoses' % entry_num)}
+    for pdb in moved_oligomer:
+        moved_oligomer[pdb].write(os.path.join(location, '%s_oligomer.pdb' % pdb))
+        final_comparison[pdb] = os.path.join(location, '%s_oligomer.pdb' % pdb)
+
 
 
 def design_recapitulation(design_file, pdb_dir, output_dir):
@@ -40,11 +63,12 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
         asu.reindex_all_chain_residues()
         asu.get_all_entities()
 
-        if not os.path.exists(os.path.join(output_dir, design)):
-            os.makedirs(os.path.join(output_dir, design))
+        design_dir = os.path.join(output_dir, design)
+        if not os.path.exists(design_dir):
+            os.makedirs(design_dir)
 
         used_chains = []
-        for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'], 1):
+        for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'], 1):  # TODO Not necessarily in order!!!
             if pdb in qsbio_assemblies:
                 biological_assembly = qsbio_assemblies[pdb][0]  # find a verified biological assembly from QSBio
                 if pdb == '3E6Q':
@@ -128,7 +152,9 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
 
             if not os.path.exists(os.path.join(output_dir, design, '%s_%s' % (i, sym))):
                 os.makedirs(os.path.join(output_dir, design, '%s_%s' % (i, sym)))
-            oriented_pdb.write(os.path.join(output_dir, design, '%s_%s' % (i, sym), '%s.pdb' % pdb.lower()))
+
+            out_path = os.path.join(output_dir, design, '%s_%s' % (i, sym), '%s.pdb' % pdb.lower())
+            oriented_pdb.write(out_path)
 
             # when sym of directory is not the same
             # if not os.path.exists(os.path.join(output_dir, design, sym)):
@@ -136,10 +162,17 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
             # oriented_pdb.write(os.path.join(output_dir, design, sym, '%s.pdb' % pdb.lower()))
 
             chain_correspondence[design]['pdb%s' % i] = {'asu_chain': chain_in_asu,
-                                                         'dock_chains': oriented_pdb.chain_id_list}
+                                                         'dock_chains': oriented_pdb.chain_id_list,
+                                                         'path': out_path}
             # chain_correspondence[chain_in_asu] = oriented_pdb.chain_id_list
 
-        asu.write(os.path.join(output_dir, 'design_asus', '%s.pdb' % design))
+        asu_path = os.path.join(output_dir, 'design_asus', '%s' % design)
+        # asu_path = os.path.join(design_dir, 'design_asu')
+        if oligomer:
+            make_asu_oligomer(asu, chain_correspondence[design], location=asu_path)
+
+        else:
+            asu.write(os.path.join(asu_path, '%s_asu.pdb' % design))
 
         # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
         sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
