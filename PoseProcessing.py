@@ -36,23 +36,33 @@ from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_s
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
+    """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
+
+    Args:
+        all_des_dirs (list(DesignDirectories)): List of relevant design directories
+    Keyword Args:
+        threads: Number of multiprocessing threads to run
+    Returns:
+        (dict): {building_blocks: {pair1: {pair2: rmsd, ...}, ...}, ...}
+    """
     pose_map = {}
     pairs_to_process = []
     singlets = {}
     for pair in combinations(all_des_dirs, 2):
-        singlets[pair[0].building_blocks] = pair[0]
+        singlets[pair[0].building_blocks] = pair[0]  # add any poses that are missing partners to the map
         if pair[0].building_blocks == pair[1].building_blocks:
             singlets.pop(pair[0].building_blocks)
             pairs_to_process.append(pair)
-    results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
+    _results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
 
     # Make dictionary with all pairs
-    for pair, pair_rmsd in zip(pairs_to_process, results):
+    for pair, pair_rmsd in zip(pairs_to_process, _results):
         protein_pair_path = os.path.basename(pair[0].building_blocks)
         # protein_pair_path = pair[0].building_blocks
         # pose_map[result[0]] = result[1]
         if protein_pair_path in pose_map:
-            # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
+            # # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
+            # {building_blocks: {pair1: {pair2: rmsd, ...}, ...}, ...}
             if str(pair[0]) in pose_map[protein_pair_path]:
                 pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
                 if str(pair[1]) not in pose_map[protein_pair_path]:
@@ -74,10 +84,19 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
 
 
 def pose_pair_rmsd(pair):
-    protein_pair_path = pair[0].building_blocks
+    """Calculate the rmsd between Nanohedra pose pairs using the intersecting residues at the interface of each pose
+
+    Args:
+        pair (tuple(DesignDirectory, DesignDirectory)): Two DesignDirectory objects from pose processing directories
+    Returns:
+        (float): RMSD value
+    """
+    # protein_pair_path = pair[0].building_blocks
     # Grab designed resides from the design_directory
     des_residue_list = [pose.info['des_residues'] for pose in pair]
-    # could use the union as well...
+
+    # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
+    # could use the union as well...?
     des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
                                                   for n, pose_residues in enumerate(des_residue_list)})
     if des_residue_set == list():  # when the two structures are not significantly overlapped
@@ -162,6 +181,13 @@ def pose_rmsd_s(all_des_dirs):
 
 
 def cluster_poses(pose_map):
+    """Take a pose map calculated by pose_rmsd (_mp or _s) and cluster using DBSCAN algorithm
+
+    Args:
+        pose_map (dict): {building_blocks: {pair1: {pair2: rmsd, ...}, ...}, ...}
+    Returns:
+        (dict): {building_block: {'poses clustered'}, ... }
+    """
     pose_cluster_map = {}
     for building_block in pose_map:
         building_block_rmsd_df = pd.DataFrame(pose_map[building_block]).fillna(0.0)
@@ -215,7 +241,7 @@ def cluster_poses(pose_map):
         #                                                      if cluster == dbscan.labels_[idx]]].index.to_list()
         #                    for idx in dbscan.core_sample_indices_}
 
-        # add all outliers to the clustered poses as a representative
+        # Add all outliers to the clustered poses as a representative
         clustered_poses.update({building_block_rmsd_df.index[idx]: building_block_rmsd_df.index[idx]
                                 for idx, cluster in enumerate(dbscan.labels_) if cluster == -1})
         pose_cluster_map[building_block] = clustered_poses

@@ -537,7 +537,7 @@ if __name__ == '__main__':
                 # TODO parameterize
                 # if not args.filters:
                 #     sys.exit('VY made this and I am going to put in here!')
-                design_requirements = {'percent_int_area_polar': 0.4, 'buns_per_ang': 0.002}
+                design_requirements = {'percent_int_area_polar': 0.2, 'buns_per_ang': 0.002}
                 crystal_means1 = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
                 crystal_means2 = {'shape_complementarity': 0.63, 'number_hbonds': 5}  # 'int_area_total': 570,
                 symmetry_requirements = crystal_means1

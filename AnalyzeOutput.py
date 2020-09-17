@@ -23,11 +23,22 @@ import AnalyzeMutatedSequences as Ams
 
 # Globals
 groups = 'protocol'
-metric_master = {'buns_heavy_total': 'Buried unsaturated Hbonding heavy atoms in the pose',
+metric_master = {'average_fragment_z_score': 'The average z-score per fragment used in docking/redesign',
+                 'buns_heavy_total': 'Buried unsaturated Hbonding heavy atoms in the pose',
                  'buns_hpol_total': 'Buried unsaturated Hbonding hydrogen atoms in the pose',
                  'buns_total': 'Total buried unsaturated Hbonds in the pose',
+                 'buns_per_ang': 'Buried Unsaturated Hbonds per Angstrom^2 of interface',
                  'contact_count': 'Number of carbon-carbon contacts across interface',
+                 'core': 'The number of core residues as classified by E. Levy 2010',
                  'cst_weight': 'Total weight of coordinate constraints to keep pose stationary in 3D space',
+                 'divergence_combined_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
+                                                    'position specific combined (fragment & evolution) values',
+                 'divergence_fragment_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
+                                                    'position specific fragment profile values',
+                 'divergence_evolution_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
+                                                     'position specific evolutionary profile values',
+                 'divergence_interface_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
+                                                     'interface DB background values',
                  'fsp_energy': 'Total weight of sequence constraints used to favor certain amino acids in design. '
                                'Only some protocols have values',
                  'fsp_total_stability': 'fsp_energy + total pose energy',  # DEPRECIATED
@@ -49,35 +60,48 @@ metric_master = {'buns_heavy_total': 'Buried unsaturated Hbonding heavy atoms in
                  'int_composition_diff': 'The similarity to the expected interface composition given BSA. 1 is similar',
                  'int_connectivity_A': 'Interface connection chainA to the rest of the protein',
                  'int_connectivity_B': 'Interface connection chainB to the rest of the protein',
-                 'int_energy_context_A_oligomer': 'Interface energy of the A oligomer',  # DEPRECIATED
-                 'int_energy_context_B_oligomer': 'Interface energy of the B oligomer',  # DEPRECIATED
+                 'int_energy_context_A_oligomer': 'Interface energy of the A oligomer',  # DEPRECIATED x2
+                 'int_energy_context_B_oligomer': 'Interface energy of the B oligomer',  # DEPRECIATED x2
                  'int_energy_context_oligomer_A': 'Interface energy of the A oligomer',  # DEPRECIATED
                  'int_energy_context_oligomer_B': 'Interface energy of the B oligomer',  # DEPRECIATED
                  'int_energy_context_complex': 'interface energy of the complex',  # DEPRECIATED
-                 'int_energy_res_summary_A_oligomer': 'Sum of each interface residue\'s energy for oligomer A',
-                 'int_energy_res_summary_B_oligomer': 'Sum of each interface residue\'s energy for oligomer B',
+                 'int_energy_res_summary_A_oligomer': 'Sum of each interface residue\'s energy for oligomer A',  # DEPRECIATED
+                 'int_energy_res_summary_B_oligomer': 'Sum of each interface residue\'s energy for oligomer B',  # DEPRECIATED
                  'int_energy_res_summary_complex': 'Sum of each interface residue\'s energy for the complex',
                  'int_energy_res_summary_delta': 'Delta of int_energy_res_summary_complex and _oligomer',
                  'int_energy_res_summary_oligomer': 'Sum of each interface residue\'s energy for total oligomer',
-                 'shape_complementarity': 'Interface shape complementarity (SC). Measure of fit between two surfaces',
+                 'int_energy_res_summary_oligomer_A': 'Sum of each interface residue\'s energy for oligomer A',
+                 'int_energy_res_summary_oligomer_B': 'Sum of each interface residue\'s energy for oligomer B',
                  'int_separation': 'Median distance between all atom points on two sides of a interface (SC term)',
+                 'interaction_energy_complex': 'The two-body interface energy of the assembled complex',
+                 'interface_b_factor_per_res': 'The average interface residue B-factor as measure from the PDB',
+                 'shape_complementarity': 'Interface shape complementarity (SC). Measure of fit between two surfaces',
                  'number_hbonds': 'The number of Hbonding residues present in the interface',
+                 'observations': 'Number of unique data points',
                  'observed_combined': 'Percent of observed residues in combined profile',
                  'observed_evolution': 'Percent of observed residues in evolutionary profile',
                  'observed_interface': 'Percent of observed residues in fragment profile',
+                 'percent_core': 'The percentage of total residues which are \'core\' according to Levy, E. 2010',
                  'percent_fragment': 'Percent of residues with fragment data out of total residues',
                  'percent_int_area_hydrophobic': 'The percent of interface area which is occupied by hydrophobic atoms',
                  'percent_int_area_polar': 'The percent of interface area which is occupied by polar atoms',
-                 'percent_core': 'The percentage of total residues which are \'core\' according to Levy, E. 2010',
                  'percent_rim': 'The percentage of total residues which are \'rim\' according to Levy, E. 2010',
                  'percent_support': 'The percentage of total residues which are \'support\' according to Levy, E. 2010',
-                 'buns_per_ang': 'Buried Unsaturated Hbonds per Angstrom^2 of interface',
+                 'protocol_energy_distance_sum': 'The distance between the average linearly embedded per residue energy'
+                                                 ' covariation between specified protocols. Larger = greater distance',
+                 'protocol_similarity_sum': 'The similarity between specified protocols. Larger is more similar',
+                 'protocol_seq_distance_sum': 'The distance between the average linearly embedded sequence differences '
+                                              'between specified protocols. Larger = greater distance',
                  'ref': 'Rosetta Energy Term - A metric for the unfolded protein energy and some sequence fitting '
                         'corrections to the score function',
+                 'rim': 'The number of rim residues as classified by E. Levy 2010',
                  'rmsd': 'Root Mean Square Deviation of all CA atoms between relaxed and design state',
                  groups: 'Protocols I to search sequence space for fragments and evolutionary information',
                  'solvation_energy': 'Energy required to hydrate the unbound components.',
-                 'nanohedra_score': 'Sum of the inverse of each fragments Z-score capped at 3 = 1 / Z-score (maximum3)',
+                 'support': 'The number of support residues as classified by E. Levy 2010',
+                 'symmetry': 'The specific symmetry type used design (point, layer, lattice)',
+                 'nanohedra_score': 'Sum of the inverse of each fragments Z-score capped at 3 = 1 / Z-score (maximum3)', # DEPRECIATED
+                 # 'nanohedra_score': 'Sum of the inverse of each fragments Z-score capped at 3 = 1 / Z-score (maximum3)',
                  'fragment_z_score_total': 'The sum of all fragments Z-Scores',
                  'unique_fragments': 'The number of unique fragments placed on the pose',
                  'total_interface_residues': 'The number of interface residues found in the pose',
@@ -682,7 +706,7 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
         compare='mean' (str): Choose from any pandas.DataFrame attribute that collapses along a column
             Other options might be median.
     Returns:
-        p_value_s (Series): Series object containing the p-values for observing the 'compare' statistic in the diff_s
+        p_value_s (Series): Contains the p-value(s) of the permutation test using the 'compare' statistic against diff_s
     """
     permut_s_array = []
     for i in range(permutations):
@@ -690,7 +714,8 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
         permut_s_array.append(getattr(shuffled_df.iloc[:group1_size, :], compare)().sub(
             getattr(shuffled_df.iloc[group1_size:, :], compare)()))
     # How many times the absolute permuted set is less than the absolute difference set. Returns bool, which when taking
-    # the mean of, True value reflects 1 while False (more significant/greater than or equal) is 0, giving the p-value
+    # the mean of, True value reflects 1 while False (more than/equal to the difference set) is 0.
+    # In essence, the returned mean is the p-value, which indicates how significant the permutation test results are
     abs_s = diff_s.abs()
     bool_df = pd.DataFrame([permut_s.abs().lt(abs_s) for permut_s in permut_s_array])
 

@@ -201,7 +201,7 @@ def read_fasta_file(file_name):
 
 def write_fasta(sequence_records, file_name):
     """Writes an iterator of SeqRecords to a file. The file name is returned"""
-    SeqIO.write(sequence_records, '%s.fasta' % file_name, "fasta")
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
     return '%s.fasta' % file_name
 
 
@@ -209,7 +209,6 @@ def concatenate_fasta_files(file_names, output='concatenated_fasta'):
     """Take multiple fasta files and concatenate into a single file"""
     seq_records = [read_fasta_file(file) for file in file_names]
     return write_fasta(list(chain.from_iterable(seq_records)), output)
-
 
 
 def write_fasta_file(sequence, name, outpath=os.getcwd()):
@@ -981,7 +980,8 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
 
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     _df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
-    # Filter the DataFrame to include only those values which are lower or higher than the specified filter
+
+    # Filter the DataFrame to include only those values which are le/ge the specified filter
     filters_with_idx = df_filter_index_by_value(_df, **_filters)
     filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
     logger.info('\n%s' % '\n'.join('Number of designs passing \'%s\' filter = %d' %
@@ -1006,6 +1006,7 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
         #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', df.columns.get_level_values(1) == 'stats',
         #     :]].droplevel(1, axis=1)
         # design_protocols_df = pd.merge(protocol_df, stats_protocol_df, left_index=True, right_index=True)
+        # TODO make more robust sampling from specific protocol
         _df = pd.merge(protocol_df.loc[:, idx['consensus', :]],
                        df.droplevel(0, axis=1).loc[:, idx[:, 'percent_fragment']],
                        left_index=True, right_index=True).droplevel(0, axis=1)
