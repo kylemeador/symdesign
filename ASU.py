@@ -5,7 +5,7 @@ import argparse
 import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import AnalyzeMutatedSequences as Ams
-from NanohedraCassiniV1.utils.BioPDBUtils import biopdb_aligned_chain
+from PUtils.nanohedra_source.utils.BioPDBUtils import biopdb_aligned_chain
 
 
 def make_asu(files, chain, destination=os.getcwd):
