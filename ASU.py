@@ -186,6 +186,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
 
         # asu_path = os.path.join(output_dir, 'design_asus', '%s' % design)
         asu_path = os.path.join(design_dir, 'design_asu')  # New as of oligomeric processing
+        if not os.path.exists(asu_path):
+            os.makedirs(asu_path)
         if oligomer:  # requires an ASU PDB instance beforehand
             rmsd_comp_commands[design] = make_asu_oligomer(asu, chain_correspondence[design], location=asu_path)
             # {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb1': ...}
