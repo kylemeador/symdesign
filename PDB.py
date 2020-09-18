@@ -35,6 +35,31 @@ class PDB:
     def AddName(self, name):
         self.name = name
 
+    def set_all_atoms(self, atom_list):
+        self.all_atoms = atom_list
+
+    def set_chain_id_list(self, chain_id_list):
+        self.chain_id_list = chain_id_list
+
+    def set_filepath(self, filepath):
+        self.filepath = filepath
+
+    def get_all_atoms(self):
+        return self.all_atoms
+
+    def get_chain_id_list(self):
+        return self.chain_id_list
+
+    def get_filepath(self):
+        return self.filepath
+
+    def get_ss_asg(self, chain_id="A", stride_exe_path='./stride/stride'):
+        pdb_stride = Stride(self.filepath, chain_id, stride_exe_path)
+        pdb_stride.run()
+        self.pdb_ss_asg = pdb_stride.ss_asg
+
+        return self.pdb_ss_asg
+
     def readfile(self, filepath, remove_alt_location=False, coordinates_only=True):
         # reads PDB file and feeds PDB instance
         self.filepath = filepath
