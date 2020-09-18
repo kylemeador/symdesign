@@ -3,8 +3,10 @@ from Bio.PDB.Atom import Atom as BioPDBAtom
 import numpy as np
 import warnings
 from Bio.PDB.Atom import PDBConstructionWarning
-from classes.PDB import PDB
-from classes.Atom import Atom
+# from classes.PDB import PDB
+from PDB import PDB
+# from classes.Atom import Atom
+from Atom import Atom
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
 
