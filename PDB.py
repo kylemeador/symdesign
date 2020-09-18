@@ -165,6 +165,9 @@ class PDB:
                         self.seqres_sequences[chain][i] = 'X'
             self.seqres_sequences[chain] = ''.join(self.seqres_sequences[chain])
 
+    def get_all_atoms(self):
+        return self.all_atoms
+
     def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):
         # reads a python list of Atoms and feeds PDB instance
         if store_cb_and_bb_coords:
