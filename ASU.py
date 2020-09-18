@@ -222,7 +222,8 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument('-c', '--chain', type=str, help='What chain would you like to leave?\nDefault=A', default='A')
     parser.add_argument('-p', '--out_path', type=str, help='Where should new files be saved?\nDefault=CWD')
-    parser.add_argument('-o', '--oligomer_asu', type=str, help='Where should new files be saved?\nDefault=CWD')
+    parser.add_argument('-o', '--oligomer_asu', action='store_true', help='Whether the full oligomer used for docking '
+                                                                          'should be saved in the ASU?\nDefault=False')
 
     args = parser.parse_args()
     logger = SDUtils.start_log()
