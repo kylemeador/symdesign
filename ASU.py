@@ -40,7 +40,6 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd):
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
         moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
-    print(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))
     final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))[0]}
     # final_comparison = {'nanohedra_output': os.path.join(os.path.dirname(location), 'NanohedraEntry%sDockedPoses' % entry_num)}
     for pdb in moved_oligomer:
@@ -85,7 +84,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
         if not os.path.exists(design_dir):
             os.makedirs(design_dir)
 
-        used_chains = []
+        used_chains, success = [], True
         for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'], 1):  # TODO Not necessarily in order!!!
             if pdb in qsbio_assemblies:
                 biological_assembly = qsbio_assemblies[pdb][0]  # find a verified biological assembly from QSBio
@@ -100,6 +99,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
             oriented_pdb = downloaded_pdb.orient(sym, PUtils.orient_dir)  # , generate_oriented_pdb=False)
             if oriented_pdb.all_atoms == list():
                 print('%s failed! Skipping design %s' % (pdb, design))
+                success = False
                 break
             # oriented_pdb.name = pdb.lower()
             # oriented_pdb.pose_numbering()  # Residue numbering needs to be same for each chain...
@@ -185,19 +185,20 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
             # chain_correspondence[chain_in_asu] = oriented_pdb.chain_id_list
 
         # asu_path = os.path.join(output_dir, 'design_asus', '%s' % design)
-        asu_path = os.path.join(design_dir, 'design_asu')  # New as of oligomeric processing
-        if not os.path.exists(asu_path):
-            os.makedirs(asu_path)
-        if oligomer:  # requires an ASU PDB instance beforehand
-            rmsd_comp_commands[design] = make_asu_oligomer(asu, chain_correspondence[design], location=asu_path)
-            # {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb1': ...}
-        else:
-            asu.write(os.path.join(asu_path, '%s_asu.pdb' % design))
+        if success:
+            asu_path = os.path.join(design_dir, 'design_asu')  # New as of oligomeric processing
+            if not os.path.exists(asu_path):
+                os.makedirs(asu_path)
+            if oligomer:  # requires an ASU PDB instance beforehand
+                rmsd_comp_commands[design] = make_asu_oligomer(asu, chain_correspondence[design], location=asu_path)
+                # {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb1': ...}
+            else:
+                asu.write(os.path.join(asu_path, '%s_asu.pdb' % design))
 
-        # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
-        sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
-        sym_d['final_symmetry'] = design_file_input[design]['final_sym']
-        SDUtils.pickle_object(sym_d, name='%s_dock' % design, out_path=os.path.join(output_dir, design))
+            # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
+            sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
+            sym_d['final_symmetry'] = design_file_input[design]['final_sym']
+            SDUtils.pickle_object(sym_d, name='%s_dock' % design, out_path=os.path.join(output_dir, design))
 
         # with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
         #     f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
