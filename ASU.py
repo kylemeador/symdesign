@@ -13,6 +13,18 @@ def make_asu(files, chain, destination=os.getcwd):
 
 
 def make_asu_oligomer(asu, chain_map, location=os.getcwd):
+    """Transform oriented oligomers to the ASU pose
+
+    Args:
+        asu (PDB): a PDB instance with the correctly oriented ASU for design
+        chain_map (dict): Relation of the chains in the oriented oligomer to corresponding chain name in the asu PDB &
+            the paths to the oriented oligomers
+    Keyword Args:
+        location=os.getcwd() (str): Location on disk to write the ASU oriented oligomer files
+    Returns:
+        (dict): {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb1': ...}
+            The locations of the oligomeric asu and the Nanohedra directory
+    """
     # chain_map = {'pdb1': {'asu_chain': chain_in_asu, 'dock_chains': oriented_pdb.chain_id_list, 'path': path/to/.pdb}, {}}
     # move each oligomer to correct asu chain
 
@@ -25,21 +37,22 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd):
         moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
 
-    final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))}
+    final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))[0]}
     # final_comparison = {'nanohedra_output': os.path.join(os.path.dirname(location), 'NanohedraEntry%sDockedPoses' % entry_num)}
     for pdb in moved_oligomer:
-        moved_oligomer[pdb].write(os.path.join(location, '%s_oligomer.pdb' % pdb))
+        moved_oligomer[pdb].write(os.path.join(location, '%s_oligomer.pdb' % pdb))  # design/design_asu/pdb1_oligomer.pdb
         final_comparison[pdb] = os.path.join(location, '%s_oligomer.pdb' % pdb)
 
+    return final_comparison
 
 
-def design_recapitulation(design_file, pdb_dir, output_dir):
+def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
     qsbio_assemblies = SDUtils.unpickle(PUtils.qsbio)
     with open(design_file, 'r') as f:
         reading_csv = reader(f)
         design_file_input = {os.path.splitext(row[0])[0]:
-                             {'design_pdb': SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),  # TODO reinstate upon recap exp termination
-                              #  row[0],
+                             # {'design_pdb': SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),  # TODO reinstate upon recap exp termination
+                             {'design_pdb': row[0],
                               'source_pdb': {(row[1], row[3]), (row[2], row[4])}, 'final_sym': row[5]}
                              for row in reading_csv}  # 'pdb1': 'sym1': 'pdb2': 'sym2':
     # all_pdbs = {file: {'design': SDUtils.read_pdb(pdb_file) for pdb_file in all_pdb_files} for file in design_input
@@ -53,9 +66,10 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
     # Final format:
     # {design: {'pdb1': {'asu_chain': None, 'dock_chains': []},
     #           'pdb2': {'asu_chain': None, 'dock_chains': []}}, ...}
+    rmsd_comp_commands = {}
     for design in design_file_input:
-        asu = design_file_input[design]['design_pdb'].return_asu()
-        # asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # TODO reinstate upon recap exp termination
+        # asu = design_file_input[design]['design_pdb'].return_asu()  # TODO reinstate upon recap exp termination
+        asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))
         asu.reorder_chains()
         # asu.pose_numbering()
         # for chain in asu.chain_id_list:
@@ -166,22 +180,25 @@ def design_recapitulation(design_file, pdb_dir, output_dir):
                                                          'path': out_path}
             # chain_correspondence[chain_in_asu] = oriented_pdb.chain_id_list
 
-        asu_path = os.path.join(output_dir, 'design_asus', '%s' % design)
-        # asu_path = os.path.join(design_dir, 'design_asu')
-        if oligomer:
-            make_asu_oligomer(asu, chain_correspondence[design], location=asu_path)
-
+        # asu_path = os.path.join(output_dir, 'design_asus', '%s' % design)
+        asu_path = os.path.join(design_dir, 'design_asu')  # New as of oligomeric processing
+        if oligomer:  # requires an ASU PDB instance beforehand
+            rmsd_comp_commands[design] = make_asu_oligomer(asu, chain_correspondence[design], location=asu_path)
+            # {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb1': ...}
         else:
             asu.write(os.path.join(asu_path, '%s_asu.pdb' % design))
 
         # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
         sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
         sym_d['final_symmetry'] = design_file_input[design]['final_sym']
-        SDUtils.pickle_object(sym_d, name='%s_dock.pkl' % design, out_path=os.path.join(output_dir, design))
+        SDUtils.pickle_object(sym_d, name='%s_dock' % design, out_path=os.path.join(output_dir, design))
 
         # with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
         #     f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
         #     f.write('\n%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
+
+    if rmsd_comp_commands != dict():
+        SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths', out_path=output_dir)
 
     missing = []
     for i, design in enumerate(chain_correspondence):
@@ -198,12 +215,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='\nTurn file(s) from a full PDB biological assembly into an ASU containing one copy of all entities'
                     ' in contact with the chain specified by chain')
-    parser.add_argument('-d', '--directory', type=str, help='Directory where \'.pdb\' files are located.\nDefault=None',
-                        default=None)
+    parser.add_argument('-d', '--directory', type=str, help='Directory where \'.pdb\' files to set up ASU extraction'
+                                                            'are located.\nDefault=CWD',
+                        default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='File with list of pdb files of interest\nDefault=None',
                         default=None)
     parser.add_argument('-c', '--chain', type=str, help='What chain would you like to leave?\nDefault=A', default='A')
-    parser.add_argument('-o', '--output_destination', type=str, help='Where should new files be saved?\nDefault=CWD')
+    parser.add_argument('-p', '--out_path', type=str, help='Where should new files be saved?\nDefault=CWD')
+    parser.add_argument('-o', '--oligomer_asu', action='store_true', help='Whether the full oligomer used for docking '
+                                                                          'should be saved in the ASU?\nDefault=False')
 
     args = parser.parse_args()
     logger = SDUtils.start_log()
@@ -232,4 +252,4 @@ if __name__ == '__main__':
         logger.error('No file specified. Please specify -f to collect the files')
         exit()
 
-    design_recapitulation(args.file, args.directory, args.output_destination)
+    design_recapitulation(args.file, args.directory, args.out_path, args.oligomer)
