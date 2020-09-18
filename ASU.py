@@ -256,4 +256,4 @@ if __name__ == '__main__':
         logger.error('No file specified. Please specify -f to collect the files')
         exit()
 
-    design_recapitulation(args.file, args.directory, args.out_path, args.oligomer)
+    design_recapitulation(args.file, args.directory, args.out_path, args.oligomer_asu)
