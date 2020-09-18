@@ -75,3 +75,45 @@ class Atom:
     def __eq__(self, other):
         return (self.number == other.number and self.chain == other.chain and self.type == other.type and
                 self.residue_type == other.residue_type)
+
+    def get_number(self):
+        return self.number
+
+    def get_type(self):
+        return self.type
+
+    def get_alt_location(self):
+        return self.alt_location
+
+    def get_residue_type(self):
+        return self.residue_type
+
+    def get_chain(self):
+        return self.chain
+
+    def get_residue_number(self):
+        return self.residue_number
+
+    def get_code_for_insertion(self):
+        return self.code_for_insertion
+
+    def get_x(self):
+        return self.x
+
+    def get_y(self):
+        return self.y
+
+    def get_z(self):
+        return self.z
+
+    def get_occ(self):
+        return self.occ
+
+    def get_temp_fact(self):
+        return self.temp_fact
+
+    def get_element_symbol(self):
+        return self.element_symbol
+
+    def get_atom_charge(self):
+        return self.atom_charge
