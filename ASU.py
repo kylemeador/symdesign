@@ -40,7 +40,7 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd):
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
         moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
-
+    print(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))
     final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))[0]}
     # final_comparison = {'nanohedra_output': os.path.join(os.path.dirname(location), 'NanohedraEntry%sDockedPoses' % entry_num)}
     for pdb in moved_oligomer:
