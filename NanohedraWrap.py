@@ -102,10 +102,20 @@ def nanohedra(dock_dir):
     # out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
 
-    _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
-            os.path.join(dock_dir, '%s' % sym_d['lower_path']),
-            '-pdb_dir2_path', os.path.join(dock_dir, '%s' % sym_d['higher_path']),
-            '-rot_step1', '2', '-rot_step2', '2', '-outdir', out_dir]
-    command_file = SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=dock_dir)
+    return nanohedra_command(str(entry_num), os.path.join(dock_dir, '%s' % sym_d['lower_path']),
+                             os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=out_dir)
 
-    return command_file
+    # _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
+    #         os.path.join(dock_dir, '%s' % sym_d['lower_path']),
+    #         '-pdb_dir2_path', os.path.join(dock_dir, '%s' % sym_d['higher_path']),
+    #         '-rot_step1', '2', '-rot_step2', '2', '-outdir', out_dir]
+    #
+    # return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=dock_dir)
+
+
+def nanohedra_command(entry, path1, path2, out_dir=os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry)):
+    """Write out Nanohedra commands to shell scripts for processing by computational clusters"""
+    _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry), '-pdb_dir1_path',
+            path1, '-pdb_dir2_path', path2, '-rot_step1', '2', '-rot_step2', '2', '-outdir', out_dir]
+
+    return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=os.path.dirname(out_dir))
