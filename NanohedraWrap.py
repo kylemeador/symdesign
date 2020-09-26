@@ -151,4 +151,4 @@ def nanohedra_command(entry, path1, path2, out_dir=None, default=True):
     _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry), '-pdb_dir1_path',
             path1, '-pdb_dir2_path', path2, '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', out_dir]
 
-    return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=os.path.dirname(out_dir))
+    return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=out_dir)
