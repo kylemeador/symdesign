@@ -309,7 +309,7 @@ if __name__ == '__main__':
                 pdb_filepaths = product(pdb1_filepaths, pdb2_filepaths)
             else:
                 # if pdb1_path == pdb2_path:
-                pdb_filepaths = combinations(pdb1_filepaths, 2)
+                pdb_filepaths = list(combinations(pdb1_filepaths, 2))
                 # pdb_list = glob(os.path.join(args.directory1, '*.pdb*')
         else:
             exit('No docking files were specified')
@@ -330,13 +330,12 @@ if __name__ == '__main__':
             results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
-            for path1, path2 in list(pdb_filepaths):
-                print(path1, path2)
+            for path1, path2 in pdb_filepaths:
                 result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory)
                 # result, error = nanohedra_s(dock_directory)  # single directory docking with already made directories
                 results.append(result)
                 exceptions.append(error)
-        print(results)
+
         if args.command_only:
             all_commands = [result for result in results if result]
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)

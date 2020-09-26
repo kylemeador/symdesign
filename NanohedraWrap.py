@@ -131,9 +131,15 @@ def nanohedra_command(entry, path1, path2, out_dir=None, default=True):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters"""
 
     if not out_dir:
-        out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry)
+        if not os.path.exists(os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry)):
+            os.makedirs(os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry))
+        out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry, '%s_%s' %
+                               (os.path.splitext(os.path.basename(path1))[0], os.path.splitext(os.path.basename(path2))[0]))
     else:
-        out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry)
+        if not os.path.exists(os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry)):
+            os.makedirs(os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry))
+        out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry, '%s_%s' %
+                               (os.path.splitext(os.path.basename(path1))[0], os.path.splitext(os.path.basename(path2))[0]))
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
