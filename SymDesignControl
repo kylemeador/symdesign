@@ -293,6 +293,14 @@ if __name__ == '__main__':
         #                 (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
         # else:
         #     extras = ''
+        # if args.directory1:
+        #     if args.directory2:
+        #
+        #     else:
+        #         pdb_list = glob(os.path.join(args.directory1, '*.pdb*')
+        #         for pair in combinations(pdb_list, 2):
+
+
         if args.command_only:
             args.suspend = True
             logger.info(
