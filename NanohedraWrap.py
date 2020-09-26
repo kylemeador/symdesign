@@ -113,6 +113,8 @@ def nanohedra(dock_dir):
     # return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=dock_dir)
 
 
+# TODO multiprocessing compliant (picklable) error decorator
+@SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
 def nanohedra_command_s(entry, path1, path2, out_dir):
     return nanohedra_command(entry, path1, path2, out_dir)
 
@@ -132,6 +134,9 @@ def nanohedra_command(entry, path1, path2, out_dir=None, default=True):
         out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry)
     else:
         out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry)
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
 
     if default:
         step_1, step_2 = '3', '3'
