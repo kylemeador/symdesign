@@ -2209,7 +2209,8 @@ def get_all_pdb_file_paths(pdb_dir):
     filepaths = []
     for root, dirs, files in os.walk(pdb_dir):
         for file in files:
-            if file.endswith('.pdb*'):
+            if '.pdb' in file:
+            # if file.endswith('.pdb*'):
                 filepaths.append(os.path.join(root, file))
 
     return filepaths
