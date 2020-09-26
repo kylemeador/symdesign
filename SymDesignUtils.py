@@ -3,8 +3,8 @@ import sys
 import math
 import subprocess
 import logging
-import pickle
-# import pickle5 as pickle  # python 3.8 pickling protocol compatible
+# import pickle
+import pickle5 as pickle  # python 3.8 pickling protocol compatible
 import copy
 from glob import glob
 from json import loads, dumps
