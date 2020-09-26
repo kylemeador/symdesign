@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 from glob import glob
 from csv import reader
 import argparse
@@ -191,7 +192,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
                 os.makedirs(asu_path)
             if oligomer:  # requires an ASU PDB instance beforehand
                 rmsd_comp_commands[design] = make_asu_oligomer(asu, chain_correspondence[design], location=asu_path)
-                # {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb1': ...}
+                # {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb2': ...}
             else:
                 asu.write(os.path.join(asu_path, '%s_asu.pdb' % design))
 
@@ -218,6 +219,16 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
     SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance', out_path=output_dir)
 
 
+def run_rmsd_calc(design_list, design_map_pickle):
+    design_map = SDUtils.unpickle(design_map_pickle)
+    for design in design_list:
+        rmsd_cmd = ['python', '/home/kmeador/Nanohedra/crystal_vs_docked_v2.py', design_map[design]['pdb1'],
+                    design_map[design]['pdb2'], design_map[design]['nanohedra_output'],
+                    design_map[design]['nanohedra_output']]
+        p = subprocess.run(rmsd_cmd)  # , capture_output=True)
+        logger.info('%s finished RMSD calculation' % design)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='\nTurn file(s) from a full PDB biological assembly into an ASU containing one copy of all entities'
@@ -231,6 +242,8 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--out_path', type=str, help='Where should new files be saved?\nDefault=CWD')
     parser.add_argument('-o', '--oligomer_asu', action='store_true', help='Whether the full oligomer used for docking '
                                                                           'should be saved in the ASU?\nDefault=False')
+    parser.add_argument('-m', '--design_map', type=str, help='The location of a file to map the design directory to '
+                                                             'lower and higher symmetry\nDefault=None', default=None)
 
     args = parser.parse_args()
     logger = SDUtils.start_log()
@@ -259,4 +272,11 @@ if __name__ == '__main__':
         logger.error('No file specified. Please specify -f to collect the files')
         exit()
 
-    design_recapitulation(args.file, args.directory, args.out_path, args.oligomer_asu)
+    if args.design_map:
+        with open(args.file, 'r') as f:
+            all_design_directories = f.readlines()
+            design_d_names = map(os.path.basename, all_design_directories)
+
+        run_rmsd_calc(design_d_names, args.design_map)
+    else:
+        design_recapitulation(args.file, args.directory, args.out_path, args.oligomer_asu)
