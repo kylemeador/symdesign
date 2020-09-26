@@ -337,6 +337,7 @@ if __name__ == '__main__':
                 exceptions.append(error)
 
         if args.command_only:
+            results = map(os.path.dirname, results)  # Specific for docking commands due to no established directory
             all_commands = [result for result in results if result]
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
