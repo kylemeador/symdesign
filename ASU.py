@@ -227,7 +227,7 @@ def run_rmsd_calc(design_list, design_map_pickle):
         rmsd_cmd = ['python', '/home/kmeador/Nanohedra/crystal_vs_docked_v2.py', design_map[design]['pdb1'],
                     design_map[design]['pdb2'], design_map[design]['nanohedra_output'],
                     design_map[design]['nanohedra_output']]
-        p = subprocess.run(rmsd_cmd)  # , capture_output=True)
+        p = subprocess.Popen(rmsd_cmd)  # , capture_output=True)
         logger.info('%s finished RMSD calculation' % design)
 
 
