@@ -288,8 +288,7 @@ if __name__ == '__main__':
         # Make single file with names of each directory
         args.file = os.path.join(args.directory, 'all_pose_directories')
         with open(args.file, 'w') as design_f:
-            for pose in all_poses:
-                design_f.write(pose + '\n')
+            design_f.write('\n'.join(pose for pose in all_poses))
 
     # Parse SubModule specific commands
     results, exceptions = [], []
@@ -337,7 +336,12 @@ if __name__ == '__main__':
                 exceptions.append(error)
 
         if args.command_only:
-            results = map(os.path.dirname, results)  # Specific for docking commands due to no established directory
+            # Make single file with names of each directory
+            args.file = os.path.join(args.directory, 'all_pose_directories')
+            with open(args.file, 'w') as design_f:
+                command_directories = map(os.path.dirname, results)  # Specific for docking commands due to no established directory
+                design_f.write('\n'.join(docking_pair for docking_pair in command_directories))
+
             all_commands = [result for result in results if result]
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
