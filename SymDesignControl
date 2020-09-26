@@ -318,7 +318,7 @@ if __name__ == '__main__':
             args.suspend = True  # TODO can I remove this section?
             logger.info(
                 'Writing modelling commands out to file only, no modelling will occur until commands are executed')
-        print(pdb_filepaths)
+        print(list(pdb_filepaths))
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -331,6 +331,7 @@ if __name__ == '__main__':
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
             for path1, path2 in pdb_filepaths:
+                print(path1, path2)
                 result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory)
                 # result, error = nanohedra_s(dock_directory)  # single directory docking with already made directories
                 results.append(result)
