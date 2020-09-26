@@ -10,7 +10,7 @@ import AnalyzeMutatedSequences as Ams
 # sys.path.append(PUtils.nanohedra_source)
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
-from Josh_push.BioPDBUtils import biopdb_aligned_chain
+# from Josh_push.BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
 
 
 def make_asu(files, chain, destination=os.getcwd):
@@ -39,7 +39,8 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd):
         asu_chain = chain_map[pdb]['asu_chain']
         oriented_oligomer = SDUtils.read_pdb(chain_map[pdb]['path'])
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
-        moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
+        # moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain) #uncomment when path is solved
+        moved_oligomer[pdb] = None  # remove when path is solved
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
     final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))[0]}
     # final_comparison = {'nanohedra_output': os.path.join(os.path.dirname(location), 'NanohedraEntry%sDockedPoses' % entry_num)}
