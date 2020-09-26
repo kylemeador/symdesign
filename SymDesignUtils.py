@@ -2209,14 +2209,14 @@ def get_all_pdb_file_paths(pdb_dir):
     filepaths = []
     for root, dirs, files in os.walk(pdb_dir):
         for file in files:
-            if file.endswith('.pdb'):
+            if file.endswith('.pdb*'):
                 filepaths.append(os.path.join(root, file))
 
     return filepaths
 
 
 def get_directory_pdb_file_paths(pdb_dir):
-    return glob(os.path.join(pdb_dir, '*.pdb'))
+    return glob(os.path.join(pdb_dir, '*.pdb*'))
 
 
 def collect_designs(directory, file=None):
