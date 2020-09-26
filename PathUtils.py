@@ -43,6 +43,7 @@ source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:
 all_code_source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-3])  # overall design folder
 nanohedra_source = os.path.join(all_code_source, nano.title())
 nanohedra_main = os.path.join(all_code_source, nano.title(), '%s.py' % nano.title())
+nanohedra_s_main = os.path.join(all_code_source, nano.title(), '%s_s.py' % nano.title())
 # source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-2])  # TODO
 dependencies = os.path.join(source, 'dependencies')  # TODO remove
 pdb_uniprot_map = os.path.join(source, 'pdb_uniprot_map')  # TODO
