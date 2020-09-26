@@ -318,7 +318,7 @@ if __name__ == '__main__':
             args.suspend = True  # TODO can I remove this section?
             logger.info(
                 'Writing modelling commands out to file only, no modelling will occur until commands are executed')
-
+        print(pdb_filepaths)
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -335,7 +335,7 @@ if __name__ == '__main__':
                 # result, error = nanohedra_s(dock_directory)  # single directory docking with already made directories
                 results.append(result)
                 exceptions.append(error)
-
+        print(results)
         if args.command_only:
             all_commands = [result for result in results if result]
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
