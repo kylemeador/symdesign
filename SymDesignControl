@@ -12,14 +12,14 @@ import shutil
 from csv import reader
 from json import loads, dumps
 from glob import glob
-from itertools import repeat
+from itertools import repeat, product, combinations
 import pandas as pd
 import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
-from NanohedraWrap import nanohedra_mp, nanohedra_s
+from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s  # nanohedra_mp, nanohedra_s,
 import AnalyzeMutatedSequences as Ams
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
@@ -165,6 +165,15 @@ if __name__ == '__main__':
     parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py' % PUtils.nano.title())
     parser_dock.add_argument('-c', '--command_only', action='store_true',
                              help='Should commands be written but not executed?\nDefault=False')
+    parser_dock.add_argument('-d1', '--directory1', type=str, help='Disk location where the first symmetry oligomers '
+                                                                   'are located\nREQUIRED', default=None)  # TODO REQ.
+    parser_dock.add_argument('-d2', '--directory2', type=str, help='Disk location where the second symmetry oligomers '
+                                                                   'are located\nDefault=None', default=None)
+    parser_dock.add_argument('-e', '--entry', type=int, help='The number of the %s docking combinations to use' %
+                                                             PUtils.nano)
+    parser_dock.add_argument('-o', '--output_directory', type=str, help='Where should the output from commands be '
+                                                                        'written?\nDefault=NanohedraEntry__DockedPoses',
+                             default=None)
 
     parser_pose = subparsers.add_parser('pose', help='Gather output from %s and format for input into Rosetta. '
                                                      'Sets up interface design constrained evolutionary profiles '
@@ -293,16 +302,20 @@ if __name__ == '__main__':
         #                 (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
         # else:
         #     extras = ''
-        # if args.directory1:
-        #     if args.directory2:
-        #
-        #     else:
-        #         pdb_list = glob(os.path.join(args.directory1, '*.pdb*')
-        #         for pair in combinations(pdb_list, 2):
-
+        if args.directory1:
+            pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
+            if args.directory2:
+                pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
+                pdb_filepaths = product(pdb1_filepaths, pdb2_filepaths)
+            else:
+                # if pdb1_path == pdb2_path:
+                pdb_filepaths = combinations(pdb1_filepaths, 2)
+                # pdb_list = glob(os.path.join(args.directory1, '*.pdb*')
+        else:
+            exit('No docking files were specified')
 
         if args.command_only:
-            args.suspend = True
+            args.suspend = True  # TODO can I remove this section?
             logger.info(
                 'Writing modelling commands out to file only, no modelling will occur until commands are executed')
 
@@ -311,23 +324,19 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            # zipped_args = zip(all_design_directories)
-            results, exceptions = zip(*SDUtils.mp_map(nanohedra_mp, all_design_directories, mp_threads))
+            zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory))
+            results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
+            # results, exceptions = zip(*SDUtils.mp_map(nanohedra_mp, all_design_directories, mp_threads))  # single directory docking with already made directories
             results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
-            for dock_directory in all_design_directories:
-                result, error = nanohedra_s(dock_directory)
+            for path1, path2 in pdb_filepaths:
+                result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory)
+                # result, error = nanohedra_s(dock_directory)  # single directory docking with already made directories
                 results.append(result)
                 exceptions.append(error)
 
         if args.command_only:
-            # all_commands = [[] for s in PUtils.stage_f]
-            # command_files = [[] for s in PUtils.stage_f]
-            # for des_directory in all_design_directories:
-            #     for i, stage in enumerate(PUtils.stage_f):
-            #         all_commands[i].append(os.path.join(des_directory.path, stage + '.sh'))
-            # for i, stage in enumerate(PUtils.stage_f):
             all_commands = [result for result in results if result]
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))

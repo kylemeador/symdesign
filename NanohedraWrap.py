@@ -103,7 +103,7 @@ def nanohedra(dock_dir):
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
 
     return nanohedra_command(str(entry_num), os.path.join(dock_dir, '%s' % sym_d['lower_path']),
-                             os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=out_dir)
+                             os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=out_dir, default=False)
 
     # _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
     #         os.path.join(dock_dir, '%s' % sym_d['lower_path']),
@@ -113,9 +113,26 @@ def nanohedra(dock_dir):
     # return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=dock_dir)
 
 
-def nanohedra_command(entry, path1, path2, out_dir=os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry),
-                      default=True):
+def nanohedra_command_s(entry, path1, path2, out_dir):
+    return nanohedra_command(entry, path1, path2, out_dir)
+
+
+def nanohedra_command_mp(entry, path1, path2, out_dir):
+    try:
+        file = nanohedra_command(entry, path1, path2, out_dir)
+        return file, None
+    except (SDUtils.DesignError, AssertionError) as e:
+        return None, ((path1, path2), e)
+
+
+def nanohedra_command(entry, path1, path2, out_dir=None, default=True):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters"""
+
+    if not out_dir:
+        out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry)
+    else:
+        out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry)
+
     if default:
         step_1, step_2 = '3', '3'
     else:
