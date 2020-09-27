@@ -224,7 +224,7 @@ def run_rmsd_calc(design_list, design_map_pickle):
     design_map = SDUtils.unpickle(design_map_pickle)
     logger.info('Starting RMSD calculation')
     # SDUtils.start_log(name='RMSD.log', handler=2, location=os.getcwd())
-    log_file = os.path.join(os.getcwd(), 'RMSD_calc_flipped.log')
+    log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
     with open(log_file, 'a+') as log_f:
         for design in design_list:
             logger.info('%s Starting RMSD calculation' % design)
