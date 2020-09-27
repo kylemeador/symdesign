@@ -229,14 +229,14 @@ def run_rmsd_calc(design_list, design_map_pickle):
         for design in design_list:
             logger.info('%s Starting RMSD calculation' % design)
             design = design.strip()
-            # rmsd_cmd = ['python', '/home/kmeador/Nanohedra/crystal_vs_docked_v2.py', design_map[design]['pdb1'],
-            #             design_map[design]['pdb2'], design_map[design]['nanohedra_output'],
-            #             design_map[design]['nanohedra_output']]
-            rmsd_cmd_flip = ['python', '/home/kmeador/Nanohedra/crystal_vs_docked_v2.py', design_map[design]['pdb2'],
-                             design_map[design]['pdb1'], design_map[design]['nanohedra_output'],
-                             design_map[design]['nanohedra_output']]
-            # p = subprocess.Popen(rmsd_cmd)  # , capture_output=True)
-            p = subprocess.Popen(rmsd_cmd_flip, stdout=log_f, stderr=log_f)
+            rmsd_cmd = ['python', '/home/kmeador/Nanohedra/crystal_vs_docked_v2.py', design_map[design]['pdb1'],
+                        design_map[design]['pdb2'], design_map[design]['nanohedra_output'],
+                        design_map[design]['nanohedra_output']]
+            # rmsd_cmd_flip = ['python', '/home/kmeador/Nanohedra/crystal_vs_docked_v2.py', design_map[design]['pdb2'],
+            #                  design_map[design]['pdb1'], design_map[design]['nanohedra_output'],
+            #                  design_map[design]['nanohedra_output']]
+            p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
+            # p = subprocess.Popen(rmsd_cmd_flip, stdout=log_f, stderr=log_f)
             p.communicate()
             logger.info('%s finished' % design)
             log_f.write(design)
