@@ -286,12 +286,19 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
 def report_top_rmsd(rmsd_d):
     top_rmsd_s = pd.Series()
     top_rank_s = pd.Series()
+    top_score_s = pd.Series()
+    motif_library_s = pd.Series()
     for design in rmsd_d:
         top_rmsd_s['%s_%s' % (design, rmsd_d[design][1]['pose'])] = rmsd_d[design][1]['iRMSD']
         top_rank_s['%s_%s' % (design, rmsd_d[design][1]['pose'])] = rmsd_d[design][1]['rank']
+        top_score_s['%s_%s' % (design, rmsd_d[design][1]['pose'])] = rmsd_d[design][1]['score']
+        if design[:3] in ['I32', 'I52']:
+            motif_library_s['%s_%s' % (design, rmsd_d[design][1]['pose'])] = True
 
-    top_df = pd.concat([top_rmsd_s, top_rank_s], axis=1)
-    top_df.sort_values(inplace=True, axis=1)
+    top_df = pd.concat([top_rmsd_s, top_score_s, top_rank_s, motif_library_s], axis=1)
+    top_df.columns = ['iRMSD', 'Nanohedra Score', 'Nanohedra Rank', 'TC Dock Motifs']
+    top_df.sort_values('iRMSD', inplace=True, axis=1)
+
     print(top_df)
     # top_rmsd_s.sort_values(inplace=True)
     # print(top_rmsd_s)
