@@ -263,7 +263,7 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
         top_rmsd_d[design] = {}
         design_sym = design[:1]
         design_components = design[1:3]
-        entry = entry_d[design_sym][('C%s' % design_components[0], 'C%s' % design_components[1])]
+        entry = entry_d[design_sym][('C%s' % design_components[1], 'C%s' % design_components[0])]
         try:
             with open(os.path.join(location, '%s', 'NanohedraEntry%dDockedPoses' % entry, 'crystal_vs_docked_irmsd.txt')) \
                     as f_irmsd:
