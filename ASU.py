@@ -291,11 +291,12 @@ def report_top_rmsd(rmsd_d):
         top_rank_s['%s_%s' % (design, rmsd_d[design][1]['pose'])] = rmsd_d[design][1]['rank']
 
     top_df = pd.concat([top_rmsd_s, top_rank_s], axis=1)
+    top_df.sort_values(inplace=True, axis=1)
     print(top_df)
-    top_rmsd_s.sort_values(inplace=True)
-    print(top_rmsd_s)
+    # top_rmsd_s.sort_values(inplace=True)
+    # print(top_rmsd_s)
 
-    print(top_rank_s)
+    # print(top_rank_s)
 
 
 if __name__ == '__main__':
