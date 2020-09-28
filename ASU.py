@@ -278,7 +278,6 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
             missing_designs.append(design)
 
     logger.info('All missing designs %d:\n%s' % (len(missing_designs), missing_designs))
-    print(top_rmsd_d)
 
     return top_rmsd_d
 
@@ -297,7 +296,7 @@ def report_top_rmsd(rmsd_d):
 
     top_df = pd.concat([top_rmsd_s, top_score_s, top_rank_s, motif_library_s], axis=1)
     top_df.columns = ['iRMSD', 'Nanohedra Score', 'Nanohedra Rank', 'TC Dock Motifs']
-    top_df.sort_values('iRMSD', inplace=True, axis=1)
+    top_df.sort_values('iRMSD', inplace=True)  #, axis=1)
 
     print(top_df)
     # top_rmsd_s.sort_values(inplace=True)
