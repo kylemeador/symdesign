@@ -291,7 +291,7 @@ def report_top_rmsd(rmsd_d):
 
     top_df = pd.concat([top_rmsd_s, top_rank_s], axis=1)
     print(top_df)
-    top_rmsd_s.sort(inplace=True)
+    top_rmsd_s.sort_values(inplace=True)
     print(top_rmsd_s)
 
     print(top_rank_s)
