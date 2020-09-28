@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import pandas as pd
 from glob import glob
 from csv import reader
 import argparse
@@ -221,6 +222,14 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
 
 
 def run_rmsd_calc(design_list, design_map_pickle):
+    """Calculate the interface RMSD between a reference pose and a docked pose. Requires python 2.7 environment
+
+    Args:
+        design_list (list): List of designs to search for that have an entry in the design_map_pickle
+        design_map_pickle (str): The path of a serialized file to unpickle into a dictionary with directory maps
+    Returns:
+        None
+    """
     design_map = SDUtils.unpickle(design_map_pickle)
     logger.info('Starting RMSD calculation')
     # SDUtils.start_log(name='RMSD.log', handler=2, location=os.getcwd())
@@ -242,6 +251,52 @@ def run_rmsd_calc(design_list, design_map_pickle):
             log_f.write(design)
 
 
+def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
+    """Returns a RMSD dictionary for the top (number) of all designs of interest in (design_list)
+
+    Returns:
+        (dict): {'design': {1: {'pose': DEGEN_1_1_ROT_47_44_tx_22, 'iRMSD': 2.167, 'score': 13.414 'rank': 556}, ...}
+    """
+    entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
+    top_rmsd_d, missing_designs = {}, []
+    for design in design_list:
+        top_rmsd_d[design] = {}
+        design_sym = design[:1]
+        design_components = design[1:3]
+        entry = entry_d[design_sym][('C%s' % design_components[0], 'C%s' % design_components[0])]
+        try:
+            with open(os.path.join(location, '%s', 'NanohedraEntry%dDockedPoses' % entry, 'crystal_vs_docked_irmsd.txt')) \
+                    as f_irmsd:
+                top_10 = []
+                for i in range(number):
+                    top_10[i] = f_irmsd.readline()
+                    top_10[i] = top_10[i].split()
+                    top_rmsd_d[design][i + 1] = {'pose': top_10[i][0], 'iRMSD': top_10[i][1], 'score': top_10[i][2],
+                                                 'rank': top_10[i][3]}
+        except FileNotFoundError:
+            logger.info('Design %s has no RMSD file' % design)
+            missing_designs.append(design)
+
+    logger.info('All missing designs:\n%s' % missing_designs)
+
+    return top_rmsd_d
+
+
+def report_top_rmsd(rmsd_d):
+    top_rmsd_s = pd.Series()
+    top_rank_s = pd.Series()
+    for design in rmsd_d:
+        top_rmsd_s['%s_%s' % (design, rmsd_d[design][1]['pose'])] = rmsd_d[design][1]['iRMSD']
+        top_rank_s['%s_%s' % (design, rmsd_d[design][1]['pose'])] = rmsd_d[design][1]['rank']
+
+    top_df = pd.concat([top_rmsd_s, top_rank_s], axis=1)
+    print(top_df)
+    top_rmsd_s.sort(inplace=True)
+    print(top_rmsd_s)
+
+    print(top_rank_s)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='\nTurn file(s) from a full PDB biological assembly into an ASU containing one copy of all entities'
@@ -257,6 +312,7 @@ if __name__ == '__main__':
                                                                           'should be saved in the ASU?\nDefault=False')
     parser.add_argument('-m', '--design_map', type=str, help='The location of a file to map the design directory to '
                                                              'lower and higher symmetry\nDefault=None', default=None)
+    parser.add_argument('-r', '--report', action='store_true', help='Whether to report the RMSD\'s of design recap')
 
     args = parser.parse_args()
     logger = SDUtils.start_log()
@@ -290,6 +346,11 @@ if __name__ == '__main__':
             all_design_directories = f.readlines()
             design_d_names = map(os.path.basename, all_design_directories)
 
-        run_rmsd_calc(design_d_names, args.design_map)
+        if args.report:
+            rmsd_d = collect_rmsd_calc(design_d_names, location=args.directory)
+            report_top_rmsd(rmsd_d)
+        else:
+            run_rmsd_calc(design_d_names, args.design_map)
+
     else:
         design_recapitulation(args.file, args.directory, args.out_path, args.oligomer_asu)
