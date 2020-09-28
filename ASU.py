@@ -260,7 +260,6 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
     top_rmsd_d, missing_designs = {}, []
     for design in design_list:
-        top_rmsd_d[design] = {}
         design_sym = design[:1]
         design_components = design[1:3]
         entry = entry_d[design_sym][('C%s' % design_components[1], 'C%s' % design_components[0])]
@@ -268,6 +267,7 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
             with open(os.path.join(location, '%s', 'NanohedraEntry%dDockedPoses' % entry, 'crystal_vs_docked_irmsd.txt')) \
                     as f_irmsd:
                 top_10 = []
+                top_rmsd_d[design] = {}
                 for i in range(number):
                     top_10[i] = f_irmsd.readline()
                     top_10[i] = top_10[i].split()
@@ -277,7 +277,7 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
             logger.info('Design %s has no RMSD file' % design)
             missing_designs.append(design)
 
-    logger.info('All missing designs:\n%s' % missing_designs)
+    logger.info('All missing designs %d:\n%s' % (len(missing_designs), missing_designs)
 
     return top_rmsd_d
 
