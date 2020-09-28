@@ -277,7 +277,7 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
             logger.info('Design %s has no RMSD file' % design)
             missing_designs.append(design)
 
-    logger.info('All missing designs %d:\n%s' % (len(missing_designs), missing_designs)
+    logger.info('All missing designs %d:\n%s' % (len(missing_designs), missing_designs))
 
     return top_rmsd_d
 
