@@ -269,7 +269,7 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
                 top_10 = []
                 top_rmsd_d[design] = {}
                 for i in range(number):
-                    top_10[i] = f_irmsd.readline()
+                    top_10.append(f_irmsd.readline())
                     top_10[i] = top_10[i].split()
                     top_rmsd_d[design][i + 1] = {'pose': top_10[i][0], 'iRMSD': top_10[i][1], 'score': top_10[i][2],
                                                  'rank': top_10[i][3]}
