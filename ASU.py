@@ -264,8 +264,8 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
         design_components = design[1:3]
         entry = entry_d[design_sym][('C%s' % design_components[1], 'C%s' % design_components[0])]
         try:
-            with open(os.path.join(location, '%s', 'NanohedraEntry%dDockedPoses' % entry, 'crystal_vs_docked_irmsd.txt')) \
-                    as f_irmsd:
+            with open(os.path.join(location, '%s' % design, 'NanohedraEntry%dDockedPoses' % entry,
+                                   'crystal_vs_docked_irmsd.txt')) as f_irmsd:
                 top_10 = []
                 top_rmsd_d[design] = {}
                 for i in range(number):
@@ -278,6 +278,7 @@ def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
             missing_designs.append(design)
 
     logger.info('All missing designs %d:\n%s' % (len(missing_designs), missing_designs))
+    print(top_rmsd_d)
 
     return top_rmsd_d
 
@@ -344,7 +345,8 @@ if __name__ == '__main__':
     if args.design_map:
         with open(args.file, 'r') as f:
             all_design_directories = f.readlines()
-            design_d_names = map(os.path.basename, all_design_directories)
+            design_d_names = map(str.strip, all_design_directories)
+            design_d_names = map(os.path.basename, design_d_names)
 
         if args.report:
             rmsd_d = collect_rmsd_calc(design_d_names, location=args.directory)
