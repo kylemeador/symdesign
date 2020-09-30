@@ -11,7 +11,7 @@ import AnalyzeMutatedSequences as Ams
 # sys.path.append(PUtils.nanohedra_source)
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
-from Josh_push.BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
+from BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
 
 
 def make_asu(files, chain, destination=os.getcwd):
