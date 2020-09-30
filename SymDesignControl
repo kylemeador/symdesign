@@ -19,7 +19,7 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
-from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s  # nanohedra_mp, nanohedra_s,
+from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_mp, nanohedra_s,
 import AnalyzeMutatedSequences as Ams
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
@@ -322,21 +322,25 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            if not pdb_filepaths:
-                results, exceptions = zip(*SDUtils.mp_map(nanohedra_mp, all_design_directories, mp_threads))  # single directory docking with already made directories
+            if not pdb_filepaths: # single directory docking with already made directories
+                zipped_args = zip(all_design_directories, repeat(args.design_string))
+                results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_mp, all_design_directories, mp_threads))
             else:
                 zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
             results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
-            for path1, path2 in pdb_filepaths:
-                if not pdb_filepaths:
-                    result, error = nanohedra_s(dock_directory)  # single directory docking (already made directories)
-                else:
+            if not pdb_filepaths: # single directory docking (already made directories)
+                for dock_directory in all_design_directories:
+                    result, error = nanohedra_s(dock_directory, args.design_string)
+                    results.append(result)
+                    exceptions.append(error)
+            else:
+                for path1, path2 in pdb_filepaths:
                     result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory)
-                results.append(result)
-                exceptions.append(error)
+                    results.append(result)
+                    exceptions.append(error)
 
         if args.command_only:
             # Make single file with names of each directory

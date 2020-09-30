@@ -22,7 +22,7 @@ def nanohedra_mp(dock_dir):
         return None, (dock_dir, e)
 
 
-def nanohedra(dock_dir, prefix='_flipped'):
+def nanohedra(dock_dir, suffix=None):
     # des_dir_d = {design: {Sym: PDB1, Sym2: PDB2, Final_Sym:I}}
     # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
@@ -102,9 +102,9 @@ def nanohedra(dock_dir, prefix='_flipped'):
     # out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
 
-    # TODO PUT prefix on the command!
     return nanohedra_command(str(entry_num), os.path.join(dock_dir, '%s' % sym_d['lower_path']),
-                             os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=dock_dir, default=False)
+                             os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=dock_dir, suffix=suffix,
+                             default=False)
                              # os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=out_dir, default=False)
 
     # _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
@@ -129,18 +129,18 @@ def nanohedra_command_mp(entry, path1, path2, out_dir):
         return None, ((path1, path2), e)
 
 
-def nanohedra_command(entry, path1, path2, out_dir=None, default=True):
+def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, default=True):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters"""
 
     if not out_dir:
-        if not os.path.exists(os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry)):
-            os.makedirs(os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry))
-        out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses' % entry, '%s_%s' %
+        if not os.path.exists(os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses%s' % (entry, suffix))):
+            os.makedirs(os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses%s' % (entry, suffix)))
+        out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses%s' % (entry, suffix), '%s_%s' %
                                (os.path.splitext(os.path.basename(path1))[0], os.path.splitext(os.path.basename(path2))[0]))
     else:
-        if not os.path.exists(os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry)):
-            os.makedirs(os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry))
-        out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses' % entry, '%s_%s' %
+        if not os.path.exists(os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % (entry, suffix))):
+            os.makedirs(os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % (entry, suffix)))
+        out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % (entry, suffix), '%s_%s' %
                                (os.path.splitext(os.path.basename(path1))[0], os.path.splitext(os.path.basename(path2))[0]))
 
     if not os.path.exists(out_dir):
