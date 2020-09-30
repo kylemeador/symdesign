@@ -368,10 +368,14 @@ if __name__ == '__main__':
         if args.flip:
             chain_map = SDUtils.unpickle(args.design_map)
             for design in chain_map:
-                input_pdb = chain_map[design]['pdb2']['path']
+                try:
+                    input_pdb = chain_map[design]['pdb2']['path']
+                except KeyError:
+                    print('No \'pdb2\' found for design %s' % design)
+                    continue
                 p = subprocess.Popen(['python', '/home/kmeador/Nanohedra/flip_pdb_180deg_y.py', input_pdb])
                 # update the file name in the docking pickle
-                dock_instructions = glob(os.path.join(os.path.dirname(input_pdb), '*_vflip_dock.pkl'))
+                dock_instructions = glob(os.path.join(os.path.dirname(os.path.dirname(input_pdb)), '*_vflip_dock.pkl'))
                 try:
                     dock_d = SDUtils.unpickle(dock_instructions[0])
                 except IndexError:
