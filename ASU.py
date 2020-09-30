@@ -14,10 +14,10 @@ import AnalyzeMutatedSequences as Ams
 # from utils.BioPDBUtils import biopdb_aligned_chain
 from BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
 
-if sys.version[0] < 3:
-    pickle_prot = 2
-else:
-    pickle_prot = pickle.HIGHEST_PROTOCOL
+# if sys.version[0] < 3:
+pickle_prot = 2
+# else:
+#     pickle_prot = pickle.HIGHEST_PROTOCOL
 
 
 def make_asu(files, chain, destination=os.getcwd):
