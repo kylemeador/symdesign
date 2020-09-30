@@ -19,7 +19,7 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
-from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_mp, nanohedra_s,
+from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_mp, nanohedra_s
 import AnalyzeMutatedSequences as Ams
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
