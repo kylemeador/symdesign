@@ -305,7 +305,7 @@ if __name__ == '__main__':
         if args.directory:
             all_design_directories = SDUtils.get_dock_directories(args.directory)
         elif args.file:
-
+            exit('This is not a freature yet, write your local Nanohedra representative and tell them to go shove it!')
         elif args.directory1:
             pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
             if args.directory2:
