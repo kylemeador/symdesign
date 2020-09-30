@@ -23,19 +23,23 @@ def nanohedra_mp(dock_dir):
 
 
 def nanohedra(dock_dir, suffix=None):
-    # des_dir_d = {design: {Sym: PDB1, Sym2: PDB2, Final_Sym:I}}
-    # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
+    """UFrom a directory set up for docking, a '_dock.pkl' file specifies the arguments passed to nanohedra commands"""
+
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
     symmetries = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
     sym_hierarchy = {sym: i for i, sym in enumerate(symmetries, 1)}
 
-    des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_dock.pkl.pkl' % os.path.basename(dock_dir)))  # TODO remove .pkl
+    des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_vflip_dock.pkl' % os.path.basename(dock_dir)))  # 9/29/20 removed .pkl added _vflip
+    # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
+
+    # This protocol should be obsolete with ASU.py fixed symmetry order TODO, remove as old pickles are unnecessary
     syms = list(set(des_dir_d.keys()) - {'final_symmetry'})  # ex: [0_C2, 1_C3]
     symmetry_rank = 0
     sym_d = {'higher': None, 'higher_path': None, 'lower': None, 'lower_path': None}
     for i, sym in enumerate(syms):
         sym_l = sym.split('_')
         sym_l[0] = str(int(sym_l[0]) + 1)
+        _sym = sym_l[1]
         new_sym = '_'.join(sym_l)
         # for pdb in des_dir_d[sym]:
             # if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
@@ -46,54 +50,18 @@ def nanohedra(dock_dir, suffix=None):
         if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
             raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
 
-        _sym = sym_l[1]
         new_symmetry_rank = sym_hierarchy[_sym]
         if new_symmetry_rank >= symmetry_rank:  # the case where sym2 is greater than sym1 or equal to sym1
             symmetry_rank = new_symmetry_rank
-            # lower_sym = higher_sym
             sym_d['lower'] = sym_d['higher']
             sym_d['lower_path'] = sym_d['higher_path']
-            # higher_sym = _sym
             sym_d['higher'] = _sym
             sym_d['higher_path'] = new_sym
         else:  # The case where 1 is greater than 2
-            # lower_sym = _sym
             sym_d['lower'] = _sym
             sym_d['lower_path'] = new_sym
     if len(des_dir_d) == 1:
         sym_d['lower'] = sym_d['higher']
-        # lower_sym = higher_sym
-
-    # {Sym: PDB1, Sym2: PDB2, 'final_symmetry': I}
-    # des_dir_d = {}
-    # dock_file = os.path.join(dock_dir, '%s_components.dock' % os.path.basename(dock_dir))  # TODO '.dock'
-    # with open(dock_file, 'r') as f:
-    #     parameters = f.readlines()
-    #     # parameters = map(str.split(), parameters)
-    #     for line in parameters:
-    #         info = line.split()
-    #         # if line.find('final_symmetry', 6) != -1:
-    #         #     final_sym = line.split('final_symmetry ')[1]
-    #         #     info[1] = info[1][:2]
-    #         # 4G41 C2
-    #         # 2CHC C3final_symmetry I
-    #         if info[0] == 'final_symmetry':
-    #             des_dir_d[info[0]] = [info[1]]
-    #             continue
-    #         if info[1] not in des_dir_d:
-    #             des_dir_d[info[1]] = [info[0]]
-    #         else:
-    #             des_dir_d[info[1]].append(info[0])
-    #     # 4G41 C2
-    #     # 2CHC C3
-    #     # final_symmetry I
-
-    # for sym in des_dir_d:
-    #     sym_l = sym.split('_')
-    #     if sym_l[0] == '1':
-    #         lower_sym = sym_l[1]
-    #     elif sym_l[0] == '2':
-    #         higher_sym = sym_l[1]
 
     # sym_tuple = (lower_sym, higher_sym)
     sym_tuple = (sym_d['lower'], sym_d['higher'])
@@ -105,14 +73,6 @@ def nanohedra(dock_dir, suffix=None):
     return nanohedra_command(str(entry_num), os.path.join(dock_dir, '%s' % sym_d['lower_path']),
                              os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=dock_dir, suffix=suffix,
                              default=False)
-                             # os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=out_dir, default=False)
-
-    # _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
-    #         os.path.join(dock_dir, '%s' % sym_d['lower_path']),
-    #         '-pdb_dir2_path', os.path.join(dock_dir, '%s' % sym_d['higher_path']),
-    #         '-rot_step1', '2', '-rot_step2', '2', '-outdir', out_dir]
-    #
-    # return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=dock_dir)
 
 
 # TODO multiprocessing compliant (picklable) error decorator

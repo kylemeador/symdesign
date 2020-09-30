@@ -304,6 +304,8 @@ if __name__ == '__main__':
         pdb_filepaths, all_design_directories = None, None
         if args.directory:
             all_design_directories = SDUtils.get_dock_directories(args.directory)
+        elif args.file:
+
         elif args.directory1:
             pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
             if args.directory2:

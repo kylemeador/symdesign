@@ -203,7 +203,6 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
                 os.makedirs(asu_path)
             if oligomer:  # requires an ASU PDB instance beforehand
                 rmsd_comp_commands[design] = make_asu_oligomer(asu, chain_correspondence[design], location=asu_path)
-                # {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb2': ...}
             else:
                 asu.write(os.path.join(asu_path, '%s_asu.pdb' % design))
 
@@ -211,14 +210,17 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
             sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
             sym_d['final_symmetry'] = design_file_input[design]['final_sym']
             # TODO remove _vflip
-            SDUtils.pickle_object(sym_d, name='%s_vflip_dock' % design, out_path=os.path.join(output_dir, design), protocol=pickle_prot)
+            SDUtils.pickle_object(sym_d, name='%s_vflip_dock' % design, out_path=os.path.join(output_dir, design),
+                                  protocol=pickle_prot)
 
         # with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
         #     f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
         #     f.write('\n%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
     # TODO remove _vflip
     if rmsd_comp_commands != dict():
-        SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths_vflip', out_path=output_dir, protocol=pickle_prot)
+        # {design: {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb2': ...}}
+        SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths_vflip', out_path=output_dir,
+                              protocol=pickle_prot)
 
     missing = []
     for i, design in enumerate(chain_correspondence):
@@ -228,7 +230,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
         missing_str = map(str, missing)
         print('Designs missing one of two chains:\n%s' % ', '.join(missing_str))
     # TODO remove _vflip
-    SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance_vflip', out_path=output_dir, protocol=pickle_prot)
+    SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance_vflip',
+                          out_path=output_dir, protocol=pickle_prot)
 
 
 def run_rmsd_calc(design_list, design_map_pickle):
@@ -366,7 +369,26 @@ if __name__ == '__main__':
             for design in chain_map:
                 input_pdb = chain_map[design]['pdb2']['path']
                 p = subprocess.Popen(['python', '/home/kmeador/Nanohedra/flip_pdb_180deg_y.py', input_pdb])
+                # update the file name in the docking pickle
+                dock_instructions = glob(os.path.join(os.path.dirname(input_pdb), '*_vflip_dock.pkl'))
+                dock_d = SDUtils.unpickle(dock_instructions[0])
+
+                # max_sym, max_name = 0, None
+                for sym in list(set(dock_d.keys()) - {'final_symmetry'}):
+                    # sym_l = sym.split('_')
+                    # sym_l[0] = int(sym_l[0])
+                    # if sym_l[0] >= max_sym:
+                    #     max_sym = sym_l[0]
+                    #     max_name = sym
+                    if sym.split('_')[0] == 1:
+                        dock_d[sym] = os.path.splitext(input_pdb)[0] + '_flipped_180y'  # .pdb'
+                SDUtils.pickle_object(dock_d, os.path.splitext(dock_instructions[0])[0], protocol=pickle_prot)
+
+                # update the path in the chain pickle
+                chain_map[design]['pdb2']['path'] = os.path.splitext(input_pdb)[0] + '_flipped_180y.pdb'
                 p.communicate()
+            SDUtils.pickle_object(chain_map, 'asu_to_oriented_oligomer_chain_correspondance_vflip_flipped',
+                                  protocol=pickle_prot)
             exit('All second oligomer chains flipped')
 
         with open(args.file, 'r') as f:
