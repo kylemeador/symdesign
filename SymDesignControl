@@ -348,10 +348,10 @@ if __name__ == '__main__':
 
         if args.command_only:
             # Make single file with names of each directory
-            args.file = os.path.join(args.directory, 'all_pose_directories')
+            args.file = os.path.join(args.directory, 'complete_docked_directories_flipped')
             with open(args.file, 'w') as design_f:
                 command_directories = map(os.path.dirname, results)  # Specific for docking commands due to no established directory
-                design_f.write('\n'.join(docking_pair for docking_pair in command_directories))
+                design_f.write('\n'.join(docking_pair for docking_pair in command_directories if docking_pair))
 
             all_commands = [result for result in results if result]
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
