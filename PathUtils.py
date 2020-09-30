@@ -38,7 +38,6 @@ clustered_poses = 'ClusteredPoses'
 
 # Project paths
 # command = 'SymDesign.py -h'
-command = 'SymDesignControl -h'
 source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-2])  # reveals master symdesign folder
 all_code_source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-3])  # overall design folder
 nanohedra_source = os.path.join(all_code_source, nano.title())
@@ -60,6 +59,7 @@ disbatch = os.path.join(binaries, 'diSbatch.sh')
 fragment_database = os.path.join(dependencies, 'fragment_database')
 # fragment_db = os.path.join(database, 'fragment_db')  # TODO
 python_scripts = os.path.join(dependencies, 'python')
+command = os.path.join(python_scripts, 'SymDesignControl')
 uniprot_pdb_map = os.path.join(python_scripts, '200121_UniProtPDBMasterDict.pkl')  # TODO move to source
 # python_scripts = os.path.join(source, 'python')  # TODO
 filter_and_sort = os.path.join(python_scripts, 'filter_and_sort_df.csv')
@@ -118,3 +118,7 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
                     stage[4]: os.path.join(sbatch_templates, stage[1]),
                     stage[5]: os.path.join(sbatch_templates, stage[1]),
                     nano: os.path.join(sbatch_templates, nano)}
+
+
+def help(module):
+    return '\'%s %s -h\' for help' % (command, module)

@@ -22,7 +22,7 @@ def nanohedra_mp(dock_dir):
         return None, (dock_dir, e)
 
 
-def nanohedra(dock_dir):
+def nanohedra(dock_dir, prefix='_flipped'):
     # des_dir_d = {design: {Sym: PDB1, Sym2: PDB2, Final_Sym:I}}
     # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
@@ -98,12 +98,14 @@ def nanohedra(dock_dir):
     # sym_tuple = (lower_sym, higher_sym)
     sym_tuple = (sym_d['lower'], sym_d['higher'])
     entry_num = entry_d[des_dir_d['final_symmetry']][sym_tuple]
-    out_dir = os.path.join(dock_dir, 'NanohedraEntry%sDockedPoses' % entry_num)
+    # out_dir = os.path.join(dock_dir, 'NanohedraEntry%sDockedPoses' % entry_num)
     # out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
 
+    # TODO PUT prefix on the command!
     return nanohedra_command(str(entry_num), os.path.join(dock_dir, '%s' % sym_d['lower_path']),
-                             os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=out_dir, default=False)
+                             os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=dock_dir, default=False)
+                             # os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=out_dir, default=False)
 
     # _cmd = ['python', PUtils.nanohedra_main, '-dock', '-entry', str(entry_num), '-pdb_dir1_path',
     #         os.path.join(dock_dir, '%s' % sym_d['lower_path']),

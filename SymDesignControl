@@ -147,6 +147,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='\nControl all input/output of %s including:\n1. Pose initialization\n'
                                                  '2. Command distribution to computational nodes\n'
                                                  '3. Analysis of designs' % PUtils.program_name)
+    parser.add_argument('-c', '--command_only', action='store_true',
+                        help='Should commands be written but not executed?\nDefault=False')
     parser.add_argument('-d', '--directory', type=str, help='Directory where %s poses are located. Default=CWD'
                                                             % PUtils.program_name, default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s poses' % PUtils.program_name,
@@ -162,17 +164,21 @@ if __name__ == '__main__':
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags')
 
-    parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py' % PUtils.nano.title())
-    parser_dock.add_argument('-c', '--command_only', action='store_true',
-                             help='Should commands be written but not executed?\nDefault=False')
+    parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py\nIf a docking directory structure is set up,'
+                                                     ' provide the overall directory location with program argument '
+                                                     '-d/-f, otherwise, use the -d1 -d2 \'pose\' module arguments to '
+                                                     'specify lists of oligomers to dock' % PUtils.nano.title())
+    # parser_dock.add_argument('-c', '--command_only', action='store_true',
+    #                          help='Should commands be written but not executed?\nDefault=False')
     parser_dock.add_argument('-d1', '--directory1', type=str, help='Disk location where the first symmetry oligomers '
                                                                    'are located\nREQUIRED', default=None)  # TODO REQ.
     parser_dock.add_argument('-d2', '--directory2', type=str, help='Disk location where the second symmetry oligomers '
                                                                    'are located\nDefault=None', default=None)
-    parser_dock.add_argument('-e', '--entry', type=int, help='The number of the %s docking combinations to use' %
+    parser_dock.add_argument('-e', '--entry', type=int, help='The entry number of %s docking combinations to use' %
                                                              PUtils.nano)
     parser_dock.add_argument('-o', '--output_directory', type=str, help='Where should the output from commands be '
-                                                                        'written?\nDefault=NanohedraEntry__DockedPoses',
+                                                                        'written?\n'
+                                                                        'Default=NanohedraEntry(entry)DockedPoses',
                              default=None)
 
     parser_pose = subparsers.add_parser('pose', help='Gather output from %s and format for input into Rosetta. '
@@ -187,8 +193,8 @@ if __name__ == '__main__':
     parser_pose.add_argument('symmetry_group', type=int,
                              help='What type of symmetry group does your design belong too? One of 0-Point Group, '
                                   '2-Plane Group, or 3-Space Group')  # TODO remove from input, make automatic
-    parser_pose.add_argument('-c', '--command_only', action='store_true',
-                             help='Should commands be written but not executed?\nDefault=False')
+    # parser_pose.add_argument('-c', '--command_only', action='store_true',
+    #                          help='Should commands be written but not executed?\nDefault=False')
     parser_pose.add_argument('-x', '--suspend', action='store_true',
                              help='Should Rosetta design trajectory be suspended?\nDefault=False')
     parser_pose.add_argument('-p', '--mpi', action='store_true',
@@ -272,10 +278,7 @@ if __name__ == '__main__':
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Grab all poses (directories) to be processed from either directory name or file
-    if args.sub_module == 'dock':
-        all_poses = SDUtils.get_dock_directories(args.directory)
-        all_design_directories = all_poses
-    else:
+    if args.sub_module != 'dock':
         all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
         assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
                                                     % (PUtils.nano.title(), location))
@@ -284,24 +287,24 @@ if __name__ == '__main__':
         logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
         logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
                     os.path.join(all_design_directories[0].path, os.path.basename(all_design_directories[0].path) + '.log'))
-    if not args.file:
-        # Make single file with names of each directory
-        args.file = os.path.join(args.directory, 'all_pose_directories')
-        with open(args.file, 'w') as design_f:
-            design_f.write('\n'.join(pose for pose in all_poses))
+
+        if not args.file:
+            # Make single file with names of each directory
+            args.file = os.path.join(args.directory, 'all_pose_directories')
+            with open(args.file, 'w') as design_f:
+                design_f.write('\n'.join(pose for pose in all_poses))
+
+    if args.command_only:
+        args.suspend = True
+        logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed')
 
     # Parse SubModule specific commands
     results, exceptions = [], []
-    if args.sub_module == 'dock':  # -c --command_only, -i --fragment_library, -x --suspend
-        # if args.mpi:
-        #     args.command_only = True
-        #     extras = ' mpi %d' % CUtils.mpi
-        #     logger.info('Setting job up for submission to MPI capable computer. Pose trajectories will run in parallel,'
-        #                 ' %s at a time. This will speed up pose processing %f-fold.' %
-        #                 (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
-        # else:
-        #     extras = ''
-        if args.directory1:
+    if args.sub_module == 'dock':  # -d1 --directory1, -d2 --directory2, -e --entry, -o --output_directory
+        pdb_filepaths, all_design_directories = None, None
+        if args.directory:
+            all_design_directories = SDUtils.get_dock_directories(args.directory)
+        elif args.directory1:
             pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
             if args.directory2:
                 pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.directory2)
@@ -311,27 +314,27 @@ if __name__ == '__main__':
                 pdb_filepaths = list(combinations(pdb1_filepaths, 2))
                 # pdb_list = glob(os.path.join(args.directory1, '*.pdb*')
         else:
-            exit('No docking files were specified')
+            exit('No docking directories/files were specified\nPlease specify --file or --directory, or --directory1, '
+                 'and/or --directory2. See %s' % PUtils.help(args.sub_module))
 
-        if args.command_only:
-            args.suspend = True  # TODO can I remove this section?
-            logger.info(
-                'Writing modelling commands out to file only, no modelling will occur until commands are executed')
-
-        # Start pose processing and preparation for Rosetta
+        # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory))
-            results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
-            # results, exceptions = zip(*SDUtils.mp_map(nanohedra_mp, all_design_directories, mp_threads))  # single directory docking with already made directories
+            if not pdb_filepaths:
+                results, exceptions = zip(*SDUtils.mp_map(nanohedra_mp, all_design_directories, mp_threads))  # single directory docking with already made directories
+            else:
+                zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory))
+                results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
             results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
             for path1, path2 in pdb_filepaths:
-                result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory)
-                # result, error = nanohedra_s(dock_directory)  # single directory docking with already made directories
+                if not pdb_filepaths:
+                    result, error = nanohedra_s(dock_directory)  # single directory docking (already made directories)
+                else:
+                    result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory)
                 results.append(result)
                 exceptions.append(error)
 
@@ -357,10 +360,6 @@ if __name__ == '__main__':
                         (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
         else:
             extras = ''
-        if args.command_only:
-            args.suspend = True
-            logger.info(
-                'Writing modelling commands out to file only, no modelling will occur until commands are executed')
 
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
