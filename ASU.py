@@ -377,6 +377,7 @@ if __name__ == '__main__':
                 except IndexError:
                     print('No %s found for design %s' % (os.path.join(os.path.dirname(input_pdb), '*_vflip_dock.pkl'),
                                                          design))
+                    break
 
                 # max_sym, max_name = 0, None
                 for sym in list(set(dock_d.keys()) - {'final_symmetry'}):
