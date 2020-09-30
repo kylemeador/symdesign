@@ -322,11 +322,12 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            if not pdb_filepaths: # single directory docking with already made directories
+            if not pdb_filepaths: # single directory docking (already made directories)
                 zipped_args = zip(all_design_directories, repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_mp, all_design_directories, mp_threads))
             else:
-                zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory))
+                zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory),
+                                  repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
             results = list(results)
         else:
@@ -338,7 +339,8 @@ if __name__ == '__main__':
                     exceptions.append(error)
             else:
                 for path1, path2 in pdb_filepaths:
-                    result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory)
+                    result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory,
+                                                        args.design_string)
                     results.append(result)
                     exceptions.append(error)
 

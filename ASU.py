@@ -11,7 +11,7 @@ import AnalyzeMutatedSequences as Ams
 # sys.path.append(PUtils.nanohedra_source)
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
-# from Josh_push.BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
+from Josh_push.BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
 
 
 def make_asu(files, chain, destination=os.getcwd):
@@ -40,8 +40,8 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd):
         asu_chain = chain_map[pdb]['asu_chain']
         oriented_oligomer = SDUtils.read_pdb(chain_map[pdb]['path'])
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
-        # moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain) #uncomment when path is solved
-        moved_oligomer[pdb] = None  # remove when path is solved
+        moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain) #uncomment when path is solved
+        # moved_oligomer[pdb] = None  # remove when path is solved
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
     final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))[0]}
     # final_comparison = {'nanohedra_output': os.path.join(os.path.dirname(location), 'NanohedraEntry%sDockedPoses' % entry_num)}
@@ -59,7 +59,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
         design_file_input = {os.path.splitext(row[0])[0]:
                              # {'design_pdb': SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),  # TODO reinstate upon recap exp termination
                              {'design_pdb': row[0],
-                              'source_pdb': {(row[1], row[3]), (row[2], row[4])}, 'final_sym': row[5]}
+                              'source_pdb': [(row[1], row[3]), (row[2], row[4])], 'final_sym': row[5]}
                              for row in reading_csv}  # 'pdb1': 'sym1': 'pdb2': 'sym2':
     # all_pdbs = {file: {'design': SDUtils.read_pdb(pdb_file) for pdb_file in all_pdb_files} for file in design_input
     # all_pdb_files = SDUtils.get_all_pdb_file_paths(pdb_dir)
@@ -74,8 +74,9 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
     #           'pdb2': {'asu_chain': None, 'dock_chains': []}}, ...}
     rmsd_comp_commands = {}
     for design in design_file_input:
-        # asu = design_file_input[design]['design_pdb'].return_asu()  # TODO reinstate upon recap exp termination
-        asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))
+        # asu = design_file_input[design]['design_pdb'].return_asu()  # TODO reinstate upon design recap exp termination
+        asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old when design asu is outside
+        # asu = SDUtils.read_pdb(os.path.join(output_dir, design, 'design_asus',design  + '.pdb'))  # new when asu is inside design directory
         asu.reorder_chains()
         # asu.pose_numbering()
         # for chain in asu.chain_id_list:
@@ -88,7 +89,9 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
             os.makedirs(design_dir)
 
         used_chains, success = [], True
-        for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'], 1):  # TODO Not necessarily in order!!!
+        for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'], 1):
+        # for i, sym_order in enumerate(design_file_input[design]['source_pdb'], 1):
+        #     pdb, sym = design_file_input[design]['source_pdb'][sym_order]
             if pdb in qsbio_assemblies:
                 biological_assembly = qsbio_assemblies[pdb][0]  # find a verified biological assembly from QSBio
                 if pdb == '3E6Q':
@@ -201,14 +204,15 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
             # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
             sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
             sym_d['final_symmetry'] = design_file_input[design]['final_sym']
-            SDUtils.pickle_object(sym_d, name='%s_dock' % design, out_path=os.path.join(output_dir, design))
+            # TODO remove _vflip
+            SDUtils.pickle_object(sym_d, name='%s_vflip_dock' % design, out_path=os.path.join(output_dir, design))
 
         # with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
         #     f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
         #     f.write('\n%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
-
+    # TODO remove _vflip
     if rmsd_comp_commands != dict():
-        SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths', out_path=output_dir)
+        SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths_vflip', out_path=output_dir)
 
     missing = []
     for i, design in enumerate(chain_correspondence):
@@ -217,8 +221,8 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
     if missing != list():
         missing_str = map(str, missing)
         print('Designs missing one of two chains:\n%s' % ', '.join(missing_str))
-
-    SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance', out_path=output_dir)
+    # TODO remove _vflip
+    SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance_vflip', out_path=output_dir)
 
 
 def run_rmsd_calc(design_list, design_map_pickle):
@@ -296,7 +300,7 @@ def report_top_rmsd(rmsd_d):
 
     top_df = pd.concat([top_rmsd_s, top_score_s, top_rank_s, motif_library_s], axis=1)
     top_df.columns = ['iRMSD', 'Nanohedra Score', 'Nanohedra Rank', 'TC Dock Motifs']
-    top_df.sort_values('iRMSD', inplace=True)  #, axis=1)
+    top_df.sort_values('iRMSD', inplace=True)
 
     print(top_df)
     # top_rmsd_s.sort_values(inplace=True)
@@ -321,6 +325,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--design_map', type=str, help='The location of a file to map the design directory to '
                                                              'lower and higher symmetry\nDefault=None', default=None)
     parser.add_argument('-r', '--report', action='store_true', help='Whether to report the RMSD\'s of design recap')
+    parser.add_argument('-rot', '--flip', action='store_true', help='Whether to flip the orientation of a design')
 
     args = parser.parse_args()
     logger = SDUtils.start_log()
@@ -350,6 +355,14 @@ if __name__ == '__main__':
         exit()
 
     if args.design_map:
+        if args.flip:
+            chain_map = SDUtils.unpickle(args.design_map)
+            for design in chain_map:
+                input_pdb = chain_map[design]['pdb2']['path']
+                p = subprocess.Popen(['python', '/home/kmeador/Nanohedra/flip_pdb_180deg_y.py', input_pdb])
+                p.communicate()
+            exit('All second oligomer chains flipped')
+
         with open(args.file, 'r') as f:
             all_design_directories = f.readlines()
             design_d_names = map(str.strip, all_design_directories)
