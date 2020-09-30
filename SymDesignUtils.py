@@ -239,7 +239,7 @@ def unpickle(filename):
         return None
 
 
-def pickle_object(target_object, name, out_path=os.getcwd()):
+def pickle_object(target_object, name, out_path=os.getcwd(), protocol=pickle.HIGHEST_PROTOCOL):
     """Pickle (serialize) an object into a file named 'out_path/name.pkl'
 
     Args:
@@ -252,7 +252,7 @@ def pickle_object(target_object, name, out_path=os.getcwd()):
     """
     file_name = os.path.join(out_path, '%s.pkl' % name)
     with open(file_name, 'wb') as f:
-        pickle.dump(target_object, f, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(target_object, f, protocol)
 
     return file_name
 

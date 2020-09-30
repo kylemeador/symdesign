@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import pickle
 import pandas as pd
 from glob import glob
 from csv import reader
@@ -12,6 +13,11 @@ import AnalyzeMutatedSequences as Ams
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
 from BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
+
+if sys.version[0] < 3:
+    pickle_prot = 2
+else:
+    pickle_prot = pickle.HIGHEST_PROTOCOL
 
 
 def make_asu(files, chain, destination=os.getcwd):
@@ -205,14 +211,14 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
             sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
             sym_d['final_symmetry'] = design_file_input[design]['final_sym']
             # TODO remove _vflip
-            SDUtils.pickle_object(sym_d, name='%s_vflip_dock' % design, out_path=os.path.join(output_dir, design))
+            SDUtils.pickle_object(sym_d, name='%s_vflip_dock' % design, out_path=os.path.join(output_dir, design), protocol=pickle_prot)
 
         # with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
         #     f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
         #     f.write('\n%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
     # TODO remove _vflip
     if rmsd_comp_commands != dict():
-        SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths_vflip', out_path=output_dir)
+        SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths_vflip', out_path=output_dir, protocol=pickle_prot)
 
     missing = []
     for i, design in enumerate(chain_correspondence):
@@ -222,7 +228,7 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
         missing_str = map(str, missing)
         print('Designs missing one of two chains:\n%s' % ', '.join(missing_str))
     # TODO remove _vflip
-    SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance_vflip', out_path=output_dir)
+    SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance_vflip', out_path=output_dir, protocol=pickle_prot)
 
 
 def run_rmsd_calc(design_list, design_map_pickle):
