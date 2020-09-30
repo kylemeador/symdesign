@@ -223,9 +223,10 @@ def design_recapitulation(design_file, pdb_dir, output_dir, oligomer=False):
                               protocol=pickle_prot)
 
     missing = []
-    for i, design in enumerate(chain_correspondence):
+    for design in chain_correspondence:
         if len(chain_correspondence[design]) != 2:
-            missing.append(i)
+            missing.append(design)
+            chain_correspondence.pop(design)
     if missing != list():
         missing_str = map(str, missing)
         print('Designs missing one of two chains:\n%s' % ', '.join(missing_str))
@@ -371,7 +372,11 @@ if __name__ == '__main__':
                 p = subprocess.Popen(['python', '/home/kmeador/Nanohedra/flip_pdb_180deg_y.py', input_pdb])
                 # update the file name in the docking pickle
                 dock_instructions = glob(os.path.join(os.path.dirname(input_pdb), '*_vflip_dock.pkl'))
-                dock_d = SDUtils.unpickle(dock_instructions[0])
+                try:
+                    dock_d = SDUtils.unpickle(dock_instructions[0])
+                except IndexError:
+                    print('No %s found for design %s' % (os.path.join(os.path.dirname(input_pdb), '*_vflip_dock.pkl'),
+                                                         design))
 
                 # max_sym, max_name = 0, None
                 for sym in list(set(dock_d.keys()) - {'final_symmetry'}):
