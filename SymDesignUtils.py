@@ -2220,7 +2220,7 @@ def get_directory_pdb_file_paths(pdb_dir):
     return glob(os.path.join(pdb_dir, '*.pdb*'))
 
 
-def collect_designs(directory, file=None):
+def collect_directories(directory, file=None, type='design'):  # TODO collect_directories
     """Grab all poses from an input source
 
     Args:
@@ -2237,12 +2237,17 @@ def collect_designs(directory, file=None):
             if not os.path.exists(_file):
                 logger.critical('No %s file found in \'%s\'! Please ensure correct location/name!' % (file, directory))
                 sys.exit(1)
-        location = file
         with open(_file, 'r') as f:
             all_directories = [location.strip() for location in f.readlines()]
+        location = file
     else:
+        if type == 'dock':
+            get_dock_directories(directory)
+        elif type == 'design':
+            # all_directories = get_design_directories(directory)
+            base_directories = get_base_nanohedra_dirs(directory)
+            all_directories = [get_docked_dirs_from_base(base) for base in base_directories]
         location = directory
-        all_directories = get_design_directories(directory)
 
     return sorted(set(all_directories)), location
 
@@ -2265,16 +2270,69 @@ def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  
             for directory in dirs:
                 if directory.startswith(PUtils.pose_prefix):
                     all_design_directories.append(os.path.join(root, directory))
+
     return sorted(set(all_design_directories))
 
 
+# DEPRECIATED
 def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # removed a .pkl 9/29/20 9/17/20 run used .pkl.pkl TODO remove vflip
-    all_directories = []
-    for root, dirs, files in os.walk(base_directory):
-        for file in files:
-            if file.endswith(directory_type):
-                all_directories.append(root)
-    return sorted(set(all_directories))
+    # all_directories = []
+    # for root, dirs, files in os.walk(base_directory):
+    #     for file in files:
+    #         if file.endswith(directory_type):
+    #             all_directories.append(root)
+    #
+    #
+    # return sorted(set(all_directories))
+
+    return glob('%s/*/*%s' % (base_directory, directory_type))
+
+
+def get_base_nanohedra_dirs(base_dir):
+    # skip_dirs = []
+    nanohedra_dirs = []
+    for root, dirs, files in os.walk(base_dir):
+        # Check if the nanohedra_directory has already been located, if so, don't walk deeper
+        explore = True
+        for nano_dir in nanohedra_dirs:
+            if root.startswith(nano_dir):
+                explore = False
+                break
+        if explore:
+            for file in files:
+                if file == 'master_log.txt':
+                    nanohedra_dirs.append(root)
+                    break
+        # second option is to add all os.path.join(root, dir) to skip_dirs, this doesn't explore deeeper than dir though
+        # for file in files:
+        #     if file == 'master_log.txt':
+        #         nanohedra_dirs.append(root)
+        #         for dir in dirs:
+        #             skip_dirs.append(os.path.join(root, dir))
+        #         break
+    return nanohedra_dirs
+
+
+def get_docked_dirs_from_base(base):
+    # want to find all NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/tx_139
+
+    # for root1, dirs1, files1 in os.walk(base):  # NanohedraEntry1DockedPoses/
+    #     for dir1 in dirs1:  # 1abc_2xyz
+    #         for root2, dirs2, files2 in os.walk(os.path.join(base, dir1)):  # NanohedraEntry1DockedPoses/1abc_2xyz/
+    #             for dir2 in dirs2:  # DEGEN_1_1
+    #                 for root3, dirs3, files3 in os.walk(os.path.join(base, dir1, dir2)):  # NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/
+    #                     for dir3 in dirs3:  # ROT_1_1
+    #                         for root4, dirs4, files4 in os.walk(os.path.join(base, dir1, dir2, dir3)):  # NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/
+    #                             for dir4 in dirs4: # tx_139
+    #                                 if dir4.startswith('tx_'):
+
+    # baseline testing with
+    # timeit.timeit("import glob;glob.glob('*/*/*/*/')", number=1) Vs.
+    # timeit.timeit("import glob;get_design_directories('/share/gscratch/kmeador/crystal_design/
+    #     NanohedraEntry65MinMatched6_FULL')", setup="from __main__ import get_design_directories", number=1)
+    # gives 2.4859059400041588 versus 13.074574943981133
+
+    return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
 
 
 def set_up_directory_objects(design_list, symmetry=None):

@@ -19,11 +19,10 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
-from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_mp, nanohedra_s
+from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
 import AnalyzeMutatedSequences as Ams
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
-
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -279,7 +278,7 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     if args.sub_module != 'dock':
-        all_poses, location = SDUtils.collect_designs(args.directory, file=args.file)
+        all_poses, location = SDUtils.directories(args.directory, file=args.file)
         assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
                                                     % (PUtils.nano.title(), location))
 
@@ -293,19 +292,10 @@ if __name__ == '__main__':
             args.file = os.path.join(args.directory, 'all_pose_directories')
             with open(args.file, 'w') as design_f:
                 design_f.write('\n'.join(pose for pose in all_poses))
-
-    if args.command_only:
-        args.suspend = True
-        logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed')
-
-    # Parse SubModule specific commands
-    results, exceptions = [], []
-    if args.sub_module == 'dock':  # -d1 --directory1, -d2 --directory2, -e --entry, -o --output_directory
+    else:
         pdb_filepaths, all_design_directories = None, None
-        if args.directory:
-            all_design_directories = SDUtils.get_dock_directories(args.directory)
-        elif args.file:
-            exit('This is not a freature yet, write your local Nanohedra representative and tell them to go shove it!')
+        if args.directory or args.file:
+            all_design_directories = SDUtils.collect_directories(args.directory, file=args.file, type=args.sub_module)
         elif args.directory1:
             pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
             if args.directory2:
@@ -316,17 +306,24 @@ if __name__ == '__main__':
                 pdb_filepaths = list(combinations(pdb1_filepaths, 2))
                 # pdb_list = glob(os.path.join(args.directory1, '*.pdb*')
         else:
-            exit('No docking directories/files were specified\nPlease specify --file or --directory, or --directory1, '
+            exit('No docking directories/files were specified\nPlease specify --directory or --file, or --directory1, '
                  'and/or --directory2. See %s' % PUtils.help(args.sub_module))
 
+    if args.command_only:
+        args.suspend = True
+        logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed')
+
+    # Parse SubModule specific commands
+    results, exceptions = [], []
+    if args.sub_module == 'dock':  # -d1 --directory1, -d2 --directory2, -e --entry, -o --output_directory
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            if not pdb_filepaths: # single directory docking (already made directories)
+            if not pdb_filepaths:  # single directory docking (already made directories)
                 zipped_args = zip(all_design_directories, repeat(args.design_string))
-                results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_mp, all_design_directories, mp_threads))
+                results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, all_design_directories, mp_threads))
             else:
                 zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory),
                                   repeat(args.design_string))
@@ -334,9 +331,9 @@ if __name__ == '__main__':
             results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
-            if not pdb_filepaths: # single directory docking (already made directories)
+            if not pdb_filepaths:  # single directory docking (already made directories)
                 for dock_directory in all_design_directories:
-                    result, error = nanohedra_s(dock_directory, args.design_string)
+                    result, error = nanohedra_recap_s(dock_directory, args.design_string)
                     results.append(result)
                     exceptions.append(error)
             else:
@@ -479,7 +476,7 @@ if __name__ == '__main__':
     elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment
         if args.directory2 or args.file2:
             # Grab all poses (directories) to be processed from either directory name or file
-            all_poses2, location2 = SDUtils.collect_designs(args.directory2, file=args.file2)
+            all_poses2, location2 = SDUtils.collect_directories(args.directory2, file=args.file2)
             assert all_poses2 != list(), logger.critical(
                 'No %s directories found within \'%s\'! Please ensure correct location' % (PUtils.nano.title(),
                                                                                            location2))

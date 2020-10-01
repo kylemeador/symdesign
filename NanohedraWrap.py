@@ -8,21 +8,24 @@ import PathUtils as PUtils
 import CmdUtils as CUtils
 
 
+pickle_prot = 2
+
+
 # TODO multiprocessing compliant (picklable) error decorator
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
-def nanohedra_s(dock_dir):
-    return nanohedra(dock_dir)
+def nanohedra_recap_s(dock_dir):
+    return nanohedra_design_recap(dock_dir)
 
 
-def nanohedra_mp(dock_dir):
+def nanohedra_recap_mp(dock_dir):
     try:
-        file = nanohedra(dock_dir)
+        file = nanohedra_design_recap(dock_dir)
         return file, None
     except (SDUtils.DesignError, AssertionError) as e:
         return None, (dock_dir, e)
 
 
-def nanohedra(dock_dir, suffix=None):
+def nanohedra_design_recap(dock_dir, suffix=None):
     """UFrom a directory set up for docking, a '_dock.pkl' file specifies the arguments passed to nanohedra commands"""
 
     entry_d = {'I': {('C2', 'C3'): 8, ('C2', 'C5'): 14, ('C3', 'C5'): 56}, 'T': {('C2', 'C3'): 4, ('C3', 'C3'): 52}}
@@ -111,5 +114,10 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, default=Tr
         step_1, step_2 = '2', '2'
     _cmd = ['python', PUtils.nanohedra_s_main, '-dock', '-entry', str(entry), '-pdb_dir1_path',
             path1, '-pdb_dir2_path', path2, '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', out_dir]
+
+    # this is just not necessary
+    # sym_d = {'%d_%s' % (i, sym): pdb.lower() for i, (sym, pdb) in enumerate(zip(sym_tuple, (sym_d['lower'], sym_d['higher'])))}
+    # sym_d['final_symmetry'] = des_dir_d['final_symmetry']
+    # SDUtils.pickle_object(out_path=pdb_out_dir, protocol=pickle_prot)
 
     return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=pdb_out_dir)
