@@ -48,12 +48,12 @@ def nanohedra_design_recap(dock_dir, suffix=None):
             if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
                 raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
             else:
-                path2 = os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower()))
+                path2 = os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())
         else:
             if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
                 raise SDUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
             else:
-                path1 = os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower()))
+                path1 = os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())
 
         # for pdb in des_dir_d[sym]:
             # if not os.path.exists(os.path.join(dock_dir, sym, '%s.pdb' % pdb.lower())):
