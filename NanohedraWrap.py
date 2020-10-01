@@ -13,13 +13,13 @@ pickle_prot = 2
 
 # TODO multiprocessing compliant (picklable) error decorator
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
-def nanohedra_recap_s(dock_dir):
-    return nanohedra_design_recap(dock_dir)
+def nanohedra_recap_s(dock_dir, string):
+    return nanohedra_design_recap(dock_dir, suffix=string)
 
 
-def nanohedra_recap_mp(dock_dir):
+def nanohedra_recap_mp(dock_dir, string):
     try:
-        file = nanohedra_design_recap(dock_dir)
+        file = nanohedra_design_recap(dock_dir, suffix=string)
         return file, None
     except (SDUtils.DesignError, AssertionError) as e:
         return None, (dock_dir, e)
