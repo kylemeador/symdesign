@@ -96,28 +96,28 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, default=Tr
     """Write out Nanohedra commands to shell scripts for processing by computational clusters"""
 
     if not out_dir:
-        out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses%s' % (entry, suffix))
+        nano_out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses%s' % (entry, suffix))
     else:
-        out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % (entry, suffix))
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+        nano_out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % (entry, suffix))
+    if not os.path.exists(nano_out_dir):
+        os.makedirs(nano_out_dir)
 
     if os.path.splitext(path1)[1] != '':
-        pdb_out_dir = os.path.join(out_dir, '%s_%s' % (os.path.splitext(os.path.basename(path1))[0],
+        nano_out_dir = os.path.join(nano_out_dir, '%s_%s' % (os.path.splitext(os.path.basename(path1))[0],
                                                        os.path.splitext(os.path.basename(path2))[0]))
-    if not os.path.exists(pdb_out_dir):
-        os.makedirs(pdb_out_dir)
+        if not os.path.exists(nano_out_dir):
+            os.makedirs(nano_out_dir)
 
     if default:
         step_1, step_2 = '3', '3'
     else:
         step_1, step_2 = '2', '2'
     _cmd = ['python', PUtils.nanohedra_s_main, '-dock', '-entry', str(entry), '-pdb_dir1_path',
-            path1, '-pdb_dir2_path', path2, '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', out_dir]
+            path1, '-pdb_dir2_path', path2, '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir]
 
     # this is just not necessary
     # sym_d = {'%d_%s' % (i, sym): pdb.lower() for i, (sym, pdb) in enumerate(zip(sym_tuple, (sym_d['lower'], sym_d['higher'])))}
     # sym_d['final_symmetry'] = des_dir_d['final_symmetry']
     # SDUtils.pickle_object(out_path=pdb_out_dir, protocol=pickle_prot)
 
-    return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=pdb_out_dir)
+    return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=nano_out_dir)
