@@ -2340,9 +2340,9 @@ def set_up_directory_objects(design_list, symmetry=None):
     return [DesignDirectory(design, symmetry=symmetry) for design in design_list]
 
 
-def set_up_pseudo_design_dir(wildtype, directory, score):
+def set_up_pseudo_design_dir(wildtype, directory, score):  # changed 9/30/20 to locate paths of interest at .path
     pseudo_dir = DesignDirectory(wildtype, auto_structure=False)
-    pseudo_dir.path = os.path.dirname(wildtype)
+    # pseudo_dir.path = os.path.dirname(wildtype)
     pseudo_dir.building_blocks = os.path.dirname(wildtype)
     pseudo_dir.design_pdbs = directory
     pseudo_dir.scores = os.path.dirname(score)
