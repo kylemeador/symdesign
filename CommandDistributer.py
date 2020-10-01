@@ -141,7 +141,6 @@ if __name__ == '__main__':
     # Ensure all log files exist
     for log_file in log_files:
         create_file(log_file)
-        if os.path.exists(log_file):
     create_file(args.success_file)
     create_file(args.failure_file)
 
