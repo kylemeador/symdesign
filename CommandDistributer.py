@@ -133,14 +133,17 @@ if __name__ == '__main__':
     commands_of_interest = list(map(path_maker, poses))
     if args.stage == 'nanohedra':
         des_dirs = [SDUtils.set_up_pseudo_design_dir(pose, os.getcwd(), os.getcwd()) for pose in poses]
+        print('Poses:', poses)
     else:
         des_dirs = SDUtils.set_up_directory_objects(poses)
-    log_files = list(os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log') for des_dir in des_dirs)
+    log_files = [os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log') for des_dir in des_dirs]
     commands = zip(commands_of_interest, log_files)
 
     # Ensure all log files exist
     for log_file in log_files:
         create_file(log_file)
+        if os.path.exists(log_file):
+            print('Log exists')
     create_file(args.success_file)
     create_file(args.failure_file)
 
@@ -155,6 +158,8 @@ if __name__ == '__main__':
     results = []
     for command, log_file in commands:
         results.append(run(command, log_file))
+
+    print('Commands ran...')
     # python 3.7 compatible
     # results = SDUtils.mp_starmap(run, commands, threads=len(commands_of_interest))  # TODO reinstate
     #
