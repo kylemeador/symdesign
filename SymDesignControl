@@ -291,7 +291,8 @@ if __name__ == '__main__':
             args.file = os.path.join(args.directory, 'all_pose_directories')
             with open(args.file, 'w') as design_f:
                 design_f.write('\n'.join(pose for pose in all_poses))
-
+    elif args.sub_module == 'distribute':
+        all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file, type=args.sub_module)
     elif args.sub_module == 'dock':
         if args.directory or args.file:
             all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
