@@ -2242,7 +2242,7 @@ def collect_directories(directory, file=None, type='design'):  # TODO collect_di
         location = file
     else:
         if type == 'dock':
-            get_dock_directories(directory)
+            all_directories = get_dock_directories(directory)
         elif type == 'design':
             # all_directories = get_design_directories(directory)
             base_directories = get_base_nanohedra_dirs(directory)
