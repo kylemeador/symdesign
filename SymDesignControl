@@ -851,7 +851,7 @@ if __name__ == '__main__':
                 logger.warning('%s: %s' % (des_dir.path, exception_msg))
             except AttributeError:
                 logger.warning('%s: %s' % (des_dir, exception_msg))
-# logger.warning('%s: %s' % exception)
+
             all_exception_poses.append(des_dir)
         print('\n')
         # except_file = os.path.join(args.location, 'EXCEPTIONS.log')

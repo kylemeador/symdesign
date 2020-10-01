@@ -120,10 +120,15 @@ if __name__ == '__main__':
     # Prepare Commands
     # command_name = args.stage + '.sh'
     # python2.7 compatibility
-    path_maker = lambda path_name: os.path.join(path_name, '%s.sh' % args.stage)
-    commands_of_interest = list(map(path_maker, poses))  # repeat(command_name)))
-    # commands_of_interest = list(map(os.path.join, poses, repeat(args.stage + '.sh')))  # repeat(command_name)))
-    des_dirs = SDUtils.set_up_directory_objects(poses)
+    # path_maker = lambda path_name: os.path.join(path_name, '%s.sh' % args.stage)
+    def path_maker(path_name):
+        return os.path.join(path_name, '%s.sh' % args.stage)
+
+    commands_of_interest = list(map(path_maker, poses))
+    if args.stage == 'nanohedra':
+        des_dirs = [SDUtils.set_up_pseudo_design_dir(pose, None, None) for pose in poses]
+    else:
+        des_dirs = SDUtils.set_up_directory_objects(poses)
     log_files = list(os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log') for des_dir in des_dirs)
     commands = zip(commands_of_interest, log_files)
 
