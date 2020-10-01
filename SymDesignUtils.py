@@ -2285,7 +2285,7 @@ def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # re
     #
     # return sorted(set(all_directories))
 
-    return glob('%s/*/*%s' % (base_directory, directory_type))
+    return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
 
 
 def get_base_nanohedra_dirs(base_dir):
