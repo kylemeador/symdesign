@@ -319,7 +319,7 @@ if __name__ == '__main__':
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
-            mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
+            mp_threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
             if not pdb_filepaths:  # single directory docking (already made directories)
                 zipped_args = zip(all_design_directories, repeat(args.design_string))
