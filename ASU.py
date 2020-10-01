@@ -390,7 +390,7 @@ if __name__ == '__main__':
                     # if sym_l[0] >= max_sym:
                     #     max_sym = sym_l[0]
                     #     max_name = sym
-                    if sym.split('_')[0] == 1:
+                    if sym.split('_')[0] == 1:  # The higher symmetry
                         dock_d[sym] = os.path.splitext(input_pdb)[0] + '_flipped_180y'  # .pdb'
                 SDUtils.pickle_object(dock_d, os.path.splitext(dock_instructions[0])[0], protocol=pickle_prot)
 
