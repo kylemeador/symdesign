@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
     commands_of_interest = list(map(path_maker, poses))
     if args.stage == 'nanohedra':
-        des_dirs = [SDUtils.set_up_pseudo_design_dir(pose, None, None) for pose in poses]
+        des_dirs = [SDUtils.set_up_pseudo_design_dir(pose, os.getcwd(), os.getcwd()) for pose in poses]
     else:
         des_dirs = SDUtils.set_up_directory_objects(poses)
     log_files = list(os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log') for des_dir in des_dirs)
