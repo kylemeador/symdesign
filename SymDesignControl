@@ -292,11 +292,11 @@ if __name__ == '__main__':
             with open(args.file, 'w') as design_f:
                 design_f.write('\n'.join(pose for pose in all_poses))
     elif args.sub_module == 'distribute':
-        all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file, type=args.sub_module)
+        all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
     elif args.sub_module == 'dock':
         if args.directory or args.file:
             all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
-                                                                           type=args.sub_module)
+                                                                           dir_type=args.sub_module)
         elif args.directory1:
             location = args.directory1
             pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
@@ -433,7 +433,7 @@ if __name__ == '__main__':
                 new_f.write(template_line)
             out = 'output=%s/%s' % (output, '%A_%a.out')
             new_f.write(PUtils.sb_flag + out + '\n')
-            array = 'array=1-%d%%%d' % (int(len(all_poses) / command_divisor + 0.5), args.max_jobs)
+            array = 'array=1-%d%%%d' % (int(len(all_design_directories) / command_divisor + 0.5), args.max_jobs)
             new_f.write(PUtils.sb_flag + array + '\n')
             new_f.write('\npython %s --stage %s --success_file %s --failure_file %s --command_file %s\n' %
                         (PUtils.cmd_dist, args.stage, args.success_file, args.failure_file, args.file))

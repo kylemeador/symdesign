@@ -2220,7 +2220,7 @@ def get_directory_pdb_file_paths(pdb_dir):
     return glob(os.path.join(pdb_dir, '*.pdb*'))
 
 
-def collect_directories(directory, file=None, type='design'):  # TODO collect_directories
+def collect_directories(directory, file=None, dir_type='design'):  # TODO collect_directories
     """Grab all poses from an input source
 
     Args:
@@ -2241,9 +2241,9 @@ def collect_directories(directory, file=None, type='design'):  # TODO collect_di
             all_directories = [location.strip() for location in f.readlines()]
         location = file
     else:
-        if type == 'dock':
+        if dir_type == 'dock':
             all_directories = get_dock_directories(directory)
-        elif type == 'design':
+        elif dir_type == 'design':
             # all_directories = get_design_directories(directory)
             base_directories = get_base_nanohedra_dirs(directory)
             all_directories = [get_docked_dirs_from_base(base) for base in base_directories]
