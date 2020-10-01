@@ -279,10 +279,9 @@ if __name__ == '__main__':
     # Grab all poses (directories) to be processed from either directory name or file
     pdb_filepaths, all_design_directories, location = None, None, None
     if args.sub_module != 'dock':
-        all_poses, location = SDUtils.directories(args.directory, file=args.file)
-        assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
-                                                    % (PUtils.nano.title(), location))
-
+        all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
+        assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct '
+                                                    'location' % (PUtils.nano.title(), location))
         all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
         logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
                     os.path.join(all_design_directories[0].path,
@@ -358,8 +357,9 @@ if __name__ == '__main__':
             all_commands = [result for result in results if result]
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
-            logger.info('\nTo process commands, execute:\ncd %s\n%s' %
-                        (args.directory, 'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano)))
+            # TODO fix location of cd
+            logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
+                        'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano))
 
     elif args.sub_module == 'pose':  # -c --command_only, -i --fragment_library, -p --mpi, -x --suspend
         if args.mpi:
