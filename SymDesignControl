@@ -277,26 +277,27 @@ if __name__ == '__main__':
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Grab all poses (directories) to be processed from either directory name or file
+    pdb_filepaths, all_design_directories, location = None, None, None
     if args.sub_module != 'dock':
         all_poses, location = SDUtils.directories(args.directory, file=args.file)
         assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
                                                     % (PUtils.nano.title(), location))
 
         all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
-        logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
         logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
-                    os.path.join(all_design_directories[0].path, os.path.basename(all_design_directories[0].path) + '.log'))
-
+                    os.path.join(all_design_directories[0].path,
+                                 '%s.log' % os.path.basename(all_design_directories[0].path)))
         if not args.file:
             # Make single file with names of each directory
             args.file = os.path.join(args.directory, 'all_pose_directories')
             with open(args.file, 'w') as design_f:
                 design_f.write('\n'.join(pose for pose in all_poses))
     else:
-        pdb_filepaths, all_design_directories = None, None
         if args.directory or args.file:
-            all_design_directories = SDUtils.collect_directories(args.directory, file=args.file, type=args.sub_module)
+            all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
+                                                                           type=args.sub_module)
         elif args.directory1:
+            location = args.directory1
             pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
             if args.directory2:
                 pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.directory2)
@@ -305,9 +306,12 @@ if __name__ == '__main__':
                 # if pdb1_path == pdb2_path:
                 pdb_filepaths = list(combinations(pdb1_filepaths, 2))
                 # pdb_list = glob(os.path.join(args.directory1, '*.pdb*')
+                all_design_directories = pdb_filepaths  # for logging purposes below
         else:
             exit('No docking directories/files were specified\nPlease specify --directory or --file, or --directory1, '
                  'and/or --directory2. See %s' % PUtils.help(args.sub_module))
+
+    logger.info('%d Poses found in \'%s\'' % (len(all_design_directories), location))
 
     if args.command_only:
         args.suspend = True
@@ -315,6 +319,7 @@ if __name__ == '__main__':
 
     # Parse SubModule specific commands
     results, exceptions = [], []
+
     if args.sub_module == 'dock':  # -d1 --directory1, -d2 --directory2, -e --entry, -o --output_directory
         # Initialize docking procedure
         if args.multi_processing:
@@ -323,7 +328,7 @@ if __name__ == '__main__':
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
             if not pdb_filepaths:  # single directory docking (already made directories)
                 zipped_args = zip(all_design_directories, repeat(args.design_string))
-                results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, all_design_directories, mp_threads))
+                results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
             else:
                 zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory),
                                   repeat(args.design_string))
