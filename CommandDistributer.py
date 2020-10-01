@@ -50,6 +50,12 @@ def exit_gracefully(signum, frame):
         # run(file, '/dev/null', program='rm')
 
 
+def create_file(file):
+    if not os.path.exists(file):
+        with open(args.success_file, 'w') as new_file:
+            dummy = True
+
+
 # 2.7 compatible #
 
 
@@ -94,8 +100,8 @@ def run(cmd, log_file, program='bash'):  # , log_file=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=os.path.basename(__file__)
-                                     + '\nGather commands set up by %s and distribute to computational nodes for '
-                                     'Rosetta processing.' % PUtils.program_name)
+                                                 + '\nGather commands set up by %s and distribute to computational nodes for '
+                                                   'Rosetta processing.' % PUtils.program_name)
     parser.add_argument('-s', '--stage', choices=tuple(CUtils.process_scale.keys()),
                         help='The stage of design to be prepared. One of %s'
                              % ', '.join(list(CUtils.process_scale.keys())))  # TODO combine with command file as 1 arg?
@@ -132,6 +138,12 @@ if __name__ == '__main__':
     log_files = list(os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log') for des_dir in des_dirs)
     commands = zip(commands_of_interest, log_files)
 
+    # Ensure all log files exist
+    for log_file in log_files:
+        create_file(log_file)
+    create_file(args.success_file)
+    create_file(args.failure_file)
+
     # Run commands in parallel
     # monitor = GracefulKiller()  # TODO solution to SIGTERM. TEST shows this doesn't appear to be possible...
     signal.signal(signal.SIGINT, exit_gracefully)
@@ -164,13 +176,6 @@ if __name__ == '__main__':
     # else:
 
     # Write out successful and failed commands TODO ensure write is only possible one at a time
-    if not os.path.exists(args.success_file):
-        with open(args.success_file, 'w') as f:
-            dummy = True
-    if not os.path.exists(args.failure_file):
-        with open(args.failure_file, 'w') as f:
-            dummy = True
-
     with open(args.success_file, 'a') as f:
         for i, pose in enumerate(poses):
             if results[i]:
