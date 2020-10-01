@@ -278,7 +278,7 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     pdb_filepaths, all_design_directories, location = None, None, None
-    if args.sub_module != 'dock':
+    if args.sub_module not in ['dock', 'distribute']:
         all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
         assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct '
                                                     'location' % (PUtils.nano.title(), location))
@@ -291,7 +291,8 @@ if __name__ == '__main__':
             args.file = os.path.join(args.directory, 'all_pose_directories')
             with open(args.file, 'w') as design_f:
                 design_f.write('\n'.join(pose for pose in all_poses))
-    else:
+
+    elif args.sub_module == 'dock':
         if args.directory or args.file:
             all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                            type=args.sub_module)
@@ -357,7 +358,6 @@ if __name__ == '__main__':
             all_commands = [result for result in results if result]
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
-            # TODO fix location of cd
             logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
                         'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano))
 
@@ -411,10 +411,8 @@ if __name__ == '__main__':
         ran_num = int(100 * random())
         if not args.success_file:
             args.success_file = os.path.join(args.directory, '%s_sbatch-%d_success.log' % (args.stage, ran_num))
-
         if not args.failure_file:
             args.failure_file = os.path.join(args.directory, '%s_sbatch-%d_failures.log' % (args.stage, ran_num))
-
         logger.info('\nSuccessful poses will be listed in \'%s\'\nFailed poses will be listed in \'%s\''
                     % (args.success_file, args.failure_file))
 
