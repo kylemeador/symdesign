@@ -59,7 +59,21 @@ def pair_directories(dirs2, dirs1):
     return pairs, list(set(dirs1) - set(success))
 
 
-def merge_directory_pair(pair):
+def merge_docking_pair(pair, symlink=True):
+    """Combine docking files of one docking combination with another
+
+    Args:
+        pair (tuple): source directory, destination directory
+    Keyword Args:
+        symlink=True
+    """
+    if symlink:
+        os.symlink(pair[0], pair[1], target_is_directory=True)
+    else:
+        exit('Functionality does not yet exist')
+
+
+def merge_design_pair(pair):
     """Combine Rosetta design files of one pose with the files of a second pose
 
     Args:
@@ -486,8 +500,14 @@ if __name__ == '__main__':
                                                                                            location2))
             all_design_directories2 = SDUtils.set_up_directory_objects(all_poses2)
             logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location2))
+            if args.merge_type == 'design':
+                directory_pairs, failures = pair_directories(all_design_directories2, all_design_directories)
+            elif args.merge_type == 'dock':
+                # TODO set up the symlink logistics. Need to specify both the source directory and the output string (dest)
+                directory_pairs, failures = pair_directories(all_design_directories, all_design_directories2)
+                for pair in directory_pairs:
+                    merge_docking_pair(pair, symlink=True)
 
-            directory_pairs, failures = pair_directories(all_design_directories2, all_design_directories)
             if failures:
                 logger.warning('The following directories have no partner:\n%s' % '\n'.join(fail.path
                                                                                             for fail in failures))
@@ -497,13 +517,15 @@ if __name__ == '__main__':
                 logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
                 zipped_args = zip(all_design_directories, repeat(args.increment))
                 results = SDUtils.mp_starmap(rename, zipped_args, mp_threads)
-                results2 = SDUtils.mp_map(merge_directory_pair, directory_pairs, mp_threads)
+                results2 = SDUtils.mp_map(merge_design_pair, directory_pairs, mp_threads)
             else:
                 logger.info('Starting processing. If single process is taking awhile, use -m during submission')
                 for des_directory in all_design_directories:
                     rename(des_directory, increment=args.increment)
                 for directory_pair in directory_pairs:
-                    merge_directory_pair(directory_pair)
+                    merge_design_pair(directory_pair)
+        else:
+            exit('No source location was specified! Use -d2 or -f2 to specify the source of poses')
 
     elif args.sub_module == 'rename_scores':
         rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
