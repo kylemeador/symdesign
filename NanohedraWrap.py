@@ -131,7 +131,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, default=Tr
     else:
         step_1, step_2 = '2', '2'
     _cmd = ['python', program, '-dock', '-entry', str(entry), '-pdb_dir1_path', path1, '-pdb_dir2_path', path2,
-            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir]
+            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir, '-output_uc', '-output_surrounding_uc']
 
     # this is just not necessary
     # sym_d = {'%d_%s' % (i, sym): pdb.lower() for i, (sym, pdb) in enumerate(zip(sym_tuple, (sym_d['lower'], sym_d['higher'])))}
