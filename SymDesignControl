@@ -321,10 +321,7 @@ if __name__ == '__main__':
     elif args.sub_module == 'distribute':
         all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
     elif args.sub_module == 'dock':
-        if args.directory or args.file:
-            all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
-                                                                           dir_type=args.sub_module)
-        elif args.directory1:
+        if args.directory1:
             location = args.directory1
             pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.directory1)
             if args.directory2:
@@ -335,6 +332,9 @@ if __name__ == '__main__':
                 pdb_filepaths = list(combinations(pdb1_filepaths, 2))
                 # pdb_list = glob(os.path.join(args.directory1, '*.pdb*')
                 all_design_directories = pdb_filepaths  # for logging purposes below
+        elif args.directory or args.file:
+            all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
+                                                                           dir_type=args.sub_module)
         else:
             exit('No docking directories/files were specified\nPlease specify --directory or --file, or --directory1, '
                  'and/or --directory2. See %s' % PUtils.help(args.sub_module))
@@ -357,7 +357,7 @@ if __name__ == '__main__':
             if not pdb_filepaths:  # single directory docking (already made directories)
                 zipped_args = zip(all_design_directories, repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
-            else:
+            else:  # using combinations of directories containing .pdb files
                 zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory),
                                   repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
