@@ -69,7 +69,7 @@ def pair_dock_directories(dirs):
         new_dir = os.path.dirname(dir.path)[:-len(flipped_sufffix)]
         destination = os.path.join(new_dir, os.path.basename(dir.path), destination_string)
         original_dir = os.path.join(dir.path, os.path.basename(dir.path), origin_string)
-        merge_pairs.append(original_dir, destination)
+        merge_pairs.append((original_dir, destination))
 
     return merge_pairs, list()
 
