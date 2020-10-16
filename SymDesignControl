@@ -64,10 +64,12 @@ def pair_dock_directories(dirs):
     merge_pairs = []
     flipped_sufffix = '_flipped_180y'
     destination_string = 'DEGEN_1_2'
+    origin_string = 'DEGEN_1_1'
     for dir in dirs:
         new_dir = os.path.dirname(dir)[:-len(flipped_sufffix)]
         destination = os.path.join(new_dir, os.path.basename(dir), destination_string)
-        merge_pairs.append(dir, destination)
+        original_dir = os.path.join(dir, os.path.basename(dir), origin_string)
+        merge_pairs.append(original_dir, destination)
 
     return merge_pairs, list()
 
