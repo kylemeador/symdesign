@@ -60,6 +60,7 @@ def pair_directories(dirs2, dirs1):
 
 
 def pair_dock_directories(dirs):
+    """Specific function for the DEGEN merging in the design recapitulation experiments. Can this be used in the future?"""
     merge_pairs = []
     flipped_sufffix = '_flipped_180y'
     destination_string = 'DEGEN_1_2'
@@ -168,6 +169,33 @@ def fix_files_mp(des_dir):
     return j, None
 
 
+def terminate(all_exceptions):
+    any_exceptions = [exception for exception in all_exceptions if exception]
+    # any_exceptions = list(filter(bool, exceptions))
+    # any_exceptions = list(set(exceptions))
+    # if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
+    if len(any_exceptions) > 1:
+        logger.warning('\nThe following exceptions were thrown. Design for %d directories is inaccurate!!!\n' %
+                       len(any_exceptions))
+        all_exception_poses = []
+        for exception in any_exceptions:
+            # if exception:
+            des_dir, exception_msg = exception
+            try:
+                logger.warning('%s: %s' % (des_dir.path, exception_msg))
+            except AttributeError:
+                logger.warning('%s: %s' % (des_dir, exception_msg))
+
+            all_exception_poses.append(des_dir)
+        print('\n')
+        # except_file = os.path.join(args.location, 'EXCEPTIONS.log')
+        except_file = SDUtils.write_list_to_file(all_exception_poses, name='EXCEPTIONS.log',
+                                                 location=args.directory)
+        logger.info('All poses with exceptions written to file: %s' % except_file)
+
+    exit('\n')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='\nControl all input/output of %s including:\n1. Pose initialization\n'
                                                  '2. Command distribution to computational nodes\n'
@@ -263,6 +291,8 @@ if __name__ == '__main__':
     parser_merge.add_argument('-F', '--force', action='store_true', help='Overwrite merge paths?\nDefault=False')
     parser_merge.add_argument('-i', '--increment', type=int, help='How many to increment each design by?\nDefault=%d'
                                                                   % PUtils.nstruct)
+    parser_merge.add_argument('-t', '--merge_type', type=str, help='Which type of output to merge?\nDefault=design',
+                              default='design')
 
     parser_modify = subparsers.add_parser('modify', help='Modify something for testing')
 
@@ -305,7 +335,7 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     pdb_filepaths, all_design_directories, location = None, None, None
-    if args.sub_module not in ['dock', 'distribute']:
+    if args.sub_module not in ['dock', 'distribute'] or args.sub_module == 'merge' and args.merge_type == 'design':
         all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
         assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct '
                                                     'location' % (PUtils.nano.title(), location))
@@ -338,6 +368,8 @@ if __name__ == '__main__':
         else:
             exit('No docking directories/files were specified\nPlease specify --directory or --file, or --directory1, '
                  'and/or --directory2. See %s' % PUtils.help(args.sub_module))
+    elif args.sub_module == 'merge' and args.merge_type == 'dock':
+        all_design_directories = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
 
     logger.info('%d Poses found in \'%s\'' % (len(all_design_directories), location))
 
@@ -504,7 +536,8 @@ if __name__ == '__main__':
                 logger.info('Analysis of all Trajectories and Residues written to %s'
                             % all_design_directories[0].all_scores)
 
-    elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment
+    elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -t merge_type
+        directory_pairs, failures = None, None
         if args.directory2 or args.file2:
             # Grab all poses (directories) to be processed from either directory name or file
             all_poses2, location2 = SDUtils.collect_directories(args.directory2, file=args.file2)
@@ -515,6 +548,13 @@ if __name__ == '__main__':
             logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location2))
             if args.merge_type == 'design':
                 directory_pairs, failures = pair_directories(all_design_directories2, all_design_directories)
+            else:
+                logger.warning('Source location was specified, but the merge_type isn\'t design. Destination directory '
+                               'will be ignored')
+        else:
+            if args.merge_type == 'design':
+                exit('No source location was specified! Use -d2 or -f2 to specify the source of poses when merging '
+                     'design directories')
             elif args.merge_type == 'dock':
                 directory_pairs, failures = pair_dock_directories(all_design_directories)
                 for pair in directory_pairs:
@@ -526,25 +566,24 @@ if __name__ == '__main__':
                             merge_design_pair(pair, symlink=True)
                         else:
                             logger.info('%s directory already exits, moving on. Use --force to overwrite.' % pair[1])
+                terminate(exceptions)
 
-            if failures:
-                logger.warning('The following directories have no partner:\n%s' % '\n'.join(fail.path
-                                                                                            for fail in failures))
-            if args.multi_processing:
-                # Calculate the number of threads to use depending on computer resources
-                mp_threads = SDUtils.calculate_mp_threads(maximum=True)
-                logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-                zipped_args = zip(all_design_directories, repeat(args.increment))
-                results = SDUtils.mp_starmap(rename, zipped_args, mp_threads)
-                results2 = SDUtils.mp_map(merge_design_pair, directory_pairs, mp_threads)
-            else:
-                logger.info('Starting processing. If single process is taking awhile, use -m during submission')
-                for des_directory in all_design_directories:
-                    rename(des_directory, increment=args.increment)
-                for directory_pair in directory_pairs:
-                    merge_design_pair(directory_pair)
+        if failures:
+            logger.warning('The following directories have no partner:\n%s' % '\n'.join(fail.path
+                                                                                        for fail in failures))
+        if args.multi_processing:
+            # Calculate the number of threads to use depending on computer resources
+            mp_threads = SDUtils.calculate_mp_threads(maximum=True)
+            logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
+            zipped_args = zip(all_design_directories, repeat(args.increment))
+            results = SDUtils.mp_starmap(rename, zipped_args, mp_threads)
+            results2 = SDUtils.mp_map(merge_design_pair, directory_pairs, mp_threads)
         else:
-            exit('No source location was specified! Use -d2 or -f2 to specify the source of poses')
+            logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+            for des_directory in all_design_directories:
+                rename(des_directory, increment=args.increment)
+            for directory_pair in directory_pairs:
+                merge_design_pair(directory_pair)
 
     elif args.sub_module == 'rename_scores':
         rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
@@ -877,26 +916,4 @@ if __name__ == '__main__':
         seq_file = Ams.write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string, outpath=outdir)
 
     # Report any program exceptions
-    any_exceptions = [exception for exception in exceptions if exception]
-    # any_exceptions = list(filter(bool, exceptions))
-    # any_exceptions = list(set(exceptions))
-    # if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
-    if len(any_exceptions) > 1:
-        logger.warning('\nThe following exceptions were thrown. Design for %d directories is inaccurate!!!\n' %
-                       len(any_exceptions))
-        all_exception_poses = []
-        for exception in any_exceptions:
-            # if exception:
-            des_dir, exception_msg = exception
-            try:
-                logger.warning('%s: %s' % (des_dir.path, exception_msg))
-            except AttributeError:
-                logger.warning('%s: %s' % (des_dir, exception_msg))
-
-            all_exception_poses.append(des_dir)
-        print('\n')
-        # except_file = os.path.join(args.location, 'EXCEPTIONS.log')
-        except_file = SDUtils.write_list_to_file(all_exception_poses, name='EXCEPTIONS.log', location=args.directory)
-        logger.info('All poses with exceptions written to file: %s' % except_file)
-
-    print('\n')
+    terminate(exceptions)
