@@ -1833,7 +1833,7 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
-def gather_fragment_metrics(_des_dir, init=False):
+def gather_fragment_metrics(_des_dir, init=False, score=False):
     """Gather docking metrics from Nanohedra output
     Args:
         _des_dir (DesignDirectory): DesignDirectory Object
@@ -1911,7 +1911,8 @@ def gather_fragment_metrics(_des_dir, init=False):
                 _matrix = np.array(eval(line[24:]))
                 transform_d[int(line[21:22])]['tx_ref'] = _matrix
                 continue
-
+            elif line.startswith('Residue-Level Summation Score:'):
+                score = float(line[30:].rstrip())
             # elif line[:23] == 'ROT/DEGEN MATRIX PDB1: ':
             # elif line[:18] == 'INTERNAL Tx PDB1: ':  # with PDB1 or PDB2
             # elif line[:21] == 'SETTING MATRIX PDB1: ':
@@ -1927,6 +1928,8 @@ def gather_fragment_metrics(_des_dir, init=False):
             residue_cluster_d[cluster]['pair'] = list(set(residue_cluster_d[cluster]['pair']))
 
         return residue_cluster_d, transform_d
+    elif score:
+        return score
     else:
         fragment_z_total = 0
         for cluster in z_value_dict:
