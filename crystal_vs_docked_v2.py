@@ -4,6 +4,7 @@ from classes.PDB import *
 import os
 import numpy as np
 import sys
+from glob import glob
 import sklearn.neighbors
 from copy import deepcopy
 from itertools import permutations
