@@ -2199,6 +2199,10 @@ class DesignDirectory:
                              location=os.path.join(self.path, os.path.basename(self.path)))
 
 
+def get_pose_by_id(design_directories, ids):
+    return [des_dir for des_dir in design_directories if str(des_dir) in ids]
+
+
 def get_all_base_root_paths(directory):
     dir_paths = []
     for root, dirs, files in os.walk(directory):

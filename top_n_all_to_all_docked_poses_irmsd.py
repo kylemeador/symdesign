@@ -10,6 +10,8 @@ from itertools import permutations
 import warnings
 from Bio.PDB.Atom import PDBConstructionWarning
 import sys
+import SymDesignUtils as SDUtils
+import PathUtils as PUtils
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
 
@@ -600,12 +602,13 @@ def get_docked_pdb1_pdb2_filepaths(docked_poses_dirpath, top_ranked_ids):
     return docked_pdb1_pdb2_filepaths
 
 
-def all_to_all_docked_poses_irmsd(docked_poses_dirpath, top_ranked_ids):
+# def all_to_all_docked_poses_irmsd(docked_poses_dirpath, top_ranked_ids):
+def all_to_all_docked_poses_irmsd(docked_pdb1_pdb2_filepaths):
     irmsds = []
 
     # populate a list with (docked_pose_id, docked_pdb1_filepath, docked_pdb2_filepath) tuples
     # for all top scoring docked poses
-    docked_pdb1_pdb2_filepaths = get_docked_pdb1_pdb2_filepaths(docked_poses_dirpath, top_ranked_ids)
+    # docked_pdb1_pdb2_filepaths = get_docked_pdb1_pdb2_filepaths(docked_poses_dirpath, top_ranked_ids)
     n = len(docked_pdb1_pdb2_filepaths)
 
     for i in range(n-1):
@@ -685,8 +688,15 @@ def main():
             top_ranked_ids.append(pose_id)
     rankfile.close()
 
+    # retrieve Residue Level Summation Score and Scoring Rank for all docked poses
+    all_poses, location = SDUtils.collect_directories(docked_poses_dirpath)  # , file=args.file)
+    assert all_poses != list(), print 'No %s directories found within \'%s\'! Please ensure correct location' % \
+                                      (PUtils.nano.title(), location)
+    all_design_directories = SDUtils.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
+
     # obtain an irmsd value for all possible pairs of top scoring docked poses
-    irmsds = all_to_all_docked_poses_irmsd(docked_poses_dirpath, top_ranked_ids)  # [(ref_pose_id, query_pose_id, irmsd)]
+    top_pdb1_pdb_2_filepaths = SDUtils.get_pose_by_id(all_design_directories, top_ranked_ids)
+    irmsds = all_to_all_docked_poses_irmsd(top_pdb1_pdb_2_filepaths)  # [(ref_pose_id, query_pose_id, irmsd)]
 
     outfile = open(outdir + "/%s_top%s_all_to_all_docked_poses_irmsd.txt" % (os.path.basename(docked_poses_dirpath), str(top_scoring)),'w')
     for ref_pose_id, query_pose_id, irmsd in irmsds:
