@@ -569,7 +569,7 @@ def main():
 
     outfile = open(outdir + "/crystal_vs_docked_irmsd.txt", "w")
     for design_id, aligned_xtal_pdb, irmsd in aligned_xtal_pdbs_sorted:
-        aligned_xtal_pdb.write(outdir + "/%s_AlignedTo_%s.pdb" % (xtal_pdb_name, design_id))
+        # aligned_xtal_pdb.write(outdir + "/%s_AlignedTo_%s.pdb" % (xtal_pdb_name, design_id))
         design_score, design_score_rank = designid_score_dict[design_id]
         out_str = "{:35s} {:8.3f} {:8.3f} {:10d}\n".format(design_id, irmsd, design_score, design_score_rank)
         outfile.write(out_str)

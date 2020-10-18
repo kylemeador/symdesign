@@ -688,14 +688,14 @@ def main():
             top_ranked_ids.append(pose_id)
     rankfile.close()
 
-    # retrieve Residue Level Summation Score and Scoring Rank for all docked poses
+    # retrieve all poses and filter for those ID's in consideration
     all_poses, location = SDUtils.collect_directories(docked_poses_dirpath)  # , file=args.file)
     assert all_poses != list(), print 'No %s directories found within \'%s\'! Please ensure correct location' % \
                                       (PUtils.nano.title(), location)
     all_design_directories = SDUtils.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
+    top_pdb1_pdb_2_filepaths = SDUtils.get_pose_by_id(all_design_directories, top_ranked_ids)
 
     # obtain an irmsd value for all possible pairs of top scoring docked poses
-    top_pdb1_pdb_2_filepaths = SDUtils.get_pose_by_id(all_design_directories, top_ranked_ids)
     irmsds = all_to_all_docked_poses_irmsd(top_pdb1_pdb_2_filepaths)  # [(ref_pose_id, query_pose_id, irmsd)]
 
     outfile = open(outdir + "/%s_top%s_all_to_all_docked_poses_irmsd.txt" % (os.path.basename(docked_poses_dirpath), str(top_scoring)),'w')
