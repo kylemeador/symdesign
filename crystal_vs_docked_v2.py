@@ -495,7 +495,7 @@ def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, all_design_directories):
     docked_pdb_pairs = get_docked_pdb_pairs(all_design_directories)
 
     for (design_id, docked_pdb1, docked_pdb2) in docked_pdb_pairs:
-        print "%s, %s, %s" % (design_id, docked_pdb1, docked_pdb2)
+        print("%s, %s, %s" % (design_id, docked_pdb1, docked_pdb2))
 
         # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
         # of CA atoms and only contains residues (based on residue number) that are present in all 'symmetry related'
@@ -552,8 +552,8 @@ def main():
 
     # retrieve Residue Level Summation Score and Scoring Rank for all docked poses
     all_poses, location = SDUtils.collect_directories(docked_poses_dirpath)  # , file=args.file)
-    assert all_poses != list(), print 'No %s directories found within \'%s\'! Please ensure correct location' % \
-                                      (PUtils.nano.title(), location)
+    assert all_poses != list(), print('No %s directories found within \'%s\'! Please ensure correct location' % \
+                                      (PUtils.nano.title(), location))
     all_design_directories = SDUtils.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
 
     designid_score_dict = res_lev_sum_score_rank(all_design_directories)  # {design_id: (score, score_rank)}
