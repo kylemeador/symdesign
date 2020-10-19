@@ -455,9 +455,10 @@ def get_docked_pdb_pairs(all_design_directories):
         docked_pdbs_d = []
         for building_block in os.path.basename(des_dir.building_blocks).split('_'):
             docked_pdb = PDB()
-            print '%s' % glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0]
-            docked_pdbs_d.append(docked_pdb.readfile(glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0]))
-            print docked_pdb.chain_id_list
+            # print '%s' % glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0]
+            docked_pdb.readfile(glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0])
+            docked_pdbs_d.append(docked_pdb)
+            # print docked_pdb.chain_id_list
         docked_pdb_pairs.append((str(des_dir), tuple(docked_pdbs_d)))
 
     return docked_pdb_pairs
