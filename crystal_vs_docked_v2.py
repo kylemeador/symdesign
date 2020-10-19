@@ -457,7 +457,9 @@ def get_docked_pdb_pairs(all_design_directories):
             docked_pdb = PDB()
             docked_pdbs_d.append(docked_pdb.readfile(glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0]))
 
-        docked_pdb_pairs.append(str(des_dir), tuple(docked_pdbs_d))
+        docked_pdb_pairs.append((str(des_dir), tuple(docked_pdbs_d)))
+
+    return docked_pdb_pairs
 
                 #     if line.startswith("Original PDB 1 Path:"):
                 #         docked_pdb1_filename = os.path.splitext(os.path.basename(line))[0] + "_%s.pdb" % tx_filename
@@ -493,6 +495,7 @@ def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, all_design_directories):
     docked_pdb_pairs = get_docked_pdb_pairs(all_design_directories)
 
     for (design_id, docked_pdb1, docked_pdb2) in docked_pdb_pairs:
+        print "%s, %s, %s" % (design_id, docked_pdb1, docked_pdb2)
 
         # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
         # of CA atoms and only contains residues (based on residue number) that are present in all 'symmetry related'
