@@ -1,12 +1,12 @@
-from PDB import PDB
+import os
+import sys
+
+import numpy as np
+
 from Atom import Atom
+from PDB import PDB
 from utils.BioPDBUtils import biopdb_aligned_chain
 from utils.BioPDBUtils import biopdb_superimposer
-import sklearn.neighbors
-import numpy as np
-import sys
-import os
-import copy
 
 
 def get_surface_fragments(pdb, free_sasa_exe_path):
@@ -160,7 +160,7 @@ class MonoFragment:
             if min_rmsd_cluster_rep_rot_tx is not None:
                 guide_atoms_pdb = PDB()
                 guide_atoms_pdb.read_atom_list([a1, a2, a3])
-                guide_atoms_pdb.rotate_translate(min_rmsd_cluster_rep_rot_tx[0], min_rmsd_cluster_rep_rot_tx[1])
+                guide_atoms_pdb.rotate_translate(min_rmsd_cluster_rep_rot_tx[0], min_rmsd_cluster_rep_rot_tx[1])  # *args
 
                 self.type = min_rmsd_cluster_rep_type
                 self.guide_atoms = guide_atoms_pdb.all_atoms

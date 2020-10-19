@@ -1,6 +1,3 @@
-import math
-import time
-
 import numpy as np
 import sklearn.neighbors
 
@@ -35,7 +32,7 @@ def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match
                                outdir_path, is_initial_match=False):
 
     out_info_file_path = outdir_path + "/frag_match_info_file.txt"
-    out_info_file = open(out_info_file_path, "a+")
+    out_info_file = open(out_info_file_path, 'w')  # '"a+") KM added to remove old versions of the program run
 
     aligned_central_res_info = ghost_frag.get_aligned_central_res_info()
     surf_frag_oligomer2_central_res_tup = surf_frag.get_central_res_tup()
@@ -369,7 +366,8 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                             init_match_ghost_frag_k_type = init_match_ghost_frag.get_k_frag_type()
                             init_match_ghost_frag_cluster_res_freq_list = ijk_intfrag_cluster_info_dict[init_match_ghost_frag_i_type][init_match_ghost_frag_j_type][init_match_ghost_frag_k_type].get_central_residue_pair_freqs()
                             init_match_cluster_id = "i%s_j%s_k%s" % (init_match_ghost_frag_i_type, init_match_ghost_frag_j_type, init_match_ghost_frag_k_type)
-                            init_match_ghost_frag_pdb_copy.write(init_match_outdir_path + "/int_frag_i%s_j%s_k%s_0.pdb" % (init_match_ghost_frag_i_type, init_match_ghost_frag_j_type, init_match_ghost_frag_k_type))
+                            # KM commentted out to improve run time TODO
+                            # init_match_ghost_frag_pdb_copy.write(init_match_outdir_path + "/int_frag_i%s_j%s_k%s_0.pdb" % (init_match_ghost_frag_i_type, init_match_ghost_frag_j_type, init_match_ghost_frag_k_type))
                             init_match_ghost_frag_cluster_rmsd = ijk_intfrag_cluster_info_dict[init_match_ghost_frag_i_type][init_match_ghost_frag_j_type][init_match_ghost_frag_k_type].get_rmsd()
                             write_frag_match_info_file(init_match_ghost_frag, init_match_surf_frag, initial_overlap_z_val, init_match_cluster_id, 0, init_match_ghost_frag_cluster_res_freq_list, init_match_ghost_frag_cluster_rmsd, matching_fragment_representatives_outdir_path, is_initial_match=True)
 
@@ -383,7 +381,8 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                     matched_frag_outdir_path = high_qual_matches_outdir_path
                                 else:
                                     matched_frag_outdir_path = low_qual_matches_outdir_path
-                                interface_ghost_frag.get_pdb().write(matched_frag_outdir_path + "/int_frag_i%s_j%s_k%s_%s.pdb" % (ghost_frag_i_type, ghost_frag_j_type, ghost_frag_k_type, str(matched_frag[4])))
+                                # KM commentted out to improve run time TODO
+                                # interface_ghost_frag.get_pdb().write(matched_frag_outdir_path + "/int_frag_i%s_j%s_k%s_%s.pdb" % (ghost_frag_i_type, ghost_frag_j_type, ghost_frag_k_type, str(matched_frag[4])))
                                 write_frag_match_info_file(matched_frag[0], matched_frag[1], matched_frag[2], matched_frag[3], matched_frag[4], matched_frag[5], matched_frag[6], matching_fragment_representatives_outdir_path)
 
                             # Write out docked pose info to frag_match_info_file.txt
@@ -600,7 +599,7 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
-        if complete_monofrag1_ghostfrag_list is not None:
+        if complete_monofrag1_ghostfrag_list is not None:  # remove is not None
             for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
                 complete_ghost_frag_list.append(complete_ghostfrag)
     if not resume and keep_time:

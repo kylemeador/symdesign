@@ -1,5 +1,3 @@
-import os
-import sys
 from itertools import product, combinations
 
 from SymDesignUtils import get_all_pdb_file_paths
@@ -19,7 +17,7 @@ def main():
     if len(cmd_line_in_params) > 1 and cmd_line_in_params[1] == '-dock':
 
         # Parsing Command Line Input
-        sym_entry_number, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, master_outdir, cores, \
+        sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, cores, \
             output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, resume, timer = \
             get_docking_parameters_mp(cmd_line_in_params)
 
@@ -31,12 +29,13 @@ def main():
             os.makedirs(master_outdir)
 
         # Getting PDB1 and PDB2 File paths
-        pdb1_filepaths = get_all_pdb_file_paths(pdb_dir1_path)
-        if pdb_dir1_path == pdb_dir2_path:
-            pdb_filepaths = combinations(pdb1_filepaths, 2)
+        if '.pdb' in pdb1_path or '.pdb' in pdb2_path:
+            pdb_filepaths = (pdb1_path, pdb2_path)
         else:
-            pdb2_filepaths = get_all_pdb_file_paths(pdb_dir2_path)
-            pdb_filepaths = product(pdb1_filepaths, pdb2_filepaths)
+            if pdb1_path == pdb2_path:
+                pdb_filepaths = combinations(get_all_pdb_file_paths(pdb1_path), 2)
+            else:
+                pdb_filepaths = product(get_all_pdb_file_paths(pdb1_path), get_all_pdb_file_paths(pdb2_path))
 
         try:
             # Nanohedra.py Path
@@ -106,8 +105,8 @@ def main():
                 if not is_internal_rot2 and rot_step_deg2 is None:
                     rot_step_deg2 = 1
 
-                master_log_file.write("PDB 1 Directory Path: " + pdb_dir1_path + "\n")
-                master_log_file.write("PDB 2 Directory Path: " + pdb_dir2_path + "\n")
+                master_log_file.write("PDB 1 Directory Path: " + pdb1_path + "\n")
+                master_log_file.write("PDB 2 Directory Path: " + pdb2_path + "\n")
                 master_log_file.write("Master Output Directory: " + master_outdir + "\n\n")
 
                 master_log_file.write("Symmetry Entry Number: " + str(sym_entry_number) + "\n")

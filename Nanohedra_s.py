@@ -1,15 +1,11 @@
-from classes.FragDockMP import dock
 from classes.EulerLookup import EulerLookup
+from classes.FragDockMP import dock
 from classes.Fragment import *
 from classes.SymEntry import *
-from utils.SamplingUtils import get_degeneracy_matrices
 from utils.CmdLineArgParseUtils import *
-from utils.SymFragDockManualUtils import *
 from utils.ExpandAssemblyUtils import *
-import sys
-import os
-import time
-from itertools import product, combinations
+from utils.SamplingUtils import get_degeneracy_matrices
+from utils.SymFragDockManualUtils import *
 
 
 def main():
@@ -19,7 +15,7 @@ def main():
 
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, cores, \
-            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type = \
+            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, resume, timer = \
             get_docking_parameters_mp(cmd_line_in_params)
 
         # Master Log File
