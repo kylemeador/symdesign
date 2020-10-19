@@ -494,8 +494,8 @@ def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, all_design_directories):
     # get all (docked_pdb1, docked_pdb2) pairs
     docked_pdb_pairs = get_docked_pdb_pairs(all_design_directories)
 
-    for (design_id, docked_pdb1, docked_pdb2) in docked_pdb_pairs:
-        print "%s, %s, %s" % (design_id, docked_pdb1, docked_pdb2)
+    for (design_id, (docked_pdb1, docked_pdb2)) in docked_pdb_pairs:
+        # print "%s, %s, %s" % (design_id, docked_pdb1, docked_pdb2)
 
         # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
         # of CA atoms and only contains residues (based on residue number) that are present in all 'symmetry related'
