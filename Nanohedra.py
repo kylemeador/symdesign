@@ -29,7 +29,7 @@ def main():
             os.makedirs(master_outdir)
 
         # Getting PDB1 and PDB2 File paths
-        if '.pdb' in pdb1_path or '.pdb' in pdb2_path:
+        if '.pdb' in pdb1_path and '.pdb' in pdb2_path:
             pdb_filepaths = pdb1_path, pdb2_path
         else:
             if pdb1_path == pdb2_path:
@@ -216,7 +216,7 @@ def main():
                     master_log_file.write("\n%s is an Invalid Design Dimension. The Only Valid Dimensions are: 0, 2, 3"
                                           "\n" % str(design_dim))
                 sys.exit()
-
+            print(pdb_filepaths)
             for pdb1_path, pdb2_path in pdb_filepaths:
                 pdb1_filename = os.path.splitext(os.path.basename(pdb1_path))[0]
                 pdb2_filename = os.path.splitext(os.path.basename(pdb2_path))[0]
