@@ -1,23 +1,26 @@
-import os
-import sys
-import math
-import subprocess
-import logging
-import pickle
 # import pickle5 as pickle  # python 3.8 pickling protocol compatible
 import copy
-from glob import glob
-from json import loads, dumps
-import numpy as np
+import logging
+import math
 import multiprocessing as mp
-from sklearn.neighbors import BallTree
+import os
+import pickle
+import subprocess
+import sys
+from glob import glob
 from itertools import repeat, chain
-import PDB
+from json import loads, dumps
+
+import numpy as np
+from Bio.PDB import PDBParser, Superimposer
 from Bio.SeqUtils import IUPACData
 from Bio.SubsMat import MatrixInfo as matlist
-from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
-import PathUtils as PUtils
+from sklearn.neighbors import BallTree
+
 import CmdUtils as CUtils
+import PDB
+import PathUtils as PUtils
+
 # logging.getLogger().setLevel(logging.INFO)
 
 # Globals
@@ -1833,6 +1836,100 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
+def gather_docking_metrics(base_directory):
+    with open(os.path.join(base_directory, 'master_log.txt'), 'r') as master_log:
+        parameters = master_log.readlines()
+        for line in parameters:
+            if "PDB 1 Directory Path: " in line:
+                pdb_dir1_path = line.split(':')[-1].strip()
+            elif "PDB 2 Directory Path: " in line:
+                pdb_dir2_path = line.split(':')[-1].strip()
+            elif 'Master Output Directory: ' in line:
+                master_outdir = line.split(':')[-1].strip()
+            elif "Symmetry Entry Number: " in line:
+                sym_entry_number = int(line.split(':')[-1].strip())
+            elif "Oligomer 1 Symmetry: " in line:
+                oligomer_symmetry_1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 Symmetry: " in line:
+                oligomer_symmetry_2 = line.split(':')[-1].strip()
+            elif "Design Point Group Symmetry: " in line:
+                design_symmetry = line.split(':')[-1].strip()
+            elif "Oligomer 1 Internal ROT DOF: " in line:  # ,
+                internal_rot1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 Internal ROT DOF: " in line:  # ,
+                internal_rot2 = line.split(':')[-1].strip()
+            elif "Oligomer 1 ROT Sampling Range: " in line:
+                rot_range_deg_pdb1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 ROT Sampling Range: " in line:
+                rot_range_deg_pdb2 = line.split(':')[-1].strip()
+            elif "Oligomer 1 ROT Sampling Step: " in line:
+                rot_step_deg1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 ROT Sampling Step: " in line:
+                rot_step_deg2 = line.split(':')[-1].strip()
+            elif "Oligomer 1 Internal Tx DOF: " in line:  # ,
+                internal_zshift1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 Internal Tx DOF: " in line:  # ,
+                internal_zshift2 = line.split(':')[-1].strip()
+            elif "Oligomer 1 Reference Frame Tx DOF: " in line:  # ,
+                ref_frame_tx_dof1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 Reference Frame Tx DOF: " in line:  # ,
+                ref_frame_tx_dof2 = line.split(':')[-1].strip()
+            elif "Oligomer 1 Setting Matrix: " in line:
+                set_mat1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 Setting Matrix: " in line:
+                set_mat2 = line.split(':')[-1].strip()
+            elif "Resulting Design Symmetry: " in line:
+                result_design_sym = line.split(':')[-1].strip()
+            elif "Design Dimension: " in line:
+                design_dim = line.split(':')[-1].strip()
+            elif "Unit Cell Specification: " in line:
+                uc_spec_string = line.split(':')[-1].strip()
+            elif 'Degeneracies Found for Oligomer 1' in line:
+                degen1 = line.split()[0]
+                if degen1.isdigit():
+                    degen1 = int(degen1)
+                else:
+                    degen1 = None
+            elif 'Degeneracies Found for Oligomer 2' in line:
+                degen2 = line.split()[0]
+                if degen2.isdigit():
+                    degen2 = int(degen2)
+                else:
+                    degen2 = None
+
+    return pdb_dir1_path, pdb_dir2_path, master_outdir, sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2,\
+           design_symmetry, internal_rot1, internal_rot2, rot_range_deg_pdb1, rot_range_deg_pdb2, rot_step_deg1, \
+           rot_step_deg2, internal_zshift1, internal_zshift2, ref_frame_tx_dof1, ref_frame_tx_dof2, set_mat1, set_mat2,\
+           result_design_sym, design_dim, uc_spec_string, degen1, degen2
+
+
+def pdb_input_parameters(*args):
+    return args[0:1]
+
+
+def symmetry_parameters(*args):
+    return args[3:6]
+
+
+def rotation_parameters(*args):
+    return args[9:12]
+
+
+def degeneracy_parameters(*args):
+    return args[-2:]
+
+
+def degen_and_rotation_parameters(*args):
+    return degeneracy_parameters(args), rotation_parameters(args)
+
+
+def compute_last_rotation_state(range1, range2, step1, step2):
+    number_steps1 = range1 / step1
+    number_steps2 = range2 / step2
+
+    return number_steps1, number_steps2
+
+
 def gather_fragment_metrics(_des_dir, init=False, score=False):
     """Gather docking metrics from Nanohedra output
     Args:
@@ -2217,7 +2314,6 @@ def get_all_pdb_file_paths(pdb_dir):
     for root, dirs, files in os.walk(pdb_dir):
         for file in files:
             if '.pdb' in file:
-            # if file.endswith('.pdb*'):
                 filepaths.append(os.path.join(root, file))
 
     return filepaths

@@ -3,24 +3,25 @@ Module for distribution of SymDesign commands. Includes pose initialization, dis
 SLURM/PBS computational clusters, analysis of designed poses, and renaming of completed structures.
 
 """
-import os
-# import sys
-from random import random
-import PDB
 import argparse
+import os
 import shutil
 from csv import reader
-from json import loads, dumps
 from glob import glob
 from itertools import repeat, product, combinations
+from json import loads, dumps
+# import sys
+from random import random
+
 import pandas as pd
-import SymDesignUtils as SDUtils
-import PathUtils as PUtils
-import CmdUtils as CUtils
-from AnalyzeOutput import analyze_output_s, analyze_output_mp
-from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
-from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
+
 import AnalyzeMutatedSequences as Ams
+import CmdUtils as CUtils
+import PathUtils as PUtils
+import SymDesignUtils as SDUtils
+from AnalyzeOutput import analyze_output_s, analyze_output_mp
+from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
+from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
 
@@ -114,17 +115,32 @@ def designs(des_dir, file_type):
 
 
 def status(design_directories, _stage, number=None):
-    if not number:
-        number = PUtils.stage_f[_stage]['len']
-        if not number:
-            return False
     complete, incomplete = [], []
-    for des_dir in design_directories:
-        files = glob(designs(des_dir, PUtils.stage_f[_stage]['path']))
-        if number >= len(files):
-            complete.append(des_dir.path)
-        else:
-            incomplete.append(des_dir.path)
+    if _stage == 'nanohedra':
+        from classes.FragDockMP import get_last_sampling_state
+        for des_dir in design_directories:
+            f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
+            degens, rotations = \
+                SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.symmetry))
+            degen1, degen2 = degens
+            last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
+            if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
+                complete.append(des_dir)
+            else:
+                incomplete.append(des_dir)
+    else:
+        if not number:
+            number = PUtils.stage_f[_stage]['len']
+            if not number:
+                return False
+
+        for des_dir in design_directories:
+            files = glob(designs(des_dir, PUtils.stage_f[_stage]['path']))
+            if number >= len(files):
+                complete.append(des_dir.path)
+            else:
+                incomplete.append(des_dir.path)
+
     complete_path = os.path.join(args.directory, 'complete_' + _stage + '_pose_status')
     incomplete_path = os.path.join(args.directory, 'incomplete_' + _stage + '_pose_status')
     with open(complete_path, 'w') as f_com:
@@ -619,7 +635,7 @@ if __name__ == '__main__':
         with open('missing_consensus_metrics', 'w') as f:
             f.write('\n'.join(errors))
 
-    elif args.sub_module == 'status':  # -n --number, -s --stage
+    elif args.sub_module == 'status':  # -n number, -s stage
         if args.number_designs:
             logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but design '
                         'stage' % args.number_designs)

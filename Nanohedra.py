@@ -1,15 +1,16 @@
-from classes.FragDockMP import dock
+import os
+import sys
+from itertools import product, combinations
+
+from SymDesignUtils import get_all_pdb_file_paths
 from classes.EulerLookup import EulerLookup
+from classes.FragDockMP import dock
 from classes.Fragment import *
 from classes.SymEntry import *
-from utils.SamplingUtils import get_degeneracy_matrices
 from utils.CmdLineArgParseUtils import *
-from utils.SymFragDockManualUtils import *
 from utils.ExpandAssemblyUtils import *
-import sys
-import os
-import time
-from itertools import product, combinations
+from utils.SamplingUtils import get_degeneracy_matrices
+from utils.SymFragDockManualUtils import *
 
 
 def main():
@@ -19,7 +20,7 @@ def main():
 
         # Parsing Command Line Input
         sym_entry_number, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, master_outdir, cores, \
-            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type = \
+            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, resume, timer = \
             get_docking_parameters_mp(cmd_line_in_params)
 
         # Master Log File
@@ -29,23 +30,12 @@ def main():
         if not os.path.exists(master_outdir):
             os.makedirs(master_outdir)
 
-        # Getting PDB1 File paths  #TODO SDUtils
-        pdb1_filepaths = []
-        for root1, dirs1, files1 in os.walk(pdb_dir1_path):
-            for file1 in files1:
-                if '.pdb' in file1:
-                    pdb1_filepaths.append(pdb_dir1_path + "/" + file1)
-
-        # Getting PDB2 File paths  #TODO SDUtils
-        pdb2_filepaths = []
-        for root2, dirs2, files2 in os.walk(pdb_dir2_path):
-            for file2 in files2:
-                if '.pdb' in file2:
-                    pdb2_filepaths.append(pdb_dir2_path + "/" + file2)
-
+        # Getting PDB1 and PDB2 File paths
+        pdb1_filepaths = get_all_pdb_file_paths(pdb_dir1_path)
         if pdb_dir1_path == pdb_dir2_path:
             pdb_filepaths = combinations(pdb1_filepaths, 2)
         else:
+            pdb2_filepaths = get_all_pdb_file_paths(pdb_dir2_path)
             pdb_filepaths = product(pdb1_filepaths, pdb2_filepaths)
 
         try:
@@ -243,7 +233,7 @@ def main():
                      design_dim, expand_matrices, eul_lookup, init_max_z_val, subseq_max_z_val,
                      degeneracy_matrices_1, degeneracy_matrices_2, rot_step_deg1,
                      rot_range_deg_pdb1, rot_step_deg2, rot_range_deg_pdb2, output_exp_assembly,
-                     output_uc, output_surrounding_uc, min_matched)
+                     output_uc, output_surrounding_uc, min_matched, resume=resume, keep_time=timer)
 
         except KeyboardInterrupt:
             with open(master_log_filepath, "a+") as master_log_file:

@@ -1,7 +1,8 @@
-from utils import SymQueryUtils
-from utils import PostProcessUtils
 import os
 import sys
+
+from utils import PostProcessUtils
+from utils import SymQueryUtils
 
 
 def query_mode(arg_list):
@@ -205,7 +206,7 @@ def get_docking_parameters_mp(arg_list):
 
     valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
                    "-cores", "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly",
-                   "-init_match_type"]
+                   "-init_match_type", '-resume', '-no_time']
 
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
@@ -362,9 +363,20 @@ def get_docking_parameters_mp(arg_list):
     else:
         min_matched = 3
 
+    if '-resume' in arg_list:
+        resume = True
+    else:
+        resume = False
+
+    if '-no_time' in arg_list:
+        keep_time = False
+    else:
+        keep_time = True
+
     master_logfile.close()
 
-    return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, cores, output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type
+    return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, cores, output_exp_assembly, \
+           output_uc, output_surrounding_uc, min_matched, init_match_type, resume, keep_time
 
 
 def postprocess_mode(arg_list):

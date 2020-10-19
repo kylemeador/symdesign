@@ -1,20 +1,38 @@
-import os
-from classes.OptimalTx import *
-from classes.Fragment import *
-from utils.GeneralUtils import *
-from utils.SamplingUtils import *
-from utils.PDBUtils import *
-from utils.SymmUtils import get_uc_dimensions
-from utils.ExpandAssemblyUtils import generate_cryst1_record
-from utils.ExpandAssemblyUtils import expanded_design_is_clash
-import copy
 import math
-import sklearn.neighbors
-import numpy as np
 import time
 
+import numpy as np
+import sklearn.neighbors
 
-def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list, cluster_rmsd, outdir_path, is_initial_match=False):
+from classes.Fragment import *
+from classes.OptimalTx import *
+from utils.ExpandAssemblyUtils import expanded_design_is_clash
+from utils.ExpandAssemblyUtils import generate_cryst1_record
+from utils.GeneralUtils import *
+from utils.PDBUtils import *
+from utils.SamplingUtils import *
+from utils.SymmUtils import get_uc_dimensions
+
+
+def get_last_sampling_state(log_file_path):
+    with open(log_file_path, 'r') as log_f:
+        log_lines = log_f.readlines()
+        for line in reversed(log_lines):
+            # ***** OLIGOMER 1: Degeneracy %s Rotation %s | OLIGOMER 2: Degeneracy %s Rotation %s *****
+            if line.startswith('*****'):
+                last_state = line.strip('*').split('|')
+                last_state = map(str.split, last_state)
+                degen_1 = last_state[0][-3]
+                rot_1 = last_state[0][-1]
+                degen_2 = last_state[1][-3]
+                rot_2 = last_state[1][-1]
+                break
+
+    return degen_1, degen_2, rot_1, rot_2
+
+
+def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list, cluster_rmsd,
+                               outdir_path, is_initial_match=False):
 
     out_info_file_path = outdir_path + "/frag_match_info_file.txt"
     out_info_file = open(out_info_file_path, "a+")
@@ -25,19 +43,19 @@ def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match
     if is_initial_match:
         out_info_file.write("***** MATCH FROM REPRESENTATIVES OF INITIAL INTERFACE FRAGMENT CLUSTERS *****\n\n")
 
-    out_info_file.write("Cluster ID: " + cluster_id + "\n")
-    out_info_file.write("Cluster RMSD: " + str(cluster_rmsd) + "\n")
+    out_info_file.write("Cluster ID: %s\n" % cluster_id)
+    out_info_file.write("Cluster RMSD: %s\n" % str(cluster_rmsd))
     out_info_file.write("Cluster Representative PDB Filename: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
-    out_info_file.write("Cluster Central Residue Pair Frequency: " + str(res_freq_list) + "\n")
-    out_info_file.write("Ghost Fragment Mapped Chain ID: " + str(aligned_central_res_info[0]) + "\n")
-    out_info_file.write("Ghost Fragment Mapped Residue Number: " + str(aligned_central_res_info[1]) + "\n")
-    out_info_file.write("Ghost Fragment Partner Chain ID: " + str(aligned_central_res_info[2]) + "\n")
-    out_info_file.write("Ghost Fragment Partner Residue Number: " + str(aligned_central_res_info[3]) + "\n")
-    out_info_file.write("Surface Fragment Oligomer1 Chain ID: " + str(aligned_central_res_info[4]) + "\n")
-    out_info_file.write("Surface Fragment Oligomer1 Residue Number: " + str(aligned_central_res_info[5]) + "\n")
-    out_info_file.write("Surface Fragment Oligomer2 Chain ID: " + str(surf_frag_oligomer2_central_res_tup[0]) + "\n")
-    out_info_file.write("Surface Fragment Oligomer2 Residue Number: " + str(surf_frag_oligomer2_central_res_tup[1]) + "\n")
-    out_info_file.write("Overlap Z-Value: " + str(z_value) + "\n\n")
+    out_info_file.write("Cluster Central Residue Pair Frequency: %s\n" % str(res_freq_list))
+    out_info_file.write("Ghost Fragment Mapped Chain ID: %s\n" % str(aligned_central_res_info[0]))
+    out_info_file.write("Ghost Fragment Mapped Residue Number: %s\n" % str(aligned_central_res_info[1]))
+    out_info_file.write("Ghost Fragment Partner Chain ID: %s\n" % str(aligned_central_res_info[2]))
+    out_info_file.write("Ghost Fragment Partner Residue Number: %s\n" % str(aligned_central_res_info[3]))
+    out_info_file.write("Surface Fragment Oligomer1 Chain ID: %s\n" % str(aligned_central_res_info[4]))
+    out_info_file.write("Surface Fragment Oligomer1 Residue Number: %s\n" % str(aligned_central_res_info[5]))
+    out_info_file.write("Surface Fragment Oligomer2 Chain ID: %s\n" % str(surf_frag_oligomer2_central_res_tup[0]))
+    out_info_file.write("Surface Fragment Oligomer2 Residue Number: %s\n" % str(surf_frag_oligomer2_central_res_tup[1]))
+    out_info_file.write("Overlap Z-Value: %s\n\n" + str(z_value))
 
     if is_initial_match:
         out_info_file.write("***** SUBSEQUENT MATCH(ES) FROM REPRESENTATIVES OF ALL INTERFACE FRAGMENT CLUSTERS *****\n\n")
@@ -518,7 +536,8 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
          ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1, is_zshift2, result_design_sym, uc_spec_string, design_dim,
          expand_matrices, eul_lookup, init_max_z_val, subseq_max_z_val, degeneracy_matrices_1=None,
          degeneracy_matrices_2=None, rot_step_deg_pdb1=1, rot_range_deg_pdb1=0, rot_step_deg_pdb2=1,
-         rot_range_deg_pdb2=0, output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, min_matched=3):
+         rot_range_deg_pdb2=0, output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, min_matched=3,
+         resume=False, keep_time=True):
 
     # Output Directory
     pdb1_filename = os.path.splitext(os.path.basename(pdb1_path))[0]
@@ -529,22 +548,26 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
     log_filepath = outdir + "/" + pdb1_filename + "_" + pdb2_filename + "_" + "log.txt"
 
     # Write to Logfile
-    log_file = open(log_filepath, "a+")
-    log_file.write("DOCKING %s TO %s\n" % (pdb1_filename, pdb2_filename))
-    log_file.write("PDB 1 Path: " + pdb1_path + "\n")
-    log_file.write("PDB 2 Path: " + pdb2_path + "\n")
-    log_file.write("Output Directory: " + outdir + "\n\n")
-    log_file.close()
+    if not resume:
+        log_file = open(log_filepath, "a+")
+        log_file.write("DOCKING %s TO %s\n" % (pdb1_filename, pdb2_filename))
+        log_file.write("PDB 1 Path: " + pdb1_path + "\n")
+        log_file.write("PDB 2 Path: " + pdb2_path + "\n")
+        log_file.write("Output Directory: " + outdir + "\n\n")
+        log_file.close()
 
     # Get PDB1 Symmetric Building Block
     pdb1 = PDB()
     pdb1.readfile(pdb1_path)
 
     # Get Oligomer 1 Ghost Fragments With Guide Coordinates Using Initial Match Fragment Database
-    log_file = open(log_filepath, "a+")
-    log_file.write("Getting %s (Oligomer 1) Ghost Fragments With Guide Coordinates Using Initial Clusters Fragment Database" % pdb1_filename)
-    log_file.close()
-    get_init_ghost_frags_time_start = time.time()
+    if not resume:
+        log_file = open(log_filepath, "a+")
+        log_file.write("Getting %s (Oligomer 1) Ghost Fragments With Guide Coordinates Using Initial Clusters Fragment Database" % pdb1_filename)
+        log_file.close()
+        if keep_time:
+            get_init_ghost_frags_time_start = time.time()
+
     kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(np.array(pdb1.extract_backbone_coords()))
     surf_frags_1 = get_surface_fragments(pdb1, free_sasa_exe_path)
     ghost_frag_list = []
@@ -557,17 +580,21 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
             for ghostfrag in monofrag_ghostfrag_list:
                 ghost_frag_list.append(ghostfrag)
                 ghost_frag_guide_coords_list.append(ghostfrag.get_guide_coords())
-    get_init_ghost_frags_time_stop = time.time()
-    get_init_ghost_frags_time = get_init_ghost_frags_time_stop - get_init_ghost_frags_time_start
-    log_file = open(log_filepath, "a+")
-    log_file.write(" (took: %s s)\n" % str(get_init_ghost_frags_time))
-    log_file.close()
+    if not resume and keep_time:
+        get_init_ghost_frags_time_stop = time.time()
+        get_init_ghost_frags_time = get_init_ghost_frags_time_stop - get_init_ghost_frags_time_start
+        log_file = open(log_filepath, "a+")
+        log_file.write(" (took: %s s)\n" % str(get_init_ghost_frags_time))
+        log_file.close()
 
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
-    log_file = open(log_filepath, "a+")
-    log_file.write("Getting %s (Oligomer 1) Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database" % pdb1_filename)
-    log_file.close()
-    get_complete_ghost_frags_time_start = time.time()
+    if not resume:
+        log_file = open(log_filepath, "a+")
+        log_file.write("Getting %s (Oligomer 1) Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database" % pdb1_filename)
+        log_file.close()
+        if keep_time:
+            get_complete_ghost_frags_time_start = time.time()
+
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
@@ -576,21 +603,24 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         if complete_monofrag1_ghostfrag_list is not None:
             for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
                 complete_ghost_frag_list.append(complete_ghostfrag)
-    get_complete_ghost_frags_time_stop = time.time()
-    get_complete_ghost_frags_time = get_complete_ghost_frags_time_stop - get_complete_ghost_frags_time_start
-    log_file = open(log_filepath, "a+")
-    log_file.write(" (took: %s s)\n" % str(get_complete_ghost_frags_time))
-    log_file.close()
+    if not resume and keep_time:
+        get_complete_ghost_frags_time_stop = time.time()
+        get_complete_ghost_frags_time = get_complete_ghost_frags_time_stop - get_complete_ghost_frags_time_start
+        log_file = open(log_filepath, "a+")
+        log_file.write(" (took: %s s)\n" % str(get_complete_ghost_frags_time))
+        log_file.close()
 
     # Get PDB2 Symmetric Building Block
     pdb2 = PDB()
     pdb2.readfile(pdb2_path)
 
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using Initial Match Fragment Database
-    get_init_surf_frags_time_start = time.time()
-    log_file = open(log_filepath, "a+")
-    log_file.write("Getting Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using Initial Clusters Fragment Database")
-    log_file.close()
+    if not resume:
+        log_file = open(log_filepath, "a+")
+        log_file.write("Getting Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using Initial Clusters Fragment Database")
+        log_file.close()
+        if keep_time:
+            get_init_surf_frags_time_start = time.time()
     surf_frags_2 = get_surface_fragments(pdb2, free_sasa_exe_path)
     surf_frag_list = []
     surf_frags_oligomer_2_guide_coords_list = []
@@ -600,28 +630,32 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         if monofrag2_guide_coords is not None:
             surf_frag_list.append(monofrag2)
             surf_frags_oligomer_2_guide_coords_list.append(monofrag2_guide_coords)
-    get_init_surf_frags_time_stop = time.time()
-    get_init_surf_frags_time = get_init_surf_frags_time_stop - get_init_surf_frags_time_start
-    log_file = open(log_filepath, "a+")
-    log_file.write(" (took: %s s)\n" % str(get_init_surf_frags_time))
-    log_file.close()
+    if not resume and keep_time:
+        get_init_surf_frags_time_stop = time.time()
+        get_init_surf_frags_time = get_init_surf_frags_time_stop - get_init_surf_frags_time_start
+        log_file = open(log_filepath, "a+")
+        log_file.write(" (took: %s s)\n" % str(get_init_surf_frags_time))
+        log_file.close()
 
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
-    get_complete_surf_frags_time_start = time.time()
-    log_file = open(log_filepath, "a+")
-    log_file.write("Getting Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database")
-    log_file.close()
+    if not resume:
+        log_file = open(log_filepath, "a+")
+        log_file.write("Getting Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database")
+        log_file.close()
+        if keep_time:
+            get_complete_surf_frags_time_start = time.time()
     complete_surf_frag_list = []
     for frag2 in surf_frags_2:
         complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()
         if complete_monofrag2_guide_coords is not None:
             complete_surf_frag_list.append(complete_monofrag2)
-    get_complete_surf_frags_time_stop = time.time()
-    get_complete_surf_frags_time = get_complete_surf_frags_time_stop - get_complete_surf_frags_time_start
-    log_file = open(log_filepath, "a+")
-    log_file.write(" (took: %s s)\n\n" % str(get_complete_surf_frags_time))
-    log_file.close()
+    if not resume and keep_time:
+        get_complete_surf_frags_time_stop = time.time()
+        get_complete_surf_frags_time = get_complete_surf_frags_time_stop - get_complete_surf_frags_time_start
+        log_file = open(log_filepath, "a+")
+        log_file.write(" (took: %s s)\n\n" % str(get_complete_surf_frags_time))
+        log_file.close()
 
     # Oligomer 1 Has Interior Rotational Degree of Freedom True or False
     has_int_rot_dof_1 = False
@@ -639,7 +673,6 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
 
     if parsed_ref_frame_tx_dof1 == ['0', '0', '0'] and parsed_ref_frame_tx_dof2 == ['0', '0', '0']:
         dof_ext = np.empty((0, 3), float)
-
     else:
         dof_ext = get_ext_dof(ref_frame_tx_dof1, ref_frame_tx_dof2)
 
@@ -647,21 +680,23 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
     set_mat1_np_t = np.transpose(set_mat1)
     set_mat2_np_t = np.transpose(set_mat2)
 
-    if (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
+    if resume:
+        degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log_filepath)
+    else:
+        degen1_count, degen2_count, rot1_count, rot2_count = 1, 1, 1, 1
 
+    if (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
         # No Degeneracies/Rotation Matrices to get for Oligomer1
         rot1_mat = None
-        degen1_count = 0
-        rot1_count = 0
-        log_file = open(log_filepath, "a+")
-        log_file.write("No Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
-
-        # No Degeneracies/Rotation Matrices to get for Oligomer2
         rot2_mat = None
-        degen2_count = 0
-        rot2_count = 0
-        log_file.write("No Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
+        if not resume:
+            log_file = open(log_filepath, "a+")
+            log_file.write("No Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
+            # No Degeneracies/Rotation Matrices to get for Oligomer2
+            log_file.write("No Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
+            log_file.close()
 
+        log_file = open(log_filepath, "a+")
         log_file.write("\n***** OLIGOMER 1: Degeneracy %s Rotation %s | OLIGOMER 2: Degeneracy %s Rotation %s *****" % (str(degen1_count), str(rot1_count), str(degen2_count), str(rot2_count)) + "\n")
 
         # Get (Oligomer1 Ghost Fragment, Oligomer2 Surface Fragment) guide coodinate pairs in the same Euler rotational space bucket
@@ -728,28 +763,23 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
 
     elif (degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
         # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
-        log_file = open(log_filepath, "a+")
-        log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
-        log_file.close()
+        if not resume:
+            log_file = open(log_filepath, "a+")
+            log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
+            log_file.close()
         rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", rot_range_deg_pdb1)
         degen_rot_mat_1 = get_degen_rotmatrices(degeneracy_matrices_1, rotation_matrices_1)
 
         # No Degeneracies/Rotation Matrices to get for Oligomer2
         rot2_mat = None
-        degen2_count = 0
-        rot2_count = 0
-        log_file = open(log_filepath, "a+")
-        log_file.write("No Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
-        log_file.close()
+        if not resume:
+            log_file = open(log_filepath, "a+")
+            log_file.write("No Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
+            log_file.close()
         surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags_oligomer_2_guide_coords_list, set_mat2_np_t)
 
-        degen1_count = 0
         for degen1 in degen_rot_mat_1:
-            degen1_count += 1
-            rot1_count = 0
             for rot1_mat in degen1:
-                rot1_count += 1
-
                 # Rotate Oligomer1 Ghost Fragment Guide Coodinates using rot1_mat
                 rot1_mat_np_t = np.transpose(rot1_mat)
                 ghost_frag_guide_coords_list_rot_np = np.matmul(ghost_frag_guide_coords_list, rot1_mat_np_t)
@@ -824,31 +854,28 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
                     pdb2_path, expand_matrices, eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
                     output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                     output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                rot1_count += 1
+            degen1_count += 1
 
     elif (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
         # No Degeneracies/Rotation Matrices to get for Oligomer1
         rot1_mat = None
-        degen1_count = 0
-        rot1_count = 0
-        log_file = open(log_filepath, "a+")
-        log_file.write("No Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
-        log_file.close()
+        if not resume:
+            log_file = open(log_filepath, "a+")
+            log_file.write("No Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
+            log_file.close()
         ghost_frag_guide_coords_list_set_for_eul = np.matmul(ghost_frag_guide_coords_list, set_mat1_np_t)
 
         # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
-        log_file = open(log_filepath, "a+")
-        log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
-        log_file.close()
+        if not resume:
+            log_file = open(log_filepath, "a+")
+            log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
+            log_file.close()
         rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
         degen_rot_mat_2 = get_degen_rotmatrices(degeneracy_matrices_2, rotation_matrices_2)
 
-        degen2_count = 0
         for degen2 in degen_rot_mat_2:
-            degen2_count += 1
-            rot2_count = 0
             for rot2_mat in degen2:
-                rot2_count += 1
-
                 # Rotate Oligomer2 Surface Fragment Guide Coodinates using rot2_mat
                 rot2_mat_np_t = np.transpose(rot2_mat)
                 surf_frags_2_guide_coords_list_rot_np = np.matmul(surf_frags_oligomer_2_guide_coords_list, rot2_mat_np_t)
@@ -920,47 +947,37 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
                     pdb2_path, expand_matrices, eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
                     output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                     output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                rot2_count += 1
+            degen2_count += 1
 
     elif (degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
-
-        log_file = open(log_filepath, "a+")
-        log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
-        log_file.close()
+        if not resume:
+            log_file = open(log_filepath, "a+")
+            log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
+            log_file.close()
 
         # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
         rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", rot_range_deg_pdb1)
         degen_rot_mat_1 = get_degen_rotmatrices(degeneracy_matrices_1, rotation_matrices_1)
 
-        log_file = open(log_filepath, "a+")
-        log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
-        log_file.close()
+        if not resume:
+            log_file = open(log_filepath, "a+")
+            log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
+            log_file.close()
         # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
         rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
         degen_rot_mat_2 = get_degen_rotmatrices(degeneracy_matrices_2, rotation_matrices_2)
 
-        degen1_count = 0
         for degen1 in degen_rot_mat_1:
-            degen1_count += 1
-
-            rot1_count = 0
             for rot1_mat in degen1:
-                rot1_count += 1
-
                 # Rotate Oligomer1 Ghost Fragment Guide Coordinates using rot1_mat
                 rot1_mat_np_t = np.transpose(rot1_mat)
                 ghost_frag_guide_coords_list_rot_np = np.matmul(ghost_frag_guide_coords_list, rot1_mat_np_t)
                 ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_list_rot_np.tolist()
-
                 ghost_frag_guide_coords_list_rot_and_set_for_eul = np.matmul(ghost_frag_guide_coords_list_rot, set_mat1_np_t)
 
-                degen2_count = 0
                 for degen2 in degen_rot_mat_2:
-                    degen2_count += 1
-
-                    rot2_count = 0
                     for rot2_mat in degen2:
-                        rot2_count += 1
-
                         # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
                         rot2_mat_np_t = np.transpose(rot2_mat)
                         surf_frags_2_guide_coords_list_rot_np = np.matmul(surf_frags_oligomer_2_guide_coords_list, rot2_mat_np_t)
@@ -1049,5 +1066,7 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
                             has_int_rot_dof_1, has_int_rot_dof_2, pdb1_path, pdb2_path, expand_matrices, eul_lookup,
                             rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
                             output_uc=output_uc, output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
-
-
+                        rot2_count += 1
+                    degen2_count += 1
+                rot1_count += 1
+            degen1_count += 1
