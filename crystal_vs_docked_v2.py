@@ -430,63 +430,14 @@ def get_docked_pdb_pairs(all_design_directories):
 
     docked_pdb_pairs = []
     for des_dir in all_design_directories:
-    # for root1, dirs1, files1 in os.walk(docked_poses_dirpath):
-    #     for file1 in files1:
-    #         if "frag_match_info_file.txt" in file1:
-    #             info_file_filepath = root1 + "/" + file1
-    #
-    #             tx_filepath = os.path.dirname(root1)
-    #             rot_filepath = os.path.dirname(tx_filepath)
-    #             degen_filepath = os.path.dirname(rot_filepath)
-    #             design_filepath = os.path.dirname(degen_filepath)
-    #
-    #             tx_filename = tx_filepath.split("/")[-1]
-    #             rot_filename = rot_filepath.split("/")[-1]
-    #             degen_filename = degen_filepath.split("/")[-1]
-    #             design_filename = design_filepath.split("/")[-1]
-    #
-    #             # design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
-    #             design_id = degen_filename + "_" + rot_filename + "_" + tx_filename
-    #
-    #             docked_pdb1_filepath = None
-    #             docked_pdb2_filepath = None
-    #             info_file = open(info_file_filepath, 'r')
-    #             for line in info_file.readlines():
         docked_pdbs_d = []
         for building_block in os.path.basename(des_dir.building_blocks).split('_'):
             docked_pdb = PDB()
-            # print '%s' % glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0]
             docked_pdb.readfile(glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0])
             docked_pdbs_d.append(docked_pdb)
-            # print docked_pdb.chain_id_list
         docked_pdb_pairs.append((str(des_dir), tuple(docked_pdbs_d)))
 
     return docked_pdb_pairs
-
-                #     if line.startswith("Original PDB 1 Path:"):
-                #         docked_pdb1_filename = os.path.splitext(os.path.basename(line))[0] + "_%s.pdb" % tx_filename
-                #         docked_pdb1_filepath = tx_filepath + "/" + docked_pdb1_filename
-                #     if line.startswith("Original PDB 2 Path:"):
-                #         docked_pdb2_filename = os.path.splitext(os.path.basename(line))[0] + "_%s.pdb" % tx_filename
-                #         docked_pdb2_filepath = tx_filepath + "/" + docked_pdb2_filename
-                # info_file.close()
-                #
-                # if docked_pdb1_filepath is None or docked_pdb2_filepath is None:
-                #     raise Exception('cannot find docked pdb file path(s)\n')
-                #
-                # elif not os.path.exists(docked_pdb1_filepath) or not os.path.exists(docked_pdb2_filepath):
-                #     raise Exception('docked pdb file path(s) do not exist\n')
-                #
-                # else:
-                #     docked_pdb1 = PDB()
-                #     docked_pdb1.readfile(docked_pdb1_filepath, remove_alt_location=True)
-                #
-                #     docked_pdb2 = PDB()
-                #     docked_pdb2.readfile(docked_pdb2_filepath, remove_alt_location=True)
-                #
-                #     docked_pdb_pairs.append((design_id, docked_pdb1, docked_pdb2))
-
-    # return docked_pdb_pairs
 
 
 def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, all_design_directories):
@@ -497,8 +448,6 @@ def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, all_design_directories):
     docked_pdb_pairs = get_docked_pdb_pairs(all_design_directories)
 
     for (design_id, (docked_pdb1, docked_pdb2)) in docked_pdb_pairs:
-        print "%s, %s, %s" % (design_id, docked_pdb1, docked_pdb2)
-
         # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
         # of CA atoms and only contains residues (based on residue number) that are present in all 'symmetry related'
         # subunits. Also, standardize oligomer chain lengths such that oligomers being compared have the same number of CA
