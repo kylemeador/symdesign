@@ -11,7 +11,7 @@ from json import loads, dumps
 import numpy as np
 import multiprocessing as mp
 from sklearn.neighbors import BallTree
-from itertools import repeat
+from itertools import repeat, chain
 import PDB
 from Bio.SeqUtils import IUPACData
 from Bio.SubsMat import MatrixInfo as matlist
@@ -2253,7 +2253,7 @@ def collect_directories(directory, file=None, dir_type='design'):  # TODO collec
         elif dir_type == 'design':
             # all_directories = get_design_directories(directory)
             base_directories = get_base_nanohedra_dirs(directory)
-            all_directories = [get_docked_dirs_from_base(base) for base in base_directories]
+            all_directories = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
         location = directory
 
     return sorted(set(all_directories)), location
@@ -2298,7 +2298,7 @@ def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # re
 def get_base_nanohedra_dirs(base_dir):
     # skip_dirs = []
     nanohedra_dirs = []
-    for root, dirs, files in os.walk(base_dir):
+    for root, dirs, files in os.walk(base_dir, followlinks=True):
         # Check if the nanohedra_directory has already been located, if so, don't walk deeper
         explore = True
         for nano_dir in nanohedra_dirs:
