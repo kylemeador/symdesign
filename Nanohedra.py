@@ -30,7 +30,7 @@ def main():
 
         # Getting PDB1 and PDB2 File paths
         if '.pdb' in pdb1_path or '.pdb' in pdb2_path:
-            pdb_filepaths = (pdb1_path, pdb2_path)
+            pdb_filepaths = pdb1_path, pdb2_path
         else:
             if pdb1_path == pdb2_path:
                 pdb_filepaths = combinations(get_all_pdb_file_paths(pdb1_path), 2)
