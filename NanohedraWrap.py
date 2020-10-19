@@ -96,25 +96,25 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
 # TODO multiprocessing compliant (picklable) error decorator
 @SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
-def nanohedra_command_s(entry, path1, path2, out_dir, suffix):
-    return nanohedra_command(entry, path1, path2, out_dir, suffix)
+def nanohedra_command_s(entry, path1, path2, out_dir, flags, suffix):
+    return nanohedra_command(entry, path1, path2, out_dir, flags, suffix)
 
 
-def nanohedra_command_mp(entry, path1, path2, out_dir, suffix):
+def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix):
     try:
-        file = nanohedra_command(entry, path1, path2, out_dir, suffix)
+        file = nanohedra_command(entry, path1, path2, out_dir, flags, suffix)
         return file, None
     except (SDUtils.DesignError, AssertionError) as e:
         return None, ((path1, path2), e)
 
 
-def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, default=True):
+def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, flags=None, default=True):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters"""
 
     if not out_dir:
-        nano_out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses%s' % (entry, suffix))
+        nano_out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses%s' % (entry, str(suffix or '')))
     else:
-        nano_out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % (entry, suffix))
+        nano_out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % (entry, str(suffix or '')))
     if not os.path.exists(nano_out_dir):
         os.makedirs(nano_out_dir)
 
@@ -131,11 +131,9 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, default=Tr
     else:
         step_1, step_2 = '2', '2'
     _cmd = ['python', program, '-dock', '-entry', str(entry), '-pdb_dir1_path', path1, '-pdb_dir2_path', path2,
-            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir, '-output_uc', '-output_surrounding_uc']
+            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir]
 
-    # this is just not necessary
-    # sym_d = {'%d_%s' % (i, sym): pdb.lower() for i, (sym, pdb) in enumerate(zip(sym_tuple, (sym_d['lower'], sym_d['higher'])))}
-    # sym_d['final_symmetry'] = des_dir_d['final_symmetry']
-    # SDUtils.pickle_object(out_path=pdb_out_dir, protocol=pickle_prot)
+    if flags:
+        _cmd += flags
 
     return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=nano_out_dir)
