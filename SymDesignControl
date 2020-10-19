@@ -68,14 +68,14 @@ def pair_dock_directories(dirs):
     origin_string = 'DEGEN_1_1'
     for dir in dirs:
         new_dir = os.path.dirname(dir.path)[:-len(flipped_sufffix)]
-        destination = os.path.join(new_dir, os.path.basename(dir.path), destination_string)
-        original_dir = os.path.join(dir.path, os.path.basename(dir.path), origin_string)
+        destination = os.path.join(os.path.abspath(new_dir), os.path.basename(dir.path), destination_string)
+        original_dir = os.path.join(os.path.abspath(dir.path), os.path.basename(dir.path), origin_string)
         merge_pairs.append((original_dir, destination))
 
     return merge_pairs, list()
 
 
-def merge_docking_pair(pair, symlink=True):
+def merge_docking_pair(pair, force=False):
     """Combine docking files of one docking combination with another
 
     Args:
@@ -83,10 +83,11 @@ def merge_docking_pair(pair, symlink=True):
     Keyword Args:
         symlink=True
     """
-    if symlink:
-        os.symlink(pair[0], pair[1], target_is_directory=True)
-    else:
-        exit('Functionality does not yet exist')
+    if force:
+        os.remove(pair[1])
+    os.symlink(pair[0], pair[1], target_is_directory=True)
+    # else:
+    #     exit('Functionality does not yet exist')
 
 
 def merge_design_pair(pair):
@@ -577,11 +578,10 @@ if __name__ == '__main__':
                 directory_pairs, failures = pair_dock_directories(all_design_directories)
                 for pair in directory_pairs:
                     try:
-                        merge_docking_pair(pair, symlink=True)
+                        merge_docking_pair(pair)
                     except FileExistsError:
                         if args.force:
-                            print('delete the link')
-                            merge_design_pair(pair, symlink=True)
+                            merge_docking_pair(pair, force=True)
                         else:
                             logger.info('%s directory already exits, moving on. Use --force to overwrite.' % pair[1])
                 terminate(exceptions)
