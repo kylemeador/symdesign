@@ -253,7 +253,8 @@ if __name__ == '__main__':
                                                                    'are located\nDefault=None', default=None)
     parser_dock.add_argument('-e', '--entry', type=int, help='The entry number of %s docking combinations to use' %
                                                              PUtils.nano.title())
-    parser_dock.add_argument('-f', '--additional_flags', nargs='*', help='Any additional flags to pass to %s.py' %
+    parser_dock.add_argument('-f', '--additional_flags', nargs='*', help='Any additional flags to pass to %s.py. Should'
+                                                                         ' be passed WITHOUT leading \'-\'!!' %
                                                                          PUtils.nano.title(), default=None)
     parser_dock.add_argument('-o', '--output_directory', type=str, help='Where should the output from commands be '
                                                                         'written?\n'
