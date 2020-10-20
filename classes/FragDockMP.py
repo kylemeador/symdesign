@@ -11,8 +11,12 @@ from utils.SamplingUtils import *
 from utils.SymmUtils import get_uc_dimensions
 
 
-def get_last_sampling_state(log_file_path):
+def get_last_sampling_state(log_file_path, zero=True):
     """Returns the (zero-indexed) last output state specified in the building_blocks_log.txt file"""
+    index = 0
+    if zero:
+        index = 1
+
     with open(log_file_path, 'r') as log_f:
         log_lines = log_f.readlines()
         for line in reversed(log_lines):
@@ -20,10 +24,10 @@ def get_last_sampling_state(log_file_path):
             if line.startswith('*****'):
                 last_state = line.strip().strip('*').split('|')
                 last_state = list(map(str.split, last_state))
-                degen_1 = int(last_state[0][-3]) - 1
-                rot_1 = int(last_state[0][-1]) - 1
-                degen_2 = int(last_state[1][-3]) - 1
-                rot_2 = int(last_state[1][-1]) - 1
+                degen_1 = int(last_state[0][-3]) - index
+                rot_1 = int(last_state[0][-1]) - index
+                degen_2 = int(last_state[1][-3]) - index
+                rot_2 = int(last_state[1][-1]) - index
                 break
 
     return degen_1, degen_2, rot_1, rot_2
