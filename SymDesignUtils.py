@@ -1916,6 +1916,7 @@ def rotation_parameters(*args):
 
 
 def degeneracy_parameters(*args):
+    print 'DEGEN', args[-2:]
     return args[-2:]
 
 
