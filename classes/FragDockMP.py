@@ -18,8 +18,8 @@ def get_last_sampling_state(log_file_path):
         for line in reversed(log_lines):
             # ***** OLIGOMER 1: Degeneracy %s Rotation %s | OLIGOMER 2: Degeneracy %s Rotation %s *****
             if line.startswith('*****'):
-                last_state = line.strip('*').split('|')
-                last_state = map(str.split, last_state)
+                last_state = line.strip().strip('*').split('|')
+                last_state = list(map(str.split, last_state))
                 degen_1 = int(last_state[0][-3]) - 1
                 rot_1 = int(last_state[0][-1]) - 1
                 degen_2 = int(last_state[1][-3]) - 1
