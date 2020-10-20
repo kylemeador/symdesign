@@ -2345,7 +2345,7 @@ def collect_directories(directory, file=None, dir_type='design'):  # TODO collec
         location = file
     else:
         if dir_type == 'dock':
-            all_directories = get_dock_directories(directory)
+            all_directories = get_docked_directories(directory)
         elif dir_type == 'design':
             # all_directories = get_design_directories(directory)
             base_directories = get_base_nanohedra_dirs(directory)
@@ -2355,6 +2355,7 @@ def collect_directories(directory, file=None, dir_type='design'):  # TODO collec
     return sorted(set(all_directories)), location
 
 
+# DEPRECIATED
 def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  # DEPRECIATED
     """Returns a sorted list of all unique directories that contain designable poses
 
@@ -2379,11 +2380,12 @@ def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  
 
 # DEPRECIATED
 def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # removed a .pkl 9/29/20 9/17/20 run used .pkl.pkl TODO remove vflip
-    # all_directories = []
-    # for root, dirs, files in os.walk(base_directory):
-    #     for file in files:
-    #         if file.endswith(directory_type):
-    #             all_directories.append(root)
+    all_directories = []
+    for root, dirs, files in os.walk(base_directory):
+        # for _dir in dirs:
+        if 'master_log.txt' in files:
+            if file.endswith(directory_type):
+                all_directories.append(root)
     #
     #
     # return sorted(set(all_directories))
@@ -2391,22 +2393,36 @@ def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # re
     return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
 
 
+def get_docked_directories(base_directory, directory_type='NanohedraEntry*DockedPoses'):
+    all_directories = []
+    for root, dirs, files in os.walk(base_directory):
+        if directory_type in dirs:
+            all_directories.append(root)
+
+    return sorted(set(all_directories))
+    #
+    # return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
+
+
 def get_base_nanohedra_dirs(base_dir):
+    """Find all master directories corresponding to the highest output level of Nanohedra.py outputs. This corresponds
+    to the DesignDirectory symmetry attribute
+    """
     # skip_dirs = []
     nanohedra_dirs = []
     for root, dirs, files in os.walk(base_dir, followlinks=True):
         # Check if the nanohedra_directory has already been located, if so, don't walk deeper
         explore = True
         for nano_dir in nanohedra_dirs:
-            if root.startswith(nano_dir):
+            if nano_dir in root:
                 explore = False
                 break
         if explore:
-            for file in files:
-                if file == 'master_log.txt':
-                    nanohedra_dirs.append(root)
-                    break
-        # second option is to add all os.path.join(root, dir) to skip_dirs, this doesn't explore deeeper than dir though
+            if 'master_log.txt' in files:
+                nanohedra_dirs.append(root)
+                break
+
+        # second option is to add all os.path.join(root, dir) to skip_dirs, this doesn't explore deeper than dir though
         # for file in files:
         #     if file == 'master_log.txt':
         #         nanohedra_dirs.append(root)

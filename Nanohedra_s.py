@@ -40,9 +40,9 @@ def main():
         #             pdb2_filepaths.append(pdb_dir2_path + "/" + file2)
         #
         # if pdb1_path == pdb2_path:
-        #     pdb_filepaths = combinations(pdb1_filepaths, 2)
+        #     pdb_pairs = combinations(pdb1_filepaths, 2)
         # else:
-        #     pdb_filepaths = product(pdb1_filepaths, pdb2_filepaths)
+        #     pdb_pairs = product(pdb1_filepaths, pdb2_filepaths)
 
         try:
             # Nanohedra.py Path
@@ -224,7 +224,7 @@ def main():
                                           "\n" % str(design_dim))
                 sys.exit()
 
-            # for pdb1_path, pdb2_path in pdb_filepaths:
+            # for pdb1_path, pdb2_path in pdb_pairs:
             pdb1_filename = os.path.splitext(os.path.basename(pdb1_path))[0]
             pdb2_filename = os.path.splitext(os.path.basename(pdb2_path))[0]
             with open(master_log_filepath, "a+") as master_log_file:

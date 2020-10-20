@@ -131,11 +131,6 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, flags=None
     else:
         step_1, step_2 = '2', '2'
     _cmd = ['python', program, '-dock', '-entry', str(entry), '-pdb_dir1_path', path1, '-pdb_dir2_path', path2,
-            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir]
-
-    if flags:
-        def make_flag(option):
-            return '-%s' % option
-        _cmd += list(map(make_flag, flags))
+            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir] + flags
 
     return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='nanohedra', outpath=nano_out_dir)

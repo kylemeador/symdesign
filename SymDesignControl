@@ -232,7 +232,9 @@ if __name__ == '__main__':
                                                             % PUtils.program_name, default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s poses' % PUtils.program_name,
                         default=None)
-    parser.add_argument('-m', '--multi_processing', action='store_true',
+    parser.add_argument('-m', '--mode', type=str, choices=['design', 'dock'], help='Which mode to operate in?',
+                        required=True)
+    parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
     parser.add_argument('-s', '--design_string', type=str, help='If pose names are specified by design string instead '
@@ -247,16 +249,18 @@ if __name__ == '__main__':
                                                      ' provide the overall directory location with program argument '
                                                      '-d/-f, otherwise, use the -d1 -d2 \'pose\' module arguments to '
                                                      'specify lists of oligomers to dock' % PUtils.nano.title())
-    parser_dock.add_argument('-d1', '--directory1', type=str, help='Disk location where the first symmetry oligomers '
-                                                                   'are located\nREQUIRED', default=None, required=True)
-    parser_dock.add_argument('-d2', '--directory2', type=str, help='Disk location where the second symmetry oligomers '
-                                                                   'are located\nDefault=None', default=None)
+    parser_dock.add_argument('-d1', '--pdb_path1', type=str, help='Disk location where the first oligomers are located'
+                                                                  '\nREQUIRED',
+                             default=None, required=True)
+    parser_dock.add_argument('-d2', '--pdb_path2', type=str, help='Disk location where the second oligomers are located'
+                                                                  '\nDefault=None',
+                             default=None)
     parser_dock.add_argument('-e', '--entry', type=int, help='The entry number of %s docking combinations to use' %
-                                                             PUtils.nano.title())
+                                                             PUtils.nano.title(), default=None)
     parser_dock.add_argument('-f', '--additional_flags', nargs='*', help='Any additional flags to pass to %s.py. Should'
                                                                          ' be passed WITHOUT leading \'-\'!!' %
                                                                          PUtils.nano.title(), default=None)
-    parser_dock.add_argument('-o', '--output_directory', type=str, help='Where should the output from commands be '
+    parser_dock.add_argument('-o', '--outdir', type=str, help='Where should the output from commands be '
                                                                         'written?\n'
                                                                         'Default=CWD/NanohedraEntry(entry)DockedPoses',
                              default=None)
@@ -316,8 +320,8 @@ if __name__ == '__main__':
     parser_merge.add_argument('-F', '--force', action='store_true', help='Overwrite merge paths?\nDefault=False')
     parser_merge.add_argument('-i', '--increment', type=int, help='How many to increment each design by?\nDefault=%d'
                                                                   % PUtils.nstruct)
-    parser_merge.add_argument('-t', '--merge_type', type=str, help='Which type of output to merge?\nDefault=design',
-                              default='design')
+    # parser_merge.add_argument('-t', '--merge_type', type=str, help='Which type of output to merge?\nDefault=design',
+    #                           default='design')
 
     parser_modify = subparsers.add_parser('modify', help='Modify something for testing')
 
@@ -345,7 +349,7 @@ if __name__ == '__main__':
 
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
 
-    args = parser.parse_args()
+    args, additional_flags = parser.parse_known_args()
 
     # Start logging output
     if args.debug:
@@ -359,41 +363,82 @@ if __name__ == '__main__':
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Grab all poses (directories) to be processed from either directory name or file
-    pdb_filepaths, all_design_directories, location = None, None, None
-    if args.sub_module not in ['dock', 'distribute'] or args.sub_module == 'merge' and args.merge_type == 'design':
-        all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
-        assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct '
-                                                    'location' % (PUtils.nano.title(), location))
-        all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
-        logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
-                    os.path.join(all_design_directories[0].path,
-                                 '%s.log' % os.path.basename(all_design_directories[0].path)))
-        if not args.file:
-            # Make single file with names of each directory
-            args.file = os.path.join(args.directory, 'all_pose_directories')
-            with open(args.file, 'w') as design_f:
-                design_f.write('\n'.join(pose for pose in all_poses))
-    elif args.sub_module == 'distribute':
-        all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
-    elif args.sub_module == 'dock':
-        if args.directory1:
-            location = args.directory1
-            if args.directory2:
-                pdb_filepaths = product(SDUtils.get_all_pdb_file_paths(args.directory1),
-                                        SDUtils.get_all_pdb_file_paths(args.directory2))
-            else:
-                pdb_filepaths = list(combinations(SDUtils.get_all_pdb_file_paths(args.directory1), 2))
-                all_design_directories = pdb_filepaths  # for logging purposes below
-        elif args.directory or args.file:
-            all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
-                                                                           dir_type=args.sub_module)
-        else:
-            exit('No docking directories/files were specified\nPlease specify --directory or --file, or --directory1, '
-                 'and/or --directory2. See %s' % PUtils.help(args.sub_module))
-    elif args.sub_module == 'merge' and args.merge_type == 'dock':
-        all_design_directories = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
+    pdb_pairs, all_design_directories, location = None, None, None
+    if args.mode == 'design':
+        if args.directory or args.file:
+            all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
+            assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct '
+                                                        'location' % (PUtils.nano.title(), location))
+            all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
+            logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
+                        os.path.join(all_design_directories[0].path,
+                                     '%s.log' % os.path.basename(all_design_directories[0].path)))
+            if not args.file:
+                # Make single file with names of each directory
+                args.file = os.path.join(args.directory, 'all_pose_directories')
+                with open(args.file, 'w') as design_f:
+                    design_f.write('\n'.join(pose for pose in all_poses))
 
+        else:
+            exit('No design directories/files were specified\nPlease specify --directory or --file.')
+    elif args.mode == 'dock':
+        if args.directory or args.file:
+            all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
+                                                                           dir_type=args.mode)
+            # all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
+        else:
+            # Getting PDB1 and PDB2 File paths
+            if not args.pdb_path1:
+                exit('No docking directories/files were specified\nPlease specify --directory or --file, or --directory1, '
+                     'and/or --directory2. See %s' % PUtils.help(args.sub_module))
+            if not args.entry:
+                exit('If using --pdb_path1 and/or --pdb_path2, please specify --entry as well. --entry can be found '
+                     'using SubModule \'query\'')
+            if '.pdb' in args.pdb_path1 and '.pdb' in args.pdb_path2:
+                pdb_pairs = [(pdb1_path, pdb2_path), ]
+            else:
+                if args.pdb_path1 == args.pdb_path2 or args.pdb_path2 is None:
+                    pdb_pairs = combinations(get_all_pdb_file_paths(args.pdb_path1), 2)
+                    location = args.pdb_path1
+                else:
+                    pdb_pairs = product(get_all_pdb_file_paths(args.pdb_path1),
+                                        get_all_pdb_file_paths(args.pdb_path2))
+                    location = args.pdb_path1, args.pdb_path2
+                all_design_directories = pdb_pairs  # for logging purposes below
     logger.info('%d Poses found in \'%s\'' % (len(all_design_directories), location))
+
+    # if args.sub_module not in ['dock', 'distribute'] or args.sub_module == 'merge' and args.merge_type == 'design':
+    #     all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
+    #     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct '
+    #                                                 'location' % (PUtils.nano.title(), location))
+    #     all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
+    #     logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
+    #                 os.path.join(all_design_directories[0].path,
+    #                              '%s.log' % os.path.basename(all_design_directories[0].path)))
+    #     if not args.file:
+    #         # Make single file with names of each directory
+    #         args.file = os.path.join(args.directory, 'all_pose_directories')
+    #         with open(args.file, 'w') as design_f:
+    #             design_f.write('\n'.join(pose for pose in all_poses))
+    # elif args.sub_module == 'distribute':
+    #     all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
+    # elif args.sub_module == 'dock':
+    #     if args.directory1:
+    #         location = args.directory1
+    #         if args.directory2:
+    #             pdb_pairs = product(SDUtils.get_all_pdb_file_paths(args.directory1),
+    #                                     SDUtils.get_all_pdb_file_paths(args.directory2))
+    #         else:
+    #             pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(args.directory1), 2))
+    #             all_design_directories = pdb_pairs  # for logging purposes below
+    #     elif args.directory or args.file:
+    #         all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
+    #                                                                        dir_type=args.sub_module)
+    #     else:
+    #         exit('No docking directories/files were specified\nPlease specify --directory or --file, or --directory1,'
+    #              'and/or --directory2. See %s' % PUtils.help(args.sub_module))
+    # elif args.sub_module == 'merge' and args.merge_type == 'dock':
+    #     all_design_directories = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
 
     if args.command_only:
         args.suspend = True
@@ -401,36 +446,43 @@ if __name__ == '__main__':
 
     # Parse SubModule specific commands
     results, exceptions = [], []
-
-    if args.sub_module == 'dock':  # -d1 directory1, -d2 directory2, -e entry, -o output_directory
+    if args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir, -f additional_flags
+        # Process additional flags
+        if args.additional_flags or additional_flags:
+            def make_flag(flags):
+                return [] + [flag for flag in flags if flag[0] == '-' and flag[1] != '-'] + \
+                       [flag[1:] for flag in flags if flag[0] == '-' and flag[1] == '-'] + \
+                       ['-%s' % flag for flag in flags if flag[0] != '-']
+            extra_flags = make_flag(additional_flags)
+            extra_flags += make_flag(args.additional_flags)
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            if not pdb_filepaths:  # single directory docking (already made directories)
+            if not pdb_pairs:  # directory or file set up docking directories
                 zipped_args = zip(all_design_directories, repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
-            else:  # using combinations of directories containing .pdb files
-                zipped_args = zip(repeat(args.entry), pdb_filepaths, repeat(args.output_directory),
-                                  repeat(args.design_string), repeat(args.additional_flags))
+            else:  # using combinations of directories with .pdb files
+                zipped_args = zip(repeat(args.entry), pdb_pairs, repeat(args.outdir),
+                                  repeat(args.design_string), repeat(extra_flags))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
             results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
-            if not pdb_filepaths:  # single directory docking (already made directories)
+            if not pdb_pairs:  # single directory docking (already made directories)
                 for dock_directory in all_design_directories:
                     result, error = nanohedra_recap_s(dock_directory, args.design_string)
                     results.append(result)
                     exceptions.append(error)
             else:
-                for path1, path2 in pdb_filepaths:
-                    result, error = nanohedra_command_s(args.entry, path1, path2, args.output_directory,
-                                                        args.design_string, args.additional_flags)
+                for path1, path2 in pdb_pairs:
+                    result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, args.design_string,
+                                                        extra_flags)
                     results.append(result)
                     exceptions.append(error)
 
-        # if args.command_only: # TODO for future iteraiton where SymDesignControl can run and manage Nanohedra.py jobs
+        # if args.command_only: # TODO for future iteraiton where SymDesignControl can run Nanohedra.py jobs
         # Make single file with names of each directory. Specific for docking due to no established directory
         args.file = os.path.join(args.directory, 'complete_docked_directories')
         with open(args.file, 'w') as design_f:
@@ -488,7 +540,7 @@ if __name__ == '__main__':
                                                     for stage in list(PUtils.stage_f.keys())[:3]])))
             # TODO make args.file equal to command_files[i] and change distribution to no stage prefix...
 
-    elif args.sub_module == 'distribute':  # -s --stage, -y --success_file, -n --failure_file, -m --max_jobs
+    elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
         # Create success and failures files
         ran_num = int(100 * random())
         if not args.success_file:
@@ -514,7 +566,7 @@ if __name__ == '__main__':
                 new_f.write(template_line)
             out = 'output=%s/%s' % (output, '%A_%a.out')
             new_f.write(PUtils.sb_flag + out + '\n')
-            array = 'array=1-%d%%%d' % (int(len(all_design_directories) / command_divisor + 0.5), args.max_jobs)
+            array = 'array=1-%d%%%d' % (int(len(all_poses) / command_divisor + 0.5), args.max_jobs)
             new_f.write(PUtils.sb_flag + array + '\n')
             new_f.write('\npython %s --stage %s --success_file %s --failure_file %s --command_file %s\n' %
                         (PUtils.cmd_dist, args.stage, args.success_file, args.failure_file, args.file))
@@ -522,7 +574,7 @@ if __name__ == '__main__':
         logger.info('To distribute commands enter the following:\ncd %s\nsbatch %s'
                     % (args.directory, os.path.basename(filename)))
 
-    elif args.sub_module == 'analysis':  # -f --figures, -n --no_save, -j --join, -g --delta_g
+    elif args.sub_module == 'analysis':  # -f figures, -n no_save, -j join, -g delta_g
         save = True
         if args.no_save:
             save = False
@@ -558,7 +610,7 @@ if __name__ == '__main__':
                 logger.info('Analysis of all Trajectories and Residues written to %s'
                             % all_design_directories[0].all_scores)
 
-    elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -t merge_type
+    elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment, # -t merge_type
         directory_pairs, failures = None, None
         if args.directory2 or args.file2:
             # Grab all poses (directories) to be processed from either directory name or file
@@ -568,17 +620,17 @@ if __name__ == '__main__':
                                                                                            location2))
             all_design_directories2 = SDUtils.set_up_directory_objects(all_poses2)
             logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location2))
-            if args.merge_type == 'design':
+            if args.mode == 'design':
                 directory_pairs, failures = pair_directories(all_design_directories2, all_design_directories)
             else:
-                logger.warning('Source location was specified, but the merge_type isn\'t design. Destination directory '
+                logger.warning('Source location was specified, but the --mode isn\'t design. Destination directory '
                                'will be ignored')
         else:
-            if args.merge_type == 'design':
+            if args.mode == 'design':
                 exit('No source location was specified! Use -d2 or -f2 to specify the source of poses when merging '
                      'design directories')
-            elif args.merge_type == 'dock':
-                directory_pairs, failures = pair_dock_directories(all_design_directories)
+            elif args.mode == 'dock':
+                directory_pairs, failures = pair_dock_directories(all_poses)
                 for pair in directory_pairs:
                     try:
                         merge_docking_pair(pair)
