@@ -1859,13 +1859,13 @@ def gather_docking_metrics(base_directory):
             elif "Oligomer 2 Internal ROT DOF: " in line:  # ,
                 internal_rot2 = line.split(':')[-1].strip()
             elif "Oligomer 1 ROT Sampling Range: " in line:
-                rot_range_deg_pdb1 = line.split(':')[-1].strip()
+                rot_range_deg_pdb1 = int(line.split(':')[-1].strip())
             elif "Oligomer 2 ROT Sampling Range: " in line:
-                rot_range_deg_pdb2 = line.split(':')[-1].strip()
+                rot_range_deg_pdb2 = int(line.split(':')[-1].strip())
             elif "Oligomer 1 ROT Sampling Step: " in line:
-                rot_step_deg1 = line.split(':')[-1].strip()
+                rot_step_deg1 = int(line.split(':')[-1].strip())
             elif "Oligomer 2 ROT Sampling Step: " in line:
-                rot_step_deg2 = line.split(':')[-1].strip()
+                rot_step_deg2 = int(line.split(':')[-1].strip())
             elif "Oligomer 1 Internal Tx DOF: " in line:  # ,
                 internal_zshift1 = line.split(':')[-1].strip()
             elif "Oligomer 2 Internal Tx DOF: " in line:  # ,
@@ -1875,13 +1875,13 @@ def gather_docking_metrics(base_directory):
             elif "Oligomer 2 Reference Frame Tx DOF: " in line:  # ,
                 ref_frame_tx_dof2 = line.split(':')[-1].strip()
             elif "Oligomer 1 Setting Matrix: " in line:
-                set_mat1 = line.split(':')[-1].strip()
+                set_mat1 = np.array(eval(line.split(':')[-1].strip()))
             elif "Oligomer 2 Setting Matrix: " in line:
-                set_mat2 = line.split(':')[-1].strip()
+                set_mat2 = np.array(eval(line.split(':')[-1].strip()))
             elif "Resulting Design Symmetry: " in line:
                 result_design_sym = line.split(':')[-1].strip()
             elif "Design Dimension: " in line:
-                design_dim = line.split(':')[-1].strip()
+                design_dim = int(line.split(':')[-1].strip())
             elif "Unit Cell Specification: " in line:
                 uc_spec_string = line.split(':')[-1].strip()
             elif 'Degeneracies Found for Oligomer 1' in line:
@@ -1912,7 +1912,7 @@ def symmetry_parameters(args):
 
 
 def rotation_parameters(args):
-    return args[9:12]
+    return args[9:13]
 
 
 def degeneracy_parameters(args):
