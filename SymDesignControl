@@ -138,6 +138,8 @@ def status(design_directories, _stage, number=None):
                 SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(os.path.dirname(des_dir)))
             degen1, degen2 = tuple(degens)
             last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
+            print f_degen1, f_degen2, f_rot1, f_rot2
+            print degen1, degen2, last_rot1, last_rot2
             if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
                 complete.append(des_dir)
                 # complete.append(des_dir.symmetry)
