@@ -1903,25 +1903,23 @@ def gather_docking_metrics(base_directory):
            result_design_sym, design_dim, uc_spec_string, degen1, degen2
 
 
-def pdb_input_parameters(*args):
+def pdb_input_parameters(args):
     return args[0:1]
 
 
-def symmetry_parameters(*args):
+def symmetry_parameters(args):
     return args[3:6]
 
 
-def rotation_parameters(*args):
+def rotation_parameters(args):
     return args[9:12]
 
 
 def degeneracy_parameters(args):
-    print 'DEGEN', args[-2:]
     return args[-2:]
 
 
 def degen_and_rotation_parameters(args):
-    print args
     return degeneracy_parameters(args), rotation_parameters(args)
 
 
