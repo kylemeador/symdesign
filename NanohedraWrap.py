@@ -124,7 +124,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, flags=None
                                                              os.path.splitext(os.path.basename(path2))[0]))
         if not os.path.exists(nano_out_dir):
             os.makedirs(nano_out_dir)
-        program = PUtils.nanohedra_s_main
+        # program = PUtils.nanohedra_s_main
 
     if default:
         step_1, step_2 = '3', '3'
