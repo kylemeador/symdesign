@@ -1887,15 +1887,15 @@ def gather_docking_metrics(base_directory):
             elif 'Degeneracies Found for Oligomer 1' in line:
                 degen1 = line.split()[0]
                 if degen1.isdigit():
-                    degen1 = int(degen1)
+                    degen1 = int(degen1) + 1
                 else:
-                    degen1 = None
+                    degen1 = 1  # No degens becomes a single degen None
             elif 'Degeneracies Found for Oligomer 2' in line:
                 degen2 = line.split()[0]
                 if degen2.isdigit():
-                    degen2 = int(degen2)
+                    degen2 = int(degen2) + 1
                 else:
-                    degen2 = None
+                    degen2 = 1  # No degens becomes a single degen None
 
     return pdb_dir1_path, pdb_dir2_path, master_outdir, sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2,\
            design_symmetry, internal_rot1, internal_rot2, rot_range_deg_pdb1, rot_range_deg_pdb2, rot_step_deg1, \
@@ -2393,11 +2393,14 @@ def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # re
     return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
 
 
-def get_docked_directories(base_directory, directory_type='NanohedraEntry*DockedPoses'):
+def get_docked_directories(base_directory, directory_type='NanohedraEntry'):  # '*DockedPoses'
+    """Useful for when your docked directory is basically known but the """
     all_directories = []
     for root, dirs, files in os.walk(base_directory):
-        if directory_type in dirs:
-            all_directories.append(root)
+        # if directory_type in dirs:
+        for _dir in dirs:
+            if directory_type in _dir:
+                all_directories.append(os.path.join(root, _dir))
 
     return sorted(set(all_directories))
     #
@@ -2459,10 +2462,21 @@ def set_up_directory_objects(design_list, symmetry=None):
     return [DesignDirectory(design, symmetry=symmetry) for design in design_list]
 
 
-def set_up_pseudo_design_dir(wildtype, directory, score):  # changed 9/30/20 to locate paths of interest at .path
-    pseudo_dir = DesignDirectory(wildtype, auto_structure=False)
+def set_up_dock_dir(path):
+    dock_dir = DesignDirectory(path, auto_structure=False)
+    dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
+    dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
+    dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
+    dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.building_blocks
+                                    for bb_dir in sym] # TODO change to PUtils
+
+    return dock_dir
+
+
+def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
+    pseudo_dir = DesignDirectory(path, auto_structure=False)
     # pseudo_dir.path = os.path.dirname(wildtype)
-    pseudo_dir.building_blocks = os.path.dirname(wildtype)
+    pseudo_dir.building_blocks = os.path.dirname(path)
     pseudo_dir.design_pdbs = directory
     pseudo_dir.scores = os.path.dirname(score)
     pseudo_dir.all_scores = os.getcwd()

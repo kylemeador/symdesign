@@ -128,6 +128,14 @@ def status(design_directories, _stage, number=None):
         #     f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
         #     degens, rotations = \
         #     SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.symmetry))
+
+        #     dock_dir = DesignDirectory(path, auto_structure=False)
+        #     dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
+        #     dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
+        #     dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
+        #     dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.building_blocks
+        #                                     for bb_dir in sym] # TODO change to PUtils
+
             docking_file = glob(
                 os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))
             if len(docking_file) != 1:
@@ -138,8 +146,8 @@ def status(design_directories, _stage, number=None):
                 SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(os.path.dirname(des_dir)))
             degen1, degen2 = tuple(degens)
             last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
-            print f_degen1, f_degen2, f_rot1, f_rot2
-            print degen1, degen2, last_rot1, last_rot2
+            # print f_degen1, f_degen2, f_rot1, f_rot2
+            # print degen1, degen2, last_rot1, last_rot2
             if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
                 complete.append(des_dir)
                 # complete.append(des_dir.symmetry)
@@ -395,9 +403,9 @@ if __name__ == '__main__':
             exit('No design directories/files were specified\nPlease specify --directory or --file.')
     elif args.mode == 'dock':
         if args.directory or args.file:
-            all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
-                                                                           dir_type=args.mode)
-            # all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
+            all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
+                                                                         dir_type=args.mode)
+            all_design_directories = [SDUtils.set_up_dock_dir(dock_dir) for dock_dir in all_dock_directories]
         else:
             # Getting PDB1 and PDB2 File paths
             if not args.pdb_path1:
