@@ -132,6 +132,7 @@ def status(design_directories, _stage, number=None):
                 os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))
             if len(docking_file) != 1:
                 incomplete.append(des_dir)
+                continue
             f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(docking_file[0], zero=False)
             degens, rotations = \
                 SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(os.path.dirname(des_dir)))
