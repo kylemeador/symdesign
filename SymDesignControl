@@ -119,15 +119,19 @@ def status(design_directories, _stage, number=None):
     complete, incomplete = [], []
     if _stage == 'nanohedra':
         from classes.FragDockMP import get_last_sampling_state
-        observed_building_blocks = []
+        # observed_building_blocks = []
         for des_dir in design_directories:
-            if os.path.basename(des_dir.building_blocks) in observed_building_blocks:
-                continue
-            else:
-                observed_building_blocks.append(os.path.basename(des_dir.building_blocks))
-            f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
+        #     if os.path.basename(des_dir.building_blocks) in observed_building_blocks:
+        #         continue
+        #     else:
+        #         observed_building_blocks.append(os.path.basename(des_dir.building_blocks))
+        #     f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
+        #     degens, rotations = \
+        #     SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.symmetry))
+            f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(glob(
+                os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))[0])
             degens, rotations = \
-                SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.symmetry))
+                SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(os.path.basename(des_dir)))
             degen1, degen2 = degens
             last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
             if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
@@ -406,39 +410,6 @@ if __name__ == '__main__':
                     location = args.pdb_path1, args.pdb_path2
                 all_design_directories = pdb_pairs  # for logging purposes below
     logger.info('%d Poses found in \'%s\'' % (len(all_design_directories), location))
-
-    # if args.sub_module not in ['dock', 'distribute'] or args.sub_module == 'merge' and args.merge_type == 'design':
-    #     all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
-    #     assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct '
-    #                                                 'location' % (PUtils.nano.title(), location))
-    #     all_design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
-    #     logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
-    #                 os.path.join(all_design_directories[0].path,
-    #                              '%s.log' % os.path.basename(all_design_directories[0].path)))
-    #     if not args.file:
-    #         # Make single file with names of each directory
-    #         args.file = os.path.join(args.directory, 'all_pose_directories')
-    #         with open(args.file, 'w') as design_f:
-    #             design_f.write('\n'.join(pose for pose in all_poses))
-    # elif args.sub_module == 'distribute':
-    #     all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
-    # elif args.sub_module == 'dock':
-    #     if args.directory1:
-    #         location = args.directory1
-    #         if args.directory2:
-    #             pdb_pairs = product(SDUtils.get_all_pdb_file_paths(args.directory1),
-    #                                     SDUtils.get_all_pdb_file_paths(args.directory2))
-    #         else:
-    #             pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(args.directory1), 2))
-    #             all_design_directories = pdb_pairs  # for logging purposes below
-    #     elif args.directory or args.file:
-    #         all_design_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
-    #                                                                        dir_type=args.sub_module)
-    #     else:
-    #         exit('No docking directories/files were specified\nPlease specify --directory or --file, or --directory1,'
-    #              'and/or --directory2. See %s' % PUtils.help(args.sub_module))
-    # elif args.sub_module == 'merge' and args.merge_type == 'dock':
-    #     all_design_directories = SDUtils.collect_directories(args.directory, file=args.file, dir_type=None)
 
     if args.command_only:
         args.suspend = True

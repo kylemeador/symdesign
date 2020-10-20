@@ -12,6 +12,7 @@ from utils.SymmUtils import get_uc_dimensions
 
 
 def get_last_sampling_state(log_file_path):
+    """Returns the (zero-indexed) last output state specified in the building_blocks_log.txt file"""
     with open(log_file_path, 'r') as log_f:
         log_lines = log_f.readlines()
         for line in reversed(log_lines):
@@ -19,10 +20,10 @@ def get_last_sampling_state(log_file_path):
             if line.startswith('*****'):
                 last_state = line.strip('*').split('|')
                 last_state = map(str.split, last_state)
-                degen_1 = last_state[0][-3]
-                rot_1 = last_state[0][-1]
-                degen_2 = last_state[1][-3]
-                rot_2 = last_state[1][-1]
+                degen_1 = int(last_state[0][-3]) - 1
+                rot_1 = int(last_state[0][-1]) - 1
+                degen_2 = int(last_state[1][-3]) - 1
+                rot_2 = int(last_state[1][-1]) - 1
                 break
 
     return degen_1, degen_2, rot_1, rot_2
@@ -679,15 +680,15 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
     set_mat1_np_t = np.transpose(set_mat1)
     set_mat2_np_t = np.transpose(set_mat2)
 
+    degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
     if resume:
         degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log_filepath)
-    else:
-        degen1_count, degen2_count, rot1_count, rot2_count = 1, 1, 1, 1
 
     if (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
         # No Degeneracies/Rotation Matrices to get for Oligomer1
         rot1_mat = None
         rot2_mat = None
+        # TODO add degen1_count
         if not resume:
             log_file = open(log_filepath, "a+")
             log_file.write("No Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
@@ -777,8 +778,10 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
             log_file.close()
         surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags_oligomer_2_guide_coords_list, set_mat2_np_t)
 
-        for degen1 in degen_rot_mat_1:
-            for rot1_mat in degen1:
+        for degen1 in degen_rot_mat_1[degen1_count:]:
+            degen1_count += 1
+            for rot1_mat in degen1[rot1_count:]:
+                rot1_count += 1
                 # Rotate Oligomer1 Ghost Fragment Guide Coodinates using rot1_mat
                 rot1_mat_np_t = np.transpose(rot1_mat)
                 ghost_frag_guide_coords_list_rot_np = np.matmul(ghost_frag_guide_coords_list, rot1_mat_np_t)
@@ -853,8 +856,7 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
                     pdb2_path, expand_matrices, eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
                     output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                     output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
-                rot1_count += 1
-            degen1_count += 1
+            rot1_count = 0
 
     elif (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
         # No Degeneracies/Rotation Matrices to get for Oligomer1
@@ -873,8 +875,10 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
         degen_rot_mat_2 = get_degen_rotmatrices(degeneracy_matrices_2, rotation_matrices_2)
 
-        for degen2 in degen_rot_mat_2:
-            for rot2_mat in degen2:
+        for degen2 in degen_rot_mat_2[degen2_count:]:
+            degen2_count += 1
+            for rot2_mat in degen2[rot2_count:]:
+                rot2_count += 1
                 # Rotate Oligomer2 Surface Fragment Guide Coodinates using rot2_mat
                 rot2_mat_np_t = np.transpose(rot2_mat)
                 surf_frags_2_guide_coords_list_rot_np = np.matmul(surf_frags_oligomer_2_guide_coords_list, rot2_mat_np_t)
@@ -946,8 +950,7 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
                     pdb2_path, expand_matrices, eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
                     output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                     output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
-                rot2_count += 1
-            degen2_count += 1
+            rot2_count = 0
 
     elif (degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
         if not resume:
@@ -967,16 +970,19 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
         degen_rot_mat_2 = get_degen_rotmatrices(degeneracy_matrices_2, rotation_matrices_2)
 
-        for degen1 in degen_rot_mat_1:
-            for rot1_mat in degen1:
+        for degen1 in degen_rot_mat_1[degen1_count:]:
+            degen1_count += 1
+            for rot1_mat in degen1[rot1_count:]:
+                rot1_count += 1
                 # Rotate Oligomer1 Ghost Fragment Guide Coordinates using rot1_mat
                 rot1_mat_np_t = np.transpose(rot1_mat)
                 ghost_frag_guide_coords_list_rot_np = np.matmul(ghost_frag_guide_coords_list, rot1_mat_np_t)
                 ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_list_rot_np.tolist()
                 ghost_frag_guide_coords_list_rot_and_set_for_eul = np.matmul(ghost_frag_guide_coords_list_rot, set_mat1_np_t)
-
-                for degen2 in degen_rot_mat_2:
-                    for rot2_mat in degen2:
+                for degen2 in degen_rot_mat_2[degen2_count:]:
+                    degen2_count += 1
+                    for rot2_mat in degen2[rot2_count:]:
+                        rot2_count += 1
                         # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
                         rot2_mat_np_t = np.transpose(rot2_mat)
                         surf_frags_2_guide_coords_list_rot_np = np.matmul(surf_frags_oligomer_2_guide_coords_list, rot2_mat_np_t)
@@ -1065,7 +1071,6 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
                             has_int_rot_dof_1, has_int_rot_dof_2, pdb1_path, pdb2_path, expand_matrices, eul_lookup,
                             rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
                             output_uc=output_uc, output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
-                        rot2_count += 1
-                    degen2_count += 1
-                rot1_count += 1
-            degen1_count += 1
+                    rot2_count = 0
+                degen2_count = 0
+            rot1_count = 0
