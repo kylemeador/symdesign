@@ -52,7 +52,7 @@ def exit_gracefully(signum, frame):
 
 def create_file(file):
     if not os.path.exists(file):
-        with open(args.success_file, 'w') as new_file:
+        with open(file, 'w') as new_file:
             dummy = True
 
 
@@ -126,7 +126,6 @@ if __name__ == '__main__':
     # Prepare Commands
     # command_name = args.stage + '.sh'
     # python2.7 compatibility
-    # path_maker = lambda path_name: os.path.join(path_name, '%s.sh' % args.stage)
     def path_maker(path_name):
         return os.path.join(path_name, '%s.sh' % args.stage)
 
