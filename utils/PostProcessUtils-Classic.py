@@ -93,9 +93,7 @@ def score_and_frag_match_count_filter(master_design_dirpath, min_score, min_frag
 def rank(master_design_dirpath, metric, outdir):
 
     if metric == 'score':
-        # temporary patch for residue level summation score
-        # metric_str = "Nanohedra Score:"
-        metric_str = "Residue-Level Summation Score:"
+        metric_str = "Nanohedra Score:"
     elif metric == 'matched':
         metric_str = "Unique Interface Fragment Match Count:"
     else:
@@ -124,8 +122,7 @@ def rank(master_design_dirpath, metric, outdir):
                     info_file = open(info_file_filepath, 'r')
                     for line in info_file.readlines():
                         if metric_str in line:
-                            # score = float(line[17:])
-                            score = float(line[30:])
+                            score = float(line[17:])
                             designpath_metric_tup_list.append((design_path, score))
                     info_file.close()
 
