@@ -2008,7 +2008,7 @@ def gather_fragment_metrics(_des_dir, init=False, score=False):
                 _matrix = np.array(eval(line[24:]))
                 transform_d[int(line[21:22])]['tx_ref'] = _matrix
                 continue
-            elif line.startswith('Residue-Level Summation Score:'):
+            elif 'Residue-Level Summation Score:' in line:
                 score = float(line[30:].rstrip())
             # elif line[:23] == 'ROT/DEGEN MATRIX PDB1: ':
             # elif line[:18] == 'INTERNAL Tx PDB1: ':  # with PDB1 or PDB2
@@ -2323,7 +2323,7 @@ def get_directory_pdb_file_paths(pdb_dir):
     return glob(os.path.join(pdb_dir, '*.pdb*'))
 
 
-def collect_directories(directory, file=None, dir_type='design'):  # TODO collect_directories
+def collect_directories(directory, file=None, dir_type='design'):
     """Grab all poses from an input source
 
     Args:

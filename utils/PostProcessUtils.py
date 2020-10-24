@@ -1,6 +1,7 @@
 import os
 import shutil
 from classes.PDB import PDB
+from SymDesignUtils import collect_directories, set_up_directory_objects, gather_fragment_metrics
 
 
 def frag_match_count_filter(master_design_dirpath, min_frag_match_count, master_design_outdir_path):
@@ -102,40 +103,43 @@ def rank(master_design_dirpath, metric, outdir):
         raise ValueError('\n%s is not a recognized ranking metric. Recognized ranking metrics are: score and matched.\n' %str(metric))
 
     designpath_metric_tup_list = []
+    all_design_directories = collect_directories(master_design_dirpath)
+    all_design_directories = set_up_directory_objects(all_design_directories)
+    # for root1, dirs1, files1 in os.walk(master_design_dirpath):
+    #     for file1 in files1:
+    #         if "frag_match_info_file.txt" in file1:
+    #             info_file_filepath = root1 + "/" + file1
+    #
+    #             tx_filepath = os.path.dirname(root1)
+    #             rot_filepath = os.path.dirname(tx_filepath)
+    #             degen_filepath = os.path.dirname(rot_filepath)
+    #             design_filepath = os.path.dirname(degen_filepath)
+    #
+    #             tx_filename = tx_filepath.split("/")[-1]
+    #             rot_filename = rot_filepath.split("/")[-1]
+    #             degen_filename = degen_filepath.split("/")[-1]
+    #             design_filename = design_filepath.split("/")[-1]
+    #
+    #             design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
 
-    for root1, dirs1, files1 in os.walk(master_design_dirpath):
-        for file1 in files1:
-            if "frag_match_info_file.txt" in file1:
-                info_file_filepath = root1 + "/" + file1
-
-                tx_filepath = os.path.dirname(root1)
-                rot_filepath = os.path.dirname(tx_filepath)
-                degen_filepath = os.path.dirname(rot_filepath)
-                design_filepath = os.path.dirname(degen_filepath)
-
-                tx_filename = tx_filepath.split("/")[-1]
-                rot_filename = rot_filepath.split("/")[-1]
-                degen_filename = degen_filepath.split("/")[-1]
-                design_filename = design_filepath.split("/")[-1]
-
-                design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
-
-                if metric == 'score':
-                    info_file = open(info_file_filepath, 'r')
-                    for line in info_file.readlines():
-                        if metric_str in line:
-                            # score = float(line[17:])
-                            score = float(line[30:])
-                            designpath_metric_tup_list.append((design_path, score))
-                    info_file.close()
-
-                elif metric == 'matched':
-                    info_file = open(info_file_filepath, 'r')
-                    for line in info_file.readlines():
-                        if metric_str in line:
-                            frag_match_count = int(line[38:])
-                            designpath_metric_tup_list.append((design_path, frag_match_count))
-                    info_file.close()
+    designpath_metric_tup_list = [(des_dir.path, gather_fragment_metrics(des_dir, score=True))
+                                  for des_dir in all_design_directories]
+                # if metric == 'score':
+                #     info_file = open(info_file_filepath, 'r')
+                #     for line in info_file.readlines():
+                #         if metric_str in line:
+                #             # score = float(line[17:])
+                #             score = float(line[30:])
+                #             designpath_metric_tup_list.append((design_path, score))
+                #     info_file.close()
+                #
+                # elif metric == 'matched':
+                #     info_file = open(info_file_filepath, 'r')
+                #     for line in info_file.readlines():
+                #         if metric_str in line:
+                #             frag_match_count = int(line[38:])
+                #             designpath_metric_tup_list.append((design_path, frag_match_count))
+                #     info_file.close()
 
     designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: tup[1], reverse=True)
 

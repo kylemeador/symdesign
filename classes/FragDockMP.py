@@ -12,7 +12,8 @@ from utils.SymmUtils import get_uc_dimensions
 
 
 def get_last_sampling_state(log_file_path, zero=True):
-    """Returns the (zero-indexed) last output state specified in the building_blocks_log.txt file"""
+    """Returns the (zero-indexed) last output state specified in the building_blocks_log.txt file. To return the
+    one-indexed sampling state, pass zero=False"""
     index = 0
     if zero:
         index = 1
@@ -687,16 +688,16 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
     degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
     if resume:
         degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log_filepath)
+        with open(log_filepath, "a+") as log_file:
+            log_file.write('Job was run with the \'-resume\' flag. Picking up docking where we left off!\n')
 
     if (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
-        # No Degeneracies/Rotation Matrices to get for Oligomer1
         rot1_mat = None
         rot2_mat = None
-        # TODO add degen1_count
         if not resume:
             log_file = open(log_filepath, "a+")
+            # No Degeneracies/Rotation Matrices to get for Oligomer 1 or Oligomer2
             log_file.write("No Rotation/Degeneracy Matrices for Oligomer 1" + "\n")
-            # No Degeneracies/Rotation Matrices to get for Oligomer2
             log_file.write("No Rotation/Degeneracy Matrices for Oligomer 2\n" + "\n")
             log_file.close()
 
