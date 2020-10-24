@@ -2416,16 +2416,17 @@ def get_base_nanohedra_dirs(base_dir):
     nanohedra_dirs = []
     for root, dirs, files in os.walk(base_dir, followlinks=True):
         # Check if the nanohedra_directory has already been located, if so, don't walk deeper
-        explore = True
-        for nano_dir in nanohedra_dirs:
-            if nano_dir in root:
-                explore = False
-                break
-        if explore:
-            if 'master_log.txt' in files:
-                nanohedra_dirs.append(root)
-                # break
-                continue
+        # explore = True
+        # for nano_dir in nanohedra_dirs:
+        #     if nano_dir in root:
+        #         explore = False
+        #         break
+        # if explore:
+        if 'master_log.txt' in files:
+            nanohedra_dirs.append(root)
+            del dirs
+            # break
+            continue
     # print 'found %d Nanohedra base_dirs' % len(nanohedra_dirs)
 
         # second option is to add all os.path.join(root, dir) to skip_dirs, this doesn't explore deeper than dir though
