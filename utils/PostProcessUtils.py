@@ -103,7 +103,7 @@ def rank(master_design_dirpath, metric, outdir):
         raise ValueError('\n%s is not a recognized ranking metric. Recognized ranking metrics are: score and matched.\n' %str(metric))
 
     designpath_metric_tup_list = []
-    all_design_directories = collect_directories(master_design_dirpath)
+    all_design_directories, location = collect_directories(master_design_dirpath)
     all_design_directories = set_up_directory_objects(all_design_directories)
     # for root1, dirs1, files1 in os.walk(master_design_dirpath):
     #     for file1 in files1:
