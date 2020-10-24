@@ -2350,6 +2350,7 @@ def collect_directories(directory, file=None, dir_type='design'):
             # all_directories = get_design_directories(directory)
             base_directories = get_base_nanohedra_dirs(directory)
             all_directories = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
+            print 'total of %d designs examined' % len(all_directories)
         location = directory
 
     return sorted(set(all_directories)), location
@@ -2424,6 +2425,7 @@ def get_base_nanohedra_dirs(base_dir):
             if 'master_log.txt' in files:
                 nanohedra_dirs.append(root)
                 break
+    print 'found %d Nanohedra base_dirs' % Len(nanohedra_dirs)
 
         # second option is to add all os.path.join(root, dir) to skip_dirs, this doesn't explore deeper than dir though
         # for file in files:
