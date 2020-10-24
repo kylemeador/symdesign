@@ -2425,7 +2425,7 @@ def get_base_nanohedra_dirs(base_dir):
             if 'master_log.txt' in files:
                 nanohedra_dirs.append(root)
                 break
-    print 'found %d Nanohedra base_dirs' % Len(nanohedra_dirs)
+    print 'found %d Nanohedra base_dirs' % len(nanohedra_dirs)
 
         # second option is to add all os.path.join(root, dir) to skip_dirs, this doesn't explore deeper than dir though
         # for file in files:
