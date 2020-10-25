@@ -5,7 +5,8 @@ query_output_format_string = "{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  
 
 
 def print_query_header():
-    print header_format_string.format("ENTRY", "GROUP1", "IntDofRot1", "IntDofTx1", "ReferenceFrameDof1", "GROUP2", "IntDofRot2", "IntDofTx2", "ReferenceFrameDof2", "RESULT")
+    print(header_format_string.format("ENTRY", "GROUP1", "IntDofRot1", "IntDofTx1", "ReferenceFrameDof1", "GROUP2",
+                                      "IntDofRot2", "IntDofTx2", "ReferenceFrameDof2", "RESULT"))
 
 
 def query_combination(combination_list):
@@ -34,17 +35,21 @@ def query_combination(combination_list):
                 ref_frame_tx_dof_group1 = sym_comb_dict[entry_number][5]
                 ref_frame_tx_dof_group2 = sym_comb_dict[entry_number][10]
                 result = sym_comb_dict[entry_number][12]
-                matching_entries.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1), str(int_tx1), ref_frame_tx_dof_group1, group2, str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2, result))
+                matching_entries.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1),
+                                                                          str(int_tx1), ref_frame_tx_dof_group1, group2,
+                                                                          str(int_rot2), str(int_tx2),
+                                                                          ref_frame_tx_dof_group2, result))
         if matching_entries == list():
-            print '\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m'
-            print ''
+            print('\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m')
+            print('')
         else:
-            print '\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s + %s" % (combination_list[0], combination_list[1]) + '\033[0m'
+            print('\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s + %s" % (combination_list[0], combination_list[1]) +
+                  '\033[0m')
             print_query_header()
             for match in matching_entries:
-                print match
+                print(match)
     else:
-        print "INVALID ENTRY"
+        print("INVALID ENTRY")
 
 
 def query_result(desired_result):
@@ -74,17 +79,20 @@ def query_result(desired_result):
                 ref_frame_tx_dof_group1 = sym_comb_dict[entry_number][5]
                 ref_frame_tx_dof_group2 = sym_comb_dict[entry_number][10]
                 result = sym_comb_dict[entry_number][12]
-                matching_entries.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1), str(int_tx1), ref_frame_tx_dof_group1, group2, str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2, result))
+                matching_entries.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1),
+                                                                          str(int_tx1), ref_frame_tx_dof_group1, group2,
+                                                                          str(int_rot2), str(int_tx2),
+                                                                          ref_frame_tx_dof_group2, result))
         if matching_entries == list():
-            print '\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m'
-            print ''
+            print('\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m')
+            print('')
         else:
-            print '\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s" % desired_result + '\033[0m'
+            print('\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s" % desired_result + '\033[0m')
             print_query_header()
             for match in matching_entries:
-                print match
+                print(match)
     else:
-        print "INVALID ENTRY"
+        print("INVALID ENTRY")
 
 
 def query_counterpart(query_group):
@@ -118,15 +126,15 @@ def query_counterpart(query_group):
                         str(entry_number), group1, str(int_rot1), str(int_tx1), ref_frame_tx_dof_group1, group2,
                         str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2, result))
         if matching_entries == []:
-            print '\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m'
-            print ''
+            print('\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m')
+            print('')
         else:
-            print '\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s" % query_group + '\033[0m'
+            print('\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s" % query_group + '\033[0m')
             print_query_header()
             for match in matching_entries:
-                print match
+                print(match)
     else:
-        print "INVALID ENTRY"
+        print("INVALID ENTRY")
 
 
 def all_entries():
@@ -153,11 +161,14 @@ def all_entries():
         ref_frame_tx_dof_group1 = sym_comb_dict[entry_number][5]
         ref_frame_tx_dof_group2 = sym_comb_dict[entry_number][10]
         result = sym_comb_dict[entry_number][12]
-        all_entries_list.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1), str(int_tx1), ref_frame_tx_dof_group1, group2, str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2, result))
-    print '\033[1m' + "ALL ENTRIES" + '\033[0m'
+        all_entries_list.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1),
+                                                                  str(int_tx1), ref_frame_tx_dof_group1, group2,
+                                                                  str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2,
+                                                                  result))
+    print('\033[1m' + "ALL ENTRIES" + '\033[0m')
     print_query_header()
     for entry in all_entries_list:
-        print entry
+        print(entry)
 
 
 def dimension(dim):
@@ -186,10 +197,13 @@ def dimension(dim):
                 ref_frame_tx_dof_group1 = sym_comb_dict[entry_number][5]
                 ref_frame_tx_dof_group2 = sym_comb_dict[entry_number][10]
                 result = sym_comb_dict[entry_number][12]
-                matching_entries_list.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1), str(int_tx1), ref_frame_tx_dof_group1, group2, str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2, result))
-        print '\033[1m' + "ALL ENTRIES FOUND WITH DIMENSION " + str(dim) + ": " + '\033[0m'
+                matching_entries_list.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1),
+                                                                               str(int_tx1), ref_frame_tx_dof_group1,
+                                                                               group2, str(int_rot2), str(int_tx2),
+                                                                               ref_frame_tx_dof_group2, result))
+        print('\033[1m' + "ALL ENTRIES FOUND WITH DIMENSION " + str(dim) + ": " + '\033[0m')
         print_query_header()
         for entry in matching_entries_list:
-            print entry
+            print(entry)
     else:
-        print "DIMENSION NOT SUPPORTED, VALID DIMENSIONS ARE: 0, 2 or 3 "
+        print("DIMENSION NOT SUPPORTED, VALID DIMENSIONS ARE: 0, 2 or 3 ")

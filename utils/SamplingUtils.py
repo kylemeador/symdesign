@@ -1,5 +1,6 @@
-import numpy as np
 import math
+
+import numpy as np
 
 # ROTATION RANGE DEG
 C2 = 180
@@ -142,7 +143,7 @@ def get_rot_matrices(step_deg, axis, rot_range_deg):
         return rot_matrices
 
     else:
-        print "AXIS SELECTED FOR SAMPLING IS NOT SUPPORTED"
+        print("AXIS SELECTED FOR SAMPLING IS NOT SUPPORTED")
         return None
 
 

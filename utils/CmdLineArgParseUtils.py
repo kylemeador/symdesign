@@ -8,8 +8,8 @@ from utils import SymQueryUtils
 def query_mode(arg_list):
     valid_query_flags = ["-all_entries", "-combination", "-result", "-counterpart", "-dimension"]
     if len(arg_list) >= 3 and arg_list[1] == "-query" and arg_list[2] in valid_query_flags:
-        print '\033[32m' + '\033[1m' + "Nanohedra" + '\033[0m'
-        print '\033[1m' + '\033[95m' + "MODE: QUERY" + '\033[95m' + '\033[0m' + '\n'
+        print('\033[32m' + '\033[1m' + "Nanohedra" + '\033[0m')
+        print('\033[1m' + '\033[95m' + "MODE: QUERY" + '\033[95m' + '\033[0m' + '\n')
         if arg_list[2] == "-all_entries":
             if len(arg_list) == 3:
                 SymQueryUtils.all_entries()

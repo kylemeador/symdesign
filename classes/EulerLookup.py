@@ -1,5 +1,6 @@
-import numpy as np
 import os
+
+import numpy as np
 
 
 class EulerLookup:
@@ -45,7 +46,7 @@ class EulerLookup:
         # use known scale value to normalize, to save repeated sqrt calculations
 
         if guide_ats.ndim != 3 or guide_ats.shape[1] != 3 or guide_ats.shape[2] != 3:
-            print ('ERROR: guide atom array with wrong dimensions')
+            print('ERROR: guide atom array with wrong dimensions')
 
         nfrags = guide_ats.shape[0]
         rot = np.zeros((3, 3))

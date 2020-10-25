@@ -25,7 +25,7 @@ def center_of_mass_3d(coordinates):
             cm[j] = cm[j] / n
         return cm
     else:
-        print "ERROR CALCULATING CENTER OF MASS"
+        print("ERROR CALCULATING CENTER OF MASS")
         return None
 
 

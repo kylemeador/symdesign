@@ -1,10 +1,12 @@
 import copy
-from Atom import Atom
-import subprocess
-from Stride import Stride
-import numpy
-import os
 import math
+import os
+import subprocess
+
+import numpy
+
+from Atom import Atom
+from Stride import Stride
 
 
 class PDB:
@@ -276,7 +278,7 @@ class PDB:
         elif axis == 'z':
             rotmatrix = [[math.cos(deg), -1 * math.sin(deg), 0], [math.sin(deg), math.cos(deg), 0], [0, 0, 1]]
         else:
-            print "Axis does not exists!"
+            print("Axis does not exists!")
 
         for atom in self.all_atoms:
             coord = [atom.x, atom.y, atom.z]
@@ -299,7 +301,7 @@ class PDB:
         elif axis == 'z':
             rotmatrix = [[math.cos(deg), -1 * math.sin(deg), 0], [math.sin(deg), math.cos(deg), 0], [0, 0, 1]]
         else:
-            print "Axis does not exists!"
+            print("Axis does not exists!")
 
         rotated_atoms = []
         for atom in self.all_atoms:
@@ -431,7 +433,7 @@ class PDB:
                 cm[j] = cm[j] / n
             return cm
         else:
-            print "ERROR CALCULATING CENTER OF MASS"
+            print("ERROR CALCULATING CENTER OF MASS")
             return None
 
     def sample_rot_tx_dof_coords(self, rot_step_deg=1, rot_range_deg=0, tx_step=1, start_tx_range=0, end_tx_range=0, axis="z", rotational_setting_matrix=None, degeneracy=None):
@@ -460,7 +462,7 @@ class PDB:
                 return rot_matrices
 
             else:
-                print "AXIS SELECTED FOR SAMPLING IS NOT SUPPORTED"
+                print("AXIS SELECTED FOR SAMPLING IS NOT SUPPORTED")
                 return None
 
         def get_tx_matrices(step, axis, start_range, end_range):
@@ -483,7 +485,7 @@ class PDB:
                 return tx_matrices
 
             else:
-                print "INVALID SAMPLING AXIS"
+                print("INVALID SAMPLING AXIS")
                 return None
 
         def generate_sampled_coordinates_np(pdb_coordinates, rotation_matrices, translation_matrices, degeneracy_matrices):
