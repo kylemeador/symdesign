@@ -692,7 +692,7 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         # degen1, degen2 = tuple(degens)
         last_rot1, last_rot2 = compute_last_rotation_state(*rotations)
         if rot2_count > last_rot2:
-            rot2_count = rot2_count % last_rot2
+            rot2_count = int(rot2_count % last_rot2)
         rot1_count -= 1
         rot2_count -= 1
         ### REMOVE ###

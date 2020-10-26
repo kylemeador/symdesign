@@ -1927,7 +1927,7 @@ def compute_last_rotation_state(range1, range2, step1, step2):
     number_steps1 = range1 / step1
     number_steps2 = range2 / step2
 
-    return number_steps1, number_steps2
+    return int(number_steps1), int(number_steps2)
 
 
 def gather_fragment_metrics(_des_dir, init=False, score=False):
