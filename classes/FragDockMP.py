@@ -697,7 +697,8 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         rot2_count -= 1
         ### REMOVE ###
         with open(log_filepath, "a+") as log_file:
-            log_file.write('Job was run with the \'-resume\' flag. Resuming from last sampled rotational space!\n')
+            log_file.write('Job was run with the \'-resume\' flag. Resuming from last sampled rotational space! %s, %s\n' %
+                           (rot1_count, rot2_count))
 
     if (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
         rot1_mat = None

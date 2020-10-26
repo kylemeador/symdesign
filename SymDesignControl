@@ -66,10 +66,10 @@ def pair_dock_directories(dirs):
     flipped_sufffix = '_flipped_180y'
     destination_string = 'DEGEN_1_2'
     origin_string = 'DEGEN_1_1'
-    for dir in dirs:
-        new_dir = os.path.dirname(dir.path)[:-len(flipped_sufffix)]
-        destination = os.path.join(os.path.abspath(new_dir), os.path.basename(dir.path), destination_string)
-        original_dir = os.path.join(os.path.abspath(dir.path), origin_string)  # os.path.basename(dir.path)
+    for _dir in dirs:
+        new_dir = os.path.dirname(_dir.path)[:-len(flipped_sufffix)]
+        destination = os.path.join(os.path.abspath(new_dir), os.path.basename(_dir.path), destination_string)
+        original_dir = os.path.join(os.path.abspath(_dir.path) + flipped_sufffix, origin_string)
         merge_pairs.append((original_dir, destination))
 
     return merge_pairs, list()
@@ -482,7 +482,7 @@ if __name__ == '__main__':
         logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
                     'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano))
 
-    elif args.sub_module == 'pose':  # -c --command_only, -i --fragment_library, -p --mpi, -x --suspend
+    elif args.sub_module == 'pose':  # -c command_only, -i fragment_library, -p mpi, -x suspend
         if args.mpi:
             args.command_only = True
             extras = ' mpi %d' % CUtils.mpi
@@ -617,7 +617,7 @@ if __name__ == '__main__':
                 exit('No source location was specified! Use -d2 or -f2 to specify the source of poses when merging '
                      'design directories')
             elif args.mode == 'dock':
-                directory_pairs, failures = pair_dock_directories(all_poses)
+                directory_pairs, failures = pair_dock_directories(all_dock_directories)
                 for pair in directory_pairs:
                     try:
                         merge_docking_pair(pair)
