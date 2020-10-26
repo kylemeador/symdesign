@@ -75,10 +75,6 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 
     for i in range(len(tx_param_list)):
 
-        log_file = open(log_filepath, "a+")
-        log_file.write("\t\t Optimal Shift %s" % str(i) + "\n")
-        log_file.close()
-
         ########## Part of: 1 / (1 + z^2) score test ##########
 
         # Dictionaries for PDB1 and PDB2 with (ch_id, res_num) tuples as keys for every residue that is covered by at
@@ -149,6 +145,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
         copy_rot_tr_set_time_stop = time.time()
         copy_rot_tr_set_time = copy_rot_tr_set_time_stop - copy_rot_tr_set_time_start
         log_file = open(log_filepath, "a+")
+        log_file.write("\t\t Optimal Shift %s" % str(i) + "\n")
         log_file.write("\t\t\t Copy and Transform Oligomer1 and Oligomer2 (took: %s s)\n" % str(copy_rot_tr_set_time))
         log_file.close()
 
@@ -747,13 +744,13 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
             log_file = open(log_filepath, "a+")
             log_file.write("\tNo Initial Interface Fragment Matches Found with an Acceptable Optimal Shift\n" + "\n")
             log_file.close()
-        elif len(tx_param_list) == 1:
-            log_file = open(log_filepath, "a+")
-            log_file.write("\t1 Initial Interface Fragment Match Found with an Acceptable Optimal Shift" + "\n")
-            log_file.close()
+        # elif len(tx_param_list) == 1:
+        #     log_file = open(log_filepath, "a+")
+        #     log_file.write("\t1 Initial Interface Fragment Match Found with an Acceptable Optimal Shift" + "\n")
+        #     log_file.close()
         else:
             log_file = open(log_filepath, "a+")
-            log_file.write("\t%s Initial Interface Fragment Matches Found with an Acceptable Optimal Shift" % str(len(tx_param_list)) + "\n")
+            log_file.write("\t%s Initial Interface Fragment Match{es} Found with an Acceptable Optimal Shift" % str(len(tx_param_list)) + "\n")
             log_file.close()
 
         degen_subdir_out_path = outdir + "/DEGEN_" + str(degen1_count) + "_" + str(degen2_count)
