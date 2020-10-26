@@ -1,17 +1,17 @@
-import Bio.PDB.Superimposer
-from Bio.PDB.Atom import Atom as BioPDBAtom
-from classes.PDB import *
 import os
-import numpy as np
-import sys
-import sklearn.neighbors
-from copy import deepcopy
-from itertools import permutations
 import warnings
+from itertools import permutations
+
+import Bio.PDB.Superimposer
+import numpy as np
+import sklearn.neighbors
+from Bio.PDB.Atom import Atom as BioPDBAtom
 from Bio.PDB.Atom import PDBConstructionWarning
-import sys
-import SymDesignUtils as SDUtils
+
 import PathUtils as PUtils
+import SymDesignUtils as SDUtils
+from classes.PDB import *
+
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
 
@@ -324,7 +324,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     tot_tested_perms = 0
 
     # Min Interface RMSD
-    min_irmsd = sys.maxint
+    min_irmsd = float('inf')
     min_irot = None
     min_itx = None
 

@@ -1,6 +1,6 @@
-import numpy as np
-import sys
 from math import sqrt
+
+import numpy as np
 
 
 class OptimalTx:
@@ -16,7 +16,7 @@ class OptimalTx:
         self.guide_atom_coods2 = guide_atom_coods2
 
         self.n_dof_internal = [self.is_zshift1, self.is_zshift2].count(True)
-        self.optimal_tx = (np.array([]), sys.maxint)  # (shift, error_zvalue)
+        self.optimal_tx = (np.array([]), float('inf'))  # (shift, error_zvalue)
         self.guide_atom_coods1_set = []
         self.guide_atom_coods2_set = []
 

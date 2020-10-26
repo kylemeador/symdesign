@@ -1,6 +1,3 @@
-import sys
-
-
 class Residue:
     def __init__(self, atom_list):
         self.atom_list = atom_list
@@ -35,7 +32,7 @@ class Residue:
             return None
 
     def distance(self, other_residue):
-        min_dist = sys.maxint
+        min_dist = float('inf')
         for self_atom in self.atom_list:
             for other_atom in other_residue.atom_list:
                 d = self_atom.distance(other_atom, intra=True)

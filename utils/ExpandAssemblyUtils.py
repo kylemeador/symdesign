@@ -1,13 +1,13 @@
-import os
-import numpy as np
 import copy
+import os
 import pickle
-import sys
-from classes.PDB import PDB
-from classes.Atom import Atom
-from utils.GeneralUtils import center_of_mass_3d
+
+import numpy as np
 import sklearn.neighbors
-import time
+
+from classes.Atom import Atom
+from classes.PDB import PDB
+from utils.GeneralUtils import center_of_mass_3d
 
 
 def generate_cryst1_record(dimensions, spacegroup):
@@ -198,7 +198,7 @@ def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
     asu_com_cart = center_of_mass_3d(pdb_asu_coords_cart)
     asu_com_frac = cart_to_frac(asu_com_cart, uc_dimensions)
 
-    asu_com_x_min_cart = sys.maxint
+    asu_com_x_min_cart = float('inf')
     x_min_shift_vec_frac = None
     for x in range(-10, 11):
         asu_com_x_shifted_coords_frac = asu_com_frac + [x, 0, 0]
@@ -207,7 +207,7 @@ def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
             asu_com_x_min_cart = asu_com_x_shifted_coords_cart[0]
             x_min_shift_vec_frac = [x, 0, 0]
 
-    asu_com_y_min_cart = sys.maxint
+    asu_com_y_min_cart = float('inf')
     y_min_shift_vec_frac = None
     for y in range(-10, 11):
         asu_com_y_shifted_coords_frac = asu_com_frac + [0, y, 0]
@@ -245,7 +245,7 @@ def get_central_asu_pdb_3d(pdb1, pdb2, uc_dimensions):
     asu_com_cart = center_of_mass_3d(pdb_asu_coords_cart)
     asu_com_frac = cart_to_frac(asu_com_cart, uc_dimensions)
 
-    asu_com_x_min_cart = sys.maxint
+    asu_com_x_min_cart = float('inf')
     x_min_shift_vec_frac = None
     for x in range(-10, 11):
         asu_com_x_shifted_coords_frac = asu_com_frac + [x, 0, 0]
@@ -254,7 +254,7 @@ def get_central_asu_pdb_3d(pdb1, pdb2, uc_dimensions):
             asu_com_x_min_cart = asu_com_x_shifted_coords_cart[0]
             x_min_shift_vec_frac = [x, 0, 0]
 
-    asu_com_y_min_cart = sys.maxint
+    asu_com_y_min_cart = float('inf')
     y_min_shift_vec_frac = None
     for y in range(-10, 11):
         asu_com_y_shifted_coords_frac = asu_com_frac + [0, y, 0]
@@ -263,7 +263,7 @@ def get_central_asu_pdb_3d(pdb1, pdb2, uc_dimensions):
             asu_com_y_min_cart = asu_com_y_shifted_coords_cart[1]
             y_min_shift_vec_frac = [0, y, 0]
 
-    asu_com_z_min_cart = sys.maxint
+    asu_com_z_min_cart = float('inf')
     z_min_shift_vec_frac = None
     for z in range(-10, 11):
         asu_com_z_shifted_coords_frac = asu_com_frac + [0, 0, z]

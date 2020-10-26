@@ -1,5 +1,4 @@
 import os
-import sys
 
 import numpy as np
 
@@ -143,7 +142,7 @@ class MonoFragment:
             a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", 3.0, 0.0, 0.0, 1.00, 20.00, "N", "")
             a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", 0.0, 3.0, 0.0, 1.00, 20.00, "O", "")
 
-            min_rmsd = sys.maxint
+            min_rmsd = float('inf')
             min_rmsd_cluster_rep_rot_tx = None
             min_rmsd_cluster_rep_type = None
             for cluster_type in monofrag_cluster_rep_dict:
