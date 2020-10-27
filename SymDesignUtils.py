@@ -1836,8 +1836,8 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
-def gather_docking_metrics(base_directory):
-    with open(os.path.join(base_directory, 'master_log.txt'), 'r') as master_log:
+def gather_docking_metrics(log_file):
+    with open(os.path.join(log_file), 'r') as master_log:  # base_directory, 'master_log.txt'
         parameters = master_log.readlines()
         for line in parameters:
             if "PDB 1 Directory Path: " in line:
@@ -1889,18 +1889,18 @@ def gather_docking_metrics(base_directory):
                 if degen1.isdigit():
                     degen1 = int(degen1) + 1
                 else:
-                    degen1 = 1  # No degens becomes a single degen None
+                    degen1 = 1  # No degens becomes a single degen
             elif 'Degeneracies Found for Oligomer 2' in line:
                 degen2 = line.split()[0]
                 if degen2.isdigit():
                     degen2 = int(degen2) + 1
                 else:
-                    degen2 = 1  # No degens becomes a single degen None
+                    degen2 = 1  # No degens becomes a single degen
 
     return pdb_dir1_path, pdb_dir2_path, master_outdir, sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2,\
-           design_symmetry, internal_rot1, internal_rot2, rot_range_deg_pdb1, rot_range_deg_pdb2, rot_step_deg1, \
-           rot_step_deg2, internal_zshift1, internal_zshift2, ref_frame_tx_dof1, ref_frame_tx_dof2, set_mat1, set_mat2,\
-           result_design_sym, design_dim, uc_spec_string, degen1, degen2
+        design_symmetry, internal_rot1, internal_rot2, rot_range_deg_pdb1, rot_range_deg_pdb2, rot_step_deg1, \
+        rot_step_deg2, internal_zshift1, internal_zshift2, ref_frame_tx_dof1, ref_frame_tx_dof2, set_mat1, set_mat2,\
+        result_design_sym, design_dim, uc_spec_string, degen1, degen2
 
 
 def pdb_input_parameters(args):
