@@ -437,7 +437,8 @@ if __name__ == '__main__':
         if args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                          dir_type=args.mode)
-            design_directories = [SDUtils.set_up_dock_dir(dock_dir) for dock_dir in all_dock_directories]
+            design_directories = [SDUtils.set_up_dock_dir(dock_dir, suffix=args.design_string) for dock_dir in
+                                  all_dock_directories]
         else:
             # Getting PDB1 and PDB2 File paths
             if not args.pdb_path1:
