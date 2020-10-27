@@ -1837,7 +1837,7 @@ def rename_decoy_protocols(des_dir, rename_dict):
 
 
 def gather_docking_metrics(log_file):
-    with open(log_file, 'r') as master_log:  # base_directory, 'master_log.txt'
+    with open(log_file, 'r') as master_log:  # os.path.join(base_directory, 'master_log.txt')
         parameters = master_log.readlines()
         for line in parameters:
             if "PDB 1 Directory Path: " in line:
@@ -2181,7 +2181,8 @@ def handle_errors(errors=(Exception, )):
 
 class DesignDirectory:
 
-    def __init__(self, directory, auto_structure=True, symmetry=None):
+    def __init__(self, directory, mode='design', auto_structure=True, symmetry=None):
+        self.mode = mode
         self.path = directory
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
         self.symmetry = None
@@ -2203,6 +2204,7 @@ class DesignDirectory:
         # design_symmetry/all_scores/str(self)_Residues.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Sequences.pkl)
         self.building_blocks = None
         # design_symmetry/building_blocks (P432/4ftd_5tch)
+        self.building_block_logs = []
         self.scores = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scores (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scores)
         self.design_pdbs = None  # TODO .designs?
@@ -2228,7 +2230,10 @@ class DesignDirectory:
             if symmetry:
                 if len(self.path.split(os.sep)) == 1:
                     self.directory_string_to_path()
-            self.make_directory_structure(symmetry=symmetry)
+            if self.mode == 'design':
+                self.design_directory_structure(symmetry=symmetry)
+            elif self.mode == 'dock':
+                self.dock_directory_structure(symmetry=symmetry)
 
     def __str__(self):
         if self.symmetry:
@@ -2240,7 +2245,7 @@ class DesignDirectory:
     def directory_string_to_path(self):  # string, symmetry
         self.path = self.path.replace('-', os.sep)
 
-    def make_directory_structure(self, symmetry=None):
+    def design_directory_structure(self, symmetry=None):
         # Prepare Output Directory/Files. path always has format:
         if symmetry:
             self.symmetry = symmetry.rstrip(os.sep)
@@ -2290,12 +2295,90 @@ class DesignDirectory:
                     #                   (self.path, PUtils.program_name))
                     self.info = unpickle(os.path.join(self.data, 'info.pkl'))
 
+    def dock_directory_structure(self, symmetry=None):
+        """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
+        typical directory structuring"""
+        # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation
+        self.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(symmetry or '')))  # for design_recap
+        self.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
+        for k, _sym in enumerate(self.symmetry):
+            self.building_blocks.append(list())
+            self.building_block_logs.append(list())
+            # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
+            for bb_dir in next(os.walk(_sym))[1]:
+                if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
+                    self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
+                    self.building_blocks[k].append(bb_dir)
+
+        return dock_dir
+
+    # TODO generators for the various directory levels using the stored directory pieces
+    def get_building_block_dir(self, building_block):
+        for sym_idx, symm in enumerate(self.symmetry):
+            try:
+                bb_idx = self.building_blocks[sym_idx].index(building_block)
+                return os.path.join(self.symmetry[sym_idx], self.building_blocks[sym_idx][bb_idx])
+            except ValueError:
+                continue
+        return None
+
+    def return_symmetry_stats(self):
+        return len(symm for symm in self.symmetry)
+
+    def return_building_block_stats(self):
+        return len(bb for symm_bb in self.building_blocks for bb in symm_bb)
+
+    def return_unique_pose_stats(self):
+        return len(bb for symm in self.building_blocks for bb in symm)
+
     def start_log(self, name=None, level=2):
         _name = __name__
         if name:
             _name = name
         self.log = start_log(name=_name, handler=2, level=level,
                              location=os.path.join(self.path, os.path.basename(self.path)))
+
+
+def set_up_directory_objects(design_list, mode='design', symmetry=None):
+    """Create DesignDirectory objects from a directory iterable. Add symmetry if using DesignDirectory strings"""
+    return [DesignDirectory(design, mode=mode, symmetry=symmetry) for design in design_list]
+
+
+def set_up_dock_dir(path, suffix=None):  # DEPRECIATED
+    """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
+    typical directory structuring"""
+    dock_dir = DesignDirectory(path, auto_structure=False)
+    # try:
+    # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation
+    dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
+    dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
+    # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
+    dock_dir.building_blocks, dock_dir.building_block_logs = [], []
+    for k, _sym in enumerate(dock_dir.symmetry):
+        dock_dir.building_blocks.append(list())
+        dock_dir.building_block_logs.append(list())
+        for bb_dir in next(os.walk(_sym))[1]:
+            if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
+                dock_dir.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
+                dock_dir.building_blocks[k].append(bb_dir)
+
+    # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
+    # dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
+    #                                  for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
+    #                                 for k, _sym in enumerate(dock_dir.symmetry)]  # for each sym in symmetry
+
+    return dock_dir
+
+
+def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
+    pseudo_dir = DesignDirectory(path, auto_structure=False)
+    # pseudo_dir.path = os.path.dirname(wildtype)
+    pseudo_dir.building_blocks = os.path.dirname(path)
+    pseudo_dir.design_pdbs = directory
+    pseudo_dir.scores = os.path.dirname(score)
+    pseudo_dir.all_scores = os.getcwd()
+
+    return pseudo_dir
 
 
 def get_pose_by_id(design_directories, ids):
@@ -2349,36 +2432,11 @@ def collect_directories(directory, file=None, dir_type='design'):
         if dir_type == 'dock':
             all_directories = get_docked_directories(directory)
         elif dir_type == 'design':
-            # all_directories = get_design_directories(directory)
             base_directories = get_base_nanohedra_dirs(directory)
             all_directories = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
-            # print 'total of %d designs examined' % len(all_directories)
         location = directory
 
     return sorted(set(all_directories)), location
-
-
-# DEPRECIATED
-def get_design_directories(base_directory, directory_type=PUtils.pose_prefix):  # DEPRECIATED
-    """Returns a sorted list of all unique directories that contain designable poses
-
-    Args:
-        base_directory (str): Location on disk to search for Nanohedra poses
-    Keyword Args:
-        directory_type=PUtils.pose_prefix (str): The type of designs to search directories for
-    Returns:
-        all_design_directories (list): List containing all paths to designable poses
-    """
-    all_design_directories = []
-    for root, dirs, files in os.walk(base_directory):
-        if os.path.basename(root).startswith(directory_type):
-            all_design_directories.append(root)
-        else:
-            for directory in dirs:
-                if directory.startswith(PUtils.pose_prefix):
-                    all_design_directories.append(os.path.join(root, directory))
-
-    return sorted(set(all_design_directories))
 
 
 # DEPRECIATED
@@ -2414,34 +2472,18 @@ def get_base_nanohedra_dirs(base_dir):
     """Find all master directories corresponding to the highest output level of Nanohedra.py outputs. This corresponds
     to the DesignDirectory symmetry attribute
     """
-    # skip_dirs = []
     nanohedra_dirs = []
     for root, dirs, files in os.walk(base_dir, followlinks=True):
-        # Check if the nanohedra_directory has already been located, if so, don't walk deeper
-        # explore = True
-        # for nano_dir in nanohedra_dirs:
-        #     if nano_dir in root:
-        #         explore = False
-        #         break
-        # if explore:
         if 'master_log.txt' in files:
             nanohedra_dirs.append(root)
             del dirs[:]
-            print('found %d directories' % len(nanohedra_dirs))
-            # break
-    # print 'found %d Nanohedra base_dirs' % len(nanohedra_dirs)
+            # print('found %d directories' % len(nanohedra_dirs))
 
-        # second option is to add all os.path.join(root, dir) to skip_dirs, this doesn't explore deeper than dir though
-        # for file in files:
-        #     if file == 'master_log.txt':
-        #         nanohedra_dirs.append(root)
-        #         for dir in dirs:
-        #             skip_dirs.append(os.path.join(root, dir))
-        #         break
     return nanohedra_dirs
 
 
 def get_docked_dirs_from_base(base):
+    return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
     # want to find all NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/tx_139
 
     # for root1, dirs1, files1 in os.walk(base):  # NanohedraEntry1DockedPoses/
@@ -2459,50 +2501,6 @@ def get_docked_dirs_from_base(base):
     # timeit.timeit("import glob;get_design_directories('/share/gscratch/kmeador/crystal_design/
     #     NanohedraEntry65MinMatched6_FULL')", setup="from __main__ import get_design_directories", number=1)
     # gives 2.4859059400041588 versus 13.074574943981133
-
-    return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
-
-
-def set_up_directory_objects(design_list, symmetry=None):
-    """Create DesignDirectory objects from a directory iterable. Add symmetry if using DesignDirectory strings"""
-    return [DesignDirectory(design, symmetry=symmetry) for design in design_list]
-
-
-def set_up_dock_dir(path, suffix=None):
-    """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
-    typical directory structuring"""
-    dock_dir = DesignDirectory(path, auto_structure=False)
-    # try:
-    # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation
-    dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
-    dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
-    # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-    dock_dir.building_blocks, dock_dir.building_block_logs = [], []
-    for k, _sym in enumerate(dock_dir.symmetry):
-        dock_dir.building_blocks.append(list())
-        dock_dir.building_block_logs.append(list())
-        for bb_dir in next(os.walk(_sym))[1]:
-            if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
-                dock_dir.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-                dock_dir.building_blocks[k].append(bb_dir)
-
-    # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
-    # dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
-    #                                  for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
-    #                                 for k, _sym in enumerate(dock_dir.symmetry)]  # for each sym in symmetry
-
-    return dock_dir
-
-
-def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
-    pseudo_dir = DesignDirectory(path, auto_structure=False)
-    # pseudo_dir.path = os.path.dirname(wildtype)
-    pseudo_dir.building_blocks = os.path.dirname(path)
-    pseudo_dir.design_pdbs = directory
-    pseudo_dir.scores = os.path.dirname(score)
-    pseudo_dir.all_scores = os.getcwd()
-
-    return pseudo_dir
 
 
 ##############

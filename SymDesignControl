@@ -430,9 +430,9 @@ if __name__ == '__main__':
                 args.file = os.path.join(args.directory, 'all_pose_directories')
                 with open(args.file, 'w') as design_f:
                     design_f.write('\n'.join(pose for pose in all_docked_poses))
-
         else:
             exit('No design directories/files were specified\nPlease specify --directory or --file.')
+        logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
     elif args.mode == 'dock':
         if args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
@@ -458,7 +458,7 @@ if __name__ == '__main__':
                                         get_all_pdb_file_paths(args.pdb_path2))
                     location = args.pdb_path1, args.pdb_path2
                 design_directories = pdb_pairs  # for logging purposes below
-    logger.info('%d Poses found in \'%s\'' % (len(design_directories), location))
+        logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories), location))
 
     if args.command_only:
         args.suspend = True
