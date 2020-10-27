@@ -231,15 +231,16 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
 logger = start_log(name=__name__, handler=3, level=1)
 
 
+@handle_errors_f(errors=(FileNotFoundError, ))
 def unpickle(filename):
     """Unpickle (deserialize) and return a python object located at filename"""
-    if os.path.getsize(filename) > 0:
-        with open(filename, 'rb') as infile:
-            new_object = pickle.load(infile)
+    # if os.path.getsize(filename) > 0:
+    with open(filename, 'rb') as infile:
+        new_object = pickle.load(infile)
 
-        return new_object
-    else:
-        return None
+    return new_object
+    # else:
+    #     return None
 
 
 def pickle_object(target_object, name, out_path=os.getcwd(), protocol=pickle.HIGHEST_PROTOCOL):
@@ -1206,6 +1207,7 @@ def hhblits(query, threads=CUtils.hhblits_threads, outpath=os.getcwd()):
     return outfile_name, p
 
 
+@handle_errors_f(errors=(FileNotFoundError, ))
 def parse_pssm(file):
     """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
 
@@ -1265,6 +1267,7 @@ def get_lod(aa_freq_dict, bg_dict, round_lod=True):
     return lods
 
 
+@handle_errors_f(errors=(FileNotFoundError, ))
 def parse_hhblits_pssm(file, null_background=True):
     # Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
     dummy = 0.00
@@ -1719,6 +1722,7 @@ def prepare_rosetta_flags(flag_variables, stage, outpath=os.getcwd()):
     return make_flags_file(_flags)
 
 
+@handle_errors_f(errors=(FileNotFoundError, ))
 def parse_flags_file(directory, name='design', flag_variable=None):
     """Returns the design flags passed to Rosetta from a design directory
 
@@ -1836,6 +1840,7 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
+@handle_errors_f(errors=(FileNotFoundError, ))
 def gather_docking_metrics(log_file):
     with open(log_file, 'r') as master_log:  # os.path.join(base_directory, 'master_log.txt')
         parameters = master_log.readlines()
@@ -1930,12 +1935,14 @@ def compute_last_rotation_state(range1, range2, step1, step2):
     return int(number_steps1), int(number_steps2)
 
 
+@handle_errors_f(errors=(FileNotFoundError, ))
 def gather_fragment_metrics(_des_dir, init=False, score=False):
     """Gather docking metrics from Nanohedra output
     Args:
         _des_dir (DesignDirectory): DesignDirectory Object
     Keyword Args:
         init=False (bool): Whether the information requested is for pose initialization
+        score=False (bool): Whether to return the score information only
     Returns:
         (dict): Either {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': }
             transform_d {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
@@ -2035,6 +2042,7 @@ def gather_fragment_metrics(_des_dir, init=False, score=False):
         ave_z = fragment_z_total / num_fragments
         return {'nanohedra_score': nanohedra_score, 'average_fragment_z_score': ave_z,
                 'unique_fragments': num_fragments}  # , 'int_total': int_total}
+
 
 ####################
 # MULTIPROCESSING
@@ -2152,11 +2160,30 @@ class DesignError(Exception):  # TODO make error messages one line instead of st
         self.args = message
 
 
-def handle_errors(errors=(Exception, )):
+def handle_errors_f(errors=(Exception, )):
     """Decorator to wrap a function with try: ... except errors: finally:
 
     Keyword Args:
-        errors=(Exception, ) (tuple): A tuple of exceptions to monitor
+        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
+    Returns:
+        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
+            raised, else None
+    """
+    def wrapper(func):
+        def wrapped(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except errors as e:
+                return None
+        return wrapped
+    return wrapper
+
+
+def handle_errors(errors=(Exception, )):  # TODO refactor handle_errors to handle_errors_DesDir
+    """Decorator to wrap a function with try: ... except errors: finally:
+
+    Keyword Args:
+        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
     Returns:
         return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
             raised, else None

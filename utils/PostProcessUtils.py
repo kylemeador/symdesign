@@ -141,7 +141,7 @@ def rank(master_design_dirpath, metric, outdir):
                 #             designpath_metric_tup_list.append((design_path, frag_match_count))
                 #     info_file.close()
 
-    designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: tup[1], reverse=True)
+    designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0), reverse=True)
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
