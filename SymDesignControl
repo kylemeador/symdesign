@@ -169,21 +169,21 @@ def status(all_design_directories, _stage, number=None):
             #     continue
             # else:
             #     log_file = docking_file[0]
-            for k, bb in enumerate(des_dir.building_block_logs):  # Added from dock_dir patch
-                for l, log_file in enumerate(bb):  # Added from dock_dir patch
+            for sym_idx, building_blocks in enumerate(des_dir.building_block_logs):  # Added from dock_dir patch
+                for bb_idx, log_file in enumerate(building_blocks):  # Added from dock_dir patch
                     f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
                     degens, rotations = SDUtils.degen_and_rotation_parameters(
-                        SDUtils.gather_docking_metrics(des_dir.log))
+                        SDUtils.gather_docking_metrics(des_dir.log[sym_idx]))
                     degen1, degen2 = tuple(degens)
                     last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
-                    # print f_degen1, f_degen2, f_rot1, f_rot2
-                    # print degen1, degen2, last_rot1, last_rot2
+                    print('Last State:', f_degen1, f_degen2, f_rot1, f_rot2)
+                    print('Expected:', degen1, degen2, last_rot1, last_rot2)
                     if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
-                        complete.append(os.path.join(des_dir.symmetry[k], des_dir.building_blocks[k][l]))
+                        complete.append(os.path.join(des_dir.symmetry[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
                         # complete.append(des_dir)
                         # complete.append(des_dir.symmetry)
                     else:
-                        incomplete.append(os.path.join(des_dir.symmetry[k], des_dir.building_blocks[k][l]))
+                        incomplete.append(os.path.join(des_dir.symmetry[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
                         # incomplete.append(des_dir)
                         # incomplete.append(des_dir.symmetry)
         complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
