@@ -61,14 +61,20 @@ def pair_directories(dirs2, dirs1):
 
 
 def pair_dock_directories(dirs):
-    """Specific function for the DEGEN merging in the design recapitulation experiments. Can this be used in the future?"""
+    """Specific function for the DEGEN merging in the design recapitulation experiments.
+    Can this be used in the future?
+    Assumes that dir.path is equal to /Nanohedra_input/NanohedraEntry*DockedPoses/1abc_2xyz
+    """
     merge_pairs = []
     flipped_sufffix = '_flipped_180y'
     destination_string = 'DEGEN_1_2'
     origin_string = 'DEGEN_1_1'
     for _dir in dirs:
+        # remove the flipped suffix from the dirname
         new_dir = os.path.dirname(_dir.path)[:-len(flipped_sufffix)]
+        # where the link will live
         destination = os.path.join(os.path.abspath(new_dir), os.path.basename(_dir.path), destination_string)
+        # where the link will attach too. Adding the flipped suffix to the building_blocks name
         original_dir = os.path.join(os.path.abspath(_dir.path) + flipped_sufffix, origin_string)
         merge_pairs.append((original_dir, destination))
 
@@ -113,6 +119,26 @@ def merge_design_pair(pair):
 
 def designs(des_dir, file_type):
     return os.path.join(des_dir.design_pdbs, file_type)
+
+
+def rsync_dir(des_dir):
+    # make hard links for every file in a DEGEN_1_2 and higher directory
+    destination = os.path.join(des_dir.building_blocks, 'DEGEN_1_1%s' % os.sep)
+    p = []  # make an array for the processes
+    for k, entry in enumerate(os.scandir(des_dir.building_blocks)):
+        if entry.is_dir() and 'DEGEN_1_' in entry:
+            p[k] = subprocess.Popen(['rysnc', '-a', '--link-dest=%s%s' % (entry, os.sep), '--remove-source-files',
+                                     '%s%s' % (entry, os.sep), destination])
+    # remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
+    p2 = []
+    for k, process in enumerate(p):
+        p[k].communicate()
+        p2[k] = subprocess.Popen(['rm', '-r', entry])
+    # Check to see if processess are done, and move on.
+    for k, process in enumerate(p2):
+        p2[k].communicate()
+    # for root, dirs, files in os.path.walk(des_dir.building_blocks):
+    #     for dir in dirs:
 
 
 def status(design_directories, _stage, number=None):
@@ -383,7 +409,7 @@ if __name__ == '__main__':
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Grab all poses (directories) to be processed from either directory name or file
-    pdb_pairs, design_directories, location = None, None, None
+    all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
     if args.mode == 'design':
         if args.directory or args.file:
             all_docked_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
@@ -442,6 +468,8 @@ if __name__ == '__main__':
                        ['-%s' % flag for flag in flags if flag[0] != '-']
             extra_flags = make_flag(additional_flags)
             extra_flags += make_flag(args.additional_flags)
+        else:
+            extra_flags = None
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -597,7 +625,7 @@ if __name__ == '__main__':
                 logger.info('Analysis of all Trajectories and Residues written to %s'
                             % design_directories[0].all_scores)
 
-    elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment, # -t merge_type
+    elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
         directory_pairs, failures = None, None
         if args.directory2 or args.file2:
             # Grab all poses (directories) to be processed from either directory name or file
@@ -617,14 +645,14 @@ if __name__ == '__main__':
                 exit('No source location was specified! Use -d2 or -f2 to specify the source of poses when merging '
                      'design directories')
             elif args.mode == 'dock':
-                directory_pairs, failures = pair_dock_directories(all_dock_directories)
+                directory_pairs, failures = pair_dock_directories(design_directories)  #  all_dock_directories)
                 for pair in directory_pairs:
-                    try:
-                        merge_docking_pair(pair)
-                    except FileExistsError:
-                        if args.force:
-                            merge_docking_pair(pair, force=True)
-                        else:
+                    if args.force:
+                        merge_docking_pair(pair, force=True)
+                    else:
+                        try:
+                            merge_docking_pair(pair)
+                        except FileExistsError:
                             logger.info('%s directory already exits, moving on. Use --force to overwrite.' % pair[1])
                 terminate(exceptions)
 

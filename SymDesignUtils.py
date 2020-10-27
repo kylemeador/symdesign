@@ -2467,12 +2467,17 @@ def set_up_directory_objects(design_list, symmetry=None):
 
 
 def set_up_dock_dir(path):
+    """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
+    typical directory structuring"""
     dock_dir = DesignDirectory(path, auto_structure=False)
+    # try:
     dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
+    # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
     dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
     dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
-    dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.building_blocks
-                                    for bb_dir in sym] # TODO change to PUtils
+    dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, 'bb_dir_log.txt')  # make a log path TODO PUtils
+                                     for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
+                                    for k, _sym in enumerate(dock_dir.symmetry)]  # for each sym in symmetry
 
     return dock_dir
 
