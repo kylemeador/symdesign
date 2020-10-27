@@ -141,47 +141,53 @@ def rsync_dir(des_dir):
     #     for dir in dirs:
 
 
-def status(design_directories, _stage, number=None):
+def status(all_design_directories, _stage, number=None):
     complete, incomplete = [], []
     if _stage == 'nanohedra':
         from classes.FragDockMP import get_last_sampling_state
         # observed_building_blocks = []
-        for des_dir in design_directories:
-        #     if os.path.basename(des_dir.building_blocks) in observed_building_blocks:
-        #         continue
-        #     else:
-        #         observed_building_blocks.append(os.path.basename(des_dir.building_blocks))
-        #     f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
-        #     degens, rotations = \
-        #     SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.symmetry))
+        for des_dir in all_design_directories:
+            # if os.path.basename(des_dir.building_blocks) in observed_building_blocks:
+            #     continue
+            # else:
+            #     observed_building_blocks.append(os.path.basename(des_dir.building_blocks))
+            # f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
+            # degens, rotations = \
+            # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.symmetry))
+            #
+            # dock_dir = DesignDirectory(path, auto_structure=False)
+            # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
+            # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
+            # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
+            # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.building_blocks
+            #                                 for bb_dir in sym] # TODO change to PUtils
 
-        #     dock_dir = DesignDirectory(path, auto_structure=False)
-        #     dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
-        #     dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
-        #     dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
-        #     dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.building_blocks
-        #                                     for bb_dir in sym] # TODO change to PUtils
-
-            docking_file = glob(
-                os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))
-            if len(docking_file) != 1:
-                incomplete.append(des_dir)
-                continue
-            f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(docking_file[0], zero=False)
-            degens, rotations = \
-                SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(os.path.dirname(des_dir)))
-            degen1, degen2 = tuple(degens)
-            last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
-            # print f_degen1, f_degen2, f_rot1, f_rot2
-            # print degen1, degen2, last_rot1, last_rot2
-            if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
-                complete.append(des_dir)
-                # complete.append(des_dir.symmetry)
-            else:
-                incomplete.append(des_dir)
-                # incomplete.append(des_dir.symmetry)
-        complete = map(os.path.dirname, complete)
-        incomplete = map(os.path.dirname, incomplete)
+            # docking_file = glob(
+            #     os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))
+            # if len(docking_file) != 1:
+            #     incomplete.append(des_dir)
+            #     continue
+            # else:
+            #     log_file = docking_file[0]
+            for k, bb in enumerate(des_dir.building_block_logs):  # Added from dock_dir patch
+                for l, log_file in enumerate(bb):  # Added from dock_dir patch
+                    f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
+                    degens, rotations = \
+                        SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(os.path.dirname(des_dir)))
+                    degen1, degen2 = tuple(degens)
+                    last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
+                    # print f_degen1, f_degen2, f_rot1, f_rot2
+                    # print degen1, degen2, last_rot1, last_rot2
+                    if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
+                        complete.append(os.path.join(des_dir.symmetry[k], des_dir.building_blocks[k][l]))
+                        # complete.append(des_dir)
+                        # complete.append(des_dir.symmetry)
+                    else:
+                        incomplete.append(os.path.join(des_dir.symmetry[k], des_dir.building_blocks[k][l]))
+                        # incomplete.append(des_dir)
+                        # incomplete.append(des_dir.symmetry)
+        complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
+        incomplete = map(os.path.dirname, incomplete)  # can remove if building_block name is removed
     else:
         if not number:
             number = PUtils.stage_f[_stage]['len']
@@ -272,6 +278,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='\nControl all input/output of %s including:\n1. Pose initialization\n'
                                                  '2. Command distribution to computational nodes\n'
                                                  '3. Analysis of designs' % PUtils.program_name)
+    # ---------------------------------------------------
     parser.add_argument('-c', '--command_only', action='store_true',
                         help='Should commands be written but not executed?\nDefault=False')
     parser.add_argument('-d', '--directory', type=str, help='Directory where %s poses are located. Default=CWD'
@@ -286,11 +293,13 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--design_string', type=str, help='If pose names are specified by design string instead '
                                                                 'of directories, which directory path to '
                                                                 'prefix with?\nDefault=None', default=None)
-
     subparsers = parser.add_subparsers(title='SubModules', dest='sub_module',
                                        description='These are the different modes that designs are processed',
-                                       help='Chose one of the SubModules followed by SubModule specific flags')
-
+                                       help='Chose one of the SubModules followed by SubModule specific flags. To get '
+                                            'help on a SubModule such as specific commands and flags enter:\n%s\n\nAny'
+                                            'SubModule help can be accessed in this way'
+                                            % PUtils.submodule_help)
+    # ---------------------------------------------------
     parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py\nIf a docking directory structure is set up,'
                                                      ' provide the overall directory location with program argument '
                                                      '-d/-f, otherwise, use the -d1 -d2 \'pose\' module arguments to '
@@ -306,11 +315,10 @@ if __name__ == '__main__':
     parser_dock.add_argument('-f', '--additional_flags', nargs='*', help='Any additional flags to pass to %s.py. Should'
                                                                          ' be passed WITHOUT leading \'-\'!!' %
                                                                          PUtils.nano.title(), default=None)
-    parser_dock.add_argument('-o', '--outdir', type=str, help='Where should the output from commands be '
-                                                                        'written?\n'
-                                                                        'Default=CWD/NanohedraEntry(entry)DockedPoses',
+    parser_dock.add_argument('-o', '--outdir', type=str, help='Where should the output from commands be written?\n'
+                                                              'Default=CWD/NanohedraEntry(entry)DockedPoses',
                              default=None)
-
+    # ---------------------------------------------------
     parser_pose = subparsers.add_parser('pose', help='Gather output from %s and format for input into Rosetta. '
                                                      'Sets up interface design constrained evolutionary profiles '
                                                      'of homologous sequences and by fragment profiles extracted '
@@ -327,21 +335,7 @@ if __name__ == '__main__':
                              help='Should Rosetta design trajectory be suspended?\nDefault=False')
     parser_pose.add_argument('-p', '--mpi', action='store_true',
                              help='Should job be set up for cluster submission?\nDefault=False')
-
-    parser_dist = subparsers.add_parser('distribute',
-                                        help='Distribute specific design step commands to computational resources. '
-                                             'In distribution mode, the --file or --directory argument specifies which '
-                                             'pose commands should be distributed.')
-    parser_dist.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
-                             help='The stage of design to be prepared. One of %s' %
-                                  ', '.join(list(v for v in PUtils.stage_f.keys())), required=True)
-    parser_dist.add_argument('-y', '--success_file', help='The name/location of file containing successful commands\n'
-                                                          'Default={--stage}_stage_pose_successes', default=None)
-    parser_dist.add_argument('-n', '--failure_file', help='The name/location of file containing failed commands\n'
-                                                          'Default={--stage}_stage_pose_failures', default=None)
-    parser_dist.add_argument('-m', '--max_jobs', type=int, help='How many jobs to run at once?\nDefault=80',
-                             default=80)
-
+    # ---------------------------------------------------
     parser_analysis = subparsers.add_parser('analysis', help='Run analysis on all poses specified')
     parser_analysis.add_argument('-o', '--output', type=str,
                                  help='Name to output comma delimitted files.\nDefault=%s' % PUtils.analysis_file,
@@ -354,30 +348,7 @@ if __name__ == '__main__':
                                  help='Join Trajectory and Residue Dataframes?\nDefault=False')
     parser_analysis.add_argument('-g', '--delta_g', action='store_true',
                                  help='Compute deltaG versus Refine structure?\nDefault=False')
-
-    parser_merge = subparsers.add_parser('merge', help='Merge all completed designs from location 2 (-f2/-d2) to '
-                                                       'location 1(-f/-d). Includes renaming. Highly suggested you copy'
-                                                       ' original data!!!')
-    parser_merge.add_argument('-d2', '--directory2', type=str, help='Directory 2 where poses should be copied '
-                                                                    'from and appended to location 1 poses',
-                              default=None)
-    parser_merge.add_argument('-f2', '--file2', type=str, help='File 2 where poses should be copied from and appended '
-                                                               'to location 1 poses', default=None)
-    parser_merge.add_argument('-F', '--force', action='store_true', help='Overwrite merge paths?\nDefault=False')
-    parser_merge.add_argument('-i', '--increment', type=int, help='How many to increment each design by?\nDefault=%d'
-                                                                  % PUtils.nstruct)
-    # parser_merge.add_argument('-t', '--merge_type', type=str, help='Which type of output to merge?\nDefault=design',
-    #                           default='design')
-
-    parser_modify = subparsers.add_parser('modify', help='Modify something for testing')
-
-    parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
-    parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
-                               default=None)
-    parser_status.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
-                               help='The stage of design to check status of. One of %s'
-                                    % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
-
+    # ---------------------------------------------------
     parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
     parser_sequence.add_argument('-c', '--consensus', action='store_true', help='Whether to grab the consensus sequence'
                                                                                 '\nDefault=False')
@@ -392,7 +363,42 @@ if __name__ == '__main__':
     parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
     parser_sequence.add_argument('-w', '--weights', type=str, help='Weights of various metrics to final poses\n'
                                                                    'Default=1/number of --filters')
-
+    # ---------------------------------------------------
+    parser_dist = subparsers.add_parser('distribute',
+                                        help='Distribute specific design step commands to computational resources. '
+                                             'In distribution mode, the --file or --directory argument specifies which '
+                                             'pose commands should be distributed.')
+    parser_dist.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
+                             help='The stage of design to be prepared. One of %s' %
+                                  ', '.join(list(v for v in PUtils.stage_f.keys())), required=True)
+    parser_dist.add_argument('-y', '--success_file', help='The name/location of file containing successful commands\n'
+                                                          'Default={--stage}_stage_pose_successes', default=None)
+    parser_dist.add_argument('-n', '--failure_file', help='The name/location of file containing failed commands\n'
+                                                          'Default={--stage}_stage_pose_failures', default=None)
+    parser_dist.add_argument('-m', '--max_jobs', type=int, help='How many jobs to run at once?\nDefault=80',
+                             default=80)
+    # ---------------------------------------------------
+    parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
+    parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
+                               default=None)
+    parser_status.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
+                               help='The stage of design to check status of. One of %s'
+                                    % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
+    # ---------------------------------------------------
+    parser_merge = subparsers.add_parser('merge', help='Merge all completed designs from location 2 (-f2/-d2) to '
+                                                       'location 1(-f/-d). Includes renaming. Highly suggested you copy'
+                                                       ' original data!!!')
+    parser_merge.add_argument('-d2', '--directory2', type=str, help='Directory 2 where poses should be copied '
+                                                                    'from and appended to location 1 poses',
+                              default=None)
+    parser_merge.add_argument('-f2', '--file2', type=str, help='File 2 where poses should be copied from and appended '
+                                                               'to location 1 poses', default=None)
+    parser_merge.add_argument('-F', '--force', action='store_true', help='Overwrite merge paths?\nDefault=False')
+    parser_merge.add_argument('-i', '--increment', type=int, help='How many to increment each design by?\nDefault=%d'
+                                                                  % PUtils.nstruct)
+    # ---------------------------------------------------
+    parser_modify = subparsers.add_parser('modify', help='Modify something for testing')
+    # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
 
     args, additional_flags = parser.parse_known_args()
@@ -459,6 +465,7 @@ if __name__ == '__main__':
 
     # Parse SubModule specific commands
     results, exceptions = [], []
+    # ---------------------------------------------------
     if args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir, -f additional_flags
         # Process additional flags
         if args.additional_flags or additional_flags:
@@ -509,7 +516,7 @@ if __name__ == '__main__':
         logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
         logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
                     'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano))
-
+    # ---------------------------------------------------
     elif args.sub_module == 'pose':  # -c command_only, -i fragment_library, -p mpi, -x suspend
         if args.mpi:
             args.command_only = True
@@ -554,7 +561,7 @@ if __name__ == '__main__':
                         (args.directory, '\n'.join(['python %s -f %s distribute -s %s' % (__file__, args.file, stage)
                                                     for stage in list(PUtils.stage_f.keys())[:3]])))
             # TODO make args.file equal to command_files[i] and change distribution to no stage prefix...
-
+    # ---------------------------------------------------
     elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
         # Create success and failures files
         ran_num = int(100 * random())
@@ -588,7 +595,7 @@ if __name__ == '__main__':
 
         logger.info('To distribute commands enter the following:\ncd %s\nsbatch %s'
                     % (args.directory, os.path.basename(filename)))
-
+    # ---------------------------------------------------
     elif args.sub_module == 'analysis':  # -f figures, -n no_save, -j join, -g delta_g
         save = True
         if args.no_save:
@@ -624,7 +631,7 @@ if __name__ == '__main__':
             if save:
                 logger.info('Analysis of all Trajectories and Residues written to %s'
                             % design_directories[0].all_scores)
-
+    # ---------------------------------------------------
     elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
         directory_pairs, failures = None, None
         if args.directory2 or args.file2:
@@ -672,12 +679,12 @@ if __name__ == '__main__':
                 rename(des_directory, increment=args.increment)
             for directory_pair in directory_pairs:
                 merge_design_pair(directory_pair)
-
+    # ---------------------------------------------------
     elif args.sub_module == 'rename_scores':
         rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
         for des_directory in design_directories:
             SDUtils.rename_decoy_protocols(des_directory, rename)
-
+    # ---------------------------------------------------
     elif args.sub_module == 'modify':
         if args.multi_processing:
             mp_threads = SDUtils.calculate_mp_threads(maximum=True)
@@ -704,7 +711,7 @@ if __name__ == '__main__':
         logger.error('%d directories missing consensus metrics!' % len(errors))
         with open('missing_consensus_metrics', 'w') as f:
             f.write('\n'.join(errors))
-
+    # ---------------------------------------------------
     elif args.sub_module == 'status':  # -n number, -s stage
         if args.number_designs:
             logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but design '
@@ -717,7 +724,7 @@ if __name__ == '__main__':
                 if s:
                     logger.info('For \'%s\' stage, default settings should generate %d files'
                                 % (stage, PUtils.stage_f[stage]['len']))
-
+    # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.sub_module == 'sequence':  # -c consensus, -d dataframe, -f filters, -n number, -p pose_design_file, -s selection_string, -w weights
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file

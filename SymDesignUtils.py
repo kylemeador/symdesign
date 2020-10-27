@@ -2221,6 +2221,8 @@ class DesignDirectory:
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
         self.log = None
+        # v ^ both used in dock_dir set up
+        self.building_block_logs = None
 
         if auto_structure:
             if symmetry:
@@ -2424,7 +2426,7 @@ def get_base_nanohedra_dirs(base_dir):
         # if explore:
         if 'master_log.txt' in files:
             nanohedra_dirs.append(root)
-            del dirs
+            del dirs[:]
             print('found %d directories' % len(nanohedra_dirs))
             # break
     # print 'found %d Nanohedra base_dirs' % len(nanohedra_dirs)
@@ -2466,16 +2468,17 @@ def set_up_directory_objects(design_list, symmetry=None):
     return [DesignDirectory(design, symmetry=symmetry) for design in design_list]
 
 
-def set_up_dock_dir(path):
+def set_up_dock_dir(path, suffix=None):
     """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
     typical directory structuring"""
     dock_dir = DesignDirectory(path, auto_structure=False)
     # try:
-    dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
+    # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation
+    dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
+    dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
     # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
     dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
-    dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
-    dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, 'bb_dir_log.txt')  # make a log path TODO PUtils
+    dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
                                      for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
                                     for k, _sym in enumerate(dock_dir.symmetry)]  # for each sym in symmetry
 

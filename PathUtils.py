@@ -120,6 +120,8 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
                     stage[5]: os.path.join(sbatch_templates, stage[1]),
                     nano: os.path.join(sbatch_templates, nano)}
 
-
+# For argparseing help
 def help(module):
     return '\'%s %s -h\' for help' % (command, module)
+
+submodule_help = 'python %s %s -h' % (os.path.realpath(__file__), 'pose')
