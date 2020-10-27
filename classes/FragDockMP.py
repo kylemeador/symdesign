@@ -14,7 +14,7 @@ from utils.SymmUtils import get_uc_dimensions
 def get_last_sampling_state(log_file_path, zero=True):
     """Returns the (zero-indexed) last output state specified in the building_blocks_log.txt file. To return the
     one-indexed sampling state, pass zero=False"""
-    index = 0
+    degen_1, degen_2, rot_1, rot_2, index = 0, 0, 0, 0, 0
     if zero:
         index = 1
 
