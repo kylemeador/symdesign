@@ -2477,10 +2477,19 @@ def set_up_dock_dir(path, suffix=None):
     dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
     dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
     # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-    dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
-    dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
-                                     for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
-                                    for k, _sym in enumerate(dock_dir.symmetry)]  # for each sym in symmetry
+    dock_dir.building_blocks, dock_dir.building_block_logs = [], []
+    for k, _sym in enumerate(dock_dir.symmetry):
+        dock_dir.building_blocks.append(list())
+        dock_dir.building_block_logs.append(list())
+        for bb_dir in next(os.walk(_sym))[1]:
+            if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
+                dock_dir.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
+                dock_dir.building_blocks[k].append(bb_dir)
+
+    # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
+    # dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
+    #                                  for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
+    #                                 for k, _sym in enumerate(dock_dir.symmetry)]  # for each sym in symmetry
 
     return dock_dir
 
