@@ -177,8 +177,11 @@ def status(all_design_directories, _stage, number=None):
                     degen1, degen2 = tuple(degens)
                     last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
                     # REMOVE after increment gone
+                    f_degen1, f_degen2 = 1, 1
                     if f_rot2 > last_rot2:
                         f_rot2 = int(f_rot2 % last_rot2)
+                        if f_rot2 == 0:
+                            f_rot2 = last_rot2
                     # REMOVE
                     print('Last State:', f_degen1, f_degen2, f_rot1, f_rot2)
                     print('Expected:', degen1, degen2, last_rot1, last_rot2)
