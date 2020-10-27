@@ -173,7 +173,7 @@ def status(all_design_directories, _stage, number=None):
                 for l, log_file in enumerate(bb):  # Added from dock_dir patch
                     f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
                     degens, rotations = SDUtils.degen_and_rotation_parameters(
-                        SDUtils.gather_docking_metrics(os.path.dirname(des_dir.log)))
+                        SDUtils.gather_docking_metrics(des_dir.log))
                     degen1, degen2 = tuple(degens)
                     last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
                     # print f_degen1, f_degen2, f_rot1, f_rot2
