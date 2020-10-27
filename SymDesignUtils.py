@@ -37,6 +37,61 @@ layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2':
 viable = {'p6', 'p4', 'p3', 'p312', 'p4121', 'p622'}
 
 
+##########
+# ERRORS
+##########
+
+
+class DesignError(Exception):  # TODO make error messages one line instead of string iteration
+    # SymDesignUtils.DesignError: ('I', 'n', 'v', 'a', 'l', 'i', 'd', ' ', 'P', 'D', 'B', ' ', 'i', 'n', 'p', 'u', 't',
+    # ',', ' ', 'n', 'o', ' ', 'S', 'E', 'Q', 'R', 'E', 'S', ' ', 'r', 'e', 'c', 'o', 'r', 'd', ' ', 'f', 'o', 'u', 'n',
+    # 'd')
+
+    def __init__(self, message):
+        self.args = message
+
+
+def handle_errors_f(errors=(Exception, )):
+    """Decorator to wrap a function with try: ... except errors: finally:
+
+    Keyword Args:
+        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
+    Returns:
+        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
+            raised, else None
+    """
+    def wrapper(func):
+        def wrapped(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except errors as e:
+                return None
+        return wrapped
+    return wrapper
+
+
+def handle_errors(errors=(Exception, )):  # TODO refactor handle_errors to handle_errors_DesDir
+    """Decorator to wrap a function with try: ... except errors: finally:
+
+    Keyword Args:
+        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
+    Returns:
+        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
+            raised, else None
+    """
+    def wrapper(func):
+        def wrapped(*args, **kwargs):
+            try:
+                return func(*args, **kwargs), None
+            except errors as e:
+                return None, (args[0], e)  # requires a directory identifier as args[0]
+                # return None, (args[0].path, e)
+            # finally:  TODO figure out how to run only when uncaught exception is found
+            #     print('Error occurred in %s' % args[0].path)
+        return wrapped
+    return wrapper
+
+
 ############
 # Symmetry
 ############
@@ -2145,60 +2200,6 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
     p.join()
 
     return results
-
-
-##########
-# ERRORS
-##########
-
-class DesignError(Exception):  # TODO make error messages one line instead of string iteration
-    # SymDesignUtils.DesignError: ('I', 'n', 'v', 'a', 'l', 'i', 'd', ' ', 'P', 'D', 'B', ' ', 'i', 'n', 'p', 'u', 't',
-    # ',', ' ', 'n', 'o', ' ', 'S', 'E', 'Q', 'R', 'E', 'S', ' ', 'r', 'e', 'c', 'o', 'r', 'd', ' ', 'f', 'o', 'u', 'n',
-    # 'd')
-
-    def __init__(self, message):
-        self.args = message
-
-
-def handle_errors_f(errors=(Exception, )):
-    """Decorator to wrap a function with try: ... except errors: finally:
-
-    Keyword Args:
-        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
-    Returns:
-        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
-            raised, else None
-    """
-    def wrapper(func):
-        def wrapped(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except errors as e:
-                return None
-        return wrapped
-    return wrapper
-
-
-def handle_errors(errors=(Exception, )):  # TODO refactor handle_errors to handle_errors_DesDir
-    """Decorator to wrap a function with try: ... except errors: finally:
-
-    Keyword Args:
-        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
-    Returns:
-        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
-            raised, else None
-    """
-    def wrapper(func):
-        def wrapped(*args, **kwargs):
-            try:
-                return func(*args, **kwargs), None
-            except errors as e:
-                return None, (args[0], e)  # requires a directory identifier as args[0]
-                # return None, (args[0].path, e)
-            # finally:  TODO figure out how to run only when uncaught exception is found
-            #     print('Error occurred in %s' % args[0].path)
-        return wrapped
-    return wrapper
 
 
 ######################
