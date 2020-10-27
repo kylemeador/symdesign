@@ -289,13 +289,10 @@ logger = start_log(name=__name__, handler=3, level=1)
 @handle_errors_f(errors=(FileNotFoundError, ))
 def unpickle(filename):
     """Unpickle (deserialize) and return a python object located at filename"""
-    # if os.path.getsize(filename) > 0:
-    with open(filename, 'rb') as infile:
-        new_object = pickle.load(infile)
+    with open(filename, 'rb') as serial_f:
+        new_object = pickle.load(serial_f)
 
     return new_object
-    # else:
-    #     return None
 
 
 def pickle_object(target_object, name, out_path=os.getcwd(), protocol=pickle.HIGHEST_PROTOCOL):
@@ -454,12 +451,11 @@ def get_all_cluster(pdb, residue_cluster_id_list, db=PUtils.bio_fragmentDB):  # 
     cluster_list = []
     for cluster in residue_cluster_id_list:
         cluster_loc = cluster[0].split('_')
-        filename = os.path.join(db, cluster_loc[0], cluster_loc[0] + '_' + cluster_loc[1], cluster_loc[0] +
-                                '_' + cluster_loc[1] + '_' + cluster_loc[2], cluster[0] + '.pkl')
         res1 = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[0], cluster[1][0]))
         res2 = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[1], cluster[1][1]))
-        with open(filename, 'rb') as f:
-            cluster_list.append([[res1.ca, res2.ca], pickle.load(f)])
+        filename = os.path.join(db, cluster_loc[0], cluster_loc[0] + '_' + cluster_loc[1], cluster_loc[0] +
+                                '_' + cluster_loc[1] + '_' + cluster_loc[2], cluster[0] + '.pkl')
+        cluster_list.append([[res1.ca, res2.ca], unpickle(filename)])
 
     # OUTPUT format: [[[residue1_ca_atom, residue2_ca_atom], {'IJKClusterDict - such as 1_2_45'}], ...]
     return cluster_list
@@ -848,8 +844,7 @@ def get_db_statistics(database):
     """
     for file in os.listdir(database):
         if file.endswith('statistics.pkl'):
-            with open(os.path.join(database, file), 'rb') as f:
-                stats = pickle.load(f)
+            unpickle(os.path.join(database, file))
 
     return stats
 

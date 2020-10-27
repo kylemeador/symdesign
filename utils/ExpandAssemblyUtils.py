@@ -130,9 +130,8 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
 
 def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + "/ExpandMatrices/SPACE_GROUP_SYMM_OPERATORS"):
     sg_op_filepath = space_group_operator_dir + "/" + sym_type + ".pickle"
-    sg_op_file = open(sg_op_filepath, "r")
-    sg_sym_op = pickle.load(sg_op_file)
-    sg_op_file.close()
+    with open(sg_op_filepath, "rb") as sg_op_file:
+        sg_sym_op = pickle.load(sg_op_file)
 
     return sg_sym_op
 

@@ -182,7 +182,6 @@ def add_expression_tag(tag, sequence):
 
 def pull_uniprot_id_by_pdb(pdb_code, chain=None):
     uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
-    # uniprot_pdb_d = pickle.load(unidictf)
     source = 'unique_pdb'
     pdb_code = pdb_code.upper()
     if chain:
