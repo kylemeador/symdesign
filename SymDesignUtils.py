@@ -1837,7 +1837,7 @@ def rename_decoy_protocols(des_dir, rename_dict):
 
 
 def gather_docking_metrics(log_file):
-    with open(os.path.join(log_file), 'r') as master_log:  # base_directory, 'master_log.txt'
+    with open(log_file, 'r') as master_log:  # base_directory, 'master_log.txt'
         parameters = master_log.readlines()
         for line in parameters:
             if "PDB 1 Directory Path: " in line:
