@@ -137,8 +137,9 @@ def rsync_dir(des_dir):
                 p = []  # make an array for the processes
                 # for k, entry in enumerate(os.scandir(des_dir.building_blocks)):
                 for k, entry in enumerate(os.scandir(building_block_dir)):
-                    if entry.is_dir() and 'DEGEN_1_' in entry:
-                        p[entry] = subprocess.Popen(['echo', 'rysnc', '-a', '--link-dest=%s%s' % (entry, os.sep),
+                    if entry.is_dir() and 'DEGEN_1_' in entry.name:
+                        print(entry, entry.name)
+                        p[entry] = subprocess.Popen(['echo', 'rysnc', '-a', '--link-dest=%s%s' % (entry.name, os.sep),
                                                      '--remove-source-files', '%s%s' % (entry, os.sep), destination])
                         #                              requires '/' - os.sep
                 # remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
