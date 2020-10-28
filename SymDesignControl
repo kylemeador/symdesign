@@ -122,23 +122,36 @@ def designs(des_dir, file_type):
 
 
 def rsync_dir(des_dir):
+    """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
+    a single DEGEEN_1_2 directory"""
     # make hard links for every file in a DEGEN_1_2 and higher directory
-    destination = os.path.join(des_dir.building_blocks, 'DEGEN_1_1%s' % os.sep)
-    p = []  # make an array for the processes
-    for k, entry in enumerate(os.scandir(des_dir.building_blocks)):
-        if entry.is_dir() and 'DEGEN_1_' in entry:
-            p[k] = subprocess.Popen(['rysnc', '-a', '--link-dest=%s%s' % (entry, os.sep), '--remove-source-files',
-                                     '%s%s' % (entry, os.sep), destination])
-    # remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
-    p2 = []
-    for k, process in enumerate(p):
-        p[k].communicate()
-        p2[k] = subprocess.Popen(['rm', '-r', entry])
-    # Check to see if processess are done, and move on.
-    for k, process in enumerate(p2):
-        p2[k].communicate()
-    # for root, dirs, files in os.path.walk(des_dir.building_blocks):
-    #     for dir in dirs:
+
+    # IF USING THIS INDENT all below code
+    for bb_dir in des_dir.building_blocks:
+        building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
+        destination = os.path.join(building_block_dir, 'DEGEN_1_1%s' % os.sep)
+    # destination = os.path.join(des_dir.building_blocks[0], 'DEGEN_1_1%s' % os.sep)  # [0] pulls out the first index 1_1
+
+        p = []  # make an array for the processes
+        # for k, entry in enumerate(os.scandir(des_dir.building_blocks)):
+        for k, entry in enumerate(os.scandir(building_block_dir)):
+            if entry.is_dir() and 'DEGEN_1_' in entry:
+                p[k] = subprocess.Popen(['echo', 'rysnc', '-a', '--link-dest=%s%s' % (entry, os.sep), '--remove-source-files',
+                                         '%s%s' % (entry, os.sep), destination])  # requires '/' - os.sep
+        # remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
+        p2 = []
+        for k, process in enumerate(p):
+            p[k].communicate()
+            p2[k] = subprocess.Popen(['echo', 'rm', '-r', entry])
+        # Check to see if processess are done, and move on.
+        for k, process in enumerate(p2):
+            p2[k].communicate()
+        # for root, dirs, files in os.path.walk(des_dir.building_blocks):
+        #     for dir in dirs:
+
+    print('%s has been consolidated' % building_block_dir)
+
+    return des_dir.path
 
 
 def status(all_design_directories, _stage, number=None):
@@ -695,15 +708,23 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.sub_module == 'modify':
         if args.multi_processing:
-            mp_threads = SDUtils.calculate_mp_threads(maximum=True)
-            # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, design_directories, threads=mp_threads))
-            pose_map = pose_rmsd_mp(design_directories, threads=mp_threads)
+            if args.mod == 'consolidate_degen':
+                EXIT('Operation impossible')
+            elif args.mod == 'pose_map':
+                mp_threads = SDUtils.calculate_mp_threads(maximum=True)
+                # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, design_directories, threads=mp_threads))
+                pose_map = pose_rmsd_mp(design_directories, threads=mp_threads)
         else:
-            pose_map = pose_rmsd_s(design_directories)
+            if args.mod == 'consolidate_degen':
+                accessed_dirs = []
+                for design_directory in design_directories:
+                    accessed_dirs.append(rsync_dir(design_directory))
+            elif args.mod == 'pose_map':
+                pose_map = pose_rmsd_s(design_directories)
 
-        pose_cluster_map = cluster_poses(pose_map)
-        pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, PUtils.clustered_poses,
-                                                  out_path=design_directories[0].protein_data)
+                pose_cluster_map = cluster_poses(pose_map)
+                pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, PUtils.clustered_poses,
+                                                          out_path=design_directories[0].protein_data)
 
         # for protein_pair in pose_map:
         #     if os.path.basename(protein_pair) == '4f47_4grd':
@@ -711,14 +732,15 @@ if __name__ == '__main__':
         #                                                          (pose2, pose_map[protein_pair][pose1][pose2])
         #                                                          for pose2 in pose_map[protein_pair][pose1]]))
         #                            for pose1 in pose_map[protein_pair]]))
-        errors = []
-        for i, result in enumerate(results):
-            if not result:
-                errors.append(design_directories[i].path)
 
-        logger.error('%d directories missing consensus metrics!' % len(errors))
-        with open('missing_consensus_metrics', 'w') as f:
-            f.write('\n'.join(errors))
+        # errors = []
+        # for i, result in enumerate(results):
+        #     if not result:
+        #         errors.append(design_directories[i].path)
+        #
+        # logger.error('%d directories missing consensus metrics!' % len(errors))
+        # with open('missing_consensus_metrics', 'w') as f:
+        #     f.write('\n'.join(errors))
     # ---------------------------------------------------
     elif args.sub_module == 'status':  # -n number, -s stage
         if args.number_designs:
