@@ -128,28 +128,27 @@ def rsync_dir(des_dir):
     # make hard links for every file in a DEGEN_1_2 and higher directory
 
     for s, sym_dir in enumerate(des_dir.symmetry):
-        if '_flipped_180y' not in sym_dir:
+        if '_flipped_180y' in sym_dir:
             # IF USING THIS INDENT all below code
             for bb_dir in des_dir.building_blocks[s]:
                 building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
                 destination = os.path.join(building_block_dir, 'DEGEN_1_1%s' % os.sep)
             # destination = os.path.join(des_dir.building_blocks[0], 'DEGEN_1_1%s' % os.sep)  # [0] pulls out the first index 1_1
 
-                p = []  # make an array for the processes
+                p = {}  # make a dict for the processes
                 # for k, entry in enumerate(os.scandir(des_dir.building_blocks)):
                 for k, entry in enumerate(os.scandir(building_block_dir)):
                     if entry.is_dir() and 'DEGEN_1_' in entry.name:
                         abs_entry_path = os.path.join(building_block_dir, entry.name)
-                        print(abs_entry_path)
                         p[abs_entry_path] = \
                             subprocess.Popen(['echo', 'rysnc', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep),
-                                              '--remove-source-files', '%s%s' % (entry, os.sep), destination])
+                                              '--remove-source-files', '%s%s' % (abs_entry_path, os.sep), destination])
                         #                              requires '/' - os.sep
                 # remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
                 p2 = []
-                for k, entry in enumerate(p):
-                    p[k].communicate()
-                    p2[k] = subprocess.Popen(['echo', 'rm', '-r', entry])
+                for entry in p:
+                    p[entry].communicate()
+                    p2.append(subprocess.Popen(['echo', 'rm', '-r', entry]))
                 # Check to see if processess are done, and move on.
                 for k, process in enumerate(p2):
                     p2[k].communicate()
