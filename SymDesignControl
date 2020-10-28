@@ -420,6 +420,8 @@ if __name__ == '__main__':
                                                                   % PUtils.nstruct)
     # ---------------------------------------------------
     parser_modify = subparsers.add_parser('modify', help='Modify something for testing')
+    parser_modify.add_argument('-m', '--mod', type=str, help='Which type of modification?\nChoose from '
+                                                             'consolidate_degen or pose_map')
     # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
 
