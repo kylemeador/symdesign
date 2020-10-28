@@ -148,7 +148,8 @@ def rsync_dir(des_dir):
                 p2 = []
                 for entry in p:
                     p[entry].communicate()
-                    p2.append(subprocess.Popen(['echo', 'rm', '-r', entry]))
+                    p2.append(subprocess.Popen(['echo', 'find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']))
+                    # p2.append(subprocess.Popen(['echo', 'rm', '-r', entry]))
                 # Check to see if processess are done, and move on.
                 for k, process in enumerate(p2):
                     p2[k].communicate()
