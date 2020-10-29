@@ -2036,7 +2036,11 @@ def gather_fragment_metrics(_des_dir, init=False, score=False):
                 residue_cluster_d[cluster]['pair'].append((res_chain1, res_chain2))
                 continue
             elif line[:17] == 'Overlap Z-Value: ':
-                z_value_dict[cluster] = float(line[17:].strip())
+                try:
+                    z_value_dict[cluster] = float(line[17:].strip())
+                except ValueError:
+                    print('%s has misisng Z-value in frag_info_file.txt' % _des_dir)
+                    z_value_dict[cluster] = float(1.0)
                 continue
             elif line[:17] == 'Nanohedra Score: ':
                 nanohedra_score = float(line[17:].strip())
