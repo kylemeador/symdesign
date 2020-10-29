@@ -2245,6 +2245,7 @@ class DesignDirectory:
         self.source = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/central_asu.pdb
         self.asu = None
+        self.oligomers = {}
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu.pdb
         self.info = {}
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
@@ -2326,8 +2327,8 @@ class DesignDirectory:
         """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
         typical directory structuring"""
         # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation
-        self.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(symmetry or '')))  # for design_recap
-        self.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
+        self.symmetry = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(symmetry or '')))  # for design_recap
+        self.log = [os.path.join(_sym, 'master_log.txt') for _sym in self.symmetry]  # TODO change to PUtils
         for k, _sym in enumerate(self.symmetry):
             self.building_blocks.append(list())
             self.building_block_logs.append(list())
@@ -2337,7 +2338,14 @@ class DesignDirectory:
                     self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
                     self.building_blocks[k].append(bb_dir)
 
-        return dock_dir
+    def get_oligomers(self):
+        if self.mode == 'design':
+            for name in self.building_blocks.split('_'):
+                name_pdb_file = glob(os.path.join(self.path, name + '_tx_*.pdb'))
+                assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
+                self.oligomers[name] = read_pdb(name_pdb_file[0])
+                self.oligomers[name].AddName(name)
+                self.oligomers[name].reorder_chains()
 
     # TODO generators for the various directory levels using the stored directory pieces
     def get_building_block_dir(self, building_block):
