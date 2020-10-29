@@ -513,34 +513,34 @@ def postprocess_mode(arg_list):
             sys.exit()
 
     if "-rank" in arg_list and "-min_matched" not in arg_list and "-min_score" not in arg_list and "-min_matched_ss" not in arg_list:
-        try:
-            rank_index = arg_list.index("-rank") + 1
-            try:
-                metric = arg_list[rank_index]
+        # try:
+        rank_index = arg_list.index("-rank") + 1
+            # try:
+        metric = arg_list[rank_index]
                 # try:
-                metric_str = str(metric)
-                if metric_str in ["score", "matched"]:
-                    PostProcessUtils.rank(design_dir_path, metric_str, outdir)
-                else:
-                    logfile = open(log_filepath, "w")
-                    logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT RECOGNIZED\n")
-                    logfile.close()
-                    sys.exit()
+        metric_str = str(metric)
+        if metric_str in ["score", "matched"]:
+            PostProcessUtils.rank(design_dir_path, metric_str, outdir)
+        else:
+            logfile = open(log_filepath, "w")
+            logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT RECOGNIZED\n")
+            logfile.close()
+            sys.exit()
                 # except ValueError:
                 #     logfile = open(log_filepath, "w")
                 #     logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT A STRING\n")
                 #     logfile.close()
                 #     sys.exit()
-            except IndexError:
-                logfile = open(log_filepath, "w")
-                logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
-                logfile.close()
-                sys.exit()
-        except ValueError:
-            logfile = open(log_filepath, "w")
-            logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
-            logfile.close()
-            sys.exit()
+        #     except IndexError:
+        #         logfile = open(log_filepath, "w")
+        #         logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
+        #         logfile.close()
+        #         sys.exit()
+        # except ValueError:
+        #     logfile = open(log_filepath, "w")
+        #     logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
+        #     logfile.close()
+        #     sys.exit()
 
     if "-min_matched_ss" in arg_list and "-min_matched" not in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list:
         try:
