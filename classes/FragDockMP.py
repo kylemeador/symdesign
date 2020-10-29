@@ -38,7 +38,7 @@ def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match
                                outdir_path, is_initial_match=False):
 
     out_info_file_path = outdir_path + "/frag_match_info_file.txt"
-    out_info_file = open(out_info_file_path, 'w')  # '"a+") KM added to remove old versions of the program run
+    out_info_file = open(out_info_file_path, "a+")  # KM added 'w' to remove old versions of the program run, DOESN'T work
 
     aligned_central_res_info = ghost_frag.get_aligned_central_res_info()
     surf_frag_oligomer2_central_res_tup = surf_frag.get_central_res_tup()
