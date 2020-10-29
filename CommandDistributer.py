@@ -3,14 +3,14 @@ Module for Distribution of Rosetta commands found for individual poses to SLURM/
 Finds commands within received directories (poses)
 """
 
-import os
-import subprocess
 import argparse
+import os
 import signal
-from itertools import repeat
-import SymDesignUtils as SDUtils
-import PathUtils as PUtils
+import subprocess
+
 import CmdUtils as CUtils
+import PathUtils as PUtils
+import SymDesignUtils as SDUtils
 
 
 class GracefulKiller:
@@ -180,8 +180,7 @@ if __name__ == '__main__':
         for i, pose in enumerate(poses):
             if results[i]:
                 f.write('%s\n' % pose)
-                # f.write('%d %s\n' % (cmd_slice, pose.rstrip(command_name)))
-            cmd_slice += i
+
     with open(args.failure_file, 'a') as f:
         for i, pose in enumerate(poses):
             if not results[i]:
