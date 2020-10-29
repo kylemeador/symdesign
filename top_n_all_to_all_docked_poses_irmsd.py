@@ -379,6 +379,8 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
 
     # construct lists of all possible chain id permutations for pdb1 and for pdb2
     # that could map onto reference pdb1 and reference pdb2 interface chains respectively
+    # KM this is an excess of what would need to be tested. pdb2_perm inner loop doesn't need to be done for each
+    # pdb1_perm and should be brought to the outer loop. This will cut down run time
     pdb1_chids_perms = list(permutations(pdb1_chids, len(ref_pdb1_int_chids)))
     pdb2_chids_perms = list(permutations(pdb2_chids, len(ref_pdb2_int_chids)))
 
@@ -389,7 +391,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
             pdb1_perm_ca_atoms.extend(pdb1_chid_ca_atom_dict[pdb1_ch])
 
         rmsd_1, rot_1, tx_1 = biopdb_superimposer(pdb1_perm_ca_atoms, ref_pdb1_ca_int_ch_atoms)  # fixed, moving
-
+        # rot_1, tx_1 not used
         if rmsd_1 < e:
 
             for pdb2_perm in pdb2_chids_perms:
@@ -399,7 +401,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
                     pdb2_perm_ca_atoms.extend(pdb2_chid_ca_atom_dict[pdb2_ch])
 
                 rmsd_2, rot_2, tx_2 = biopdb_superimposer(pdb2_perm_ca_atoms, ref_pdb2_ca_int_ch_atoms)  # fixed, moving
-
+                # rot_2, tx_2 not used
                 if rmsd_2 < e:
 
                     # get chain id mapping from pdb1_perm to ref_pdb1_int_chids_ordered
@@ -459,6 +461,181 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
             return ref_pdbs_rot_tx, min_irmsd
         else:
             return min_irmsd
+########################################################################################################################
+def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict, ref_pdb2_int_chids_resnums_dict, e=3.0, return_aligned_ref_pdbs=False):
+
+    # This function requires pdb1 and ref_pdb1 to have the same: residue numbering, number of chains and number of
+    # equivalent CA atoms. Same for pdb2 and ref_pdb2.
+    # All input PDBs are assumed to be homo-oligomers with cyclic symmetry.
+    # pdb1 and ref_pdb1 are required to have the name number of CA atoms (in total and per chain).
+    # pdb2 and ref_pdb2 are required to have the name number of CA atoms (in total and per chain).
+    # All chains within a given input PDB must also have the same number of CA atoms.
+
+    # The interface formed between reference pdb1 and reference pdb2 is referred to as: 'reference interface'.
+
+    # The input keyword argument 'e' is the max RMSD threshold in A for the overlap of chain(s) that belong to one
+    # reference pdb and that are involved in the 'reference interface' with chain(s) in the corresponding pdb given a
+    # specific chain mapping. This attempts to prevent overlaps that disrupt the internal structural integrity of an
+    # oligomer. Default 'e' value is set to 3 A. Default is not set to 0 A because 'symmetry related' subunits might
+    # slightly differ structurally.
+
+    # 'tot_bio_perms' is the total number of biologically plausible chain mapping permutations i.e. chain mappings that
+    # do not disrupt the internal structural integrity of a cyclic oligomer.
+    # 'tot_tested_perms' is the total number of interface RMSD values that were calculated.
+    # An error message is printed out if tot_tested_perms < tot_bio_perms.
+    # This could mean that the 'e' threshold is set too low and that 'symmetry related' subunits differ slightly more
+    # structurally.
+    # An error message can also be printed out in the event that tot_tested_perms > tot_bio_perms.
+    # This could mean that the 'e' threshold is set too high and that interface RMSD values could have been calculated
+    # for biologically implausible chain mappings.
+
+    # tot_bio_perms = len(ref_pdb1.get_chain_id_list()) * len(ref_pdb2.get_chain_id_list())
+    # tot_tested_perms = 0
+
+    # Min Interface RMSD
+    min_irmsd = float('inf')
+    min_irot = None
+    min_itx = None
+
+    # get chain id's for all reference pdb1 and reference pdb2 chains that participate in the 'reference interface'
+    ref_pdb1_int_chids = ref_pdb1_int_chids_resnums_dict.keys()
+    ref_pdb2_int_chids = ref_pdb2_int_chids_resnums_dict.keys()
+
+    # create a list for both ref_pdb1 and ref_pdb2 that stores all CA atoms that belong to a chain that participates
+    # in the 'reference interface'. The atoms in the list are ordered in the same order the atoms(/chains) appear in
+    # ref_pdb1 / ref_pdb2
+    # create a list for both ref_pdb1 and ref_pdb2 that store chain ids for chains that participate in the
+    # 'reference interface' and ordered such that the chain ids appear in the same order as they appear in
+    # ref_pdb1 / ref_pdb2
+    # create a list 'ref_int_ca_atoms' containing all reference interface CA atoms (from ref_pdb1 and ref_pdb2)
+    ref_pdb1_ca_int_ch_atoms = []
+    # ref_pdb1_int_chids_ordered = []  # unnecessary in python 3.6+
+    ref_pdb1_int_ca_atoms = []
+    for ref_pdb1_atom in ref_pdb1.chains(ref_pdb1_int_chids):
+        # if ref_pdb1_atom.get_chain() not in ref_pdb1_int_chids_ordered:
+        #     ref_pdb1_int_chids_ordered.append(ref_pdb1_atom.get_chain())
+        if ref_pdb1_atom.is_CA():
+            ref_pdb1_ca_int_ch_atoms.append(ref_pdb1_atom)
+
+            if ref_pdb1_atom.get_residue_number() in ref_pdb1_int_chids_resnums_dict[ref_pdb1_atom.get_chain()]:
+                ref_pdb1_int_ca_atoms.append(ref_pdb1_atom)
+
+    ref_pdb2_ca_int_ch_atoms = []
+    # ref_pdb2_int_chids_ordered = []  # unnecessary in python 3.6+
+    ref_pdb2_int_ca_atoms = []
+    for ref_pdb2_atom in ref_pdb2.chains(ref_pdb2_int_chids):
+        # if ref_pdb2_atom.get_chain() not in ref_pdb2_int_chids_ordered:
+        #     ref_pdb2_int_chids_ordered.append(ref_pdb2_atom.get_chain())
+        if ref_pdb2_atom.is_CA():
+            ref_pdb2_ca_int_ch_atoms.append(ref_pdb2_atom)
+
+            if ref_pdb2_atom.get_residue_number() in ref_pdb2_int_chids_resnums_dict[ref_pdb2_atom.get_chain()]:
+                ref_pdb2_int_ca_atoms.append(ref_pdb2_atom)
+
+    ref_int_ca_atoms = ref_pdb1_int_ca_atoms + ref_pdb2_int_ca_atoms
+
+    # get pdb1 and pdb2 full chain id lists
+    pdb1_chids = list(set(pdb1.get_chain_id_list()))
+    pdb2_chids = list(set(pdb2.get_chain_id_list()))
+
+    # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
+    pdb1_chid_ca_atom_dict = {}
+    for pdb1_chid in pdb1_chids:
+        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid) if a.is_CA()]
+    pdb2_chid_ca_atom_dict = {}
+    for pdb2_chid in pdb2_chids:
+        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid) if a.is_CA()]
+
+    # construct lists of all possible chain id permutations for pdb1 and for pdb2
+    # that could map onto reference pdb1 and reference pdb2 interface chains respectively
+    # KM this is an excess of what would need to be tested. pdb2_perm inner loop doesn't need to be done for each
+    # pdb1_perm and should be brought to the outer loop. This will cut down run time
+    pdb1_chids_perms = list(permutations(pdb1_chids, len(ref_pdb1_int_chids)))
+    pdb2_chids_perms = list(permutations(pdb2_chids, len(ref_pdb2_int_chids)))
+
+    allowed_perms1, allowed_perms2 = {}, {}
+    for pdb1_perm in pdb1_chids_perms:
+
+        pdb1_perm_ca_atoms = []
+        for pdb1_ch in pdb1_perm:
+            pdb1_perm_ca_atoms.extend(pdb1_chid_ca_atom_dict[pdb1_ch])
+
+        rmsd_1, rot_1, tx_1 = biopdb_superimposer(pdb1_perm_ca_atoms, ref_pdb1_ca_int_ch_atoms)  # fixed, moving
+        # rot_1, tx_1 not used
+        if rmsd_1 < e:
+            allowed_perms1[pdb1_perm] = pdb1_perm_ca_atoms
+
+    for pdb2_perm in pdb2_chids_perms:
+
+        pdb2_perm_ca_atoms = []
+        for pdb2_ch in pdb2_perm:
+            pdb2_perm_ca_atoms.extend(pdb2_chid_ca_atom_dict[pdb2_ch])
+
+        rmsd_2, rot_2, tx_2 = biopdb_superimposer(pdb2_perm_ca_atoms, ref_pdb2_ca_int_ch_atoms)  # fixed, moving
+        # rot_2, tx_2 not used
+        if rmsd_2 < e:
+            allowed_perms2[pdb2_perm] = pdb2_perm_ca_atoms
+
+    for pdb1_perm in allowed_perms1:  # there should be the same number of allowed perms that there is symmetry, it's not required to test so many, but we can't be sure about grabbing the right atoms. I calculated this using an atom invarient measure
+        for pdb2_perm in allowed_perms2:
+            # get chain id mapping from pdb1_perm to ref_pdb1_int_chids_ordered
+            chid_map_dict_1 = dict(zip(pdb1_perm, ref_pdb1_int_chids))
+
+            # get chain id mapping from pdb2_perm to ref_pdb2_int_chids_ordered
+            chid_map_dict_2 = dict(zip(pdb2_perm, ref_pdb2_int_chids))
+
+            # create a list of pdb1_perm atoms that map to reference pdb1 interface CA atoms
+            # ==> pdb1_perm_int_ca_atoms
+            pdb1_perm_int_ca_atoms = []
+            for atom in allowed_perms1[pdb1_perm]:
+                if atom.get_residue_number() in ref_pdb1_int_chids_resnums_dict[chid_map_dict_1[atom.get_chain()]]:
+                    pdb1_perm_int_ca_atoms.append(atom)
+
+            # create a list of pdb2_perm atoms that map to reference pdb2 interface CA atoms
+            # ==> pdb2_perm_int_ca_atoms
+            pdb2_perm_int_ca_atoms = []
+            for atom in allowed_perms2[pdb2_perm]:
+                if atom.get_residue_number() in ref_pdb2_int_chids_resnums_dict[chid_map_dict_2[atom.get_chain()]]:
+                    pdb2_perm_int_ca_atoms.append(atom)
+
+            # create a single list containing both pdb1_perm and pdb2_perm CA atoms that map to reference
+            # interface CA atoms by concatenating pdb1_perm_int_ca_atoms and pdb2_perm_int_ca_atoms lists
+            perm_int_ca_atoms = pdb1_perm_int_ca_atoms + pdb2_perm_int_ca_atoms
+
+            if len(perm_int_ca_atoms) != len(ref_int_ca_atoms):
+                raise Exception("cannot calculate irmsd: number of ref_pdb1/ref_pdb2 reference interface CA atoms != number of pdb1/pdb2 CA atoms that map to reference interface CA atoms\n")
+
+            irmsd, irot, itx = biopdb_superimposer(perm_int_ca_atoms, ref_int_ca_atoms)  # fixed, moving
+
+            # tot_tested_perms += 1
+
+            if irmsd < min_irmsd:
+                min_irmsd = irmsd
+                min_irot = irot
+                min_itx = itx
+
+    # if tot_tested_perms < tot_bio_perms:
+    #     ex_line_1 = "number of iRMSD values calculated (%s) < number of biologically plausible chain mappings (%s)\n" % (str(tot_tested_perms), str(tot_bio_perms))
+    #     ex_line_2 = "this could mean that the 'e' (%s) threshold is set too low and that 'symmetry related' subunits differ more structurally\n" % str(e)
+    #     raise Exception("%s%s" % (ex_line_1, ex_line_2))
+    #
+    # elif tot_tested_perms > tot_bio_perms:
+    #     ex_line_1 = "number of iRMSD values calculated (%s) > number of biologically plausible chain mappings (%s)\n" % (str(tot_tested_perms), str(tot_bio_perms))
+    #     ex_line_2 = "this could mean that the 'e' (%s) threshold is set too high and that interface RMSD values could have been calculated for biologically implausible chain mappings\n" % str(e)
+    #     raise Exception("%s%s" % (ex_line_1, ex_line_2))
+
+    else:
+        if not return_aligned_ref_pdbs:
+            return min_irmsd
+        else:
+            # Create a new PDB object that includes both reference pdb1 and reference pdb2
+            # rotated and translated using min_rot and min_tx
+            ref_pdb1_rot_tx = rotated_translated_pdb(ref_pdb1, min_irot, min_itx)
+            ref_pdb2_rot_tx = rotated_translated_pdb(ref_pdb2, min_irot, min_itx)
+            ref_pdbs_rot_tx = PDB()
+            ref_pdbs_rot_tx.set_all_atoms(ref_pdb1_rot_tx.get_all_atoms() + ref_pdb2_rot_tx.get_all_atoms())
+            return ref_pdbs_rot_tx, min_irmsd
+
 ########################################################################################################################
 
 
@@ -611,11 +788,9 @@ def all_to_all_docked_poses_irmsd(docked_pdb1_pdb2_filepaths):
     # docked_pdb1_pdb2_filepaths = get_docked_pdb1_pdb2_filepaths(docked_poses_dirpath, top_ranked_ids)
     n = len(docked_pdb1_pdb2_filepaths)
 
-    for i in range(n-1):
-        # obtain id, oligomer 1 pdb file path and oligomer 2 pdb file path for reference pose
+    standardized_pdbs1, standardized_pdbs2 = {}, {}
+    for i in range(n):
         ref_pose_id, ref_pose_pdb1_filepath, ref_pose_pdb2_filepath = docked_pdb1_pdb2_filepaths[i]
-
-        # read in pdb files for both reference pose oligomers
         ref_pose_pdb1 = PDB()
         ref_pose_pdb1.readfile(ref_pose_pdb1_filepath, remove_alt_location=True)
         ref_pose_pdb2 = PDB()
@@ -624,35 +799,55 @@ def all_to_all_docked_poses_irmsd(docked_pdb1_pdb2_filepaths):
         # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same
         # number of CA atoms and only contains residues (based on residue number) that are present in all
         # 'symmetry related' subunits.
-        stand_ref_pose_pdb1 = standardize_intra_oligomer_chain_lengths(ref_pose_pdb1)
-        stand_ref_pose_pdb2 = standardize_intra_oligomer_chain_lengths(ref_pose_pdb2)
+        standardized_pdbs1[i] = standardize_intra_oligomer_chain_lengths(ref_pose_pdb1)  # TODO is this already done?
+        standardized_pdbs2[i] = standardize_intra_oligomer_chain_lengths(ref_pose_pdb2)
 
-        # store residue number(s) of amino acid(s) that constitute the interface between stand_ref_pose_pdb1 and
-        # stand_ref_pose_pdb2 (i.e. 'reference interface') by their chain id in two dictionaries.
-        # One for stand_ref_pose_pdb1 and one for stand_ref_pose_pdb2.
-        # {'chain_id': [residue_number(s)]}
-        ref_pdb1_int_chids_resnums_dict, ref_pdb2_int_chids_resnums_dict = interface_chains_and_resnums(stand_ref_pose_pdb1, stand_ref_pose_pdb2, cb_distance=9.0)
+    for i in range(n-1):
+        # # obtain id, oligomer 1 pdb file path and oligomer 2 pdb file path for reference pose
+        ref_pose_id, ref_pose_pdb1_filepath, ref_pose_pdb2_filepath = docked_pdb1_pdb2_filepaths[i]
+        #
+        # # read in pdb files for both reference pose oligomers
+        # ref_pose_pdb1 = PDB()
+        # ref_pose_pdb1.readfile(ref_pose_pdb1_filepath, remove_alt_location=True)
+        # ref_pose_pdb2 = PDB()
+        # ref_pose_pdb2.readfile(ref_pose_pdb2_filepath, remove_alt_location=True)
+        #
+        # # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same
+        # # number of CA atoms and only contains residues (based on residue number) that are present in all
+        # # 'symmetry related' subunits.
+        # stand_ref_pose_pdb1 = standardize_intra_oligomer_chain_lengths(ref_pose_pdb1)
+        # stand_ref_pose_pdb2 = standardize_intra_oligomer_chain_lengths(ref_pose_pdb2)
+        #
+        # # store residue number(s) of amino acid(s) that constitute the interface between stand_ref_pose_pdb1 and
+        # # stand_ref_pose_pdb2 (i.e. 'reference interface') by their chain id in two dictionaries.
+        # # One for stand_ref_pose_pdb1 and one for stand_ref_pose_pdb2.
+        # # {'chain_id': [residue_number(s)]}
+        ref_pdb1_int_chids_resnums_dict, ref_pdb2_int_chids_resnums_dict = \
+            interface_chains_and_resnums(standardized_pdbs1[i], standardized_pdbs2[i], cb_distance=9.0)
 
         for j in range(i+1, n):
-            # obtain id, oligomer 1 pdb file path and oligomer 2 pdb file path for query pose
+            # # obtain id, oligomer 1 pdb file path and oligomer 2 pdb file path for query pose
             query_pose_id, query_pose_pdb1_filepath, query_pose_pdb2_filepath = docked_pdb1_pdb2_filepaths[j]
-
-            # read in pdb files for both query pose oligomers
-            query_pose_pdb1 = PDB()
-            query_pose_pdb1.readfile(query_pose_pdb1_filepath, remove_alt_location=True)
-            query_pose_pdb2 = PDB()
-            query_pose_pdb2.readfile(query_pose_pdb2_filepath, remove_alt_location=True)
-
-            # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same
-            # number of CA atoms and only contains residues (based on residue number) that are present in all
-            # 'symmetry related' subunits.
-            stand_query_pose_pdb1 = standardize_intra_oligomer_chain_lengths(query_pose_pdb1)
-            stand_query_pose_pdb2 = standardize_intra_oligomer_chain_lengths(query_pose_pdb2)
-
-            # find correct chain mapping between reference pose and query pose
-            # align reference pose CA interface atoms to corresponding mapped CA atoms in the query pose
-            # calculate interface CA RMSD between reference pose and query pose
-            irmsd = map_align_interface_chains(stand_query_pose_pdb1, stand_query_pose_pdb2, stand_ref_pose_pdb1, stand_ref_pose_pdb2, ref_pdb1_int_chids_resnums_dict, ref_pdb2_int_chids_resnums_dict, e=3.0, return_aligned_ref_pdbs=False)
+            #
+            # # read in pdb files for both query pose oligomers
+            # query_pose_pdb1 = PDB()
+            # query_pose_pdb1.readfile(query_pose_pdb1_filepath, remove_alt_location=True)
+            # query_pose_pdb2 = PDB()
+            # query_pose_pdb2.readfile(query_pose_pdb2_filepath, remove_alt_location=True)
+            #
+            # # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same
+            # # number of CA atoms and only contains residues (based on residue number) that are present in all
+            # # 'symmetry related' subunits.
+            # stand_query_pose_pdb1 = standardize_intra_oligomer_chain_lengths(query_pose_pdb1)
+            # stand_query_pose_pdb2 = standardize_intra_oligomer_chain_lengths(query_pose_pdb2)
+            #
+            # # find correct chain mapping between reference pose and query pose
+            # # align reference pose CA interface atoms to corresponding mapped CA atoms in the query pose
+            # # calculate interface CA RMSD between reference pose and query pose
+            irmsd = map_align_interface_chains(standardized_pdbs1[j], standardized_pdbs2[j],
+                                               standardized_pdbs1[i], standardized_pdbs2[i],
+                                               ref_pdb1_int_chids_resnums_dict,
+                                               ref_pdb2_int_chids_resnums_dict, e=3.0, return_aligned_ref_pdbs=False)
 
             irmsds.append((ref_pose_id, query_pose_id, irmsd))
 
@@ -666,9 +861,9 @@ def main():
 
     top_scoring = 2000
 
-    docked_poses_dirpath = ""  # nanohedra output directory 
-    rankfile_path = ""  # path to text file containing: reference structure vs nanohedra poses irmsd values, scores, ranks  
-    outdir = ""  # output directory 
+    docked_poses_dirpath = sys.argv[1]  # nanohedra output directory
+    rankfile_path = sys.argv[2]  # path to text file containing: reference structure vs nanohedra poses irmsd values, scores, ranks
+    outdir = sys.argv[3]  # output directory
 
     ####################################################################################################################
 
