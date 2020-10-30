@@ -272,7 +272,7 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
                         design_map[design]['pdb1'], design_map[design]['pdb2'], design_map[design]['nanohedra_output'],
                         outdir]
             if command_only:
-                commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='nanohedra',
+                commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='rmsd_calculation',
                                                            outpath=outdir))
             else:
                 p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
@@ -393,7 +393,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--out_path', type=str, help='Where should new files be saved?\nDefault=CWD')
     parser.add_argument('-p', '--design_map', type=str, help='The location of a file to map the design directory to '
                                                              'lower and higher symmetry\nDefault=None', default=None)
-    parser.add_argument('-m', '--mode', action='store_true', help='Whether to report the RMSD\'s of design recap')
+    parser.add_argument('-m', '--mode', type=str, help='Whether to report the RMSD\'s of design recap')
     parser.add_argument('-rot', '--flip', action='store_true', help='Whether to flip the orientation of a design')
 
     args = parser.parse_args()
