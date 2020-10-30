@@ -222,6 +222,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                         # incomplete.append(des_dir)
                         # incomplete.append(des_dir.symmetry)
         complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
+        running = map(os.path.dirname, complete)  # can remove if building_block name is removed
         incomplete = map(os.path.dirname, incomplete)  # can remove if building_block name is removed
     else:
         if not number:
