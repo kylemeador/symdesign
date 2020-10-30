@@ -129,8 +129,10 @@ def rsync_dir(des_dir):
 
     for s, sym_dir in enumerate(des_dir.symmetry):
         if '_flipped_180y' in sym_dir:
+            print(sym_dir)
             # IF USING THIS INDENT all below code
             for bb_dir in des_dir.building_blocks[s]:
+                print(bb_dir)
                 building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
                 destination = os.path.join(building_block_dir, 'DEGEN_1_1%s' % os.sep)
             # destination = os.path.join(des_dir.building_blocks[0], 'DEGEN_1_1%s' % os.sep)  # [0] pulls out the first index 1_1
@@ -140,15 +142,18 @@ def rsync_dir(des_dir):
                 for k, entry in enumerate(os.scandir(building_block_dir)):
                     if entry.is_dir() and 'DEGEN_1_' in entry.name:
                         abs_entry_path = os.path.join(building_block_dir, entry.name)
-                        p[abs_entry_path] = \
-                            subprocess.Popen(['rsync', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep),
-                                              '--remove-source-files', '%s%s' % (abs_entry_path, os.sep), destination])
+                        cmd = ['rsync', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep), '--remove-source-files',
+                               '%s%s' % (abs_entry_path, os.sep), destination]
+                        logger.info('Performing transfer: %s' % subprocess.list2cmdline(cmd))
+                        p[abs_entry_path] = subprocess.Popen(cmd)
                         #                              requires '/' - os.sep
                 # remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
                 p2 = []
                 for entry in p:
                     p[entry].communicate()
-                    p2.append(subprocess.Popen(['find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']))
+                    find_cmd = ['find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']
+                    logger.info('Removing empty directories: %s' % subprocess.list2cmdline(find_cmd))
+                    p2.append(subprocess.Popen(find_cmd))
                     # p2.append(subprocess.Popen(['echo', 'rm', '-r', entry]))
                 # Check to see if processess are done, and move on.
                 for k, process in enumerate(p2):
@@ -734,16 +739,15 @@ if __name__ == '__main__':
     elif args.sub_module == 'modify':
         if args.multi_processing:
             if args.mod == 'consolidate_degen':
-                EXIT('Operation impossible')
+                exit('Operation impossible')
             elif args.mod == 'pose_map':
                 mp_threads = SDUtils.calculate_mp_threads(maximum=True)
                 # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, design_directories, threads=mp_threads))
                 pose_map = pose_rmsd_mp(design_directories, threads=mp_threads)
         else:
             if args.mod == 'consolidate_degen':
-                accessed_dirs = []
-                for design_directory in design_directories:
-                    accessed_dirs.append(rsync_dir(design_directory))
+                logger.info('Consolidating DEGEN directories')
+                accessed_dirs = [rsync_dir(design_directory) for design_directory in design_directories]
             elif args.mod == 'pose_map':
                 pose_map = pose_rmsd_s(design_directories)
 
