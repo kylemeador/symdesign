@@ -100,8 +100,8 @@ def run(cmd, log_file, program='bash'):  # , log_file=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=os.path.basename(__file__)
-                                                 + '\nGather commands set up by %s and distribute to computational nodes for '
-                                                   'Rosetta processing.' % PUtils.program_name)
+                                     + '\nGather commands set up by %s and distribute to computational nodes for '
+                                     'Rosetta processing.' % PUtils.program_name)
     parser.add_argument('-s', '--stage', choices=tuple(CUtils.process_scale.keys()),
                         help='The stage of design to be prepared. One of %s'
                              % ', '.join(list(CUtils.process_scale.keys())))  # TODO combine with command file as 1 arg?

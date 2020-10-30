@@ -1,14 +1,14 @@
-import os
-import sys
-import subprocess
-import pickle
-import pandas as pd
-from glob import glob
-from csv import reader
 import argparse
-import SymDesignUtils as SDUtils
-import PathUtils as PUtils
+import os
+import subprocess
+from csv import reader
+from glob import glob
+
+import pandas as pd
+
 import AnalyzeMutatedSequences as Ams
+import PathUtils as PUtils
+import SymDesignUtils as SDUtils
 # sys.path.append(PUtils.nanohedra_source)
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
@@ -248,8 +248,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                           out_path=output_dir, protocol=pickle_prot)
 
 
-def run_rmsd_calc(design_list, design_map_pickle):
-    """Calculate the interface RMSD between a reference pose and a docked pose. Requires python 2.7 environment
+def run_rmsd_calc(design_list, design_map_pickle, command_only=True):
+    """Calculate the interface RMSD between a reference pose and a docked pose
 
     Args:
         design_list (list): List of designs to search for that have an entry in the design_map_pickle
@@ -261,6 +261,7 @@ def run_rmsd_calc(design_list, design_map_pickle):
     logger.info('Starting RMSD calculation')
     # SDUtils.start_log(name='RMSD.log', handler=2, location=os.getcwd())
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
+    commands = []
     with open(log_file, 'a+') as log_f:
         for design in design_list:
             logger.info('%s Starting RMSD calculation' % design)
@@ -271,14 +272,20 @@ def run_rmsd_calc(design_list, design_map_pickle):
             rmsd_cmd = ['python', '/home/kmeador/symdesign/dependencies/python/crystal_vs_docked_v2.py',  # Nanohedra/
                         design_map[design]['pdb1'], design_map[design]['pdb2'], design_map[design]['nanohedra_output'],
                         outdir]
-            p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
-            # rmsd_cmd_flip = ['python', '/home/kmeador/Nanohedra/crystal_vs_docked_v2.py', design_map[design]['pdb2'],
-            #                  design_map[design]['pdb1'], design_map[design]['nanohedra_output'],
-            #                  design_map[design]['nanohedra_output']]
-            # p = subprocess.Popen(rmsd_cmd_flip, stdout=log_f, stderr=log_f)
-            p.communicate()
+            if command_only:
+                commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='nanohedra',
+                                                           outpath=outdir))
+            else:
+                p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
+                p.communicate()
+                # rmsd_cmd_flip = ['python', '/home/kmeador/Nanohedra/crystal_vs_docked_v2.py', design_map[design]['pdb2'],
+                #                  design_map[design]['pdb1'], design_map[design]['nanohedra_output'],
+                #                  design_map[design]['nanohedra_output']]
+                # p = subprocess.Popen(rmsd_cmd_flip, stdout=log_f, stderr=log_f)
             logger.info('%s finished' % design)
             log_f.write(design)
+
+    return list(map(os.path.dirname, commands))
 
 
 def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
@@ -345,7 +352,9 @@ if __name__ == '__main__':
     #                     default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='File with list of pdb files of interest\nDefault=None',
                         default=None)
-    parser.add_argument('-c', '--chain', type=str, help='What chain would you like to leave?\nDefault=A', default='A')
+    parser.add_argument('-c', '--command_only', action='store_true', help='Whether to only write commands, not run '
+                                                                          'them')
+    # parser.add_argument('-c', '--chain', type=str, help='What chain would you like to leave?\nDefault=A', default='A')
     parser.add_argument('-p', '--out_path', type=str, help='Where should new files be saved?\nDefault=CWD')
     parser.add_argument('-o', '--oligomer_asu', action='store_true', help='Whether the full oligomer used for docking '
                                                                           'should be saved in the ASU?\nDefault=False')
@@ -437,7 +446,7 @@ if __name__ == '__main__':
             rmsd_d = collect_rmsd_calc(design_d_names, location=args.directory)
             report_top_rmsd(rmsd_d)
         else:
-            run_rmsd_calc(design_d_names, args.design_map)
-
+            all_command_locations = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
+            SDUtils.write_commands(all_command_locations, name='rmsd_calculation', loc=args.directory)
     else:
         design_recapitulation(args.file, args.out_path, pdb_dir=args.directory, oligomer=args.oligomer_asu)

@@ -3,10 +3,9 @@
 
 import os
 import subprocess
-import SymDesignUtils as SDUtils
-import PathUtils as PUtils
-import CmdUtils as CUtils
 
+import PathUtils as PUtils
+import SymDesignUtils as SDUtils
 
 pickle_prot = 2
 
@@ -109,7 +108,11 @@ def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix):
 
 
 def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, flags=None, default=True):
-    """Write out Nanohedra commands to shell scripts for processing by computational clusters"""
+    """Write out Nanohedra commands to shell scripts for processing by computational clusters
+
+    Return:
+        (str): The name of the file containging the Nanohedra command
+    """
 
     if not out_dir:
         nano_out_dir = os.path.join(os.getcwd(), 'NanohedraEntry%sDockedPoses%s' % (entry, str(suffix or '')))

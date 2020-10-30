@@ -1695,7 +1695,11 @@ def to_iterable(_obj):
 
 
 def write_shell_script(command, name='script', outpath=os.getcwd(), additional=None, shell='bash'):
-    """Take a list with command flags formatted for subprocess and write to a name.sh script"""
+    """Take a list with command flags formatted for subprocess and write to a name.sh script
+
+    Returns:
+        (str): The name of the file
+    """
     file_name = os.path.join(outpath, name + '.sh')
     with open(file_name, 'w') as f:
         f.write('#!/bin/%s\n\n%s\n' % (shell, command))
@@ -2245,6 +2249,7 @@ class DesignDirectory:
         self.source = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/central_asu.pdb
         self.asu = None
+        self.oligomer_names = []
         self.oligomers = {}
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu.pdb
         self.info = {}
@@ -2340,7 +2345,8 @@ class DesignDirectory:
 
     def get_oligomers(self):
         if self.mode == 'design':
-            for name in self.building_blocks.split('_'):
+            self.oligomer_names = os.path.basename(self.building_blocks).split('_')
+            for name in self.oligomer_names:
                 name_pdb_file = glob(os.path.join(self.path, name + '_tx_*.pdb'))
                 assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
                 self.oligomers[name] = read_pdb(name_pdb_file[0])
