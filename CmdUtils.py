@@ -1,4 +1,5 @@
 import os
+
 # from multiprocessing import cpu_count
 import PathUtils as PUtils
 
@@ -34,7 +35,7 @@ flags = extras_flags[PUtils.rosetta_extras] + \
          'lys_dimethylated lys_monomethylated lys_trimethylated lys_acetylated glu_carboxylated MethylatedProteinCterm '
          'tyr_diiodinated']
 
-# PUtils.stage = 1: refine, 2: design, 3: metrics, 4:analysis, 5:consensus.
+# PUtils.stage = 1: refine, 2: design, 3: metrics, 4:analysis, 5:consensus. 6:rmsd_calculation
 # 1 and 5 have the same flag options as both are relax
 flag_options = {PUtils.stage[1]: ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints false',
                                   '-no_optH false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev 0.5',
@@ -46,4 +47,5 @@ flag_options = {PUtils.stage[1]: ['-constrain_relax_to_start_coords', '-use_inpu
                 PUtils.stage[3]: ['-no_nstruct_label true',  # '-out:suffix _' + PUtils.stage[2],
                                   '-mute all', '-unmute protocols.rosetta_scripts.ParsedProtocol']}  # -out:pdb false
 
-process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 1, PUtils.stage[3]: 1, PUtils.stage[5]: 2, PUtils.nano: 1}
+process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 1, PUtils.stage[3]: 1, PUtils.stage[5]: 2, PUtils.nano: 1,
+                 PUtils.stage[6]: 1}
