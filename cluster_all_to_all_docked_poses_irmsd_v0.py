@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 import numpy as np
 
 
@@ -8,7 +9,6 @@ def list_diff(li1, li2):
 
 
 def main():
-
     clust_rmsd_thresh = 1.0
 
     # Get All to All IRMSD Text File Path
@@ -97,21 +97,17 @@ def main():
     return_clusters.extend(solo_clusters)
 
     # Read in Reference Structure VS Docked Poses IRMSD / Residue Level Summation Score Ranking Text File
-    ref_vs_dockedposes_file = open(ref_vs_dockedposes_file_path, "r")
-    ref_vs_dockedposes_lines = ref_vs_dockedposes_file.readlines()
-    ref_vs_dockedposes_file.close()
+    with open(ref_vs_dockedposes_file_path, "r") as ref_vs_dockedposes_file:
+        ref_vs_dock_dict = {}
+        for ref_vs_dock_line in ref_vs_dockedposes_file.readlines():
+            ref_vs_dock_line = ref_vs_dock_line.rstrip().split()
 
-    ref_vs_dock_dict = {}
-    for ref_vs_dock_line in ref_vs_dockedposes_lines:
-        ref_vs_dock_line = ref_vs_dock_line.rstrip()
-        ref_vs_dock_line = ref_vs_dock_line.split()
+            pose_id = str(ref_vs_dock_line[0])
+            ref_vs_pose_irmsd = float(ref_vs_dock_line[1])
+            pose_score = float(ref_vs_dock_line[2])
+            pose_score_rank = int(ref_vs_dock_line[3])
 
-        pose_id = str(ref_vs_dock_line[0])
-        ref_vs_pose_irmsd = float(ref_vs_dock_line[1])
-        pose_score = float(ref_vs_dock_line[2])
-        pose_score_rank = int(ref_vs_dock_line[3])
-
-        ref_vs_dock_dict[pose_id] = (ref_vs_pose_irmsd, pose_score, pose_score_rank)
+            ref_vs_dock_dict[pose_id] = (ref_vs_pose_irmsd, pose_score, pose_score_rank)
 
     # Write Out Clustering Results to a Text File
 
