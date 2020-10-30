@@ -248,7 +248,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                           out_path=output_dir, protocol=pickle_prot)
 
 
-def run_rmsd_calc(design_list, design_map_pickle, command_only=True):
+def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
     """Calculate the interface RMSD between a reference pose and a docked pose
 
     Args:
@@ -258,8 +258,7 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=True):
         None
     """
     design_map = SDUtils.unpickle(design_map_pickle)
-    logger.info('Starting RMSD calculation')
-    # SDUtils.start_log(name='RMSD.log', handler=2, location=os.getcwd())
+    logger.info('Design Analysis mode: RMSD calculation')
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
     commands = []
     with open(log_file, 'a+') as log_f:
@@ -282,7 +281,41 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=True):
                 #                  design_map[design]['pdb1'], design_map[design]['nanohedra_output'],
                 #                  design_map[design]['nanohedra_output']]
                 # p = subprocess.Popen(rmsd_cmd_flip, stdout=log_f, stderr=log_f)
-            logger.info('%s finished' % design)
+                logger.info('%s finished' % design)
+            log_f.write(design)
+
+    return list(map(os.path.dirname, commands))
+
+
+def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
+    """Calculate the all to all interface RMSD between a each docked pose in the top matching directories
+
+    Args:
+        design_list (list): List of designs to search for that have an entry in the design_map_pickle
+        design_map_pickle (str): The path of a serialized file to unpickle into a dictionary with directory maps
+    Returns:
+        None
+    """
+    design_map = SDUtils.unpickle(design_map_pickle)
+    logger.info('Design Analysis mode: All to All calculations')
+    log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
+    commands = []
+    with open(log_file, 'a+') as log_f:
+        for design in design_list:
+            logger.info('%s: Starting All to All calculation' % design)
+            design = design.strip()
+            outdir = os.path.join(design_map[design]['nanohedra_output'], 'rmsd_calculation')
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+            rmsd_cmd = ['python', '/home/kmeador/symdesign/dependencies/python/top_n_all_to_all_docked_poses_irmsd.py',
+                        design_map[design]['nanohedra_output'], os.path.join(outdir, 'crystal_vs_docked_irmsd.txt')]
+            if command_only:
+                commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='nanohedra',
+                                                           outpath=outdir))
+            else:
+                p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
+                p.communicate()
+                logger.info('%s finished' % design)
             log_f.write(design)
 
     return list(map(os.path.dirname, commands))
@@ -347,20 +380,20 @@ if __name__ == '__main__':
         description='\nTurn file(s) from a full PDB biological assembly into an ASU containing one copy of all entities'
                     ' in contact with the chain specified by chain')
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('-c', '--command_only', action='store_true', help='Whether to only write commands, not run '
+                                                                          'them')
     parser.add_argument('-d', '--directory', type=str, help='Directory where \'.pdb\' files to set up ASU extraction'
                                                             'are located.\nDefault=CWD',)
     #                     default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='File with list of pdb files of interest\nDefault=None',
                         default=None)
-    parser.add_argument('-c', '--command_only', action='store_true', help='Whether to only write commands, not run '
-                                                                          'them')
     # parser.add_argument('-c', '--chain', type=str, help='What chain would you like to leave?\nDefault=A', default='A')
-    parser.add_argument('-p', '--out_path', type=str, help='Where should new files be saved?\nDefault=CWD')
-    parser.add_argument('-o', '--oligomer_asu', action='store_true', help='Whether the full oligomer used for docking '
+    parser.add_argument('-O', '--oligomer_asu', action='store_true', help='Whether the full oligomer used for docking '
                                                                           'should be saved in the ASU?\nDefault=False')
-    parser.add_argument('-m', '--design_map', type=str, help='The location of a file to map the design directory to '
+    parser.add_argument('-o', '--out_path', type=str, help='Where should new files be saved?\nDefault=CWD')
+    parser.add_argument('-p', '--design_map', type=str, help='The location of a file to map the design directory to '
                                                              'lower and higher symmetry\nDefault=None', default=None)
-    parser.add_argument('-r', '--report', action='store_true', help='Whether to report the RMSD\'s of design recap')
+    parser.add_argument('-m', '--mode', action='store_true', help='Whether to report the RMSD\'s of design recap')
     parser.add_argument('-rot', '--flip', action='store_true', help='Whether to flip the orientation of a design')
 
     args = parser.parse_args()
@@ -442,11 +475,17 @@ if __name__ == '__main__':
             design_d_names = map(str.strip, all_design_directories)
             design_d_names = map(os.path.basename, design_d_names)
 
-        if args.report:
+        if args.mode == 'report':
             rmsd_d = collect_rmsd_calc(design_d_names, location=args.directory)
             report_top_rmsd(rmsd_d)
-        else:
+        elif args.mode == 'all_to_all':
+            all_command_locations = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
+        elif args.mode == 'reference_rmsd':
             all_command_locations = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
+        else:
+            exit('Invalid Input: \'-mode\' must be specified if using design_map!')
+
+        if args.command_only:
             SDUtils.write_commands(all_command_locations, name='rmsd_calculation', loc=args.directory)
     else:
         design_recapitulation(args.file, args.out_path, pdb_dir=args.directory, oligomer=args.oligomer_asu)
