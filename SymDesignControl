@@ -129,37 +129,33 @@ def rsync_dir(des_dir):
 
     for s, sym_dir in enumerate(des_dir.symmetry):
         if '_flipped_180y' in sym_dir:
-            print(sym_dir)
-            # IF USING THIS INDENT all below code
             for bb_dir in des_dir.building_blocks[s]:
-                print(bb_dir)
                 building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
                 destination = os.path.join(building_block_dir, 'DEGEN_1_1%s' % os.sep)
-            # destination = os.path.join(des_dir.building_blocks[0], 'DEGEN_1_1%s' % os.sep)  # [0] pulls out the first index 1_1
 
-                p = {}  # make a dict for the processes
-                # for k, entry in enumerate(os.scandir(des_dir.building_blocks)):
+                p = {}  # make a dict for all the processes
                 for k, entry in enumerate(os.scandir(building_block_dir)):
                     if entry.is_dir() and 'DEGEN_1_' in entry.name:
                         abs_entry_path = os.path.join(building_block_dir, entry.name)
                         cmd = ['rsync', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep), '--remove-source-files',
                                '%s%s' % (abs_entry_path, os.sep), destination]
-                        logger.info('Performing transfer: %s' % subprocess.list2cmdline(cmd))
+                        #          ^ requires '/' - os.sep
+                        logger.debug('Performing transfer: %s' % subprocess.list2cmdline(cmd))
                         p[abs_entry_path] = subprocess.Popen(cmd)
-                        #                              requires '/' - os.sep
-                # remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
-                p2 = []
+                # Check to see if all processes are done, then move on.
                 for entry in p:
                     p[entry].communicate()
+
+                # Remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
+                p2 = {}
+                for l, entry in enumerate(p):
                     find_cmd = ['find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']
-                    logger.info('Removing empty directories: %s' % subprocess.list2cmdline(find_cmd))
-                    p2.append(subprocess.Popen(find_cmd))
-                    # p2.append(subprocess.Popen(['echo', 'rm', '-r', entry]))
-                # Check to see if processess are done, and move on.
-                for k, process in enumerate(p2):
-                    p2[k].communicate()
-                # for root, dirs, files in os.path.walk(des_dir.building_blocks):
-                #     for dir in dirs:
+                    # rm_cmd = ['rm', '-r', entry]
+                    logger.debug('Removing empty directories: %s' % subprocess.list2cmdline(find_cmd))
+                    p2[l] = subprocess.Popen(find_cmd)
+                # Check for the last command, then move on
+                for m, process in enumerate(p2):
+                    p2[m].communicate()
 
                 print('%s has been consolidated' % building_block_dir)
 
