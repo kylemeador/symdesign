@@ -796,7 +796,7 @@ def main():
     top_scoring = 2000
     docked_poses_dirpath = sys.argv[1]  # nanohedra output directory
     rankfile_path = sys.argv[2]  # path to text file containing: reference structure vs nanohedra poses irmsd values, scores, ranks
-    outdir = sys.argv[3]  # output directory
+    outdir = os.path.dirname(rankfile_path)  # sys.argv[3]  # output directory
     num_threads = 2
     ####################################################################################################################
 
@@ -805,16 +805,14 @@ def main():
         os.makedirs(outdir)
 
     # get docked pose id for top scoring poses from the ranking file
-    rankfile = open(rankfile_path, 'r')
-    top_ranked_ids = []
-    for rankfile_line in rankfile.readlines():
-        rankfile_line = rankfile_line.rstrip()
-        rankfile_line = rankfile_line.split()
-        pose_id = rankfile_line[0]
-        pose_score_rank = int(rankfile_line[3])
-        if pose_score_rank <= top_scoring:
-            top_ranked_ids.append(pose_id)
-    rankfile.close()
+    with open(rankfile_path, 'r') as rankfile:
+        top_ranked_ids = []
+        for rankfile_line in rankfile.readlines():
+            rankfile_line = rankfile_line.rstrip().split()
+            pose_id = rankfile_line[0]
+            pose_score_rank = int(rankfile_line[3])
+            if pose_score_rank <= top_scoring:
+                top_ranked_ids.append(pose_id)
 
     # retrieve all poses and filter for those ID's in consideration
     all_poses, location = SDUtils.collect_directories(docked_poses_dirpath)  # , file=args.file)
