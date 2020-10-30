@@ -1,4 +1,4 @@
-import os
+import sys
 import warnings
 from itertools import permutations
 
@@ -167,95 +167,6 @@ def rotated_translated_pdb(pdb, rot, tx):
 ########################################################################################################################
 
 
-############################################### RMSD CALCULATION TOOLS #################################################
-def euclidean_squared_3d(coordinates_1, coordinates_2):
-    if len(coordinates_1) != 3 or len(coordinates_2) != 3:
-        raise ValueError("len(coordinate list) != 3")
-
-    elif type(coordinates_1) is not list or type(coordinates_2) is not list:
-        raise TypeError("input parameters are not of type list")
-
-    else:
-        x1, y1, z1 = coordinates_1[0], coordinates_1[1], coordinates_1[2]
-        x2, y2, z2 = coordinates_2[0], coordinates_2[1], coordinates_2[2]
-        return (x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2
-
-
-def calc_rmsd_3d(coord_list1, coord_list2):
-    assert len(coord_list1) == len(coord_list2), "len(coord_list1) != len(coord_list2)\n"
-
-    if len(coord_list1) > 0 and len(coord_list2) > 0:
-
-        err_sum = 0
-        for i in range(len(coord_list1)):
-            err = euclidean_squared_3d(coord_list1[i], coord_list2[i])
-            err_sum += err
-
-        mean = err_sum / float(len(coord_list1))
-        rmsd = math.sqrt(mean)
-
-        return rmsd
-
-    else:
-        raise ZeroDivisionError("calc_rmsd: Can't divide by 0\n")
-
-
-def calc_rmsd_3d_atoms(atom_list1, atom_list2):
-    assert len(atom_list1) == len(atom_list2), "len(atom_list1) != len(atom_list2)\n"
-
-    coord_list1 = []
-    coord_list2 = []
-    for i in range(len(atom_list1)):
-        coord_list1.append([atom_list1[i].get_x(), atom_list1[i].get_y(), atom_list1[i].get_z()])
-        coord_list2.append([atom_list2[i].get_x(), atom_list2[i].get_y(), atom_list2[i].get_z()])
-
-    return calc_rmsd_3d(coord_list1, coord_list2)
-########################################################################################################################
-
-
-################################################### RANKING FUNCTION ###################################################
-def res_lev_sum_score_rank(master_design_dirpath):
-
-    designid_metric_tup_list = []
-    designid_metric_rank_dict = {}
-
-    for root1, dirs1, files1 in os.walk(master_design_dirpath):
-        for file1 in files1:
-            if "frag_match_info_file.txt" in file1:
-                info_file_filepath = root1 + "/" + file1
-
-                tx_filepath = os.path.dirname(root1)
-                rot_filepath = os.path.dirname(tx_filepath)
-                degen_filepath = os.path.dirname(rot_filepath)
-                design_filepath = os.path.dirname(degen_filepath)
-
-                tx_filename = tx_filepath.split("/")[-1]
-                rot_filename = rot_filepath.split("/")[-1]
-                degen_filename = degen_filepath.split("/")[-1]
-                design_filename = design_filepath.split("/")[-1]
-
-                # design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
-                design_id = degen_filename + "_" + rot_filename + "_" + tx_filename
-
-                info_file = open(info_file_filepath, 'r')
-                for line in info_file.readlines():
-                    if line.startswith("Residue-Level Summation Score:"):
-                        score = float(line[30:].rstrip())
-                        designid_metric_tup_list.append((design_id, score))
-                        break
-                info_file.close()
-
-    designid_metric_tup_list_sorted = sorted(designid_metric_tup_list, key=lambda tup: tup[1], reverse=True)
-
-    r = 0  # rank count
-    for d, m in designid_metric_tup_list_sorted:
-        r += 1
-        designid_metric_rank_dict[d] = (m, r)
-
-    return designid_metric_rank_dict
-########################################################################################################################
-
-
 ######################### FUNCTION TO RETRIEVE INTERFACE CHAIN IDS AND RESIDUE NUMBERS #################################
 def interface_chains_and_resnums(pdb1, pdb2, cb_distance=9.0):
 
@@ -294,7 +205,8 @@ def interface_chains_and_resnums(pdb1, pdb2, cb_distance=9.0):
 
 
 ###################################### FUNCTION TO MAP AND ALIGN INTERFACE CHAINS ######################################
-def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict, ref_pdb2_int_chids_resnums_dict, e=3.0, return_aligned_ref_pdbs=True):
+def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict,
+                               ref_pdb2_int_chids_resnums_dict, e=3.0, return_aligned_ref_pdbs=True):
 
     # This function requires pdb1 and ref_pdb1 to have the same: residue numbering, number of chains and number of
     # equivalent CA atoms. Same for pdb2 and ref_pdb2.
@@ -461,6 +373,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
             return ref_pdbs_rot_tx, min_irmsd
         else:
             return min_irmsd
+
 ########################################################################################################################
 def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict, ref_pdb2_int_chids_resnums_dict, e=3.0, return_aligned_ref_pdbs=False):
 
@@ -693,12 +606,10 @@ def get_docked_pdb_pairs(docked_poses_dirpath):
 
 
 def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, docked_poses_dirpath):
-
-    return_list = []
-
     # get all (docked_pdb1, docked_pdb2) pairs
     docked_pdb_pairs = get_docked_pdb_pairs(docked_poses_dirpath)
 
+    return_list = []
     for (design_id, docked_pdb1, docked_pdb2) in docked_pdb_pairs:
 
         # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
@@ -721,8 +632,8 @@ def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, docked_poses_dirpath):
         # calculate RMSD between xtal_pdb_2 and docked_pdb2 using only 'reference interface' CA atoms from xtal_pdb_2
         # and corresponding mapped CA atoms in docked_pdb2 ==> interface RMSD or iRMSD
         aligned_xtal_pdb, irmsd = map_align_interface_chains(stand_docked_pdb1, stand_docked_pdb2, stand_xtal_pdb_1,
-                                                                stand_xtal_pdb_2, xtal1_int_chids_resnums_dict,
-                                                                xtal2_int_chids_resnums_dict)
+                                                             stand_xtal_pdb_2, xtal1_int_chids_resnums_dict,
+                                                             xtal2_int_chids_resnums_dict)
 
         return_list.append((design_id, aligned_xtal_pdb, irmsd))
 
@@ -856,15 +767,11 @@ def all_to_all_docked_poses_irmsd(docked_pdb1_pdb2_filepaths):
 
 
 def main():
-
     ############################################## INPUT PARAMETERS ####################################################
-
     top_scoring = 2000
-
     docked_poses_dirpath = sys.argv[1]  # nanohedra output directory
     rankfile_path = sys.argv[2]  # path to text file containing: reference structure vs nanohedra poses irmsd values, scores, ranks
     outdir = sys.argv[3]  # output directory
-
     ####################################################################################################################
 
     # make output directory
@@ -901,5 +808,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
