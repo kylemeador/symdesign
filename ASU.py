@@ -261,7 +261,7 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
     design_map = SDUtils.unpickle(design_map_pickle)
     logger.info('Design Analysis mode: RMSD calculation')
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
-    commands = []
+    rmsd_commands = []
     with open(log_file, 'a+') as log_f:
         for design in design_list:
             logger.info('%s Starting RMSD calculation' % design)
@@ -273,8 +273,8 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
                         design_map[design]['pdb1'], design_map[design]['pdb2'], design_map[design]['nanohedra_output'],
                         outdir]
             if command_only:
-                commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='rmsd_calculation',
-                                                           outpath=outdir))
+                rmsd_commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd),
+                                                                name='rmsd_calculation', outpath=outdir))
             else:
                 p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
@@ -285,7 +285,7 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
                 logger.info('%s finished' % design)
             log_f.write(design)
 
-    return list(map(os.path.dirname, commands))
+    return list(map(os.path.dirname, rmsd_commands))
 
 
 def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
@@ -300,7 +300,7 @@ def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
     design_map = SDUtils.unpickle(design_map_pickle)
     logger.info('Design Analysis mode: All to All calculations')
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
-    commands = []
+    all_to_all_commands = []
     with open(log_file, 'a+') as log_f:
         for design in design_list:
             logger.info('%s: Starting All to All calculation' % design)
@@ -308,18 +308,18 @@ def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
             outdir = os.path.join(design_map[design]['nanohedra_output'], 'rmsd_calculation')
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
-            rmsd_cmd = ['python', '/home/kmeador/symdesign/dependencies/python/top_n_all_to_all_docked_poses_irmsd.py',
-                        design_map[design]['nanohedra_output'], os.path.join(outdir, 'crystal_vs_docked_irmsd.txt')]
+            _cmd = ['python', '/home/kmeador/symdesign/dependencies/python/top_n_all_to_all_docked_poses_irmsd.py',
+                    design_map[design]['nanohedra_output'], os.path.join(outdir, 'crystal_vs_docked_irmsd.txt')]
             if command_only:
-                commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='nanohedra',
-                                                           outpath=outdir))
+                all_to_all_commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='all_to_all',
+                                                                      outpath=outdir))
             else:
-                p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
+                p = subprocess.Popen(_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
                 logger.info('%s finished' % design)
             log_f.write(design)
 
-    return list(map(os.path.dirname, commands))
+    return list(map(os.path.dirname, all_to_all_commands))
 
 
 def run_cluster_calc(design_list, design_map_pickle, command_only=False):
@@ -334,7 +334,7 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
     design_map = SDUtils.unpickle(design_map_pickle)
     logger.info('Design Analysis mode: Clustering RMSD\'s')
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
-    commands = []
+    cluster_commands = []
     with open(log_file, 'a+') as log_f:
         for design in design_list:
             logger.info('%s: Starting All to All calculation' % design)
@@ -342,20 +342,19 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
             outdir = os.path.join(design_map[design]['nanohedra_output'], 'rmsd_calculation')
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
-            rmsd_cmd = ['python',
-                        '/home/kmeador/symdesign/dependencies/python/cluster_all_to_all_docked_poses_irmsd_v0.py',
-                        os.path.join(outdir, 'top2000_all_to_all_docked_poses_irmsd.txt'),
-                        os.path.join(outdir, 'crystal_vs_docked_irmsd.txt'), design]
+            _cmd = ['python', '/home/kmeador/symdesign/dependencies/python/cluster_all_to_all_docked_poses_irmsd_v0.py',
+                    os.path.join(outdir, 'top2000_all_to_all_docked_poses_irmsd.txt'),
+                    os.path.join(outdir, 'crystal_vs_docked_irmsd.txt'), design]
             if command_only:
-                commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='nanohedra',
-                                                           outpath=outdir))
+                cluster_commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(_cmd),
+                                                                   name='rmsd_clustering', outpath=outdir))
             else:
-                p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
+                p = subprocess.Popen(_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
                 logger.info('%s finished' % design)
             log_f.write(design)
 
-    return list(map(os.path.dirname, commands))
+    return list(map(os.path.dirname, cluster_commands))
 
 
 def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
