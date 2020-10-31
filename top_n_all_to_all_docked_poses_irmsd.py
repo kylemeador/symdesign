@@ -823,12 +823,11 @@ def main():
     top_design_directories = SDUtils.get_pose_by_id(all_design_directories, top_ranked_ids)
 
     # obtain an irmsd value for all possible pairs of top scoring docked poses
-    irmsds = all_to_all_docked_poses_irmsd_mp(top_design_directories, num_threads)
+    irmsds = all_to_all_docked_poses_irmsd_mp(top_design_directories, num_threads)  # returns ref_pose_id, query_pose_id, irmsd
 
-    outfile = open(outdir + "/%s_top%s_all_to_all_docked_poses_irmsd.txt" % (os.path.basename(docked_poses_dirpath), str(top_scoring)),'w')
-    for ref_pose_id, query_pose_id, irmsd in irmsds:
-        outfile.write("{:35s} {:35s} {:8.3f}\n".format(ref_pose_id, query_pose_id, irmsd))
-    outfile.close()
+    with open(outdir + "/top%s_all_to_all_docked_poses_irmsd.txt" % str(top_scoring), 'w') as outfile:
+        # for ref_pose_id, query_pose_id, irmsd in irmsds:
+        outfile.write('\n'.join("{:35s} {:35s} {:8.3f}".format(*irmsd) for irmsd in irmsds))
 
 
 if __name__ == "__main__":

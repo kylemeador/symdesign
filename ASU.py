@@ -321,6 +321,42 @@ def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
     return list(map(os.path.dirname, commands))
 
 
+def run_cluster_calc(design_list, design_map_pickle, command_only=False):
+    """Calculate the all to all interface RMSD between a each docked pose in the top matching directories
+
+    Args:
+        design_list (list): List of designs to search for that have an entry in the design_map_pickle
+        design_map_pickle (str): The path of a serialized file to unpickle into a dictionary with directory maps
+    Returns:
+        None
+    """
+    design_map = SDUtils.unpickle(design_map_pickle)
+    logger.info('Design Analysis mode: All to All calculations')
+    log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
+    commands = []
+    with open(log_file, 'a+') as log_f:
+        for design in design_list:
+            logger.info('%s: Starting All to All calculation' % design)
+            design = design.strip()
+            outdir = os.path.join(design_map[design]['nanohedra_output'], 'rmsd_calculation')
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+            rmsd_cmd = ['python',
+                        '/home/kmeador/symdesign/dependencies/python/cluster_all_to_all_docked_poses_irmsd_v0.py',
+                        os.path.join(outdir, 'top2000_all_to_all_docked_poses_irmsd.txt'),
+                        os.path.join(outdir, 'crystal_vs_docked_irmsd.txt'), design]
+            if command_only:
+                commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='nanohedra',
+                                                           outpath=outdir))
+            else:
+                p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
+                p.communicate()
+                logger.info('%s finished' % design)
+            log_f.write(design)
+
+    return list(map(os.path.dirname, commands))
+
+
 def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
     """Returns a RMSD dictionary for the top (number) of all designs of interest in (design_list)
 
@@ -482,6 +518,12 @@ if __name__ == '__main__':
             all_command_locations = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
         elif args.mode == 'reference_rmsd':
             all_command_locations = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
+        elif args.mode == 'cluster':
+            all_command_locations = run_cluster_calc(design_d_names, args.design_map, args.command_only)
+        elif args.mode == 'all':
+            run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
+            run_rmsd_calc(design_d_names, args.design_map, args.command_only)
+            run_cluster_calc(design_d_names, args.design_map, args.command_only)
         else:
             exit('Invalid Input: \'-mode\' must be specified if using design_map!')
 

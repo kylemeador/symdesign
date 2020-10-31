@@ -2347,8 +2347,9 @@ class DesignDirectory:
         if self.mode == 'design':
             self.oligomer_names = os.path.basename(self.building_blocks).split('_')
             for name in self.oligomer_names:
-                name_pdb_file = glob(os.path.join(self.path, name + '_tx_*.pdb'))
-                assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
+                name_pdb_file = glob(os.path.join(self.path, '%s_tx_*.pdb' % name))
+                assert len(name_pdb_file) == 1, '%s: More than one matching file found with %s_tx_*.pdb!' % \
+                                                (self.__str__(), name)
                 self.oligomers[name] = read_pdb(name_pdb_file[0])
                 self.oligomers[name].AddName(name)
                 self.oligomers[name].reorder_chains()
