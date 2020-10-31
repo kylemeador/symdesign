@@ -797,7 +797,7 @@ def main():
     docked_poses_dirpath = sys.argv[1]  # nanohedra output directory
     rankfile_path = sys.argv[2]  # path to text file containing: reference structure vs nanohedra poses irmsd values, scores, ranks
     outdir = os.path.dirname(rankfile_path)  # sys.argv[3]  # output directory
-    num_threads = 2
+    num_threads = 4
     ####################################################################################################################
 
     # make output directory
