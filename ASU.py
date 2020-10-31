@@ -524,11 +524,8 @@ if __name__ == '__main__':
             commands2 = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
             commands3 = run_cluster_calc(design_d_names, args.design_map, args.command_only)
             modified_commands1 = map(subprocess.list2cmdline, zip(repeat('bash'), commands1))
-            print(modified_commands1)
             modified_commands2 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands2)))
-            print(modified_commands2)
             modified_commands3 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands3)))
-            print(modified_commands3)
             all_command_locations = [SDUtils.write_shell_script(cmd1, name='rmsd_to_cluster',
                                                                 additional=[modified_commands2[l],
                                                                             modified_commands3[l]],
