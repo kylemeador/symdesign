@@ -283,7 +283,7 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
                 #                  design_map[design]['nanohedra_output']]
                 # p = subprocess.Popen(rmsd_cmd_flip, stdout=log_f, stderr=log_f)
                 logger.info('%s finished' % design)
-            log_f.write(design)
+            # log_f.write(design)
 
     return list(map(os.path.dirname, rmsd_commands))
 
@@ -317,7 +317,7 @@ def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
                 p = subprocess.Popen(_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
                 logger.info('%s finished' % design)
-            log_f.write(design)
+            # log_f.write(design)
 
     return list(map(os.path.dirname, all_to_all_commands))
 
@@ -352,7 +352,7 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
                 p = subprocess.Popen(_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
                 logger.info('%s finished' % design)
-            log_f.write(design)
+            # log_f.write(design)
 
     return list(map(os.path.dirname, cluster_commands))
 
@@ -419,8 +419,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--command_only', action='store_true', help='Whether to only write commands, not run '
                                                                           'them')
     parser.add_argument('-d', '--directory', type=str, help='Directory where \'.pdb\' files to set up ASU extraction'
-                                                            'are located.\nDefault=CWD',)
-    #                     default=os.getcwd())
+                                                            'are located.\nDefault=CWD', default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='File with list of pdb files of interest\nDefault=None',
                         default=None)
     # parser.add_argument('-c', '--chain', type=str, help='What chain would you like to leave?\nDefault=A', default='A')
@@ -509,7 +508,7 @@ if __name__ == '__main__':
         with open(args.file, 'r') as f:
             all_design_directories = f.readlines()
             design_d_names = map(str.strip, all_design_directories)
-            design_d_names = map(os.path.basename, design_d_names)
+            design_d_names = list(map(os.path.basename, design_d_names))
 
         if args.mode == 'report':
             rmsd_d = collect_rmsd_calc(design_d_names, location=args.directory)
