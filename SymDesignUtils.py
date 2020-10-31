@@ -1697,6 +1697,13 @@ def to_iterable(_obj):
 def write_shell_script(command, name='script', outpath=os.getcwd(), additional=None, shell='bash'):
     """Take a list with command flags formatted for subprocess and write to a name.sh script
 
+    Args:
+        command (str): The command formatted using subprocess.list2cmdline(list())
+    Keyword Args:
+        name='script' (str): The name of the output shell script
+        outpath=os.getcwd() (str): The location where the script will be written
+        additional=None (iter): Additional commands also formatted using subprocess.list2cmdline
+        shell='bash' (str): The shell which should interpret the script
     Returns:
         (str): The name of the file
     """
@@ -2347,9 +2354,9 @@ class DesignDirectory:
         if self.mode == 'design':
             self.oligomer_names = os.path.basename(self.building_blocks).split('_')
             for name in self.oligomer_names:
-                name_pdb_file = glob(os.path.join(self.path, '%s_tx_*.pdb' % name))
-                assert len(name_pdb_file) == 1, '%s: More than one matching file found with %s_tx_*.pdb!' % \
-                                                (self.__str__(), name)
+                name_pdb_file = glob(os.path.join(self.path, '%s*_tx_*.pdb' % name))
+                assert len(name_pdb_file) == 1, 'Incorrect match [%d != 1] found using %s*_tx_*.pdb!\nCheck %s' % \
+                                                (len(name_pdb_file), name, self.__str__())
                 self.oligomers[name] = read_pdb(name_pdb_file[0])
                 self.oligomers[name].AddName(name)
                 self.oligomers[name].reorder_chains()
