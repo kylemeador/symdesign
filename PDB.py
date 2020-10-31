@@ -1,17 +1,18 @@
 #!/home/kmeador/miniconda3/bin/python
 import copy
-from Atom import Atom
-from Residue import Residue
-from Bio.SeqUtils import IUPACData
-from Bio import pairwise2
-from Bio.SubsMat import MatrixInfo as matlist
-from sklearn.neighbors import BallTree
+import math
+import os
 import subprocess
-from Stride import Stride
+
 # from functions import extract_aa_seq
 import numpy
-import os
-import math
+from Bio import pairwise2
+from Bio.SeqUtils import IUPACData
+from sklearn.neighbors import BallTree
+
+from Atom import Atom
+from Residue import Residue
+from Stride import Stride
 
 
 class PDB:
@@ -291,6 +292,22 @@ class PDB:
                 [x, y, z] = [atom.x, atom.y, atom.z]
                 coords.append([x, y, z])
         return coords
+
+    def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):
+        coords, cb_indices = [], []
+        for i in range(len(self.all_atoms)):
+            if self.all_atoms[i].is_CB(InclGlyCA=InclGlyCA):
+                [x, y, z] = [self.all_atoms[i].x, self.all_atoms[i].y, self.all_atoms[i].z]
+                coords.append([x, y, z])
+
+                if ReturnWithCBIndices:
+                    cb_indices.append(i)
+
+        if ReturnWithCBIndices:
+            return coords, cb_indices
+
+        else:
+            return coords
 
     def replace_coords(self, new_cords):
         for i in range(len(self.all_atoms)):
