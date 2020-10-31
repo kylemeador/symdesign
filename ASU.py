@@ -3,6 +3,7 @@ import os
 import subprocess
 from csv import reader
 from glob import glob
+from itertools import repeat
 
 import pandas as pd
 
@@ -514,16 +515,24 @@ if __name__ == '__main__':
         if args.mode == 'report':
             rmsd_d = collect_rmsd_calc(design_d_names, location=args.directory)
             report_top_rmsd(rmsd_d)
-        elif args.mode == 'all_to_all':
-            all_command_locations = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
         elif args.mode == 'reference_rmsd':
             all_command_locations = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
+        elif args.mode == 'all_to_all':
+            all_command_locations = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
         elif args.mode == 'cluster':
             all_command_locations = run_cluster_calc(design_d_names, args.design_map, args.command_only)
         elif args.mode == 'all':
-            run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
-            run_rmsd_calc(design_d_names, args.design_map, args.command_only)
-            run_cluster_calc(design_d_names, args.design_map, args.command_only)
+            commands1 = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
+            commands2 = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
+            commands3 = run_cluster_calc(design_d_names, args.design_map, args.command_only)
+            modified_commands1 = zip(repeat('bash'), commands1)
+            modified_commands2 = list(zip(repeat('bash'), commands2))
+            modified_commands3 = list(zip(repeat('bash'), commands3))
+            all_command_locations = [SDUtils.write_shell_script(cmd1, name='rmsd_to_cluster',
+                                                                additional=[modified_commands2[l],
+                                                                            modified_commands3[l]],
+                                                                outpath=os.path.dirname(commands1[l]))
+                                     for l, cmd1 in enumerate(modified_commands1)]
         else:
             exit('Invalid Input: \'-mode\' must be specified if using design_map!')
 
