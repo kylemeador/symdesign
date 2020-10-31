@@ -332,7 +332,7 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
         None
     """
     design_map = SDUtils.unpickle(design_map_pickle)
-    logger.info('Design Analysis mode: Clustering RMSD's)
+    logger.info('Design Analysis mode: Clustering RMSD\'s')
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
     commands = []
     with open(log_file, 'a+') as log_f:
