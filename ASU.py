@@ -285,7 +285,7 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
                 logger.info('%s finished' % design)
             # log_f.write(design)
 
-    return list(map(os.path.dirname, rmsd_commands))
+    return rmsd_commands
 
 
 def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
@@ -319,7 +319,7 @@ def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
                 logger.info('%s finished' % design)
             # log_f.write(design)
 
-    return list(map(os.path.dirname, all_to_all_commands))
+    return all_to_all_commands
 
 
 def run_cluster_calc(design_list, design_map_pickle, command_only=False):
@@ -354,7 +354,7 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
                 logger.info('%s finished' % design)
             # log_f.write(design)
 
-    return list(map(os.path.dirname, cluster_commands))
+    return cluster_commands
 
 
 def collect_rmsd_calc(design_list, number=10, location=os.getcwd()):
@@ -409,6 +409,7 @@ def report_top_rmsd(rmsd_d):
     # print(top_rmsd_s)
 
     # print(top_rank_s)
+modes = ['report', 'reference_rmsd', 'all_to_all_rmsd', 'cluster_rmsd', 'all_rmsd']
 
 
 if __name__ == '__main__':
@@ -428,7 +429,8 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--out_path', type=str, help='Where should new files be saved?\nDefault=CWD')
     parser.add_argument('-p', '--design_map', type=str, help='The location of a file to map the design directory to '
                                                              'lower and higher symmetry\nDefault=None', default=None)
-    parser.add_argument('-m', '--mode', type=str, help='Whether to report the RMSD\'s of design recap')
+    parser.add_argument('-m', '--mode', type=str, help='Which mode of RMSD processing to use. Chose on of %s'
+                                                       % ','.join(modes))
     parser.add_argument('-rot', '--flip', action='store_true', help='Whether to flip the orientation of a design')
 
     args = parser.parse_args()
@@ -513,28 +515,29 @@ if __name__ == '__main__':
         if args.mode == 'report':
             rmsd_d = collect_rmsd_calc(design_d_names, location=args.directory)
             report_top_rmsd(rmsd_d)
+            all_commands = []
         elif args.mode == 'reference_rmsd':
-            all_command_locations = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
-        elif args.mode == 'all_to_all':
-            all_command_locations = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
-        elif args.mode == 'cluster':
-            all_command_locations = run_cluster_calc(design_d_names, args.design_map, args.command_only)
-        elif args.mode == 'all':
+            all_commands = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
+        elif args.mode == 'all_to_all_rmsd':
+            all_commands = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
+        elif args.mode == 'cluster_rmsd':
+            all_commands = run_cluster_calc(design_d_names, args.design_map, args.command_only)
+        elif args.mode == 'all_rmsd':
             commands1 = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
             commands2 = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
             commands3 = run_cluster_calc(design_d_names, args.design_map, args.command_only)
             modified_commands1 = map(subprocess.list2cmdline, zip(repeat('bash'), commands1))
             modified_commands2 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands2)))
             modified_commands3 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands3)))
-            all_command_locations = [SDUtils.write_shell_script(cmd1, name='rmsd_to_cluster',
-                                                                additional=[modified_commands2[l],
-                                                                            modified_commands3[l]],
-                                                                outpath=os.path.dirname(commands1[l]))
-                                     for l, cmd1 in enumerate(modified_commands1)]
+            all_commands = [SDUtils.write_shell_script(cmd1, name='rmsd_to_cluster',
+                                                       additional=[modified_commands2[l], modified_commands3[l]],
+                                                       outpath=os.path.dirname(commands1[l]))
+                            for l, cmd1 in enumerate(modified_commands1)]
         else:
             exit('Invalid Input: \'-mode\' must be specified if using design_map!')
 
         if args.command_only:
-            SDUtils.write_commands(all_command_locations, name='rmsd_calculation', loc=args.directory)
+            all_command_locations = list(map(os.path.dirname, all_commands))  # TODO remove command distributer naming
+            SDUtils.write_commands(all_command_locations, name=args.mode, loc=args.directory)
     else:
         design_recapitulation(args.file, args.out_path, pdb_dir=args.directory, oligomer=args.oligomer_asu)
