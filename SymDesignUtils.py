@@ -2138,18 +2138,32 @@ def calculate_mp_threads(mpi=False, maximum=False, no_model=False):
         return int(mp.cpu_count() / CUtils.min_cores_per_job) - 1
 
 
-def mp_map(function, process_args, threads=1):
-    """Maps input to a function using multiprocessing Pool
+def set_worker_affinity():
+    """When a new worker process is created, use this initialization function to set the affinity for all CPUs.
+    Especially important for multiprocessing in the context of numpy, scipy, pandas
+    FROM Stack Overflow:
+    https://stackoverflow.com/questions/15639779/why-does-multiprocessing-use-only-a-single-core-after-i-import-numpy
+
+    See: http://manpages.ubuntu.com/manpages/precise/en/man1/taskset.1.html
+        -p is a mask for the logial cpu processers to use, the pid allows the affinity for an existing process to be
+        specified instead of a new process being spawned
+    """
+    # print("I'm the process %d, setting affinity to all CPUs." % os.getpid())
+    os.system('taskset -p 0x%s %d' % ('f' * os.cpu_count() / 4, os.getpid()))
+
+
+def mp_map(function, arg, threads=1):
+    """Maps input argument to a function using multiprocessing Pool
 
     Args:
         function (function): Which function should be executed
-        process_args (list(tuple)): Arguments to be unpacked in the defined function, order specific
+        arg (var): Argument to be unpacked in the defined function
         threads (int): How many workers/threads should be spawned to handle function(arguments)?
     Returns:
-        results (list): The results produced from the function and process_args
+        results (list): The results produced from the function and arg
     """
     with mp.get_context('spawn').Pool(processes=threads, maxtasksperchild=1) as p:
-        results = p.map(function, process_args)
+        results = p.map(function, arg)
     p.join()
 
     return results
@@ -2199,13 +2213,13 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
     Args:
         function (function): Which function should be executed
         process_args (list(tuple)): Arguments to be unpacked in the defined function, order specific
-        threads (int): How many workers/threads should be spawned to handle function(arguments)?
     Keyword Args:
+        threads=1 (int): How many workers/threads should be spawned to handle function(arguments)?
         context='spawn' (str): One of 'spawn', 'fork', or 'forkserver'
     Returns:
         results (list): The results produced from the function and process_args
     """
-    with mp.get_context(context).Pool(processes=threads, maxtasksperchild=1) as p:
+    with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity, maxtasksperchild=1) as p:
         results = p.starmap(function, process_args)  # , chunksize=1
     p.join()
 

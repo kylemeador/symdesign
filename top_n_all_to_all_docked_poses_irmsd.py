@@ -479,8 +479,11 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_c
         pdb2_perm_ca_atoms = []
         for pdb2_ch in pdb2_perm:
             pdb2_perm_ca_atoms.extend(pdb2_chid_ca_atom_dict[pdb2_ch])
-
-        rmsd_2, rot_2, tx_2 = biopdb_superimposer(pdb2_perm_ca_atoms, ref_pdb2_ca_int_ch_atoms)  # fixed, moving
+        try:
+            rmsd_2, rot_2, tx_2 = biopdb_superimposer(pdb2_perm_ca_atoms, ref_pdb2_ca_int_ch_atoms)  # fixed, moving
+        except Bio.PDB.PDBExceptions.PDBException:
+            print('reference2 (%s) and query2 (%s) have different atom lengths' % (pdb2.filepath, ref_pdb2.filepath))
+            raise Exception
         # rot_2, tx_2 not used
         if rmsd_2 < e:
             allowed_perms2[pdb2_perm] = pdb2_perm_ca_atoms
