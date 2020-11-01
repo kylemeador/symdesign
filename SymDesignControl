@@ -466,7 +466,11 @@ if __name__ == '__main__':
     # Grab all poses (directories) to be processed from either directory name or file
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
     if args.sub_module == 'distribute':
-        pass
+        if not args.file:
+            exit('Error: You must pass a file containing a list of commands to process. This is typically output to a '
+                 '\'stage.cmd\' file. Ensure that this file exists and resubmit with -f \'stage.cmd\', replacing stage'
+                 'with the desired stage.')
+        design_directories, location = SDUtils.collect_directories(args.directory, file=args.file)
     elif args.mode == 'design':
         if args.directory or args.file:
             all_docked_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
