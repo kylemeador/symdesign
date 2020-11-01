@@ -2162,7 +2162,7 @@ def mp_map(function, arg, threads=1):
     Returns:
         results (list): The results produced from the function and arg
     """
-    with mp.get_context('spawn').Pool(processes=threads, maxtasksperchild=1) as p:
+    with mp.get_context('spawn').Pool(processes=threads) as p:  # maxtasksperchild=1
         results = p.map(function, arg)
     p.join()
 
@@ -2181,7 +2181,7 @@ def mp_try_starmap(function, process_args, threads, context='spawn'):  # UNUSED
     Returns:
         results (list): The results produced from the function and process_args
     """
-    with mp.get_context(context).Pool(processes=threads, maxtasksperchild=1) as p:
+    with mp.get_context(context).Pool(processes=threads) as p:  # maxtasksperchild=1
         results = p.starmap(function, process_args)
     p.join()
 
@@ -2219,7 +2219,7 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
     Returns:
         results (list): The results produced from the function and process_args
     """
-    with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity, maxtasksperchild=1) as p:
+    with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity) as p:  # maxtasksperchild=1
         results = p.starmap(function, process_args)  # , chunksize=1
     p.join()
 
