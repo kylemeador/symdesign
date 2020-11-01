@@ -684,21 +684,21 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
 
     degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
     if resume:
-        degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
-        # degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log_filepath, zero=False)  # True
-        # ### Remove after design patch ###                                                   # Also this ^
-        # degen1_count, degen2_count = 0, 0
-        # from SymDesignUtils import degen_and_rotation_parameters, gather_docking_metrics, compute_last_rotation_state
-        # degens, rotations = degen_and_rotation_parameters(gather_docking_metrics(os.path.join(master_outdir, 'master_log.txt')))
-        # # degen1, degen2 = tuple(degens)
-        # last_rot1, last_rot2 = compute_last_rotation_state(*rotations)
-        # if rot2_count > last_rot2:
-        #     rot2_count = int(rot2_count % last_rot2)
-        # rot1_count -= 1
-        # rot2_count -= 1
-        # ### REMOVE ###
-        # with open(log_filepath, "a+") as log_file:
-        #     log_file.write('Job was run with the \'-resume\' flag. Resuming from last sampled rotational space!\n')
+        # degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
+        degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log_filepath, zero=False)  # True
+        ### Remove after design patch ###                                                   # Also this ^
+        degen1_count, degen2_count = 0, 0
+        from SymDesignUtils import degen_and_rotation_parameters, gather_docking_metrics, compute_last_rotation_state
+        degens, rotations = degen_and_rotation_parameters(gather_docking_metrics(os.path.join(master_outdir, 'master_log.txt')))
+        # degen1, degen2 = tuple(degens)
+        last_rot1, last_rot2 = compute_last_rotation_state(*rotations)
+        if rot2_count > last_rot2:
+            rot2_count = int(rot2_count % last_rot2)
+        rot1_count -= 1
+        rot2_count -= 1
+        ### REMOVE ###
+        with open(log_filepath, "a+") as log_file:
+            log_file.write('Job was run with the \'-resume\' flag. Resuming from last sampled rotational space!\n')
 
     if (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
         rot1_mat = None
