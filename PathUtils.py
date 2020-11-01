@@ -6,7 +6,8 @@ nano = 'nanohedra'
 program_name = 'SymDesign'
 hhblits = 'hhblits'
 nstruct = 25  # back to 50?
-stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus', 6: 'rmsd_calculation'}  # ,
+stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
+         6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster'}
 stage_f = {'refine': {'path': '*_refine.pdb', 'len': 1}, 'design': {'path': '*_design_*.pdb', 'len': nstruct},
            'metrics': {'path': '', 'len': None}, 'analysis': {'path': '', 'len': None},
            'consensus': {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
@@ -120,7 +121,10 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
                     stage[4]: os.path.join(sbatch_templates, stage[1]),
                     stage[5]: os.path.join(sbatch_templates, stage[1]),
                     nano: os.path.join(sbatch_templates, nano),
-                    stage[6]: os.path.join(sbatch_templates, nano)}
+                    stage[6]: os.path.join(sbatch_templates, stage[6]),
+                    stage[7]: os.path.join(sbatch_templates, stage[6]),
+                    stage[8]: os.path.join(sbatch_templates, stage[6]),
+                    stage[9]: os.path.join(sbatch_templates, stage[6])}
 
 
 # For argparseing help

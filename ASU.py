@@ -337,7 +337,7 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
     cluster_commands = []
     with open(log_file, 'a+') as log_f:
         for design in design_list:
-            logger.info('%s: Starting All to All calculation' % design)
+            logger.info('%s: Starting Clustering calculation' % design)
             design = design.strip()
             outdir = os.path.join(design_map[design]['nanohedra_output'], 'rmsd_calculation')
             if not os.path.exists(outdir):
