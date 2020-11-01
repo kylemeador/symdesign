@@ -332,8 +332,8 @@ if __name__ == '__main__':
                                                             % PUtils.program_name, default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s poses' % PUtils.program_name,
                         default=None)
-    parser.add_argument('-m', '--mode', type=str, choices=['design', 'dock'], help='Which mode to operate in?',
-                        required=True)
+    parser.add_argument('-m', '--mode', type=str, choices=['design', 'dock'], help='Which mode to operate in?') \
+        # , required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
@@ -465,7 +465,9 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
-    if args.mode == 'design':
+    if args.submodule == 'distribute':
+        pass
+    elif args.mode == 'design':
         if args.directory or args.file:
             all_docked_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
             assert all_docked_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure '
@@ -497,17 +499,19 @@ if __name__ == '__main__':
                 exit('If using --pdb_path1 and/or --pdb_path2, please specify --entry as well. --entry can be found '
                      'using SubModule \'query\'')
             if '.pdb' in args.pdb_path1 and '.pdb' in args.pdb_path2:
-                pdb_pairs = [(pdb1_path, pdb2_path), ]
+                pdb_pairs = [(args.pdb1_path, args.pdb2_path), ]
             else:
                 if args.pdb_path1 == args.pdb_path2 or args.pdb_path2 is None:
-                    pdb_pairs = combinations(get_all_pdb_file_paths(args.pdb_path1), 2)
+                    pdb_pairs = combinations(SDUtils.get_all_pdb_file_paths(args.pdb_path1), 2)
                     location = args.pdb_path1
                 else:
-                    pdb_pairs = product(get_all_pdb_file_paths(args.pdb_path1),
-                                        get_all_pdb_file_paths(args.pdb_path2))
+                    pdb_pairs = product(SDUtils.get_all_pdb_file_paths(args.pdb_path1),
+                                        SDUtils.get_all_pdb_file_paths(args.pdb_path2))
                     location = args.pdb_path1, args.pdb_path2
                 design_directories = pdb_pairs  # for logging purposes below
         logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories), location))
+    else:
+        exit('Error: --mode flag must be passed since the module is %s!' % args.submodule)
 
     if args.command_only:
         args.suspend = True
@@ -799,7 +803,7 @@ if __name__ == '__main__':
             if args.dataframe:  # Figure out poses from a dataframe, filters, and weights
                 # TODO parameterize
                 if args.filters:
-                    sys.exit('VY made this and I am going to put in here!')
+                    exit('Vy made this and I am going to put in here!')
                 design_requirements = {'percent_int_area_polar': 0.2, 'buns_per_ang': 0.002}
                 crystal_means1 = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
                 crystal_means2 = {'shape_complementarity': 0.63, 'number_hbonds': 5}  # 'int_area_total': 570,
