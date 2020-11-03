@@ -135,7 +135,7 @@ def rsync_dir(des_dir):
 
                 p = {}  # make a dict for all the processes
                 for k, entry in enumerate(os.scandir(building_block_dir)):
-                    if entry.is_dir() and 'DEGEN_1_' in entry.name:
+                    if entry.is_dir() and 'DEGEN_1_' in entry.name and entry.name != "DEGEN_1_1":
                         abs_entry_path = os.path.join(building_block_dir, entry.name)
                         cmd = ['rsync', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep), '--remove-source-files',
                                '%s%s' % (abs_entry_path, os.sep), destination]
@@ -149,8 +149,6 @@ def rsync_dir(des_dir):
                 # Remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
                 p2 = {}
                 for l, entry in enumerate(p):
-                    if l == 0:
-                        continue
                     find_cmd = ['find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']
                     # rm_cmd = ['rm', '-r', entry]
                     logger.debug('Removing empty directories: %s' % subprocess.list2cmdline(find_cmd))
