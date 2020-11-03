@@ -2149,7 +2149,7 @@ def set_worker_affinity():
         specified instead of a new process being spawned
     """
     # print("I'm the process %d, setting affinity to all CPUs." % os.getpid())
-    os.system('taskset -p 0x%s %d' % ('f' * (os.cpu_count() / 4), os.getpid()))
+    os.system('taskset -p 0x%s %d' % ('f' * int((os.cpu_count() / 4)), os.getpid()))
 
 
 def mp_map(function, arg, threads=1):
