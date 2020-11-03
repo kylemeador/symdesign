@@ -36,7 +36,7 @@ def get_last_sampling_state(log_file_path, zero=True):
 
 def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list, cluster_rmsd,
                                outdir_path, is_initial_match=False):
-
+    print('WRITING:', z_value)
     out_info_file_path = outdir_path + "/frag_match_info_file.txt"
     out_info_file = open(out_info_file_path, "a+")  # KM added 'w' to remove old versions of the program run, DOESN'T work
 
@@ -106,6 +106,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 
         tx_parameters = tx_param_list[i][0]
         initial_overlap_z_val = tx_param_list[i][1]
+        print(initial_overlap_z_val)
         ghostfrag_surffrag_pair = ghostfrag_surffrag_pair_list[i]
 
         # Get Optimal External DOF shifts
@@ -249,7 +250,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                             ########## Part of: 1 / (1 + z^2) score test ##########
 
                             score_term = 1 / float(1 + (z_val ** 2))
-
+                            print('Max z-value search', z_val)
                             covered_residues_pdb1 = [(pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num + j) for j in range(-2, 3)]
                             covered_residues_pdb2 = [(pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num + j) for j in range(-2, 3)]
                             for k in range(5):
@@ -280,7 +281,6 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 unique_interface_monofrags_infolist_pdb2.append((pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
 
                             frag_match_info_list.append((interface_ghost_frag, interface_mono_frag, z_val, cluster_id, pair_count, interface_ghost_frag_cluster_res_freq_list, interface_ghost_frag_cluster_rmsd))
-
 
                 unique_matched_interface_monofrag_count = len(unique_interface_monofrags_infolist_pdb1) + len(unique_interface_monofrags_infolist_pdb2)
                 percent_of_interface_covered = unique_matched_interface_monofrag_count / float(unique_total_interface_monofrags_count)
@@ -406,7 +406,6 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 f_l1 = "Nanohedra Score: " + str(total_inv_capped_z_val_score) + "\n"
 
                                 ########## Part of: 1 / (1 + z^2) score test ##########
-
                                 res_lev_sum_score = 0
 
                                 for res_scores_list1 in chid_resnum_scores_dict_pdb1.values():
@@ -544,6 +543,8 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
             log_file.close()
 
 
+# KM TODO ijk_intfrag_cluster_info_dict contains all info in init_intfrag_cluster_info_dict. init info could be deleted,
+#     This doesn't take up much extra memory, but makes future maintanence bad, for porting frags to fragDB say...
 def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
          init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict, ijk_monofrag_cluster_rep_pdb_dict,
          ijk_intfrag_cluster_info_dict, free_sasa_exe_path, master_outdir, pdb1_path, pdb2_path, set_mat1, set_mat2,
@@ -611,10 +612,13 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         if keep_time:
             get_complete_ghost_frags_time_start = time.time()
 
+    # KM this does a double calculation and storage by saving the initial fragments again. All caluclations with this group are doing more work than necessary
+    # one could imagine doing this first, then using a for loop to test for the indices that are the initial fragment search type
+    # TODO after this step and the surface frag step, the entire database is unnecessary for memory and could be dereferenced
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
-        complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)  # KM this does a double calculation and storage by saving the initial fragments again. All caluclations with this group are doing more work than necessary
-        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(  # one could imagine doing this first, then using a for loop to test for the indices that are the initial fragment search type
+        complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
+        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
         if complete_monofrag1_ghostfrag_list is not None:  # TODO remove is not None
             # complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list) # TODO KM MOD
@@ -667,6 +671,8 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
         if complete_monofrag2_guide_coords is not None:
             complete_surf_frag_list.append(complete_monofrag2)
+
+    del ijk_monofrag_cluster_rep_pdb_dict, init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2
     if not resume and keep_time:
         get_complete_surf_frags_time_stop = time.time()
         get_complete_surf_frags_time = get_complete_surf_frags_time_stop - get_complete_surf_frags_time_start
