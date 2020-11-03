@@ -9,12 +9,17 @@ import numpy as np
 import pandas as pd
 from Bio import SeqIO
 from Bio import pairwise2
-# from Bio.Alphabet import generic_protein
 from Bio.Align import MultipleSeqAlignment
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
-from Bio.SubsMat import MatrixInfo as matlist
+
+try:
+    from Bio.SubsMat import MatrixInfo as matlist
+    from Bio.Alphabet import generic_protein
+except ImportError:
+    from Bio.Align.substitution_matrices import MatrixInfo as matlist
+    generic_protein = None
 from scipy.spatial.distance import pdist
 from sklearn.decomposition import PCA
 from sklearn.neighbors import BallTree
@@ -162,7 +167,7 @@ def create_bio_msa(sequence_dict):
         new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
                                                SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
     """
-    sequences = [SeqRecord(Seq(sequence_dict[name]), id=name) for name in sequence_dict]
+    sequences = [SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
     new_alignment = MultipleSeqAlignment(sequences)
 
     return new_alignment
