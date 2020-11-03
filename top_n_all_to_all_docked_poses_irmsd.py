@@ -717,6 +717,9 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
         # reference1_chains_and_residues_d[i] = ref1_int_chain_residue_d
         # reference2_chains_and_residues_d[i] = ref2_int_chain_residue_d
 
+    # for des_dir in design_directories:
+        des_dir.oligomers[des_dir.oligomer_names[0]] = standardize_intra_oligomer_chain_lengths(docked_pdb1)
+        des_dir.oligomers[des_dir.oligomer_names[1]] = standardize_intra_oligomer_chain_lengths(docked_pdb2)
     # standardized_pdbs1, standardized_pdbs2 = {}, {}
     # for i in range(n):
     #     ref_pose_id, ref_pose_pdb1_filepath, ref_pose_pdb2_filepath = docked_pdb1_pdb2_filepaths[i]
