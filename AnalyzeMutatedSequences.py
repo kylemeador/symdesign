@@ -1,27 +1,28 @@
-import sys
-import os
 import argparse
 import math
+import os
+import sys
 from glob import glob
 from itertools import combinations, repeat, chain
-import PDB
-from Bio import SeqIO
-from Bio import pairwise2
-from Bio.Seq import Seq
-from Bio.SeqUtils import IUPACData
-from Bio.SeqRecord import SeqRecord
-from Bio.Alphabet import generic_protein
-from Bio.Align import MultipleSeqAlignment
-from Bio.SubsMat import MatrixInfo as matlist
+
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+from Bio import SeqIO
+from Bio import pairwise2
+# from Bio.Alphabet import generic_protein
+from Bio.Align import MultipleSeqAlignment
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio.SeqUtils import IUPACData
+from Bio.SubsMat import MatrixInfo as matlist
+from scipy.spatial.distance import pdist
 from sklearn.decomposition import PCA
-from scipy.spatial.distance import euclidean, pdist
 from sklearn.neighbors import BallTree
+from sklearn.preprocessing import StandardScaler
+
+import PDB
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-
 
 # Globals
 # logger = SDUtils.start_log(__name__)
@@ -161,9 +162,7 @@ def create_bio_msa(sequence_dict):
         new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
                                                SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
     """
-    sequences = [SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
-    # for name in sequence_dict:
-    #     sequences.append(SeqRecord(Seq(sequence_dict[name], generic_protein), id=name))
+    sequences = [SeqRecord(Seq(sequence_dict[name]), id=name) for name in sequence_dict]
     new_alignment = MultipleSeqAlignment(sequences)
 
     return new_alignment
