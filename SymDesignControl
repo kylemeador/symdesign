@@ -238,24 +238,21 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                 incomplete.append(des_dir.path)
 
     if active:
-        active_path = os.path.join(args.directory, 'running_' + _stage + '_pose_status')
+        active_path = os.path.join(args.directory, 'running_%s_pose_status' % _stage)
         with open(active_path, 'w') as f_act:
             for r in running:
                 f_act.write('%s\n' % r)
-            f_act.write('\n')
         incomplete = list(set(incomplete) - set(running))
 
-    complete_path = os.path.join(args.directory, 'complete_' + _stage + '_pose_status')
-    incomplete_path = os.path.join(args.directory, 'incomplete_' + _stage + '_pose_status')
+    complete_path = os.path.join(args.directory, 'complete_%s_pose_status' % _stage)
     with open(complete_path, 'w') as f_com:
         for c in complete:
             f_com.write('%s\n' % c)
-        f_com.write('\n')
 
+    incomplete_path = os.path.join(args.directory, 'incomplete_%s_pose_status' % _stage)
     with open(incomplete_path, 'w') as f_in:
         for n in incomplete:
             f_in.write('%s\n' % n)
-        f_in.write('\n')
 
     return True
 
