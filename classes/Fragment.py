@@ -208,29 +208,29 @@ class MonoFragment:
             ghost_fragments = []
             for j_type in intfrag_cluster_rep_dict[self.type]:
                 for k_type in intfrag_cluster_rep_dict[self.type][j_type]:
-                        intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
-                        intfrag_pdb = intfrag[0]
-                        intfrag_mapped_chain_id = intfrag[1]
-                        intfrag_mapped_chain_central_res_num = intfrag[2]
-                        intfrag_partner_chain_id = intfrag[3]
-                        intfrag_partner_chain_central_res_num = intfrag[4]
+                    intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
+                    intfrag_pdb = intfrag[0]
+                    intfrag_mapped_chain_id = intfrag[1]
+                    intfrag_mapped_chain_central_res_num = intfrag[2]
+                    intfrag_partner_chain_id = intfrag[3]
+                    intfrag_partner_chain_central_res_num = intfrag[4]
 
-                        aligned_ghost_frag_pdb = biopdb_aligned_chain(self.pdb, self.pdb.chain_id_list[0], intfrag_pdb, intfrag_mapped_chain_id)
+                    aligned_ghost_frag_pdb = biopdb_aligned_chain(self.pdb, self.pdb.chain_id_list[0], intfrag_pdb, intfrag_mapped_chain_id)
 
-                        # Ghost Fragment Mapped Chain ID, Central Residue Number and Partner Chain ID, Partner Central Residue Number
-                        ghostfrag_central_res_tup = (intfrag_mapped_chain_id, intfrag_mapped_chain_central_res_num, intfrag_partner_chain_id, intfrag_partner_chain_central_res_num)
+                    # Ghost Fragment Mapped Chain ID, Central Residue Number and Partner Chain ID, Partner Central Residue Number
+                    ghostfrag_central_res_tup = (intfrag_mapped_chain_id, intfrag_mapped_chain_central_res_num, intfrag_partner_chain_id, intfrag_partner_chain_central_res_num)
 
-                        # Only keep ghost fragments that don't clash with oligomer backbone
-                        # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
-                        g_frag_bb_coords = []
-                        for atom in aligned_ghost_frag_pdb.all_atoms:
-                            if atom.chain != "9" and atom.chain != intfrag_mapped_chain_id and atom.is_backbone():
-                                g_frag_bb_coords.append([atom.x, atom.y, atom.z])
+                    # Only keep ghost fragments that don't clash with oligomer backbone
+                    # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
+                    g_frag_bb_coords = []
+                    for atom in aligned_ghost_frag_pdb.all_atoms:
+                        if atom.chain != "9" and atom.chain != intfrag_mapped_chain_id and atom.is_backbone():
+                            g_frag_bb_coords.append([atom.x, atom.y, atom.z])
 
-                        cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
+                    cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
 
-                        if cb_clash_count[0] == 0:
-                            ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, ghostfrag_central_res_tup, self.get_central_res_tup()))
+                    if cb_clash_count[0] == 0:
+                        ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, ghostfrag_central_res_tup, self.get_central_res_tup()))
 
             return ghost_fragments
 
