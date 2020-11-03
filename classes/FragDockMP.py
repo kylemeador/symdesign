@@ -163,6 +163,18 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
             log_file.close()
 
             # Full Interface Fragment Match
+            # TODO BIG This routine takes the bulk of the docking program due to the high amount of calculations.
+            #  It could be reduced by only transforming each pdb instead of separating the guide atoms from the normal atoms
+            #   This is already done for the ghost fragments... Low hanging fruit for surface frags, unless reason...
+            #  The call to return guide atoms could be implemented on the returned transformed fragment atoms/coords
+            #  In fact the transformed atoms are not needed at all in the output. Similar concept to PDB output except less useful in program operation.
+            #   The index of the fragment (i,j,k) could be used with the set and rot matrices, followed by the internal and external tx
+            #    Lots of memory overhead, this likely is what causes program termination so often in the optimal translation routines
+            #  The use of hashing on the surface and ghost fragments could increase program runtime, over tuple calls
+            #   to the ghost_fragment objects to return the aligned chain and residue then test for membership...
+            #    Is the chain necessary? Probably. Two chains can occupy interface, even the same residue could be used
+            #    Think D2 symmetry
+            #   Store all the ghost/surface frags in a chain/residue dictionary?
             get_int_ghost_surf_frags_time_start = time.time()
             interface_ghostfrag_list, int_monofrag2_list, interface_ghostfrag_guide_coords_list, int_monofrag2_guide_coords_list, unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = get_interface_ghost_surf_frags(pdb1_copy, pdb2_copy, complete_ghost_frag_list, complete_surf_frag_list, rot_mat1, rot_mat2, representative_int_dof_tx_param_1, representative_int_dof_tx_param_2, set_mat1, set_mat2, representative_ext_dof_tx_params_1, representative_ext_dof_tx_params_2)
             get_int_ghost_surf_frags_time_end = time.time()
@@ -184,7 +196,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                 eul_lookup_end_time = time.time()
                 eul_lookup_time = eul_lookup_end_time - eul_lookup_start_time
 
-                # Get RMSD and z-value for the selected (Ghost Fragment, Interface Fragment) guide coodinate pairs
+                # Get RMSD and z-value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
                 pair_count = 0
                 total_overlap_count = 0
                 overlap_score_time_start = time.time()
@@ -579,9 +591,11 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         monofrag_ghostfrag_list = monofrag1.get_ghost_fragments(init_intfrag_cluster_rep_dict,
                                                                 kdtree_oligomer1_backbone)
         if monofrag_ghostfrag_list is not None:
-            for ghostfrag in monofrag_ghostfrag_list:
-                ghost_frag_list.append(ghostfrag)
-                ghost_frag_guide_coords_list.append(ghostfrag.get_guide_coords())
+            # ghost_frag_list.extend(ghostfrag)  # TODO KM Mod
+            # ghost_frag_guide_coords_list.extend(map(ghostfrag.get_guide_coords, monofrag_ghostfrag_list))  # TODO KM Mod. Or remove all together and use this call below instead of prestoring these coords
+            for ghostfrag in monofrag_ghostfrag_list:  # Remove
+                ghost_frag_list.append(ghostfrag)  # Remove
+                ghost_frag_guide_coords_list.append(ghostfrag.get_guide_coords())  # Remove
     if not resume and keep_time:
         get_init_ghost_frags_time_stop = time.time()
         get_init_ghost_frags_time = get_init_ghost_frags_time_stop - get_init_ghost_frags_time_start
@@ -599,10 +613,11 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
 
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
-        complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
-        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
+        complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)  # KM this does a double calculation and storage by saving the initial fragments again. All caluclations with this group are doing more work than necessary
+        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(  # one could imagine doing this first, then using a for loop to test for the indices that are the initial fragment search type
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
-        if complete_monofrag1_ghostfrag_list is not None:  # remove is not None
+        if complete_monofrag1_ghostfrag_list is not None:  # TODO remove is not None
+            # complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list) # TODO KM MOD
             for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
                 complete_ghost_frag_list.append(complete_ghostfrag)
     if not resume and keep_time:
@@ -648,8 +663,8 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
             get_complete_surf_frags_time_start = time.time()
     complete_surf_frag_list = []
     for frag2 in surf_frags_2:
-        complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
-        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()
+        complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)  # KM this does a double calculation and storage by saving the initial fragments again. All caluclations with this group are doing more work than necessary
+        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
         if complete_monofrag2_guide_coords is not None:
             complete_surf_frag_list.append(complete_monofrag2)
     if not resume and keep_time:
