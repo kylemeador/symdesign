@@ -36,7 +36,7 @@ def get_last_sampling_state(log_file_path, zero=True):
 
 def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list, cluster_rmsd,
                                outdir_path, is_initial_match=False):
-    print('WRITING:', z_value)
+
     out_info_file_path = outdir_path + "/frag_match_info_file.txt"
     out_info_file = open(out_info_file_path, "a+")  # KM added 'w' to remove old versions of the program run, DOESN'T work
 
@@ -47,18 +47,18 @@ def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match
         out_info_file.write("***** MATCH FROM REPRESENTATIVES OF INITIAL INTERFACE FRAGMENT CLUSTERS *****\n\n")
 
     out_info_file.write("Cluster ID: %s\n" % cluster_id)
-    out_info_file.write("Cluster RMSD: %s\n" % str(cluster_rmsd))
-    out_info_file.write("Cluster Representative PDB Filename: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
+    out_info_file.write("Cluster RMSD: %f\n" % cluster_rmsd)
+    out_info_file.write("Cluster Representative PDB Filename: int_frag_%s_%d.pdb\n" % (cluster_id, match_count))
     out_info_file.write("Cluster Central Residue Pair Frequency: %s\n" % str(res_freq_list))
-    out_info_file.write("Ghost Fragment Mapped Chain ID: %s\n" % str(aligned_central_res_info[0]))
-    out_info_file.write("Ghost Fragment Mapped Residue Number: %s\n" % str(aligned_central_res_info[1]))
-    out_info_file.write("Ghost Fragment Partner Chain ID: %s\n" % str(aligned_central_res_info[2]))
-    out_info_file.write("Ghost Fragment Partner Residue Number: %s\n" % str(aligned_central_res_info[3]))
-    out_info_file.write("Surface Fragment Oligomer1 Chain ID: %s\n" % str(aligned_central_res_info[4]))
-    out_info_file.write("Surface Fragment Oligomer1 Residue Number: %s\n" % str(aligned_central_res_info[5]))
-    out_info_file.write("Surface Fragment Oligomer2 Chain ID: %s\n" % str(surf_frag_oligomer2_central_res_tup[0]))
-    out_info_file.write("Surface Fragment Oligomer2 Residue Number: %s\n" % str(surf_frag_oligomer2_central_res_tup[1]))
-    out_info_file.write("Overlap Z-Value: %s\n\n" + str(z_value))
+    out_info_file.write("Ghost Fragment Mapped Chain ID: %s\n" % aligned_central_res_info[0])
+    out_info_file.write("Ghost Fragment Mapped Residue Number: %d\n" % aligned_central_res_info[1])
+    out_info_file.write("Ghost Fragment Partner Chain ID: %s\n" % aligned_central_res_info[2])
+    out_info_file.write("Ghost Fragment Partner Residue Number: %d\n" % aligned_central_res_info[3])
+    out_info_file.write("Surface Fragment Oligomer1 Chain ID: %s\n" % aligned_central_res_info[4])
+    out_info_file.write("Surface Fragment Oligomer1 Residue Number: %d\n" % aligned_central_res_info[5])
+    out_info_file.write("Surface Fragment Oligomer2 Chain ID: %s\n" % surf_frag_oligomer2_central_res_tup[0])
+    out_info_file.write("Surface Fragment Oligomer2 Residue Number: %d\n" % surf_frag_oligomer2_central_res_tup[1])
+    out_info_file.write("Overlap Z-Value: %f\n\n" % z_value)
 
     if is_initial_match:
         out_info_file.write("***** SUBSEQUENT MATCH(ES) FROM REPRESENTATIVES OF ALL INTERFACE FRAGMENT CLUSTERS *****\n\n")
@@ -106,7 +106,6 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 
         tx_parameters = tx_param_list[i][0]
         initial_overlap_z_val = tx_param_list[i][1]
-        print(initial_overlap_z_val)
         ghostfrag_surffrag_pair = ghostfrag_surffrag_pair_list[i]
 
         # Get Optimal External DOF shifts
@@ -250,7 +249,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                             ########## Part of: 1 / (1 + z^2) score test ##########
 
                             score_term = 1 / float(1 + (z_val ** 2))
-                            print('Max z-value search', z_val)
+
                             covered_residues_pdb1 = [(pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num + j) for j in range(-2, 3)]
                             covered_residues_pdb2 = [(pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num + j) for j in range(-2, 3)]
                             for k in range(5):
