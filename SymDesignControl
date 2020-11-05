@@ -124,8 +124,7 @@ def designs(des_dir, file_type):
 
 def rsync_dir(des_dir):
     """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
-    a single DEGEEN_1_2 directory"""
-    # make hard links for every file in a DEGEN_1_2 and higher directory
+    a single DEGEEN_1_2 directory making hard links for every file in a DEGEN_1_2 and higher directory to DEGEN_1_1"""
 
     for s, sym_dir in enumerate(des_dir.symmetry):
         if '_flipped_180y' in sym_dir:
@@ -220,7 +219,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                         # incomplete.append(des_dir)
                         # incomplete.append(des_dir.symmetry)
         complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
-        running = map(os.path.dirname, running)  # can remove if building_block name is removed
+        running = list(map(os.path.dirname, running))  # can remove if building_block name is removed
         incomplete = map(os.path.dirname, incomplete)  # can remove if building_block name is removed
     else:
         if not number:
@@ -238,19 +237,16 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
     if active:
         active_path = os.path.join(args.directory, 'running_%s_pose_status' % _stage)
         with open(active_path, 'w') as f_act:
-            for r in running:
-                f_act.write('%s\n' % r)
+            f_act.write('\n'.join(r for r in running))
         incomplete = list(set(incomplete) - set(running))
 
     complete_path = os.path.join(args.directory, 'complete_%s_pose_status' % _stage)
     with open(complete_path, 'w') as f_com:
-        for c in complete:
-            f_com.write('%s\n' % c)
+        f_com.write('\n'.join(c for c in complete))
 
     incomplete_path = os.path.join(args.directory, 'incomplete_%s_pose_status' % _stage)
     with open(incomplete_path, 'w') as f_in:
-        for n in incomplete:
-            f_in.write('%s\n' % n)
+        f_in.write('\n'.join(n for n in incomplete))
 
     return True
 
