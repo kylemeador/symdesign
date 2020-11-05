@@ -795,7 +795,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     #                                            ref_pdb2_int_chids_resnums_dict, e=3.0, return_aligned_ref_pdbs=False)
     #
     #         irmsds.append((ref_pose_id, query_pose_id, irmsd))
-
+    print('Inner: %s, type is %s' % (str(irmsds[1]), type(irmsds[1])))
     return zip(*directory_pairs, irmsds)
 ########################################################################################################################
 
@@ -836,6 +836,7 @@ def main():
 
     with open(outdir + "/top%s_all_to_all_docked_poses_irmsd.txt" % str(top_scoring), 'w') as outfile:
         # for ref_pose_id, query_pose_id, irmsd in irmsds:
+        print("writing:", next(irmsds))
         outfile.write('\n'.join("{:35s} {:35s} {:8.3f}".format(*irmsd) for irmsd in irmsds))
 
 
