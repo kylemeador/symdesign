@@ -167,13 +167,13 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
     if _stage == 'rmsd':
         start = datetime.datetime(2020, 11, 3, 0, 0)
 
-        def _rmsd_dir(des_dir):
-            return os.path.join(des_dir.symmetry, 'rmsd_calculation')
+        def _rmsd_dir(des_dir_symmetry):
+            return os.path.join(des_dir_symmetry, 'rmsd_calculation')
         outcome_strings_d = {0: 'rmsd_to_cluster.sh', 1: 'all_to_cluster.sh', 2: 'rmsd_clustering.sh'}
         rmsd, all_to_all, clustering_files = [], [], []
         for des_dir in all_design_directories:
             rmsd_file, all_to_all_file, final_clustering_file = None, None, None
-            rmsd_dir = _rmsd_dir(des_dir)
+            rmsd_dir = _rmsd_dir(des_dir.symmetry[0])
             try:
                 rmsd_file = glob(os.path.join(rmsd_dir, 'crystal_vs_docked_irmsd.txt'))[0]
                 if int(time.time()) - int(os.path.getmtime(rmsd_file)) > start.now().timestamp() - start.timestamp():
@@ -194,7 +194,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                 if not stage:
                     _status = False
                     # _status = os.path.join(_rmsd_dir(design_directories[k], outcome_strings_d[r]))
-                    running.append(os.path.join(_rmsd_dir(design_directories[k]), outcome_strings_d[r]))
+                    running.append(os.path.join(_rmsd_dir(design_directories[k].symmetry), outcome_strings_d[r]))
                     break
             if _status:
                 complete.append(status)
