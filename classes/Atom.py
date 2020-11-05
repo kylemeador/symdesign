@@ -112,7 +112,3 @@ class Atom:
 
     def get_atom_charge(self):
         return self.atom_charge
-
-
-
-
