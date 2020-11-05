@@ -163,7 +163,38 @@ def rsync_dir(des_dir):
 
 def status(all_design_directories, _stage, number=None, active=True, inactive_time=30 * 60):  # 30 minutes
     complete, running, incomplete = [], [], []
-    if _stage == 'nanohedra':
+    if _stage == 'rmsd':
+        def _rmsd_dir(des_dir):
+            return os.path.join(des_dir.symmetry, 'rmsd_calculation')
+        outcome_strings_d = {0: 'rmsd_to_cluster.sh', 1: 'all_to_cluster.sh', 2: 'rmsd_clustering.sh'}
+        rmsd, all_to_all, clustering_files = [], [], []
+        for des_dir in all_design_directories:
+            rmsd_file, all_to_all_file, final_clustering_file = None, None, None
+            rmsd_dir = _rmsd_dir(des_dir)
+            try:
+                rmsd_file = glob(os.path.join(rmsd_dir, 'crystal_vs_docked_irmsd.txt'))[0]
+                all_to_all_file = glob(os.path.join(rmsd_dir, 'top*_all_to_all_docked_poses_irmsd.txt'))[0]
+                final_clustering_file = glob(os.path.join(rmsd_dir, '*_clustered.txt'))[0]
+            except IndexError:
+                incomplete.append(rmsd_dir)
+            rmsd.append(rmsd_file)
+            all_to_all.append(all_to_all_file)
+            clustering_files.append(final_clustering_file)
+
+        # report all designs which are done, return all commands for designs which need to be completed.
+        for k, (results) in enumerate(zip(rmsd, all_to_all, clustering_files)):
+            _status = True
+            # _status = results[2]
+            for r, stage in enumerate(results):
+                if not stage:
+                    _status = False
+                    # _status = os.path.join(_rmsd_dir(design_directories[k], outcome_strings_d[r]))
+                    running.append(os.path.join(_rmsd_dir(design_directories[k]), outcome_strings_d[r]))
+                    break
+            if _status:
+                complete.append(status)
+
+    elif _stage == 'nanohedra':
         from classes.FragDockMP import get_last_sampling_state
         # observed_building_blocks = []
         for des_dir in all_design_directories:
