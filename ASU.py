@@ -522,6 +522,14 @@ if __name__ == '__main__':
             all_commands = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
         elif args.mode == 'cluster_rmsd':
             all_commands = run_cluster_calc(design_d_names, args.design_map, args.command_only)
+        elif args.mode == 'all_to_cluster':
+            commands1 = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
+            commands2 = run_cluster_calc(design_d_names, args.design_map, args.command_only)
+            modified_commands1 = map(subprocess.list2cmdline, zip(repeat('bash'), commands1))
+            modified_commands2 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands2)))
+            all_commands = [SDUtils.write_shell_script(cmd1, name='all_to_cluster', additional=[modified_commands2[l]],
+                                                       outpath=os.path.dirname(commands1[l]))
+                            for l, cmd1 in enumerate(modified_commands1)]
         elif args.mode == 'all_rmsd':
             commands1 = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
             commands2 = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
