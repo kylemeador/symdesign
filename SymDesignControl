@@ -194,7 +194,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                 if not stage:
                     _status = False
                     # _status = os.path.join(_rmsd_dir(design_directories[k], outcome_strings_d[r]))
-                    running.append(os.path.join(_rmsd_dir(design_directories[k].symmetry), outcome_strings_d[r]))
+                    running.append(os.path.join(_rmsd_dir(design_directories[k].symmetry[0]), outcome_strings_d[r]))
                     break
             if _status:
                 complete.append(status)
