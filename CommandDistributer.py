@@ -103,9 +103,12 @@ if __name__ == '__main__':
                                      + '\nGather commands set up by %s and distribute to computational nodes for '
                                      'Rosetta processing.' % PUtils.program_name)
     parser.add_argument('-s', '--stage', choices=tuple(CUtils.process_scale.keys()),
-                        help='The stage of design to be prepared. One of %s'
-                             % ', '.join(list(CUtils.process_scale.keys())))  # TODO combine with command file as 1 arg?
-    parser.add_argument('-c', '--command_file', help='File with command(s) to be distributed. Required', required=True)
+                        help='The stage of design to be distributed. Each stage has optimal computing requirements to'
+                             ' maximally utilize computers . One of %s' % ', '.join(list(CUtils.process_scale.keys())))
+    # TODO combine with command file as 1 arg?
+    parser.add_argument('-C', '--command_present', action='store_true',
+                        help='Whether command file has commands already')
+    parser.add_argument('-c', '--command_file', help='File with command(s) to be distributed. Required', required=True)  # TODO -f
     parser.add_argument('-y', '--success_file', help='The disk location of output file containing successful commands')
     parser.add_argument('-n', '--failure_file', help='The disk location of output file containing failed commands')
     args = parser.parse_args()
@@ -129,7 +132,11 @@ if __name__ == '__main__':
     def path_maker(path_name):
         return os.path.join(path_name, '%s.sh' % args.stage)
 
-    commands_of_interest = list(map(path_maker, poses))
+    if not args.command_present:
+        commands_of_interest = list(map(path_maker, poses))
+    else:
+        commands_of_interest = poses
+
     if args.stage == 'nanohedra':
         des_dirs = [SDUtils.set_up_pseudo_design_dir(pose, os.getcwd(), os.getcwd()) for pose in poses]
     else:
