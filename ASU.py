@@ -404,6 +404,7 @@ def report_top_rmsd(rmsd_d):
     top_df.columns = ['iRMSD', 'Nanohedra Score', 'Nanohedra Rank', 'TC Dock Motifs']
     top_df.sort_values('iRMSD', inplace=True)
 
+    pd.options.display.max_rows = 182
     print(top_df)
     # top_rmsd_s.sort_values(inplace=True)
     # print(top_rmsd_s)
