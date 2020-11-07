@@ -2151,7 +2151,7 @@ def set_worker_affinity():
     # print("I'm the process %d, setting affinity to all CPUs." % os.getpid())
     _cmd = ['taskset', '-p', '0x%s' % 'f' * int((os.cpu_count() / 4)), str(os.getpid())]
     logger.debug(subprocess.list2cmdline(_cmd))
-    subprocess.Popen(_cmd, stdout=subprocess.DEVNULLL, stderr=subprocess.STDOUT)
+    subprocess.Popen(_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 
 def mp_map(function, arg, threads=1):
