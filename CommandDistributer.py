@@ -242,14 +242,14 @@ if __name__ == '__main__':
 
     # Write out successful and failed commands TODO ensure write is only possible one at a time
     with open(args.success_file, 'a') as f:
-        for i, pose in enumerate(poses):
+        for i, command in enumerate(commands):
             if results[i]:
-                f.write('%s\n' % pose)
+                f.write('%s\n' % command)
 
     with open(args.failure_file, 'a') as f:
-        for i, pose in enumerate(poses):
+        for i, command in enumerate(command):
             if not results[i]:
-                f.write('%s\n' % pose)
+                f.write('%s\n' % command)
 
     # # Append SLURM output to log_file(s)
     # job_id = int(os.environ.get('SLURM_JOB_ID'))
