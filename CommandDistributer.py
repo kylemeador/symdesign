@@ -215,41 +215,27 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, exit_gracefully)
     # while not monitor.kill_now:
 
-    # python 2.7 compatibility NO MP here
-    results = []
-    for command, log_file in commands:
-        results.append(run(command, log_file))
+    # # python 2.7 compatibility NO MP here
+    # results = []
+    # for command, log_file in commands:
+    #     results.append(run(command, log_file))
 
     # python 3.7 compatible
-    # results = SDUtils.mp_starmap(run, commands, threads=len(command_paths))  # TODO reinstate
-    #
-    #     # Write out successful and failed commands TODO ensure write is only possible one at a time
-    #     with open(args.success_file, 'a') as f:
-    #         for i, pose in enumerate(poses):
-    #             if results[i]:
-    #                 f.write('%s\n' % pose)
-    #                 # f.write('%d %s\n' % (cmd_slice, pose.rstrip(command_name)))
-    #             cmd_slice += i
-    #     with open(args.failure_file, 'a') as f:
-    #         for i, pose in enumerate(poses):
-    #             if not results[i]:
-    #                 f.write('%s\n' % pose)
-    #     break
-
-    # if monitor.kill_now:
-    #
-    # else:
+    if len(command_paths) > 1:  # set by CUtils.process_scale
+        results = SDUtils.mp_starmap(run, commands, threads=len(command_paths))
+    else:
+        results = [run(command, log_file) for command, log_file in commands]
 
     # Write out successful and failed commands TODO ensure write is only possible one at a time
     with open(args.success_file, 'a') as f:
-        for i, command in enumerate(commands):
-            if results[i]:
-                f.write('%s\n' % command)
+        for i, result in enumerate(results):
+            if result:
+                f.write('%s\n' % command_paths[i])
 
     with open(args.failure_file, 'a') as f:
-        for i, command in enumerate(command):
-            if not results[i]:
-                f.write('%s\n' % command)
+        for i, result in enumerate(results):
+            if not result:
+                f.write('%s\n' % command_paths[i])
 
     # # Append SLURM output to log_file(s)
     # job_id = int(os.environ.get('SLURM_JOB_ID'))
