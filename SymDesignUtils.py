@@ -2329,6 +2329,7 @@ class DesignDirectory:
             # raise DesignError('Path does not exist!\n%s' % self.path)
             logger.warning('%s: Path does not exist!' % self.path)
         else:
+            # TODO ensure these are only created with Pose Processing is called... New method probably
             if not os.path.exists(self.protein_data):
                 os.makedirs(self.protein_data)
             if not os.path.exists(self.pdbs):
