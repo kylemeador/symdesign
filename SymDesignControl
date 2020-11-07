@@ -493,11 +493,12 @@ if __name__ == '__main__':
     # Grab all poses (directories) to be processed from either directory name or file
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
     if args.sub_module == 'distribute':
-        if not args.file:
+        if args.file:
+            design_directories, location = SDUtils.collect_directories(args.directory, file=args.file)
+        else:
             exit('Error: You must pass a file containing a list of commands to process. This is typically output to a '
                  '\'stage.cmd\' file. Ensure that this file exists and resubmit with -f \'stage.cmd\', replacing stage'
                  'with the desired stage.')
-        design_directories, location = SDUtils.collect_directories(args.directory, file=args.file)
     elif args.mode == 'design':
         if args.directory or args.file:
             all_docked_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
@@ -648,6 +649,13 @@ if __name__ == '__main__':
             # TODO make args.file equal to command_files[i] and change distribution to no stage prefix...
     # ---------------------------------------------------
     elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
+        # Automatically detect if the commands file has executable scripts
+        script_present = '-C'
+        for command_script in design_directories:
+            if not os.path.exists(command_script):
+                script_present = False
+                break
+
         # Create success and failures files
         ran_num = int(100 * random())
         if not args.success_file:
@@ -675,8 +683,9 @@ if __name__ == '__main__':
             new_f.write(PUtils.sb_flag + out + '\n')
             array = 'array=1-%d%%%d' % (int(len(design_directories) / command_divisor + 0.5), args.max_jobs)
             new_f.write(PUtils.sb_flag + array + '\n')
-            new_f.write('\npython %s --stage %s --success_file %s --failure_file %s --command_file %s\n' %
-                        (PUtils.cmd_dist, args.stage, args.success_file, args.failure_file, args.file))
+            new_f.write('\npython %s --stage %s --success_file %s --failure_file %s --command_file %s %s\n' %
+                        (PUtils.cmd_dist, args.stage, args.success_file, args.failure_file, args.file,
+                         (script_present or '')))
 
         logger.info('To distribute commands enter the following:\ncd %s\nsbatch %s'
                     % (args.directory, os.path.basename(filename)))
