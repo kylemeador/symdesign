@@ -118,11 +118,12 @@ def main():
     for cluster in return_clusters:
         cluster_representative_id = cluster[0]
         clust_rep_ref_vs_pose_irmsd, clust_rep_pose_score, clust_rep_pose_score_rank = ref_vs_dock_dict[cluster_representative_id]
-        clusters_with_refdock_info_dict[(cluster_representative_id, clust_rep_ref_vs_pose_irmsd, clust_rep_pose_score, clust_rep_pose_score_rank)] = []
+        representative_tuple = (cluster_representative_id, clust_rep_ref_vs_pose_irmsd, clust_rep_pose_score, clust_rep_pose_score_rank)
+        clusters_with_refdock_info_dict[representative_tuple] = []
 
         for cluster_member_id in cluster[1]:
             clust_memb_ref_vs_pose_irmsd, clust_memb_pose_score, clust_memb_pose_score_rank = ref_vs_dock_dict[cluster_member_id]
-            clusters_with_refdock_info_dict[(cluster_representative_id, clust_rep_ref_vs_pose_irmsd, clust_rep_pose_score, clust_rep_pose_score_rank)].append((cluster_member_id, clust_memb_ref_vs_pose_irmsd, clust_memb_pose_score, clust_memb_pose_score_rank))
+            clusters_with_refdock_info_dict[representative_tuple].append((cluster_member_id, clust_memb_ref_vs_pose_irmsd, clust_memb_pose_score, clust_memb_pose_score_rank))
 
     clusters_sorted_by_clust_rep_pose_score = sorted(clusters_with_refdock_info_dict.items(), key=lambda kv: kv[0][2], reverse=True)
 

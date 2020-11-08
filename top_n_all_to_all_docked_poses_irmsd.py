@@ -479,14 +479,14 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_c
         pdb2_perm_ca_atoms = []
         for pdb2_ch in pdb2_perm:
             pdb2_perm_ca_atoms.extend(pdb2_chid_ca_atom_dict[pdb2_ch])
-        try:
-            rmsd_2, rot_2, tx_2 = biopdb_superimposer(pdb2_perm_ca_atoms, ref_pdb2_ca_int_ch_atoms)  # fixed, moving
-        except Bio.PDB.PDBExceptions.PDBException:
-
-            raise Exception('reference2 (%s) and query2 (%s) have different atom lengths ref2 (chains:%s, len:%d) '
-                            '!= query2 (chains:%s, len:%d)' % (pdb2.filepath, ref_pdb2.filepath, pdb2_perm,
-                                                               len(pdb2_perm_ca_atoms), ref_pdb2_int_chids,
-                                                               len(ref_pdb2_ca_int_ch_atoms)))
+        # try:
+        rmsd_2, rot_2, tx_2 = biopdb_superimposer(pdb2_perm_ca_atoms, ref_pdb2_ca_int_ch_atoms)  # fixed, moving
+        # except Bio.PDB.PDBExceptions.PDBException:
+        #
+        #     raise Exception('reference2 (%s) and query2 (%s) have different atom lengths ref2 (chains:%s, len:%d) '
+        #                     '!= query2 (chains:%s, len:%d)' % (pdb2.filepath, ref_pdb2.filepath, pdb2_perm,
+        #                                                        len(pdb2_perm_ca_atoms), ref_pdb2_int_chids,
+        #                                                        len(ref_pdb2_ca_int_ch_atoms)))
         # rot_2, tx_2 not used
         if rmsd_2 < e:
             allowed_perms2[pdb2_perm] = pdb2_perm_ca_atoms
@@ -721,6 +721,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
         # reference1_chains_and_residues_d[i] = ref1_int_chain_residue_d
         # reference2_chains_and_residues_d[i] = ref2_int_chain_residue_d
 
+    # # For debuggin multiprocessing hang
     # for des_dir in design_directories:
     #     des_dir.oligomers[des_dir.oligomer_names[0]] = standardize_intra_oligomer_chain_lengths(docked_pdb1)
     #     des_dir.oligomers[des_dir.oligomer_names[1]] = standardize_intra_oligomer_chain_lengths(docked_pdb2)
