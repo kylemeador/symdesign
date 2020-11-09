@@ -761,11 +761,13 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
 
     print(directory_pairs)
     irmsds, errors = zip(*SDUtils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, threads=threads))
+    irmsds = list(irmsds)
+    errors = list(errors)
     for i, error in enumerate(errors):
         if error:
             print('ERROR: ', error[1], '\nFiles: ', error[0][0], 'AND', error[0][1])
-        directory_pairs.pop(i)
-        irmsds.pop(i)
+            directory_pairs.pop(i)
+            irmsds.pop(i)
     # irmsds = SDUtils.mp_starmap(map_align_interface_chains_km, zipped_args, threads=threads)
     # for i in range(n-1):
     #     # # obtain id, oligomer 1 pdb file path and oligomer 2 pdb file path for reference pose
