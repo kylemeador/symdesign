@@ -380,6 +380,7 @@ def map_align_interface_chains_km_mp(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_in
     try:
         irmsd = map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict,
                                               ref_pdb2_int_chids_resnums_dict)
+        print('returning', irmsd, None, 'inside _mp')
         return irmsd, None
     except (Bio.PDB.PDBExceptions.PDBException, Exception) as e:
         return None, ((pdb1.filepath, pdb2.filepath), e)
@@ -558,6 +559,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_c
 
     else:
         if not return_aligned_ref_pdbs:
+            print('returning min_irmsd inside _km inside _mp')
             return min_irmsd
         else:
             # Create a new PDB object that includes both reference pdb1 and reference pdb2
@@ -757,6 +759,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
                             *reference_chains_and_residues_d[str(pair[0])]))
         directory_pairs.append((str(pair[0]), str(pair[1])))
 
+    print(directory_pairs)
     irmsds, errors = zip(*SDUtils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, threads=threads))
     for i, error in enumerate(errors):
         if error:
