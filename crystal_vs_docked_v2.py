@@ -16,7 +16,7 @@ warnings.simplefilter('ignore', PDBConstructionWarning)
 def res_lev_sum_score_rank(all_design_directories):
     designid_metric_tup_list = [(str(des_dir), SDUtils.gather_fragment_metrics(des_dir, score=True))
                                 for des_dir in all_design_directories]
-    designid_metric_tup_list_sorted = sorted(designid_metric_tup_list, key=lambda tup: tup[1], reverse=True)
+    designid_metric_tup_list_sorted = sorted(designid_metric_tup_list, key=lambda tup: tup[1] is None, reverse=True)
     designid_metric_rank_dict = {d: (m, r) for r, (d, m) in enumerate(designid_metric_tup_list_sorted, 1)}
 
     return designid_metric_rank_dict
@@ -43,7 +43,10 @@ def reference_vs_docked_irmsd(ref_pdb1, ref_pdb2, ref1_chain_id_residue_d, ref2_
     # docked_pdb_pairs = get_docked_pdb_pairs(all_design_directories)
     # for (design_id, (docked_pdb1, docked_pdb2)) in docked_pdb_pairs:
     # for des_dir in all_design_directories:
-    design_directory.get_oligomers()
+    try:
+        design_directory.get_oligomers()
+    except AssertionError:
+        return str(design_directory), None
     docked_pdb1 = design_directory.oligomers[design_directory.oligomer_names[0]]
     docked_pdb2 = design_directory.oligomers[design_directory.oligomer_names[1]]
     # # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
