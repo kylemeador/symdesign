@@ -822,7 +822,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
 
 def main():
     ############################################## INPUT PARAMETERS ####################################################
-    top_scoring = 2000
+    top_scoring = 20000
     docked_poses_dirpath = sys.argv[1]  # nanohedra output directory
     rankfile_path = sys.argv[2]  # path to text file containing: reference structure vs nanohedra poses irmsd values, scores, ranks
     outdir = os.path.dirname(rankfile_path)  # sys.argv[3]  # output directory
