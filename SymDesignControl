@@ -243,6 +243,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     # REMOVE
                     print('Last State:', f_degen1, f_degen2, f_rot1, f_rot2)
                     print('Expected:', degen1, degen2, last_rot1, last_rot2)
+                    print('From log: %s' % log_file)
                     if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
                         complete.append(os.path.join(des_dir.symmetry[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
                         # complete.append(des_dir)

@@ -2355,14 +2355,14 @@ class DesignDirectory:
     def dock_directory_structure(self, symmetry=None):
         """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
         typical directory structuring"""
-        # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation
+        # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation?
         self.symmetry = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(symmetry or '')))  # for design_recap
-        self.log = [os.path.join(_sym, 'master_log.txt') for _sym in self.symmetry]  # TODO change to PUtils
+        self.log = [os.path.join(_sym, 'master_log.txt') for _sym in self.symmetry]  # TODO PUtils
         for k, _sym in enumerate(self.symmetry):
             self.building_blocks.append(list())
             self.building_block_logs.append(list())
             # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-            for bb_dir in next(os.walk(_sym))[1]:
+            for bb_dir in next(os.walk(_sym))[1]:  # grabs the directories from os.walk, yielding just top level results
                 if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
                     self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
                     self.building_blocks[k].append(bb_dir)
