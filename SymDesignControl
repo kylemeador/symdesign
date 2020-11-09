@@ -538,7 +538,7 @@ if __name__ == '__main__':
                 design_directories = pdb_pairs  # for logging purposes below
         logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories), location))
     else:
-        exit('Error: --mode flag must be passed since the module is %s!' % args.submodule)
+        exit('Error: --mode flag must be passed since the module is %s!' % args.sub_module)
 
     if args.command_only:
         args.suspend = True
