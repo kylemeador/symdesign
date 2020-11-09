@@ -165,7 +165,8 @@ def rsync_dir(des_dir):
 def status(all_design_directories, _stage, number=None, active=True, inactive_time=30 * 60):  # 30 minutes
     complete, running, incomplete = [], [], []
     if _stage == 'rmsd':
-        start = datetime.datetime(2020, 11, 3, 0, 0)
+        # Relies on the assumption that each docked dir has only one set of building blocks making up its constituent files
+        start = datetime.datetime(2020, 11, 3, 0, 0)  # when the most recent set of results was started
 
         def _rmsd_dir(des_dir_symmetry):
             return os.path.join(des_dir_symmetry, 'rmsd_calculation')
@@ -176,6 +177,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
             rmsd_dir = _rmsd_dir(des_dir.symmetry[0])
             try:
                 rmsd_file = glob(os.path.join(rmsd_dir, 'crystal_vs_docked_irmsd.txt'))[0]
+                # ensure that RMSD files were created for the most recent set of results using 'start'
                 if int(time.time()) - int(os.path.getmtime(rmsd_file)) > start.now().timestamp() - start.timestamp():
                     rmsd_file = None
                 all_to_all_file = glob(os.path.join(rmsd_dir, 'top*_all_to_all_docked_poses_irmsd.txt'))[0]
@@ -187,7 +189,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
             clustering_files.append(final_clustering_file)
 
         # report all designs which are done, return all commands for designs which need to be completed.
-        for k, (results) in enumerate(zip(rmsd, all_to_all, clustering_files)):
+        for k, results in enumerate(zip(rmsd, all_to_all, clustering_files)):
             _status = True
             # _status = results[2]
             for r, stage in enumerate(results):
@@ -197,7 +199,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     running.append(os.path.join(_rmsd_dir(design_directories[k].symmetry[0]), outcome_strings_d[r]))
                     break
             if _status:
-                complete.append(status)
+                complete.append(design[k].symmetry[0])
 
     elif _stage == 'nanohedra':
         from classes.FragDockMP import get_last_sampling_state
