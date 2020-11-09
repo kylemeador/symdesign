@@ -2221,7 +2221,7 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
     Returns:
         results (list): The results produced from the function and process_args
     """
-    with mp.get_context(context).Pool(processes=threads) as p:  # initializer=set_worker_affinity, maxtasksperchild=1
+    with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity) as p:  # , maxtasksperchild=1
         results = p.starmap(function, process_args)  # , chunksize=1
     p.join()
 
