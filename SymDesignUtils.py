@@ -1711,7 +1711,7 @@ def to_iterable(_obj):
             _list = _obj
         else:
             _list = [_obj]
-    print(_list[:5])
+
     clean_list = []
     for it in _list:
         # pdb = pdb.strip()

@@ -11,7 +11,7 @@ import SymDesignUtils as SDUtils
 def find_list_indices(reference_cmds, query_ids):
     """Search for ID's present in supplied list in a reference list and return the indices of the reference list where
     they are found"""
-    full_lines_set = set(full_lines)
+    # full_lines_set = set(full_lines)
     # cmd_lines_set = set(cmd_lines)
     query_ids_sort = sorted(query_ids)
     # cmd_lines_sort = sorted(cmd_lines)
