@@ -66,32 +66,34 @@ def scancel(job_id):
 
 
 def error_type(job_file):
-    fail_p = subprocess.Popen(['grep', '\"DUE TO NODE\"', job_file],  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    fail = fail_p.communicate()
-    mem_p = subprocess.Popen(['grep', '\"slurmstepd: error: Exceeded job memory limit\"', job_file],
-                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    mem = mem_p.communicate()
+    if job_file:
+        fail_p = subprocess.Popen(['grep', '\"DUE TO NODE\"', job_file],  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        fail = fail_p.communicate()
+        mem_p = subprocess.Popen(['grep', '\"slurmstepd: error: Exceeded job memory limit\"', job_file],
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        mem = mem_p.communicate()
 
-    if mem != '':
-        return 'memory'
-    elif fail != '':
-        return 'failure'
-    else:
-        return None
+        if mem != '':
+            return 'memory'
+        elif fail != '':
+            return 'failure'
+        else:
+            return 'other'
+    return None
 
 
 def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
     matching_jobs = glob('%s%s*%s*' % (output_dir, os.sep, job_id))
-    print('Potential jobs:', len(matching_jobs))
     potential_errors = [job if os.path.getsize(job) > 0 else None for job in matching_jobs]
-    print('Potential errors:', len(potential_errors))
     parsed_errors = list(map(error_type, potential_errors))
     memory_array = [i for i, error in enumerate(parsed_errors) if error == 'memory']
+    failure_array = [i for i, error in enumerate(parsed_errors) if error == 'failure']
     other_array = [i for i, error in enumerate(parsed_errors) if error == 'other']
     print('Memory error size:', len(memory_array))
+    print('Failure error size:', len(failure_array))
     print('Other error size:', len(other_array))
 
-    return memory_array, other_array
+    return memory_array, failure_array, other_array
 
 
 def job_failed():
@@ -125,13 +127,15 @@ if __name__ == '__main__':
     if args.sub_module == 'fail':
         if args.array:
             # do array
-            memory, other = job_array_failed(args.job_id)  # , output_dir=args.directory)
+            memory, failure, other = job_array_failed(args.job_id)  # , output_dir=args.directory)
             commands = SDUtils.to_iterable(args.file)
             print('There are a total of commmands:', len(commands))
             restart_memory = [commands[idx] for idx in memory]
+            restart_failure = [commands[idx] for idx in failure]
             restart_other = [commands[idx] for idx in other]
             SDUtils.io_save(restart_memory, filename='%s_%s' % (args.file, 'memory_failures'))
-            SDUtils.io_save(restart_other, filename='%s_%s' % (args.file, 'other_failures'))
+            SDUtils.io_save(restart_failure, filename='%s_%s' % (args.file, 'other_failures'))
+            SDUtils.io_save(restart_other, filename='%s_%s' % (args.file, 'other_output'))
         else:
             job_failed()
 
