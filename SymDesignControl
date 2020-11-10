@@ -738,7 +738,7 @@ if __name__ == '__main__':
         for des_directory in design_directories:
             SDUtils.rename_decoy_protocols(des_directory, rename)
     # ---------------------------------------------------
-    elif args.sub_module == 'modify':
+    elif args.sub_module == 'modify':  # -m mod
         if args.multi_processing:
             if args.mod == 'consolidate_degen':
                 exit('Operation impossible')

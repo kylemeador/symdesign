@@ -1668,6 +1668,39 @@ def condensed_to_square(k, n):
 #################
 
 
+def io_save(data, filename=None):
+    """Take an iterable and either output to user, write to a file, or both. User defined choice
+
+    Returns
+        None
+    """
+    # file = os.path.join(os.getcwd(), 'missing_UNP_PDBS.txt')
+    while True:
+        _input = input('Enter P to print Data, W to write Data to file, or B for both:')
+        if _input == 'W':
+            if not filename:
+                filename = input('What is your desired filename? (appended to current directory)\n')
+                filename = os.path.join(os.getcwd(), filename)
+            with open(filename, 'w') as f:
+                f.write('\n'.join(data))
+            print('File \'%s\' was written' % filename)
+            break
+        elif _input == 'P':
+            print(data)
+            break
+        elif _input == 'B':
+            print(data)
+            if not filename:
+                filename = input('What is your desired filename? (appended to current directory)\n')
+                filename = os.path.join(os.getcwd(), filename)
+            with open(filename, 'w') as f:
+                f.write('\n'.join(data))
+            print('File \'%s\' was written' % filename)
+            break
+        else:
+            print('Invalid Input...')
+
+
 def to_iterable(_obj):
     """Take a file/object and return a list of individual objects splitting on newline, space, or comma"""
     _list = []
