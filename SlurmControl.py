@@ -82,7 +82,7 @@ def error_type(job_file):
 
 def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
     matching_jobs = glob('%s%s*%s*' % (output_dir, os.sep, job_id))
-    print('Potential errors:', len(matching_jobs))
+    print('Potential jobs:', len(matching_jobs))
     potential_errors = [job if os.path.getsize(job) > 0 else None for job in matching_jobs]
     print('Potential errors:', len(potential_errors))
     parsed_errors = list(map(error_type, potential_errors))
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     if args.sub_module == 'fail':
         if args.array:
             # do array
-            memory, other = job_array_failed(args.job_id, output_dir=args.directory)
+            memory, other = job_array_failed(args.job_id)  # , output_dir=args.directory)
             commands = SDUtils.to_iterable(args.file)
             print('There are a total of commmands:', len(commands))
             restart_memory = [commands[idx] for idx in memory]
