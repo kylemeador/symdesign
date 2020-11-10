@@ -7,15 +7,17 @@ from glob import glob
 import SymDesignUtils as SDUtils
 
 
-def main():
+def find_list_indices(reference_cmds, query_ids):
+    """Search for ID's present in supplied list in a reference list and return the indices of the reference list where
+    they are found"""
     full_lines_set = set(full_lines)
     # cmd_lines_set = set(cmd_lines)
-    full_lines_sort = sorted(full_lines)
+    query_ids_sort = sorted(query_ids)
     # cmd_lines_sort = sorted(cmd_lines)
 
     idxs = []
-    for i, cmd_id in enumerate(cmd_lines):  # _sort
-        for id in full_lines_sort:
+    for i, cmd_id in enumerate(reference_cmds):  # _sort
+        for id in query_ids_sort:
             if id in cmd_id:
                 idxs.append(i)
                 break
@@ -25,25 +27,22 @@ def main():
     return idxs_sorted
 
 
-def array_filter(array, _iterator, zero=True):
+def filter_by_indices(array, _iterator, zero=True):
     offset = 1
     if zero:
         offset = 0
-    commands_interest = []
-    for number in array:
-        commands_interest.append(_iterator[number - offset])
-    return commands_interest
+    return [_iterator[idx - offset] for idx in array]
 
 
 def array_map(array, cont=False):
     if cont:
         sorted_input_cmd_lines = sorted(cmd_lines)
-        continue_commands_interest = array_filter(array, sorted_input_cmd_lines)
+        continue_commands_interest = filter_by_indices(array, sorted_input_cmd_lines)
         # continue_commands_interest = array_filter(input_indices, sorted_input_cmd_lines)
         with open(sys.argv[1] + '_continue_cmds', 'w') as f:
             f.write('\n'.join(i for i in continue_commands_interest))
     else:
-        commands_interest = array_filter(array, cmd_lines)
+        commands_interest = filter_by_indices(array, cmd_lines)
         sorted_commands = sorted(commands_interest)
         input_indices = []
         for s_command in sorted_commands:
@@ -104,7 +103,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='\nControl all SLURM input/output including:\n')
     # ---------------------------------------------------
     parser.add_argument('-d', '--directory', type=str, help='Directory where Job output is located. Default=CWD')
-    parser.add_argument('-f', '--file', type=str, help='File with command(s)', default=None)
+    parser.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
+                        default=None, required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
@@ -116,14 +116,21 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_fail = subparsers.add_parser('fail', help='Find job failures')
     parser_fail.add_argument('-a', '--array', action='store_true')
-    parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
-                             default=None, required=True)
+    # parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
+    #                          default=None, required=True)
     parser_fail.add_argument('-j', '--job_id', type=str, help='What is the JobID provided by SLURM upon execution?')
     parser_fail.add_argument('-m', '--mode', type=str, choices=['memory', 'other'],
                              help='What type of failure should be located')
+    # ---------------------------------------------------
+    parser_fail = subparsers.add_parser('filter', help='Find job failures')
+    # parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
+    #                          default=None, required=True)
+    parser_fail.add_argument('-e', '--exclude', action='store_true')
+    parser_fail.add_argument('-r', '--running', action='store_true')
+    parser_fail.add_argument('-q', '--query',  type=str, help='File with the query ID\'s for reference commands',
+                             required=True)
 
     args, additional_flags = parser.parse_known_args()
-
     if args.sub_module == 'fail':
         if args.array:
             # do array
@@ -149,29 +156,37 @@ if __name__ == '__main__':
         # array_ids = file_to_iterable(array_file)
         # job_array = concat_job_to_array(job_id, array_ids)
         # status_array = [scancel(job) for job in job_array]
-    elif args.sub_module == 'file_to_array':
-        if 'running' in sys.argv:
-            cont = True
+    elif args.sub_module == 'filter':  # -e exclude, -r running, -q query
+        reference_l = SDUtils.to_iterable(args.file)
+        query_ids = SDUtils.to_iterable(args.query)
+
+        array = find_list_indices(reference_l, query_ids)
+        filtered_reference_l = filter_by_indices(array, reference_l)
+        if args.exclude:
+            modified_reference = list(set(reference_l) - set(filtered_reference_l))
+            SDUtils.io_save(modified_reference, filename=args.file + '_excluded_%s' % os.path.basename(args.query))
         else:
-            cont = False
+            SDUtils.io_save(filtered_reference_l, filename=args.file + '_filtered_%s' % os.path.basename(args.query))
 
-        array = main()
-        array_map(array, cont=cont)
-
-        cmds = sys.argv[1]  # 'all_rmsd.cmd'
-        full = sys.argv[2]  # 'fully_sampled_designs_201104_pm'
-        # Grab the fully finished designs
-        with open(full, 'r') as f:
-            lines = f.readlines()
-            lines = list(map(os.path.basename, lines))
-            lines = list(map(str.strip, lines))
-            full_lines = lines
-
-        # Grab the design ID containing directory paths
-        with open(cmds, 'r') as f:
-            lines = f.readlines()
-            #     lines = map(os.path.dirname, lines)
-            #     lines = map(os.path.dirname, lines)
-            #     lines = list(map(os.path.basename, lines))
-            lines = list(map(str.strip, lines))
-            cmd_lines = lines
+        # if args.running:
+        #     cont = True
+        # else:
+        #     cont = False
+        # array_map(array, cont=cont)
+        # cmds = sys.argv[1]  # 'all_rmsd.cmd'
+        # full = sys.argv[2]  # 'fully_sampled_designs_201104_pm'
+        # # Grab the fully finished designs
+        # with open(full, 'r') as f:
+        #     lines = f.readlines()
+        #     lines = list(map(os.path.basename, lines))
+        #     lines = list(map(str.strip, lines))
+        #     full_lines = lines
+        #
+        # # Grab the design ID containing directory paths
+        # with open(cmds, 'r') as f:
+        #     lines = f.readlines()
+        #     #     lines = map(os.path.dirname, lines)
+        #     #     lines = map(os.path.dirname, lines)
+        #     #     lines = list(map(os.path.basename, lines))
+        #     lines = list(map(str.strip, lines))
+        #     cmd_lines = lines
