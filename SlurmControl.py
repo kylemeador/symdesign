@@ -144,7 +144,8 @@ if __name__ == '__main__':
     parser_fail.add_argument('-q', '--query',  type=str, help='File with the query ID\'s for reference commands',
                              required=True)
     # ---------------------------------------------------
-    parser_fail = subparsers.add_parser('link', help='Find job failures')
+    parser_link = subparsers.add_parser('link', help='Find job failures')
+    parser_link.add_argument('-F', '--force', action='store_true')
 
     args, additional_flags = parser.parse_known_args()
     if args.sub_module == 'fail':
@@ -193,7 +194,7 @@ if __name__ == '__main__':
         link_name_dirs = list(map(os.path.join, repeat(output_dir), link_names))
 
         for pair in zip(reference_l, link_name_dirs):
-            link_pair(pair)
+            link_pair(pair, force=args.force)
 
             # if args.running:
         #     cont = True
