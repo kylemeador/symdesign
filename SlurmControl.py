@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 from glob import glob
+from itertools import repeat
 
 import SymDesignUtils as SDUtils
 
@@ -79,6 +80,19 @@ def error_type(job_file):
         else:
             return 'other'
     return None
+
+
+def link_pair(pair, force=False):
+    """Combine docking files of one docking combination with another
+
+    Args:
+        pair (tuple): source file, destination file (link)
+    Keyword Args:
+        force=False (bool): Whether to remove links before creation
+    """
+    if force:
+        os.remove(pair[1])
+    os.symlink(*pair)  # , target_is_directory=True)
 
 
 def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
@@ -167,8 +181,19 @@ if __name__ == '__main__':
             SDUtils.io_save(modified_reference, filename=args.file + '_excluded_%s' % os.path.basename(args.query))
         else:
             SDUtils.io_save(filtered_reference_l, filename=args.file + '_filtered_%s' % os.path.basename(args.query))
+    elif args.sub_module == 'link':
+        output_dir = os.path.join(os.getcwd(), args.directory)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
-        # if args.running:
+        reference_l = SDUtils.to_iterable(args.file)
+        link_names = map(os.path.basename, reference_l)
+        link_name_dirs = list(map(os.path.join, repeat(output_dir), link_names))
+        print(link_name_dirs[:5])
+        # for pair in zip(reference_l, link_name_dirs):
+        #     link_pair(pair)
+
+            # if args.running:
         #     cont = True
         # else:
         #     cont = False

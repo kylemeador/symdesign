@@ -87,9 +87,9 @@ def merge_docking_pair(pair, force=False):
     """Combine docking files of one docking combination with another
 
     Args:
-        pair (tuple): source directory, destination directory
+        pair (tuple): source directory, destination directory (link)
     Keyword Args:
-        symlink=True
+        force=False (bool): Whether to remove links before creation
     """
     if force:
         os.remove(pair[1])
