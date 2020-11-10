@@ -191,9 +191,9 @@ if __name__ == '__main__':
         reference_l = SDUtils.to_iterable(args.file)
         link_names = map(os.path.basename, reference_l)
         link_name_dirs = list(map(os.path.join, repeat(output_dir), link_names))
-        print(link_name_dirs[:5])
-        # for pair in zip(reference_l, link_name_dirs):
-        #     link_pair(pair)
+
+        for pair in zip(reference_l, link_name_dirs):
+            link_pair(pair)
 
             # if args.running:
         #     cont = True
