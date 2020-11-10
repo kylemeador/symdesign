@@ -1702,8 +1702,7 @@ def io_save(data, filename=None):
 
 
 def to_iterable(_obj):
-    """Take a file/object and return a list of individual objects splitting on newline, space, or comma"""
-    _list = []
+    """Take a file/object and return a list of individual objects splitting on newline or comma"""
     try:
         with open(_obj, 'r') as f:
             _list = f.readlines()
@@ -1711,15 +1710,15 @@ def to_iterable(_obj):
         if isinstance(_obj, list):
             _list = _obj
         else:
-            _list.append(_obj)
-
+            _list = [_obj]
+    print(_list[:5])
     clean_list = []
     for it in _list:
         # pdb = pdb.strip()
         it_list = it.split(',')
         # if isinstance(pdb, list):
         # pdb = list(map(str.strip(), pdb))
-        clean_list + [_it.strip() for _it in it_list]
+        clean_list.extend([_it.strip() for _it in it_list])
         # else:  # unreachable
         #     clean_list.append(pdb.upper())  # unreachable
     # clean_list = list(set(clean_list))
