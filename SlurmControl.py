@@ -81,7 +81,8 @@ def error_type(job_file):
 
 
 def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
-    matching_jobs = glob('%s*%s*' % (output_dir, job_id))
+    matching_jobs = glob('%s%s*%s*' % (output_dir, os.sep, job_id))
+    print('Potential errors:', len(matching_jobs))
     potential_errors = [job if os.path.getsize(job) > 0 else None for job in matching_jobs]
     print('Potential errors:', len(potential_errors))
     parsed_errors = list(map(error_type, potential_errors))
