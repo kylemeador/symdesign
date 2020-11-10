@@ -121,7 +121,7 @@ if __name__ == '__main__':
     if args.sub_module == 'fail':
         if args.array:
             # do array
-            memory, other = job_array_failed(args.job_id, output_dir=args.direcctory)
+            memory, other = job_array_failed(args.job_id, output_dir=args.directory)
             commands = SDUtils.to_iterable(args.file)
             restart_memory = [commands[idx] for idx in memory]
             restart_other = [commands[idx] for idx in memory]
