@@ -4,6 +4,8 @@ Finds commands within received directories (poses)
 """
 
 import argparse
+# import SymDesignUtils as SDUtils
+import multiprocessing as mp
 import os
 import signal
 import subprocess
@@ -11,7 +13,6 @@ from random import random
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-import SymDesignUtils as SDUtils
 
 
 class GracefulKiller:
@@ -101,7 +102,8 @@ def run(cmd, log_file, program='bash'):  # , log_file=None):
 
 def distribute(args, logger):
     if args.file:
-        _commands, location = SDUtils.collect_directories(args.directory, file=args.file)
+        # _commands, location = SDUtils.collect_directories(args.directory, file=args.file)
+        pass
     else:
         logger.error('Error: You must pass a file containing a list of commands to process. This is typically output to'
                      ' a \'stage.cmd\' file. Ensure that this file exists and resubmit with -f \'stage.cmd\', replacing'
@@ -149,6 +151,25 @@ def distribute(args, logger):
                 % (args.directory, os.path.basename(filename)))
 
 
+def mp_starmap(function, process_args, threads=1, context='spawn'):
+    """Maps iterable to a function using multiprocessing Pool
+
+    Args:
+        function (function): Which function should be executed
+        process_args (list(tuple)): Arguments to be unpacked in the defined function, order specific
+    Keyword Args:
+        threads=1 (int): How many workers/threads should be spawned to handle function(arguments)?
+        context='spawn' (str): One of 'spawn', 'fork', or 'forkserver'
+    Returns:
+        results (list): The results produced from the function and process_args
+    """
+    with mp.get_context(context).Pool(processes=threads, maxtasksperchild=100) as p:
+        results = p.starmap(function, process_args)  # , chunksize=1
+    p.join()
+
+    return results
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=os.path.basename(__file__)
                                      + '\nGather commands set up by %s and distribute to computational nodes for '
@@ -170,7 +191,8 @@ if __name__ == '__main__':
 
     # Select exact poses to be handled according to array_ID and design stage
     array_task = int(os.environ.get('SLURM_ARRAY_TASK_ID'))
-    cmd_slice = (array_task - SDUtils.index_offset) * CUtils.process_scale[args.stage]  # adjust from SLURM one index
+    cmd_slice = (array_task - 1) * CUtils.process_scale[args.stage]  # adjust from SLURM one index
+    # cmd_slice = (array_task - SDUtils.index_offset) * CUtils.process_scale[args.stage]  # adjust from SLURM one index
     if cmd_slice + CUtils.process_scale[args.stage] > len(all_commands):  # check to ensure list index isn't missing
         final_cmd_slice = None
     else:
@@ -222,7 +244,8 @@ if __name__ == '__main__':
 
     # python 3.7 compatible
     if len(command_paths) > 1:  # set by CUtils.process_scale
-        results = SDUtils.mp_starmap(run, commands, threads=len(command_paths))
+        results = mp_starmap(run, commands, threads=len(command_paths))
+        # results = SDUtils.mp_starmap(run, commands, threads=len(command_paths))
     else:
         results = [run(command, log_file) for command, log_file in commands]
 
