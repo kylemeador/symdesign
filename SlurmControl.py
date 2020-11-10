@@ -143,6 +143,8 @@ if __name__ == '__main__':
     parser_fail.add_argument('-r', '--running', action='store_true')
     parser_fail.add_argument('-q', '--query',  type=str, help='File with the query ID\'s for reference commands',
                              required=True)
+    # ---------------------------------------------------
+    parser_fail = subparsers.add_parser('link', help='Find job failures')
 
     args, additional_flags = parser.parse_known_args()
     if args.sub_module == 'fail':
