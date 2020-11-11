@@ -1,7 +1,6 @@
 import os
 import sys
-
-import numpy as np
+from itertools import chain
 
 
 def list_diff(li1, li2):
@@ -54,8 +53,8 @@ def main():
     # Cluster
     all_claimed_structures = []
     return_clusters = []
-    # flattened_query = list(chain.from_iterable(rmsd_dict.values()))
-    flattened_query = np.concatenate(rmsd_dict.values()).tolist()
+    flattened_query = list(chain.from_iterable(rmsd_dict.values()))
+    # flattened_query = np.concatenate(rmsd_dict.values()).tolist()
     while flattened_query != list():
 
         # Find Structure With Most Neighbors within RMSD Threshold
@@ -90,8 +89,8 @@ def main():
 
         rmsd_dict = updated_dict
 
-        # flattened_query = list(chain.from_iterable(rmsd_dict.values()))
-        flattened_query = np.concatenate(rmsd_dict.values()).tolist()
+        flattened_query = list(chain.from_iterable(rmsd_dict.values()))
+        # flattened_query = np.concatenate(rmsd_dict.values()).tolist()
 
     # Single Member Clusters
     unclaimed_structure_names = list_diff(all_claimed_structures, rmsd_dict.keys())
