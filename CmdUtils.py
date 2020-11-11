@@ -48,4 +48,5 @@ flag_options = {PUtils.stage[1]: ['-constrain_relax_to_start_coords', '-use_inpu
                                   '-mute all', '-unmute protocols.rosetta_scripts.ParsedProtocol']}  # -out:pdb false
 
 process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 1, PUtils.stage[3]: 1, PUtils.stage[5]: 2, PUtils.nano: 1,
-                 PUtils.stage[6]: 1, PUtils.stage[7]: 1, PUtils.stage[8]: 1, PUtils.stage[9]: 1}
+                 PUtils.stage[6]: 1, PUtils.stage[7]: 1, PUtils.stage[8]: 1, PUtils.stage[9]: 1, PUtils.stage[10]: 1,
+                 PUtils.stage[11]: 1}
