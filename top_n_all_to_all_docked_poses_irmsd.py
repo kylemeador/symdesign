@@ -756,7 +756,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     for pair in combinations(design_directories, 2):
         zipped_args.append((pair[1].oligomers[pair[0].oligomer_names[0]], pair[1].oligomers[pair[0].oligomer_names[1]],
                             pair[0].oligomers[pair[0].oligomer_names[0]], pair[0].oligomers[pair[0].oligomer_names[1]],
-                            *reference_chains_and_residues_d[str(pair[0])], pair[0], pair[1]))
+                            *reference_chains_and_residues_d[str(pair[0])], str(pair[0]), str(pair[1])))
         # directory_pairs.append((str(pair[0]), str(pair[1])))
 
     # print(directory_pairs)
