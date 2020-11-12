@@ -103,9 +103,6 @@ def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output'), all
     memory_array = [i for i, error in enumerate(parsed_errors) if error == 'memory']
     failure_array = [i for i, error in enumerate(parsed_errors) if error == 'failure']
     other_array = [i for i, error in enumerate(parsed_errors) if error == 'other']
-    print('Memory error size:', len(memory_array))
-    print('Failure error size:', len(failure_array))
-    print('Other error size:', len(other_array))
 
     return memory_array, failure_array, other_array
 
@@ -132,7 +129,7 @@ def change_script_array(script_file, array):
 
     new_script = '%s_%s' % (os.path.splitext(script_file)[0], 're-do_SLURM_failures.sh')
     with open(new_script, 'w') as f:
-        f.write('\n'.join(line for line in lines))
+        f.write('\n'.join(line for line in map(str.strip, lines)))
 
     return new_script
 
@@ -185,12 +182,18 @@ if __name__ == '__main__':
     if args.sub_module == 'fail':  # -a array, -j job_id, -m mode, -s script
         # do array
         memory, failure, other = job_array_failed(args.job_id)  # , output_dir=args.directory)
+        print('Memory error size:', len(memory))
+        print('Failure error size:', len(failure))
+        print('Other error size:', len(other))
         all_array = sorted(set(memory + failure + other))
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
             args.file = parse_script(args.script)
-            new_script = change_script_array(args.script, all_array)
-            print('Run new script with:\nsbatch %s' % new_script)
+            script_with_new_array = change_script_array(args.script, all_array)
+            print('\n\nRun new script with:\nsbatch %s' % script_with_new_array)
+            if len(memory) > 0:
+                print('Memory failures may require you to rerun with a higher memory. It is suggested to edit the above'
+                      ' script to include ~10-20% more memory')
         else:
             commands = SDUtils.to_iterable(args.file)
             print('There are a total of commmands:', len(commands))
