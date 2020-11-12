@@ -97,13 +97,18 @@ def link_pair(pair, force=False):
 
 def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
     """Returns an array for each of the errors encountered. All=True returns the set"""
-    matching_jobs = sorted(glob('%s%s*%s*' % (output_dir, os.sep, job_id)))
-    potential_errors = [job if os.path.getsize(job) > 0 else None for job in matching_jobs]
+    matching_jobs = glob('%s%s*%s*' % (output_dir, os.sep, job_id))
+    potential_errors = [job if os.path.getsize(job) > 0 else None for i, job in enumerate(matching_jobs)]
     print(','.join(str(i) for i, potential_error in enumerate(potential_errors) if potential_error))
     parsed_errors = list(map(error_type, potential_errors))
-    memory_array = [i for i, error in enumerate(parsed_errors) if error == 'memory']
-    failure_array = [i for i, error in enumerate(parsed_errors) if error == 'failure']
-    other_array = [i for i, error in enumerate(parsed_errors) if error == 'other']
+    sorted_array_jobs = {int(os.path.splitext(job.split('_')[-1])[0]): job for job in matching_jobs}
+    # generate a dictionary of the array_id to the job_file
+    # for job in matching_jobs:
+    #     array_id = os.path.splitext(job.split('_')[-1])[0]
+    #     sorted_array_jobs[array] = job
+    memory_array = [sorted_array_jobs[i] for i, error in enumerate(parsed_errors) if error == 'memory']
+    failure_array = [sorted_array_jobs[i] for i, error in enumerate(parsed_errors) if error == 'failure']
+    other_array = [sorted_array_jobs[i] for i, error in enumerate(parsed_errors) if error == 'other']
     print(memory_array)
 
     return memory_array, failure_array, other_array
