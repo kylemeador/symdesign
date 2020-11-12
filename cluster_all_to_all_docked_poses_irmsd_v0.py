@@ -19,11 +19,10 @@ def main():
     # Reference Structure (i.e. Crystal, EM or Rosetta Prediction) VS Docked Poses
     # IRMSD / Residue Level Summation Score Ranking Text File Path
     ref_vs_dockedposes_file_path = sys.argv[2]
-    design_string = sys.argv[3]
 
     # Clustering Output Text File Path
+    design_string = sys.argv[3]  # KM added
     clusters_output_file_path = os.path.dirname(rmsd_file_path) + "/%s_clustered.txt" % design_string
-
 
     # Create Python Dictionary Containing all Structure Names (Keys)
     # And a List of Neighbors within RMSD Threshold (Values)
@@ -132,6 +131,7 @@ def main():
     for cluster in clusters_sorted_by_clust_rep_pose_score:
         cluster_score_rank += 1
         cluster_rep_info = cluster[0]
+        # Column headers are cluster_rep_id, ref_vs_pose_irmsd, pose_score, pose_score_rank, cluster rank
         clust_rep_str = "REP {:35s} {:8.3f} {:8.3f} {:10d} {:10d}\n".format(cluster_rep_info[0], cluster_rep_info[1], cluster_rep_info[2], cluster_rep_info[3], cluster_score_rank)
         clusters_output_file.write(clust_rep_str)
 

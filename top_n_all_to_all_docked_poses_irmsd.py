@@ -734,7 +734,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
         # reference2_chains_and_residues_d[i] = ref2_int_chain_residue_d
 
     # For debuggin multiprocessing hang
-    for des_dir in design_directories:
+    # for des_dir in design_directories:
         des_dir.oligomers[des_dir.oligomer_names[0]] = standardize_intra_oligomer_chain_lengths(docked_pdb1)
         des_dir.oligomers[des_dir.oligomer_names[1]] = standardize_intra_oligomer_chain_lengths(docked_pdb2)
     # standardized_pdbs1, standardized_pdbs2 = {}, {}
@@ -754,7 +754,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
 
     zipped_args = []  # , directory_pairs = [], []
     for pair in combinations(design_directories, 2):
-        zipped_args.append((pair[1].oligomers[pair[0].oligomer_names[0]], pair[1].oligomers[pair[0].oligomer_names[1]],
+        zipped_args.append((pair[1].oligomers[pair[1].oligomer_names[0]], pair[1].oligomers[pair[1].oligomer_names[1]],
                             pair[0].oligomers[pair[0].oligomer_names[0]], pair[0].oligomers[pair[0].oligomer_names[1]],
                             *reference_chains_and_residues_d[str(pair[0])], str(pair[0]), str(pair[1])))
         # directory_pairs.append((str(pair[0]), str(pair[1])))
@@ -790,7 +790,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     #     # # One for stand_ref_pose_pdb1 and one for stand_ref_pose_pdb2.
     #     # # {'chain_id': [residue_number(s)]}
     #     ref_pdb1_int_chids_resnums_dict, ref_pdb2_int_chids_resnums_dict = \
-    #         interface_chains_and_resnums(standardized_pdbs1[i], standardized_pdbs2[i], cb_distance=9.0)
+    #         interface_chains_and_resnums(stand_ref_pose_pdb1, stand_ref_pose_pdb2, cb_distance=9.0)
     #
     #     for j in range(i+1, n):
     #         # # obtain id, oligomer 1 pdb file path and oligomer 2 pdb file path for query pose
