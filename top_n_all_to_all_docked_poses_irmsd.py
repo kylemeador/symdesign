@@ -378,16 +378,16 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
 def map_align_interface_chains_km_mp(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict,
                                      ref_pdb2_int_chids_resnums_dict, id_1, id_2):
     try:
-        irmsd = map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict,
-                                              ref_pdb2_int_chids_resnums_dict, id_1, id_2)
+        irmsd = map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict, id_1,
+                                              id_2, ref_pdb2_int_chids_resnums_dict)
         # print('returning', irmsd, None, 'inside _mp')
         return irmsd, None
     except (Bio.PDB.PDBExceptions.PDBException, Exception) as e:
         return None, ((pdb1.filepath, pdb2.filepath), e)
 
 
-def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chids_resnums_dict,
-                                  ref_pdb2_int_chids_resnums_dict, id_1, id_2, e=3.0, return_aligned_ref_pdbs=False):
+def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, ref_pdb1_int_chids_resnums_dict,
+                                  ref_pdb2_int_chids_resnums_dict, e=3.0, return_aligned_ref_pdbs=False):
 
     # This function requires pdb1 and ref_pdb1 to have the same: residue numbering, number of chains and number of
     # equivalent CA atoms. Same for pdb2 and ref_pdb2.
@@ -752,22 +752,42 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     #     standardized_pdbs1[i] = standardize_intra_oligomer_chain_lengths(ref_pose_pdb1)
     #     standardized_pdbs2[i] = standardize_intra_oligomer_chain_lengths(ref_pose_pdb2)
 
-    zipped_args = []  # , directory_pairs = [], []
+    # ORIGINAL PATCH
+    irmsds = []  # , directory_pairs = [], []
     for pair in combinations(design_directories, 2):
-        zipped_args.append((pair[1].oligomers[pair[1].oligomer_names[0]], pair[1].oligomers[pair[1].oligomer_names[1]],
-                            pair[0].oligomers[pair[0].oligomer_names[0]], pair[0].oligomers[pair[0].oligomer_names[1]],
-                            *reference_chains_and_residues_d[str(pair[0])], str(pair[0]), str(pair[1])))
-        # directory_pairs.append((str(pair[0]), str(pair[1])))
+        try:
+            irmsds.append(map_align_interface_chains_km(pair[1].oligomers[pair[1].oligomer_names[0]],
+                                                        pair[1].oligomers[pair[1].oligomer_names[1]],
+                                                        pair[0].oligomers[pair[0].oligomer_names[0]],
+                                                        pair[0].oligomers[pair[0].oligomer_names[1]], str(pair[0]),
+                                                        str(pair[1]),
+                                                        *reference_chains_and_residues_d[str(pair[0])]))
+        except (Bio.PDB.PDBExceptions.PDBException, Exception):
+            pass
+    #     # directory_pairs.append((str(pair[0]), str(pair[1])))
+    #
+    # # print(directory_pairs)
+    # irmsds, errors = zip(*SDUtils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, threads=threads))
+    # irmsds = list(irmsds)
+    # errors = list(errors)
 
-    # print(directory_pairs)
-    irmsds, errors = zip(*SDUtils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, threads=threads))
-    irmsds = list(irmsds)
-    errors = list(errors)
-    for i, error in enumerate(errors):
-        if error:
-            print('ERROR: ', error[1], '\nFiles: ', error[0][0], 'AND', error[0][1])
-            # directory_pairs.pop(i)
-            irmsds.pop(i)
+    # MULTIPROCESSING
+    # zipped_args = []  # , directory_pairs = [], []
+    # for pair in combinations(design_directories, 2):
+    #     zipped_args.append((pair[1].oligomers[pair[1].oligomer_names[0]], pair[1].oligomers[pair[1].oligomer_names[1]],
+    #                         pair[0].oligomers[pair[0].oligomer_names[0]], pair[0].oligomers[pair[0].oligomer_names[1]],
+    #                         str(pair[0]), str(pair[1]), *reference_chains_and_residues_d[str(pair[0])]))
+    #     # directory_pairs.append((str(pair[0]), str(pair[1])))
+    #
+    # # print(directory_pairs)
+    # irmsds, errors = zip(*SDUtils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, threads=threads))
+    # irmsds = list(irmsds)
+    # errors = list(errors)
+    # for i, error in enumerate(errors):
+    #     if error:
+    #         print('ERROR: ', error[1], '\nFiles: ', error[0][0], 'AND', error[0][1])
+    #         # directory_pairs.pop(i)
+    #         irmsds.pop(i)
     # irmsds = SDUtils.mp_starmap(map_align_interface_chains_km, zipped_args, threads=threads)
     # for i in range(n-1):
     #     # # obtain id, oligomer 1 pdb file path and oligomer 2 pdb file path for reference pose
