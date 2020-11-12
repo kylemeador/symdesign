@@ -95,7 +95,8 @@ def link_pair(pair, force=False):
     os.symlink(*pair)  # , target_is_directory=True)
 
 
-def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
+def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output'), all=True):
+    """Returns an array for each of the errors encountered. All=True returns the set"""
     matching_jobs = glob('%s%s*%s*' % (output_dir, os.sep, job_id))
     potential_errors = [job if os.path.getsize(job) > 0 else None for job in matching_jobs]
     parsed_errors = list(map(error_type, potential_errors))
@@ -107,6 +108,33 @@ def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
     print('Other error size:', len(other_array))
 
     return memory_array, failure_array, other_array
+
+
+def parse_script(script_file):
+    with open(script_file, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            if '--command_file' in line:
+                command_distribution_cmd_l = line.split()
+                command_file_idx = command_distribution_cmd_l.index('--command_file') + 1
+                command_file = command_distribution_cmd_l[command_file_idx]
+
+    return command_file
+
+
+def change_script_array(script_file, array):
+    """Take a script file and replace the array line with a new array"""
+    with open(script_file, 'r') as f:
+        lines = f.readlines()
+        for i, line in enumerate(lines):
+            if '#SBATCH -a' in line or '#SBATCH --array' in line:
+                lines[i] = '#SBATCH --array=%s' % ','.join(str(a) for a in array)
+
+    new_script = '%s_%s' % (os.path.splitext(script_file)[0], '_re-do_SLURM_failures.sh')
+    with open(new_script, 'r') as f:
+        f.write('\n'.join(line for line in lines))
+
+    return new_script
 
 
 def job_failed():
@@ -129,12 +157,18 @@ if __name__ == '__main__':
                                             'SubModule help can be accessed in this way' % 'SPACE FILLER')
     # ---------------------------------------------------
     parser_fail = subparsers.add_parser('fail', help='Find job failures')
-    parser_fail.add_argument('-a', '--array', action='store_true')
+    parser_fail.add_argument('-a', '--array', action='store_true', help='Whether the failures should be returned as an '
+                                                                        'array')
     # parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
     #                          default=None, required=True)
-    parser_fail.add_argument('-j', '--job_id', type=str, help='What is the JobID provided by SLURM upon execution?')
+    parser_fail.add_argument('-j', '--job_id', type=str, help='What is the JobID provided by SLURM upon execution?',
+                             required=True)
     parser_fail.add_argument('-m', '--mode', type=str, choices=['memory', 'other'],
                              help='What type of failure should be located')
+    parser_fail.add_argument('-s', '--script', type=str, help='What is the Script used to creat the job_id?')
+    # parser_fail.add_argument('-r', '--return_array', action='store_true', help='Whether the failures should be returned'
+    #                                                                            ' as an array')
+
     # ---------------------------------------------------
     parser_fail = subparsers.add_parser('filter', help='Find job failures')
     # parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
@@ -148,12 +182,20 @@ if __name__ == '__main__':
     parser_link.add_argument('-F', '--force', action='store_true')
 
     args, additional_flags = parser.parse_known_args()
-    if args.sub_module == 'fail':
-        if args.array:
-            # do array
-            memory, failure, other = job_array_failed(args.job_id)  # , output_dir=args.directory)
+    if args.sub_module == 'fail':  # -a array, -j job_id, -m mode
+        # do array
+        memory, failure, other = job_array_failed(args.job_id)  # , output_dir=args.directory)
+        all_array = sorted(set(memory + failure + other))
+        if args.script:
+            args.file = parse_script(args.script)
             commands = SDUtils.to_iterable(args.file)
-            print('There are a total of commmands:', len(commands))
+        else:
+            commands = SDUtils.to_iterable(args.file)
+        print('There are a total of commmands:', len(commands))
+        if args.array:
+            new_script = change_script_array(arg.script, all_array)
+            print('Run new script with:\nsbatch %s' % new_script)
+        else:
             restart_memory = [commands[idx] for idx in memory]
             restart_failure = [commands[idx] for idx in failure]
             restart_other = [commands[idx] for idx in other]
