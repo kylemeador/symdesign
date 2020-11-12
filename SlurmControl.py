@@ -101,14 +101,14 @@ def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
     potential_errors = [job if os.path.getsize(job) > 0 else None for i, job in enumerate(matching_jobs)]
     print(','.join(str(i) for i, potential_error in enumerate(potential_errors) if potential_error))
     parsed_errors = list(map(error_type, potential_errors))
-    sorted_array_jobs = {job_file:int(os.path.splitext(job_file.split('_')[-1])[0]) for job_file in matching_jobs}
+    sorted_array_jobs = {job_file: int(os.path.splitext(job_file.split('_')[-1])[0]) for job_file in matching_jobs}
     # generate a dictionary of the job_file to array_id
     # for job in matching_jobs:
     #     array_id = os.path.splitext(job.split('_')[-1])[0]
     #     sorted_array_jobs[array] = job
-    memory_array = [sorted_array_jobs[i] for i, error in enumerate(parsed_errors) if error == 'memory']
-    failure_array = [sorted_array_jobs[i] for i, error in enumerate(parsed_errors) if error == 'failure']
-    other_array = [sorted_array_jobs[i] for i, error in enumerate(parsed_errors) if error == 'other']
+    memory_array = [sorted_array_jobs[matching_jobs[i]] for i, error in enumerate(parsed_errors) if error == 'memory']
+    failure_array = [sorted_array_jobs[matching_jobs[i]] for i, error in enumerate(parsed_errors) if error == 'failure']
+    other_array = [sorted_array_jobs[matching_jobs[i]] for i, error in enumerate(parsed_errors) if error == 'other']
     print(memory_array)
 
     return memory_array, failure_array, other_array
