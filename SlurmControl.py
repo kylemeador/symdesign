@@ -97,7 +97,7 @@ def link_pair(pair, force=False):
 
 def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
     """Returns an array for each of the errors encountered. All=True returns the set"""
-    matching_jobs = glob('%s%s*%s*' % (output_dir, os.sep, job_id))
+    matching_jobs = sorted(glob('%s%s*%s*' % (output_dir, os.sep, job_id)))
     potential_errors = [job if os.path.getsize(job) > 0 else None for job in matching_jobs]
     print(','.join(str(i) for i, potential_error in enumerate(potential_errors) if potential_error))
     parsed_errors = list(map(error_type, potential_errors))
