@@ -182,28 +182,27 @@ if __name__ == '__main__':
     parser_link.add_argument('-F', '--force', action='store_true')
 
     args, additional_flags = parser.parse_known_args()
-    if args.sub_module == 'fail':  # -a array, -j job_id, -m mode
+    if args.sub_module == 'fail':  # -a array, -j job_id, -m mode, -s script
         # do array
         memory, failure, other = job_array_failed(args.job_id)  # , output_dir=args.directory)
         all_array = sorted(set(memory + failure + other))
         if args.script:
+            # commands = SDUtils.to_iterable(args.file)
             args.file = parse_script(args.script)
-            commands = SDUtils.to_iterable(args.file)
-        else:
-            commands = SDUtils.to_iterable(args.file)
-        print('There are a total of commmands:', len(commands))
-        if args.array:
-            new_script = change_script_array(arg.script, all_array)
+            new_script = change_script_array(args.script, all_array)
             print('Run new script with:\nsbatch %s' % new_script)
         else:
+            commands = SDUtils.to_iterable(args.file)
+            print('There are a total of commmands:', len(commands))
+        # if args.array:
+
+        # else:
             restart_memory = [commands[idx] for idx in memory]
             restart_failure = [commands[idx] for idx in failure]
             restart_other = [commands[idx] for idx in other]
             SDUtils.io_save(restart_memory, filename='%s_%s' % (args.file, 'memory_failures'))
             SDUtils.io_save(restart_failure, filename='%s_%s' % (args.file, 'other_failures'))
             SDUtils.io_save(restart_other, filename='%s_%s' % (args.file, 'other_output'))
-        else:
-            job_failed()
 
     elif args.sub_module == 'scancel':
         array_ids = SDUtils.to_iterable(args.file)
