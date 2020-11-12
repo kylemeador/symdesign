@@ -130,8 +130,8 @@ def change_script_array(script_file, array):
             if '#SBATCH -a' in line or '#SBATCH --array' in line:
                 lines[i] = '#SBATCH --array=%s' % ','.join(str(a) for a in array)
 
-    new_script = '%s_%s' % (os.path.splitext(script_file)[0], '_re-do_SLURM_failures.sh')
-    with open(new_script, 'r') as f:
+    new_script = '%s_%s' % (os.path.splitext(script_file)[0], 're-do_SLURM_failures.sh')
+    with open(new_script, 'w') as f:
         f.write('\n'.join(line for line in lines))
 
     return new_script
