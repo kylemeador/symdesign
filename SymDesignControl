@@ -167,6 +167,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
     if _stage == 'rmsd':
         # Relies on the assumption that each docked dir has only one set of building blocks making up its constituent files
         start = datetime.datetime(2020, 11, 3, 0, 0)  # when the most recent set of results was started
+        all_to_all_start = datetime.datetime(2020, 11, 12, 0, 0)
 
         def _rmsd_dir(des_dir_symmetry):
             return os.path.join(des_dir_symmetry, 'rmsd_calculation')
@@ -182,6 +183,9 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     rmsd_file = None
                 all_to_all_file = glob(os.path.join(rmsd_dir, 'top*_all_to_all_docked_poses_irmsd.txt'))[0]
                 final_clustering_file = glob(os.path.join(rmsd_dir, '*_clustered.txt'))[0]
+                if int(time.time()) - int(os.path.getmtime(final_clustering_file)) > \
+                        all_to_all_start.now().timestamp() - all_to_all_start.timestamp():
+                    final_clustering_file = None
             except IndexError:
                 incomplete.append(rmsd_dir)
             rmsd.append(rmsd_file)
