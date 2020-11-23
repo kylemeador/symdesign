@@ -127,6 +127,7 @@ def scout_sdf_chains(pdb):
     lines = p.stdout.decode('utf-8').strip().split('\n')
     rotation_dict = {}
     max_sym, max_chain = 0, None
+    print(lines)
     for line in lines:
         chain = line[0]
         symmetry = int(line.split(':')[1][:6].rstrip('-fold'))
