@@ -762,8 +762,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     flags_refine = SDUtils.prepare_rosetta_flags(refine_variables, PUtils.stage[1], outpath=des_dir.path)
     relax_cmd = main_cmd + \
-                ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file),
-                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
+        ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file),
+         '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
     refine_cmd = relax_cmd + ['-in:file:s', ala_mut_pdb,  '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
     consensus_cmd = relax_cmd + ['-in:file:s', consensus_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
 
