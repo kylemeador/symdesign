@@ -365,7 +365,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             cryst = line[15:].strip()
 
     cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir, init=True)
-    # vUsed for central pair fragment mapping of the biological interface generated fragments
+    # v Used for central pair fragment mapping of the biological interface generated fragments
     cluster_freq_tuple_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
     # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
     #                         for cluster in cluster_residue_d}
@@ -380,14 +380,18 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # cryst = template_pdb.cryst_record
 
     # Set up protocol symmetry
+    docking_metrics = SDUtils.gather_docking_metrics(des_dir.log)
+    sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = SDUtils.symmetry_parameters(docking_metrics)
+    sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
     protocol = PUtils.protocol[sym]
-    # sym_def_file = SDUtils.handle_symmetry(cryst)  # TODO
-    sym_def_file = SDUtils.sdf_lookup(sym)  # TODO currently grabbing dummy.symm
-    if sym > 1:
+    if sym > 0:  # layer or space
+        sym_def_file = SDUtils.sdf_lookup(sym, dummy=True)  # currently grabbing dummy.symm
         main_cmd += ['-symmetry_definition', 'CRYST1']
-    else:
-        logger.error('Not possible to input point groups just yet...')
-        sys.exit()
+    else:  # point
+        sym_def_file = SDUtils.sdf_lookup(sym_entry_number)
+        main_cmd += ['-symmetry_definition', sym_def_file]
+        # logger.error('Not possible to input point groups just yet...')
+        # sys.exit()
 
     # logger.info('Symmetry Information: %s' % cryst)
     logger.info('Symmetry Option: %s' % protocol)

@@ -36,6 +36,8 @@ layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2':
                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
 viable = {'p6', 'p4', 'p3', 'p312', 'p4121', 'p622'}
 
+point_group_d = {8: 'I23', 14: 'I52', 56: 'I53', 4: 'T32', 52: 'T33'}
+# layer_group_d = {8: 'I23'}
 
 ##########
 # ERRORS
@@ -97,21 +99,27 @@ def handle_errors(errors=(Exception, )):  # TODO refactor handle_errors to handl
 ############
 
 
-def handle_symmetry(cryst1_record):
-    group = cryst1_record.split()[-1]
-    if group in layer_groups:
-        symmetry = 2
-        return 2
+def handle_symmetry(symmetry_entry_number):
+    # group = cryst1_record.split()[-1]/
+    if symmetry_entry_number not in point_group_d.keys():
+        if symmetry_entry_number in layer_group_d.keys():
+            return 2
+        else:
+            return 3
     else:
-        return 3
+        return 0
 
 
-def sdf_lookup(point_type):
-    # TODO
+def sdf_lookup(point_type, dummy=False):
+    if dummy:
+        return os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
+    else:
+        symmetry_name = point_group_d[point_type]
+
     for root, dirs, files in os.walk(PUtils.symmetry_def_files):
-        placeholder = None
-    symm = os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
-    return symm
+        for file in files:
+            if symmetry_name in file:
+                return os.path.join(PUtils.symmetry_def_files, file)
 
 
 def scout_sdf_chains(pdb):
@@ -1955,7 +1963,7 @@ def gather_docking_metrics(log_file):
                 oligomer_symmetry_1 = line.split(':')[-1].strip()
             elif "Oligomer 2 Symmetry: " in line:
                 oligomer_symmetry_2 = line.split(':')[-1].strip()
-            elif "Design Point Group Symmetry: " in line:
+            elif "Design Point Group Symmetry: " in line:  # TODO Is this ever layer or space group?
                 design_symmetry = line.split(':')[-1].strip()
             elif "Oligomer 1 Internal ROT DOF: " in line:  # ,
                 internal_rot1 = line.split(':')[-1].strip()
@@ -2345,7 +2353,7 @@ class DesignDirectory:
             self.path = os.path.join(symmetry, self.path)
         else:
             self.symmetry = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
-
+        self.log = os.path.join(_sym, PUtils.master_log)
         self.protein_data = os.path.join(self.symmetry, 'Protein_Data')
         self.pdbs = os.path.join(self.protein_data, 'PDBs')
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
@@ -2394,13 +2402,13 @@ class DesignDirectory:
         typical directory structuring"""
         # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation?
         self.symmetry = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(symmetry or '')))  # for design_recap
-        self.log = [os.path.join(_sym, 'master_log.txt') for _sym in self.symmetry]  # TODO PUtils
+        self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.symmetry]
         for k, _sym in enumerate(self.symmetry):
             self.building_blocks.append(list())
             self.building_block_logs.append(list())
             # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
             for bb_dir in next(os.walk(_sym))[1]:  # grabs the directories from os.walk, yielding just top level results
-                if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
+                if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
                     self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
                     self.building_blocks[k].append(bb_dir)
 
