@@ -353,9 +353,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         #                                 (des_dir.path, name + '_tx_*.pdb')
         oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
         oligomer[name].AddName(name)
-        oligomer[name].reorder_chains()
         # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
         sym_definition_files[name] = SDUtils.make_sdf(oligomer[name], modify_sym_energy=True)
+        oligomer[name].reorder_chains()
     logger.debug('%s: %d matching oligomers found' % (des_dir.path, len(oligomer)))
 
     # TODO insert mechanism to Decorate and then gather my own fragment decoration statistics
