@@ -124,6 +124,7 @@ def scout_sdf_chains(pdb):
     scout_cmd = ['perl', PUtils.scout_symmdef, '-p', pdb.filepath, '-i'] + pdb.chain_id_list[1:]
     logger.info(subprocess.list2cmdline(scout_cmd))
     p = subprocess.run(scout_cmd, capture_output=True)
+    print(p.stdout)
     lines = p.stdout.decode('utf-8').strip().split('\n')
     rotation_dict = {}
     max_sym, max_chain = 0, None
