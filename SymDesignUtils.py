@@ -2353,7 +2353,7 @@ class DesignDirectory:
             self.path = os.path.join(symmetry, self.path)
         else:
             self.symmetry = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
-        self.log = os.path.join(symmetry, PUtils.master_log)
+        self.log = os.path.join(self.symmetry, PUtils.master_log)
         if not os.path.exists(self.log):
             logger.critical('%s: No %s found in this directory! Cannot perform material design without it.'
                             % (self.__str__(), PUtils.master_log))
