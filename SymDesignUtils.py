@@ -857,9 +857,9 @@ def get_db_statistics(database):
     """
     for file in os.listdir(database):
         if file.endswith('statistics.pkl'):
-            unpickle(os.path.join(database, file))
+            return unpickle(os.path.join(database, file))
 
-    return stats
+    return None  # Should never be called
 
 
 def get_db_aa_frequencies(database):
