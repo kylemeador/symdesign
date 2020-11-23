@@ -2015,11 +2015,11 @@ def gather_docking_metrics(log_file):
 
 
 def pdb_input_parameters(args):
-    return args[0:1]
+    return args[0:2]
 
 
 def symmetry_parameters(args):
-    return args[3:6]
+    return args[3:7]
 
 
 def rotation_parameters(args):
