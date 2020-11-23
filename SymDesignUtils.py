@@ -121,13 +121,13 @@ def scout_sdf_chains(pdb):
     -i B C D E F G H
 
     """
-    num_chains = len(pdb.chain_id_list)
     scout_cmd = ['perl', PUtils.scout_symmdef, '-p', pdb.filepath, '-i'] + pdb.chain_id_list[1:]
     logger.info(subprocess.list2cmdline(scout_cmd))
     p = subprocess.run(scout_cmd, capture_output=True)
     lines = p.stdout.decode('utf-8').strip().split('\n')
     rotation_dict = {}
     max_sym, max_chain = 0, None
+    print(lines)
     for line in lines:
         chain = line[0]
         symmetry = int(line.split(':')[1][:6].rstrip('-fold'))
@@ -144,6 +144,7 @@ def scout_sdf_chains(pdb):
     #     raise DesignError('%s: No symmetry found for SDF creation' % pdb.filepath)
 
     # Check for dihedral symmetry, ensuring selected chain is orthogonal to max symmetry axis
+    num_chains = len(pdb.chain_id_list)
     if num_chains / max_sym == 2:
         for chain in rotation_dict:
             if rotation_dict[chain]['sym'] == 2:
@@ -158,12 +159,15 @@ def make_sdf(pdb, modify_sym_energy=False, energy=2):
     """Use the make_symmdef_file.pl script from Rosetta on an input structure
 
     perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb -i B -q
+    Args:
+        pdb (PDB): An instance of the PDB object
+    Keyword Args:
+        modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
+        energy=2 (int): The scaler to modify the energy by
+    Returns:
+        Symmetry Definition filename
     """
     chains = scout_sdf_chains(pdb)
-    dihedral = False
-    if len(chains) > 1:
-        dihedral = True
-    number_chains = len(pdb.chain_id_list)
     sdf_file_name = os.path.join(os.path.dirname(pdb.filepath), pdb.name + '.sdf')
     sdf_cmd = ['perl', PUtils.make_symmdef, '-p', pdb.filepath, '-i', chains, '-q']
     logger.info(subprocess.list2cmdline(sdf_cmd))
@@ -196,10 +200,10 @@ def make_sdf(pdb, modify_sym_energy=False, energy=2):
                 last_jump = i + 1
         assert set(trunk) - set(virtuals) == set(), logger.error('%s: Symmetry Definition File VRTS are malformed'
                                                                  % pdb.filepath)
-        assert number_chains == len(subunits), logger.error('%s: Symmetry Definition File VRTX_base are malformed'
+        assert len(pdb.chain_id_list) == len(subunits), logger.error('%s: Symmetry Definition File VRTX_base are malformed'
                                                             % pdb.filepath)
 
-        if dihedral:
+        if len(chains) > 1:  # dihedral = True
             # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
         else:
