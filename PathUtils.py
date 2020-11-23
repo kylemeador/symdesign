@@ -108,7 +108,7 @@ frag_directory = {'biological_interfaces': biological_fragmentDB, 'bio': bio_fra
 
 # Rosetta Scripts and Files
 sym_weights = (os.path.join(rosetta_scripts, 'ref2015_sym.wts_patch'))
-protocol = {1: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
+protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 
 # Cluster Dependencies and Multiprocessing
 # stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus'}
