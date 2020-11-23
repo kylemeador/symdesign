@@ -32,7 +32,7 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
-from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_seq, extract_aa_seq
+from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_seq, extract_aa_seq, write_fasta_file
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -544,7 +544,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 if errors[name]:
                     logger.warning('%s: Sequence generation ran into the following residue errors: %s'
                                    % (des_dir.path, ', '.join(errors[name])))
-                pdb_seq_file[name] = SDUtils.write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
+                pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
                 if not pdb_seq_file[name]:
                     logger.critical('%s: Unable to parse sequence. Check if PDB \'%s\' is valid' % (des_dir.path, name))
                     raise SDUtils.DesignError('Unable to parse sequence')
