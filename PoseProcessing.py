@@ -32,7 +32,7 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
-from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_seq
+from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_seq, extract_aa_seq
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -539,7 +539,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         for n, name in enumerate(names):
             if pssm_files[name] == dict():
                 logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
-                pdb_seq[name], errors[name] = SDUtils.extract_aa_seq(template_pdb, chain=names[name](n))
+                pdb_seq[name], errors[name] = extract_aa_seq(template_pdb, chain=names[name](n))
                 logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
                 if errors[name]:
                     logger.warning('%s: Sequence generation ran into the following residue errors: %s'
