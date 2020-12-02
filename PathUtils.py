@@ -21,7 +21,9 @@ sbatch = 'sbatch'
 # sbatch = '_sbatch.sh'
 temp = 'temp.hold'
 pose_prefix = 'tx_'
-asu = 'central_asu.pdb'
+master_log = 'master_log.txt'
+asu = 'asu.pdb'
+# asu = 'central_asu.pdb'
 clean = 'clean_asu.pdb'
 msa_pssm = 'asu_pose.pssm'
 dssm = 'pose.dssm'
@@ -107,7 +109,7 @@ frag_directory = {'biological_interfaces': biological_fragmentDB, 'bio': bio_fra
 
 # Rosetta Scripts and Files
 sym_weights = (os.path.join(rosetta_scripts, 'ref2015_sym.wts_patch'))
-protocol = {1: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
+protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 
 # Cluster Dependencies and Multiprocessing
 # stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus'}

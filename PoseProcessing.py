@@ -32,7 +32,7 @@ import SymDesignUtils as SDUtils
 import PathUtils as PUtils
 import CmdUtils as CUtils
 from AnalyzeOutput import analyze_output
-from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_seq
+from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_seq, extract_aa_seq, write_fasta_file
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -353,9 +353,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         #                                 (des_dir.path, name + '_tx_*.pdb')
         oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
         oligomer[name].AddName(name)
-        oligomer[name].reorder_chains()
         # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
         sym_definition_files[name] = SDUtils.make_sdf(oligomer[name], modify_sym_energy=True)
+        oligomer[name].reorder_chains()
     logger.debug('%s: %d matching oligomers found' % (des_dir.path, len(oligomer)))
 
     # TODO insert mechanism to Decorate and then gather my own fragment decoration statistics
@@ -365,7 +365,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             cryst = line[15:].strip()
 
     cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir, init=True)
-    # vUsed for central pair fragment mapping of the biological interface generated fragments
+    # v Used for central pair fragment mapping of the biological interface generated fragments
     cluster_freq_tuple_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
     # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
     #                         for cluster in cluster_residue_d}
@@ -380,14 +380,18 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # cryst = template_pdb.cryst_record
 
     # Set up protocol symmetry
+    docking_metrics = SDUtils.gather_docking_metrics(des_dir.log)
+    sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = SDUtils.symmetry_parameters(docking_metrics)
+    sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
     protocol = PUtils.protocol[sym]
-    # sym_def_file = SDUtils.handle_symmetry(cryst)  # TODO
-    sym_def_file = SDUtils.sdf_lookup(sym)  # TODO currently grabbing dummy.symm
-    if sym > 1:
+    if sym > 0:  # layer or space
+        sym_def_file = SDUtils.sdf_lookup(sym, dummy=True)  # currently grabbing dummy.symm
         main_cmd += ['-symmetry_definition', 'CRYST1']
-    else:
-        logger.error('Not possible to input point groups just yet...')
-        sys.exit()
+    else:  # point
+        sym_def_file = SDUtils.sdf_lookup(sym_entry_number)
+        main_cmd += ['-symmetry_definition', sym_def_file]
+        # logger.error('Not possible to input point groups just yet...')
+        # sys.exit()
 
     # logger.info('Symmetry Information: %s' % cryst)
     logger.info('Symmetry Option: %s' % protocol)
@@ -535,12 +539,12 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         for n, name in enumerate(names):
             if pssm_files[name] == dict():
                 logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
-                pdb_seq[name], errors[name] = SDUtils.extract_aa_seq(template_pdb, chain=names[name](n))
+                pdb_seq[name], errors[name] = extract_aa_seq(template_pdb, chain=names[name](n))
                 logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
                 if errors[name]:
                     logger.warning('%s: Sequence generation ran into the following residue errors: %s'
                                    % (des_dir.path, ', '.join(errors[name])))
-                pdb_seq_file[name] = SDUtils.write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
+                pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
                 if not pdb_seq_file[name]:
                     logger.critical('%s: Unable to parse sequence. Check if PDB \'%s\' is valid' % (des_dir.path, name))
                     raise SDUtils.DesignError('Unable to parse sequence')
@@ -758,8 +762,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     flags_refine = SDUtils.prepare_rosetta_flags(refine_variables, PUtils.stage[1], outpath=des_dir.path)
     relax_cmd = main_cmd + \
-                ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file),
-                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
+        ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file),
+         '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
     refine_cmd = relax_cmd + ['-in:file:s', ala_mut_pdb,  '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
     consensus_cmd = relax_cmd + ['-in:file:s', consensus_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
 

@@ -36,6 +36,8 @@ layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2':
                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
 viable = {'p6', 'p4', 'p3', 'p312', 'p4121', 'p622'}
 
+point_group_d = {8: 'I32', 14: 'I52', 56: 'I53', 4: 'T32', 52: 'T33'}
+# layer_group_d = {8: 'I23'}
 
 ##########
 # ERRORS
@@ -97,21 +99,27 @@ def handle_errors(errors=(Exception, )):  # TODO refactor handle_errors to handl
 ############
 
 
-def handle_symmetry(cryst1_record):
-    group = cryst1_record.split()[-1]
-    if group in layer_groups:
-        symmetry = 2
-        return 2
+def handle_symmetry(symmetry_entry_number):
+    # group = cryst1_record.split()[-1]/
+    if symmetry_entry_number not in point_group_d.keys():
+        if symmetry_entry_number in layer_group_d.keys():
+            return 2
+        else:
+            return 3
     else:
-        return 3
+        return 0
 
 
-def sdf_lookup(point_type):
-    # TODO
+def sdf_lookup(point_type, dummy=False):
+    if dummy:
+        return os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
+    else:
+        symmetry_name = point_group_d[point_type]
+
     for root, dirs, files in os.walk(PUtils.symmetry_def_files):
-        placeholder = None
-    symm = os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
-    return symm
+        for file in files:
+            if symmetry_name in file:
+                return os.path.join(PUtils.symmetry_def_files, file)
 
 
 def scout_sdf_chains(pdb):
@@ -121,13 +129,14 @@ def scout_sdf_chains(pdb):
     -i B C D E F G H
 
     """
-    num_chains = len(pdb.chain_id_list)
-    scout_cmd = ['perl', PUtils.scout_symmdef, '-p', pdb.filepath, '-i'] + pdb.chain_id_list[1:]
+    scout_cmd = ['perl', PUtils.scout_symmdef, '-p', pdb.filepath, '-a', pdb.chain_id_list[0], '-i'] + pdb.chain_id_list[1:]
     logger.info(subprocess.list2cmdline(scout_cmd))
+    # print(subprocess.list2cmdline(scout_cmd))
     p = subprocess.run(scout_cmd, capture_output=True)
     lines = p.stdout.decode('utf-8').strip().split('\n')
     rotation_dict = {}
     max_sym, max_chain = 0, None
+    # print(lines)
     for line in lines:
         chain = line[0]
         symmetry = int(line.split(':')[1][:6].rstrip('-fold'))
@@ -144,6 +153,7 @@ def scout_sdf_chains(pdb):
     #     raise DesignError('%s: No symmetry found for SDF creation' % pdb.filepath)
 
     # Check for dihedral symmetry, ensuring selected chain is orthogonal to max symmetry axis
+    num_chains = len(pdb.chain_id_list)
     if num_chains / max_sym == 2:
         for chain in rotation_dict:
             if rotation_dict[chain]['sym'] == 2:
@@ -158,14 +168,17 @@ def make_sdf(pdb, modify_sym_energy=False, energy=2):
     """Use the make_symmdef_file.pl script from Rosetta on an input structure
 
     perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb -i B -q
+    Args:
+        pdb (PDB): An instance of the PDB object
+    Keyword Args:
+        modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
+        energy=2 (int): The scaler to modify the energy by
+    Returns:
+        Symmetry Definition filename
     """
     chains = scout_sdf_chains(pdb)
-    dihedral = False
-    if len(chains) > 1:
-        dihedral = True
-    number_chains = len(pdb.chain_id_list)
     sdf_file_name = os.path.join(os.path.dirname(pdb.filepath), pdb.name + '.sdf')
-    sdf_cmd = ['perl', PUtils.make_symmdef, '-p', pdb.filepath, '-i', chains, '-q']
+    sdf_cmd = ['perl', PUtils.make_symmdef, '-p', pdb.filepath, '-a', pdb.chain_id_list[0], '-i', chains, '-q']
     logger.info(subprocess.list2cmdline(sdf_cmd))
     with open(sdf_file_name, 'w') as file:
         p = subprocess.Popen(sdf_cmd, stdout=file, stderr=subprocess.DEVNULL)
@@ -196,10 +209,10 @@ def make_sdf(pdb, modify_sym_energy=False, energy=2):
                 last_jump = i + 1
         assert set(trunk) - set(virtuals) == set(), logger.error('%s: Symmetry Definition File VRTS are malformed'
                                                                  % pdb.filepath)
-        assert number_chains == len(subunits), logger.error('%s: Symmetry Definition File VRTX_base are malformed'
+        assert len(pdb.chain_id_list) == len(subunits), logger.error('%s: Symmetry Definition File VRTX_base are malformed'
                                                             % pdb.filepath)
 
-        if dihedral:
+        if len(chains) > 1:  # dihedral = True
             # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
         else:
@@ -844,9 +857,9 @@ def get_db_statistics(database):
     """
     for file in os.listdir(database):
         if file.endswith('statistics.pkl'):
-            unpickle(os.path.join(database, file))
+            return unpickle(os.path.join(database, file))
 
-    return stats
+    return None  # Should never be called
 
 
 def get_db_aa_frequencies(database):
@@ -1950,7 +1963,7 @@ def gather_docking_metrics(log_file):
                 oligomer_symmetry_1 = line.split(':')[-1].strip()
             elif "Oligomer 2 Symmetry: " in line:
                 oligomer_symmetry_2 = line.split(':')[-1].strip()
-            elif "Design Point Group Symmetry: " in line:
+            elif "Design Point Group Symmetry: " in line:  # TODO Is this ever layer or space group?
                 design_symmetry = line.split(':')[-1].strip()
             elif "Oligomer 1 Internal ROT DOF: " in line:  # ,
                 internal_rot1 = line.split(':')[-1].strip()
@@ -2002,11 +2015,11 @@ def gather_docking_metrics(log_file):
 
 
 def pdb_input_parameters(args):
-    return args[0:1]
+    return args[0:2]
 
 
 def symmetry_parameters(args):
-    return args[3:6]
+    return args[3:7]
 
 
 def rotation_parameters(args):
@@ -2340,7 +2353,11 @@ class DesignDirectory:
             self.path = os.path.join(symmetry, self.path)
         else:
             self.symmetry = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
-
+        self.log = os.path.join(self.symmetry, PUtils.master_log)
+        if not os.path.exists(self.log):
+            logger.critical('%s: No %s found in this directory! Cannot perform material design without it.'
+                            % (self.__str__(), PUtils.master_log))
+            exit()
         self.protein_data = os.path.join(self.symmetry, 'Protein_Data')
         self.pdbs = os.path.join(self.protein_data, 'PDBs')
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
@@ -2389,13 +2406,13 @@ class DesignDirectory:
         typical directory structuring"""
         # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation?
         self.symmetry = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(symmetry or '')))  # for design_recap
-        self.log = [os.path.join(_sym, 'master_log.txt') for _sym in self.symmetry]  # TODO PUtils
+        self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.symmetry]
         for k, _sym in enumerate(self.symmetry):
             self.building_blocks.append(list())
             self.building_block_logs.append(list())
             # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
             for bb_dir in next(os.walk(_sym))[1]:  # grabs the directories from os.walk, yielding just top level results
-                if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
+                if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
                     self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
                     self.building_blocks[k].append(bb_dir)
 
