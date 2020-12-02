@@ -290,7 +290,7 @@ if __name__ == '__main__':
         if os.path.splitext(os.path.basename(filepath))[0] not in bio_reference_l:
             missing_index.append(i)
 
-    for i in missing_index:
+    for i in reversed(missing_index):
         del interface_filepaths[i]
 
     # Nanohedra.py Path
