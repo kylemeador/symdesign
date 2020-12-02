@@ -964,6 +964,24 @@ class PDB:
 
         return sasa_out
 
+    def get_chain_residue_surface_area(self, chain_residue_pairs, free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
+        # only works for monomers or homo-complexes
+        proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %
+                                (free_sasa_exe_path, str(probe_radius), self.filepath),
+                                stdout=subprocess.PIPE, shell=True)
+        (out, err) = proc.communicate()
+        out_lines = out.split("\n")
+        sasa_out = 0
+        for line in out_lines:
+            if line != "\n" and line != "" and not line.startswith("#"):
+                chain_id = line[4:5]
+                res_num = int(line[5:10])
+                sasa = float(line[16:])
+                if (chain_id, res_num) in chain_residue_pairs:
+                    sasa_out += sasa
+
+        return sasa_out
+
     def mutate_to(self, chain, residue, res_id='ALA'):  # KM added 12/31/19 to mutate pdb Residue objects to alanine
         """Mutate specific chain and residue to a new residue type. Type can be 1 or 3 letter format"""
         # if using residue number, then residue_atom_list[i] is necessary
