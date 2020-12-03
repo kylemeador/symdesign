@@ -127,6 +127,7 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
     # that covers the (ch_id, res_num) residue.
     chid_resnum_scores_dict_pdb1 = {}
     chid_resnum_scores_dict_pdb2 = {}
+    central_residues_scores_d_pdb1, central_residues_scores_d_pdb2 = {}, {}
 
     # Lists of unique (pdb1/2 chain id, pdb1/2 central residue number) tuples for pdb1/pdb2 interface mono fragments
     # that were matched to an i,j,k fragment in the database with a z value <= 1.
@@ -208,6 +209,18 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
 
                 score_term = 1 / float(1 + (z_val ** 2))
 
+                # Central residue only score
+                if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) not in central_residues_scores_d_pdb1:
+                    central_residues_scores_d_pdb1[(pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num)] = [score_term]
+                else:
+                    central_residues_scores_d_pdb1[
+                        (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num)].append(score_term)
+
+                if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) not in central_residues_scores_d_pdb2:
+                    central_residues_scores_d_pdb2[(pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num)] = [score_term]
+                else:
+                    central_residues_scores_d_pdb2[(pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num)].append(score_term)
+
                 covered_residues_pdb1 = [(pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num + j)
                                          for j in range(-2, 3)]
                 covered_residues_pdb2 = [(pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num + j)
@@ -254,7 +267,22 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
 
     ########## Part of: 1 / (1 + z^2) score test ##########
     res_lev_sum_score = 0
+    center_lev_sum_score = 0
+    # Center only
+    for central_res_scores_l1 in central_residues_scores_d_pdb1.values():
+        n1 = 1
+        central_res_scores_l_sorted1 = sorted(central_res_scores_l1, reverse=True)
+        for sc1 in central_res_scores_l_sorted1:
+            center_lev_sum_score += sc1 * (1 / float(n1))
+            n1 *= 2
+    for central_res_scores_l2 in central_residues_scores_d_pdb2.values():
+        n2 = 1
+        central_res_scores_l_sorted2 = sorted(central_res_scores_l2, reverse=True)
+        for sc1 in central_res_scores_l_sorted2:
+            center_lev_sum_score += sc1 * (1 / float(n1))
+            n2 *= 2
 
+    # All residues
     for res_scores_list1 in chid_resnum_scores_dict_pdb1.values():
         n1 = 1
         res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
@@ -275,7 +303,7 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
     f_l3 = "Unique Interface Fragment Total Count: " + str(unique_total_interface_monofrags_count) + "\n"
     f_l4 = "Percent of Interface Matched: " + str(percent_of_interface_covered) + "\n"
 
-    return res_lev_sum_score, unique_matched_interface_monofrag_count, percent_of_interface_covered, unique_total_interface_monofrags_count
+    return res_lev_sum_score, center_lev_sum_score, unique_matched_interface_monofrag_count, percent_of_interface_covered, unique_total_interface_monofrags_count
 
 
 if __name__ == '__main__':
@@ -327,12 +355,13 @@ if __name__ == '__main__':
         pdb1_interface_sa = pdb1.get_chain_residue_surface_area(pdb1_central_chainid_resnum_l, free_sasa_exe_path)
         pdb2_interface_sa = pdb2.get_chain_residue_surface_area(pdb2_central_chainid_resnum_l, free_sasa_exe_path)
         interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
-        res_level_sum_score, number_fragments, total_residues, percent_interface_fragment = \
+        res_level_sum_score, center_level_sum_score, number_fragments, total_residues, percent_interface_fragment = \
             score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
         # interface_d[interface_name] = {'score': res_level_sum_score, 'number_fragments': number_fragments,
         #                                'total_residues': total_residues, 'percent_fragment': percent_interface_fragment}
-        return {interface_name: {'score': res_level_sum_score, 'number_fragments': number_fragments,
-                                 'total_residues': total_residues, 'percent_fragment': percent_interface_fragment}}
+        return {interface_name: {'score': res_level_sum_score, 'central_score': center_level_sum_score,
+                                 'number_fragments': number_fragments, 'total_residues': total_residues,
+                                 'percent_fragment': percent_interface_fragment}}
 
     results = mp_map(calculate_native_scores, interface_filepaths, threads=sys.argv[3])
     interface_d = {key: result[key] for result in results for key in result}
