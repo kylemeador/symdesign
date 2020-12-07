@@ -53,15 +53,17 @@ def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.dirname(os.path.dirname
 
 
 def get_expanded_ptgrp_pdbs(pdb1_asu, pdb2_asu, expand_matrices):
-    asu_symm_mates = []
-
     pdb_asu = PDB()
     pdb_asu.set_all_atoms(pdb1_asu.get_all_atoms() + pdb2_asu.get_all_atoms())
 
+    return get_expanded_ptgrp_pdb(pdb_asu, expand_matrices)
+
+
+def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
+    """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
+    asu_symm_mates = []
     asu_coords = pdb_asu.extract_all_coords()
-
     for r in expand_matrices:
-
         r_mat = np.transpose(np.array(r))
         r_asu_coords = np.matmul(asu_coords, r_mat)
 
