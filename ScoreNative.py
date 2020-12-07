@@ -144,7 +144,7 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
 
     total_inv_capped_z_val_score = 0
     # unique_matched_interface_monofrag_count = 0
-    unique_total_interface_monofrags_count = 0
+    # unique_total_interface_monofrags_count = 0
     frag_match_info_list = []
     unique_interface_monofrags_infolist_pdb1 = []
     unique_interface_monofrags_infolist_pdb2 = []
@@ -154,6 +154,9 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
     # tx_parameters = tx_param_list[i][0]
     # initial_overlap_z_val = tx_param_list[i][1]
     # ghostfrag_surffrag_pair = ghostfrag_surffrag_pair_list[i]
+    unique_fragment_indicies = []
+    fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    fragment_j_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
 
     # Get RMSD and z-value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
     for index_pair in eul_lookup_true_list:
@@ -162,7 +165,10 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
         ghost_frag_i_type = interface_ghost_frag.get_i_frag_type()
         ghost_frag_j_type = interface_ghost_frag.get_j_frag_type()
         ghost_frag_k_type = interface_ghost_frag.get_k_frag_type()
+        fragment_i_index_count_d[ghost_frag_i_type] += 1
+        fragment_j_index_count_d[ghost_frag_j_type] += 1
         cluster_id = "i%s_j%s_k%s" % (ghost_frag_i_type, ghost_frag_j_type, ghost_frag_k_type)
+        unique_fragment_indicies.append(cluster_id)
         interface_ghost_frag_cluster_rmsd = ijk_intfrag_cluster_info_dict[ghost_frag_i_type][ghost_frag_j_type][
             ghost_frag_k_type].get_rmsd()
         interface_ghost_frag_cluster_res_freq_list = \
@@ -260,11 +266,6 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
                                              interface_ghost_frag_cluster_res_freq_list,
                                              interface_ghost_frag_cluster_rmsd))
 
-    unique_matched_interface_monofrag_count = len(unique_interface_monofrags_infolist_pdb1) + len(
-        unique_interface_monofrags_infolist_pdb2)
-    percent_of_interface_covered = unique_matched_interface_monofrag_count / float(
-        unique_total_interface_monofrags_count)
-
     ########## Part of: 1 / (1 + z^2) score test ##########
     res_lev_sum_score = 0
     center_lev_sum_score = 0
@@ -279,7 +280,7 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
         n2 = 1
         central_res_scores_l_sorted2 = sorted(central_res_scores_l2, reverse=True)
         for sc1 in central_res_scores_l_sorted2:
-            center_lev_sum_score += sc1 * (1 / float(n1))
+            center_lev_sum_score += sc1 * (1 / float(n2))
             n2 *= 2
 
     # All residues
@@ -297,13 +298,30 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
             res_lev_sum_score += sc2 * (1 / float(n2))
             n2 = n2 * 2
 
+    # Metric calculation
+    # unique_fragments = len(central_residues_scores_d_pdb1) + len(central_residues_scores_d_pdb2)
+    unique_matched_interface_monofrag_count = len(unique_interface_monofrags_infolist_pdb1) + len(
+        unique_interface_monofrags_infolist_pdb2)
+    unique_total_interface_residue_count = len(pdb1_central_resnum_chainid_unique_list) + len(pdb2_central_resnum_chainid_unique_list)
+    percent_of_interface_covered = unique_matched_interface_monofrag_count / float(unique_total_interface_residue_count)
+
+    # Sum the total contribution from each fragment type on both sides of the interface
+    fragment_content_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    for index in fragment_i_index_count_d:
+        fragment_content_d[index] += fragment_i_index_count_d[index]
+        fragment_content_d[index] += fragment_j_index_count_d[index]
+
+    for index in fragment_content_d:
+        fragment_content_d[index] = index/len(unique_fragment_indicies)
+
     f_l1a = "Residue-Level Summation Score:" + str(res_lev_sum_score) + "\n"
 
     f_l2 = "Unique Interface Fragment Match Count: " + str(unique_matched_interface_monofrag_count) + "\n"
-    f_l3 = "Unique Interface Fragment Total Count: " + str(unique_total_interface_monofrags_count) + "\n"
+    f_l3 = "Unique Interface Fragment Total Count: " + str(unique_total_interface_residue_count) + "\n"
     f_l4 = "Percent of Interface Matched: " + str(percent_of_interface_covered) + "\n"
 
-    return res_lev_sum_score, center_lev_sum_score, unique_matched_interface_monofrag_count, percent_of_interface_covered, unique_total_interface_monofrags_count
+    return res_lev_sum_score, center_lev_sum_score, unique_fragment_indicies, unique_matched_interface_monofrag_count, \
+        unique_total_interface_residue_count, percent_of_interface_covered
 
 
 if __name__ == '__main__':
@@ -355,13 +373,15 @@ if __name__ == '__main__':
         pdb1_interface_sa = pdb1.get_chain_residue_surface_area(pdb1_central_chainid_resnum_l, free_sasa_exe_path)
         pdb2_interface_sa = pdb2.get_chain_residue_surface_area(pdb2_central_chainid_resnum_l, free_sasa_exe_path)
         interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
-        res_level_sum_score, center_level_sum_score, number_fragments, total_residues, percent_interface_fragment = \
+        res_level_sum_score, center_level_sum_score, fragment_indices, num_residues_with_fragments, total_residues, percent_interface_fragment = \
             score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
         # interface_d[interface_name] = {'score': res_level_sum_score, 'number_fragments': number_fragments,
         #                                'total_residues': total_residues, 'percent_fragment': percent_interface_fragment}
         return {interface_name: {'score': res_level_sum_score, 'central_score': center_level_sum_score,
-                                 'number_fragments': number_fragments, 'total_residues': total_residues,
-                                 'percent_fragment': percent_interface_fragment}}
+                                 'fragment_cluster_ids': fragment_indices, 'unique_fragments': len(fragment_indices),
+                                 'percent_fragment': len(fragment_indices)/float(total_residues),
+                                 'number_fragment_residues': num_residues_with_fragments, 'total_interface_residues': total_residues,
+                                 'percent_interface_covered_with_fragment': percent_interface_fragment, 'interface_area': interface_buried_sa}}
 
     results = mp_map(calculate_native_scores, interface_filepaths, threads=sys.argv[3])
     interface_d = {key: result[key] for result in results for key in result}

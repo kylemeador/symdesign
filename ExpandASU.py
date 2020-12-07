@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from Nanohedra.utils.ExpandAssemblyUtils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb, write_expanded_ptgrp
+from nanohedra.utils.ExpandAssemblyUtils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb, write_expanded_ptgrp
 
 from SymDesignUtils import read_pdb, start_log
 
