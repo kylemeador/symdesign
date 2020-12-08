@@ -1,8 +1,11 @@
-import os
-import math
 import argparse
+import math
+import os
+
 # import PDB
 from Bio.SeqUtils import IUPACData
+
+from SymDesignUtils import read_pdb
 
 
 class ListFile:
@@ -305,24 +308,24 @@ class PDB:
             if atom.chain == chain_id:
                 selected_atoms.append(atom)
         return selected_atoms
-
-    def chains(self, chain_id_list):
-        # returns a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain IDs
-        selected_atoms = []
-        for atom in self.all_atoms:
-            if atom.chain in chain_id_list:
-                selected_atoms.append(atom)
-        return selected_atoms
-
-    def getAtom(self, other_atom):
-        # returns Atom in self that has the same number, type, residue_type, chain and residue_number as atom if it exists
-        # returns None otherwise
-        out_atom = None
-        for self_atom in self.all_atoms:
-            if self_atom == other_atom:
-                out_atom = self_atom
-                break
-        return out_atom
+    #
+    # def chains(self, chain_id_list):
+    #     # returns a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain IDs
+    #     selected_atoms = []
+    #     for atom in self.all_atoms:
+    #         if atom.chain in chain_id_list:
+    #             selected_atoms.append(atom)
+    #     return selected_atoms
+    #
+    # def getAtom(self, other_atom):
+    #     # returns Atom in self that has the same number, type, residue_type, chain and residue_number as atom if it exists
+    #     # returns None otherwise
+    #     out_atom = None
+    #     for self_atom in self.all_atoms:
+    #         if self_atom == other_atom:
+    #             out_atom = self_atom
+    #             break
+    #     return out_atom
 
     def is_dimer(self):
         # returns True if PDB instance is a dimer (contains exactly 2 chains) and False otherwise
@@ -1614,21 +1617,8 @@ class HelixFusion:
 
 
 def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
-        # pdb1_path = sys.argv[1]
-        # start_1 = int(sys.argv[2])
-        # end_1 = int(sys.argv[3])
-        # chain_1 = sys.argv[4]
-        # pdb2_path = sys.argv[5]
-        # start_2 = int(sys.argv[6])
-        # end_2 = int(sys.argv[7])
-        # chain_2 = sys.argv[8]
-        # out_path = sys.argv[9]
-
-        pdb1 = PDB()
-        pdb1.readfile(pdb1_path)
-
-        pdb2 = PDB()
-        pdb2.readfile(pdb2_path)
+        pdb1 = read_pdb(pdb1_path)
+        pdb2 = read_pdb(pdb2_path)
 
         if extend_helix:
             n_terminus = pdb1.getTermCAAtom('N', chain_1).residue_number
@@ -1681,9 +1671,3 @@ if __name__ == '__main__':
                         args.aligned_pdb, args.align_start_res, args.align_end_res, args.aligned_chain,
                         extend_helix=args.extend_helical_termini)
     aligned_pdb.write(args.out_file_path)
-
-    # if len(sys.argv) != 10:
-    #     print ("USAGE: python align.py pdb_fixed_path fix_start_res_num fix_end_res_num fixed_chain_id
-    #            pdb_moving_path moving_start_res_num moving_end_res_num moving_chain_id out_file_path")
-    # else:
-    #     main()

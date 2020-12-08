@@ -1,14 +1,15 @@
 import os
 # if nanohedra is outside of symdesign source folder
 # import sys
-# sys.path.append('..\\dependencies')
+# sys.path.append('..\\dependency_dir')
 
 
 # Project strings and file names
+program_name = 'SymDesign'
 nano = 'nanohedra'
 orient_exe = 'orient_oligomer.f'
-program_name = 'SymDesign'
 hhblits = 'hhblits'
+rosetta = str(os.environ.get('ROSETTA'))
 nstruct = 25  # back to 50?
 stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
@@ -20,12 +21,13 @@ stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_d
            stage[8]: {'path': '', 'len': None}, stage[9]: {'path': '', 'len': None},
            stage[10]: {'path': '', 'len': None}, stage[11]: {'path': '', 'len': None}}
 rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at config
-sb_flag = '#SBATCH --'
 sbatch = 'sbatch'
+sb_flag = '#SBATCH --'
 # sbatch = '_sbatch.sh'
 temp = 'temp.hold'
 pose_prefix = 'tx_'
 master_log = 'master_log.txt'
+# master_log = 'nanohedra_master_logfile.txt' v1
 asu = 'asu.pdb'
 # asu = 'central_asu.pdb'
 clean = 'clean_asu.pdb'
@@ -36,7 +38,8 @@ frag_file = os.path.join(frag_dir, 'frag_match_info_file.txt')
 frag_type = '_fragment_profile'
 data = 'data'
 sequence_info = 'Sequence_Info'
-pdbs_outdir = 'rosetta_pdbs/'  # TODO change to designs/
+pdbs_outdir = 'rosetta_pdbs/'
+# pdbs_outdir = 'designs/' # v1.5
 scores_outdir = 'scores/'
 scores_file = 'all_scores.sc'
 analysis_file = 'AllDesignPoseMetrics.csv'
@@ -46,103 +49,74 @@ directory_structure = './design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\
                       % (pdbs_outdir, scores_outdir, scores_outdir)
 variance = 0.8
 clustered_poses = 'ClusteredPoses'
+pdb_source = 'db'  # 'download_pdb'  # TODO set up
 
 # Project paths
 # command = 'SymDesign.py -h'
-source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-2])  # reveals master symdesign folder
-# all_code_source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-3])  # overall design folder
-# nanohedra_main = os.path.join(all_code_source, nano.title(), '%s.py' % nano.title())
-# nanohedra_s_main = os.path.join(all_code_source, nano.title(), '%s_s.py' % nano.title())
-# source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-2])  # TODO
-dependencies = os.path.join(source, 'dependencies')
-pdb_uniprot_map = os.path.join(source, 'pdb_uniprot_map')  # TODO
-# uniprot_pdb_map = os.path.join(source, 'uniprot_pdb_map')  # TODO
-database = os.path.join(source, 'database')
-pdb_db = os.path.join(database, 'PDB.db')  # TODO pointer to pdb database or to pdb website?
-pdb_source = 'db'  # 'download_pdb'  # TODO set up
-qsbio = os.path.join(database, 'QSbio_Assemblies')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
-binaries = os.path.join(source, 'bin')
-# binaries = os.path.join(dependencies, 'bin')
-sbatch_templates = os.path.join(binaries, 'sbatch')
-# binaries = os.path.join(source, 'bin')  # TODO
-process_commands = os.path.join(binaries, 'ProcessDesignCommands.sh `pwd`')
-disbatch = os.path.join(binaries, 'diSbatch.sh')
-fragment_database = os.path.join(dependencies, 'fragment_database')
-# fragment_db = os.path.join(database, 'fragment_db')  # TODO
-nanohedra_source = os.path.join(dependencies, nano)
-
-# Nanohedra inheritance
+source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
+command = os.path.join(source, 'SymDesignControl')
+filter_designs = os.path.join(source, 'AnalyzeOutput.py')
+cmd_dist = os.path.join(source, 'CommandDistributer.py')
+dependency_dir = os.path.join(source, 'dependencies')
+nanohedra_source = os.path.join(dependency_dir, nano)
 nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
-# main_script_dir = os.path.dirname(os.path.realpath(__file__))  # Nanohedra.py Path
-
+# Nanohedra inheritance
 # Free SASA Executable Path
 free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
-
-# Orient Oligomer Fortran Executable Path
-# orient_dir = os.path.join(nanohedra_source, 'orient')
-# orient_executable_path = os.path.join(orient_dir, orient_exe)
 # Stop Inheritance ####
+orient_dir = os.path.join(dependency_dir, 'orient')
+orient = os.path.join(orient_dir, orient_exe)
+binaries = os.path.join(dependency_dir, 'bin')
+sbatch_templates = os.path.join(binaries, 'sbatch')
+disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
+process_commands = os.path.join(binaries, 'ProcessDesignCommands.sh `pwd`')  # DEPRECIATED
+install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
+data_dir = os.path.join(source, data)
+uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
+filter_and_sort = os.path.join(data_dir, 'filter_and_sort_df.csv')
+pdb_uniprot_map = os.path.join(data_dir, 'pdb_uniprot_map')  # TODO
+# uniprot_pdb_map = os.path.join(data_dir, 'uniprot_pdb_map')  # TODO
+affinity_tags = os.path.join(data_dir, 'modified-affinity-tags.csv')
+qsbio = os.path.join(data_dir, 'QSbio_Assemblies')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
+database = os.path.join(data_dir, 'databases')
+pdb_db = os.path.join(database, 'PDB.db')  # TODO pointer to pdb database or to pdb website?
 
-# Fragment Database Directory Paths
-frag_db = fragment_database
+# Fragment Database
+fragment_db = os.path.join(database, 'fragment_db')
+# fragment_db = os.path.join(database, 'fragment_DB')  # TODO when full MySQL DB is operational
+biological_fragmentDB = os.path.join(fragment_db, 'biological_interfaces')
+bio_fragmentDB = os.path.join(fragment_db, 'bio')
+# bio_frag_db = os.path.join(fragment_db, 'bio')  # TODO
+xtal_fragmentDB = os.path.join(fragment_db, 'xtal')
+# xtal_frag_db = os.path.join(fragment_db, 'xtal')  # TODO
+full_fragmentDB = os.path.join(fragment_db, 'bio+xtal')
+# full_frag_db = os.path.join(fragment_db, 'bio+xtal')  # TODO
+frag_directory = {'biological_interfaces': biological_fragmentDB, 'bio': bio_fragmentDB, 'xtal': xtal_fragmentDB,
+                  'bio+xtal': full_fragmentDB}
+# Nanohedra Specific
+frag_db = fragment_db
 monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
 ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
 intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
 
-python_scripts = os.path.join(dependencies, 'python')
-command = os.path.join(python_scripts, 'SymDesignControl')
-uniprot_pdb_map = os.path.join(python_scripts, '200121_UniProtPDBMasterDict.pkl')  # TODO move to source
-# python_scripts = os.path.join(source, 'python')  # TODO
-filter_and_sort = os.path.join(python_scripts, 'filter_and_sort_df.csv')
-# filter_and_sort = os.path.join(source, 'filter_and_sort_df.csv')  # TODO
-rosetta_scripts = os.path.join(dependencies, 'rosetta')
-# rosetta_scripts = os.path.join(source, 'rosetta')  # TODO
-symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
-scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
-install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
-
-# External Program Dependencies
-orient_dir = os.path.join(dependencies, 'orient')
-orient = os.path.join(orient_dir, 'orient_oligomer_rmsd')  # TODO
-affinity_tags = os.path.join(database, 'modified-affinity-tags.csv')
-alignmentdb = os.path.join(dependencies, 'ncbi_databases/uniref90')
-# alignment_db = os.path.join(dependencies, 'databases/uniref90')  # TODO
-# TODO set up hh-suite in source or elsewhere on system and dynamically modify config file
-uniclustdb = os.path.join(dependencies, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
-# uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
-rosetta = str(os.environ.get('ROSETTA'))
-make_symmdef = os.path.join(rosetta, 'source/src/apps/public/symmetry/make_symmdef_file.pl')
-
-# Python Scripts
-filter_designs = os.path.join(python_scripts, 'AnalyzeOutput.py')
-cmd_dist = os.path.join(python_scripts, 'CommandDistributer.py')
-
-# Fragment Database
-biological_fragmentDB = os.path.join(fragment_database, 'biological_interfaces')
-bio_fragmentDB = os.path.join(fragment_database, 'bio')
-# bio_frag_db = os.path.join(fragment_db, 'bio')  # TODO
-xtal_fragmentDB = os.path.join(fragment_database, 'xtal')
-# xtal_frag_db = os.path.join(fragment_db, 'xtal')  # TODO
-full_fragmentDB = os.path.join(fragment_database, 'bio+xtal')
-# full_frag_db = os.path.join(fragment_db, 'bio+xtal')  # TODO
-frag_directory = {'biological_interfaces': biological_fragmentDB, 'bio': bio_fragmentDB, 'xtal': xtal_fragmentDB,
-                  'bio+xtal': full_fragmentDB}
 # frag_directory = {'biological_interfaces': biological_frag_db, 'bio': bio_frag_db, 'xtal': xtal_frag_db,
 #                   'bio+xtal': full_frag_db}  # TODO
 
-# Rosetta Scripts and Files
+# External Program Dependencies
+make_symmdef = os.path.join(rosetta, 'source/src/apps/public/symmetry/make_symmdef_file.pl')
+alignmentdb = os.path.join(dependency_dir, 'ncbi_databases/uniref90')
+# alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
+# TODO set up hh-suite in source or elsewhere on system and dynamically modify config file
+uniclustdb = os.path.join(dependency_dir, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
+# uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
+# Rosetta Scripts and Misc Files
+rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
+symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
 sym_weights = (os.path.join(rosetta_scripts, 'ref2015_sym.wts_patch'))
+scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 
 # Cluster Dependencies and Multiprocessing
-# stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus'}
-# sbatch_templates = {stage[1]: os.path.join(binaries, sbatch[1:7], stage[1]),
-#                     stage[2]: os.path.join(binaries, sbatch[1:7], stage[2]),
-#                     stage[3]: os.path.join(binaries, sbatch[1:7], stage[2]),
-#                     stage[4]: os.path.join(binaries, sbatch[1:7], stage[1]),
-#                     stage[5]: os.path.join(binaries, sbatch[1:7], stage[1]),
-#                     nano: os.path.join(binaries, sbatch[1:7], nano)}
-
 sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
                     stage[2]: os.path.join(sbatch_templates, stage[2]),
                     stage[3]: os.path.join(sbatch_templates, stage[2]),
@@ -154,8 +128,7 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
                     stage[8]: os.path.join(sbatch_templates, stage[6]),
                     stage[9]: os.path.join(sbatch_templates, stage[6])}
 
-
-# For argparseing help
+# argparse help
 submodule_help = 'python %s %s -h' % (os.path.realpath(__file__), 'pose')
 
 

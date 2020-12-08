@@ -28,10 +28,10 @@ directory=`pwd`
 
 if [[ "$slurm" = "False" ]]; then
 	# This will process all Poses and run Rosetta Design muliprocessing on a single machine
-	python $SymDesign/dependencies/python/SymDesign.py -m $2
+	python $SymDesign/SymDesign.py -m $2
 else
 	# This will first process all Poses creating the requisite information
-	python $SymDesign/dependencies/python/SymDesign.py -cm $2
+	python $SymDesign/SymDesign.py -cm $2
 	# Next initiate commands to set up the appropriate computer environment to process SLURM ARRAYs 
 	# This will be done for each step in the design process
 	bash $SymDesign/dependencies/bin/ProcessDesignCommands.sh $directory

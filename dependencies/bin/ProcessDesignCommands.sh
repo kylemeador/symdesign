@@ -11,10 +11,10 @@ fi
 
 stages=(refine design metrics analysis)
 # scripts=(run_${stages[0]}${sbatch} run_${stages[1]}${sbatch} run_${stages[2]}${sbatch} run_${stages[3]}${sbatch})
-# python $SymDesign/dependencies/python/WriteSBATCH.py -f ${1}/${stages[0]}.cmd ${scripts[0]} --default --threads-per-core 2 --mem_per_cpu 8000
-# python $SymDesign/dependencies/python/WriteSBATCH.py -f ${1}/${stages[1]}.cmd ${scripts[1]} --default --ntasks $3 --threads-per-core 2 --mem_per_cpu 4000 # 
-# python $SymDesign/dependencies/python/WriteSBATCH.py -f ${1}/${stages[2]}.cmd ${scripts[2]} --default --ntasks $3 --threads-per-core 2 --mem_per_cpu 1000
-# python $SymDesign/dependencies/python/WriteSBATCH.py -f ${1}/${stages[2]}.cmd ${scripts[3]} --default --threads-per-core 2  # can I make python use multiple cores for one process?
+# python $SymDesign/WriteSBATCH.py -f ${1}/${stages[0]}.cmd ${scripts[0]} --default --threads-per-core 2 --mem_per_cpu 8000
+# python $SymDesign/WriteSBATCH.py -f ${1}/${stages[1]}.cmd ${scripts[1]} --default --ntasks $3 --threads-per-core 2 --mem_per_cpu 4000 #
+# python $SymDesign/WriteSBATCH.py -f ${1}/${stages[2]}.cmd ${scripts[2]} --default --ntasks $3 --threads-per-core 2 --mem_per_cpu 1000
+# python $SymDesign/WriteSBATCH.py -f ${1}/${stages[2]}.cmd ${scripts[3]} --default --threads-per-core 2  # can I make python use multiple cores for one process?
 
 # or we could just use bash...
 mkdir ${1}/output
