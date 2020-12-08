@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--debug', action='store_true', help='Whether to run in debug mode')
     parser.add_argument('-f', '--file', type=str, help='A single .pdb file or file with list of .pdb files you wish to '
                                                        'expand', required=True)
-    parser.add_argument('-o', '--out_path', type=str, help='The output path of the expanded pdb?')
+    parser.add_argument('-o', '--out_path', type=str, help='The output path of the expanded pdb')
     parser.add_argument('-s', '--symmetry', type=str, choices=['T', 'O', 'I'], help='What symmetry to be expanded?',
                         required=True)
 
