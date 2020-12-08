@@ -6,7 +6,7 @@ import os
 
 # Project strings and file names
 nano = 'nanohedra'
-orient_exe = 'orient_oligomer'
+orient_exe = 'orient_oligomer.f'
 program_name = 'SymDesign'
 hhblits = 'hhblits'
 nstruct = 25  # back to 50?
@@ -79,12 +79,9 @@ nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
 free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
 
 # Orient Oligomer Fortran Executable Path
-orient_executable_path = os.path.join(nanohedra_source, 'orient', orient_exe)
-orient_assert_error_message = "Could not locate orient_oligomer executable here: %s\n" \
-                              "Check README file for instructions on how to compile " \
-                              "orient_oligomer.f" % orient_executable_path
-assert os.path.exists(orient_executable_path), orient_assert_error_message
-orient_executable_dir = os.path.dirname(orient_executable_path)
+# orient_dir = os.path.join(nanohedra_source, 'orient')
+# orient_executable_path = os.path.join(orient_dir, orient_exe)
+# Stop Inheritance ####
 
 # Fragment Database Directory Paths
 frag_db = fragment_database

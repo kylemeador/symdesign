@@ -1,6 +1,5 @@
 from itertools import product, combinations
 
-from SymDesignUtils import get_all_pdb_file_paths
 # from classes.FragDock import dock  # v1
 from nanohedra.classes.EulerLookup import EulerLookup
 from nanohedra.classes.FragDockMP import dock
@@ -37,16 +36,26 @@ def main():
             os.makedirs(master_outdir)
 
         # Getting PDB1 and PDB2 File paths
-        if '.pdb' in pdb1_path and '.pdb' in pdb2_path:  # Not in pdb_dir, Nanohedra_wrap generated...
+        if '.pdb' in pdb1_path and '.pdb' in pdb2_path:  # Not in pdb_dir, for Nanohedra_wrap generated commands...
             pdb_filepaths = [(pdb1_path, pdb2_path), ]
         else:
-            pdb1_filepaths = get_all_pdb_file_paths(pdb1_path)
+            # pdb1_filepaths = get_all_pdb_file_paths(pdb1_path)
+            pdb1_filepaths = []
+            for root1, dirs1, files1 in os.walk(pdb1_path):
+                for file1 in files1:
+                    if '.pdb' in file1:
+                        pdb1_filepaths.append(pdb1_path + "/" + file1)
             if pdb1_path == pdb2_path:
                 # pdb_filepaths = combinations(get_all_pdb_file_paths(pdb1_path), 2)  # pre v1
                 pdb_filepaths = combinations(pdb1_filepaths, 2)
             else:
                 # pdb_filepaths = product(get_all_pdb_file_paths(pdb1_path), get_all_pdb_file_paths(pdb2_path))  # pre v1
-                pdb2_filepaths = get_all_pdb_file_paths(pdb2_path)
+                # pdb2_filepaths = get_all_pdb_file_paths(pdb2_path)
+                pdb2_filepaths = []
+                for root1, dirs1, files1 in os.walk(pdb2_path):
+                    for file1 in files1:
+                        if '.pdb' in file1:
+                            pdb1_filepaths.append(pdb2_path + "/" + file1)
                 pdb_filepaths = product(pdb1_filepaths, pdb2_filepaths)
 
         try:
