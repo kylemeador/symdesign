@@ -1,8 +1,12 @@
 import os
+# if nanohedra is outside of symdesign source folder
+# import sys
+# sys.path.append('..\\dependencies')
 
 
 # Project strings and file names
 nano = 'nanohedra'
+orient_exe = 'orient_oligomer'
 program_name = 'SymDesign'
 hhblits = 'hhblits'
 nstruct = 25  # back to 50?
@@ -46,27 +50,49 @@ clustered_poses = 'ClusteredPoses'
 # Project paths
 # command = 'SymDesign.py -h'
 source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-2])  # reveals master symdesign folder
-all_code_source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-3])  # overall design folder
-nanohedra_source = os.path.join(all_code_source, nano.title())
+# all_code_source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-3])  # overall design folder
 # nanohedra_main = os.path.join(all_code_source, nano.title(), '%s.py' % nano.title())
 # nanohedra_s_main = os.path.join(all_code_source, nano.title(), '%s_s.py' % nano.title())
 # source = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-2])  # TODO
-dependencies = os.path.join(source, 'dependencies')  # TODO remove
+dependencies = os.path.join(source, 'dependencies')
 pdb_uniprot_map = os.path.join(source, 'pdb_uniprot_map')  # TODO
 # uniprot_pdb_map = os.path.join(source, 'uniprot_pdb_map')  # TODO
 database = os.path.join(source, 'database')
 pdb_db = os.path.join(database, 'PDB.db')  # TODO pointer to pdb database or to pdb website?
 pdb_source = 'db'  # 'download_pdb'  # TODO set up
 qsbio = os.path.join(database, 'QSbio_Assemblies')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
-binaries = os.path.join(dependencies, 'bin')
+binaries = os.path.join(source, 'bin')
+# binaries = os.path.join(dependencies, 'bin')
 sbatch_templates = os.path.join(binaries, 'sbatch')
 # binaries = os.path.join(source, 'bin')  # TODO
 process_commands = os.path.join(binaries, 'ProcessDesignCommands.sh `pwd`')
 disbatch = os.path.join(binaries, 'diSbatch.sh')
 fragment_database = os.path.join(dependencies, 'fragment_database')
 # fragment_db = os.path.join(database, 'fragment_db')  # TODO
+nanohedra_source = os.path.join(dependencies, nano)
+
+# Nanohedra inheritance
+nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
+# main_script_dir = os.path.dirname(os.path.realpath(__file__))  # Nanohedra.py Path
+
+# Free SASA Executable Path
+free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
+
+# Orient Oligomer Fortran Executable Path
+orient_executable_path = os.path.join(nanohedra_source, 'orient', orient_exe)
+orient_assert_error_message = "Could not locate orient_oligomer executable here: %s\n" \
+                              "Check README file for instructions on how to compile " \
+                              "orient_oligomer.f" % orient_executable_path
+assert os.path.exists(orient_executable_path), orient_assert_error_message
+orient_executable_dir = os.path.dirname(orient_executable_path)
+
+# Fragment Database Directory Paths
+frag_db = fragment_database
+monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
+ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
+intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
+
 python_scripts = os.path.join(dependencies, 'python')
-nanohedra_main = os.path.join(python_scripts, '%s.py' % nano.title())
 command = os.path.join(python_scripts, 'SymDesignControl')
 uniprot_pdb_map = os.path.join(python_scripts, '200121_UniProtPDBMasterDict.pkl')  # TODO move to source
 # python_scripts = os.path.join(source, 'python')  # TODO

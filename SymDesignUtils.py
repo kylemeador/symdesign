@@ -1951,24 +1951,42 @@ def gather_docking_metrics(log_file):
     with open(log_file, 'r') as master_log:  # os.path.join(base_directory, 'master_log.txt')
         parameters = master_log.readlines()
         for line in parameters:
-            if "PDB 1 Directory Path: " in line:
+            if "PDB 1 Directory Path: " or 'Oligomer 1 Input Directory: ' in line:
                 pdb_dir1_path = line.split(':')[-1].strip()
-            elif "PDB 2 Directory Path: " in line:
+            elif "PDB 2 Directory Path: " or 'Oligomer 2 Input Directory: 'in line:
                 pdb_dir2_path = line.split(':')[-1].strip()
             elif 'Master Output Directory: ' in line:
                 master_outdir = line.split(':')[-1].strip()
-            elif "Symmetry Entry Number: " in line:
+            elif "Symmetry Entry Number: " or 'Nanohedra Entry Number: ' in line:
                 sym_entry_number = int(line.split(':')[-1].strip())
-            elif "Oligomer 1 Symmetry: " in line:
+            elif "Oligomer 1 Symmetry: " or 'Oligomer 1 Point Group Symmetry: ' in line:
                 oligomer_symmetry_1 = line.split(':')[-1].strip()
-            elif "Oligomer 2 Symmetry: " in line:
+            elif "Oligomer 2 Symmetry: " or 'Oligomer 2 Point Group Symmetry: ' in line:
                 oligomer_symmetry_2 = line.split(':')[-1].strip()
-            elif "Design Point Group Symmetry: " in line:  # TODO Is this ever layer or space group?
+            elif "Design Point Group Symmetry: " or 'SCM Point Group Symmetry: ' in line:  # TODO Is this ever layer or space group?
                 design_symmetry = line.split(':')[-1].strip()
             elif "Oligomer 1 Internal ROT DOF: " in line:  # ,
                 internal_rot1 = line.split(':')[-1].strip()
             elif "Oligomer 2 Internal ROT DOF: " in line:  # ,
                 internal_rot2 = line.split(':')[-1].strip()
+            elif "Oligomer 1 Internal Tx DOF: " in line:  # ,
+                internal_zshift1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 Internal Tx DOF: " in line:  # ,
+                internal_zshift2 = line.split(':')[-1].strip()
+            elif "Oligomer 1 Setting Matrix: " in line:
+                set_mat1 = np.array(eval(line.split(':')[-1].strip()))
+            elif "Oligomer 2 Setting Matrix: " in line:
+                set_mat2 = np.array(eval(line.split(':')[-1].strip()))
+            elif "Oligomer 1 Reference Frame Tx DOF: " in line:  # ,
+                ref_frame_tx_dof1 = line.split(':')[-1].strip()
+            elif "Oligomer 2 Reference Frame Tx DOF: " in line:  # ,
+                ref_frame_tx_dof2 = line.split(':')[-1].strip()
+            elif "Resulting Design Symmetry: " or 'Resulting SCM Symmetry: ' in line:
+                result_design_sym = line.split(':')[-1].strip()
+            elif "Design Dimension: " or 'SCM Dimension: ' in line:
+                design_dim = int(line.split(':')[-1].strip())
+            elif "Unit Cell Specification: " or 'SCM Unit Cell Specification: ' in line:
+                uc_spec_string = line.split(':')[-1].strip()
             elif "Oligomer 1 ROT Sampling Range: " in line:
                 rot_range_deg_pdb1 = int(line.split(':')[-1].strip())
             elif "Oligomer 2 ROT Sampling Range: " in line:
@@ -1977,34 +1995,16 @@ def gather_docking_metrics(log_file):
                 rot_step_deg1 = int(line.split(':')[-1].strip())
             elif "Oligomer 2 ROT Sampling Step: " in line:
                 rot_step_deg2 = int(line.split(':')[-1].strip())
-            elif "Oligomer 1 Internal Tx DOF: " in line:  # ,
-                internal_zshift1 = line.split(':')[-1].strip()
-            elif "Oligomer 2 Internal Tx DOF: " in line:  # ,
-                internal_zshift2 = line.split(':')[-1].strip()
-            elif "Oligomer 1 Reference Frame Tx DOF: " in line:  # ,
-                ref_frame_tx_dof1 = line.split(':')[-1].strip()
-            elif "Oligomer 2 Reference Frame Tx DOF: " in line:  # ,
-                ref_frame_tx_dof2 = line.split(':')[-1].strip()
-            elif "Oligomer 1 Setting Matrix: " in line:
-                set_mat1 = np.array(eval(line.split(':')[-1].strip()))
-            elif "Oligomer 2 Setting Matrix: " in line:
-                set_mat2 = np.array(eval(line.split(':')[-1].strip()))
-            elif "Resulting Design Symmetry: " in line:
-                result_design_sym = line.split(':')[-1].strip()
-            elif "Design Dimension: " in line:
-                design_dim = int(line.split(':')[-1].strip())
-            elif "Unit Cell Specification: " in line:
-                uc_spec_string = line.split(':')[-1].strip()
             elif 'Degeneracies Found for Oligomer 1' in line:
                 degen1 = line.split()[0]
                 if degen1.isdigit():
-                    degen1 = int(degen1) + 1
+                    degen1 = int(degen1) + 1  # number of degens is added to the original orientation
                 else:
                     degen1 = 1  # No degens becomes a single degen
             elif 'Degeneracies Found for Oligomer 2' in line:
                 degen2 = line.split()[0]
                 if degen2.isdigit():
-                    degen2 = int(degen2) + 1
+                    degen2 = int(degen2) + 1  # number of degens is added to the original orientation
                 else:
                     degen2 = 1  # No degens becomes a single degen
 
