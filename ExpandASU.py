@@ -9,7 +9,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser.add_argument('-b', '--debug', action='store_true', help='Whether to run in debug mode')
     parser.add_argument('-f', '--file', type=str, help='.pdb file you wish to expand', default=None)
-    parser.add_argument('-o', '--output', type=str, help='The output pathname of the expanded pdb?')
+    parser.add_argument('-o', '--outpath', type=str, help='The output pathname of the expanded pdb?')
     parser.add_argument('-s', '--symmetry', type=str, help='What symmetry to be expanded?', default=None)
 
     args, additional_flags = parser.parse_known_args()
@@ -27,8 +27,8 @@ if __name__ == '__main__':
         asu_pdb = read_pdb(args.file)
         expand_matrices = get_ptgrp_sym_op(args.symmetry.upper())  # only works for T, O, I
         expanded_pdb = get_expanded_ptgrp_pdb(asu_pdb, expand_matrices)
-        if args.output:
-            path_name = args.output
+        if args.outpath:
+            path_name = args.outpath
         else:
             path_name = os.path.join(os.getcwd(), '%s_%s.pdb' % (os.path.splitext(args.file)[0], 'Expanded'))
         write_expanded_ptgrp(expanded_pdb, args.outpath)
