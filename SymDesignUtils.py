@@ -580,30 +580,6 @@ def superimpose(atoms):  # , rmsd_thresh):
 ###################
 
 
-def clean_to_iterable(code):
-    """Takes a file, a list or a string, and converts to cleaned list removing excess punctuation capitalizing string"""
-    pdb_list = []
-    try:
-        with open(code, 'r') as f:
-            pdb_list = f.readlines()
-    except FileNotFoundError:
-        if isinstance(code, list):
-            pdb_list = code
-        else:
-            pdb_list.append(code)
-
-    clean_list = []
-    for pdb in pdb_list:
-        pdb = pdb.strip().split(',')
-        pdb = list(map(str.strip, pdb))
-        for i in pdb:
-            clean_list.append(i.upper())
-
-    clean_list = list(set(clean_list))
-
-    return clean_list
-
-
 def download_pdb(pdb, location=os.getcwd(), asu=False):
     """Download a pdbs from a file, a supplied list, or a single entry
 
@@ -615,7 +591,7 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
     Returns:
         (None)
     """
-    clean_list = clean_to_iterable(pdb)
+    clean_list = to_iterable(pdb)
 
     failures = []
     for pdb in clean_list:
@@ -1722,19 +1698,13 @@ def to_iterable(_obj):
     except FileNotFoundError:
         if isinstance(_obj, list):
             _list = _obj
-        else:
+        else:  # assumes obj is a string
             _list = [_obj]
 
     clean_list = []
     for it in _list:
-        # pdb = pdb.strip()
         it_list = it.split(',')
-        # if isinstance(pdb, list):
-        # pdb = list(map(str.strip(), pdb))
         clean_list.extend([_it.strip() for _it in it_list])
-        # else:  # unreachable
-        #     clean_list.append(pdb.upper())  # unreachable
-    # clean_list = list(set(clean_list))
 
     return clean_list
 
