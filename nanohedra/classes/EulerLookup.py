@@ -5,7 +5,7 @@ import numpy as np
 
 class EulerLookup:
     def __init__(self, scale=3.0, binary_lookup_table_path=os.path.dirname(
-            os.path.dirname(os.path.realpath(__file__))) + "/euler_lookup_table_40/euler_lookup_40_binary.npy"):
+            os.path.dirname(os.path.realpath(__file__))) + "/euler_lookup/euler_lookup_40.npz"):
         self.eul_lookup_40 = np.load(binary_lookup_table_path)
         self.scale = scale
 
