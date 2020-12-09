@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 
 from SymDesignUtils import get_all_pdb_file_paths, read_pdb, fill_pdb, unpickle, mp_map
-from classes.EulerLookup import EulerLookup
-from classes.Fragment import *
-from utils.CmdLineArgParseUtils import *
-from utils.ExpandAssemblyUtils import *
-from utils.GeneralUtils import euclidean_squared_3d
+from nanohedra.classes.EulerLookup import EulerLookup
+from nanohedra.classes.Fragment import *
+from nanohedra.utils.CmdLineArgParseUtils import *
+from nanohedra.utils.ExpandAssemblyUtils import *
+from nanohedra.utils.GeneralUtils import euclidean_squared_3d
 
 
 def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
