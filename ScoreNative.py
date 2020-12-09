@@ -10,6 +10,30 @@ from nanohedra.utils.CmdLineArgParseUtils import *
 from nanohedra.utils.ExpandAssemblyUtils import *
 from nanohedra.utils.GeneralUtils import euclidean_squared_3d
 
+# Globals
+# Nanohedra.py Path
+main_script_path = os.path.dirname(os.path.realpath(__file__))
+
+# Fragment Database Directory Paths
+frag_db = os.path.join(main_script_path, "fragment_database")
+monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
+ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
+intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
+
+# Free SASA Executable Path
+free_sasa_exe_path = os.path.join(main_script_path, "sasa", "freesasa-2.0", "src", "freesasa")
+
+# Create fragment database for all ijk cluster representatives
+ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
+                         intfrag_cluster_info_dirpath)
+# Get complete IJK fragment representatives database dictionaries
+ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
+ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
+ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+
+# Initialize Euler Lookup Class
+eul_lookup = EulerLookup()
+
 
 def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
     # Get the interface residues
@@ -359,30 +383,30 @@ if __name__ == '__main__':
     for i in reversed(missing_index):
         del interface_filepaths[i]
 
-    # Nanohedra.py Path
-    main_script_path = os.path.dirname(os.path.realpath(__file__))
-
-    # Fragment Database Directory Paths
-    frag_db = os.path.join(main_script_path, "fragment_database")
-    monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
-    ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
-    intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
-
-    # Free SASA Executable Path
-    free_sasa_exe_path = os.path.join(main_script_path, "sasa", "freesasa-2.0", "src", "freesasa")
-
-    # Create fragment database for all ijk cluster representatives
-    ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
-                             intfrag_cluster_info_dirpath)
-    # Get complete IJK fragment representatives database dictionaries
-    ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-    ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-    ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
-
-    # Initialize Euler Lookup Class
-    eul_lookup = EulerLookup()
-    # interface_d = {}
-    # for interface_path in interface_filepaths:
+    # # Nanohedra.py Path
+    # main_script_path = os.path.dirname(os.path.realpath(__file__))
+    #
+    # # Fragment Database Directory Paths
+    # frag_db = os.path.join(main_script_path, "fragment_database")
+    # monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
+    # ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
+    # intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
+    #
+    # # Free SASA Executable Path
+    # free_sasa_exe_path = os.path.join(main_script_path, "sasa", "freesasa-2.0", "src", "freesasa")
+    #
+    # # Create fragment database for all ijk cluster representatives
+    # ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
+    #                          intfrag_cluster_info_dirpath)
+    # # Get complete IJK fragment representatives database dictionaries
+    # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
+    # ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
+    # ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+    #
+    # # Initialize Euler Lookup Class
+    # eul_lookup = EulerLookup()
+    # # interface_d = {}
+    # # for interface_path in interface_filepaths:
 
     results = mp_map(calculate_interface_score, interface_filepaths, threads=int(sys.argv[3]))
     interface_d = {key: result[key] for result in results for key in result}
