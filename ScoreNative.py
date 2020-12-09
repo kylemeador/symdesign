@@ -324,6 +324,26 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
         unique_total_interface_residue_count, percent_of_interface_covered
 
 
+def calculate_interface_score(interface_path):  # , free_sasa_exe_path=os.path.join(os.path.dirname(os.path.realpath(__file__)), "sasa", "freesasa-2.0", "src", "freesasa")):
+    interface_name = os.path.splitext(os.path.basename(interface_path))[0]
+    pdb = read_pdb(interface_path)
+    pdb1 = fill_pdb(pdb.chain(pdb.chain_id_list[0]))
+    pdb2 = fill_pdb(pdb.chain(pdb.chain_id_list[-1]))
+    pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l = get_interface_fragment_chain_residue_numbers(pdb1, pdb2)
+    pdb1_interface_sa = pdb1.get_chain_residue_surface_area(pdb1_central_chainid_resnum_l, free_sasa_exe_path)
+    pdb2_interface_sa = pdb2.get_chain_residue_surface_area(pdb2_central_chainid_resnum_l, free_sasa_exe_path)
+    interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
+    res_level_sum_score, center_level_sum_score, fragment_indices, num_residues_with_fragments, total_residues, percent_interface_fragment = \
+        score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
+    # interface_d[interface_name] = {'score': res_level_sum_score, 'number_fragments': number_fragments,
+    #                                'total_residues': total_residues, 'percent_fragment': percent_interface_fragment}
+    return {interface_name: {'score': res_level_sum_score, 'central_score': center_level_sum_score,
+                             'fragment_cluster_ids': fragment_indices, 'unique_fragments': len(fragment_indices),
+                             'percent_fragment': len(fragment_indices)/float(total_residues),
+                             'number_fragment_residues': num_residues_with_fragments, 'total_interface_residues': total_residues,
+                             'percent_interface_covered_with_fragment': percent_interface_fragment, 'interface_area': interface_buried_sa}}
+
+
 if __name__ == '__main__':
     # Program input
     print('USAGE: python ScoreNative.py interface_type_pickled_dict interface_filepath_location number_of_threads')
@@ -364,26 +384,7 @@ if __name__ == '__main__':
     # interface_d = {}
     # for interface_path in interface_filepaths:
 
-    def calculate_native_scores(interface_path):
-        interface_name = os.path.splitext(os.path.basename(interface_path))[0]
-        pdb = read_pdb(interface_path)
-        pdb1 = fill_pdb(pdb.chain(pdb.chain_id_list[0]))
-        pdb2 = fill_pdb(pdb.chain(pdb.chain_id_list[-1]))
-        pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l = get_interface_fragment_chain_residue_numbers(pdb1, pdb2)
-        pdb1_interface_sa = pdb1.get_chain_residue_surface_area(pdb1_central_chainid_resnum_l, free_sasa_exe_path)
-        pdb2_interface_sa = pdb2.get_chain_residue_surface_area(pdb2_central_chainid_resnum_l, free_sasa_exe_path)
-        interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
-        res_level_sum_score, center_level_sum_score, fragment_indices, num_residues_with_fragments, total_residues, percent_interface_fragment = \
-            score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
-        # interface_d[interface_name] = {'score': res_level_sum_score, 'number_fragments': number_fragments,
-        #                                'total_residues': total_residues, 'percent_fragment': percent_interface_fragment}
-        return {interface_name: {'score': res_level_sum_score, 'central_score': center_level_sum_score,
-                                 'fragment_cluster_ids': fragment_indices, 'unique_fragments': len(fragment_indices),
-                                 'percent_fragment': len(fragment_indices)/float(total_residues),
-                                 'number_fragment_residues': num_residues_with_fragments, 'total_interface_residues': total_residues,
-                                 'percent_interface_covered_with_fragment': percent_interface_fragment, 'interface_area': interface_buried_sa}}
-
-    results = mp_map(calculate_native_scores, interface_filepaths, threads=int(sys.argv[3]))
+    results = mp_map(calculate_interface_score, interface_filepaths, threads=int(sys.argv[3]))
     interface_d = {key: result[key] for result in results for key in result}
     interface_df = pd.Dataframe(interface_d)
     interface_df.to_csv('BiologicalInterfaceNanohedraScores.csv')
