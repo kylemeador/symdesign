@@ -335,8 +335,9 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
         fragment_content_d[index] += fragment_i_index_count_d[index]
         fragment_content_d[index] += fragment_j_index_count_d[index]
 
-    for index in fragment_content_d:
-        fragment_content_d[index] = index/len(unique_fragment_indicies)
+    if len(unique_fragment_indicies) > 0:
+        for index in fragment_content_d:
+            fragment_content_d[index] = index/len(unique_fragment_indicies)
 
     f_l1a = "Residue-Level Summation Score:" + str(res_lev_sum_score) + "\n"
 
@@ -345,7 +346,7 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
     f_l4 = "Percent of Interface Matched: " + str(percent_of_interface_covered) + "\n"
 
     return res_lev_sum_score, center_lev_sum_score, unique_fragment_indicies, unique_matched_interface_monofrag_count, \
-        unique_total_interface_residue_count, percent_of_interface_covered
+        unique_total_interface_residue_count, percent_of_interface_covered, fragment_content_d
 
 
 def calculate_interface_score(interface_path):  # , free_sasa_exe_path=os.path.join(os.path.dirname(os.path.realpath(__file__)), "sasa", "freesasa-2.0", "src", "freesasa")):
@@ -360,7 +361,8 @@ def calculate_interface_score(interface_path):  # , free_sasa_exe_path=os.path.j
     pdb1_interface_sa = pdb1.get_chain_residue_surface_area(pdb1_central_chainid_resnum_l, free_sasa_exe_path)
     pdb2_interface_sa = pdb2.get_chain_residue_surface_area(pdb2_central_chainid_resnum_l, free_sasa_exe_path)
     interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
-    res_level_sum_score, center_level_sum_score, fragment_indices, num_residues_with_fragments, total_residues, percent_interface_fragment = \
+    res_level_sum_score, center_level_sum_score, fragment_indices, num_residues_with_fragments, total_residues, \
+        percent_interface_fragment, fragment_content_d = \
         score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
     # interface_d[interface_name] = {'score': res_level_sum_score, 'number_fragments': number_fragments,
     #                                'total_residues': total_residues, 'percent_fragment': percent_interface_fragment}
@@ -368,7 +370,9 @@ def calculate_interface_score(interface_path):  # , free_sasa_exe_path=os.path.j
                              'fragment_cluster_ids': fragment_indices, 'unique_fragments': len(fragment_indices),
                              'percent_fragment': len(fragment_indices)/float(total_residues),
                              'number_fragment_residues': num_residues_with_fragments, 'total_interface_residues': total_residues,
-                             'percent_interface_covered_with_fragment': percent_interface_fragment, 'interface_area': interface_buried_sa}}
+                             'percent_interface_covered_with_fragment': percent_interface_fragment, 'interface_area': interface_buried_sa,
+                             'percent_interface_helix': fragment_content_d[1], 'percent_interface_strand': fragment_content_d[2],
+                             'percent_interface_coil': fragment_content_d[3] + fragment_content_d[4] + fragment_content_d[5]}}
 
 
 if __name__ == '__main__':
