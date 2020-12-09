@@ -383,7 +383,7 @@ if __name__ == '__main__':
                                  'number_fragment_residues': num_residues_with_fragments, 'total_interface_residues': total_residues,
                                  'percent_interface_covered_with_fragment': percent_interface_fragment, 'interface_area': interface_buried_sa}}
 
-    results = mp_map(calculate_native_scores, interface_filepaths, threads=sys.argv[3])
+    results = mp_map(calculate_native_scores, interface_filepaths, threads=int(sys.argv[3]))
     interface_d = {key: result[key] for result in results for key in result}
     interface_df = pd.Dataframe(interface_d)
     interface_df.to_csv('BiologicalInterfaceNanohedraScores.csv')
