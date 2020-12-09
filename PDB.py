@@ -948,11 +948,10 @@ class PDB:
 
     def get_surface_resdiue_info(self, free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
-        proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %
-                                (free_sasa_exe_path, str(probe_radius), self.filepath),
-                                stdout=subprocess.PIPE, shell=True)
+        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath],
+                                stdout=subprocess.PIPE)
         (out, err) = proc.communicate()
-        out_lines = out.split("\n")
+        out_lines = out.decode('utf-8').split("\n")
         sasa_out = []
         for line in out_lines:
             if line != "\n" and line != "" and not line.startswith("#"):
@@ -964,13 +963,12 @@ class PDB:
 
         return sasa_out
 
-    def get_chain_residue_surface_area(self, chain_residue_pairs, free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
+    def get_chain_residue_surface_area(self, chain_residue_pairs, free_sasa_exe_path, probe_radius=2.2):
         # only works for monomers or homo-complexes
-        proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %
-                                (free_sasa_exe_path, str(probe_radius), self.filepath),
-                                stdout=subprocess.PIPE, shell=True)
+        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath],
+                                stdout=subprocess.PIPE)
         (out, err) = proc.communicate()
-        out_lines = out.split("\n")
+        out_lines = out.decode('utf-8').split("\n")
         sasa_out = 0
         for line in out_lines:
             if line != "\n" and line != "" and not line.startswith("#"):
