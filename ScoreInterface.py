@@ -352,7 +352,10 @@ def calculate_interface_score(interface_path):  # , free_sasa_exe_path=os.path.j
     interface_name = os.path.splitext(os.path.basename(interface_path))[0]
     pdb = read_pdb(interface_path)
     pdb1 = fill_pdb(pdb.chain(pdb.chain_id_list[0]))
+    pdb1.update_attributes_from_pdb(pdb)
     pdb2 = fill_pdb(pdb.chain(pdb.chain_id_list[-1]))
+    pdb2.update_attributes_from_pdb(pdb)
+
     pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l = get_interface_fragment_chain_residue_numbers(pdb1, pdb2)
     pdb1_interface_sa = pdb1.get_chain_residue_surface_area(pdb1_central_chainid_resnum_l, free_sasa_exe_path)
     pdb2_interface_sa = pdb2.get_chain_residue_surface_area(pdb2_central_chainid_resnum_l, free_sasa_exe_path)

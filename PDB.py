@@ -54,6 +54,23 @@ class PDB:
     def get_filepath(self):
         return self.filepath
 
+    def update_attributes_from_pdb(self, pdb):
+        self.all_atoms = pdb.all_atoms
+        self.res = pdb.res
+        self.cryst_record = pdb.cryst_record
+        self.cryst = pdb.cryst
+        self.dbref = pdb.dbref
+        self.header = pdb.header
+        self.seqres_sequences = pdb.seqres_sequences
+        self.atom_sequences = pdb.atom_sequences
+        self.filepath = pdb.filepath
+        self.chain_id_list = pdb.chain_id_list
+        self.entities = pdb.entities
+        self.name = pdb.name
+        self.pdb_ss_asg = pdb.pdb_ss_asg
+        self.cb_coords = pdb.cb_coords
+        self.bb_coords = pdb.bb_coords
+
     def get_ss_asg(self, chain_id="A", stride_exe_path='./stride/stride'):
         pdb_stride = Stride(self.filepath, chain_id, stride_exe_path)
         pdb_stride.run()
@@ -948,10 +965,10 @@ class PDB:
 
     def get_surface_resdiue_info(self, free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
-        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath],
-                                stdout=subprocess.PIPE)
+        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
+                                , stdout=subprocess.PIPE)
         (out, err) = proc.communicate()
-        out_lines = out.decode('utf-8').split("\n")
+        out_lines = out.decode('utf-8').split('\n')
         sasa_out = []
         for line in out_lines:
             if line != "\n" and line != "" and not line.startswith("#"):
@@ -965,10 +982,10 @@ class PDB:
 
     def get_chain_residue_surface_area(self, chain_residue_pairs, free_sasa_exe_path, probe_radius=2.2):
         # only works for monomers or homo-complexes
-        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath],
-                                stdout=subprocess.PIPE)
+        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
+                                , stdout=subprocess.PIPE)
         (out, err) = proc.communicate()
-        out_lines = out.decode('utf-8').split("\n")
+        out_lines = out.decode('utf-8').split('\n')
         sasa_out = 0
         for line in out_lines:
             if line != "\n" and line != "" and not line.startswith("#"):
