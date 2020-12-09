@@ -21,7 +21,7 @@ ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_Cluste
 intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
 
 # Free SASA Executable Path
-free_sasa_exe_path = os.path.join(main_script_path, "sasa", "freesasa-2.0", "src", "freesasa")
+free_sasa_exe_path = os.path.join(main_script_path, 'nanohedra', "sasa", "freesasa-2.0", "src", "freesasa")
 
 # Create fragment database for all ijk cluster representatives
 ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
