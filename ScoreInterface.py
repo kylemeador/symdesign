@@ -100,15 +100,16 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
 
     kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(np.array(pdb1.extract_backbone_coords()))
     int_frags_1 = get_interface_fragments(pdb1, pdb1_central_chainid_resnum_unique_l)
-    print(pdb1_central_chainid_resnum_unique_l)
+    # print(pdb1_central_chainid_resnum_unique_l)
     # surf_frags_1 = get_surface_fragments(pdb1, free_sasa_exe_path)
-    print(int_frags_1)
+    # print(int_frags_1)
     complete_int1_ghost_frag_l = []
     for frag1 in int_frags_1:
         # print(frag1)
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
+        print(complete_monofrag1_ghostfrag_list)
         if complete_monofrag1_ghostfrag_list is not None:  # TODO remove is not None
             # complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list) # TODO KM MOD
             for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
@@ -118,13 +119,15 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using Initial Match Fragment Database
     int_frags_2 = get_interface_fragments(pdb2, pdb2_central_chainid_resnum_unique_l)
     # surf_frags_2 = get_surface_fragments(pdb2, free_sasa_exe_path)
-    print(int_frags_2)
+    # print(int_frags_2)
 
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
     complete_int2_frag_l, complete_surf_frag_guide_coord_l = [], []
     for frag2 in int_frags_2:
+        print(frag2.all_atoms)
         complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
+        print(complete_monofrag2_guide_coords)
         if complete_monofrag2_guide_coords is not None:
             complete_int2_frag_l.append(complete_monofrag2)
             # complete_surf_frag_guide_coord_l.append(complete_monofrag2_guide_coords)
@@ -132,7 +135,7 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     # del ijk_monofrag_cluster_rep_pdb_dict, init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2
 
     interface_ghostfrag_list, interface_ghost_frag_pdb_coords_list, interface_ghostfrag_guide_coords_list = [], [], []
-    print(complete_int1_ghost_frag_l)
+    # print(complete_int1_ghost_frag_l)
     for ghost_frag in complete_int1_ghost_frag_l:
         print(ghost_frag.get_aligned_surf_frag_central_res_tup())
         if ghost_frag.get_aligned_surf_frag_central_res_tup() in pdb1_central_chainid_resnum_unique_l:
@@ -141,7 +144,7 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
             interface_ghostfrag_guide_coords_list.append(ghost_frag.get_guide_coords())
 
     interface_surf_frag_list, interface_surf_frag_pdb_coords_list, interface_surf_frag_guide_coords_list = [], [], []
-    print(complete_int2_frag_l)
+    # print(complete_int2_frag_l)
     for surf_frag in complete_int2_frag_l:
         print(surf_frag.get_central_res_tup())
         if surf_frag.get_central_res_tup() in pdb2_central_chainid_resnum_unique_l:
