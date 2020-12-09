@@ -82,9 +82,8 @@ class PDB:
         # reads PDB file and feeds PDB instance
         self.filepath = filepath
 
-        f = open(filepath, "r")
-        pdb = f.readlines()
-        f.close()
+        with open(self.filepath, 'r') as f:
+            pdb = f.readlines()
 
         available_chain_ids = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
                                'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',

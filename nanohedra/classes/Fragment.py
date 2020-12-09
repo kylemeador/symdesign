@@ -229,8 +229,8 @@ class MonoFragment:
 
                     # Ghost Fragment Mapped Chain ID, Central Residue Number and Partner Chain ID, Partner Central Residue Number
                     ghostfrag_central_res_tup = (
-                    intfrag_mapped_chain_id, intfrag_mapped_chain_central_res_num, intfrag_partner_chain_id,
-                    intfrag_partner_chain_central_res_num)
+                        intfrag_mapped_chain_id, intfrag_mapped_chain_central_res_num, intfrag_partner_chain_id,
+                        intfrag_partner_chain_central_res_num)
 
                     # Only keep ghost fragments that don't clash with oligomer backbone
                     # Note: guide atoms, mapped chain atoms and non-backbone atoms not included

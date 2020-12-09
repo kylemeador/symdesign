@@ -140,6 +140,8 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
             interface_surf_frag_guide_coords_list.append(surf_frag.get_guide_coords())
 
     # Check for matching Euler angles
+    print(interface_ghostfrag_guide_coords_list)
+    print(interface_surf_frag_guide_coords_list)
     eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_list,
                                                                interface_surf_frag_guide_coords_list)
     eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if true_tup[2]]
