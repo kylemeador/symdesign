@@ -126,14 +126,18 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
     # del ijk_monofrag_cluster_rep_pdb_dict, init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2
 
     interface_ghostfrag_list, interface_ghost_frag_pdb_coords_list, interface_ghostfrag_guide_coords_list = [], [], []
+    print(pdb1_central_resnum_chainid_unique_list)
     for ghost_frag in complete_ghost_frag_list:
+        print(ghost_frag.get_aligned_surf_frag_central_res_tup())
         if ghost_frag.get_aligned_surf_frag_central_res_tup() in pdb1_central_resnum_chainid_unique_list:
             interface_ghostfrag_list.append(ghost_frag)
             # interface_ghost_frag_pdb_coords_list.append(ghost_frag.get_pdb_coords())
             interface_ghostfrag_guide_coords_list.append(ghost_frag.get_guide_coords())
 
     interface_surf_frag_list, interface_surf_frag_pdb_coords_list, interface_surf_frag_guide_coords_list = [], [], []
+    print(pdb2_central_resnum_chainid_unique_list)
     for surf_frag in complete_surf_frag_list:
+        print(surf_frag.get_central_res_tup())
         if surf_frag.get_central_res_tup() in pdb2_central_resnum_chainid_unique_list:
             interface_surf_frag_list.append(surf_frag)
             # interface_surf_frag_pdb_coords_list.append(surf_frag.get_pdb_coords())
@@ -348,7 +352,7 @@ def score_interface(pdb1, pdb2, pdb1_central_resnum_chainid_unique_list, pdb2_ce
     f_l4 = "Percent of Interface Matched: " + str(percent_of_interface_covered) + "\n"
 
     return res_lev_sum_score, center_lev_sum_score, unique_fragment_indicies, unique_matched_interface_monofrag_count, \
-        unique_total_interface_residue_count, percent_of_interface_covered, fragment_content_d
+           unique_total_interface_residue_count, percent_of_interface_covered, fragment_content_d
 
 
 def calculate_interface_score(interface_path):  # , free_sasa_exe_path=os.path.join(os.path.dirname(os.path.realpath(__file__)), "sasa", "freesasa-2.0", "src", "freesasa")):
