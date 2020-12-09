@@ -8,6 +8,26 @@ from nanohedra.utils.BioPDBUtils import biopdb_aligned_chain
 from nanohedra.utils.BioPDBUtils import biopdb_superimposer
 
 
+def get_interface_fragments(pdb, chain_res_info):
+    surface_frags = []
+
+    for (chain, res_num) in chain_res_info:
+        frag_atoms = []
+        frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
+        ca_count = 0
+        for atom in pdb.chain(chain):
+            if atom.residue_number in frag_res_nums:
+                frag_atoms.append(atom)
+                if atom.is_CA():
+                    ca_count += 1
+        if ca_count == 5:
+            surf_frag_pdb = PDB()
+            surf_frag_pdb.read_atom_list(frag_atoms)
+            surface_frags.append(surf_frag_pdb)
+
+    return surface_frags
+
+
 def get_surface_fragments(pdb, free_sasa_exe_path):
     surface_frags = []
     surf_res_info = pdb.get_surface_resdiue_info(free_sasa_exe_path)
