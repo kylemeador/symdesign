@@ -15,7 +15,7 @@ from nanohedra.utils.GeneralUtils import euclidean_squared_3d
 main_script_path = os.path.dirname(os.path.realpath(__file__))
 
 # Fragment Database Directory Paths
-frag_db = os.path.join(main_script_path, "fragment_database")
+frag_db = os.path.join(main_script_path, 'data', 'databases', "fragment_db")
 monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
 ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
 intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
@@ -30,6 +30,8 @@ ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_d
 ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
 ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
 ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+if not ijk_intfrag_cluster_rep_dict:
+    print('No reps found!')
 
 # Initialize Euler Lookup Class
 eul_lookup = EulerLookup()
@@ -422,6 +424,7 @@ if __name__ == '__main__':
     if 'debug' in sys.argv:
         first_5 = ['2OPI-1', '4JVT-1', '3GZD-1', '4IRG-1', '2IN5-1']
         next_5 = ['3ILK-1', '3G64-1', '3G64-4', '3G64-6', '3G64-23']
+        next_next_5 = ['3AQT-2', '2Q24-2', '1LDF-1', '1LDF-11', '1QCZ-1']
         paths = next_5
         root = '/home/kmeador/yeates/fragment_database/all/all_interfaces/%s.pdb'
         # paths = ['op/2OPI-1.pdb', 'jv/4JVT-1.pdb', 'gz/3GZD-1.pdb', 'ir/4IRG-1.pdb', 'in/2IN5-1.pdb']
