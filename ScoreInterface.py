@@ -172,7 +172,7 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
     # frag_match_info_list = []
     pdb1_unique_interface_frag_info_l = []
     pdb2_unique_interface_frag_info_l = []
-    # percent_of_interface_covered = 0.0
+    # percent_interface_matched = 0.0
     # pair_count = 0
     total_overlap_count = 0
     # tx_parameters = tx_param_list[i][0]
@@ -338,9 +338,10 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
         multiple_frag_ratio = 0
     interface_residue_count = len(pdb1_unique_chain_central_res_l) + len(pdb2_unique_chain_central_res_l)
     if interface_residue_count > 0:
-        percent_of_interface_covered = number_fragment_central_residues / float(interface_residue_count)
+        percent_interface_matched = number_fragment_central_residues / float(interface_residue_count)
+        percent_interface_covered = number_residues_in_fragments / float(interface_residue_count)
     else:
-        percent_of_interface_covered = 0
+        percent_interface_matched, percent_interface_covered = 0, 0
 
     # Sum the total contribution from each fragment type on both sides of the interface
     fragment_content_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
@@ -355,11 +356,11 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
     # f_l1a = "Residue-Level Summation Score:" + str(res_lev_sum_score) + "\n"
     # f_l2 = "Unique Interface Fragment Match Count: " + str(number_fragment_central_residues) + "\n"
     # f_l3 = "Unique Interface Fragment Total Count: " + str(unique_interface_residue_count) + "\n"
-    # f_l4 = "Percent of Interface Matched: " + str(percent_of_interface_covered) + "\n"
+    # f_l4 = "Percent of Interface Matched: " + str(percent_interface_matched) + "\n"
 
     return res_lev_sum_score, center_lev_sum_score, unique_fragment_indicies, number_residues_in_fragments, \
-        number_fragment_central_residues, multiple_frag_ratio, interface_residue_count, percent_of_interface_covered,\
-        fragment_content_d
+        number_fragment_central_residues, multiple_frag_ratio, interface_residue_count, percent_interface_matched,\
+        percent_interface_covered, fragment_content_d
 
 
 def calculate_interface_score(interface_path):
@@ -376,22 +377,17 @@ def calculate_interface_score(interface_path):
     pdb2_interface_sa = pdb2.get_chain_residue_surface_area(pdb2_central_chainid_resnum_l, free_sasa_exe_path)
     interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
     res_level_sum_score, center_level_sum_score, fragment_indices, number_residues_with_fragments, \
-        number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_fragment, \
+        number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, percent_interface_covered, \
         fragment_content_d = score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
 
-    if total_residues > 0:
-        percent_fragment = number_residues_with_fragments / float(total_residues)
-    else:
-        percent_fragment = 0
-
-    return {interface_name: {'nanohedra_score': res_level_sum_score, 'nanohedra_central_score': center_level_sum_score,
+    return {interface_name: {'nanohedra_score': res_level_sum_score, 'nanohedra_score_central': center_level_sum_score,
                              'fragment_cluster_ids': ','.join(fragment_indices), 'interface_area': interface_buried_sa,
                              'multiple_fragment_ratio': multiple_frag_ratio,
-                             'number_fragment_residues': number_residues_with_fragments,
-                             'number_fragment_central_residues': number_fragment_central_residues,
+                             'number_fragment_residues_all': number_residues_with_fragments,
+                             'number_fragment_residues_central': number_fragment_central_residues,
                              'total_interface_residues': total_residues, 'number_fragments': len(fragment_indices),
-                             'percent_residues_fragment_center': percent_fragment,
-                             'percent_residues_fragment_all': percent_interface_fragment,
+                             'percent_residues_fragment_all': percent_interface_covered,
+                             'percent_residues_fragment_center': percent_interface_matched,
                              'percent_fragment_helix': fragment_content_d['1'],
                              'percent_fragment_strand': fragment_content_d['2'],
                              'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
