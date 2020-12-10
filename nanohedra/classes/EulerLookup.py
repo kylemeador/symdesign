@@ -4,9 +4,11 @@ import numpy as np
 
 
 class EulerLookup:
-    def __init__(self, scale=3.0, binary_lookup_table_path=os.path.dirname(
-            os.path.dirname(os.path.realpath(__file__))) + "/euler_lookup/euler_lookup_40.npz"):
-        self.eul_lookup_40 = np.load(binary_lookup_table_path)
+    def __init__(self, scale=3.0):
+        nanohedra_dirpath = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        binary_lookup_table_path = nanohedra_dirpath + "/euler_lookup/euler_lookup_40.npz"
+
+        self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']
         self.scale = scale
 
     @staticmethod
