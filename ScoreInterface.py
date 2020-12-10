@@ -402,6 +402,7 @@ if __name__ == '__main__':
 
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
+    print(bio_reference_l[:5])
     try:
         print('1:', '1AB0-1' in bio_reference_l)
         print('2:', '1AB0-2' in bio_reference_l)
