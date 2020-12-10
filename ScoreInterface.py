@@ -120,7 +120,7 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
     complete_int2_frag_l, complete_surf_frag_guide_coord_l = [], []
     for frag2 in int_frags_2:
         complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
-        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
+        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()
         if complete_monofrag2_guide_coords:
             complete_int2_frag_l.append(complete_monofrag2)
             # complete_surf_frag_guide_coord_l.append(complete_monofrag2_guide_coords)
@@ -230,23 +230,31 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
                 # total_inv_capped_z_val_score += inv_z_val
                 # pair_count += 1
 
-                # ghostfrag_mapped_ch_id, ghostfrag_mapped_central_res_num, ghostfrag_partner_ch_id, ghostfrag_partner_central_res_num = interface_ghost_frag.get_central_res_tup()
-                pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num = interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
-                pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num = interface_mono_frag.get_central_res_tup()
+                # ghostfrag_mapped_ch_id, ghostfrag_mapped_central_res_num, ghostfrag_partner_ch_id, \
+                # ghostfrag_partner_central_res_num = interface_ghost_frag.get_central_res_tup()
+                pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num = \
+                    interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
+                pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num = \
+                    interface_mono_frag.get_central_res_tup()
 
                 score_term = 1 / float(1 + (z_val ** 2))
 
                 # Central residue only score
-                if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) not in central_residues_scores_d_pdb1:
-                    central_residues_scores_d_pdb1[(pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num)] = [score_term]
+                if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) not in \
+                        central_residues_scores_d_pdb1:
+                    central_residues_scores_d_pdb1[(pdb1_interface_surffrag_ch_id,
+                                                    pdb1_interface_surffrag_central_res_num)] = [score_term]
                 else:
                     central_residues_scores_d_pdb1[
                         (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num)].append(score_term)
 
-                if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) not in central_residues_scores_d_pdb2:
-                    central_residues_scores_d_pdb2[(pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num)] = [score_term]
+                if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) not in \
+                        central_residues_scores_d_pdb2:
+                    central_residues_scores_d_pdb2[(pdb2_interface_surffrag_ch_id,
+                                                    pdb2_interface_surffrag_central_res_num)] = [score_term]
                 else:
-                    central_residues_scores_d_pdb2[(pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num)].append(score_term)
+                    central_residues_scores_d_pdb2[(pdb2_interface_surffrag_ch_id,
+                                                    pdb2_interface_surffrag_central_res_num)].append(score_term)
 
                 covered_residues_pdb1 = [(pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num + j)
                                          for j in range(-2, 3)]
@@ -266,20 +274,24 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
                         chid_resnum_scores_dict_pdb2[(chid2, resnum2)].append(score_term)
 
                 # if z_val <= 1:
-                #     if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) not in unique_interface_monofrags_infolist_highqual_pdb1:
+                #     if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) not in
+                #             unique_interface_monofrags_infolist_highqual_pdb1:
                 #         unique_interface_monofrags_infolist_highqual_pdb1.append(
                 #             (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num))
-                #     if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) not in unique_interface_monofrags_infolist_highqual_pdb2:
+                #     if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) not in
+                #             unique_interface_monofrags_infolist_highqual_pdb2:
                 #         unique_interface_monofrags_infolist_highqual_pdb2.append(
                 #             (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
 
                 #######################################################
 
-                if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) not in unique_interface_monofrags_infolist_pdb1:
+                if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) not in \
+                        unique_interface_monofrags_infolist_pdb1:
                     unique_interface_monofrags_infolist_pdb1.append(
                         (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num))
 
-                if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) not in unique_interface_monofrags_infolist_pdb2:
+                if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) not in \
+                        unique_interface_monofrags_infolist_pdb2:
                     unique_interface_monofrags_infolist_pdb2.append(
                         (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
                 #
@@ -359,15 +371,17 @@ def calculate_interface_score(interface_path):
     res_level_sum_score, center_level_sum_score, fragment_indices, num_residues_with_fragments, total_residues, \
         percent_interface_fragment, fragment_content_d = \
         score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
-    # interface_d[interface_name] = {'score': res_level_sum_score, 'number_fragments': number_fragments,
-    #                                'total_residues': total_residues, 'percent_fragment': percent_interface_fragment}
+
     return {interface_name: {'score': res_level_sum_score, 'central_score': center_level_sum_score,
                              'fragment_cluster_ids': fragment_indices, 'unique_fragments': len(fragment_indices),
                              'percent_fragment': len(fragment_indices)/float(total_residues),
-                             'number_fragment_residues': num_residues_with_fragments, 'total_interface_residues': total_residues,
-                             'percent_interface_covered_with_fragment': percent_interface_fragment, 'interface_area': interface_buried_sa,
-                             'percent_interface_helix': fragment_content_d[1], 'percent_interface_strand': fragment_content_d[2],
-                             'percent_interface_coil': fragment_content_d[3] + fragment_content_d[4] + fragment_content_d[5]}}
+                             'number_fragment_residues': num_residues_with_fragments,
+                             'total_interface_residues': total_residues,
+                             'percent_interface_covered_with_fragment': percent_interface_fragment,
+                             'interface_area': interface_buried_sa, 'percent_interface_strand': fragment_content_d['2'],
+                             'percent_interface_helix': fragment_content_d['1'],
+                             'percent_interface_coil': fragment_content_d['3'] + fragment_content_d['4']
+                             + fragment_content_d['5']}}
 
 
 if __name__ == '__main__':
@@ -381,7 +395,8 @@ if __name__ == '__main__':
     logger = start_log(name=os.path.basename(__file__), level=2)
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
-    print(bio_reference_l[10:15])
+
+    print('Total of %d PDB\'s to score' % len(bio_reference_l))
     # try:
     #     print('1:', '1AB0-1' in bio_reference_l)
     #     print('2:', '1AB0-2' in bio_reference_l)
@@ -401,35 +416,11 @@ if __name__ == '__main__':
     else:
         interface_filepaths = get_all_pdb_file_paths(sys.argv[2])
 
-    missing_index = [i for i, filepath in enumerate(interface_filepaths) if os.path.splitext(os.path.basename(filepath))[0] not in bio_reference_l]
+    missing_index = [i for i, file_path in enumerate(interface_filepaths)
+                     if os.path.splitext(os.path.basename(file_path))[0] not in bio_reference_l]
 
     for i in reversed(missing_index):
         del interface_filepaths[i]
-
-    # # Nanohedra.py Path
-    # main_script_path = os.path.dirname(os.path.realpath(__file__))
-    #
-    # # Fragment Database Directory Paths
-    # frag_db = os.path.join(main_script_path, "fragment_database")
-    # monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
-    # ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
-    # intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
-    #
-    # # Free SASA Executable Path
-    # free_sasa_exe_path = os.path.join(main_script_path, "sasa", "freesasa-2.0", "src", "freesasa")
-    #
-    # # Create fragment database for all ijk cluster representatives
-    # ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
-    #                          intfrag_cluster_info_dirpath)
-    # # Get complete IJK fragment representatives database dictionaries
-    # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-    # ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-    # ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
-    #
-    # # Initialize Euler Lookup Class
-    # eul_lookup = EulerLookup()
-    # # interface_d = {}
-    # # for interface_path in interface_filepaths:
 
     results = mp_map(calculate_interface_score, interface_filepaths, threads=int(sys.argv[3]))
     interface_d = {key: result[key] for result in results for key in result}
