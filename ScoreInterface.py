@@ -403,9 +403,9 @@ if __name__ == '__main__':
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
     try:
-        print(bio_reference_l['1AB0-1'])
-        print(bio_reference_l['1AB0-2'])
-        print(bio_reference_l['1AB0'])
+        print('1:', '1AB0-1' in bio_reference_l)
+        print('2:', '1AB0-2' in bio_reference_l)
+        print('no dash:', '1AB0' in bio_reference_l)
     except KeyError as e:
         print(e)
 
