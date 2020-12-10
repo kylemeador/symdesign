@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from SymDesignUtils import get_all_pdb_file_paths, read_pdb, fill_pdb, unpickle, mp_map, print_atoms, start_log
+from SymDesignUtils import get_all_pdb_file_paths, read_pdb, fill_pdb, unpickle, mp_map, start_log
 from nanohedra.classes.EulerLookup import EulerLookup
 from nanohedra.classes.Fragment import *
 from nanohedra.utils.CmdLineArgParseUtils import *
@@ -117,9 +117,9 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
         if complete_monofrag1_ghostfrag_list:
-            print('complete_monofrag1_ghostfrag_list:\n')
-            print_atoms(complete_monofrag1_ghostfrag_list[0].pdb.all_atoms)  # TODO
-            print(complete_monofrag1_ghostfrag_list)  # I don't think this is working (None). Must be something missing from the input pdb (monofrag1 or kdtree_oligomer1_backbone)
+            # print('complete_monofrag1_ghostfrag_list:\n')
+            # print_atoms(complete_monofrag1_ghostfrag_list[0].pdb.all_atoms)  # TODO
+            # print(complete_monofrag1_ghostfrag_list)  # I don't think this is working (None). Must be something missing from the input pdb (monofrag1 or kdtree_oligomer1_backbone)
             # complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list) # TODO KM MOD
             for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
                 complete_int1_ghost_frag_l.append(complete_ghostfrag)
@@ -140,7 +140,7 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
         # print_atoms(complete_monofrag2.pdb.all_atoms)
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
         if complete_monofrag2_guide_coords is not None:
-            print(complete_monofrag2_guide_coords)
+            # print(complete_monofrag2_guide_coords)
             complete_int2_frag_l.append(complete_monofrag2)
             # complete_surf_frag_guide_coord_l.append(complete_monofrag2_guide_coords)
 
@@ -149,7 +149,7 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     interface_ghostfrag_list, interface_ghost_frag_pdb_coords_list, interface_ghostfrag_guide_coords_list = [], [], []
     # print(complete_int1_ghost_frag_l)
     for ghost_frag in complete_int1_ghost_frag_l:
-        print(ghost_frag.get_aligned_surf_frag_central_res_tup())
+        # print(ghost_frag.get_aligned_surf_frag_central_res_tup())
         if ghost_frag.get_aligned_surf_frag_central_res_tup() in pdb1_central_chainid_resnum_unique_l:
             interface_ghostfrag_list.append(ghost_frag)
             # interface_ghost_frag_pdb_coords_list.append(ghost_frag.get_pdb_coords())
@@ -165,8 +165,8 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
             interface_surf_frag_guide_coords_list.append(surf_frag.get_guide_coords())
 
     # Check for matching Euler angles
-    print(interface_ghostfrag_guide_coords_list)
-    print(interface_surf_frag_guide_coords_list)
+    # print(interface_ghostfrag_guide_coords_list)
+    # print(interface_surf_frag_guide_coords_list)
     eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_list,
                                                                interface_surf_frag_guide_coords_list)
     eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if true_tup[2]]
