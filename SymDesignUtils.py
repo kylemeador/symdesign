@@ -131,12 +131,10 @@ def scout_sdf_chains(pdb):
     """
     scout_cmd = ['perl', PUtils.scout_symmdef, '-p', pdb.filepath, '-a', pdb.chain_id_list[0], '-i'] + pdb.chain_id_list[1:]
     logger.info(subprocess.list2cmdline(scout_cmd))
-    # print(subprocess.list2cmdline(scout_cmd))
     p = subprocess.run(scout_cmd, capture_output=True)
     lines = p.stdout.decode('utf-8').strip().split('\n')
     rotation_dict = {}
     max_sym, max_chain = 0, None
-    # print(lines)
     for line in lines:
         chain = line[0]
         symmetry = int(line.split(':')[1][:6].rstrip('-fold'))

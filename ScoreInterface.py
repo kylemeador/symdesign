@@ -114,9 +114,9 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
         print('complete_monofrag1_ghostfrag_list:\n')
-        print_atoms(complete_monofrag1_ghostfrag_list[0].all_atoms)  # TODO
-        print(complete_monofrag1_ghostfrag_list)  # I don't think this is working (None). Must be something missing from the input pdb (monofrag1 or kdtree_oligomer1_backbone)
-        if complete_monofrag1_ghostfrag_list is not None:  # TODO remove is not None
+        if complete_monofrag1_ghostfrag_list:
+            print_atoms(complete_monofrag1_ghostfrag_list[0].all_atoms)  # TODO
+            print(complete_monofrag1_ghostfrag_list)  # I don't think this is working (None). Must be something missing from the input pdb (monofrag1 or kdtree_oligomer1_backbone)
             # complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list) # TODO KM MOD
             for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
                 complete_int1_ghost_frag_l.append(complete_ghostfrag)
