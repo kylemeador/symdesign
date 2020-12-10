@@ -909,7 +909,7 @@ class PDB:
                     h_cb_indices.append(i)
         return h_cb_indices
 
-    def get_sasa(self, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=1):
+    def get_sasa(self, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=0):
         proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
                                 , stdout=subprocess.PIPE)
         (out, err) = proc.communicate()
@@ -1016,7 +1016,7 @@ class PDB:
         #         if (chain_id, res_num) in chain_residue_pairs:
         #             sasa_out += sasa
 
-        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius)
         total_sasa = 0
         for chain, res, sasa in zip(sasa_chain, sasa_res, sasa):
             if (chain, res) in chain_residue_pairs:
