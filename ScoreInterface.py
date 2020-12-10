@@ -194,7 +194,6 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
         fragment_i_index_count_d[ghost_frag_i_type] += 1
         fragment_j_index_count_d[ghost_frag_j_type] += 1
         cluster_id = "i%s_j%s_k%s" % (ghost_frag_i_type, ghost_frag_j_type, ghost_frag_k_type)
-        unique_fragment_indicies.append(cluster_id)
         interface_ghost_frag_cluster_rmsd = ijk_intfrag_cluster_info_dict[ghost_frag_i_type][ghost_frag_j_type][
             ghost_frag_k_type].get_rmsd()
         # interface_ghost_frag_cluster_res_freq_list = \
@@ -219,7 +218,7 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
             z_val = rmsd / float(interface_ghost_frag_cluster_rmsd)
 
             if z_val <= max_z_val:
-
+                unique_fragment_indicies.append(cluster_id)
                 # if z_val == 0:
                 #     inv_z_val = 3
                 # elif 1 / float(z_val) > 3:
