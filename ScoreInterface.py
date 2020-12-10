@@ -409,7 +409,7 @@ if __name__ == '__main__':
     logger = start_log(name=os.path.basename(__file__), level=2)
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
-    print(bio_reference_l[:5])
+    print(bio_reference_l[5:10])
     # try:
     #     print('1:', '1AB0-1' in bio_reference_l)
     #     print('2:', '1AB0-2' in bio_reference_l)
@@ -418,7 +418,9 @@ if __name__ == '__main__':
     #     print(e)
 
     if 'debug' in sys.argv:
-        interface_filepaths = ['/home/kmeador/yeates/fragment_database/all/all_interfaces/op/2OPI-1.pdb']
+        root = '/home/kmeador/yeates/fragment_database/all/all_interfaces'
+        paths = ['op/2OPI-1', 'jv/4JVT-1', 'gz/3GZD-1', 'ir/4IRG-1', 'in/2IN5-1']
+        interface_filepaths = list(map(os.path.join, root, paths))
     else:
         interface_filepaths = get_all_pdb_file_paths(sys.argv[2])
 
