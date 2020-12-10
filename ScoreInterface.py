@@ -377,12 +377,17 @@ def calculate_interface_score(interface_path):
         total_residues, percent_interface_fragment, fragment_content_d = \
         score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
 
+    if total_residues > 0:
+        percent_fragment = number_residues_with_fragments / float(total_residues)
+    else:
+        percent_fragment = 0
+
     return {interface_name: {'nanohedra_score': res_level_sum_score, 'central_residue_score': center_level_sum_score,
                              'fragment_cluster_ids': ','.join(fragment_indices), 'interface_area': interface_buried_sa,
                              'multiple_fragment_ratio': multiple_frag_ratio,
                              'number_fragment_residues': number_residues_with_fragments,
                              'total_interface_residues': total_residues, 'number_fragments': len(fragment_indices),
-                             'percent_fragment': number_residues_with_fragments / float(total_residues),
+                             'percent_fragment': percent_fragment,
                              'percent_interface_covered_with_fragment': percent_interface_fragment,
                              'percent_interface_helix': fragment_content_d['1'],
                              'percent_interface_strand': fragment_content_d['2'],
