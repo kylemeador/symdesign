@@ -349,7 +349,7 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
 
     if len(unique_fragment_indicies) > 0:
         for index in fragment_content_d:
-            fragment_content_d[index] = fragment_content_d[index]/len(unique_fragment_indicies)
+            fragment_content_d[index] = fragment_content_d[index]/(len(unique_fragment_indicies) * 2)  # paired fragment
 
     # f_l1a = "Residue-Level Summation Score:" + str(res_lev_sum_score) + "\n"
     # f_l2 = "Unique Interface Fragment Match Count: " + str(number_residues_with_fragments) + "\n"
@@ -414,7 +414,7 @@ if __name__ == '__main__':
         first_5 = ['2OPI-1', '4JVT-1', '3GZD-1', '4IRG-1', '2IN5-1']
         next_5 = ['3ILK-1', '3G64-1', '3G64-4', '3G64-6', '3G64-23']
         next_next_5 = ['3AQT-2', '2Q24-2', '1LDF-1', '1LDF-11', '1QCZ-1']
-        paths = next_5
+        paths = first_5
         root = '/home/kmeador/yeates/fragment_database/all/all_interfaces/%s.pdb'
         # paths = ['op/2OPI-1.pdb', 'jv/4JVT-1.pdb', 'gz/3GZD-1.pdb', 'ir/4IRG-1.pdb', 'in/2IN5-1.pdb']
         interface_filepaths = [root % '%s/%s' % (path[1:3].lower(), path) for path in paths]
