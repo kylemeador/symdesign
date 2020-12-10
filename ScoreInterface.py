@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from SymDesignUtils import get_all_pdb_file_paths, read_pdb, fill_pdb, unpickle, mp_map, print_atoms
+from SymDesignUtils import get_all_pdb_file_paths, read_pdb, fill_pdb, unpickle, mp_map, print_atoms, start_log
 from nanohedra.classes.EulerLookup import EulerLookup
 from nanohedra.classes.Fragment import *
 from nanohedra.utils.CmdLineArgParseUtils import *
@@ -400,6 +400,11 @@ if __name__ == '__main__':
     # Program input
     print('USAGE: python ScoreNative.py interface_type_pickled_dict interface_filepath_location number_of_threads')
 
+    # if args.debug:
+    #     logger = start_log(name=os.path.basename(__file__), level=1)
+    #     logger.debug('Debug mode. Verbose output')
+    # else:
+    logger = start_log(name=os.path.basename(__file__), level=2)
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
     # print(bio_reference_l[:5])
