@@ -102,7 +102,7 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
 
     kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(np.array(pdb1.extract_backbone_coords()))
     int_frags_1 = get_interface_fragments(pdb1, pdb1_central_chainid_resnum_unique_l)
-    print('pdb1_central_chainid_resnum_unique_l:\n', pdb1_central_chainid_resnum_unique_l)
+    # print('pdb1_central_chainid_resnum_unique_l:\n', pdb1_central_chainid_resnum_unique_l)
     # surf_frags_1 = get_surface_fragments(pdb1, free_sasa_exe_path)
     # print(int_frags_1)
     complete_int1_ghost_frag_l = []
@@ -111,8 +111,8 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
         # print('frag1:\n')
         # print_atoms(frag1.all_atoms)  # TODO
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
-        print('complete_monofrag1:')
-        print(complete_monofrag1.type)
+        # print('complete_monofrag1:')
+        # print(complete_monofrag1.type)
         # print_atoms(complete_monofrag1.pdb.all_atoms)
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
@@ -135,8 +135,8 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     for frag2 in int_frags_2:
         # print(frag2.all_atoms)
         complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
-        print('complete_monofrag2:')
-        print(complete_monofrag2.type)
+        # print('complete_monofrag2:')
+        # print(complete_monofrag2.type)
         # print_atoms(complete_monofrag2.pdb.all_atoms)
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
         if complete_monofrag2_guide_coords is not None:
@@ -158,7 +158,7 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     interface_surf_frag_list, interface_surf_frag_pdb_coords_list, interface_surf_frag_guide_coords_list = [], [], []
     # print(complete_int2_frag_l)
     for surf_frag in complete_int2_frag_l:
-        print(surf_frag.get_central_res_tup())
+        # print(surf_frag.get_central_res_tup())
         if surf_frag.get_central_res_tup() in pdb2_central_chainid_resnum_unique_l:
             interface_surf_frag_list.append(surf_frag)
             # interface_surf_frag_pdb_coords_list.append(surf_frag.get_pdb_coords())
@@ -359,7 +359,7 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     percent_of_interface_covered = unique_matched_interface_monofrag_count / float(unique_total_interface_residue_count)
 
     # Sum the total contribution from each fragment type on both sides of the interface
-    fragment_content_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    fragment_content_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
     for index in fragment_i_index_count_d:
         fragment_content_d[index] += fragment_i_index_count_d[index]
         fragment_content_d[index] += fragment_j_index_count_d[index]
