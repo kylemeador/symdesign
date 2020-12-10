@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from SymDesignUtils import get_all_pdb_file_paths, read_pdb, fill_pdb, unpickle, mp_map
+from SymDesignUtils import get_all_pdb_file_paths, read_pdb, fill_pdb, unpickle, mp_map, print_atoms
 from nanohedra.classes.EulerLookup import EulerLookup
 from nanohedra.classes.Fragment import *
 from nanohedra.utils.CmdLineArgParseUtils import *
@@ -100,16 +100,22 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
 
     kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(np.array(pdb1.extract_backbone_coords()))
     int_frags_1 = get_interface_fragments(pdb1, pdb1_central_chainid_resnum_unique_l)
-    # print(pdb1_central_chainid_resnum_unique_l)
+    print('pdb1_central_chainid_resnum_unique_l:\n', pdb1_central_chainid_resnum_unique_l)
     # surf_frags_1 = get_surface_fragments(pdb1, free_sasa_exe_path)
     # print(int_frags_1)
     complete_int1_ghost_frag_l = []
     for frag1 in int_frags_1:
         # print(frag1)
+        print('frag1:\n')
+        print_atoms(frag1.all_atoms)  # TODO
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
+        print('complete_monofrag1:\n')
+        print_atoms(complete_monofrag1.pdb.all_atoms)
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
-        print(complete_monofrag1_ghostfrag_list)
+        print('complete_monofrag1_ghostfrag_list:\n')
+        print_atoms(complete_monofrag1_ghostfrag_list[0].all_atoms)  # TODO
+        print(complete_monofrag1_ghostfrag_list)  # I don't think this is working (None). Must be something missing from the input pdb (monofrag1 or kdtree_oligomer1_backbone)
         if complete_monofrag1_ghostfrag_list is not None:  # TODO remove is not None
             # complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list) # TODO KM MOD
             for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
@@ -393,9 +399,14 @@ def calculate_interface_score(interface_path):  # , free_sasa_exe_path=os.path.j
 if __name__ == '__main__':
     # Program input
     print('USAGE: python ScoreNative.py interface_type_pickled_dict interface_filepath_location number_of_threads')
+
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
-    interface_filepaths = get_all_pdb_file_paths(sys.argv[2])
+
+    if 'debug' in sys.argv:
+        interface_filepaths = '/home/kmeador/yeates/fragment_database/all/all_interfaces/ab/1AB0-1.pdb'
+    else:
+        interface_filepaths = get_all_pdb_file_paths(sys.argv[2])
 
     missing_index = []
     for i, filepath in enumerate(interface_filepaths):
