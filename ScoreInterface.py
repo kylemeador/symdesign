@@ -440,5 +440,5 @@ if __name__ == '__main__':
 
     results = mp_map(calculate_interface_score, interface_filepaths, threads=int(sys.argv[3]))
     interface_d = {key: result[key] for result in results for key in result}
-    interface_df = pd.Dataframe(interface_d)
+    interface_df = pd.DataFrame(interface_d)
     interface_df.to_csv('BiologicalInterfaceNanohedraScores.csv')
