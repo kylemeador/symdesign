@@ -55,16 +55,16 @@ class PDB:
         return self.filepath
 
     def update_attributes_from_pdb(self, pdb):
-        self.all_atoms = pdb.all_atoms
+        # self.all_atoms = pdb.all_atoms
         self.res = pdb.res
         self.cryst_record = pdb.cryst_record
         self.cryst = pdb.cryst
         self.dbref = pdb.dbref
         self.header = pdb.header
         self.seqres_sequences = pdb.seqres_sequences
-        self.atom_sequences = pdb.atom_sequences
+        # self.atom_sequences = pdb.atom_sequences
         self.filepath = pdb.filepath
-        self.chain_id_list = pdb.chain_id_list
+        # self.chain_id_list = pdb.chain_id_list
         self.entities = pdb.entities
         self.name = pdb.name
         self.pdb_ss_asg = pdb.pdb_ss_asg
