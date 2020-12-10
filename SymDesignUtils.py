@@ -815,6 +815,7 @@ def print_atoms(atom_list):  # DEBUG
     for atom in atom_list:
         # for atom in residue:
         logger.info(str(atom))
+        print(str(atom))
 
 
 ##################
