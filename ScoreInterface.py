@@ -206,8 +206,10 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     # initial_overlap_z_val = tx_param_list[i][1]
     # ghostfrag_surffrag_pair = ghostfrag_surffrag_pair_list[i]
     unique_fragment_indicies = []
-    fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-    fragment_j_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    fragment_i_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
+    fragment_i_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
+    # fragment_j_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    # fragment_j_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
 
     # Get RMSD and z-value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
     for index_pair in eul_lookup_true_list:
