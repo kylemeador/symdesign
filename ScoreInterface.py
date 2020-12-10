@@ -402,6 +402,12 @@ if __name__ == '__main__':
 
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
+    try:
+        print(bio_reference_l['1AB0-1'])
+        print(bio_reference_l['1AB0-2'])
+        print(bio_reference_l['1AB0'])
+    except KeyError as e:
+        print(e)
 
     if 'debug' in sys.argv:
         interface_filepaths = ['/home/kmeador/yeates/fragment_database/all/all_interfaces/ab/1AB0-1.pdb']
