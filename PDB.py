@@ -909,19 +909,40 @@ class PDB:
                     h_cb_indices.append(i)
         return h_cb_indices
 
-    def get_surface_helix_cb_indices(self, stride_exe_path, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=1):
-        # only works for monomers or homo-complexes
-        proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %(free_sasa_exe_path, str(probe_radius), self.filepath), stdout=subprocess.PIPE, shell=True)
+    def get_sasa(self, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=1):
+        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
+                                , stdout=subprocess.PIPE)
         (out, err) = proc.communicate()
-        out_lines = out.split("\n")
-        sasa_out = []
+        out_lines = out.decode('utf-8').split('\n')
+
+        sasa_out_chain, sasa_out_res, sasa_out = [], [], []
         for line in out_lines:
             if line != "\n" and line != "" and not line.startswith("#"):
+                chain_id = line[4:5]
                 res_num = int(line[5:10])
                 sasa = float(line[16:])
                 if sasa >= sasa_thresh:
-                    if res_num not in sasa_out:
-                        sasa_out.append(res_num)
+                    sasa_out_chain.append(chain_id)
+                    sasa_out_res.append(res_num)
+                    sasa_out.append(sasa)
+
+        return sasa_out_chain, sasa_out_res, sasa_out
+
+    def get_surface_helix_cb_indices(self, stride_exe_path, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=1):
+        # only works for monomers or homo-complexes
+        # proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
+        #                         , stdout=subprocess.PIPE)
+        # (out, err) = proc.communicate()
+        # out_lines = out.decode('utf-8').split('\n')
+        # sasa_out = []
+        # for line in out_lines:
+        #     if line != "\n" and line != "" and not line.startswith("#"):
+        #         res_num = int(line[5:10])
+        #         sasa = float(line[16:])
+        #         if sasa >= sasa_thresh:
+        #             if res_num not in sasa_out:
+        #                 sasa_out.append(res_num)
+        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius, sasa_thresh=sasa_thresh)
 
         h_cb_indices = []
         stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
@@ -930,71 +951,78 @@ class PDB:
         for i in range(len(self.all_atoms)):
             atom = self.all_atoms[i]
             if atom.is_CB():
-                if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_out:
+                if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_res:
                     h_cb_indices.append(i)
         return h_cb_indices
 
     def get_surface_atoms(self, free_sasa_exe_path, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
-        proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %(free_sasa_exe_path, str(probe_radius), self.filepath), stdout=subprocess.PIPE, shell=True)
-        (out, err) = proc.communicate()
-        out_lines = out.split("\n")
-        sasa_out = []
-        for line in out_lines:
-            if line != "\n" and line != "" and not line.startswith("#"):
-                chain_id = line[4:5]
-                res_num = int(line[5:10])
-                sasa = float(line[16:])
-                if sasa > sasa_thresh:
-                    sasa_out.append((chain_id, res_num))
+        # proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %(free_sasa_exe_path, str(probe_radius), self.filepath), stdout=subprocess.PIPE, shell=True)
+        # (out, err) = proc.communicate()
+        # out_lines = out.split("\n")
+        # sasa_out = []
+        # for line in out_lines:
+        #     if line != "\n" and line != "" and not line.startswith("#"):
+        #         chain_id = line[4:5]
+        #         res_num = int(line[5:10])
+        #         sasa = float(line[16:])
+        #         if sasa > sasa_thresh:
+        #             sasa_out.append((chain_id, res_num))
+        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+        sasa_chain_res_l = zip(sasa_chain, sasa_res)
 
+        surface_atoms = []
         if chain_selection == "all":
-            surface_atoms = []
             for atom in self.all_atoms:
-                if (atom.chain, atom.residue_number) in sasa_out:
+                if (atom.chain, atom.residue_number) in sasa_chain_res_l:
                     surface_atoms.append(atom)
-            return surface_atoms
-
         else:
-            surface_atoms = []
             for atom in self.chain(chain_selection):
-                if (atom.chain, atom.residue_number) in sasa_out:
+                if (atom.chain, atom.residue_number) in sasa_chain_res_l:
                     surface_atoms.append(atom)
-            return surface_atoms
+
+        return surface_atoms
 
     def get_surface_resdiue_info(self, free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
-        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
-                                , stdout=subprocess.PIPE)
-        (out, err) = proc.communicate()
-        out_lines = out.decode('utf-8').split('\n')
-        sasa_out = []
-        for line in out_lines:
-            if line != "\n" and line != "" and not line.startswith("#"):
-                chain_id = line[4:5]
-                res_num = int(line[5:10])
-                sasa = float(line[16:])
-                if sasa > sasa_thresh:
-                    sasa_out.append((chain_id, res_num))
+        # proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
+        #                         , stdout=subprocess.PIPE)
+        # (out, err) = proc.communicate()
+        # out_lines = out.decode('utf-8').split('\n')
+        # sasa_out = []
+        # for line in out_lines:
+        #     if line != "\n" and line != "" and not line.startswith("#"):
+        #         chain_id = line[4:5]
+        #         res_num = int(line[5:10])
+        #         sasa = float(line[16:])
+        #         if sasa > sasa_thresh:
+        #             sasa_out.append((chain_id, res_num))
+        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius, sasa_thresh=sasa_thresh)
 
-        return sasa_out
+        return list(set(zip(sasa_chain, sasa_res)))
 
     def get_chain_residue_surface_area(self, chain_residue_pairs, free_sasa_exe_path, probe_radius=2.2):
         # only works for monomers or homo-complexes
-        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
-                                , stdout=subprocess.PIPE)
-        (out, err) = proc.communicate()
-        out_lines = out.decode('utf-8').split('\n')
-        sasa_out = 0
-        for line in out_lines:
-            if line != "\n" and line != "" and not line.startswith("#"):
-                chain_id = line[4:5]
-                res_num = int(line[5:10])
-                sasa = float(line[16:])
-                if (chain_id, res_num) in chain_residue_pairs:
-                    sasa_out += sasa
+        # proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
+        #                         , stdout=subprocess.PIPE)
+        # (out, err) = proc.communicate()
+        # out_lines = out.decode('utf-8').split('\n')
+        # sasa_out = 0
+        # for line in out_lines:
+        #     if line != "\n" and line != "" and not line.startswith("#"):
+        #         chain_id = line[4:5]
+        #         res_num = int(line[5:10])
+        #         sasa = float(line[16:])
+        #         if (chain_id, res_num) in chain_residue_pairs:
+        #             sasa_out += sasa
 
-        return sasa_out
+        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+        total_sasa = 0
+        for chain, res, sasa in zip(sasa_chain, sasa_res, sasa):
+            if (chain, res) in chain_residue_pairs:
+                total_sasa += sasa
+
+        return total_sasa
 
     def mutate_to(self, chain, residue, res_id='ALA'):  # KM added 12/31/19 to mutate pdb Residue objects to alanine
         """Mutate specific chain and residue to a new residue type. Type can be 1 or 3 letter format"""
