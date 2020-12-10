@@ -111,14 +111,14 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
         # print('frag1:\n')
         # print_atoms(frag1.all_atoms)  # TODO
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
-        print('complete_monofrag1:\n')
+        print('complete_monofrag1:')
         print(complete_monofrag1.type)
         # print_atoms(complete_monofrag1.pdb.all_atoms)
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
         if complete_monofrag1_ghostfrag_list:
             print('complete_monofrag1_ghostfrag_list:\n')
-            print_atoms(complete_monofrag1_ghostfrag_list[0].all_atoms)  # TODO
+            print_atoms(complete_monofrag1_ghostfrag_list[0].pdb.all_atoms)  # TODO
             print(complete_monofrag1_ghostfrag_list)  # I don't think this is working (None). Must be something missing from the input pdb (monofrag1 or kdtree_oligomer1_backbone)
             # complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list) # TODO KM MOD
             for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
@@ -135,7 +135,7 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     for frag2 in int_frags_2:
         # print(frag2.all_atoms)
         complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
-        print('complete_monofrag2:\n')
+        print('complete_monofrag2:')
         print(complete_monofrag2.type)
         # print_atoms(complete_monofrag2.pdb.all_atoms)
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
