@@ -110,7 +110,8 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
         # print_atoms(frag1.all_atoms)  # TODO
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
         print('complete_monofrag1:\n')
-        print_atoms(complete_monofrag1.pdb.all_atoms)
+        print(complete_monofrag1.type)
+        # print_atoms(complete_monofrag1.pdb.all_atoms)
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
         if complete_monofrag1_ghostfrag_list:
@@ -133,7 +134,8 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
         # print(frag2.all_atoms)
         complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
         print('complete_monofrag2:\n')
-        print_atoms(complete_monofrag2.pdb.all_atoms)
+        print(complete_monofrag2.type)
+        # print_atoms(complete_monofrag2.pdb.all_atoms)
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
         if complete_monofrag2_guide_coords is not None:
             print(complete_monofrag2_guide_coords)
@@ -409,7 +411,7 @@ if __name__ == '__main__':
     logger = start_log(name=os.path.basename(__file__), level=2)
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
-    print(bio_reference_l[5:10])
+    print(bio_reference_l[10:15])
     # try:
     #     print('1:', '1AB0-1' in bio_reference_l)
     #     print('2:', '1AB0-2' in bio_reference_l)
@@ -418,9 +420,10 @@ if __name__ == '__main__':
     #     print(e)
 
     if 'debug' in sys.argv:
-        # next_5 = '3ILK-1', '3G64-1', '3G64-4', '3G64-6', '3G64-23'
+        first_5 = ['2OPI-1', '4JVT-1', '3GZD-1', '4IRG-1', '2IN5-1']
+        next_5 = ['3ILK-1', '3G64-1', '3G64-4', '3G64-6', '3G64-23']
+        paths = next_5
         root = '/home/kmeador/yeates/fragment_database/all/all_interfaces/%s.pdb'
-        paths = ['2OPI-1', '4JVT-1', '3GZD-1', '4IRG-1', '2IN5-1']
         # paths = ['op/2OPI-1.pdb', 'jv/4JVT-1.pdb', 'gz/3GZD-1.pdb', 'ir/4IRG-1.pdb', 'in/2IN5-1.pdb']
         interface_filepaths = [root % '%s/%s' % (path[1:3].lower(), path) for path in paths]
         # interface_filepaths = list(map(os.path.join, root, paths))
