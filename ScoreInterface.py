@@ -404,14 +404,11 @@ if __name__ == '__main__':
     bio_reference_l = interface_reference_d['bio']
 
     if 'debug' in sys.argv:
-        interface_filepaths = '/home/kmeador/yeates/fragment_database/all/all_interfaces/ab/1AB0-1.pdb'
+        interface_filepaths = ['/home/kmeador/yeates/fragment_database/all/all_interfaces/ab/1AB0-1.pdb']
     else:
         interface_filepaths = get_all_pdb_file_paths(sys.argv[2])
 
-    missing_index = []
-    for i, filepath in enumerate(interface_filepaths):
-        if os.path.splitext(os.path.basename(filepath))[0] not in bio_reference_l:
-            missing_index.append(i)
+    missing_index = [i for i, filepath in enumerate(interface_filepaths) if os.path.splitext(os.path.basename(filepath))[0] not in bio_reference_l]
 
     for i in reversed(missing_index):
         del interface_filepaths[i]
