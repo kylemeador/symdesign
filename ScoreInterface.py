@@ -309,8 +309,8 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
     for central_res_scores_l2 in central_residues_scores_d_pdb2.values():
         n2 = 1
         central_res_scores_l_sorted2 = sorted(central_res_scores_l2, reverse=True)
-        for sc1 in central_res_scores_l_sorted2:
-            center_lev_sum_score += sc1 * (1 / float(n2))
+        for sc2 in central_res_scores_l_sorted2:
+            center_lev_sum_score += sc2 * (1 / float(n2))
             n2 *= 2
 
     # All residues
@@ -332,7 +332,7 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
     # unique_fragments = len(central_residues_scores_d_pdb1) + len(central_residues_scores_d_pdb2)
     number_residues_with_fragments = len(pdb1_unique_interface_frag_info_l) + len(pdb2_unique_interface_frag_info_l)
     if number_residues_with_fragments > 0:
-        multiple_frag_ratio = len(unique_fragment_indicies) / number_residues_with_fragments
+        multiple_frag_ratio = (len(unique_fragment_indicies) * 2) / number_residues_with_fragments  # paired fragment
     else:
         multiple_frag_ratio = 0
     interface_residue_count = len(pdb1_unique_chain_central_res_l) + len(pdb2_unique_chain_central_res_l)
@@ -414,7 +414,7 @@ if __name__ == '__main__':
         first_5 = ['2OPI-1', '4JVT-1', '3GZD-1', '4IRG-1', '2IN5-1']
         next_5 = ['3ILK-1', '3G64-1', '3G64-4', '3G64-6', '3G64-23']
         next_next_5 = ['3AQT-2', '2Q24-2', '1LDF-1', '1LDF-11', '1QCZ-1']
-        paths = first_5
+        paths = next_next_5
         root = '/home/kmeador/yeates/fragment_database/all/all_interfaces/%s.pdb'
         # paths = ['op/2OPI-1.pdb', 'jv/4JVT-1.pdb', 'gz/3GZD-1.pdb', 'ir/4IRG-1.pdb', 'in/2IN5-1.pdb']
         interface_filepaths = [root % '%s/%s' % (path[1:3].lower(), path) for path in paths]
