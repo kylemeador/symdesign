@@ -167,11 +167,11 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
     #######################################################
 
     # total_inv_capped_z_val_score = 0
-    # unique_matched_interface_monofrag_count = 0
+    # number_residues_with_fragments = 0
     # unique_total_interface_monofrags_count = 0
     # frag_match_info_list = []
-    unique_interface_monofrags_infolist_pdb1 = []
-    unique_interface_monofrags_infolist_pdb2 = []
+    pdb1_unique_interface_frag_info_l = []
+    pdb2_unique_interface_frag_info_l = []
     # percent_of_interface_covered = 0.0
     # pair_count = 0
     total_overlap_count = 0
@@ -191,8 +191,6 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
         ghost_frag_i_type = interface_ghost_frag.get_i_frag_type()
         ghost_frag_j_type = interface_ghost_frag.get_j_frag_type()
         ghost_frag_k_type = interface_ghost_frag.get_k_frag_type()
-        fragment_i_index_count_d[ghost_frag_i_type] += 1
-        fragment_j_index_count_d[ghost_frag_j_type] += 1
         cluster_id = "i%s_j%s_k%s" % (ghost_frag_i_type, ghost_frag_j_type, ghost_frag_k_type)
         interface_ghost_frag_cluster_rmsd = ijk_intfrag_cluster_info_dict[ghost_frag_i_type][ghost_frag_j_type][
             ghost_frag_k_type].get_rmsd()
@@ -218,6 +216,8 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
             z_val = rmsd / float(interface_ghost_frag_cluster_rmsd)
 
             if z_val <= max_z_val:
+                fragment_i_index_count_d[ghost_frag_i_type] += 1
+                fragment_j_index_count_d[ghost_frag_j_type] += 1
                 unique_fragment_indicies.append(cluster_id)
                 # if z_val == 0:
                 #     inv_z_val = 3
@@ -285,13 +285,13 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
                 #######################################################
 
                 if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) not in \
-                        unique_interface_monofrags_infolist_pdb1:
-                    unique_interface_monofrags_infolist_pdb1.append(
+                        pdb1_unique_interface_frag_info_l:
+                    pdb1_unique_interface_frag_info_l.append(
                         (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num))
 
                 if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) not in \
-                        unique_interface_monofrags_infolist_pdb2:
-                    unique_interface_monofrags_infolist_pdb2.append(
+                        pdb2_unique_interface_frag_info_l:
+                    pdb2_unique_interface_frag_info_l.append(
                         (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
                 #
                 # frag_match_info_list.append((interface_ghost_frag, interface_mono_frag, z_val, cluster_id, pair_count,
@@ -330,10 +330,16 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
 
     # Metric calculation
     # unique_fragments = len(central_residues_scores_d_pdb1) + len(central_residues_scores_d_pdb2)
-    unique_matched_interface_monofrag_count = len(unique_interface_monofrags_infolist_pdb1) + len(
-        unique_interface_monofrags_infolist_pdb2)
-    unique_total_interface_residue_count = len(pdb1_unique_chain_central_res_l) + len(pdb2_unique_chain_central_res_l)
-    percent_of_interface_covered = unique_matched_interface_monofrag_count / float(unique_total_interface_residue_count)
+    number_residues_with_fragments = len(pdb1_unique_interface_frag_info_l) + len(pdb2_unique_interface_frag_info_l)
+    if number_residues_with_fragments > 0:
+        multiple_frag_ratio = len(unique_fragment_indicies) / number_residues_with_fragments
+    else:
+        multiple_frag_ratio = 0
+    interface_residue_count = len(pdb1_unique_chain_central_res_l) + len(pdb2_unique_chain_central_res_l)
+    if interface_residue_count > 0:
+        percent_of_interface_covered = number_residues_with_fragments / float(interface_residue_count)
+    else:
+        percent_of_interface_covered = 0
 
     # Sum the total contribution from each fragment type on both sides of the interface
     fragment_content_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
@@ -346,12 +352,12 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
             fragment_content_d[index] = fragment_content_d[index]/len(unique_fragment_indicies)
 
     # f_l1a = "Residue-Level Summation Score:" + str(res_lev_sum_score) + "\n"
-    # f_l2 = "Unique Interface Fragment Match Count: " + str(unique_matched_interface_monofrag_count) + "\n"
-    # f_l3 = "Unique Interface Fragment Total Count: " + str(unique_total_interface_residue_count) + "\n"
+    # f_l2 = "Unique Interface Fragment Match Count: " + str(number_residues_with_fragments) + "\n"
+    # f_l3 = "Unique Interface Fragment Total Count: " + str(unique_interface_residue_count) + "\n"
     # f_l4 = "Percent of Interface Matched: " + str(percent_of_interface_covered) + "\n"
 
-    return res_lev_sum_score, center_lev_sum_score, unique_fragment_indicies, unique_matched_interface_monofrag_count, \
-        unique_total_interface_residue_count, percent_of_interface_covered, fragment_content_d
+    return res_lev_sum_score, center_lev_sum_score, unique_fragment_indicies, number_residues_with_fragments, multiple_frag_ratio, \
+        interface_residue_count, percent_of_interface_covered, fragment_content_d
 
 
 def calculate_interface_score(interface_path):
@@ -367,18 +373,19 @@ def calculate_interface_score(interface_path):
     pdb1_interface_sa = pdb1.get_chain_residue_surface_area(pdb1_central_chainid_resnum_l, free_sasa_exe_path)
     pdb2_interface_sa = pdb2.get_chain_residue_surface_area(pdb2_central_chainid_resnum_l, free_sasa_exe_path)
     interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
-    res_level_sum_score, center_level_sum_score, fragment_indices, num_residues_with_fragments, total_residues, \
-        percent_interface_fragment, fragment_content_d = \
+    res_level_sum_score, center_level_sum_score, fragment_indices, number_residues_with_fragments, multiple_frag_ratio,\
+        total_residues, percent_interface_fragment, fragment_content_d = \
         score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
 
-    return {interface_name: {'score': res_level_sum_score, 'central_score': center_level_sum_score,
-                             'fragment_cluster_ids': fragment_indices, 'unique_fragments': len(fragment_indices),
-                             'percent_fragment': len(fragment_indices)/float(total_residues),
-                             'number_fragment_residues': num_residues_with_fragments,
-                             'total_interface_residues': total_residues,
+    return {interface_name: {'nanohedra_score': res_level_sum_score, 'central_residue_score': center_level_sum_score,
+                             'fragment_cluster_ids': ','.join(fragment_indices), 'interface_area': interface_buried_sa,
+                             'multiple_fragment_ratio': multiple_frag_ratio,
+                             'number_fragment_residues': number_residues_with_fragments,
+                             'total_interface_residues': total_residues, 'number_fragments': len(fragment_indices),
+                             'percent_fragment': number_residues_with_fragments / float(total_residues),
                              'percent_interface_covered_with_fragment': percent_interface_fragment,
-                             'interface_area': interface_buried_sa, 'percent_interface_strand': fragment_content_d['2'],
                              'percent_interface_helix': fragment_content_d['1'],
+                             'percent_interface_strand': fragment_content_d['2'],
                              'percent_interface_coil': fragment_content_d['3'] + fragment_content_d['4']
                              + fragment_content_d['5']}}
 
