@@ -671,7 +671,9 @@ class PDB:
         for atom in self.chain(chain_id):
             if atom.is_CA():
                 sequence_list.append(atom.residue_type)
-        one_letter = ''.join([IUPACData.protein_letters_3to1[k.title()] for k in sequence_list if k.title() in IUPACData.protein_letters_3to1_extended])
+        one_letter = ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
+                              if k.title() in IUPACData.protein_letters_3to1_extended else '-' for k in sequence_list])
+
         return one_letter
 
     def update_chain_sequences(self):
@@ -681,15 +683,15 @@ class PDB:
         # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps.
         self.write('input.pdb')
         # os.system('cp %s input.pdb' % self.filepath)
-        os.system('%s/orient_oligomer_rmsd >> orient.out 2>&1 << eof\n%s/%s\neof' % (orient_dir, orient_dir, symm))
-        # os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' % (orient_dir, orient_dir, symm))
-        os.system('mv output.pdb %s_orient.pdb' % os.path.splitext(self.filepath)[0])
+        # os.system('%s/orient_oligomer_rmsd >> orient.out 2>&1 << eof\n%s/%s\neof' % (orient_dir, orient_dir, symm))
+        os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' % (orient_dir, orient_dir, symm))
+        os.system('mv output.pdb %s_orient.pdb' % os.path.splitext(self.filepath)[0])  # Todo this could be removed
         os.system('rm input.pdb')
         if os.path.exists('%s_orient.pdb' % os.path.splitext(self.filepath)[0]):
             if generate_oriented_pdb:
                 oriented_pdb = PDB()
                 oriented_pdb.readfile('%s_orient.pdb' % os.path.splitext(self.filepath)[0], remove_alt_location=True)
-                os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])
+                os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])  # Todo this could be removed
                 return oriented_pdb
             else:
                 return 0
