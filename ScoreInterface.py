@@ -15,7 +15,7 @@ from nanohedra.utils.GeneralUtils import euclidean_squared_3d
 main_script_path = os.path.dirname(os.path.realpath(__file__))
 
 # Fragment Database Directory Paths
-frag_db = os.path.join(main_script_path, 'data', 'databases', "fragment_db")
+frag_db = os.path.join(main_script_path, 'data', 'databases', 'fragment_db', 'biological_interfaces')
 monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
 ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
 intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
