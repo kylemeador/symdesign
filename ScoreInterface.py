@@ -418,9 +418,12 @@ if __name__ == '__main__':
     #     print(e)
 
     if 'debug' in sys.argv:
-        root = '/home/kmeador/yeates/fragment_database/all/all_interfaces'
-        paths = ['op/2OPI-1', 'jv/4JVT-1', 'gz/3GZD-1', 'ir/4IRG-1', 'in/2IN5-1']
-        interface_filepaths = list(map(os.path.join, root, paths))
+        # next_5 = '3ILK-1', '3G64-1', '3G64-4', '3G64-6', '3G64-23'
+        root = '/home/kmeador/yeates/fragment_database/all/all_interfaces/%s.pdb'
+        paths = ['2OPI-1', '4JVT-1', '3GZD-1', '4IRG-1', '2IN5-1']
+        # paths = ['op/2OPI-1.pdb', 'jv/4JVT-1.pdb', 'gz/3GZD-1.pdb', 'ir/4IRG-1.pdb', 'in/2IN5-1.pdb']
+        interface_filepaths = [root % '%s/%s' % (path[1:3].lower(), path) for path in paths]
+        # interface_filepaths = list(map(os.path.join, root, paths))
     else:
         interface_filepaths = get_all_pdb_file_paths(sys.argv[2])
 
