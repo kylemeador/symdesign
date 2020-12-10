@@ -106,15 +106,15 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     complete_int1_ghost_frag_l = []
     for frag1 in int_frags_1:
         # print(frag1)
-        print('frag1:\n')
-        print_atoms(frag1.all_atoms)  # TODO
+        # print('frag1:\n')
+        # print_atoms(frag1.all_atoms)  # TODO
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
         print('complete_monofrag1:\n')
         print_atoms(complete_monofrag1.pdb.all_atoms)
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
             ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone)
-        print('complete_monofrag1_ghostfrag_list:\n')
         if complete_monofrag1_ghostfrag_list:
+            print('complete_monofrag1_ghostfrag_list:\n')
             print_atoms(complete_monofrag1_ghostfrag_list[0].all_atoms)  # TODO
             print(complete_monofrag1_ghostfrag_list)  # I don't think this is working (None). Must be something missing from the input pdb (monofrag1 or kdtree_oligomer1_backbone)
             # complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list) # TODO KM MOD
@@ -130,11 +130,13 @@ def score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_unique_l, pdb2_centr
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
     complete_int2_frag_l, complete_surf_frag_guide_coord_l = [], []
     for frag2 in int_frags_2:
-        print(frag2.all_atoms)
+        # print(frag2.all_atoms)
         complete_monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
+        print('complete_monofrag2:\n')
+        print_atoms(complete_monofrag2.pdb.all_atoms)
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
-        print(complete_monofrag2_guide_coords)
         if complete_monofrag2_guide_coords is not None:
+            print(complete_monofrag2_guide_coords)
             complete_int2_frag_l.append(complete_monofrag2)
             # complete_surf_frag_guide_coord_l.append(complete_monofrag2_guide_coords)
 
@@ -407,7 +409,7 @@ if __name__ == '__main__':
     logger = start_log(name=os.path.basename(__file__), level=2)
     interface_reference_d = unpickle(sys.argv[1])
     bio_reference_l = interface_reference_d['bio']
-    # print(bio_reference_l[:5])
+    print(bio_reference_l[:5])
     # try:
     #     print('1:', '1AB0-1' in bio_reference_l)
     #     print('2:', '1AB0-2' in bio_reference_l)

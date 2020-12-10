@@ -810,10 +810,11 @@ def find_interface_residues(pdb1, pdb2, dist=8):
 
 
 def print_atoms(atom_list):  # DEBUG
-    for atom in atom_list:
-        # for atom in residue:
-        logger.info(str(atom))
-        print(str(atom))
+    print(''.join(str(atom) for atom in atom_list))
+    # for atom in atom_list:
+    #     for atom in residue:
+    #     logger.info(str(atom))
+    #     print(str(atom))
 
 
 ##################
