@@ -300,6 +300,9 @@ logger = start_log(name=__name__, handler=3, level=1)
 @handle_errors_f(errors=(FileNotFoundError, ))
 def unpickle(filename):
     """Unpickle (deserialize) and return a python object located at filename"""
+    if '.pkl' not in filename:
+        filename = '%s.pkl' % filename
+
     with open(filename, 'rb') as serial_f:
         new_object = pickle.load(serial_f)
 
