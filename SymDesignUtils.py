@@ -623,6 +623,118 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
     return file_name  # if list then will only return the last file
 
 
+def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
+    """Downloads PISA .xml files from http://www.ebi.ac.uk/pdbe/pisa/cgi-bin/
+    Args:
+        pdb (str,list): Either a single pdb code, a list of pdb codes, or a file with pdb codes, comma or newline delimited
+        pisa_type (str): Either 'multimers', 'interfaces', or 'multimer' to designate the PISA File Source
+    Keyword Args:
+        out_path=os.getcwd() (str): Path to download PISA files
+        force_singles=False (bool): Whether to force downloading of one file at a time
+    Returns:
+        None
+    """
+    import xml.etree.ElementTree as ETree
+    # pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}
+    pisa_ref_d = {'multimers': {'ext': 'multimers.xml', 'source': 'pisa', 'mod': ''},
+                  'interfaces': {'ext': 'interfaces.xml', 'source': 'pisa', 'mod': ''},
+                  'multimer': {'ext': 'bioassembly.pdb', 'source': 'pdb', 'mod': ':1,1'}, 'pisa': '.pkl'}
+
+    def retrieve_pisa(pdb_code, _type, filename):
+        p = subprocess.Popen(['wget', '-q', '-O', filename, 'https://www.ebi.ac.uk/pdbe/pisa/cgi-bin/%s.%s?%s' %
+                              (_type, pisa_ref_d[_type]['source'], pdb_code)])
+        if p.returncode != 0:  # Todo if p.returncode
+            return False
+        else:
+            return True
+
+    def separate_entries(tree, ext, out_path=os.getcwd()):
+        for pdb_entry in tree.findall('pdb_entry'):
+            if pdb_entry.find('status').text.lower() == 'ok':
+                continue
+            # PDB code is uppercase when returned from PISA interfaces, but lowercase when returned from PISA Multimers
+            filename = os.path.join(out_path, '%s_%s' % (pdb_entry.find('pdb_code').text.upper(), ext))
+            add_root = ETree.Element('pisa_%s' % pisa_type)
+            add_root.append(pdb_entry)
+            new_xml = ETree.ElementTree(add_root)
+            new_xml.write(open(filename, 'w'), encoding='unicode')  # , pretty_print=True)
+            successful_downloads.append(pdb_entry.find('pdb_code').text.upper())
+
+    def process_download(pdb_code, file):
+        # success = get_pisa(modified_pdb_code, pisa_type, file)
+        nonlocal fail
+        nonlocal failures
+        if retrieve_pisa(pdb_code, pisa_type, file):  # download was successful
+            # Check to see if <status>Ok</status> for the download
+            etree = ETree.parse(file)
+            if force_singles:
+                if etree.find('status').text.lower() == 'ok':
+                    failures.extend(modified_pdb_code.split(','))
+                    # failures += ', '.join(modified_pdb_code.split(',')) + ', '
+            else:
+                separate_entries(etree, pisa_ref_d[pisa_type]['ext'])
+        else:  # download failed
+            fail = True
+            failures.extend(modified_pdb_code.split(','))
+            # failures += ', '.join(modified_pdb_code.split(',')) + ', '
+
+    if pisa_type not in pisa_ref_d:
+        logger.error('%s is not a valid PISA file type' % pisa_type)
+        sys.exit()
+    if pisa_type == 'multimer':
+        force_singles = True
+
+    fail = False
+    clean_list = to_iterable(pdb)
+    count, total_count = 0, 0
+    multiple_mod_code, successful_downloads, failures = [], [], []
+    for pdb in clean_list:
+        pdb_code = pdb[0:4].lower()
+        file = os.path.join(out_path, '%s_%s' % (pdb_code.upper(), pisa_ref_d[pisa_type]['ext']))
+        if file not in os.listdir(out_path):
+            if not force_singles:  # concatenate retrieval
+                count += 1
+                multiple_mod_code.append(pdb_code)
+                if count == 50:
+                    count = 0
+                    total_count += count
+                    logger.info('Iterations: %d' % total_count)
+                    modified_pdb_code = ','.join(multiple_mod_code)
+                else:
+                    continue
+            else:
+                modified_pdb_code = '%s%s' % (pdb_code, pisa_ref_d[pisa_type]['mod'])
+                logger.info('Fetching: %s' % pdb_code)
+
+            process_download(modified_pdb_code, file)
+            multiple_mod_code = []
+
+    # Handle remaining codes in concatenation instances where the number remaining is < 50
+    if count > 0 and multiple_mod_code != list():
+        modified_pdb_code = ','.join(multiple_mod_code)
+        process_download(modified_pdb_code, file)
+
+    # Check for missing or duplicated downloads duplicates shouldn't be possible now
+    # duplicates = []
+    for pdb_code in successful_downloads:
+        if pdb_code in clean_list:
+        # try:
+            clean_list.remove(pdb_code)
+        # except ValueError:
+        #     duplicates.append(pdb_code)
+    # if duplicates:
+    #     logger.info('These files may be duplicates:', ', '.join(duplicates))
+
+    if clean_list != list():
+        fail = True
+        failures.extend(clean_list)
+        failures = remove_duplicates(failures)
+
+    if fail:
+        logger.warning('Download PISA Failures:\n[%s]' % failures)
+        io_save(failures)
+
+
 def fetch_pdb(code, location=PUtils.pdb_db):
     """Fetch PDB object of each chain from PDBdb or PDB server
 
@@ -1709,7 +1821,14 @@ def to_iterable(_obj):
         it_list = it.split(',')
         clean_list.extend([_it.strip() for _it in it_list])
 
-    return clean_list
+    # remove duplicates but keep the order
+    return remove_duplicates(clean_list)
+
+
+def remove_duplicates(_iter):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in _iter if not (x in seen or seen_add(x))]
 
 
 def write_shell_script(command, name='script', outpath=os.getcwd(), additional=None, shell='bash'):
