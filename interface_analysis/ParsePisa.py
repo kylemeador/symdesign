@@ -5,8 +5,8 @@ from collections import defaultdict
 from copy import deepcopy
 
 import align
-import functions as fc
 from lxml import etree
+from symdesign.SymDesignUtils import download_pisa
 
 
 def parse_pisa_multimers_xml(xml_file_path):  # , download_structures=False, outdir=None, force_rerun=False):
@@ -110,7 +110,7 @@ def parse_pisa_multimers_xml(xml_file_path):  # , download_structures=False, out
                     adder['pdb_BA'] = pdb_biomol
                     ############################################################################################
                     # KM added 8/27/19
-                    interface_list = {}
+                    interface_d = {}
                     interfaces = assembly.find('interfaces')
                     # for i in interfaces:
                     #     interfaces = i.findall('interface')
@@ -120,9 +120,9 @@ def parse_pisa_multimers_xml(xml_file_path):  # , download_structures=False, out
                             int_id = int(interface.find('id').text)
                             nocc = int(interface.find('nocc').text)
                             diss = int(interface.find('diss').text)
-                            interface_list[int_id] = {'nocc': nocc, 'diss': diss}
+                            interface_d[int_id] = {'nocc': nocc, 'diss': diss}
 
-                    adder['interfaces'] = interface_list
+                    adder['interfaces'] = interface_d
                     ############################################################################################
                     # if complex_id in pisa:
                     # if (set_id, complex_id) in pisa:
@@ -247,16 +247,16 @@ def parse_pisa_interfaces_xml(xml_file_path):
     return interface_dict, chain_resi_dict
 
 
-def parse_pisas(pdb, download=False):
-    # Parse PISA files for individual PDB codes
+def parse_pisas(pdb_code, download=False, out_path=os.getcwd()):
+    """Parse PISA files for a given PDB code"""
     files = ['multimers', 'interfaces']
-    path = os.getcwd() + pdb.upper()
+    path = os.path.join(out_path, pdb_code.upper())
     if download:
         for i in files:
-            fc.download_pisa(pdb, i)
+            download_pisa(pdb_code, i)
 
-    multimers = parse_pisa_multimers_xml(path + '_multimers.xml')
-    interfaces, chain_data = parse_pisa_interfaces_xml(path + '_interfaces.xml')
+    multimers = parse_pisa_multimers_xml('%s_multimers.xml' % path)
+    interfaces, chain_data = parse_pisa_interfaces_xml('%s_interfaces.xml' % path)
 
     return multimers, interfaces, chain_data
 
