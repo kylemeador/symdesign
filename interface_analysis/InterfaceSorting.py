@@ -1,15 +1,112 @@
+import argparse
 import os
+from copy import deepcopy
+from itertools import chain as iter_chain
 
 import ParsePisa as pp
-from symdesign.SymDesignUtils import pickle_object, unpickle, get_all_pdb_file_paths, to_iterable
+from symdesign.SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, to_iterable, read_pdb, \
+    fill_pdb, retrieve_pdb_file_path, download_pisa
 
 # Globals
 pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}
 
 
+def return_pdb_interface(pdb_code, interface_id, full_chain=True, db=False):
+    try:
+        # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
+        # This makes flexible with MySQL
+        if not db:
+            pdb_file_path = retrieve_pdb_file_path(pdb_code, directory=pdb_directory)
+            pisa_file_path = retrieve_pisa_file_path(pdb_code, directory=pisa_directory)
+            source_pdb = read_pdb(pdb_file_path)
+            pisa_data = unpickle(pisa_file_path)  # Get PISA data
+        else:
+            print("Connection to MySQL DB not yet supported")
+            exit()
+
+        interface_data = pisa_data['interfaces']
+        interface_chain_data = pisa_data['interfaces'][interface_id]['chain_data']
+        interface = extract_interface(pdb, interface_chain_data, full_chain=full_chain)
+
+        return interface
+
+    except Exception as e:
+        print(e.__doc__)
+        print(e, pdb_code)
+
+        return pdb_code
+
+
+def extract_interface(pdb, chain_data_d, full_chain=True):
+    """
+    'interfaces': {interface_ID: {interface stats, {chain data}}, ...}
+        Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211,
+             'chain_data': {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                                't_vec': [0.0, 0.0, 0.0], 'num_atoms': 104, 'int_res': {'87': 23.89, '89': 45.01, ...},
+                            2: ...}},
+             2: {'occ': ..., },
+             'all_ids': {interface_type: [interface_id1, matching_id2], ...}
+            } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
+
+    """
+    # if one were trying to map the interface fragments created in a fragment extraction back to the pdb, they would
+    # want to use the interface in interface_data and the chain id (renamed from letter to ID #) to find the chain and
+    # the translation from the pisa.xml file
+    # pdb_code, subdirectory = return_and_make_pdb_code_and_subdirectory(pdb_file_path)
+    # out_path = os.path.join(os.getcwd(), subdirectory)
+    # try:
+    #     # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
+    #     # This makes flexible with MySQL
+    #     source_pdb = read_pdb(pdb_file_path)
+    #     pisa_data = unpickle(pisa_file_path)  # Get PISA data
+    #     interface_data = pisa_data['interfaces']
+    #     # interface_data, chain_data = pp.parse_pisa_interfaces_xml(pisa_file_path)
+    #     for interface_id in interface_data:
+    #         if not interface_id.is_digit():  # == 'all_ids':
+    #             continue
+    # interface_pdb = PDB.PDB()
+    temp_names = ('.', ',')
+    interface_chain_pdbs = []
+    temp_chain_d = {}
+    for temp_name_idx, chain_id in enumerate(chain_data_d):
+        # chain_pdb = PDB.PDB()
+        chain = chain_data_d[chain_id]['chain']
+        if not chain:  # for instances of ligands, stop process, this is not a protein-protein interface
+            break
+        else:
+            if full_chain:  # get the entire chain
+                interface_atoms = deepcopy(pdb.chain(chain))
+            else:  # get only the specific residues at the interface
+                residues = chain_data_d[chain_id]['int_res']
+                interface_atoms = []
+                for residue_number in residues:
+                    residue_atoms = pdb.getResidueAtoms(chain, residue_number)
+                    interface_atoms.extend(deepcopy(residue_atoms))
+                # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
+            chain_pdb = fill_pdb(interface_atoms)
+            # chain_pdb.read_atom_list(interface_atoms)
+
+            rot = chain_data_d[chain_id]['r_mat']
+            trans = chain_data_d[chain_id]['t_vec']
+            chain_pdb.apply(rot, trans)
+            chain_pdb.rename_chain(chain, temp_names[temp_name_idx])  # ensure that chain names are not the same
+            temp_chain_d[temp_names[temp_name_idx]] = str(chain_id)
+            interface_chain_pdbs.append(chain_pdb)
+            # interface_pdb.read_atom_list(chain_pdb.all_atoms)
+
+    interface_pdb = fill_pdb(iter_chain.from_iterable([chain_pdb.all_atoms for chain_pdb in interface_chain_pdbs]))
+    if len(interface_pdb.chain_id_list) == 2:
+        for temp_name in temp_chain_d:
+            interface_pdb.rename_chain(temp_name, temp_chain_d[temp_name])
+
+    return interface_pdb
+
+
 # Todo PISA path
-def get_pisa_filepath(pdb_code, directory='/home/kmeador/yeates/fragment_database/all/pisa_files', file_type='pisa'):
-    """Returns the PISA path that corresponds to the PDB code from the local PISA Database"""
+def retrieve_pisa_file_path(pdb_code, directory='/home/kmeador/yeates/fragment_database/all/pisa_files', file_type='pisa'):
+    """Returns the PISA path that corresponds to the PDB code from the local PISA Database.
+    Attempts a download if the files are not found
+    """
     if file_type in pisa_type_extensions:
         pdb_code = pdb_code.upper()
         sub_dir = pdb_code[1:3].lower()
@@ -17,14 +114,21 @@ def get_pisa_filepath(pdb_code, directory='/home/kmeador/yeates/fragment_databas
         specific_file = ' %s_%s%s' % (pdb_code, file_type, pisa_type_extensions[file_type])
         if os.path.exists(os.path.join(root_path, specific_file)):
             return os.path.join(root_path, specific_file)
-        else:  # attempt to make the file if not pickled
+        else:  # attempt to make the file if not pickled or download if requisite files don't exist
             if file_type == 'pisa':
-                status = extract_pisa_files_and_pickle(root_path, pdb_code)
-                if status:
-                    return os.path.join(root_path, specific_file)
-                else:  # try to download required files
-                    dummy = True
-                    # TODO implement while loop for the download in the case file_type != 'pisa' or status = False
+                downloaded = False
+                while True:
+                    status = extract_pisa_files_and_pickle(root_path, pdb_code)
+                    if status:
+                        return os.path.join(root_path, specific_file)
+                    else:  # try to download required files
+                        if not downloaded:
+                            logger.info('Attempting to download PISA files')
+                            for pisa_type in pisa_type_extensions:
+                                download_pisa(pdb, pisa_type, out_path=directory)
+                            downloaded = True
+                        else:
+                            break
 
     return None
 
@@ -63,7 +167,7 @@ def set_up_interface_dict(pdb_interface_codes):
     return int_dict
 
 
-def sort_interfaces_by_contact_type(pdb, pisa_d, interface_number_set, assembly_confirmed):
+def sort_pdb_interfaces_by_contact_type(pisa_d, interface_number_set, assembly_confirmed):
     """From a directory of interface pdbs with structure interface_pdbs/ab/1ABC-3.pdb
         grab the multimeric pisa xml file and search for all biological assemblies
 
@@ -89,9 +193,9 @@ def sort_interfaces_by_contact_type(pdb, pisa_d, interface_number_set, assembly_
 
         other_candidates = []
         for candidate_int in possible_bio_int:
-            for rep in pisa_interfaces['all_ids']:
-                if candidate_int in pisa_interfaces['all_ids'][rep]:
-                    other_candidates += pisa_interfaces['all_ids'][rep]
+            for int_type in pisa_interfaces['all_ids']:
+                if candidate_int in pisa_interfaces['all_ids'][int_type]:  # check if the interface has matching interfaces
+                    other_candidates += pisa_interfaces['all_ids'][int_type]
         all_possible_bio_int = set(possible_bio_int) | set(other_candidates)
 
         # Finally, check if the possible biological_interfaces have confirmed assemblies
@@ -116,7 +220,7 @@ def sort_interfaces_by_contact_type(pdb, pisa_d, interface_number_set, assembly_
             final_unknown_bio_int = all_possible_bio_int
             final_xtal_int = interface_number_set - final_unknown_bio_int  # all interface identified, minus possible BA
 
-    return {pdb: {'bio': final_bio_int, 'xtal': final_xtal_int, 'unknown_bio': final_unknown_bio_int}}
+    return {'bio': final_bio_int, 'xtal': final_xtal_int, 'unknown_bio': final_unknown_bio_int}
 
 
 def sort_pdbs_to_uniprot_d(pdbs, pdb_uniprot_d):
@@ -199,51 +303,69 @@ def process_uniprot_entry(uniprot_id, unp_d, pdb_uniprot_info, min_resolution_th
 
 
 if __name__ == '__main__':
-    # pisa_dir = '/home/kmeador/yeates/fragment_database/all/pisa_files'
-    # load_file = 'correct_these_pisa.txt'
-    # with open(os.path.join(pisa_dir, load_file), 'r') as f:
-    #     all_lines = f.readlines()
-    #     clean_lines = []
-    #     for line in all_lines:
-    #         line = line.strip().upper()
-    #         clean_lines.append(line)
-    #
-    # re_extract = []
-    # for pdb_code in clean_lines:
-    #     if pdb_code not in interface_dict:
-    #         re_extract.append(pdb_code)
-    # set_clean = set(clean_lines)
-    # set_extract = set(re_extract)
-    # print(len(set(clean_lines)), len(set(re_extract)), set_extract)
-    # print(clean_lines[:3])
-    # print(interface_dict['2YV0'])
-    # TODO Figure out how I made the all_interfaces PDB set. I definitely used PISA, but I have a script somewhere.
-    #  I should make this modular so that I can swap out the writes and reads to use a MySQL. Figure out how to query
-    #  PDB using under3A no multimodel no mmcif, no bad pisa file reliably.
+
+    parser = argparse.ArgumentParser(description='Extract Chain/Chain Interfaces from a PDB or PDB Library\n')
+    parser.add_argument('-f', '--file_list', type=str, help='path/to/pdblist.file. Can be newline or comma separated.')
+    parser.add_argument('-d', '--download', type=bool, help='Whether files should be downloaded. Default=False',
+                        default=False)
+    parser.add_argument('-p', '--input_pdb_directory', type=str, help='Where should reference PDB files be found? '
+                                                                      'Default=CWD', default=os.getcwd())
+    parser.add_argument('-i', '--input_pisa_directory', type=str, help='Where should reference PISA files be found? '
+                                                                       'Default=CWD', default=os.getcwd())
+    parser.add_argument('-o', '--output_directory', type=str, help='Where should interface files be saved?')
+    args = parser.parse_args()
+
+    logger = start_log(name=os.path.basename(__file__), level=2)
+
+    # Input data/files
+    pdb_directory = '/databases/pdb'  # ends with .ent not sub_directoried
+    pisa_directory = '/home/kmeador/yeates/fragment_database/all/pisa_files'
+    current_interface_file_path = '/yeates1/kmeador/fragment_database/current_pdb_lists/'  # Todo parameterize
+    # pdb_directory = '/yeates1/kmeador/fragment_database/all_pdb'  # sub directoried
+    # pdb_directory = 'all_pdbs'
+
+    # TODO
+    #  Figure out how to query PDB using under3A no multimodel no mmcif, no bad pisa file reliably.
     #  Finally see if there is an update to QSBio verified assemblies. Make a script to process these
 
     # Variables
     pdb_resolution_threshold = 3.0
     write_to_file = True  # TODO MySQL DB option would make this false
 
-    # Input data/files
-    current_interface_file_path = '/yeates1/kmeador/fragment_database/current_pdb_lists/'
-    # TODO how did I get this? turn from a file to a MySQL db method
+    all_pdbs_of_interest = 'under3A_protein_no_multimodel_no_mmcif_no_bad_pisa.txt'  # Todo parameterize
+    all_protein_file = os.path.join(current_interface_file_path, all_pdbs_of_interest)
+    pdbs_of_interest = to_iterable(all_protein_file)
+
+    # Current
     interfaces_dir = '/yeates1/kmeador/fragment_database/all_interfaces'
-    all_pdb_paths = get_all_pdb_file_paths(interfaces_dir)
+    all_interface_pdb_paths = get_all_pdb_file_paths(interfaces_dir)
     pdb_interface_codes = list(file_ext_split[0]
-                               for file_ext_split in map(os.path.splitext, map(os.path.basename, all_pdb_paths)))
-    interface_d = set_up_interface_dict(pdb_interface_codes)
+                               for file_ext_split in map(os.path.splitext, map(os.path.basename, all_interface_pdb_paths)))
+    pdb_interface_d = set_up_interface_dict(pdb_interface_codes)
+    # Optimal
+    pdb_interface_file_name = 'AllPDBInterfaces'
+    pdb_interface_file = os.path.join(current_interface_file_path, pdb_interface_file_name)
+    if os.path.exists(pdb_interface_file):  # retrieve the pdb, [interfaces] dictionary
+        pdb_interface_d = unpickle(pdb_interface_file)
+    else:  # make the dictionary
+        pdb_interface_d = {}
+        for pdb_code in pdbs_of_interest:
+            pisa_d = unpickle(retrieve_pisa_file_path(pdb_code, directory=pisa_directory))
+            interface_data = pisa_d['interfaces']
+            for interface_id in interface_data:
+                if interface_id.is_digit():
+                    if pdb_code in pdb_interface_d:
+                        pdb_interface_d[pdb_code].add(interface_id)
+                    else:
+                        pdb_interface_d[pdb_code] = {interface_id}
 
-    all_pdbs_dir = '/databases/pdb'  # ends with .ent not sub_directoried # TODO Unused
-    # all_pdbs_dir = '/yeates1/kmeador/fragment_database/all_pdb'
-    # all_pdbs_dir = 'all_pdbs'
+        pickle_object(pdb_interface_d, pdb_interface_file)
 
-    qsbio_file_name = 'QSbio_GreaterThanHigh_Assemblies'  # .pkl'
+    qsbio_file_name = 'QSbio_GreaterThanHigh_Assemblies'  # .pkl'  # Todo parameterize
     qsbio_file = os.path.join(current_interface_file_path, qsbio_file_name)
     qsbio_confirmed_d = unpickle(qsbio_file)
 
-    qsbio_monomers_file_name = 'QSbio_Monomers.csv'
+    qsbio_monomers_file_name = 'QSbio_Monomers.csv'  # Todo parameterize
     qsbio_monomers_file = os.path.join(current_interface_file_path, qsbio_monomers_file_name)
     # with open(qsbio_monomers_file, 'r') as f:
     #     all_lines = f.readlines()
@@ -258,35 +380,36 @@ if __name__ == '__main__':
     # representatives_90_file = os.path.join(current_interface_file_path, representatives_90_file_name)
     # rep_90 = to_iterable(representatives_90_file)
 
-    all_pdbs_of_interest = 'under3A_protein_no_multimodel_no_mmcif_no_bad_pisa.txt'
-    all_protein_file = os.path.join(current_interface_file_path, all_pdbs_of_interest)
-    pdb_of_interest = to_iterable(all_protein_file)
-
-    all_pdb_uniprot_file_name = '200206_MostCompleteAllPDBSpaceGroupUNPResInfo'  # .pkl'
+    all_pdb_uniprot_file_name = '200206_MostCompleteAllPDBSpaceGroupUNPResInfo'  # .pkl'  # Todo parameterize
     all_pdb_uniprot_file = os.path.join(current_interface_file_path, all_pdb_uniprot_file_name)
     pdb_uniprot_info = unpickle(all_pdb_uniprot_file)
+    # TODO integrate the construction of this dictionary
+    #  {'path': '/home/kmeador/yeates/fragment_database/all/all_pdbs/kn/3KN7.pdb',
+    #   'cryst': {'space': 'P 21 21 2', 'a_b_c': (106.464, 75.822, 34.109), 'ang_a_b_c': (90.0, 90.0, 90.0)},
+    #   'ref': {'A': {'db': 'UNP', 'accession': 'P35755'}}}
 
     # Output data/files
-    sorted_file_name = 'PDBInterfacesSorted'
-    uniprot_heterooligomer_interface_file_name = 'UniquePDBHeteroOligomerInterfaces'  # was 200121_FinalInterfaceDict
-    uniprot_homooligomer_interface_file_name = 'UniquePDBHomoOligomerInterfaces'  # was 200121_FinalInterfaceDict
-    uniprot_unknown_bio_interface_file_name = 'UniquePDBUnknownOligomerInterfaces'  # was 200121_FinalInterfaceDict
-    uniprot_xtal_interface_file_name = 'UniquePDBXtalInterfaces'  # was 200121_FinalInterfaceDict
-    unique_chains_file_name = 'UniquePDBChains'  # was 200121_FinalIntraDict
+    sorted_file_name = 'PDBInterfacesSorted'  # Todo parameterize
+    uniprot_heterooligomer_interface_file_name = 'UniquePDBHeteroOligomerInterfaces'  # was 200121_FinalInterfaceDict  # Todo parameterize
+    uniprot_homooligomer_interface_file_name = 'UniquePDBHomoOligomerInterfaces'  # was 200121_FinalInterfaceDict  # Todo parameterize
+    uniprot_unknown_bio_interface_file_name = 'UniquePDBUnknownOligomerInterfaces'  # was 200121_FinalInterfaceDict  # Todo parameterize
+    uniprot_xtal_interface_file_name = 'UniquePDBXtalInterfaces'  # was 200121_FinalInterfaceDict  # Todo parameterize
+    unique_chains_file_name = 'UniquePDBChains'  # was 200121_FinalIntraDict  # Todo parameterize
 
     # TODO Back-end: Figure out how to convert these sets into MySQL tables so that the PDB files present are
     #  easily identified based on their assembly. Write load PDB from MySQL function. Also ensure I have a standard
     #  query format to grab different table schemas depending on the step of the fragment processing.
 
+    interface_sort_d = {}
     missing_pisa_paths = []
-    for pdb in interface_d:
-        pisa_path = get_pisa_filepath(pdb)
+    for pdb_code in pdb_interface_d:
+        pisa_path = retrieve_pisa_file_path(pdb_code)
         if pisa_path:
             pisa_d = unpickle(pisa_path)
-            interface_sort_d = sort_interfaces_by_contact_type(pdb, pisa_d, interface_d[pdb],
-                                                               set(qsbio_confirmed_d[pdb]))
+            interface_sort_d[pdb_code] = sort_pdb_interfaces_by_contact_type(pisa_d, pdb_interface_d[pdb_code],
+                                                                             set(qsbio_confirmed_d[pdb_code]))
         else:
-            missing_pisa_paths.append(pdb)
+            missing_pisa_paths.append(pdb_code)
 
     all_missing_biological = []
     all_biological = []
@@ -364,7 +487,7 @@ if __name__ == '__main__':
     k = 0
     for entry in missing_from_final:
         try:
-            i = pdb_of_interest.index()
+            i = pdbs_of_interest.index()
         except:
             k += 1
     print('Infact, there are', k, 'missing from proteins of interest in the first place')
@@ -381,7 +504,7 @@ if __name__ == '__main__':
 
     # NEXT Sorting the interfaces by UniProtID
     # Gather all UniProtIDs from the Representative file specified
-    uniprot_sorted, no_unp_code = sort_pdbs_to_uniprot_d(pdb_of_interest, pdb_uniprot_info)
+    uniprot_sorted, no_unp_code = sort_pdbs_to_uniprot_d(pdbs_of_interest, pdb_uniprot_info)
     print('Total UniProtID\'s added: %d\nTotal without UniProtID: %s' % (len(uniprot_sorted), len(no_unp_code)))  # \nThose missing chain info: %d no_chains,
 
     uniprot_master = {uniprot_id: process_uniprot_entry(uniprot_id, uniprot_sorted[uniprot_id], pdb_uniprot_info,

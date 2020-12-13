@@ -135,53 +135,57 @@ def parse_pisa_multimers_xml(xml_file_path):  # , download_structures=False, out
     return pisa
 
 
-def parse_pisa_interfaces_xml(xml_file_path):
+def parse_pisa_interfaces_xml(file_path):
     """Retrieve PISA information from an XML results file
     Args:
-        xml_file_path (str): path to xml of pdb of interest
+        file_path (str): path to xml of pdb of interest
 
     Returns:
-        interface_dict (dict): {InterfaceID: {Stats, Chain Data}}
-                               Chain Data - {ChainID: {Name: , Rot: , Trans: , AtomCount: , Residues: {Num: , BSA: }}
-            Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211, 'chain_data':
-            {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], 't_vec': [0.0, 0.0, 0.0],
-             'num_atoms': 104, 'int_res': {'87': 23.89, '89': 45.01, ...}, 2: {...}, 2: {'occ': ..., }}
+        interface_d (dict): {InterfaceID: {Stats, Chain Data}}
+            Chain Data - {ChainID: {Name: , Rot: , Trans: , AtomCount: , Residues: {Num: , BSA: }}
+            Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211,
+                 'chain_data': {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                                    't_vec': [0.0, 0.0, 0.0], 'num_atoms': 104,
+                                    'int_res': {'87': 23.89, '89': 45.01, ...},
+                                2: ...}},
+                 2: {'occ': ..., },
+                 'all_ids': {interface_type: [interface_id1, matching_id2], ...}
+                } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
 
-        chain_resi_dict (dict): Per Chain, Residue dictionary
-               {Chain: {Residue Data}}
+        chain_residue_d (dict): {chain: {residue data}}
             Ex: {'C': {4: {'aa': 'ALA', 'asa': 50.172800005}, 5: {'aa': ....}}}
 
     This finds all the unique interfaces by the interface 'type' it then only returns those interfaces that are unique
     """
     parser = etree.XMLParser(ns_clean=True)
-    tree = etree.parse(xml_file_path, parser)
+    tree = etree.parse(file_path, parser)
     root = tree.getroot()
     # coord_list = ['i', 'j', 'k']
 
     pdb = root.find('pdb_entry')
-    interface_dict, chain_resi_dict, types, chain_count = {}, {}, {}, []
+    interface_d, chain_residue_d, interface_types = {}, {}, {}
+    observed_chains = {}
     interfaces = pdb.findall('interface')
     for interface in interfaces:
         # Remove redundant interfaces
         int_id = int(interface.find('id').text)
         int_type = int(interface.find('type').text)
-        if int_type in types:
-            types[int_type].append(int_id)
+        if int_type in interface_types:
+            interface_types[int_type].append(int_id)
             continue
         else:
-            types[int_type] = [int_id]
+            interface_types[int_type] = [int_id]
         n_occ = int(interface.find('n_occ').text)
         area = float(interface.find('int_area').text)
         solv_en = float(interface.find('int_solv_en').text)
         stabilization_en = float(interface.find('stab_en').text)  # solv_en - h_bonds(~0.5) - salt_bridges(~0.3)
 
         # bool_chain_dict = {}
-        interface_dict[int_id] = {'occ': n_occ, 'area': area, 'solv_en': solv_en, 'stab_en': stabilization_en,
-                                  'chain_data': {}}
+        interface_d[int_id] = {'occ': n_occ, 'area': area, 'solv_en': solv_en, 'stab_en': stabilization_en,
+                               'chain_data': {}}
 
         # residue_default_dict = {'seq_num': 0, 'aa': 'x', 'asa': -1, 'bsa': -1}
         molecules = interface.findall('molecule')
-        # z = 1
         for z, molecule in enumerate(molecules):
             chain_id = molecule.find('chain_id').text
             # remove ligands from interface analysis
@@ -199,19 +203,13 @@ def parse_pisa_interfaces_xml(xml_file_path):
                 #     unit_cell.append(int(molecule.find('cell_' + i).text))
                 # num_residues = molecule.find('int_nres').text
 
-                # chain_count[chain_id] += 1
-                # if chain_count[chain_id] == 1:
-                #     populate = False
-                # else:
-                #     populate = False
-
                 int_residues = {}
                 resi = molecule.findall('residues')
                 for i in resi:
                     residues = i.findall('residue')
                     # if populate:
-                    if chain_id not in chain_count:
-                        chain_count.append(chain_id)
+                    if chain_id not in observed_chains:
+                        observed_chains.add(chain_id)
                         residue_dict = {}
                         for residue in residues:
                             seq_num = int(residue.find('seq_num').text)
@@ -219,14 +217,14 @@ def parse_pisa_interfaces_xml(xml_file_path):
                             asa = round(float(residue.find('asa').text), 2)
                             # bsa = float(residue.find('bsa').text)
                             residue_dict[seq_num] = {'aa': aa, 'asa': asa}  # , 'bsa': bsa}
-                        chain_resi_dict[chain_id] = residue_dict
+                        chain_residue_d[chain_id] = residue_dict
 
                     for residue in residues:
                         bsa = round(float(residue.find('bsa').text), 2)
                         if bsa != 0:
                             int_residues[int(residue.find('seq_num').text)] = bsa
                             # int_residues.append((int(residue.find('seq_num').text), bsa))
-                interface_dict[int_id]['chain_data'][z] = {'chain': chain_id, 'r_mat': position_matrix,
+                interface_d[int_id]['chain_data'][z] = {'chain': chain_id, 'r_mat': position_matrix,
                                                            't_vec': translation_vector, 'num_atoms': num_atoms,
                                                            'int_res': int_residues}  # 'num_resi': num_residues,
                 #                                          'symop_no': sym_op, 'cell': unit_cell}
@@ -234,17 +232,12 @@ def parse_pisa_interfaces_xml(xml_file_path):
                 #                       'num_atoms': num_atoms, 'int_res': int_residues}
                 #                       'symop_no': sym_op, 'cell': unit_cell, 'num_resi': num_residues}
             else:
-                interface_dict[int_id]['chain_data'][z] = {'chain': False, 'ligand': chain_id}
+                interface_d[int_id]['chain_data'][z] = {'chain': False, 'ligand': chain_id}
                 # bool_chain_dict[z] = {'chain': False, 'ligand': chain_id}
-            # z += 1
-    # final_types = []
-    # for int_type in types:
-    #     final_types[types[int_type][0]] = types[int_type]
-    # interface_dict['all_ids'] = final_types
 
-    interface_dict['all_ids'] = {types[int_type][0]: types[int_type] for int_type in types}
+    interface_d['all_ids'] = {interface_types[int_type][0]: interface_types[int_type] for int_type in interface_types}
 
-    return interface_dict, chain_resi_dict
+    return interface_d, chain_residue_d
 
 
 def parse_pisas(pdb_code, download=False, out_path=os.getcwd()):
