@@ -922,7 +922,7 @@ if __name__ == '__main__':
                 source_pose.reorder_chains()
                 source_pose.atom_sequences = Ams.get_pdb_sequences(source_pose, source='atom')
                 # if not source_pose.sequences:
-                oligomers = [SDUtils.read_pdb(SDUtils.fetch_pdb(pdb), coordinates_only=False) for pdb in pose_pdbs]
+                oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb), coordinates_only=False) for pdb in pose_pdbs]
                 oligomer_chain_database_chain_map = {chain: oligomers[k].chain_id_list[0]
                                                      for k, chain in enumerate(source_pose.chain_id_list)}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])

@@ -611,7 +611,7 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
         current_file = glob(file_name)
         # current_files = os.listdir(location)
         # if clean_pdb not in current_files:
-        if not current_file:  # glob should return an empty list
+        if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
             # TODO subprocess.POPEN()
             status = os.system('wget -q -O %s http://files.rcsb.org/download/%s' % (file_name, clean_pdb))
             if status != 0:
@@ -684,6 +684,7 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
     if pisa_type == 'multimer':
         force_singles = True
 
+    file = None
     fail = False
     clean_list = to_iterable(pdb)
     count, total_count = 0, 0
@@ -735,7 +736,7 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
         io_save(failures)
 
 
-def fetch_pdb(code, location=PUtils.pdb_db):
+def retrieve_pdb_file_path(code, directory=PUtils.pdb_db):
     """Fetch PDB object of each chain from PDBdb or PDB server
 
         Args:
@@ -749,14 +750,14 @@ def fetch_pdb(code, location=PUtils.pdb_db):
         get_pdb = download_pdb
         # doesn't return anything at the moment
     else:
-        get_pdb = (lambda pdb_code, location=None: glob(os.path.join(PUtils.pdb_db, 'pdb%s.ent' % pdb_code.lower())))
+        get_pdb = (lambda pdb_code, location=None: glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
         # The below set up is my local pdb and the format of escher. cassini is slightly different, ughhh
         # get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code),
         #                                                      '%s.pdb' % pdb_code)))
         # returns a list with matching file (should only be one)
 
     # pdb_file = get_pdb(code, location)
-    pdb_file = get_pdb(code, location=location)
+    pdb_file = get_pdb(code, location=directory)
     # pdb_file = get_pdb(code, location=des_dir.pdbs)
     assert len(pdb_file) == 1, 'More than one matching file found for PDB: %s' % code
     assert pdb_file != list(), 'No matching file found for PDB: %s' % code
