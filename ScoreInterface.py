@@ -1,9 +1,11 @@
+import argparse
 import math
 
 import numpy as np
 import pandas as pd
+from symdesign.SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, read_pdb, fill_pdb, mp_map
 
-from SymDesignUtils import get_all_pdb_file_paths, read_pdb, fill_pdb, unpickle, mp_map, start_log
+# from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
 from nanohedra.classes.EulerLookup import EulerLookup
 from nanohedra.classes.Fragment import *
 from nanohedra.utils.CmdLineArgParseUtils import *
@@ -363,13 +365,13 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
         percent_interface_covered, fragment_content_d
 
 
-def calculate_interface_score(interface_path):
-    interface_name = os.path.splitext(os.path.basename(interface_path))[0]
-    pdb = read_pdb(interface_path)
-    pdb1 = fill_pdb(pdb.chain(pdb.chain_id_list[0]))
-    pdb1.update_attributes_from_pdb(pdb)
-    pdb2 = fill_pdb(pdb.chain(pdb.chain_id_list[-1]))
-    pdb2.update_attributes_from_pdb(pdb)
+def calculate_interface_score(interface_pdb):
+    interface_name = interface_pdb.name
+
+    pdb1 = fill_pdb(interface_pdb.chain(interface_pdb.chain_id_list[0]))
+    pdb1.update_attributes_from_pdb(interface_pdb)
+    pdb2 = fill_pdb(interface_pdb.chain(interface_pdb.chain_id_list[-1]))
+    pdb2.update_attributes_from_pdb(interface_pdb)
 
     pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l = get_interface_fragment_chain_residue_numbers(pdb1,
                                                                                                                 pdb2)
@@ -380,59 +382,101 @@ def calculate_interface_score(interface_path):
         number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, percent_interface_covered, \
         fragment_content_d = score_interface(pdb1, pdb2, pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l)
 
-    return {interface_name: {'nanohedra_score': res_level_sum_score, 'nanohedra_score_central': center_level_sum_score,
-                             'fragment_cluster_ids': ','.join(fragment_indices), 'interface_area': interface_buried_sa,
-                             'multiple_fragment_ratio': multiple_frag_ratio,
-                             'number_fragment_residues_all': number_residues_with_fragments,
-                             'number_fragment_residues_central': number_fragment_central_residues,
-                             'total_interface_residues': total_residues, 'number_fragments': len(fragment_indices),
-                             'percent_residues_fragment_all': percent_interface_covered,
-                             'percent_residues_fragment_center': percent_interface_matched,
-                             'percent_fragment_helix': fragment_content_d['1'],
-                             'percent_fragment_strand': fragment_content_d['2'],
-                             'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
-                             + fragment_content_d['5']}}
+    interface_metrics = {'nanohedra_score': res_level_sum_score, 'nanohedra_score_central': center_level_sum_score,
+                         'fragment_cluster_ids': ','.join(fragment_indices), 'interface_area': interface_buried_sa,
+                         'multiple_fragment_ratio': multiple_frag_ratio,
+                         'number_fragment_residues_all': number_residues_with_fragments,
+                         'number_fragment_residues_central': number_fragment_central_residues,
+                         'total_interface_residues': total_residues, 'number_fragments': len(fragment_indices),
+                         'percent_residues_fragment_all': percent_interface_covered,
+                         'percent_residues_fragment_center': percent_interface_matched,
+                         'percent_fragment_helix': fragment_content_d['1'],
+                         'percent_fragment_strand': fragment_content_d['2'],
+                         'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
+                         + fragment_content_d['5']}
+
+    return interface_name, interface_metrics
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='\nScore selected interfaces using Nanohedra Score')
+    # ---------------------------------------------------
+    parser.add_argument('-d', '--directory', type=str, help='Directory where interface files are located. Default=CWD',
+                        default=os.getcwd())
+    parser.add_argument('-f', '--file', type=str, help='A serialized dictionary with selected PDB code: [interface ID] '
+                                                       'pairs', required=True)
+    parser.add_argument('-mp', '--multi_processing', action='store_true',
+                        help='Should job be run with multiprocessing?\nDefault=False')
+    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+
+    args, additional_flags = parser.parse_known_args()
     # Program input
     print('USAGE: python ScoreNative.py interface_type_pickled_dict interface_filepath_location number_of_threads')
 
-    # if args.debug:
-    #     logger = start_log(name=os.path.basename(__file__), level=1)
-    #     logger.debug('Debug mode. Verbose output')
-    # else:
-    logger = start_log(name=os.path.basename(__file__), level=2)
-    interface_reference_d = unpickle(sys.argv[1])
-    bio_reference_l = interface_reference_d['bio']
-
-    print('Total of %d PDB\'s to score' % len(bio_reference_l))
-    # try:
-    #     print('1:', '1AB0-1' in bio_reference_l)
-    #     print('2:', '1AB0-2' in bio_reference_l)
-    #     print('no dash:', '1AB0' in bio_reference_l)
-    # except KeyError as e:
-    #     print(e)
-
-    if 'debug' in sys.argv:
-        first_5 = ['2OPI-1', '4JVT-1', '3GZD-1', '4IRG-1', '2IN5-1']
-        next_5 = ['3ILK-1', '3G64-1', '3G64-4', '3G64-6', '3G64-23']
-        next_next_5 = ['3AQT-2', '2Q24-2', '1LDF-1', '1LDF-11', '1QCZ-1']
-        paths = next_next_5
-        root = '/home/kmeador/yeates/fragment_database/all/all_interfaces/%s.pdb'
-        # paths = ['op/2OPI-1.pdb', 'jv/4JVT-1.pdb', 'gz/3GZD-1.pdb', 'ir/4IRG-1.pdb', 'in/2IN5-1.pdb']
-        interface_filepaths = [root % '%s/%s' % (path[1:3].lower(), path) for path in paths]
-        # interface_filepaths = list(map(os.path.join, root, paths))
+    if args.debug:
+        logger = start_log(name=os.path.basename(__file__), level=1)
+        logger.debug('Debug mode. Verbose output')
     else:
-        interface_filepaths = get_all_pdb_file_paths(sys.argv[2])
+        logger = start_log(name=os.path.basename(__file__), level=2)
 
-    missing_index = [i for i, file_path in enumerate(interface_filepaths)
-                     if os.path.splitext(os.path.basename(file_path))[0] not in bio_reference_l]
+    interface_pdbs = []
+    if args.directory:
+        interface_reference_d = unpickle(args.file)
+        bio_reference_l = interface_reference_d['bio']
 
-    for i in reversed(missing_index):
-        del interface_filepaths[i]
+        print('Total of %d PDB\'s to score' % len(bio_reference_l))
+        # try:
+        #     print('1:', '1AB0-1' in bio_reference_l)
+        #     print('2:', '1AB0-2' in bio_reference_l)
+        #     print('no dash:', '1AB0' in bio_reference_l)
+        # except KeyError as e:
+        #     print(e)
 
-    results = mp_map(calculate_interface_score, interface_filepaths, threads=int(sys.argv[3]))
-    interface_d = {key: result[key] for result in results for key in result}
+        if args.debug:
+            first_5 = ['2OPI-1', '4JVT-1', '3GZD-1', '4IRG-1', '2IN5-1']
+            next_5 = ['3ILK-1', '3G64-1', '3G64-4', '3G64-6', '3G64-23']
+            next_next_5 = ['3AQT-2', '2Q24-2', '1LDF-1', '1LDF-11', '1QCZ-1']
+            paths = next_next_5
+            root = '/home/kmeador/yeates/fragment_database/all/all_interfaces/%s.pdb'
+            # paths = ['op/2OPI-1.pdb', 'jv/4JVT-1.pdb', 'gz/3GZD-1.pdb', 'ir/4IRG-1.pdb', 'in/2IN5-1.pdb']
+            interface_filepaths = [root % '%s/%s' % (path[1:3].lower(), path) for path in paths]
+            # interface_filepaths = list(map(os.path.join, root, paths))
+        else:
+            interface_filepaths = get_all_pdb_file_paths(args.directory)
+
+        missing_index = [i for i, file_path in enumerate(interface_filepaths)
+                         if os.path.splitext(os.path.basename(file_path))[0] not in bio_reference_l]
+
+        for i in reversed(missing_index):
+            del interface_filepaths[i]
+
+        for interface_path in interface_filepaths:
+            pdb = read_pdb(interface_path)
+            pdb.name = os.path.splitext(os.path.basename(interface_path))[0]
+
+    elif args.file:
+        # pdb_codes = to_iterable(args.file)
+        pdb_interface_d = unpickle(args.file)
+        # for pdb_code in pdb_codes:
+        #     for interface_id in pdb_codes[pdb_code]:
+        interface_pdbs = [return_pdb_interface(pdb_code, interface_id) for pdb_code in pdb_interface_d
+                          for interface_id in pdb_interface_d[pdb_code]]
+        if args.output:
+            out_path = args.output_dir
+            pdb_code_id_tuples = [(pdb_code, interface_id) for pdb_code in pdb_interface_d
+                                  for interface_id in pdb_interface_d[pdb_code]]
+            for interface_pdb, pdb_code_id_tuple in zip(interface_pdbs, pdb_code_id_tuples):
+                interface_pdb.write(os.path.join(args.output_dir, '%s-%d.pdb' % pdb_code_id_tuple))
+    # else:
+    #     logger.critical('Either --file or --directory must be specified')
+    #     exit()
+
+    if args.multi_processing:
+        results = mp_map(calculate_interface_score, interface_pdbs, threads=int(sys.argv[3]))
+        interface_d = {result for result in results}
+        # interface_d = {key: result[key] for result in results for key in result}
+    else:
+        interface_d = {calculate_interface_score(interface_pdb) for interface_pdb in interface_pdbs}
+
     interface_df = pd.DataFrame(interface_d)
     interface_df.to_csv('BiologicalInterfaceNanohedraScores.csv')
