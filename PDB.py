@@ -104,11 +104,6 @@ class PDB:
                         self.seqres_sequences[chain] += sequence
                     else:
                         self.seqres_sequences[chain] = sequence
-                elif line[:6] == 'COMPND' and 'MOL_ID' in line:
-                    entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
-                elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:
-                    self.entities[entity] = {'chains': line[line.rfind(':') + 1:].strip().rstrip(';').split(',')}
-                    entity = None
                 elif line[0:6] == 'CRYST1' or line[0:5] == 'SCALE':
                     self.header.append(line)
                 elif line[0:5] == 'DBREF':
@@ -178,6 +173,11 @@ class PDB:
                 start_of_new_model = True  # signifies that the next line comes after a new model
                 # model_chain_id = available_chain_ids[model_chain_index]
                 # model_chain_index += 1
+            elif line[:6] == 'COMPND' and 'MOL_ID' in line:
+                entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
+            elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:
+                self.entities[entity] = {'chains': line[line.rfind(':') + 1:].strip().rstrip(';').split(',')}
+                entity = None
             elif line[0:6] == 'CRYST1':
                 self.cryst_record = line
                 try:
