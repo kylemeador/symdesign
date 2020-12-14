@@ -93,21 +93,22 @@ class PDB:
         multimodel, start_of_new_model = False, False
         model_chain_id, curr_chain_id = None, None
         model_chain_index = 0
+        entity = None
         for line in pdb:
             line = line.rstrip()
             if not coordinates_only:  # KM added 02/04/20 to deal with handling PDB headers
-                if line[:22] == 'REMARK   2 RESOLUTION.':
-                    try:
-                        self.res = float(line[22:30].strip().split()[0])
-                    except ValueError:
-                        self.res = None
-                elif line[0:6] == 'SEQRES':  # KM added 7/25/19 to deal with SEQRES info
+                if line[0:6] == 'SEQRES':  # KM added 7/25/19 to deal with SEQRES info
                     chain = line[11:12].strip()
                     sequence = line[19:71].strip().split()
                     if chain in self.seqres_sequences:
                         self.seqres_sequences[chain] += sequence
                     else:
                         self.seqres_sequences[chain] = sequence
+                elif line[:6] == 'COMPND' and 'MOL_ID' in line:
+                    entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
+                elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:
+                    self.entities[entity] = {'chains': line[line.rfind(':') + 1:].strip().rstrip(';').split(',')}
+                    entity = None
                 elif line[0:6] == 'CRYST1' or line[0:5] == 'SCALE':
                     self.header.append(line)
                 elif line[0:5] == 'DBREF':
@@ -121,6 +122,11 @@ class PDB:
                             continue
                         db_accession_id = line[33:42].strip()
                     self.dbref[chain] = {'db': db, 'accession': db_accession_id}
+                elif line[:21] == 'REMARK   2 RESOLUTION':
+                    try:
+                        self.res = float(line[22:30].strip().split()[0])
+                    except ValueError:
+                        self.res = None
                 continue
 
             if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':  # KM modified 2/10/20 for MSE
