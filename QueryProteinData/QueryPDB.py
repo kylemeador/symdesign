@@ -1,10 +1,14 @@
 import argparse
 import os
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 from copy import deepcopy
 from json import dumps
 
 import requests
-from symdesign.SymDesignUtils import start_log, io_save
+from SymDesignUtils import start_log, io_save
 
 # Globals
 pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
@@ -103,14 +107,12 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
     confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you can re-input.%s' % input_string
     bool_d = {'y': True, 'n': False}
     user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
-    return_identifier_string = 'What type of identifier do you want to search the PDB for?\n%s\nInput:' % \
-                               ('\n'.join(format_string % item for item in return_types.items()))
-    additional_input_string = 'Would you like to add another?'
+    additional_input_string = '\nWould you like to add another?%s' % input_string
 
     def generate_parameters(attribute, operator, value):
         return {"operator": operator, "value": value, "attribute": attribute}
 
-    def generate_terminal_group(service, parameter_args):
+    def generate_terminal_group(service, *parameter_args):
         return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(*parameter_args)}
 
     def generate_group(operation, child_groups):
@@ -123,49 +125,62 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
 
         return query_d
 
-    def make_groups(args, recursive_depth=0):  # (terminal_queries, grouping,
+    def make_groups(*args, recursive_depth=0):  # (terminal_queries, grouping,
         terminal_queries = args[0]
         work_on_group = args[recursive_depth]
         all_grouping_indices = {i for i in range(1, len(work_on_group) + 1)}
 
-        group_introduction = 'GROUPING INSTRUCTIONS:\n' \
-                             'Because you have %d search queries, you need to combine these to a total search strategy.' \
-                             ' This is accomplished by grouping your search queries together using the operations (%s) ' \
-                             '\nYou must eventually group all queries into a single logical operation. ' \
+        group_introduction = '\nGROUPING INSTRUCTIONS:\n' \
+                             'Because you have %d search queries, you need to combine these to a total search strategy'\
+                             '. This is accomplished by grouping your search queries together using the operations %s.'\
+                             ' You must eventually group all queries into a single logical operation. ' \
                              '\nIf you have multiple groups, you will need to group those groups, so on and so forth.' \
-                             '\nIndicate your group selections with a space separated list! You choose the group ' \
-                             'operation to combine this list afterwards' \
-                             '\nFollow the prior prompts if you need a reminder of how group numbers relate to query #' % \
-                             (len(terminal_queries), group_operators)
-        group_grouping_intro = 'Groups remain, you must group groups as before.'
-        group_inquiry_string = 'Which of these (identified by #) would you like to combine into a group?%s' % input_string
+                             '\nIndicate your group selections with a space separated list! You will choose the group '\
+                             'operation to combine this list afterwards.\nFollow prior prompts if you need a reminder '\
+                             'of how group # relate to query #' % (len(terminal_queries), group_operators)
+        group_grouping_intro = '\nGroups remain, you must group groups as before.'
+        group_inquiry_string = '\nWhich of these (identified by #) would you like to combine into a group?%s' % \
+                               input_string
         group_specification_string = 'You specified \'%s\' as a single group.'
-        group_logic_string = 'What group operator (out of %s) would you like for this group?%s' % \
-                             (','.join(group_operators), input_string)
+        group_logic_string = '\nWhat group operator %s would you like for this group?%s' % (group_operators,
+                                                                                            input_string)
 
-        available_query_string ='Your available queries are:\n%s\n\n' % \
-                                '\n'.join(query_display_string % (query_num, terminal_queries[query_num])
-                                          for query_num in terminal_queries)  # , terminal_query in enumerate(terminal_group_queries))
-        available_grouping_string = 'Your available groups are:\n%s\n\n' % \
-                                    '\n'.join('\tGroup Group #%d%s' %
-                                              (i + 1, format_string % group) for i, group in enumerate(work_on_group))
+        available_query_string = '\nYour available queries are:\n%s\n' % \
+                                 '\n'.join(query_display_string % (query_num, *_query)
+                                           for query_num, _query in enumerate(terminal_queries, 1))  # , terminal_query in enumerate(terminal_group_queries))
+        # available_grouping_string = 'Your available groups are:\n%s\n\n' % \
+        #                             '\n'.join('\tGroup Group #%d%s' %
+        #                                       (i, format_string % group) for i, group in enumerate(work_on_group, 1))
         #  %s % available_query_string)
         if recursive_depth == 0:
             intro_string = group_introduction
             available_entity_string = available_query_string
         else:
             intro_string = group_grouping_intro
-            available_entity_string = available_grouping_string
+            available_entity_string = '\nYour available groups are:\n%s\n' % \
+                                      '\n'.join('\tGroup Group #%d%s' % (i, format_string % group)
+                                                for i, group in enumerate(work_on_group, 1))
 
         print(intro_string)  # provide an introduction
         print(available_entity_string)  # display available entities which switch between guery and group...
 
         selected_grouping_indices = deepcopy(all_grouping_indices)
         groupings = []
-        while selected_grouping_indices:  # check if more work needs to be done
+        while len(selected_grouping_indices) > 1:  # check if more work needs to be done
             while True:  # ensure grouping input is viable
-                grouping = set(map(int, input(group_inquiry_string).split()))  # get new grouping
-                confirmation = input('%s\n%s' % (group_specification_string % grouping, confirmation_string))
+                while True:
+                    grouping = set(map(int, input(group_inquiry_string).split()))  # get new grouping
+                    if len(grouping) > 1:
+                        break
+                    else:
+                        print('More than one group is required. Your group %s is invalid' % grouping)
+                while True:
+                    confirm = input('%s\n%s' % (group_specification_string % grouping, confirmation_string))
+                    if confirm.lower() in bool_d:
+                        break
+                    else:
+                        print(invalid_string)
+
                 if bool_d[confirmation.lower()]:  # confirm that grouping is as specified
                     while True:  # check if logic input is viable
                         group_logic = input(group_logic_string).lower()
@@ -173,21 +188,22 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                             break
                         else:
                             print(invalid_string)
-                    groupings.append((group_logic, grouping))
+                    groupings.append((grouping, group_logic))
                     break
-                else:
-                    print(invalid_string)
             selected_grouping_indices -= grouping  # remove specified from the pool of available until all are gone
+
+        if len(selected_grouping_indices) > 0:
+            groupings.append((selected_grouping_indices, 'and'))  # When only 1 remains, automatically add and
 
         args += (groupings,)
         # once all groupings are grouped, recurse
         if len(groupings) > 1:
             make_groups(*args, recursive_depth=recursive_depth + 1)
 
-        return args
+        return list(args)
 
     # Start the user input routine -------------------------------------------------------------------------------------
-    print('This function will walk you through generating an advanced search query and retrieving the matching set of '
+    print('\n\nThis function will walk you through generating an advanced search query and retrieving the matching set of '
           'PDB ID\'s. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
           'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
           'downstream use. If you require > 25,000 ID\'s, this could save you some headache. You can also use the GUI '
@@ -205,7 +221,11 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                            'ensure ALL results are retrieved with no sorting or pagination applied\n\n%s' % input_string)
         response_d = query_pdb(json_input)
     else:
-        print('For each set of options, choose the option from the first column for the description in the second')
+        return_identifier_string = '\nFor each set of options, choose the option from the first column for the ' \
+                                   'description in the second.\nWhat type of identifier do you want to search the PDB '\
+                                   'for?%s%s' % (user_input_format % '\n'.join(format_string % item
+                                                                               for item in return_types.items()),
+                                                 input_string)
         while True:
             return_type = input(return_identifier_string)
             if return_type in return_types:
@@ -214,28 +234,23 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                 print(invalid_string)
 
         terminal_group_queries = []
+        # terminal_group_queries = {}
         increment = 1
         while True:
-            query_builder_service_string = 'What type of search method would you like to use?%s%s' % \
+            query_builder_service_string = '\nWhat type of search method would you like to use?%s%s' % \
                                            (user_input_format % '\n'.join(format_string % item
                                                                           for item in services.items()), input_string)
-            query_builder_attribute_string = 'What type of attribute would you like to use? Examples include:%s' \
-                                             '\n\nFor a more thorough list please search %s\n ' \
-                                             'Ensure that your spelling is exact if you want your query to succeed!%s' % \
+            query_builder_attribute_string = '\nWhat type of attribute would you like to use? Examples include:%s' \
+                                             '\n\nFor a more thorough list please search %s\nEnsure that your spelling'\
+                                             ' is exact if you want your query to succeed!%s' % \
                                              (user_input_format % '\n'.join(format_string %
-                                                                            (key, value % attribute_prefix)
+                                                                            (value % attribute_prefix, key)
                                                                             for key, value in attributes.items()),
                                               attribute_url, input_string)
-            # query_builder_attribute_string = 'What type of attribute would you like to use? Examples include\n%s' \
-            #                                  '\n\nFor a more thorough list please search %s\n ' \
-            #                                  'Ensure that your spelling is exact if you want your query to succeed!' \
-            #                                  '\nInput:' % \
-            #                                 ('\n'.join(format_string % (key, value % attribute_prefix)
-            #                                            for key, value in attributes.items()), attribute_url)
-            query_builder_operator_string = 'What is the operator that you would like to use?\n' \
-                                            'Common operators include:\n%s%s' % (','.join(operators), input_string)
-            query_builder_value_string = 'What value are should be %s?%s'
-            query_display_string = 'Query #%d: Search the PDB\'s \'%s\' service for \'%s\' attributes, \'%s\' \'%s\'.\n'
+            query_builder_operator_string = '\nWhat is the operator that you would like to use?\n' \
+                                            'Common operators include:\n\t%s%s' % (', '.join(operators), input_string)
+            query_builder_value_string = '\nWhat value should be %s?%s'
+            query_display_string = 'Query #%d: Search the PDB\'s \'%s\' service for \'%s\' attributes, \'%s\' \'%s\'.'
 
             while True:
                 while True:
@@ -250,81 +265,40 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                 operator = input(query_builder_operator_string)
                 value = input(query_builder_value_string % (operator.upper(), input_string))
 
-                # while True:
-                confirmation = input('%s\n%s' % (query_display_string %
-                                                 (increment, service.upper(), attribute, operator.upper(), value),
-                                                 confirmation_string))
+                while True:
+                    confirmation = input('\n%s\n%s' % (query_display_string %
+                                                       (increment, service.upper(), attribute, operator.upper(), value),
+                                                       confirmation_string))
+                    if confirmation.lower() in bool_d:
+                        break
+                    else:
+                        print(invalid_string)
                 if bool_d[confirmation.lower()]:
+                    break
+
+            # terminal_group_queries[increment] = (service, attribute, operator, value)
+            terminal_group_queries.append((service, attribute, operator, value))
+            increment += 1
+            while True:
+                additional = input(additional_input_string)
+                if additional.lower() in bool_d:
                     break
                 else:
                     print(invalid_string)
-
-            terminal_group_queries.append((service, attribute, operator, value))
-            increment += 1
-            additional = input(additional_input_string)
             if not bool_d[additional.lower()]:
                 break
-            else:
-                print(invalid_string)
 
         if len(terminal_group_queries) > 1:
             recursive_query_tree = make_groups(terminal_group_queries)
-            # available_query_indices = {i for i in range(1, len(terminal_group_queries) + 1)}
-            # group_introduction = 'Because you have %d search queries, you need to combine these to a total search strategy. ' \
-            #                      'This is accomplished by grouping your search queries together using the operations (%s) ' \
-            #                      'as you did previously.\nYou can repeat this process until all queries have been grouped. ' \
-            #                      'If you have multiple groups, you will need to group the groups.' % \
-            #                      (len(terminal_group_queries), operators),
-            #
-            # available_query_string ='Your available queries are::\n%s\n\n' % \
-            #                         '\n'.join(query_display_string % (query_num, terminal_group_queries[query_num])
-            #                                   for query_num in available_query_indices)  # , terminal_query in enumerate(terminal_group_queries))
-            # group_inquiry_string = 'Which of these queries (identified by Query #) would you like to combine into a group?' \
-            #                        'Indicate your selection with a space separated list! You will be able to choose the ' \
-            #                        'group logical operation next%s' % input_string
-            # group_specification_string = 'You specified queries \'%s\' as a single group.'
-            # print(group_introduction)  # provide an introduction
-            #
-            # selected_query_indices = available_query_indices
-            # groupings = []
-            # while selected_query_indices:  # check if more work needs to be done
-            #     while True:  # ensure grouping input is viable
-            #         print(available_query_string)  # display available queries
-            #         grouping = set(map(int, input(group_inquiry_string).split()))  # get new grouping
-            #
-            #         confirmation = input('%s\n%s' % (group_specification_string % grouping, confirmation_string))
-            #         if bool_d[confirmation.lower()]:  # confirm that grouping is as specified
-            #             while True:  # check if logic input is viable
-            #                 group_logic_string = 'What group operator (out of %s) would you like for this group?%' % \
-            #                                      (','.join(group_operators), input_string)
-            #                 group_logic = input(group_logic_string).lower()
-            #                 if group_logic in group_operators:
-            #                     break
-            #                 else:
-            #                     print(invalid_string)
-            #             groupings.append((group_logic, grouping))
-            #             break
-            #         else:
-            #             print(invalid_string)
-            #     selected_query_indices -= grouping  # remove specified from the pool of available until all are gone
-            #
-            # # once all groupings are grouped
-            # if len(groupings) > 1:
-            #     available_grouping_indices = {i for i in range(1, len(groupings) + 1)}
-            #     group_grouping_string = 'Groups remain, you must group groups. Your groups are:\n%s\n\n%s' % \
-            #                             ('\n'.join('\tGroup Group #%d%s' %
-            #                                        (i + 1, format_string % group) for i, group in enumerate(groupings)),
-            #                              available_query_string)
-            #     print(group_grouping_string)  # provide an introduction
-            #     selected_grouping_indices = available_grouping_indices
-            #     while selected_grouping_indices:  # check if more work needs to be done
-            #         group_grouping = input()
         else:
-            recursive_query_tree = (terminal_group_queries, )
+            recursive_query_tree = [terminal_group_queries]
+            # recursive_query_tree = (terminal_group_queries, )
         # recursive_query_tree = (queries, grouping1, grouping2, etc.)
         for i, node in enumerate(recursive_query_tree):
             if i == 0:
                 recursive_query_tree[i] = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node, 1)}
+                # recursive_query_tree[i] = {j: generate_terminal_group(*node[leaf]) for j, leaf in enumerate(node, 1)}
+
                 # terminal_group_queries = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node)}
                 # generate_terminal_group(service, parameter_args)
                 # terminal_group_queries[increment] = generate_terminal_group(service, attribute, operator, value)
@@ -336,12 +310,17 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                 #     child_groups = recursive_query_tree[i]
                 # operation, child_nodes = node
                 # groups = {j: generate_group(operation, child_groups) for j, leaf in enumerate(node)}
-                recursive_query_tree[i] = {j: generate_group(operation, recursive_query_tree[i - 1][k])
-                                           for j, (operation, child_group_nums) in enumerate(node, 1)
-                                           for k in child_group_nums}
 
-        search_query = generate_query(recursive_query_tree[-1], return_type)
+                # NOPE Subtract the k indices to ensure that the user input numbers match with python zero indexing
+                # i - 1 gives the index of the previous index of the recursive_query_tree to operate on
+                recursive_query_tree[i] = {j: generate_group(operation, [recursive_query_tree[i - 1][k]
+                                                                         for k in child_group_nums])
+                                           for j, (child_group_nums, operation) in enumerate(node, 1)}
+                                           # for k in child_group_nums}
+        final_query = recursive_query_tree[-1][1]
+        search_query = generate_query(final_query, return_type)
         response_d = query_pdb(search_query)
+        print('The server returned:\n%s' % response_d)
 
     retrieved_ids = parse_pdb_response_for_ids(response_d)
 
