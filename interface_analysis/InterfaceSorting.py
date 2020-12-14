@@ -9,10 +9,15 @@ from xml.etree.ElementTree import fromstring
 import ParsePisa as pp
 import requests
 from symdesign.SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, to_iterable, read_pdb, \
-    fill_pdb, retrieve_pdb_file_path, download_pisa
+    fill_pdb, retrieve_pdb_file_path, download_pisa, io_save
 
 # Globals
 pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}
+pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
+pdb_rest_url = 'http://data.rcsb.org/rest/v1/core/'  # uniprot/  # 1AB3/1'
+attribute_url = 'https://search.rcsb.org/search-attributes.html'
+# uniprot_url = 'http://www.uniprot.org/uniprot/{}.xml'
+attribute_prefix = 'rcsb_'
 
 # def get_uniprot_protein_name(uniprot_id):
 #     uniprot_response = requests.get(uniprot_url.format(uniprot_id)).text
@@ -51,10 +56,8 @@ attributes = {'symmetry': '%sstruct_symmetry.symbol', 'experimental_method': '%s
 
 search_term = 'ELECTRON MICROSCOPY'  # For example. of 'C2'
 parameter_query = {'attribute': attributes, 'operator': operators, 'value': search_term}
-# Ex:
-
-attribute_prefix = 'rcsb_'
-
+query = {"query": {"type": "terminal", "service": "text", 'parameters': parameter_query}, "return_type": "entry"}
+# Example Query in JSON format:
 example_uniprot = {"query": {"type": "group", "logical_operator": "and", "nodes": [
                                 {"type": "terminal", "service": "text", "parameters":
                                     {"operator": "exact_match", "value": "P69905",
@@ -84,27 +87,102 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                                    }]}]
                           }
 
+
 def parse_pdb_response_for_ids(response):
     return [result['identifier'] for result in response['result_set']]
+
 
 def parse_pdb_response_for_score(response):
     return [result['score'] for result in response['result_set']]
 
 
-query = {"query": {"type": "terminal", "service": "text"}, "return_type": "entry"}
-{"type": "terminal", "service": "text", 'parameters': }
+def get_pdb_info_by_entry(entry):
+    """Retrieve PDB information from the RCSB API
 
-pdb_mapping_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
-# pdb_mapping_url = 'http://www.rcsb.org/pdb/rest/das/pdb_uniprot_mapping/alignment'
-uniprot_url = 'http://www.uniprot.org/uniprot/{}.xml'
-attribute_url = 'https://search.rcsb.org/search-attributes.html'
+    Returns:
+        (dict): {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'ref': {chain: {'accession': ID, 'db': UNP}, ...},
+            'cryst': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
+    """
+    # Connects the chain to the entity ID
+    # entry = '4atz'
+    entry_json = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry).json()
+    # The following information is returned
+    # return_entry['rcsb_entry_info'] = \
+    #     {'assembly_count': 1, 'branched_entity_count': 0, 'cis_peptide_count': 3, 'deposited_atom_count': 8492,
+    #     'deposited_model_count': 1, 'deposited_modeled_polymer_monomer_count': 989,
+    #     'deposited_nonpolymer_entity_instance_count': 0, 'deposited_polymer_entity_instance_count': 6,
+    #     'deposited_polymer_monomer_count': 1065, 'deposited_solvent_atom_count': 735,
+    #     'deposited_unmodeled_polymer_monomer_count': 76, 'diffrn_radiation_wavelength_maximum': 0.9797,
+    #     'diffrn_radiation_wavelength_minimum': 0.9797, 'disulfide_bond_count': 0, 'entity_count': 3,
+    #     'experimental_method': 'X-ray', 'experimental_method_count': 1, 'inter_mol_covalent_bond_count': 0,
+    #     'inter_mol_metalic_bond_count': 0, 'molecular_weight': 115.09, 'na_polymer_entity_types': 'Other',
+    #     'nonpolymer_entity_count': 0, 'polymer_composition': 'heteromeric protein', 'polymer_entity_count': 2,
+    #     'polymer_entity_count_dna': 0, 'polymer_entity_count_rna': 0, 'polymer_entity_count_nucleic_acid': 0,
+    #     'polymer_entity_count_nucleic_acid_hybrid': 0, 'polymer_entity_count_protein': 2,
+    #     'polymer_entity_taxonomy_count': 2, 'polymer_molecular_weight_maximum': 21.89,
+    #     'polymer_molecular_weight_minimum': 16.47, 'polymer_monomer_count_maximum': 201,
+    #     'polymer_monomer_count_minimum': 154, 'resolution_combined': [1.95],
+    #     'selected_polymer_entity_types': 'Protein (only)',
+    #     'software_programs_combined': ['PHASER', 'REFMAC', 'XDS', 'XSCALE'], 'solvent_entity_count': 1,
+    #     'diffrn_resolution_high': {'provenance_source': 'Depositor assigned', 'value': 1.95}}
+    ang_a, ang_b, ang_c = entry_json['cell']['angle_alpha'], entry_json['cell']['angle_beta'], entry_json['cell']['angle_gamma']
+    a, b, c = entry_json['cell']['length_a'], entry_json['cell']['length_b'], entry_json['cell']['length_c']
+    space_group = entry_json['symmetry']['space_group_name_hm']
+    cryst_d = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+    resolution = entry_json['rcsb_entry_info']['resolution_combined'][0]
+
+    entity_chain_d, ref_d, db_d = {}, {}, {}
+    # I can use 'polymer_entity_count_protein' to further Identify the entities in a protein, which gives me the chains
+    for i in range(1, len(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
+        entity_json = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry.upper(), i)).json()
+        chains = entity_json["rcsb_polymer_entity_container_identifiers"]['asym_ids']  # = ['A', 'B', 'C']
+        entity_chain_d[i] = chains
+
+        try:
+            uniprot_id = entity_json["rcsb_polymer_entity_container_identifiers"]['uniprot_ids']
+            database = 'UNP'
+            db_d = {'db': database, 'accession': uniprot_id}
+        except KeyError:
+            # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
+            # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
+            identifiers = [[ident['database_accession'], ident['database_name']] for ident in
+                           entity_json['rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
+
+            if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
+                whatever_else = None
+                priority_l = [None for i in range(len(identifiers))]
+                for i, tup in enumerate(identifiers, 1):
+                    if tup[1] == 'UniProt':
+                        priority_l[0] = i
+                        identifiers[i - 1][1] = 'UNP'
+                    elif tup[1] == 'GenBank':
+                        priority_l[1] = i  # two elements are required from above len check, never IndexError
+                        identifiers[i - 1][1] = 'GB'
+                    elif not whatever_else:
+                        whatever_else = i
+                for idx in priority_l:
+                    if idx:  # we have found a database from the priority list, choose the corresponding identifier idx
+                        db_d = {'accession': identifiers[idx - 1][0], 'db': identifiers[idx - 1][1]}
+                        break
+                    else:
+                        db_d = {'accession': identifiers[whatever_else - 1][0], 'db': identifiers[whatever_else - 1][1]}
+            else:
+                db_d = {'accession': identifiers[0], 'db': identifiers[1]}
+
+        ref_d = {chain: db_d for chain in chains}
+    # dbref = {chain: {'db': db, 'accession': db_accession_id}}
+    # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
+    # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+
+    return {'entity': entity_chain_d, 'res': resolution, 'ref': ref_d, 'cryst': cryst_d}
 
 
 def query_pdb(query):
-    return requests.get(pdb_mapping_url, params={'json': dumps(query)}).json()
+    return requests.get(pdb_query_url, params={'json': dumps(query)}).json()
 
 
-def retrieve_pdb_info():
+def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
+    pdb_advanced_search_url = 'http://www.rcsb.org/search/advanced'
     format_string = '\t%s\t\t%s'
     input_string = '\nInput:'
     invalid_string = 'Invalid choice, please try again'
@@ -195,142 +273,170 @@ def retrieve_pdb_info():
         return args
 
     # Start the user input routine -------------------------------------------------------------------------------------
-    print('For each set of options, choose the option from the first column for the description in the second')
-    while True:
-        return_type = input(return_identifier_string)
-        if return_type in return_types:
-            break
-        else:
-            print(invalid_string)
-
-    terminal_group_queries = []
-    increment = 1
-    while True:
-        query_builder_service_string = 'What type of search method would you like to use?%s%s' % \
-                                       (user_input_format % '\n'.join(format_string % item
-                                                                      for item in services.items()), input_string)
-        query_builder_attribute_string = 'What type of attribute would you like to use? Examples include:%s' \
-                                         '\n\nFor a more thorough list please search %s\n ' \
-                                         'Ensure that your spelling is exact if you want your query to succeed!%s' % \
-                                         (user_input_format % '\n'.join(format_string % (key, value % attribute_prefix)
-                                                                        for key, value in attributes.items()),
-                                          attribute_url, input_string)
-        # query_builder_attribute_string = 'What type of attribute would you like to use? Examples include\n%s' \
-        #                                  '\n\nFor a more thorough list please search %s\n ' \
-        #                                  'Ensure that your spelling is exact if you want your query to succeed!' \
-        #                                  '\nInput:' % \
-        #                                 ('\n'.join(format_string % (key, value % attribute_prefix)
-        #                                            for key, value in attributes.items()), attribute_url)
-        query_builder_operator_string = 'What is the operator that you would like to use?\n' \
-                                        'Common operators include:\n%s%s' % (','.join(operators), input_string)
-        query_builder_value_string = 'What value are should be %s?%s'
-        query_display_string = 'Query #%d: Search the PDB\'s \'%s\' service for \'%s\' attributes, \'%s\' \'%s\'.\n'
-
+    print('This function will walk you through generating an advanced search query and retrieving the matching set of '
+          'PDB ID\'s. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
+          'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
+          'downstream use. If you require > 25,000 ID\'s, this could save you some headache. You can also use the GUI '
+          'and this tool in combination, as detailed below. Just type \'JSON\' into the next prompt.\n\n'
+          'DETAILS: If you want to use this function to save time formatting and/or pipeline interruption,'
+          ' a unique solution is to build your Query with the GUI on the PDB then bring the resulting JSON back here to'
+          ' submit. To do this, first build your full query, then hit \'enter\' or the search button (magnifying glass '
+          'icon). A new section of the search page should appear above the Query builder. Clicking the JSON|->| button '
+          'will open a new page with an automatically built JSON representation of your query. You can copy and paste '
+          'this JSON object into the prompt to return your chosen ID\'s' % pdb_advanced_search_url)
+    program_start = input(input_string)
+    if program_start.upper() == 'JSON':
+        json_input = input('Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
+                           '\'"return_type": "entry"\' and paste. Before hitting enter, add a closing \'}\'. This hack '
+                           'ensure ALL results are retrieved with no sorting or pagination applied\n\n%s' % input_string)
+        response_d = query_pdb(json_input)
+    else:
+        print('For each set of options, choose the option from the first column for the description in the second')
         while True:
-            while True:
-                service = input(query_builder_service_string)
-                if service in services:
-                    break
-                else:
-                    print(invalid_string)
-
-            # while True:  # Implement upon correct formatting check
-            attribute = input(query_builder_attribute_string)
-            operator = input(query_builder_operator_string)
-            value = input(query_builder_value_string % (operator.upper(), input_string))
-
-            # while True:
-            confirmation = input('%s\n%s' % (query_display_string %
-                                             (increment, service.upper(), attribute, operator.upper(), value),
-                                             confirmation_string))
-            if bool_d[confirmation.lower()]:
+            return_type = input(return_identifier_string)
+            if return_type in return_types:
                 break
             else:
                 print(invalid_string)
 
-        terminal_group_queries.append((service, attribute, operator, value))
-        increment += 1
-        additional = input(additional_input_string)
-        if not bool_d[additional.lower()]:
-            break
-        else:
-            print(invalid_string)
+        terminal_group_queries = []
+        increment = 1
+        while True:
+            query_builder_service_string = 'What type of search method would you like to use?%s%s' % \
+                                           (user_input_format % '\n'.join(format_string % item
+                                                                          for item in services.items()), input_string)
+            query_builder_attribute_string = 'What type of attribute would you like to use? Examples include:%s' \
+                                             '\n\nFor a more thorough list please search %s\n ' \
+                                             'Ensure that your spelling is exact if you want your query to succeed!%s' % \
+                                             (user_input_format % '\n'.join(format_string %
+                                                                            (key, value % attribute_prefix)
+                                                                            for key, value in attributes.items()),
+                                              attribute_url, input_string)
+            # query_builder_attribute_string = 'What type of attribute would you like to use? Examples include\n%s' \
+            #                                  '\n\nFor a more thorough list please search %s\n ' \
+            #                                  'Ensure that your spelling is exact if you want your query to succeed!' \
+            #                                  '\nInput:' % \
+            #                                 ('\n'.join(format_string % (key, value % attribute_prefix)
+            #                                            for key, value in attributes.items()), attribute_url)
+            query_builder_operator_string = 'What is the operator that you would like to use?\n' \
+                                            'Common operators include:\n%s%s' % (','.join(operators), input_string)
+            query_builder_value_string = 'What value are should be %s?%s'
+            query_display_string = 'Query #%d: Search the PDB\'s \'%s\' service for \'%s\' attributes, \'%s\' \'%s\'.\n'
 
-    if len(terminal_group_queries) > 1:
-        recursive_query_tree = make_groups(terminal_group_queries)
-        # available_query_indices = {i for i in range(1, len(terminal_group_queries) + 1)}
-        # group_introduction = 'Because you have %d search queries, you need to combine these to a total search strategy. ' \
-        #                      'This is accomplished by grouping your search queries together using the operations (%s) ' \
-        #                      'as you did previously.\nYou can repeat this process until all queries have been grouped. ' \
-        #                      'If you have multiple groups, you will need to group the groups.' % \
-        #                      (len(terminal_group_queries), operators),
-        #
-        # available_query_string ='Your available queries are::\n%s\n\n' % \
-        #                         '\n'.join(query_display_string % (query_num, terminal_group_queries[query_num])
-        #                                   for query_num in available_query_indices)  # , terminal_query in enumerate(terminal_group_queries))
-        # group_inquiry_string = 'Which of these queries (identified by Query #) would you like to combine into a group?' \
-        #                        'Indicate your selection with a space separated list! You will be able to choose the ' \
-        #                        'group logical operation next%s' % input_string
-        # group_specification_string = 'You specified queries \'%s\' as a single group.'
-        # print(group_introduction)  # provide an introduction
-        #
-        # selected_query_indices = available_query_indices
-        # groupings = []
-        # while selected_query_indices:  # check if more work needs to be done
-        #     while True:  # ensure grouping input is viable
-        #         print(available_query_string)  # display available queries
-        #         grouping = set(map(int, input(group_inquiry_string).split()))  # get new grouping
-        #
-        #         confirmation = input('%s\n%s' % (group_specification_string % grouping, confirmation_string))
-        #         if bool_d[confirmation.lower()]:  # confirm that grouping is as specified
-        #             while True:  # check if logic input is viable
-        #                 group_logic_string = 'What group operator (out of %s) would you like for this group?%' % \
-        #                                      (','.join(group_operators), input_string)
-        #                 group_logic = input(group_logic_string).lower()
-        #                 if group_logic in group_operators:
-        #                     break
-        #                 else:
-        #                     print(invalid_string)
-        #             groupings.append((group_logic, grouping))
-        #             break
-        #         else:
-        #             print(invalid_string)
-        #     selected_query_indices -= grouping  # remove specified from the pool of available until all are gone
-        #
-        # # once all groupings are grouped
-        # if len(groupings) > 1:
-        #     available_grouping_indices = {i for i in range(1, len(groupings) + 1)}
-        #     group_grouping_string = 'Groups remain, you must group groups. Your groups are:\n%s\n\n%s' % \
-        #                             ('\n'.join('\tGroup Group #%d%s' %
-        #                                        (i + 1, format_string % group) for i, group in enumerate(groupings)),
-        #                              available_query_string)
-        #     print(group_grouping_string)  # provide an introduction
-        #     selected_grouping_indices = available_grouping_indices
-        #     while selected_grouping_indices:  # check if more work needs to be done
-        #         group_grouping = input()
+            while True:
+                while True:
+                    service = input(query_builder_service_string)
+                    if service in services:
+                        break
+                    else:
+                        print(invalid_string)
+
+                # while True:  # Implement upon correct formatting check
+                attribute = input(query_builder_attribute_string)
+                operator = input(query_builder_operator_string)
+                value = input(query_builder_value_string % (operator.upper(), input_string))
+
+                # while True:
+                confirmation = input('%s\n%s' % (query_display_string %
+                                                 (increment, service.upper(), attribute, operator.upper(), value),
+                                                 confirmation_string))
+                if bool_d[confirmation.lower()]:
+                    break
+                else:
+                    print(invalid_string)
+
+            terminal_group_queries.append((service, attribute, operator, value))
+            increment += 1
+            additional = input(additional_input_string)
+            if not bool_d[additional.lower()]:
+                break
+            else:
+                print(invalid_string)
+
+        if len(terminal_group_queries) > 1:
+            recursive_query_tree = make_groups(terminal_group_queries)
+            # available_query_indices = {i for i in range(1, len(terminal_group_queries) + 1)}
+            # group_introduction = 'Because you have %d search queries, you need to combine these to a total search strategy. ' \
+            #                      'This is accomplished by grouping your search queries together using the operations (%s) ' \
+            #                      'as you did previously.\nYou can repeat this process until all queries have been grouped. ' \
+            #                      'If you have multiple groups, you will need to group the groups.' % \
+            #                      (len(terminal_group_queries), operators),
+            #
+            # available_query_string ='Your available queries are::\n%s\n\n' % \
+            #                         '\n'.join(query_display_string % (query_num, terminal_group_queries[query_num])
+            #                                   for query_num in available_query_indices)  # , terminal_query in enumerate(terminal_group_queries))
+            # group_inquiry_string = 'Which of these queries (identified by Query #) would you like to combine into a group?' \
+            #                        'Indicate your selection with a space separated list! You will be able to choose the ' \
+            #                        'group logical operation next%s' % input_string
+            # group_specification_string = 'You specified queries \'%s\' as a single group.'
+            # print(group_introduction)  # provide an introduction
+            #
+            # selected_query_indices = available_query_indices
+            # groupings = []
+            # while selected_query_indices:  # check if more work needs to be done
+            #     while True:  # ensure grouping input is viable
+            #         print(available_query_string)  # display available queries
+            #         grouping = set(map(int, input(group_inquiry_string).split()))  # get new grouping
+            #
+            #         confirmation = input('%s\n%s' % (group_specification_string % grouping, confirmation_string))
+            #         if bool_d[confirmation.lower()]:  # confirm that grouping is as specified
+            #             while True:  # check if logic input is viable
+            #                 group_logic_string = 'What group operator (out of %s) would you like for this group?%' % \
+            #                                      (','.join(group_operators), input_string)
+            #                 group_logic = input(group_logic_string).lower()
+            #                 if group_logic in group_operators:
+            #                     break
+            #                 else:
+            #                     print(invalid_string)
+            #             groupings.append((group_logic, grouping))
+            #             break
+            #         else:
+            #             print(invalid_string)
+            #     selected_query_indices -= grouping  # remove specified from the pool of available until all are gone
+            #
+            # # once all groupings are grouped
+            # if len(groupings) > 1:
+            #     available_grouping_indices = {i for i in range(1, len(groupings) + 1)}
+            #     group_grouping_string = 'Groups remain, you must group groups. Your groups are:\n%s\n\n%s' % \
+            #                             ('\n'.join('\tGroup Group #%d%s' %
+            #                                        (i + 1, format_string % group) for i, group in enumerate(groupings)),
+            #                              available_query_string)
+            #     print(group_grouping_string)  # provide an introduction
+            #     selected_grouping_indices = available_grouping_indices
+            #     while selected_grouping_indices:  # check if more work needs to be done
+            #         group_grouping = input()
+        else:
+            recursive_query_tree = (terminal_group_queries, )
+        # recursive_query_tree = (queries, grouping1, grouping2, etc.)
+        for i, node in enumerate(recursive_query_tree):
+            if i == 0:
+                recursive_query_tree[i] = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node, 1)}
+                # terminal_group_queries = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node)}
+                # generate_terminal_group(service, parameter_args)
+                # terminal_group_queries[increment] = generate_terminal_group(service, attribute, operator, value)
+            else:
+                # if i == 1:
+                #     child_groups = terminal_group_queries
+                #     # child_groups = [terminal_group_queries[j] for j in child_nodes]
+                # else:
+                #     child_groups = recursive_query_tree[i]
+                # operation, child_nodes = node
+                # groups = {j: generate_group(operation, child_groups) for j, leaf in enumerate(node)}
+                recursive_query_tree[i] = {j: generate_group(operation, recursive_query_tree[i - 1][k])
+                                           for j, (operation, child_group_nums) in enumerate(node, 1)
+                                           for k in child_group_nums}
+
+        search_query = generate_query(recursive_query_tree[-1], return_type)
+        response_d = query_pdb(search_query)
+
+    retrieved_ids = parse_pdb_response_for_ids(response_d)
+
+    if save:
+        io_save(retrieved_ids)
+    if return_results:
+        return retrieved_ids
     else:
-        recursive_query_tree = (terminal_group_queries, )
-    # recursive_query_tree = (queries, grouping1, grouping2, etc.)
-    for i, node in enumerate(recursive_query_tree):
-        if i == 0:
-            recursive_query_tree[i] = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node, 1)}
-            # terminal_group_queries = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node)}
-            # generate_terminal_group(service, parameter_args)
-            # terminal_group_queries[increment] = generate_terminal_group(service, attribute, operator, value)
-        else:
-            # if i == 1:
-            #     child_groups = terminal_group_queries
-            #     # child_groups = [terminal_group_queries[j] for j in child_nodes]
-            # else:
-            #     child_groups = recursive_query_tree[i]
-            # operation, child_nodes = node
-            # groups = {j: generate_group(operation, child_groups) for j, leaf in enumerate(node)}
-            recursive_query_tree[i] = {j: generate_group(operation, recursive_query_tree[i - 1][k])
-                                       for j, (operation, child_group_nums) in enumerate(node, 1)
-                                       for k in child_group_nums}
-
-    search_query = generate_query(recursive_query_tree[-1], return_type)
-    response_d = query_pdb(search_query)
+        return None
 
 
 def get_uniprot_accession_id(response_xml):  # DEPRECIATED
@@ -350,8 +456,8 @@ def map_pdb_to_uniprot(pdb_chain):  # DEPRECIATED
     uniprot_id = 0
     retry = False
     while uniprot_id == 0:
-        pdb_mapping_response = requests.get(pdb_mapping_url, params={'json': dumps(query)}).text
-        # pdb_mapping_response = requests.get(pdb_mapping_url, params={'query': pdb_chain}).text
+        pdb_mapping_response = requests.get(pdb_query_url, params={'json': dumps(query)}).text
+        # pdb_mapping_response = requests.get(pdb_query_url, params={'query': pdb_chain}).text
 
         if pdb_mapping_response[:3] == 'Bad':
             return False
@@ -672,6 +778,9 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--input_pisa_directory', type=str, help='Where should reference PISA files be found? '
                                                                        'Default=CWD', default=os.getcwd())
     parser.add_argument('-o', '--output_directory', type=str, help='Where should interface files be saved?')
+    parser.add_argument('-q', '--query_web', action='store_true',
+                        help='Should information be retrieved from the web?')
+    parser.add_argument('-db', '--database', type=str, help='Should a database be connected?')
     args = parser.parse_args()
 
     logger = start_log(name=os.path.basename(__file__), level=2)
@@ -688,10 +797,13 @@ if __name__ == '__main__':
     pdb_resolution_threshold = 3.0
     write_to_file = True  # TODO MySQL DB option would make this false
 
-    # TODO Figure out how to query PDB using under3A no multimodel no mmcif, no bad pisa file reliably.
     all_pdbs_of_interest = 'under3A_protein_no_multimodel_no_mmcif_no_bad_pisa.txt'  # Todo parameterize
     all_protein_file = os.path.join(current_interface_file_path, all_pdbs_of_interest)
-    pdbs_of_interest = to_iterable(all_protein_file)
+    if query:
+        # TODO Figure out how to query PDB using under3A no multimodel no mmcif, no bad pisa file reliably.
+        retrieve_pdb_entries_by_advanced_query()
+    else:
+        pdbs_of_interest = to_iterable(all_protein_file)
 
     # Current
     interfaces_dir = '/yeates1/kmeador/fragment_database/all_interfaces'
@@ -705,18 +817,21 @@ if __name__ == '__main__':
     if os.path.exists(pdb_interface_file):  # retrieve the pdb, [interfaces] dictionary
         pdb_interface_d = unpickle(pdb_interface_file)
     else:  # make the dictionary
-        pdb_interface_d = {}
-        for pdb_code in pdbs_of_interest:
-            pisa_d = unpickle(retrieve_pisa_file_path(pdb_code, directory=pisa_directory))
-            interface_data = pisa_d['interfaces']
-            for interface_id in interface_data:
-                if interface_id.is_digit():
-                    if pdb_code in pdb_interface_d:
-                        pdb_interface_d[pdb_code].add(interface_id)
-                    else:
-                        pdb_interface_d[pdb_code] = {interface_id}
+        if args.query_web:
+            dummy = None  # TODO
+        else:
+            pdb_interface_d = {}
+            for pdb_code in pdbs_of_interest:
+                pisa_d = unpickle(retrieve_pisa_file_path(pdb_code, directory=pisa_directory))
+                interface_data = pisa_d['interfaces']
+                for interface_id in interface_data:
+                    if interface_id.is_digit():
+                        if pdb_code in pdb_interface_d:
+                            pdb_interface_d[pdb_code].add(interface_id)
+                        else:
+                            pdb_interface_d[pdb_code] = {interface_id}
 
-        pickle_object(pdb_interface_d, pdb_interface_file)
+        pickle_object(pdb_interface_d, pdb_interface_file, out_path=None)
 
     # TODO script this file creation
     #  See if there is an update to QSBio verified assemblies
@@ -740,44 +855,25 @@ if __name__ == '__main__':
     # representatives_90_file = os.path.join(current_interface_file_path, representatives_90_file_name)
     # rep_90 = to_iterable(representatives_90_file)
 
-    # TODO integrate the construction of this dictionary
-    # yeates/fragment_database/all/scripts/gather_path_space_group_uniprot.py
-    # yeates/fragment_database/all/scripts/pdb2uniprot
-    #  {'path': '/home/kmeador/yeates/fragment_database/all/all_pdbs/kn/3KN7.pdb',
-    #   'cryst': {'space': 'P 21 21 2', 'a_b_c': (106.464, 75.822, 34.109), 'ang_a_b_c': (90.0, 90.0, 90.0)},
-    #   'ref': {'A': {'db': 'UNP', 'accession': 'P35755'}}
-    #   'res': 2.6}
     all_pdb_uniprot_file_name = '200206_MostCompleteAllPDBSpaceGroupUNPResInfo'  # .pkl'  # Todo parameterize
     all_pdb_uniprot_file = os.path.join(current_interface_file_path, all_pdb_uniprot_file_name)
+    # Dictionary Structure
+    #  {'entity': {1: ['A']}, 'res': 2.6, 'ref': {'A': {'db': 'UNP', 'accession': 'P35755'})
+    #   'cryst': {'space': 'P 21 21 2', 'a_b_c': (106.464, 75.822, 34.109), 'ang_a_b_c': (90.0, 90.0, 90.0)}}
+    # 200121 has 'path': '/home/kmeador/yeates/fragment_database/all/all_pdbs/kn/3KN7.pdb', not entity
     if os.path.exists(all_pdb_uniprot_file):  # retrieve the pdb, DBreference, resolution, and crystal dictionary
         pdb_uniprot_info = unpickle(all_pdb_uniprot_file)
     else:
-        pdb_uniprot_info = {}
-        for pdb_code in all_pdbs_of_interest:
-            # From the database of files
-            pdb = read_pdb(retrieve_pdb_file_path(pdb_code, directory=pdb_directory), coordinates_only=False)
-            # From the pdb_mapping_url
+        if args.query_web:  # Retrieve from the PDB web
+            pdb_uniprot_info = {pdb_code: get_pdb_info_by_entry(pdb_code) for pdb_code in all_pdbs_of_interest}
+        else:  # From the database of files
+            pdb_uniprot_info = {}
+            for pdb_code in all_pdbs_of_interest:
+                pdb = read_pdb(retrieve_pdb_file_path(pdb_code, directory=pdb_directory), coordinates_only=False)
+                pdb_uniprot_info[pdb_code] = {'entity': pdb.entities, 'cryst': pdb.cryst, 'ref': pdb.dbref,
+                                              'res': pdb.res}
 
-            pdb_code = pdb.split('.')
-            pdb_code[0] = pdb_code[0].lower()
-            pdb_chain = pdb_code[0] + '.' + pdb_code[1]
-            #     try:
-            accessory_dict[pdb] = map_pdb_to_uniprot(pdb_chain)
-            pdb_uniprot_info[pdb_code] = {'cryst': pdb.cryst, 'ref': pdb.dbref, 'res': pdb.res}  # 'path': pdb.filepath,
-            # HERE TODO
-        for pdb in set_no_unp_code:
-            pdb_code = pdb.split('.')
-            pdb_code[0] = pdb_code[0].lower()
-            pdb_chain = pdb_code[0] + '.' + pdb_code[1]
-            #     try:
-            accessory_dict[pdb] = map_pdb_to_uniprot(pdb_chain)
-
-        key_errors = []
-        for pdb_chain in all_success:
-            pdb_code = pdb_chain.split('.')[0]
-            chain = pdb_chain.split('.')[1]
-            updated_pdb_uniprot_info[pdb_code]['ref'][chain]['db'] = 'UNP'
-            updated_pdb_uniprot_info[pdb_code]['ref'][chain]['accession'] = accessory_dict[pdb_chain]
+        pickle_object(pdb_uniprot_info, all_pdb_uniprot_file, out_path=None)
 
     # Output data/files
     sorted_file_name = 'PDBInterfacesSorted'  # Todo parameterize
@@ -950,7 +1046,6 @@ if __name__ == '__main__':
         #         uniprot_homo_bio_interfaces[pdb] = all_homo_bio_interfaces[pdb]
         top_pdb = uniprot_master[uniprot_id]['top']
         if top_pdb in all_homo_uniprot_ids[uniprot_id]:
-            # pdb: {interface integers} (maybe in string format # Todo change to int()
             uniprot_homo_bio_interfaces[top_pdb] = all_homo_bio_interfaces[top_pdb]
         else:
             highest_res = pdb_resolution_threshold
@@ -964,7 +1059,6 @@ if __name__ == '__main__':
     for uniprot_id in all_unk_uniprot_ids:
         top_pdb = uniprot_master[uniprot_id]['top']
         if top_pdb in all_unk_uniprot_ids[uniprot_id]:
-            # pdb: {interface integers} (maybe in string format # Todo change to int()
             uniprot_unknown_bio_interfaces[top_pdb] = all_unknown_bio_interfaces[top_pdb]
         else:
             highest_res = pdb_resolution_threshold
