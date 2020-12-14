@@ -27,7 +27,7 @@ class PDB:
         self.atom_sequences = {}  # ATOM sequences. key is chain, value is 'AGHKLAIDL'
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.chain_id_list = []  # list of unique chain IDs in PDB
-        self.entities = {}  # {0: {'chains': [], 'seq': 'GHIPLF...'}
+        self.entities = {}  # {1: ['A'], ...}  # for recap project - {0: {'chains': [], 'seq': 'GHIPLF...'}
         self.name = None
         self.pdb_ss_asg = []
         self.cb_coords = []
@@ -107,16 +107,16 @@ class PDB:
                 elif line[0:6] == 'CRYST1' or line[0:5] == 'SCALE':
                     self.header.append(line)
                 elif line[0:5] == 'DBREF':
-                    line = line.strip()
+                    # line = line.strip()
                     chain = line[12:14].strip().upper()
                     if line[5:6] == '2':
                         db_accession_id = line[18:40].strip()
                     else:
                         db = line[26:33].strip()
-                        if line[5:6] == '1':
+                        if line[5:6] == '1':  # skip grabbing db_accession_id until DBREF2
                             continue
                         db_accession_id = line[33:42].strip()
-                    self.dbref[chain] = {'db': db, 'accession': db_accession_id}
+                    self.dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
                 elif line[:21] == 'REMARK   2 RESOLUTION':
                     try:
                         self.res = float(line[22:30].strip().split()[0])
@@ -1129,6 +1129,7 @@ class PDB:
 
     def get_all_entities(self):  # KM added 08/21/20 to format or the ASU
         """Find all unique entities in the pdb file, these are unique sequence/structure objects"""
+        # TODO update to reflect parsing
         # seq_d = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
         # self.entities[copy.copy(count)] = {'chains': [self.chain_id_list[0]], 'seq': seq_d[self.chain_id_list[0]]}
         count = 0
