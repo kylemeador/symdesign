@@ -90,12 +90,9 @@ class PDB:
                                'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1',
                                '2', '3', '4']
         chain_ids = []
-        seq_list = []
-        multimodel = False
-        start_of_new_model = False
-        model_chain_index = -1
-        model_chain_id = None
-        curr_chain_id = None
+        multimodel, start_of_new_model = False, False
+        model_chain_id, curr_chain_id = None, None
+        model_chain_index = 0
         for line in pdb:
             line = line.rstrip()
             if not coordinates_only:  # KM added 02/04/20 to deal with handling PDB headers
@@ -104,7 +101,6 @@ class PDB:
                         self.res = float(line[22:30].strip().split()[0])
                     except ValueError:
                         self.res = None
-                        continue
                 elif line[0:6] == 'SEQRES':  # KM added 7/25/19 to deal with SEQRES info
                     chain = line[11:12].strip()
                     sequence = line[19:71].strip().split()
@@ -112,11 +108,8 @@ class PDB:
                         self.seqres_sequences[chain] += sequence
                     else:
                         self.seqres_sequences[chain] = sequence
-                    # seq_list.append([chain, sequence])
-                    continue
-                elif line[0:6] == "CRYST1" or line[0:5] == "SCALE":
+                elif line[0:6] == 'CRYST1' or line[0:5] == 'SCALE':
                     self.header.append(line)
-                    continue
                 elif line[0:5] == 'DBREF':
                     line = line.strip()
                     chain = line[12:14].strip().upper()
@@ -128,23 +121,29 @@ class PDB:
                             continue
                         db_accession_id = line[33:42].strip()
                     self.dbref[chain] = {'db': db, 'accession': db_accession_id}
-                    continue
-            if line[0:4] == "ATOM" or line[17:20] == 'MSE' and line[0:6] == 'HETATM':  # KM modified 2/10/20 for MSE
+                continue
+
+            if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':  # KM modified 2/10/20 for MSE
                 # coordinates_only = False
                 number = int(line[6:11].strip())
                 type = line[12:16].strip()
                 alt_location = line[16:17].strip()
-                if line[17:20] == "MSE":  # KM added 2/10/20
-                    residue_type = "MET"  # KM added 2/10/20
+                if line[17:20] == 'MSE':  # KM added 2/10/20
+                    residue_type = 'MET'  # KM added 2/10/20
                 else:  # KM added 2/10/20
                     residue_type = line[17:20].strip()
                 if multimodel:
-                    if line[21:22].strip() != curr_chain_id:
+                    if start_of_new_model or line[21:22].strip() != curr_chain_id:
                         curr_chain_id = line[21:22].strip()
-                        if not start_of_new_model:
-                            model_chain_index += 1
-                            model_chain_id = available_chain_ids[model_chain_index]
-                    start_of_new_model = False
+                        model_chain_id = available_chain_ids[model_chain_index]
+                        model_chain_index += 1
+                        start_of_new_model = False
+                    # if line[21:22].strip() != curr_chain_id:
+                    #     curr_chain_id = line[21:22].strip()
+                    #     if not start_of_new_model:  # used as a check of the outer elif for multimodels with multiple chains
+                    #         model_chain_id = available_chain_ids[model_chain_index]
+                    #         model_chain_index += 1
+                    # start_of_new_model = False
                     chain = model_chain_id
                 else:
                     chain = line[21:22].strip()
@@ -160,7 +159,7 @@ class PDB:
                 atom = Atom(number, type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y,
                             z, occ, temp_fact, element_symbol, atom_charge)
                 if remove_alt_location:
-                    if alt_location == "" or alt_location == "A":
+                    if alt_location == '' or alt_location == 'A':
                         if atom.chain not in chain_ids:
                             chain_ids.append(atom.chain)
                         self.all_atoms.append(atom)
@@ -168,11 +167,11 @@ class PDB:
                     if atom.chain not in chain_ids:
                         chain_ids.append(atom.chain)
                     self.all_atoms.append(atom)
-            elif line[0:5] == "MODEL":
-                start_of_new_model = True
+            elif line[0:5] == 'MODEL':
                 multimodel = True
-                model_chain_index += 1
-                model_chain_id = available_chain_ids[model_chain_index]
+                start_of_new_model = True  # signifies that the next line comes after a new model
+                # model_chain_id = available_chain_ids[model_chain_index]
+                # model_chain_index += 1
             elif line[0:6] == 'CRYST1':
                 self.cryst_record = line
                 try:
@@ -187,7 +186,7 @@ class PDB:
                     ang_a, ang_b, ang_c = a, b, c
                 space_group = line[55:66].strip()
                 self.cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-                continue
+
         self.chain_id_list = chain_ids
         self.renumber_atoms()
         if self.seqres_sequences:
