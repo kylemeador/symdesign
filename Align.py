@@ -242,8 +242,8 @@ class PDB:
                 for chain in self.chain_id_list:
                     # where PDB originated from outside the official PDB distribution. Probably a design
                     # print('This PDB file has no SEQRES, taking sequence from ATOM record')
-                    sequence, failures = fc.extract_aa_seq(self, '3', 'atom', chain)
-                    self.sequence_dictionary[chain] = sequence
+#                    sequence, failures = fc.extract_aa_seq(self, '3', 'atom', chain)
+#                    self.sequence_dictionary[chain] = sequence
         except IndexError:
             self.sequence_dictionary = {}
 
