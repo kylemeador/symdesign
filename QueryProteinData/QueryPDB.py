@@ -18,147 +18,80 @@ pdb_rest_url = 'http://data.rcsb.org/rest/v1/core/'  # uniprot/  # 1AB3/1'
 attribute_url = 'https://search.rcsb.org/search-attributes.html'
 attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v1/metadata/schema'
 
-# Types of rcsb_search_context: (can be multiple)
-# full-text - contains_words, contains_phrase, exists
-# exact-match - in, exact-match, exists
-# default-match - equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, exists
-# suggests - provides an example to the user in the GUI
 
-# can negate any search
-# in - operators can have multiple enum's
-
-
-def get_rcsb_metadata_schema():
+def get_rcsb_metadata_schema(search_only=True):
+    """Parse the rcsb metadata schema for useful information from the format
+         "properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
+                                             "description" : "Identifies the version of the feature assignment.",
+                                             "rcsb_description" : [
+                                              {"text" : "Identifies the version of the feature assignment.",
+                                               "context" : "dictionary"},
+                                              {"text" : "Feature Version", "context" : "brief"} ]
+                                            },
+     ...
+                     "symmetry_type" : {"type" : "string",     <-- provide data type
+          provide options     -->       "enum" : [ "2D CRYSTAL", "3D CRYSTAL", "HELICAL", "POINT" ],
+          provide description -->       "description" : "The type of symmetry applied to the reconstruction",
+          provide operators   -->       "rcsb_search_context" : [ "exact-match" ],
+                                        "rcsb_full_text_priority" : 10,
+                                        "rcsb_description" : [
+                                           {"text" : "The type of symmetry applied to the reconstruction",
+                                            "context" : "dictionary"},
+                                           {"text" : "Symmetry Type (Em 3d Reconstruction)", "context" : "brief"} ]
+                                       },
+    Returns:
+        (dict): {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals'}, 'choices': []}, ...}
+    """
     schema_pairs = {'dtype': 'type', 'description': 'description', 'operators': 'rcsb_search_context',
                     'choices': 'enum'}
     operator_d = {'full-text': 'contains_words, contains_phrase, exists', 'exact-match': 'in, exact-match, exists',
-                  'default-match': 'equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, exists',
-                  'suggests': ''}
+                  'default-match': 'equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, '
+                                   'exists', 'suggest': ''}
+    # Types of rcsb_search_context: (can be multiple)
+    # full-text - contains_words, contains_phrase, exists
+    # exact-match - in, exact-match, exists
+    # default-match - equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, exists
+    # suggests - provides an example to the user in the GUI
 
-    def recurse_metadata_iter(properties, stack=tuple()):  # this puts the yield inside a local iter so we don't return
-        # print('Stack: %s' % (str(stack) or ''))
-        for _property in properties:
-            if 'items' in properties[_property] and 'properties' in properties[_property]['items']:
-                yield from recurse_metadata_iter(properties[_property]['items']['properties'], stack=stack + (_property,))
-        # print('Stack: %s' % (str(stack) or ''))
+    def recurse_metadata(metadata_d, stack=tuple()):  # this puts the yield inside a local iter so we don't return
+        for attribute in metadata_d:
+            if 'items' in metadata_d[attribute] and 'properties' in metadata_d[attribute]['items']:
+                yield from recurse_metadata(metadata_d[attribute]['items']['properties'], stack=stack + (attribute,))
             else:
-                # print('Yielding stack: %s' % str(stack + (_property,)))
-                yield stack + (_property,)  # zip(property)  # , list(properties.keys()))
-
-    def recurse_metadata(properties, stack=tuple()):  # property, properties):  # GOLD
-        # print(properties)
-        # for property in properties:
-        #     if 'items' in properties[property]:
-        #         if 'properties' in properties[property]['items']:
-        print('Stack: %s' % (str(stack) or ''))
-        if 'items' in properties:
-            if 'properties' in properties['items']:
-                for child_property in properties['items']['properties']:
-                    print('Child: %s' % child_property)
-                    yield from recurse_metadata(properties['items']['properties'][child_property], stack=stack + (child_property,))
-                    # for recursed_property in recurse_metadata(child_property, properties['items']['properties'][child_property]):
-                        # yield (property, recursed_property)
-                    # yield child_property, recurse_metadata(properties['items']['properties'][child_property])  # Never tried
-                    # yield from property, recurse_metadata(child_property, properties['items']['properties'])
-                    # for recursed_property in recurse_metadata(child_property, properties['items']['properties']):
-                    #     yield property, recursed_property
-                    # yield zip(repeat(property), zip(*recurse_metadata(child_property, properties['items']['properties'])))  # GOLD
-                    # yield property, recurse_metadata(child_property, properties['items']['properties'])
-                    # return zip(property, zip(*recurse_metadata(child_property, properties['items']['properties'])))
-            else:
-                print('Yielding stack: %s' % str(stack))
-                yield stack  # zip(property)  # , list(properties.keys()))
-        else:
-            print('Yielding stack: %s' % str(stack))
-            yield stack  # zip(property)  # , list(properties.keys()))
-        # return None  # zip(property)  # , list(properties.keys()))
-        # return property  # zip(property)  # , list(properties.keys()))  # GOLD
-
-    # returns don't work because I am iterating through the child_properties. I could build a list and return the list
-    # but that seems messy when there are so many pythonic tools
-
-    # if I remove passing the property/child property and forgo it's return (return none), I can handle the return in
-    # one section...
+                yield stack + (attribute,)
 
     metadata_json = requests.get(attribute_metadata_schema_json).json()
     metadata_properties_d = metadata_json['properties']
-    # gen_schema = [recurse_metadata(metadata_properties_d[schema_property], stack=(schema_property,))
-    #               for schema_property in metadata_properties_d]  # VERY CLOSE
-    # print(gen_schema, len(gen_schema), id(gen_schema[0]))  #
-    # ready = input('Ready?')
-    # schema_headers = [schema_tuple.__next__() for schema_tuple in gen_schema]
+    gen_schema = recurse_metadata(metadata_properties_d)
+    schema_header_tuples = [yield_schema for yield_schema in gen_schema]
 
-    # schema_properties = ((m_property, recurse_metadata(metadata_properties_d[m_property])) for m_property in metadata_properties_d)
-    # schema_properties = (recurse_metadata(property, metadata_properties_d[property]) for property in metadata_properties_d)
-    # print(schema_properties[:5])
-
-    # print(metadata_properties_d['pdbx_struct_special_symmetry'])
-
-    gen_schema = recurse_metadata_iter(metadata_properties_d)
-    # ready = input('Ready?')
-    schema_headers = [schema_tuple for schema_tuple in gen_schema]
-
-    # for i, property_tuple in enumerate(schema_headers):
-    #     print('property_tuple: %s' % str(property_tuple))
-    #     for _property in property_tuple:
-    #         print('property5: %s' % _property)
-    #     if i == 5:
-    #         break
-
-    clean_schema_d = {}
-    for i, property_tuple in enumerate(schema_headers):
-        dict_string = '[\'items\'][\'properties\']'.join('[\'%s\']' % _property for _property in property_tuple)
-        evaluation_d = eval('%s%s' % (metadata_properties_d, dict_string))
-        attribute = '.'.join(_property for _property in property_tuple)
-        clean_schema_d[attribute] = {}
+    schema_d = {}
+    for i, attribute_tuple in enumerate(schema_header_tuples):
+        attribute_full = '.'.join(attribute for attribute in attribute_tuple)
+        schema_d[attribute_full] = {}
+        d_search_string = '[\'items\'][\'properties\']'.join('[\'%s\']' % attribute for attribute in attribute_tuple)
+        evaluation_d = eval('%s%s' % (metadata_properties_d, d_search_string))
         for key, value in schema_pairs.items():
             if value in evaluation_d:
-                clean_schema_d[attribute][key] = evaluation_d[value]
+                schema_d[attribute_full][key] = evaluation_d[value]
             else:
-                clean_schema_d[attribute][key] = None
+                schema_d[attribute_full][key] = None
 
-        if clean_schema_d[attribute]['operators']:  # convert the rcsb_search_context to valid operator(s)
-            clean_schema_d[attribute]['operators'] = set(', '.join(
-                operator_d[search_context] for search_context in clean_schema_d[attribute]['operators']).split(', '))
-        if i % 10 == 0:
-            print(attribute, ':', clean_schema_d[attribute])
+        if 'format' in evaluation_d:
+            schema_d[attribute_full]['dtype'] = 'date'
 
-    return clean_schema_d
+        if schema_d[attribute_full]['operators']:  # convert the rcsb_search_context to valid operator(s)
+            schema_d[attribute_full]['operators'] = set(', '.join(
+                operator_d[search_context] for search_context in schema_d[attribute_full]['operators']).split(', '))
+        else:
+            if search_only:  # remove those entries that don't have a corresponding operator as these aren't searchable
+                schema_d.pop(attribute_full)
 
-    # metadata_subheader = metadata_header['items']['properties']
-    # for metadata_subhead in metadata_subheader:
-    #     if 'items' in metadata_subhead:
-    #         True
-    #     else:
-    #         metadata_subhead['items']['properties']
-
-    # "properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
-    #                                         "description" : "Identifies the version of the feature assignment.",
-    #                                         "rcsb_description" : [
-    #                                          {"text" : "Identifies the version of the feature assignment.",
-    #                                           "context" : "dictionary"},
-    #                                          {"text" : "Feature Version", "context" : "brief"} ]
-    #                                        },
-    # ...
-    #                 "symmetry_type" : {"type" : "string",     <-- provide data type
-    #      provide options     -->       "enum" : [ "2D CRYSTAL", "3D CRYSTAL", "HELICAL", "POINT" ],
-    #      provide description -->       "description" : "The type of symmetry applied to the reconstruction",
-    #      provide operators   -->       "rcsb_search_context" : [ "exact-match" ],
-    #                                    "rcsb_full_text_priority" : 10,
-    #                                    "rcsb_description" : [
-    #                                       {"text" : "The type of symmetry applied to the reconstruction",
-    #                                        "context" : "dictionary"},
-    #                                       {"text" : "Symmetry Type (Em 3d Reconstruction)", "context" : "brief"} ]
-    #                                   },
-
+    return schema_d
 
 
 # uniprot_url = 'http://www.uniprot.org/uniprot/{}.xml'
 attribute_prefix = 'rcsb_'
-
-# def get_uniprot_protein_name(uniprot_id):
-#     uniprot_response = requests.get(uniprot_url.format(uniprot_id)).text
-#     return fromstring(uniprot_response).find('.//{http://uniprot.org/uniprot}recommendedName/{http://uniprot.org/uniprot}fullName').text
 
 # Query formatting requirements
 request_types = {'group': 'Results must satisfy a group of requirements', 'terminal': 'A specific requirement'}
@@ -240,18 +173,20 @@ def query_pdb(query):
 def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
     format_string = '\t%s\t\t%s'
     input_string = '\nInput:'
-    invalid_string = 'Invalid choice, please try again'
+    invalid_string = 'Invalid choice, please try again.'
     confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you can re-input.%s' % input_string
     bool_d = {'y': True, 'n': False}
     user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
-    additional_input_string = '\nWould you like to add another?%s' % input_string
+    additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
     schema = get_rcsb_metadata_schema()
+    instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
+    # {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals',}, 'choices': []}, ...}
 
     def search_schema(term):
         return {key: schema[key]['description'] for key in schema if term.lower() in schema[key]['description'].lower()}
 
-    def generate_parameters(attribute, operator, value):
-        return {"operator": operator, "value": value, "attribute": attribute}
+    def generate_parameters(attribute, operator, negation, value):
+        return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
 
     def generate_terminal_group(service, *parameter_args):
         return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(*parameter_args)}
@@ -320,9 +255,9 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                     if confirm.lower() in bool_d:
                         break
                     else:
-                        print(invalid_string)
+                        print('%s %s is not a valid choice!' % invalid_string, confirm)
 
-                if bool_d[confirmation.lower()]:  # confirm that grouping is as specified
+                if bool_d[confirmation.lower()] or confirmation.isspace():  # confirm that grouping is as specified
                     while True:  # check if logic input is viable
                         group_logic = input(group_logic_string).lower()
                         if group_logic in group_operators:
@@ -331,6 +266,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                             print(invalid_string)
                     groupings.append((grouping, group_logic))
                     break
+
             selected_grouping_indices -= grouping  # remove specified from the pool of available until all are gone
 
         if len(selected_grouping_indices) > 0:
@@ -382,66 +318,146 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
         # terminal_group_queries = {}
         increment = 1
         while True:
-            query_builder_service_string = '\nWhat type of search method would you like to use?%s%s' % \
-                                           (user_input_format % '\n'.join(format_string % item
-                                                                          for item in services.items()), input_string)
+            # TODO only text search is available now
+            # query_builder_service_string = '\nWhat type of search method would you like to use?%s%s' % \
+            #                                (user_input_format % '\n'.join(format_string % item
+            #                                                               for item in services.items()), input_string)
             query_builder_attribute_string = '\nWhat type of attribute would you like to use? Examples include:%s' \
-                                             '\n\nFor a more thorough list please search %s\nEnsure that your spelling'\
+                                             '\n\nFor a more thorough list indicate \'s\' for search.\n' \
+                                             'Alternatively, you can browse %s\nEnsure that your spelling'\
                                              ' is exact if you want your query to succeed!%s' % \
                                              (user_input_format % '\n'.join(format_string %
                                                                             (value % attribute_prefix, key)
                                                                             for key, value in attributes.items()),
                                               attribute_url, input_string)
+            # query_builder_operator_string = '\nWhat operator would you like to use?\n' \
+            #                                 'Common operators include:\n\t%s%s' % (', '.join(operators), input_string)
             query_builder_operator_string = '\nWhat operator would you like to use?\n' \
-                                            'Common operators include:\n\t%s%s' % (', '.join(operators), input_string)
-            query_builder_value_string = '\nWhat value should be %s?%s'
+                                            'Possible operators include:\n\t%s\nIf you would like to negate the ' \
+                                            'operator, on input type \'not\' after your selection. Ex: equals not.%s' %\
+                                            ('%s', input_string)
+            query_builder_value_string = '\nWhat value should be %s? Required type is: %s.%s%s'
             query_display_string = 'Query #%d: Search the PDB\'s \'%s\' service for \'%s\' attributes, \'%s\' \'%s\'.'
 
-            while True:
+            while True:  # start the query builder routine
                 while True:
-                    service = input(query_builder_service_string)
+                    # service = input(query_builder_service_string)
+                    service = 'text'  # TODO
                     if service in services:
                         break
                     else:
                         print(invalid_string)
 
                 # while True:  # Implement upon correct formatting check
+                # {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals',}, 'choices': []}, ...}
                 attribute = input(query_builder_attribute_string)
-                while attribute.lower() == 's':
+                while attribute.lower() == 's':  # If the user would like to search all possible
                     search_term = input('What term would you like to search?%s' % input_string)
                     attribute = input('Found the following instances of \'%s\':\n%s\nWhich option are you interested '
-                                      'in?%s' % (search_term, user_input_format %
-                                                 '\n'.join(format_string % item for item in search_schema(search_term)),
-                                                 input_string))
-                # TODO giant attribute dictionary with valid operators and value sets...
-                operator = input(query_builder_operator_string)
-                # TODO ensure for the attribute that the operator is valid!
-                value = input(query_builder_value_string % (operator.upper(), input_string))
-                if value.isdigit():
-                    value = float(value)
-                # TODO check if is.digit then conver to int()/float(). JSON can dumps() int/float
+                                      'in? Enter \'s\' to repeat search.%s' %
+                                      (search_term.upper(), user_input_format %
+                                       '\n'.join(format_string % item for item in search_schema(search_term)),
+                                       input_string))
+                    if attribute != 's':
+                        break
+                if attribute not in schema:  # confirm the users desire to do this
+                    while True:  # confirm that the confirmation input is valid
+                        confirmation = input('ERROR: %s was not found in PDB schema! If you proceed, your search is'
+                                             ' almost certain to fail.\nProceed anyway? [y/n]%s' %
+                                             (attribute, input_string))
+                        if confirmation.lower() in bool_d:
+                            break
+                        else:
+                            print('%s %s is not a valid choice!' % invalid_string, confirmation)
+                    if bool_d[confirmation.lower()] or confirmation.isspace():  # break the attribute routine on y or ''
+                        break
+
+                while True:  # retrieve the operator for the search
+                    while True:
+                        operator = input(query_builder_operator_string % ', '.join(schema[attribute]['operators']))
+                        if len(operator.split()) > 1:
+                            operator = operator.split()[0]
+                            negation = operator.split()[1]
+                            if negation.lower() == 'not':  # can negate any search
+                                negate = True
+                                break
+                            else:
+                                print('%s %s is not a recognized negation!\n Try \'%s not\' instead or remove extra '
+                                      'input' % (invalid_string, negation, operator))
+                        else:
+                            negate = False
+                    if operator in schema[attribute]['operators']:
+                        break
+                    else:
+                        print('%s %s is not a valid operator!' % invalid_string, operator)
+
+                if operator == 'in':  # in - operators can have multiple enum's
+                    print('The \'in\' operator can take multiple values. If you want multiple values, specify each '
+                          'as a separate input.')
+                    op_in = True
+                while op_in:  # check if operator is 'in'
+                    if operator != 'in':
+                        op_in = False
+                    while True:  # retrieve the value for the search
+                        value = input(query_builder_value_string % (operator.upper(), instance_d[schema[attribute]['dtype']]
+                                                                    , ('Possible choices: %s' %
+                                                                       ', '.join(schema[attribute]['enum'])
+                                                                       if schema[attribute]['enum'] else ''), input_string))
+                        if not isinstance(value, instance_d[schema[attribute]['dtype']]):  # convert to the right data type
+                            try:  # try to convert the input value to the specified type
+                                value = instance_d[schema[attribute]['dtype']](value)
+                                if schema[attribute]['enum']:  # if there is a choice
+                                    if value in schema[attribute]['enum']:  # check if the value is in the possible choices
+                                        break
+                                    else:  # if not, confirm the users desire to do this
+                                        while True:  # confirm that the confirmation input is valid
+                                            confirmation = input('%s was not found in the possible choices: %s\nProceed'
+                                                                 ' anyway? [y/n]%s' %
+                                                                 (value, ', '.join(schema[attribute]['enum']),
+                                                                  input_string))
+                                            if confirmation.lower() in bool_d:
+                                                break
+                                            else:
+                                                print('%s %s is not a valid choice!' % (invalid_string, confirmation))
+                                        if bool_d[confirmation.lower()] or confirmation.isspace():  # break the value routine on y or ''
+                                            break
+
+                                else:
+                                    break
+                            except ValueError:  # catch any conversion issue like float('A')
+                                print('%s %s is not a valid %s value!' % (invalid_string,
+                                      value, instance_d[schema[attribute]['dtype']]))
+                    while True:
+                        additional = input(additional_input_string % ' value to your \'in\' operator')
+                        if additional.lower() in bool_d:
+                            break
+                        else:
+                            print('%s %s is not a valid choice!' % (invalid_string, confirmation))
+                    if not bool_d[additional.lower()]:  # or confirmation.isspace():
+                        break
 
                 while True:
                     confirmation = input('\n%s\n%s' % (query_display_string %
-                                                       (increment, service.upper(), attribute, operator.upper(), value),
+                                                       (increment, service.upper(), attribute,
+                                                        '%s%s' % ('NOT ' if negate else '', operator.upper()), value),
                                                        confirmation_string))
                     if confirmation.lower() in bool_d:
                         break
                     else:
-                        print(invalid_string)
+                        print('%s %s is not a valid choice!' % (invalid_string, confirmation))
                 if bool_d[confirmation.lower()] or confirmation.isspace():
                     break
 
-            # terminal_group_queries[increment] = (service, attribute, operator, value)
-            terminal_group_queries.append((service, attribute, operator, value))
+            # terminal_group_queries[increment] = (service, attribute, operator, negate, value)
+            terminal_group_queries.append((service, attribute, operator, negate, value))
             increment += 1
             while True:
-                additional = input(additional_input_string)
+                additional = input(additional_input_string % ' query')
                 if additional.lower() in bool_d:
                     break
                 else:
-                    print(invalid_string)
-            if not bool_d[additional.lower()]:
+                    print('%s %s is not a valid choice!' % invalid_string, confirmation)
+            if not bool_d[additional.lower()]:  # or confirmation.isspace():
                 break
 
         if len(terminal_group_queries) > 1:
