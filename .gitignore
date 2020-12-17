@@ -3,3 +3,4 @@ dependencies/nanohedra
 dependencies/hh-suite
 dependencies/orient
 databases
+.DS_Store
