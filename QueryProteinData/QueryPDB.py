@@ -8,7 +8,7 @@ from copy import deepcopy
 from json import dumps
 
 import requests
-from SymDesignUtils import start_log, io_save
+from SymDesignUtils import start_log, io_save, unpickle
 
 # Globals
 pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
@@ -19,7 +19,7 @@ attribute_url = 'https://search.rcsb.org/search-attributes.html'
 attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v1/metadata/schema'
 
 
-def get_rcsb_metadata_schema(search_only=True):
+def get_rcsb_metadata_schema(file=None, search_only=True):
     """Parse the rcsb metadata schema for useful information from the format
          "properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
                                              "description" : "Identifies the version of the feature assignment.",
@@ -46,7 +46,7 @@ def get_rcsb_metadata_schema(search_only=True):
                     'choices': 'enum'}
     operator_d = {'full-text': 'contains_words, contains_phrase, exists', 'exact-match': 'in, exact-match, exists',
                   'default-match': 'equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, '
-                                   'exists', 'suggest': ''}
+                                   'exists', 'suggest': None}
     # Types of rcsb_search_context: (can be multiple)
     # full-text - contains_words, contains_phrase, exists
     # exact-match - in, exact-match, exists
@@ -60,6 +60,10 @@ def get_rcsb_metadata_schema(search_only=True):
             else:
                 yield stack + (attribute,)
 
+    if not file:
+        print('Gathering the most current PDB metadata. This may take a couple minutes...')
+    else:
+        return unpickle(file)
     metadata_json = requests.get(attribute_metadata_schema_json).json()
     metadata_properties_d = metadata_json['properties']
     gen_schema = recurse_metadata(metadata_properties_d)
@@ -82,7 +86,10 @@ def get_rcsb_metadata_schema(search_only=True):
 
         if schema_d[attribute_full]['operators']:  # convert the rcsb_search_context to valid operator(s)
             schema_d[attribute_full]['operators'] = set(', '.join(
-                operator_d[search_context] for search_context in schema_d[attribute_full]['operators']).split(', '))
+                operator_d[search_context] for search_context in schema_d[attribute_full]['operators']
+                if operator_d[search_context]).split(', '))
+            # if '' in schema_d[attribute_full]['operators']:
+            #     schema_d[attribute_full]['operators'].remove('')
         else:
             if search_only:  # remove those entries that don't have a corresponding operator as these aren't searchable
                 schema_d.pop(attribute_full)
@@ -116,13 +123,13 @@ services = {'text': 'linguistic searches against textual annotations associated 
 operators = {'exact_match', 'greater', 'less', 'greater_or_equal', 'less_or_equal', 'equals', 'contains_words',
              'contains_phrase', 'range', 'exists', 'in', 'range', 'range_closed'}
 group_operators = {'and', 'or'}
-attributes = {'symmetry': '%sstruct_symmetry.symbol', 'experimental_method': '%sexptl.method',
-              'resolution': '%sentry_info.resolution_combined',
-              'accession_id': '%spolymer_entity_container_identifiers.reference_sequence_identifiers.'
+attributes = {'symmetry': 'rcsb_struct_symmetry.symbol', 'experimental_method': 'exptl.method',
+              'resolution': 'rcsb_entry_info.resolution_combined',
+              'accession_id': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.'
                               'database_accession',
-              'accession_db': '%spolymer_entity_container_identifiers.reference_sequence_identifiers.'
+              'accession_db': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.'
                               'database_name',
-              'organism': '%sentity_source_organism.taxonomy_lineage.name'}
+              'organism': 'rcsb_entity_source_organism.taxonomy_lineage.name'}
 
 search_term = 'ELECTRON MICROSCOPY'  # For example. of 'C2'
 parameter_query = {'attribute': attributes, 'operator': operators, 'value': search_term}
@@ -178,12 +185,12 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
     bool_d = {'y': True, 'n': False}
     user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
     additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
-    schema = get_rcsb_metadata_schema()
     instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
     # {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals',}, 'choices': []}, ...}
 
     def search_schema(term):
-        return {key: schema[key]['description'] for key in schema if term.lower() in schema[key]['description'].lower()}
+        return [(key, schema[key]['description']) for key in schema if schema[key]['description'] and
+                term.lower() in schema[key]['description'].lower()]
 
     def generate_parameters(attribute, operator, negation, value):
         return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
@@ -222,8 +229,11 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                                                                                             input_string)
 
         available_query_string = '\nYour available queries are:\n%s\n' % \
-                                 '\n'.join(query_display_string % (query_num, *_query)
-                                           for query_num, _query in enumerate(terminal_queries, 1))  # , terminal_query in enumerate(terminal_group_queries))
+                                 '\n'.join(query_display_string % (query_num, service.upper(), attribute,
+                                                                   'NOT ' if negate else '', operator.upper(), value)
+                                           for query_num, (service, attribute, operator, negate, value)
+                                           in enumerate(terminal_queries, 1))  # , terminal_query in enumerate(terminal_group_queries))
+
         # available_grouping_string = 'Your available groups are:\n%s\n\n' % \
         #                             '\n'.join('\tGroup Group #%d%s' %
         #                                       (i, format_string % group) for i, group in enumerate(work_on_group, 1))
@@ -285,18 +295,19 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
           'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
           'downstream use. If you require > 25,000 ID\'s, this will save you some headache. You can also use the GUI '
           'and this tool in combination, as detailed below. Type \'JSON\' into the next prompt to do so, otherwise hit '
-          '\'Enter\'\n\n'
-          'DETAILS: If you want to use this function to save time formatting and/or pipeline interruption,'
-          ' a unique solution is to build your Query with the GUI on the PDB then bring the resulting JSON back here to'
-          ' submit. To do this, first build your full query, then hit \'Enter\' or the Search icon button '
-          '(magnifying glass icon). A new section of the search page should appear above the Query builder. '
-          'Clicking the JSON|->| button will open a new page with an automatically built JSON representation of your '
-          'query. You can copy and paste this JSON object into the prompt to return your chosen ID\'s' %
-          pdb_advanced_search_url)
+          '\'Enter\'\n' % pdb_advanced_search_url)
+    schema = get_rcsb_metadata_schema(file=None)  # TODO add a source file
     program_start = input(input_string)
     if program_start.upper() == 'JSON':
         # TODO get a method for taking the pasted JSON and formatting accordingly. Pasting now is causing enter on input
-        json_input = input('Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
+        json_input = input('DETAILS: If you want to use this function to save time formatting and/or pipeline '
+                           'interruption, a unique solution is to build your Query with the GUI on the PDB then bring '
+                           'the resulting JSON back here to submit. To do this, first build your full query, then hit '
+                           '\'Enter\' or the Search icon button (magnifying glass icon). A new section of the search '
+                           'page should appear above the Query builder. Clicking the JSON|->| button will open a new '
+                           'page with an automatically built JSON representation of your query. You can copy and paste '
+                           'this JSON object into the prompt to return your chosen ID\'s.\n\n'
+                           'Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
                            '\'"return_type": "entry"\' and paste. Before hitting enter, add a closing \'}\'. This hack '
                            'ensure ALL results are retrieved with no sorting or pagination applied\n\n%s' %
                            input_string)
@@ -326,18 +337,17 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                                              '\n\nFor a more thorough list indicate \'s\' for search.\n' \
                                              'Alternatively, you can browse %s\nEnsure that your spelling'\
                                              ' is exact if you want your query to succeed!%s' % \
-                                             (user_input_format % '\n'.join(format_string %
-                                                                            (value % attribute_prefix, key)
+                                             (user_input_format % '\n'.join(format_string % (value, key)
                                                                             for key, value in attributes.items()),
                                               attribute_url, input_string)
             # query_builder_operator_string = '\nWhat operator would you like to use?\n' \
             #                                 'Common operators include:\n\t%s%s' % (', '.join(operators), input_string)
             query_builder_operator_string = '\nWhat operator would you like to use?\n' \
                                             'Possible operators include:\n\t%s\nIf you would like to negate the ' \
-                                            'operator, on input type \'not\' after your selection. Ex: equals not.%s' %\
+                                            'operator, on input type \'not\' after your selection. Ex: equals not%s' %\
                                             ('%s', input_string)
             query_builder_value_string = '\nWhat value should be %s? Required type is: %s.%s%s'
-            query_display_string = 'Query #%d: Search the PDB\'s \'%s\' service for \'%s\' attributes, \'%s\' \'%s\'.'
+            query_display_string = 'Query #%d: Search the PDB by \'%s\' for \'%s\' attributes \'%s%s\' \'%s\'.'
 
             while True:  # start the query builder routine
                 while True:
@@ -348,36 +358,39 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                     else:
                         print(invalid_string)
 
-                # while True:  # Implement upon correct formatting check
                 # {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals',}, 'choices': []}, ...}
-                attribute = input(query_builder_attribute_string)
-                while attribute.lower() == 's':  # If the user would like to search all possible
-                    search_term = input('What term would you like to search?%s' % input_string)
-                    attribute = input('Found the following instances of \'%s\':\n%s\nWhich option are you interested '
-                                      'in? Enter \'s\' to repeat search.%s' %
-                                      (search_term.upper(), user_input_format %
-                                       '\n'.join(format_string % item for item in search_schema(search_term)),
-                                       input_string))
-                    if attribute != 's':
-                        break
-                if attribute not in schema:  # confirm the users desire to do this
-                    while True:  # confirm that the confirmation input is valid
-                        confirmation = input('ERROR: %s was not found in PDB schema! If you proceed, your search is'
-                                             ' almost certain to fail.\nProceed anyway? [y/n]%s' %
-                                             (attribute, input_string))
-                        if confirmation.lower() in bool_d:
+                while True:
+                    attribute = input(query_builder_attribute_string)
+                    while attribute.lower() == 's':  # If the user would like to search all possible
+                        search_term = input('What term would you like to search?%s' % input_string)
+                        attribute = input('Found the following instances of \'%s\':\n%s\nWhich option are you interested '
+                                          'in? Enter \'s\' to repeat search.%s' %
+                                          (search_term.upper(), user_input_format %
+                                           '\n'.join(format_string % key_description_pair for key_description_pair
+                                                     in search_schema(search_term)), input_string))
+                        if attribute != 's':
                             break
-                        else:
-                            print('%s %s is not a valid choice!' % invalid_string, confirmation)
-                    if bool_d[confirmation.lower()] or confirmation.isspace():  # break the attribute routine on y or ''
+                    if attribute in schema:  # confirm the user wants to go forward with this
                         break
+                    else:
+                        print('ERROR: %s was not found in PDB schema!' % attribute)
+                        # while True:  # confirm that the confirmation input is valid
+                        #     confirmation = input('ERROR: %s was not found in PDB schema! If you proceed, your search is'
+                        #                          ' almost certain to fail.\nProceed anyway? [y/n]%s' %
+                        #                          (attribute, input_string))
+                        #     if confirmation.lower() in bool_d:
+                        #         break
+                        #     else:
+                        #         print('%s %s is not a valid choice!' % invalid_string, confirmation)
+                        # if bool_d[confirmation.lower()] or confirmation.isspace():  # break the attribute routine on y or ''
+                        #     break
 
                 while True:  # retrieve the operator for the search
-                    while True:
+                    while True:  # check if the operator should be negated
                         operator = input(query_builder_operator_string % ', '.join(schema[attribute]['operators']))
                         if len(operator.split()) > 1:
-                            operator = operator.split()[0]
                             negation = operator.split()[1]
+                            operator = operator.split()[0]
                             if negation.lower() == 'not':  # can negate any search
                                 negate = True
                                 break
@@ -386,34 +399,39 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                                       'input' % (invalid_string, negation, operator))
                         else:
                             negate = False
+                            break
                     if operator in schema[attribute]['operators']:
                         break
                     else:
                         print('%s %s is not a valid operator!' % invalid_string, operator)
 
-                if operator == 'in':  # in - operators can have multiple enum's
-                    print('The \'in\' operator can take multiple values. If you want multiple values, specify each '
-                          'as a separate input.')
+                if operator == 'in':  # in - operators can have multiple choices's
+                    print('\nThe \'in\' operator can take multiple values. If you want multiple values, specify '
+                          'each as a separate input.')
                     op_in = True
+                else:
+                    op_in = False
+
                 while op_in:  # check if operator is 'in'
-                    if operator != 'in':
-                        op_in = False
                     while True:  # retrieve the value for the search
                         value = input(query_builder_value_string % (operator.upper(), instance_d[schema[attribute]['dtype']]
-                                                                    , ('Possible choices: %s' %
-                                                                       ', '.join(schema[attribute]['enum'])
-                                                                       if schema[attribute]['enum'] else ''), input_string))
-                        if not isinstance(value, instance_d[schema[attribute]['dtype']]):  # convert to the right data type
+                                                                    , ('\nPossible choices:\n\t%s' %
+                                                                       ', '.join(schema[attribute]['choices'])
+                                                                       if schema[attribute]['choices'] else ''),
+                                                                    input_string))
+                        if isinstance(value, instance_d[schema[attribute]['dtype']]):  # check if the right data type
+                            break
+                        else:
                             try:  # try to convert the input value to the specified type
                                 value = instance_d[schema[attribute]['dtype']](value)
-                                if schema[attribute]['enum']:  # if there is a choice
-                                    if value in schema[attribute]['enum']:  # check if the value is in the possible choices
+                                if schema[attribute]['choices']:  # if there is a choice
+                                    if value in schema[attribute]['choices']:  # check if the value is in the possible choices
                                         break
                                     else:  # if not, confirm the users desire to do this
                                         while True:  # confirm that the confirmation input is valid
                                             confirmation = input('%s was not found in the possible choices: %s\nProceed'
                                                                  ' anyway? [y/n]%s' %
-                                                                 (value, ', '.join(schema[attribute]['enum']),
+                                                                 (value, ', '.join(schema[attribute]['choices']),
                                                                   input_string))
                                             if confirmation.lower() in bool_d:
                                                 break
@@ -426,20 +444,23 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                                     break
                             except ValueError:  # catch any conversion issue like float('A')
                                 print('%s %s is not a valid %s value!' % (invalid_string,
-                                      value, instance_d[schema[attribute]['dtype']]))
-                    while True:
+                                                                          value, instance_d[schema[attribute]['dtype']]))
+
+                    while op_in:
+                        # TODO ensure that the in parameters are spit out as a list
                         additional = input(additional_input_string % ' value to your \'in\' operator')
                         if additional.lower() in bool_d:
-                            break
+                            if bool_d[additional.lower()] or additional.isspace():
+                                break  # Stop the inner 'in' check loop
+                            else:
+                                op_in = False  # Stop the inner and outer 'in' while loops
                         else:
                             print('%s %s is not a valid choice!' % (invalid_string, confirmation))
-                    if not bool_d[additional.lower()]:  # or confirmation.isspace():
-                        break
 
                 while True:
                     confirmation = input('\n%s\n%s' % (query_display_string %
                                                        (increment, service.upper(), attribute,
-                                                        '%s%s' % ('NOT ' if negate else '', operator.upper()), value),
+                                                        'NOT ' if negate else '', operator.upper(), value),
                                                        confirmation_string))
                     if confirmation.lower() in bool_d:
                         break
