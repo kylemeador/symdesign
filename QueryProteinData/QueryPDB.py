@@ -16,6 +16,143 @@ pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
 pdb_advanced_search_url = 'http://www.rcsb.org/search/advanced'
 pdb_rest_url = 'http://data.rcsb.org/rest/v1/core/'  # uniprot/  # 1AB3/1'
 attribute_url = 'https://search.rcsb.org/search-attributes.html'
+attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v1/metadata/schema'
+
+# Types of rcsb_search_context: (can be multiple)
+# full-text - contains_words, contains_phrase, exists
+# exact-match - in, exact-match, exists
+# default-match - equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, exists
+# suggests - provides an example to the user in the GUI
+
+# can negate any search
+# in - operators can have multiple enum's
+
+
+def get_rcsb_metadata_schema():
+    schema_pairs = {'dtype': 'type', 'description': 'description', 'operators': 'rcsb_search_context',
+                    'choices': 'enum'}
+    operator_d = {'full-text': 'contains_words, contains_phrase, exists', 'exact-match': 'in, exact-match, exists',
+                  'default-match': 'equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, exists',
+                  'suggests': ''}
+
+    def recurse_metadata_iter(properties, stack=tuple()):  # this puts the yield inside a local iter so we don't return
+        # print('Stack: %s' % (str(stack) or ''))
+        for _property in properties:
+            if 'items' in properties[_property] and 'properties' in properties[_property]['items']:
+                yield from recurse_metadata_iter(properties[_property]['items']['properties'], stack=stack + (_property,))
+        # print('Stack: %s' % (str(stack) or ''))
+            else:
+                # print('Yielding stack: %s' % str(stack + (_property,)))
+                yield stack + (_property,)  # zip(property)  # , list(properties.keys()))
+
+    def recurse_metadata(properties, stack=tuple()):  # property, properties):  # GOLD
+        # print(properties)
+        # for property in properties:
+        #     if 'items' in properties[property]:
+        #         if 'properties' in properties[property]['items']:
+        print('Stack: %s' % (str(stack) or ''))
+        if 'items' in properties:
+            if 'properties' in properties['items']:
+                for child_property in properties['items']['properties']:
+                    print('Child: %s' % child_property)
+                    yield from recurse_metadata(properties['items']['properties'][child_property], stack=stack + (child_property,))
+                    # for recursed_property in recurse_metadata(child_property, properties['items']['properties'][child_property]):
+                        # yield (property, recursed_property)
+                    # yield child_property, recurse_metadata(properties['items']['properties'][child_property])  # Never tried
+                    # yield from property, recurse_metadata(child_property, properties['items']['properties'])
+                    # for recursed_property in recurse_metadata(child_property, properties['items']['properties']):
+                    #     yield property, recursed_property
+                    # yield zip(repeat(property), zip(*recurse_metadata(child_property, properties['items']['properties'])))  # GOLD
+                    # yield property, recurse_metadata(child_property, properties['items']['properties'])
+                    # return zip(property, zip(*recurse_metadata(child_property, properties['items']['properties'])))
+            else:
+                print('Yielding stack: %s' % str(stack))
+                yield stack  # zip(property)  # , list(properties.keys()))
+        else:
+            print('Yielding stack: %s' % str(stack))
+            yield stack  # zip(property)  # , list(properties.keys()))
+        # return None  # zip(property)  # , list(properties.keys()))
+        # return property  # zip(property)  # , list(properties.keys()))  # GOLD
+
+    # returns don't work because I am iterating through the child_properties. I could build a list and return the list
+    # but that seems messy when there are so many pythonic tools
+
+    # if I remove passing the property/child property and forgo it's return (return none), I can handle the return in
+    # one section...
+
+    metadata_json = requests.get(attribute_metadata_schema_json).json()
+    metadata_properties_d = metadata_json['properties']
+    # gen_schema = [recurse_metadata(metadata_properties_d[schema_property], stack=(schema_property,))
+    #               for schema_property in metadata_properties_d]  # VERY CLOSE
+    # print(gen_schema, len(gen_schema), id(gen_schema[0]))  #
+    # ready = input('Ready?')
+    # schema_headers = [schema_tuple.__next__() for schema_tuple in gen_schema]
+
+    # schema_properties = ((m_property, recurse_metadata(metadata_properties_d[m_property])) for m_property in metadata_properties_d)
+    # schema_properties = (recurse_metadata(property, metadata_properties_d[property]) for property in metadata_properties_d)
+    # print(schema_properties[:5])
+
+    # print(metadata_properties_d['pdbx_struct_special_symmetry'])
+
+    gen_schema = recurse_metadata_iter(metadata_properties_d)
+    # ready = input('Ready?')
+    schema_headers = [schema_tuple for schema_tuple in gen_schema]
+
+    # for i, property_tuple in enumerate(schema_headers):
+    #     print('property_tuple: %s' % str(property_tuple))
+    #     for _property in property_tuple:
+    #         print('property5: %s' % _property)
+    #     if i == 5:
+    #         break
+
+    clean_schema_d = {}
+    for i, property_tuple in enumerate(schema_headers):
+        dict_string = '[\'items\'][\'properties\']'.join('[\'%s\']' % _property for _property in property_tuple)
+        evaluation_d = eval('%s%s' % (metadata_properties_d, dict_string))
+        attribute = '.'.join(_property for _property in property_tuple)
+        clean_schema_d[attribute] = {}
+        for key, value in schema_pairs.items():
+            if value in evaluation_d:
+                clean_schema_d[attribute][key] = evaluation_d[value]
+            else:
+                clean_schema_d[attribute][key] = None
+
+        if clean_schema_d[attribute]['operators']:  # convert the rcsb_search_context to valid operator(s)
+            clean_schema_d[attribute]['operators'] = set(', '.join(
+                operator_d[search_context] for search_context in clean_schema_d[attribute]['operators']).split(', '))
+        if i % 10 == 0:
+            print(attribute, ':', clean_schema_d[attribute])
+
+    return clean_schema_d
+
+    # metadata_subheader = metadata_header['items']['properties']
+    # for metadata_subhead in metadata_subheader:
+    #     if 'items' in metadata_subhead:
+    #         True
+    #     else:
+    #         metadata_subhead['items']['properties']
+
+    # "properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
+    #                                         "description" : "Identifies the version of the feature assignment.",
+    #                                         "rcsb_description" : [
+    #                                          {"text" : "Identifies the version of the feature assignment.",
+    #                                           "context" : "dictionary"},
+    #                                          {"text" : "Feature Version", "context" : "brief"} ]
+    #                                        },
+    # ...
+    #                 "symmetry_type" : {"type" : "string",     <-- provide data type
+    #      provide options     -->       "enum" : [ "2D CRYSTAL", "3D CRYSTAL", "HELICAL", "POINT" ],
+    #      provide description -->       "description" : "The type of symmetry applied to the reconstruction",
+    #      provide operators   -->       "rcsb_search_context" : [ "exact-match" ],
+    #                                    "rcsb_full_text_priority" : 10,
+    #                                    "rcsb_description" : [
+    #                                       {"text" : "The type of symmetry applied to the reconstruction",
+    #                                        "context" : "dictionary"},
+    #                                       {"text" : "Symmetry Type (Em 3d Reconstruction)", "context" : "brief"} ]
+    #                                   },
+
+
+
 # uniprot_url = 'http://www.uniprot.org/uniprot/{}.xml'
 attribute_prefix = 'rcsb_'
 
@@ -44,7 +181,7 @@ services = {'text': 'linguistic searches against textual annotations associated 
             'chemical': 'Queries small-molecule constituents of PDB structures based on chemical formula and '
                         'chemical structure'}
 operators = {'exact_match', 'greater', 'less', 'greater_or_equal', 'less_or_equal', 'equals', 'contains_words',
-             'contains_phrase', 'range', 'exists', }
+             'contains_phrase', 'range', 'exists', 'in', 'range', 'range_closed'}
 group_operators = {'and', 'or'}
 attributes = {'symmetry': '%sstruct_symmetry.symbol', 'experimental_method': '%sexptl.method',
               'resolution': '%sentry_info.resolution_combined',
@@ -108,6 +245,10 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
     bool_d = {'y': True, 'n': False}
     user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
     additional_input_string = '\nWould you like to add another?%s' % input_string
+    schema = get_rcsb_metadata_schema()
+
+    def search_schema(term):
+        return {key: schema[key]['description'] for key in schema if term.lower() in schema[key]['description'].lower()}
 
     def generate_parameters(attribute, operator, value):
         return {"operator": operator, "value": value, "attribute": attribute}
@@ -203,22 +344,26 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
         return list(args)
 
     # Start the user input routine -------------------------------------------------------------------------------------
-    print('\n\nThis function will walk you through generating an advanced search query and retrieving the matching set of '
-          'PDB ID\'s. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
+    print('\n\nThis function will walk you through generating a PDB advanced search query and retrieving the matching '
+          'set of PDB ID\'s. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
           'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
-          'downstream use. If you require > 25,000 ID\'s, this could save you some headache. You can also use the GUI '
-          'and this tool in combination, as detailed below. Just type \'JSON\' into the next prompt.\n\n'
+          'downstream use. If you require > 25,000 ID\'s, this will save you some headache. You can also use the GUI '
+          'and this tool in combination, as detailed below. Type \'JSON\' into the next prompt to do so, otherwise hit '
+          '\'Enter\'\n\n'
           'DETAILS: If you want to use this function to save time formatting and/or pipeline interruption,'
           ' a unique solution is to build your Query with the GUI on the PDB then bring the resulting JSON back here to'
-          ' submit. To do this, first build your full query, then hit \'enter\' or the search button (magnifying glass '
-          'icon). A new section of the search page should appear above the Query builder. Clicking the JSON|->| button '
-          'will open a new page with an automatically built JSON representation of your query. You can copy and paste '
-          'this JSON object into the prompt to return your chosen ID\'s' % pdb_advanced_search_url)
+          ' submit. To do this, first build your full query, then hit \'Enter\' or the Search icon button '
+          '(magnifying glass icon). A new section of the search page should appear above the Query builder. '
+          'Clicking the JSON|->| button will open a new page with an automatically built JSON representation of your '
+          'query. You can copy and paste this JSON object into the prompt to return your chosen ID\'s' %
+          pdb_advanced_search_url)
     program_start = input(input_string)
     if program_start.upper() == 'JSON':
+        # TODO get a method for taking the pasted JSON and formatting accordingly. Pasting now is causing enter on input
         json_input = input('Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
                            '\'"return_type": "entry"\' and paste. Before hitting enter, add a closing \'}\'. This hack '
-                           'ensure ALL results are retrieved with no sorting or pagination applied\n\n%s' % input_string)
+                           'ensure ALL results are retrieved with no sorting or pagination applied\n\n%s' %
+                           input_string)
         response_d = query_pdb(json_input)
     else:
         return_identifier_string = '\nFor each set of options, choose the option from the first column for the ' \
@@ -247,7 +392,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                                                                             (value % attribute_prefix, key)
                                                                             for key, value in attributes.items()),
                                               attribute_url, input_string)
-            query_builder_operator_string = '\nWhat is the operator that you would like to use?\n' \
+            query_builder_operator_string = '\nWhat operator would you like to use?\n' \
                                             'Common operators include:\n\t%s%s' % (', '.join(operators), input_string)
             query_builder_value_string = '\nWhat value should be %s?%s'
             query_display_string = 'Query #%d: Search the PDB\'s \'%s\' service for \'%s\' attributes, \'%s\' \'%s\'.'
@@ -262,8 +407,19 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
 
                 # while True:  # Implement upon correct formatting check
                 attribute = input(query_builder_attribute_string)
+                while attribute.lower() == 's':
+                    search_term = input('What term would you like to search?%s' % input_string)
+                    attribute = input('Found the following instances of \'%s\':\n%s\nWhich option are you interested '
+                                      'in?%s' % (search_term, user_input_format %
+                                                 '\n'.join(format_string % item for item in search_schema(search_term)),
+                                                 input_string))
+                # TODO giant attribute dictionary with valid operators and value sets...
                 operator = input(query_builder_operator_string)
+                # TODO ensure for the attribute that the operator is valid!
                 value = input(query_builder_value_string % (operator.upper(), input_string))
+                if value.isdigit():
+                    value = float(value)
+                # TODO check if is.digit then conver to int()/float(). JSON can dumps() int/float
 
                 while True:
                     confirmation = input('\n%s\n%s' % (query_display_string %
@@ -273,7 +429,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                         break
                     else:
                         print(invalid_string)
-                if bool_d[confirmation.lower()]:
+                if bool_d[confirmation.lower()] or confirmation.isspace():
                     break
 
             # terminal_group_queries[increment] = (service, attribute, operator, value)
