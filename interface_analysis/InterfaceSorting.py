@@ -7,6 +7,8 @@ import ParsePisa as pp
 from symdesign.SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, to_iterable, read_pdb, \
     fill_pdb, retrieve_pdb_file_path, download_pisa
 
+import QueryProteinData.QueryPDB as qPDB
+
 # Globals
 pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}
 
@@ -303,7 +305,6 @@ def process_uniprot_entry(uniprot_id, unp_d, pdb_uniprot_info, min_resolution_th
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description='Extract Chain/Chain Interfaces from a PDB or PDB Library\n')
     parser.add_argument('-f', '--file_list', type=str, help='path/to/pdblist.file. Can be newline or comma separated.')
     parser.add_argument('-d', '--download', type=bool, help='Whether files should be downloaded. Default=False',
@@ -334,9 +335,9 @@ if __name__ == '__main__':
 
     all_pdbs_of_interest = 'under3A_protein_no_multimodel_no_mmcif_no_bad_pisa.txt'  # Todo parameterize
     all_protein_file = os.path.join(current_interface_file_path, all_pdbs_of_interest)
-    if query:
+    if args.query_web:
         # TODO Figure out how to query PDB using under3A no multimodel no mmcif, no bad pisa file reliably.
-        retrieve_pdb_entries_by_advanced_query()
+        qPDB.retrieve_pdb_entries_by_advanced_query()
     else:
         pdbs_of_interest = to_iterable(all_protein_file)
 
@@ -375,6 +376,12 @@ if __name__ == '__main__':
     qsbio_confirmed_d = unpickle(qsbio_file)
 
     # TODO script this file creation ?
+    #  dls = "http://www.muellerindustries.com/uploads/pdf/UW SPD0114.xls"
+    #  resp = requests.get(dls)
+    #  with open('test.xls', 'wb') as output
+    #      output.write(resp.content)
+    #
+    qsbio_data_url = 'https://www.weizmann.ac.il/sb/faculty_pages/ELevy/downloads/QSbio.xlsx'
     qsbio_monomers_file_name = 'QSbio_Monomers.csv'  # Todo parameterize
     qsbio_monomers_file = os.path.join(current_interface_file_path, qsbio_monomers_file_name)
     # with open(qsbio_monomers_file, 'r') as f:
