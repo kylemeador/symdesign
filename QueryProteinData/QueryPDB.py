@@ -405,11 +405,6 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                     else:
                         print('%s %s is not a valid operator!' % invalid_string, operator)
 
-                if operator == 'in':  # in - operators can have multiple choices's
-
-                # else:
-                #     op_in = False
-
                 op_in = True
                 while op_in:  # check if operator is 'in'
                     if operator == 'in':
