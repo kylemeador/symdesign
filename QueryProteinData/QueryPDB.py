@@ -406,13 +406,18 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                         print('%s %s is not a valid operator!' % invalid_string, operator)
 
                 if operator == 'in':  # in - operators can have multiple choices's
-                    print('\nThe \'in\' operator can take multiple values. If you want multiple values, specify '
-                          'each as a separate input.')
-                    op_in = True
-                else:
-                    op_in = False
 
+                # else:
+                #     op_in = False
+
+                op_in = True
                 while op_in:  # check if operator is 'in'
+                    if operator == 'in':
+                        print('\nThe \'in\' operator can take multiple values. If you want multiple values, specify '
+                              'each as a separate input.')
+                    else:
+                        op_in = False
+
                     while True:  # retrieve the value for the search
                         value = input(query_builder_value_string % (operator.upper(), instance_d[schema[attribute]['dtype']]
                                                                     , ('\nPossible choices:\n\t%s' %
