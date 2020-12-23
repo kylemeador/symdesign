@@ -5,10 +5,10 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from copy import deepcopy
-from json import dumps
+from json import dumps, loads
 
 import requests
-from SymDesignUtils import start_log, io_save, unpickle
+from SymDesignUtils import start_log, io_save, unpickle, pickle_object
 
 # Globals
 pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
@@ -19,7 +19,7 @@ attribute_url = 'https://search.rcsb.org/search-attributes.html'
 attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v1/metadata/schema'
 
 
-def get_rcsb_metadata_schema(file=None, search_only=True):
+def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True):
     """Parse the rcsb metadata schema for useful information from the format
          "properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
                                              "description" : "Identifies the version of the feature assignment.",
@@ -60,39 +60,44 @@ def get_rcsb_metadata_schema(file=None, search_only=True):
             else:
                 yield stack + (attribute,)
 
-    if not file:
+    if not os.path.exists(file):  # Todo and date.datetime - date.current is not greater than a month...
         print('Gathering the most current PDB metadata. This may take a couple minutes...')
+        metadata_json = requests.get(attribute_metadata_schema_json).json()
+        metadata_properties_d = metadata_json['properties']
+        gen_schema = recurse_metadata(metadata_properties_d)
+        schema_header_tuples = [yield_schema for yield_schema in gen_schema]
+
+        schema_d = {}
+        for i, attribute_tuple in enumerate(schema_header_tuples):
+            attribute_full = '.'.join(attribute for attribute in attribute_tuple)
+            schema_d[attribute_full] = {}
+            d_search_string = '[\'items\'][\'properties\']'.join('[\'%s\']' % attribute for attribute in attribute_tuple)
+            evaluation_d = eval('%s%s' % (metadata_properties_d, d_search_string))
+            for key, value in schema_pairs.items():
+                if value in evaluation_d:
+                    schema_d[attribute_full][key] = evaluation_d[value]
+                else:
+                    schema_d[attribute_full][key] = None
+
+            if 'format' in evaluation_d:
+                schema_d[attribute_full]['dtype'] = 'date'
+
+            if schema_d[attribute_full]['description']:  # convert the description to a simplified descriptor
+                schema_d[attribute_full]['description'] = schema_d[attribute_full]['description'].split('\n')[0]
+
+            if schema_d[attribute_full]['operators']:  # convert the rcsb_search_context to valid operator(s)
+                schema_d[attribute_full]['operators'] = set(', '.join(
+                    operator_d[search_context] for search_context in schema_d[attribute_full]['operators']
+                    if operator_d[search_context]).split(', '))
+                # if '' in schema_d[attribute_full]['operators']:
+                #     schema_d[attribute_full]['operators'].remove('')
+            else:
+                if search_only:  # remove those entries that don't have a corresponding operator as these aren't searchable
+                    schema_d.pop(attribute_full)
+
+        pickled_schema_file = pickle_object(schema_d, file, out_path=None)
     else:
         return unpickle(file)
-    metadata_json = requests.get(attribute_metadata_schema_json).json()
-    metadata_properties_d = metadata_json['properties']
-    gen_schema = recurse_metadata(metadata_properties_d)
-    schema_header_tuples = [yield_schema for yield_schema in gen_schema]
-
-    schema_d = {}
-    for i, attribute_tuple in enumerate(schema_header_tuples):
-        attribute_full = '.'.join(attribute for attribute in attribute_tuple)
-        schema_d[attribute_full] = {}
-        d_search_string = '[\'items\'][\'properties\']'.join('[\'%s\']' % attribute for attribute in attribute_tuple)
-        evaluation_d = eval('%s%s' % (metadata_properties_d, d_search_string))
-        for key, value in schema_pairs.items():
-            if value in evaluation_d:
-                schema_d[attribute_full][key] = evaluation_d[value]
-            else:
-                schema_d[attribute_full][key] = None
-
-        if 'format' in evaluation_d:
-            schema_d[attribute_full]['dtype'] = 'date'
-
-        if schema_d[attribute_full]['operators']:  # convert the rcsb_search_context to valid operator(s)
-            schema_d[attribute_full]['operators'] = set(', '.join(
-                operator_d[search_context] for search_context in schema_d[attribute_full]['operators']
-                if operator_d[search_context]).split(', '))
-            # if '' in schema_d[attribute_full]['operators']:
-            #     schema_d[attribute_full]['operators'].remove('')
-        else:
-            if search_only:  # remove those entries that don't have a corresponding operator as these aren't searchable
-                schema_d.pop(attribute_full)
 
     return schema_d
 
@@ -290,15 +295,16 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
         return list(args)
 
     # Start the user input routine -------------------------------------------------------------------------------------
+    schema = get_rcsb_metadata_schema()
     print('\n\nThis function will walk you through generating a PDB advanced search query and retrieving the matching '
           'set of PDB ID\'s. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
           'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
           'downstream use. If you require > 25,000 ID\'s, this will save you some headache. You can also use the GUI '
-          'and this tool in combination, as detailed below. Type \'JSON\' into the next prompt to do so, otherwise hit '
-          '\'Enter\'\n' % pdb_advanced_search_url)
-    schema = get_rcsb_metadata_schema(file=None)  # TODO add a source file
-    program_start = input(input_string)
-    if program_start.upper() == 'JSON':
+          'and this tool in combination, as detailed below. Type \'JSON\' into the next prompt to do so. If you have '
+          'search already specified from previously, type \'previous\', otherwise hit \'Enter\'\n' %
+          pdb_advanced_search_url)
+    program_start = input(input_string).upper()
+    if program_start == 'JSON':
         # TODO get a method for taking the pasted JSON and formatting accordingly. Pasting now is causing enter on input
         json_input = input('DETAILS: If you want to use this function to save time formatting and/or pipeline '
                            'interruption, a unique solution is to build your Query with the GUI on the PDB then bring '
@@ -309,9 +315,17 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                            'this JSON object into the prompt to return your chosen ID\'s.\n\n'
                            'Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
                            '\'"return_type": "entry"\' and paste. Before hitting enter, add a closing \'}\'. This hack '
-                           'ensure ALL results are retrieved with no sorting or pagination applied\n\n%s' %
+                           'ensures ALL results are retrieved with no sorting or pagination applied\n\n%s' %
                            input_string)
-        response_d = query_pdb(json_input)
+        search_query = query_pdb(json_input)
+    elif program_start == 'PREVIOUS':
+        while True:
+            prior_query = input('Please specify the path where the search file is located%s' % input_string)
+            if os.path.exists(prior_query):
+                with open(prior_query, 'r') as f:
+                    search_query = loads(f.readlines())
+            else:
+                print('The specified path \'%s\' doesn\'t exist! Please try again.' % prior_query)
     else:
         return_identifier_string = '\nFor each set of options, choose the option from the first column for the ' \
                                    'description in the second.\nWhat type of identifier do you want to search the PDB '\
@@ -511,9 +525,10 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                                            for j, (child_group_nums, operation) in enumerate(node, 1)}
                                            # for k in child_group_nums}
         final_query = recursive_query_tree[-1][1]
-        search_query = generate_query(final_query, return_type)
-        response_d = query_pdb(search_query)
-        print('The server returned:\n%s' % response_d)
+
+    search_query = generate_query(final_query, return_type)
+    response_d = query_pdb(search_query)
+    print('The server returned:\n%s' % response_d)
 
     retrieved_ids = parse_pdb_response_for_ids(response_d)
 
