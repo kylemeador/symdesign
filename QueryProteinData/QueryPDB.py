@@ -19,32 +19,40 @@ attribute_url = 'https://search.rcsb.org/search-attributes.html'
 attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v1/metadata/schema'
 
 
-def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True):
+def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True, force_update=False):
     """Parse the rcsb metadata schema for useful information from the format
-         "properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
+         {"properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
                                              "description" : "Identifies the version of the feature assignment.",
                                              "rcsb_description" : [
                                               {"text" : "Identifies the version of the feature assignment.",
                                                "context" : "dictionary"},
                                               {"text" : "Feature Version", "context" : "brief"} ]
                                             },
-     ...
-                     "symmetry_type" : {"type" : "string",     <-- provide data type
-          provide options     -->       "enum" : [ "2D CRYSTAL", "3D CRYSTAL", "HELICAL", "POINT" ],
-          provide description -->       "description" : "The type of symmetry applied to the reconstruction",
-          provide operators   -->       "rcsb_search_context" : [ "exact-match" ],
-                                        "rcsb_full_text_priority" : 10,
-                                        "rcsb_description" : [
-                                           {"text" : "The type of symmetry applied to the reconstruction",
-                                            "context" : "dictionary"},
-                                           {"text" : "Symmetry Type (Em 3d Reconstruction)", "context" : "brief"} ]
-                                       },
+                          ...
+                          "symmetry_type" : {"type" : "string",     <-- provide data type
+               provide options     -->       "enum" : [ "2D CRYSTAL", "3D CRYSTAL", "HELICAL", "POINT" ],
+               provide description -->       "description" : "The type of symmetry applied to the reconstruction",
+               provide operators   -->       "rcsb_search_context" : [ "exact-match" ],
+                                             "rcsb_full_text_priority" : 10,
+                                             "rcsb_description" : [
+                                                {"text" : "The type of symmetry applied to the reconstruction",
+                                                 "context" : "dictionary"},
+                                                {"text" : "Symmetry Type (Em 3d Reconstruction)", "context" : "brief"} ]
+                                            },
+                          ... },
+          "title" : "Core Metadata", "additionalProperties" : false, "$comment" : "Schema version: 1.14.0"
+          "required" : ["rcsb_id", "rcsb_entry_container_identifiers", "rcsb_entry_info",
+                      "rcsb_pubmed_container_identifiers", "rcsb_polymer_entity_container_identifiers",
+                      "rcsb_assembly_container_identifiers", "rcsb_uniprot_container_identifiers" ],
+          "$schema" : "http://json-schema.org/draft-07/schema#",
+          "description" : "Collective JSON schema that includes definitions for all indexed cores with RCSB metadata extensions.",
+         }
     Returns:
         (dict): {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals'}, 'choices': []}, ...}
     """
     schema_pairs = {'dtype': 'type', 'description': 'description', 'operators': 'rcsb_search_context',
                     'choices': 'enum'}
-    operator_d = {'full-text': 'contains_words, contains_phrase, exists', 'exact-match': 'in, exact-match, exists',
+    operator_d = {'full-text': 'contains_words, contains_phrase, exists', 'exact-match': 'in, exact_match, exists',
                   'default-match': 'equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, '
                                    'exists', 'suggest': None}
     # Types of rcsb_search_context: (can be multiple)
@@ -52,26 +60,44 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
     # exact-match - in, exact-match, exists
     # default-match - equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, exists
     # suggests - provides an example to the user in the GUI
+    data_types = ['string', 'integer', 'number']
 
     def recurse_metadata(metadata_d, stack=tuple()):  # this puts the yield inside a local iter so we don't return
         for attribute in metadata_d:
-            if 'items' in metadata_d[attribute] and 'properties' in metadata_d[attribute]['items']:
-                yield from recurse_metadata(metadata_d[attribute]['items']['properties'], stack=stack + (attribute,))
+            if metadata_d[attribute]['type'] == 'array':  # 'items' must be a keyword in dictionary
+                stack += (attribute, 'a')
+                if metadata_d[attribute]['items']['type'] in data_types:  # array is the final attribute of the branch
+                    yield stack
+                elif metadata_d[attribute]['items']['type'] == 'object':  # type must be object, therefore contain 'properties' key and then have more attributes as leafs
+                    yield from recurse_metadata(metadata_d[attribute]['items']['properties'], stack=stack + ('o',))
+                else:
+                    print('Array with type %s found in %s' % (metadata_d[attribute], stack))
+            elif metadata_d[attribute]['type'] == 'object':  # This should never be reachable?
+                print('%s object found %s' % (attribute, stack))
+                if 'properties' in metadata_d[attribute]:  # check may be unnecessary
+                    yield from recurse_metadata(metadata_d[attribute]['properties'], stack=stack + ('o', attribute,))
+                else:
+                    print('Object with no properties found %s in %s' % (metadata_d[attribute], stack))
+                    # yield stack + ('o', attribute,)
+            elif metadata_d[attribute]['type'] in data_types:
+                yield stack + (attribute,)  # + ('o', attribute,) add 'o' as the parent had properties from the object type
             else:
-                yield stack + (attribute,)
+                print('other type = %s' % metadata_d[attribute]['type'])
 
-    if not os.path.exists(file):  # Todo and date.datetime - date.current is not greater than a month...
+    if not os.path.exists(file) or force_update:  # Todo and date.datetime - date.current is not greater than a month...
         print('Gathering the most current PDB metadata. This may take a couple minutes...')
         metadata_json = requests.get(attribute_metadata_schema_json).json()
         metadata_properties_d = metadata_json['properties']
         gen_schema = recurse_metadata(metadata_properties_d)
         schema_header_tuples = [yield_schema for yield_schema in gen_schema]
 
+        schema_dictionary_strings_d = {'a': '[\'items\']', 'o': '[\'properties\']'}  # 'a': '[\'items\'][\'properties\']'
         schema_d = {}
         for i, attribute_tuple in enumerate(schema_header_tuples):
-            attribute_full = '.'.join(attribute for attribute in attribute_tuple)
+            attribute_full = '.'.join(attribute for attribute in attribute_tuple if attribute not in schema_dictionary_strings_d)
             schema_d[attribute_full] = {}
-            d_search_string = '[\'items\'][\'properties\']'.join('[\'%s\']' % attribute for attribute in attribute_tuple)
+            d_search_string = ''.join('[\'%s\']' % attribute if attribute not in schema_dictionary_strings_d
+                                      else schema_dictionary_strings_d[attribute] for attribute in attribute_tuple)
             evaluation_d = eval('%s%s' % (metadata_properties_d, d_search_string))
             for key, value in schema_pairs.items():
                 if value in evaluation_d:
@@ -89,13 +115,11 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
                 schema_d[attribute_full]['operators'] = set(', '.join(
                     operator_d[search_context] for search_context in schema_d[attribute_full]['operators']
                     if operator_d[search_context]).split(', '))
-                # if '' in schema_d[attribute_full]['operators']:
-                #     schema_d[attribute_full]['operators'].remove('')
             else:
-                if search_only:  # remove those entries that don't have a corresponding operator as these aren't searchable
+                if search_only:  # remove entries that don't have a corresponding operator as these aren't searchable
                     schema_d.pop(attribute_full)
 
-        pickled_schema_file = pickle_object(schema_d, file, out_path=None)
+        pickled_schema_file = pickle_object(schema_d, file, out_path='')
     else:
         return unpickle(file)
 
@@ -182,7 +206,7 @@ def query_pdb(query):
     return requests.get(pdb_query_url, params={'json': dumps(query)}).json()
 
 
-def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
+def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force_schema_update=False):
     format_string = '\t%s\t\t%s'
     input_string = '\nInput:'
     invalid_string = 'Invalid choice, please try again.'
@@ -208,7 +232,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
 
     def generate_query(search, return_type, return_all=True):
         query_d = {'query': search, 'return_type': return_type}
-        if return_all:  # Todo test this as far as true being capitalized or not (example wasn't)
+        if return_all:
             query_d.update({'request_options': {'return_all_hits': True}})
 
         return query_d
@@ -218,14 +242,14 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
         work_on_group = args[recursive_depth]
         all_grouping_indices = {i for i in range(1, len(work_on_group) + 1)}
 
-        group_introduction = '\nGROUPING INSTRUCTIONS:\n' \
+        group_introduction = '\n%s\nGROUPING INSTRUCTIONS:\n' \
                              'Because you have %d search queries, you need to combine these to a total search strategy'\
                              '. This is accomplished by grouping your search queries together using the operations %s.'\
                              ' You must eventually group all queries into a single logical operation. ' \
                              '\nIf you have multiple groups, you will need to group those groups, so on and so forth.' \
                              '\nIndicate your group selections with a space separated list! You will choose the group '\
                              'operation to combine this list afterwards.\nFollow prior prompts if you need a reminder '\
-                             'of how group # relate to query #' % (len(terminal_queries), group_operators)
+                             'of how group#\'s relate to query#\'s' % ('*' * 40, len(terminal_queries), group_operators)
         group_grouping_intro = '\nGroups remain, you must group groups as before.'
         group_inquiry_string = '\nWhich of these (identified by #) would you like to combine into a group?%s' % \
                                input_string
@@ -285,7 +309,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
             selected_grouping_indices -= grouping  # remove specified from the pool of available until all are gone
 
         if len(selected_grouping_indices) > 0:
-            groupings.append((selected_grouping_indices, 'and'))  # When only 1 remains, automatically add and
+            groupings.append((selected_grouping_indices, 'and'))  # When only 1 remains, automatically add 'and'
 
         args += (groupings,)
         # once all groupings are grouped, recurse
@@ -295,7 +319,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
         return list(args)
 
     # Start the user input routine -------------------------------------------------------------------------------------
-    schema = get_rcsb_metadata_schema()
+    schema = get_rcsb_metadata_schema(force_update=force_schema_update)
     print('\n\nThis function will walk you through generating a PDB advanced search query and retrieving the matching '
           'set of PDB ID\'s. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
           'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
@@ -526,7 +550,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True):
                                            # for k in child_group_nums}
         final_query = recursive_query_tree[-1][1]
 
-    search_query = generate_query(final_query, return_type)
+    search_query = generate_query(final_query, return_type, return_all=False)
     response_d = query_pdb(search_query)
     print('The server returned:\n%s' % response_d)
 
