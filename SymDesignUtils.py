@@ -298,12 +298,12 @@ logger = start_log(name=__name__, handler=3, level=1)
 
 
 @handle_errors_f(errors=(FileNotFoundError, ))
-def unpickle(filename):
+def unpickle(file_name):
     """Unpickle (deserialize) and return a python object located at filename"""
-    if '.pkl' not in filename:
-        filename = '%s.pkl' % filename
+    if '.pkl' not in file_name:
+        file_name = '%s.pkl' % file_name
 
-    with open(filename, 'rb') as serial_f:
+    with open(file_name, 'rb') as serial_f:
         new_object = pickle.load(serial_f)
 
     return new_object
@@ -320,7 +320,10 @@ def pickle_object(target_object, name, out_path=os.getcwd(), protocol=pickle.HIG
     Returns:
         (str): The pickled filename
     """
-    file_name = os.path.join(out_path, '%s.pkl' % name)
+    if '.pkl' not in name:
+        name = '%s.pkl' % name
+
+    file_name = os.path.join(out_path, name)
     with open(file_name, 'wb') as f:
         pickle.dump(target_object, f, protocol)
 
