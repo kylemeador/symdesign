@@ -149,7 +149,7 @@ def parse_pisa_interfaces_xml(file_path):
                                     'int_res': {'87': 23.89, '89': 45.01, ...},
                                 2: ...}},
                  2: {'occ': ..., },
-                 'all_ids': {interface_type: [interface_id1, matching_id2], ...}
+                 'all_ids': {interface_id1: [interface_id1, matching_id2], ...}
                 } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
 
         chain_residue_d (dict): {chain: {residue data}}
