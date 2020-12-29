@@ -663,7 +663,7 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
                 successful_downloads.append(pdb_entry.find('pdb_code').text.upper())
 
     def process_download(pdb_code, file):
-        nonlocal fail
+        # nonlocal fail
         nonlocal failures
         if retrieve_pisa(pdb_code, pisa_type, file):  # download was successful
             # Check to see if <status>Ok</status> for the download
@@ -1781,28 +1781,32 @@ def io_save(data, filename=None):
         None
     """
     # file = os.path.join(os.getcwd(), 'missing_UNP_PDBS.txt')
+    def write_file():
+        if not filename:
+            filename = input('What is your desired filename? (appended to current working directory)\n')
+            filename = os.path.join(os.getcwd(), filename)
+        with open(filename, 'w') as f:
+            f.write('\n'.join(data))
+        print('File \'%s\' was written' % filename)
+
     while True:
-        _input = input('Enter P to print Data, W to write Data to file, or B for both:')
+        _input = input('Enter P to print Data, W to write Data to file, or B for both:').upper()
         if _input == 'W':
-            if not filename:
-                filename = input('What is your desired filename? (appended to current directory)\n')
-                filename = os.path.join(os.getcwd(), filename)
-            with open(filename, 'w') as f:
-                f.write('\n'.join(data))
-            print('File \'%s\' was written' % filename)
+            write_file()
             break
         elif _input == 'P':
             print(data)
             break
         elif _input == 'B':
             print(data)
-            if not filename:
-                filename = input('What is your desired filename? (appended to current directory)\n')
-                filename = os.path.join(os.getcwd(), filename)
-            with open(filename, 'w') as f:
-                f.write('\n'.join(data))
-            print('File \'%s\' was written' % filename)
-            break
+            # if not filename:
+            #     filename = input('What is your desired filename? (appended to current directory)\n')
+            #     filename = os.path.join(os.getcwd(), filename)
+            # with open(filename, 'w') as f:
+            #     f.write('\n'.join(data))
+            # print('File \'%s\' was written' % filename)
+            # break
+            write_file()
         else:
             print('Invalid Input...')
 
