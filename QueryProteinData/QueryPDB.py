@@ -65,17 +65,17 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
     def recurse_metadata(metadata_d, stack=tuple()):  # this puts the yield inside a local iter so we don't return
         for attribute in metadata_d:
             if metadata_d[attribute]['type'] == 'array':  # 'items' must be a keyword in dictionary
-                stack += (attribute, 'a')
+                # stack += (attribute, 'a')
                 if metadata_d[attribute]['items']['type'] in data_types:  # array is the final attribute of the branch
-                    yield stack
+                    yield stack + (attribute, 'a')
                 elif metadata_d[attribute]['items']['type'] == 'object':  # type must be object, therefore contain 'properties' key and then have more attributes as leafs
-                    yield from recurse_metadata(metadata_d[attribute]['items']['properties'], stack=stack + ('o',))
+                    yield from recurse_metadata(metadata_d[attribute]['items']['properties'], stack=stack + ((attribute, 'a', 'o',)))
                 else:
                     print('Array with type %s found in %s' % (metadata_d[attribute], stack))
             elif metadata_d[attribute]['type'] == 'object':  # This should never be reachable?
-                print('%s object found %s' % (attribute, stack))
+                # print('%s object found %s' % (attribute, stack))
                 if 'properties' in metadata_d[attribute]:  # check may be unnecessary
-                    yield from recurse_metadata(metadata_d[attribute]['properties'], stack=stack + ('o', attribute,))
+                    yield from recurse_metadata(metadata_d[attribute]['properties'], stack=stack + (attribute, 'o',))
                 else:
                     print('Object with no properties found %s in %s' % (metadata_d[attribute], stack))
                     # yield stack + ('o', attribute,)
@@ -95,6 +95,8 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
         schema_d = {}
         for i, attribute_tuple in enumerate(schema_header_tuples):
             attribute_full = '.'.join(attribute for attribute in attribute_tuple if attribute not in schema_dictionary_strings_d)
+            if i < 5:
+                print(attribute_full)
             schema_d[attribute_full] = {}
             d_search_string = ''.join('[\'%s\']' % attribute if attribute not in schema_dictionary_strings_d
                                       else schema_dictionary_strings_d[attribute] for attribute in attribute_tuple)
@@ -228,7 +230,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(*parameter_args)}
 
     def generate_group(operation, child_groups):
-        return {'type': 'group', 'operation': operation, 'nodes': [child_groups]}
+        return {'type': 'group', 'logical_operator': operation, 'nodes': list(child_groups)}
 
     def generate_query(search, return_type, return_all=True):
         query_d = {'query': search, 'return_type': return_type}
@@ -519,6 +521,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
             if not bool_d[additional.lower()]:  # or confirmation.isspace():
                 break
 
+        # Group terminal queries into groups if there are more than 1
         if len(terminal_group_queries) > 1:
             recursive_query_tree = make_groups(terminal_group_queries)
         else:
@@ -544,13 +547,14 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
 
                 # NOPE Subtract the k indices to ensure that the user input numbers match with python zero indexing
                 # i - 1 gives the index of the previous index of the recursive_query_tree to operate on
+                # k pulls the groups specified in the input out to make a list with the corresponding terminai groups
                 recursive_query_tree[i] = {j: generate_group(operation, [recursive_query_tree[i - 1][k]
                                                                          for k in child_group_nums])
                                            for j, (child_group_nums, operation) in enumerate(node, 1)}
                                            # for k in child_group_nums}
-        final_query = recursive_query_tree[-1][1]
+        final_query = recursive_query_tree[-1][1]  #
 
-    search_query = generate_query(final_query, return_type, return_all=False)
+    search_query = generate_query(final_query, return_type)  # , return_all=False)
     response_d = query_pdb(search_query)
     print('The server returned:\n%s' % response_d)
 
