@@ -1,23 +1,24 @@
-import os
-import sys
-import copy
-from glob import glob
-from json import loads
 import argparse
+import copy
 import math
 import operator
+import os
+from itertools import repeat, combinations
+from json import loads
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from scipy.spatial.distance import euclidean, pdist
+from scipy.spatial.distance import pdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from itertools import repeat, combinations
+
+import AnalyzeMutatedSequences as Ams
+import PathUtils as PUtils
 # import PDB
 import SymDesignUtils as SDUtils
-import PathUtils as PUtils
-import AnalyzeMutatedSequences as Ams
+
 # import CmdUtils as CUtils
 
 
@@ -510,14 +511,14 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
             # metadata = key.split('_')
             res = int(metadata[-1])
             r_type = metadata[2]  # energy or sasa
-            pose_state = metadata[-2]  # oligomer or complex or cst or fsp
+            pose_state = metadata[-2]  # oligomer or complex or cst (constraint) or fsp (favor_sequence_profile)
             if pose_state == 'oligomer' and offset:
-                res += offset[metadata[-3]]  # get oligomer chain offset
+                res += offset[metadata[-3]]  # get oligomer chain length offset
             if res not in residue_dict:
                 residue_dict[res] = copy.deepcopy(dict_template)
             if r_type == 'sasa':
                 # Ex. per_res_sasa_hydrophobic_A_oligomer_15 or per_res_sasa_hydrophobic_complex_15
-                polarity = metadata[3]
+                polarity = metadata[3]  # hydrophobic or polar or total
                 residue_dict[res][r_type][polarity][pose_state] = round(score_dict[entry][column], 3)
             else:
                 # Ex. per_res_energy_A_oligomer_15 or per_res_energy_complex_15
@@ -633,7 +634,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                     residue_dict[res]['core'] = 1
                 else:
                     residue_dict[res]['rim'] = 1
-            else:  # remove residue from dictionary as no interface design should be done? keep interior residues
+            else:  # Todo remove res from dictionary as no interface design should be done? keep interior res constant?
                 if rel_complex_sasa < 0.25:
                     residue_dict[res]['interior'] = 1
                 # else:
