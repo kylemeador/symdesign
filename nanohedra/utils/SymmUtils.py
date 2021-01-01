@@ -1,6 +1,5 @@
 def parse_uc_str_to_tuples(uc_string):
-    return_list = []
-
+    """Acquire unit cell parameters from specified external degrees of freedom string"""
     def s_to_l(string):
         s1 = string.replace('(', '')
         s2 = s1.replace(')', '')
@@ -12,12 +11,12 @@ def parse_uc_str_to_tuples(uc_string):
         l = uc_string.split('),')
     else:
         l = [uc_string]
-    for s in l:
-        return_list.append(s_to_l(s))
-    return return_list
+
+    return [s_to_l(s) for s in l]
 
 
 def get_uc_var_vec(string_vec, var):
+    """From the length specification return the unit vector"""
     return_vec = [0.0, 0.0, 0.0]
     for i in range(len(string_vec)):
         if var in string_vec[i] and '*' in string_vec[i]:
@@ -28,6 +27,8 @@ def get_uc_var_vec(string_vec, var):
 
 
 def get_uc_dimensions(uc_string, e=1, f=0, g=0):
+    """Return an array with the three unit cell lengths and three angles [20, 20, 20, 90, 90, 90] by combining UC
+    basis vectors with component translation degrees of freedom"""
     uc_string_vec = parse_uc_str_to_tuples(uc_string)
 
     lengths = [0.0, 0.0, 0.0]
