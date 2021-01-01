@@ -9,30 +9,32 @@ Before full run need to alleviate the following tags and incompleteness
 Object formatting
 -PSSM format is dictating the output file format as it works best with Rosetta pose number
 """
+import argparse
+import copy
+import math
 import os
-import sys
+import shutil
 import subprocess
 import time
-import argparse
-import shutil
-import copy
 from glob import glob, iglob
 from itertools import repeat, combinations
-import math
+
 import numpy as np
 import pandas as pd
-from Bio.SeqUtils import IUPACData
 from Bio.PDB import PDBParser
 from Bio.PDB.Selection import unfold_entities
+from Bio.SeqUtils import IUPACData
 # from sklearn.preprocessing import StandardScaler
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
 from sklearn.cluster import DBSCAN
-import SymDesignUtils as SDUtils
-import PathUtils as PUtils
+
 import CmdUtils as CUtils
+import PathUtils as PUtils
+import SymDesignUtils as SDUtils
+from AnalyzeMutatedSequences import extract_aa_seq, write_fasta_file
 from AnalyzeOutput import analyze_output
-from AnalyzeMutatedSequences import get_pdb_sequences, generate_mutations_from_seq, extract_aa_seq, write_fasta_file
+from nanohedra.utils.ExpandAssemblyUtils import expand_asu
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -270,7 +272,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Variable initialization
     cst_value = round(0.2 * CUtils.reference_average_residue_weight, 2)
     frag_size = 5
-    done_process = subprocess.Popen(['run="go"'], shell=True)
+    done_process = subprocess.Popen(['run="go"'], shell=True)  # Todo remove shell=True
 
     # Log output
     if debug:
@@ -286,6 +288,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     main_cmd = copy.deepcopy(CUtils.script_cmd)
     # cleaned_pdb = os.path.join(des_dir.path, PUtils.clean)
     # ala_mut_pdb = os.path.splitext(cleaned_pdb)[0] + '_for_refine.pdb'
+    # TODO no mut if glycine...
     ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'  # TODO DesignDirectory des_fir.for_refine
     consensus_pdb = os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb'
     consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
@@ -361,9 +364,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # TODO insert mechanism to Decorate and then gather my own fragment decoration statistics
     # TODO supplement with names info and pull out by names
 
-    #         if line[:15] == 'CRYST1 RECORD: ' and sym in [2, 3]:  # TODO Josh providing in PDB now... can remove here?
-    #             cryst = line[15:].strip()
-
     cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir, init=True)
     # v Used for central pair fragment mapping of the biological interface generated fragments
     cluster_freq_tuple_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
@@ -377,8 +377,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                            for cluster in cluster_residue_d}  # orange mapped to cluster tag
     cluster_residue_d = {cluster: cluster_residue_d[cluster]['pair'] for cluster in cluster_residue_d}
 
-    # cryst = template_pdb.cryst_record
-
     # Set up protocol symmetry
     docking_metrics = SDUtils.gather_docking_metrics(des_dir.log)
     sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = SDUtils.symmetry_parameters(docking_metrics)
@@ -390,8 +388,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     else:  # point
         sym_def_file = SDUtils.sdf_lookup(sym_entry_number)
         main_cmd += ['-symmetry_definition', sym_def_file]
-        # logger.error('Not possible to input point groups just yet...')
-        # sys.exit()
 
     # logger.info('Symmetry Information: %s' % cryst)
     logger.info('Symmetry Option: %s' % protocol)
@@ -407,6 +403,10 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
     int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
+    # Get full assembly coordinates
+    expanded_pdb = expand_asu(template_pdb, design_symmetry, uc_dimensions=template_pdb.cryst_record)
+    # should I split this into the oligomeric component parts?
+    oligomer_symmetry_int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], expanded_pdb)
 
     # Get residue numbers as Residue objects to map across chain renumbering
     int_residue_objects = {}
@@ -577,19 +577,14 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             os.remove(temp_file)
 
         # Extract PSSM for each protein and combine into single PSSM
-        pssm_dict = {}
-        for name in names:
-            pssm_dict[name] = SDUtils.parse_hhblits_pssm(pssm_files[name])
-        full_pssm = SDUtils.combine_pssm([pssm_dict[name] for name in pssm_dict])
+        pssm_dict = {name: SDUtils.parse_hhblits_pssm(pssm_files[name]) for name in names}
+        full_pssm = SDUtils.combine_pssm([pssm_dict[name] for name in pssm_dict])  # requires python3.6 or greater
         pssm_file = SDUtils.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
     else:
         time.sleep(1)
-        while True:
-            if os.path.exists(temp_file):
-                logger.info('Waiting for profile generation...')
-                time.sleep(20)
-                continue
-            break
+        while os.path.exists(temp_file):
+            logger.info('Waiting for profile generation...')
+            time.sleep(20)
         # Check to see if specific profile has been made for the pose.
         if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):
             pssm_file = os.path.join(des_dir.path, PUtils.msa_pssm)
