@@ -9,21 +9,23 @@ from nanohedra.classes.Atom import Atom
 from nanohedra.classes.PDB import PDB
 from nanohedra.utils.GeneralUtils import center_of_mass_3d
 
+# Globals
+sg_cryst1_fmt_dict = {'F222': 'F 2 2 2', 'P6222': 'P 62 2 2', 'I4132': 'I 41 3 2', 'P432': 'P 4 3 2',
+                      'P6322': 'P 63 2 2', 'I4122': 'I 41 2 2', 'I213': 'I 21 3', 'I422': 'I 4 2 2',
+                      'I432': 'I 4 3 2', 'P4222': 'P 42 2 2', 'F23': 'F 2 3', 'P23': 'P 2 3', 'P213': 'P 21 3',
+                      'F432': 'F 4 3 2', 'P622': 'P 6 2 2', 'P4232': 'P 42 3 2', 'F4132': 'F 41 3 2',
+                      'P4132': 'P 41 3 2', 'P422': 'P 4 2 2', 'P312': 'P 3 1 2', 'R32': 'R 3 2'}
+pg_cryst1_fmt_dict = {'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': 'P 4', 'p222': 'P 2 2 2',
+                      'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
+zvalue_dict = {'P 2 3': 12, 'P 42 2 2': 8, 'P 3 2 1': 6, 'P 63 2 2': 12, 'P 3 1 2': 12, 'P 6 2 2': 12, 'F 2 3': 48,
+               'F 2 2 2': 16, 'P 62 2 2': 12, 'I 4 2 2': 16, 'I 21 3': 24, 'R 3 2': 6, 'P 4 21 2': 8, 'I 4 3 2': 48,
+               'P 41 3 2': 24, 'I 41 3 2': 48, 'P 3': 3, 'P 6': 6, 'I 41 2 2': 16, 'P 4': 4, 'C 2 2 2': 8,
+               'P 2 2 2': 4, 'P 21 3': 12, 'F 41 3 2': 96, 'P 4 2 2': 8, 'P 4 3 2': 24, 'F 4 3 2': 96,
+               'P 42 3 2': 24}
+
 
 def generate_cryst1_record(dimensions, spacegroup):
     # dimensions is a python list containing a, b, c (Angstroms) alpha, beta, gamma (degrees)
-    sg_cryst1_fmt_dict = {'F222': 'F 2 2 2', 'P6222': 'P 62 2 2', 'I4132': 'I 41 3 2', 'P432': 'P 4 3 2',
-                          'P6322': 'P 63 2 2', 'I4122': 'I 41 2 2', 'I213': 'I 21 3', 'I422': 'I 4 2 2',
-                          'I432': 'I 4 3 2', 'P4222': 'P 42 2 2', 'F23': 'F 2 3', 'P23': 'P 2 3', 'P213': 'P 21 3',
-                          'F432': 'F 4 3 2', 'P622': 'P 6 2 2', 'P4232': 'P 42 3 2', 'F4132': 'F 41 3 2',
-                          'P4132': 'P 41 3 2', 'P422': 'P 4 2 2', 'P312': 'P 3 1 2', 'R32': 'R 3 2'}
-    pg_cryst1_fmt_dict = {'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': 'P 4', 'p222': 'P 2 2 2',
-                          'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
-    zvalue_dict = {'P 2 3': 12, 'P 42 2 2': 8, 'P 3 2 1': 6, 'P 63 2 2': 12, 'P 3 1 2': 12, 'P 6 2 2': 12, 'F 2 3': 48,
-                   'F 2 2 2': 16, 'P 62 2 2': 12, 'I 4 2 2': 16, 'I 21 3': 24, 'R 3 2': 6, 'P 4 21 2': 8, 'I 4 3 2': 48,
-                   'P 41 3 2': 24, 'I 41 3 2': 48, 'P 3': 3, 'P 6': 6, 'I 41 2 2': 16, 'P 4': 4, 'C 2 2 2': 8,
-                   'P 2 2 2': 4, 'P 21 3': 12, 'F 41 3 2': 96, 'P 4 2 2': 8, 'P 4 3 2': 24, 'F 4 3 2': 96,
-                   'P 42 3 2': 24}
 
     if spacegroup in sg_cryst1_fmt_dict:
         fmt_spacegroup = sg_cryst1_fmt_dict[spacegroup]
@@ -400,10 +402,7 @@ def get_surrounding_unit_cells_2d(unit_cell_sym_mates, uc_dimensions):
 
 
 def get_surrounding_unit_cells_3d(unit_cell_sym_mates, uc_dimensions):
-    all_surrounding_unit_cells = []
-
     asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()
-    unit_cell_sym_mates_len = len(unit_cell_sym_mates)
 
     central_uc_bb_cart_coords = []
     for unit_cell_sym_mate_pdb in unit_cell_sym_mates:
@@ -421,8 +420,9 @@ def get_surrounding_unit_cells_3d(unit_cell_sym_mates, uc_dimensions):
     all_surrounding_uc_bb_cart_coords = frac_to_cart(all_surrounding_uc_bb_frac_coords, uc_dimensions)
     all_surrounding_uc_bb_cart_coords = np.split(all_surrounding_uc_bb_cart_coords, 26)
 
+    all_surrounding_unit_cells = []
     for surrounding_uc_bb_cart_coords in all_surrounding_uc_bb_cart_coords:
-        all_uc_sym_mates_bb_cart_coords = np.split(surrounding_uc_bb_cart_coords, unit_cell_sym_mates_len)
+        all_uc_sym_mates_bb_cart_coords = np.split(surrounding_uc_bb_cart_coords, len(unit_cell_sym_mates))
         one_surrounding_unit_cell = []
         for uc_sym_mate_bb_cart_coords in all_uc_sym_mates_bb_cart_coords:
             uc_sym_mate_bb_pdb = PDB()
@@ -522,6 +522,35 @@ def surrounding_uc_is_clash(central_unit_cell, surrounding_unit_cells, clash_dis
 
     else:
         return True  # "CLASH!!"
+
+
+def expand_asu(asu, symmetry, uc_dimensions=None):
+    if symmetry.upper() in ['T', 'O', 'I']:
+        expand_matrices = get_ptgrp_sym_op(symmetry.upper())
+        return get_expanded_ptgrp_pdb(asu, expand_matrices)
+    else:
+        if symmetry in pg_cryst1_fmt_dict:
+            dimension = 2
+        elif symmetry in sg_cryst1_fmt_dict:
+            dimension = 3
+        else:
+            return None
+
+        expand_matrices = get_sg_sym_op(symmetry)
+        return expand_uc(asu, expand_matrices, uc_dimensions, dimension)
+
+
+def expand_uc(pdb_asu, expand_matrices, uc_dimensions, dimension):
+    """Return the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell"""
+    unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions)
+    if dimension == 2:
+        all_surrounding_unit_cells = get_surrounding_unit_cells_2d(unit_cell_pdbs, uc_dimensions)
+    elif dimension == 3:
+        all_surrounding_unit_cells = get_surrounding_unit_cells_3d(unit_cell_pdbs, uc_dimensions)
+    else:
+        return None
+
+    return all_surrounding_unit_cells
 
 
 def expanded_design_is_clash(asu_pdb_1, asu_pdb_2, design_dim, result_design_sym, expand_matrices, uc_dimensions=None,
