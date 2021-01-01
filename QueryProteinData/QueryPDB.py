@@ -42,8 +42,8 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
                           ... },
           "title" : "Core Metadata", "additionalProperties" : false, "$comment" : "Schema version: 1.14.0"
           "required" : ["rcsb_id", "rcsb_entry_container_identifiers", "rcsb_entry_info",
-                      "rcsb_pubmed_container_identifiers", "rcsb_polymer_entity_container_identifiers",
-                      "rcsb_assembly_container_identifiers", "rcsb_uniprot_container_identifiers" ],
+                        "rcsb_pubmed_container_identifiers", "rcsb_polymer_entity_container_identifiers",
+                        "rcsb_assembly_container_identifiers", "rcsb_uniprot_container_identifiers" ],
           "$schema" : "http://json-schema.org/draft-07/schema#",
           "description" : "Collective JSON schema that includes definitions for all indexed cores with RCSB metadata extensions.",
          }
@@ -575,11 +575,28 @@ def get_pdb_info_by_entry(entry):
         (dict): {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'ref': {chain: {'accession': ID, 'db': UNP}, ...},
             'cryst': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
     """
-    # Connects the chain to the entity ID
-    # entry = '4atz'
+    # Ex. entry = '4atz'
     entry_json = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry).json()
-    # The following information is returned
-    # return_entry['rcsb_entry_info'] = \
+    # The following information is returned. This can connect the entity ID to the chain
+
+    # All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
+    # {'rcsb_primary_citation', 'pdbx_vrpt_summary', 'pdbx_audit_revision_history', 'audit_author',
+    #  'pdbx_database_status', 'rcsb_id', 'pdbx_audit_revision_details', 'struct_keywords',
+    #  'rcsb_entry_container_identifiers', 'entry', 'rcsb_entry_info', 'struct', 'citation', 'exptl',
+    #  'rcsb_accession_info'}
+    # EM only keys
+    # {'em3d_fitting', 'em3d_fitting_list', 'em_image_recording', 'em_specimen', 'em_software', 'em_entity_assembly',
+    #  'em_vitrification', 'em_single_particle_entity', 'em3d_reconstruction', 'em_experiment', 'pdbx_audit_support',
+    #  'em_imaging', 'em_ctf_correction'}
+    # Xray only keys
+    # {'diffrn_radiation', 'cell', 'reflns', 'diffrn', 'software', 'refine_hist', 'diffrn_source', 'exptl_crystal',
+    #  'symmetry', 'diffrn_detector', 'refine', 'reflns_shell', 'exptl_crystal_grow'}
+    # NMR only keys
+    # {'pdbx_nmr_exptl', 'pdbx_audit_revision_item', 'pdbx_audit_revision_category', 'pdbx_nmr_spectrometer',
+    #  'pdbx_nmr_refine', 'pdbx_nmr_representative', 'pdbx_nmr_software', 'pdbx_nmr_exptl_sample_conditions',
+    #  'pdbx_nmr_ensemble'}
+
+    # entry_json['rcsb_entry_info'] = \
     #     {'assembly_count': 1, 'branched_entity_count': 0, 'cis_peptide_count': 3, 'deposited_atom_count': 8492,
     #     'deposited_model_count': 1, 'deposited_modeled_polymer_monomer_count': 989,
     #     'deposited_nonpolymer_entity_instance_count': 0, 'deposited_polymer_entity_instance_count': 6,
@@ -597,19 +614,39 @@ def get_pdb_info_by_entry(entry):
     #     'selected_polymer_entity_types': 'Protein (only)',
     #     'software_programs_combined': ['PHASER', 'REFMAC', 'XDS', 'XSCALE'], 'solvent_entity_count': 1,
     #     'diffrn_resolution_high': {'provenance_source': 'Depositor assigned', 'value': 1.95}}
-    ang_a, ang_b, ang_c = entry_json['cell']['angle_alpha'], entry_json['cell']['angle_beta'], entry_json['cell']['angle_gamma']
-    a, b, c = entry_json['cell']['length_a'], entry_json['cell']['length_b'], entry_json['cell']['length_c']
-    space_group = entry_json['symmetry']['space_group_name_hm']
-    cryst_d = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-    resolution = entry_json['rcsb_entry_info']['resolution_combined'][0]
+
+    # if 'method' in entry_json['exptl'][0]:
+    if 'experimental_method' in entry_json['rcsb_entry_info']:
+        # exptl_method = entry_json['exptl'][0]['method']
+        exptl_method = entry_json['rcsb_entry_info']['experimental_method'].lower()
+        if 'ray' in exptl_method and 'cell' in entry_json and 'symmetry' in entry_json:
+            ang_a, ang_b, ang_c = entry_json['cell']['angle_alpha'], entry_json['cell']['angle_beta'], entry_json['cell']['angle_gamma']
+            a, b, c = entry_json['cell']['length_a'], entry_json['cell']['length_b'], entry_json['cell']['length_c']
+            space_group = entry_json['symmetry']['space_group_name_hm']
+            cryst_d = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+            resolution = entry_json['rcsb_entry_info']['resolution_combined'][0]
+        else:
+            cryst_d = {}
+            resolution = None
+    else:
+        print('Entry has no \'experimental_method\' keyword')
+        return None
 
     entity_chain_d, ref_d, db_d = {}, {}, {}
-    # I can use 'polymer_entity_count_protein' to further Identify the entities in a protein, which gives me the chains
-    for i in range(1, len(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
+    # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
+    for i in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
         entity_json = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry.upper(), i)).json()
+        # For all method types the following keys are available:
+        # {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
+        #  'rcsb_polymer_entity_feature_summary', 'rcsb_polymer_entity_align', 'rcsb_id', 'rcsb_cluster_membership',
+        #  'rcsb_polymer_entity_container_identifiers', 'rcsb_entity_host_organism', 'rcsb_latest_revision',
+        #  'rcsb_entity_source_organism'}
+        # NMR only - {'rcsb_polymer_entity_feature'}
+        # EM only - set()
+        # X-ray_only_keys - {'rcsb_cluster_flexibility'}
+
         chains = entity_json["rcsb_polymer_entity_container_identifiers"]['asym_ids']  # = ['A', 'B', 'C']
         entity_chain_d[i] = chains
-
         try:
             uniprot_id = entity_json["rcsb_polymer_entity_container_identifiers"]['uniprot_ids']
             database = 'UNP'
@@ -646,7 +683,7 @@ def get_pdb_info_by_entry(entry):
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-    return {'entity': entity_chain_d, 'res': resolution, 'ref': ref_d, 'cryst': cryst_d}
+    return {'entity': entity_chain_d, 'res': resolution, 'ref': ref_d, 'cryst': cryst_d, 'method': exptl_method}
 
 
 if __name__ == '__main__':
