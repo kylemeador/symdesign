@@ -242,29 +242,33 @@ def sort_pdb_interfaces_by_contact_type(pisa_d, interface_number_set, assembly_c
 
 
 def sort_pdbs_to_uniprot_d(pdbs, pdb_uniprot_d, master_dictionary=None):
+    """Add PDB codes to the UniProt ID sorted dictionary and """
     if not master_dictionary:
         unp_master = {}
     else:
         unp_master = master_dictionary
-    no_unpid = []
+    no_unpid = {}
     for pdb in pdbs:
         for chain in pdb_uniprot_d[pdb]['ref']:
             if pdb_uniprot_d[pdb]['ref'][chain]['db'] == 'UNP':  # only add the pdb and chain if corresponding UniProtID
                 unpid = pdb_uniprot_d[pdb]['ref'][chain]['accession']
                 if unpid in unp_master:
-                    unp_master[unpid]['all'].append(pdb + '.' + chain)
+                    unp_master[unpid]['all'].add('%s.%s' % (pdb, chain))
                     unp_master[unpid]['unique_pdb'].add(pdb)
-                    space_group = pdb_uniprot_d[pdb]['cryst']['space']
-                    if space_group in unp_master[unpid]['space_groups']:
-                        unp_master[unpid]['space_groups'][space_group]['all'].append(pdb)
+                    space_group = pdb_uniprot_d[pdb]['cryst']['space']  # Todo ensure can be none
+                    if not space_group:
+                        pass
                     else:
-                        unp_master[unpid]['space_groups'][space_group] = {'all': [pdb], 'top': None}
+                        if space_group not in unp_master[unpid]['space_groups']:
+                            unp_master[unpid]['space_groups'][space_group] = {'all': {pdb}, 'top': None}
+                        else:
+                            unp_master[unpid]['space_groups'][space_group]['all'].add(pdb)
                 else:
-                    unp_master[unpid] = {'all': ['%s.%s' % (pdb, chain)], 'unique_pdb': {pdb}, 'top': None,
+                    unp_master[unpid] = {'all': {'%s.%s' % (pdb, chain)}, 'unique_pdb': {pdb}, 'top': None,
                                          'bio': set(), 'partners': {}, 'space_groups': {
-                            pdb_uniprot_d[pdb]['cryst']['space']: {'all': [pdb], 'top': None}}}
+                            pdb_uniprot_d[pdb]['cryst']['space']: {'all': {pdb}, 'top': None}}}
             else:
-                no_unpid.append('%s.%s' % (pdb, chain))
+                no_unpid.add('%s.%s' % (pdb, chain))
 
     return unp_master, no_unpid
 
@@ -343,8 +347,8 @@ if __name__ == '__main__':
     logger = start_log(name=os.path.basename(__file__), level=2)
 
     # Input data/files
-    pdb_directory = '/databases/pdb'  # ends with .ent not sub_directoried
-    pisa_directory = '/home/kmeador/yeates/fragment_database/all/pisa_files'
+    pdb_directory = '/databases/pdb'  # TODO ends with .ent not sub_directoried
+    pisa_directory = '/home/kmeador/yeates/fragment_database/all/pisa_files'  # TODO, subdirectoried here
     current_interface_file_path = '/yeates1/kmeador/fragment_database/current_pdb_lists/'  # Todo parameterize
     # pdb_directory = '/yeates1/kmeador/fragment_database/all_pdb'  # sub directoried
     # pdb_directory = 'all_pdbs'
@@ -368,8 +372,10 @@ if __name__ == '__main__':
     # TODO script this file creation ?
     #  dls = "http://www.muellerindustries.com/uploads/pdf/UW SPD0114.xls"
     #  resp = requests.get(dls)
-    #  with open('test.xls', 'wb') as output
+    #  with open(qsbio_file, 'wb') as output
     #      output.write(resp.content)
+    #  qsbio_df = pd.DataFrame(qsbio_file)
+    #  qsbio_df.groupby('QSBio Confidence', inplace=True)
 
     qsbio_data_url = 'https://www.weizmann.ac.il/sb/faculty_pages/ELevy/downloads/QSbio.xlsx'
     response = requests.get(qsbio_data_url)
@@ -378,21 +384,16 @@ if __name__ == '__main__':
 
     qsbio_monomers_file_name = 'QSbio_Monomers.csv'  # Todo parameterize
     qsbio_monomers_file = os.path.join(current_interface_file_path, qsbio_monomers_file_name)
-    # with open(qsbio_monomers_file, 'r') as f:
-    #     all_lines = f.readlines()
-    #     monomers = []
-    #     for line in all_lines:
-    #         line = line.strip()
-    #         monomers.append(line)
-    monomers = to_iterable(qsbio_monomers_file)
-    print('The number of monomers found in %s: %d' % (qsbio_monomers_file, len(set(monomers))))
+    qsbio_monomers = to_iterable(qsbio_monomers_file)
+    print('The number of monomers found in %s: %d' % (qsbio_monomers_file, len(set(qsbio_monomers))))
 
-    # Current
+    # Current, DEPRECIATE!
     interfaces_dir = '/yeates1/kmeador/fragment_database/all_interfaces'
     all_interface_pdb_paths = get_all_pdb_file_paths(interfaces_dir)
     pdb_interface_codes = list(file_ext_split[0]
                                for file_ext_split in map(os.path.splitext, map(os.path.basename, all_interface_pdb_paths)))
     pdb_interface_d = set_up_interface_dict(pdb_interface_codes)
+
     # Optimal
     pdb_interface_file_name = 'AllPDBInterfaces'
     pdb_interface_file = os.path.join(current_interface_file_path, pdb_interface_file_name)
@@ -401,19 +402,15 @@ if __name__ == '__main__':
     if os.path.exists(sorted_interfaces_file):
         interface_sort_d = unpickle(sorted_interfaces_file)
 
-    # TODO make sure that the combination of the interface ids and the sort_pdb_by_interface are both done and
-    #  compatible, saved if needed and then remove missing pdbs from pdb_of_interest
-    missing_pisa = []
-    # missing_pisa_paths = []
-    interface_sort_d = {}
     if os.path.exists(pdb_interface_file):  # retrieve the pdb, [interfaces] dictionary
         pdb_interface_d = unpickle(pdb_interface_file)
-        # missing_pisa = list(set(pdb_interface_d.keys()) - pdbs_of_interest)
-    else:  # make the dictionary
+        missing_pisa = set(pdb_interface_d.keys()) - set(pdbs_of_interest)
+    else:  # make the PISA dictionary
         if args.query_web:
-            dummy = None  # TODO
+            dummy = None  # TODO combine all pdb codes into chunks of PISA requests using SDUtils.download_pisa()
+
         else:
-            pdb_interface_d = {}
+            interface_sort_d, pdb_interface_d, missing_pisa = {}, {}, {}
             for pdb_code in pdbs_of_interest:
                 pisa_path = retrieve_pisa_file_path(pdb_code, directory=pisa_directory)
                 if pisa_path:
@@ -422,25 +419,21 @@ if __name__ == '__main__':
                     interface_data = pisa_d['interfaces']
                     interface_ids = list(interface_data.keys())
                     interface_ids.remove('all_ids')
-
-                    # need to remove ligand interfaces...
+                    # Remove ligand interfaces from PISA interface_data
                     polymer_interface_ids = {int_id for int_id in interface_ids
                                              if pisa_polymer_interface(interface_data[int_id])}
-                    # for interface_id in interface_data:
-                    #     if interface_id.is_digit():  # checks for 'all_ids'
-                    #         if pdb_code in pdb_interface_d:
-                    #             pdb_interface_d[pdb_code].add(interface_id)
-                    #         else:
-                    #             pdb_interface_d[pdb_code] = {interface_id}
-
+                    pdb_interface_d[pdb_code] = polymer_interface_ids
                     interface_sort_d[pdb_code] = sort_pdb_interfaces_by_contact_type(pisa_d, polymer_interface_ids,
                                                                                      set(qsbio_confirmed_d[pdb_code]))
-
                 else:
-                    missing_pisa.append(pdb_code)
+                    missing_pisa.add(pdb_code)
+        # Save the objects
         # {1AB3: {1, 3, 5}, ...}
         pickle_object(pdb_interface_d, pdb_interface_file, out_path='')
         sorted_interfaces_file = pickle_object(interface_sort_d, sorted_interfaces_file, out_path='')
+
+    # remove missing pdbs from pdb_of_interest
+    pdbs_of_interest = set(pdbs_of_interest) - missing_pisa
 
     # First, sort all possible interfaces from PDB PISA to respective biological, crystal, or non-determined sets
     # sorted_file_name = 'PDBInterfacesSorted'  # Todo parameterize
@@ -469,18 +462,18 @@ if __name__ == '__main__':
     if os.path.exists(all_pdb_uniprot_file):  # retrieve the pdb, DBreference, resolution, and crystal dictionary
         pdb_uniprot_info = unpickle(all_pdb_uniprot_file)
     else:
-        if args.query_web:  # Retrieve from the PDB web
-            pdb_uniprot_info = {pdb_code: qPDB.get_pdb_info_by_entry(pdb_code) for pdb_code in pdbs_of_interest}
-        else:  # From the database of files
-            pdb_uniprot_info = {}
-            for pdb_code in pdbs_of_interest:
-                pdb = read_pdb(retrieve_pdb_file_path(pdb_code, directory=pdb_directory), coordinates_only=False)
-                pdb_uniprot_info[pdb_code] = {'entity': pdb.entities, 'cryst': pdb.cryst, 'ref': pdb.dbref,
-                                              'res': pdb.res}
+        # if args.query_web:  # Retrieve from the PDB web
+        pdb_uniprot_info = {pdb_code: qPDB.get_pdb_info_by_entry(pdb_code) for pdb_code in pdbs_of_interest}
+        # else:  # From the database of files
+        #     pdb_uniprot_info = {}
+        #     for pdb_code in pdbs_of_interest:
+        #         pdb = read_pdb(retrieve_pdb_file_path(pdb_code, directory=pdb_directory), coordinates_only=False)
+        #         pdb_uniprot_info[pdb_code] = {'entity': pdb.entities, 'cryst': pdb.cryst, 'ref': pdb.dbref,
+        #                                       'res': pdb.res}
 
         pickle_object(pdb_uniprot_info, all_pdb_uniprot_file, out_path='')
 
-    # Output data/files
+    # Output data/files for the interface and chain sorting
     uniprot_master_file_name = 'UniProtPDBMapping'
     uniprot_heterooligomer_interface_file_name = 'UniquePDBHeteroOligomerInterfaces'  # was 200121_FinalInterfaceDict  # Todo parameterize
     uniprot_homooligomer_interface_file_name = 'UniquePDBHomoOligomerInterfaces'  # was 200121_FinalInterfaceDict  # Todo parameterize
@@ -495,92 +488,19 @@ if __name__ == '__main__':
     # Next, find all those with biological interfaces according to PISA and QSBio, as well as monomers
     all_biological = {pdb for pdb in interface_sort_d if interface_sort_d[pdb]['bio'] != set()}
     all_missing_biological = set(interface_sort_d) - all_biological
-    proposed_qsbio_monomer_set = [pdb for pdb in all_missing_biological if pdb in qsbio_confirmed_d]
-
-    # THIS IS OLD ACCOUNTING FROM MY JUPYTER NOTEBOOK. IT IS OUTDATED
-    # confirmed_count = 0
-    # final_monomers = []
-    # starting_monomer_pdbs = []
-    # missing_from_confirmed = []
-    # missing_from_final = []
-    # for entry in monomers:
-    #     pdb = entry.split('_')[0].upper()
-    #     starting_monomer_pdbs.append(pdb)
-    #     if pdb in qsbio_confirmed_d:
-    #         confirmed_count += 1
-    #     else:
-    #         missing_from_confirmed.append(pdb)
-    #     try:
-    #         if interface_sort_d[pdb]['bio'] == set():
-    #             final_monomers.append(pdb)
-    #     except KeyError:
-    #         missing_from_final.append(pdb)
-    # actual_monomers = set(final_monomers) & set(starting_monomer_pdbs)
-    # missing_monomers = set(final_monomers) - set(starting_monomer_pdbs)
-    # incorrect_assembly_assignment = list(set(proposed_qsbio_monomer_set) - set(final_monomers))
-    # print('Length of QSbio monomers (%d) should equal %d (all monomers confirmed in QSbio) and '
-    #       'maybe monomers missing from final (%d). If not, then those missing from final (%d)'
-    #       ' + final set monomers (%d) = %d should equal %d'
-    #       % (len(monomers), confirmed_count, len(final_monomers), len(missing_from_final),
-    #          len(final_monomers), len(missing_from_final) + len(final_monomers), len(monomers)))
-    # # '. It doesn\'t, so this is the difference', len(missing_from_confirmed), 'Some examples are:', missing_from_confirmed[:5])
-    # print('Number missing from the interface_dictionary = %d, with set = %d.' %
-    #       (len(missing_from_final), len(set(missing_from_final))))
-    # print('There are %d PDB\'s missing Bio Assemblies and %d with Bio Assemblies.' %
-    #       (len(all_missing_biological), len(all_biological)))
-    # print('Of those without Bio Assemblies, %d should be monomers per QSBio' %
-    #       len(set(proposed_qsbio_monomer_set) & set(final_monomers)))
-    # print('And therefore %d are failures of the above processing.' % len(set(qsbio_monomer_set) - set(final_monomers)))
-    #
-    # # print('Unique monomeric PDB\'s in final_sorted_dict:', len(actual_monomers), '. There are', len(missing_monomers), 'failures in monomeric identification.')
-    # # print('The number of flawed monomer assignments, and therefore errors, in PISA parsing is', len(incorrect_assembly_assignment))
-    # print('Some examples of which include:', incorrect_assembly_assignment[:5])
-    #
-    # i = 0
-    # j = 0
-    # for entry in incorrect_assembly_assignment:
-    #     if interface_sort_d[entry]['unknown_bio'] == set():
-    #         i += 1
-    #     if interface_sort_d[entry]['xtal'] != set():
-    #         j += 1
-    # print(i, j)
-    #
-    # for entry in incorrect_assembly_assignment:
-    #     interface_sort_d[entry]['unknown_bio'] = interface_sort_d[entry]['xtal']
-    #     interface_sort_d[entry]['xtal'] = set()
-    #
-    # j = 0
-    # for entry in missing_from_final:
-    #     try:
-    #         i = interface_sort_d[entry]
-    #     except KeyError:
-    #         j += 1
-    # print('There are actually %d missing from the interface_dictionary that are in the monomers file. '
-    #       'These should be outside of the interface selection criteria')
-    #
-    # k = 0
-    # for entry in missing_from_final:
-    #     try:
-    #         i = pdbs_of_interest.index()
-    #     except:
-    #         k += 1
-    # print('Infact, there are', k, 'missing from proteins of interest in the first place')
-
-    # not_qsbio_file = '200121_pdb_lists/0204_not_qs_bio'  # .pkl'
-    # with open(not_qsbio_file, 'wb') as f:
-    #     pickle.dump(not_in_qsbio, f, pickle.HIGHEST_PROTOCOL)
-    # pickle_object(not_in_qsbio, not_qsbio_file, out_path=current_interface_file_path)
+    proposed_qsbio_monomer_set = {pdb for pdb in all_missing_biological if pdb in qsbio_confirmed_d}
+    assert len(proposed_qsbio_monomer_set - qsbio_monomers) == 0, 'The set of proposed monomers has PDB\'s that are not monomers!'
 
     # NEXT Sorting the interfaces by UniProtID
     # Gather all UniProtIDs from the pdbs_of_interest
     uniprot_master_file = os.path.join(current_interface_file_path, uniprot_master_file_name)
-    if os.path.exists(uniprot_master_file):  # If this file already exists, then we sould add to it
+    if os.path.exists(uniprot_master_file):  # If this file already exists, then we should add to it
         uniprot_master = unpickle(uniprot_master_file)
         # Next, add any additional pdb ids to the uniprot_master
         # uniprot_sorted, no_unp_code = sort_pdbs_to_uniprot_d(pdbs_of_interest, pdb_uniprot_info, master_dictionary=uniprot_master)
     else:
         uniprot_master = None
-    uniprot_sorted, no_unp_code = sort_pdbs_to_uniprot_d(pdbs_of_interest, pdb_uniprot_info)
+    uniprot_sorted, no_unp_code = sort_pdbs_to_uniprot_d(pdbs_of_interest, pdb_uniprot_info, master_dictionary=uniprot_master)
     print('Total UniProtID\'s added: %d\nTotal without UniProtID: %s' % (len(uniprot_sorted), len(no_unp_code)))
     uniprot_master = {uniprot_id: process_uniprot_entry(uniprot_id, uniprot_sorted[uniprot_id], pdb_uniprot_info,
                                                         min_resolution_threshold=pdb_resolution_threshold)
