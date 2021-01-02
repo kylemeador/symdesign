@@ -899,31 +899,48 @@ def construct_cb_atom_tree(pdb1, pdb2, distance=8, gly_ca=True):
     return query, pdb1_cb_indices, pdb2_cb_indices
 
 
-def find_interface_residues(pdb1, pdb2, dist=8):
-    """Get Queried CB Tree for all PDB2 Atoms within 8A of PDB1 CB Atoms
+def find_interface_pairs(pdb1, pdb2, distance=8):
+    """Get pairs of residues across an interface within a certain distance
 
-    Args:
-        pdb1 (PDB): First pdb to measure interface between
-        pdb2 (PDB): Second pdb to measure interface between
-    Keyword Args:
-        dist=8 (int): The distance to query in Angstroms
-    Returns:
-        residues1 (list): A sorted list of unique residue numbers from pdb1
-        residues2 (list): A sorted list of unique residue numbers from pdb2
+        Args:
+            pdb1 (PDB): First pdb to measure interface between
+            pdb2 (PDB): Second pdb to measure interface between
+        Keyword Args:
+            distance=8 (int): The distance to query in Angstroms
+        Returns:
+            interface_pairs (list(tuple): A list of interface residue pairs across the interface
     """
-    query, pdb1_cb_indices, pdb2_cb_indices = construct_cb_atom_tree(pdb1, pdb2, distance=dist)
+    query, pdb1_cb_indices, pdb2_cb_indices = construct_cb_atom_tree(pdb1, pdb2, distance=distance)
 
     # Map Coordinates to Residue Numbers
-    residues1, residues2 = [], []
+    interface_pairs = []
     for pdb2_index in range(len(query)):
         if query[pdb2_index].tolist() != list():
-            residues2.append(pdb2.all_atoms[pdb2_cb_indices[pdb2_index]].residue_number)
+            pdb2_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_index]].residue_number
             for pdb1_index in query[pdb2_index]:
-                residues1.append(pdb1.all_atoms[pdb1_cb_indices[pdb1_index]].residue_number)
-    residues1 = sorted(set(residues1), key=int)
-    residues2 = sorted(set(residues2), key=int)
-    return residues1, residues2
-    # return {pdb1.name: residues1, pdb2.name: residues2}
+                pdb1_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_index]].residue_number
+                interface_pairs.append((pdb1_res_num, pdb2_res_num))
+
+    return interface_pairs
+
+
+def split_interface_pairs(interface_pairs):
+    residues1, residues2 = zip(*interface_pairs)
+    return set(sorted(set(residues1), key=int)), set(sorted(set(residues2), key=int))
+
+
+def find_interface_residues(pdb1, pdb2, distance=8):
+    """Get unique residues from each pdb across an interface
+
+        Args:
+            pdb1 (PDB): First pdb to measure interface between
+            pdb2 (PDB): Second pdb to measure interface between
+        Keyword Args:
+            distance=8 (int): The distance to query in Angstroms
+        Returns:
+            (tuple(set): A tuple of interface residue sets across an interface
+    """
+    return split_interface_pairs(find_interface_pairs(pdb1, pdb2, distance=distance))
 
 
 def print_atoms(atom_list):  # DEBUG
@@ -2599,22 +2616,11 @@ def get_pose_by_id(design_directories, ids):
 
 
 def get_all_base_root_paths(directory):
-    dir_paths = []
-    for root, dirs, files in os.walk(directory):
-        if not dirs:
-            dir_paths.append(root)
-
-    return dir_paths
+    return [root for root, dirs, files in os.walk(directory) if not dirs]
 
 
 def get_all_pdb_file_paths(pdb_dir):
-    filepaths = []
-    for root, dirs, files in os.walk(pdb_dir):
-        for file in files:
-            if '.pdb' in file:
-                filepaths.append(os.path.join(root, file))
-
-    return filepaths
+    return [os.path.join(root, file) for root, dirs, files in os.walk(pdb_dir) for file in files if '.pdb' in file]
 
 
 def get_directory_pdb_file_paths(pdb_dir):
