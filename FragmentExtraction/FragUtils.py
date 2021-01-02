@@ -1,12 +1,16 @@
 import os
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 import math
 import numpy as np
 import multiprocessing as mp
-from functools import partial
 from itertools import chain
 from sklearn.neighbors import BallTree
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 from PDB import PDB
+from SymDesignUtils import DesignError
 
 # Globals
 module = 'Fragment Utilities:'
@@ -371,42 +375,14 @@ def freq_distribution(counts_dict, size):
 
 
 def parameterize_frag_length(length):
-    divide_2 = math.floor(length / 2)
+    """Generate fragment length range parameters for use in fragment functions"""
+    _range = math.floor(length / 2)
     if length % 2 == 1:
-        upper_bound = 0 + divide_2
-        lower_bound = 0 - divide_2
+        return 0 - _range, 0 + _range + 1
     else:
-        print(module, '[CAUTION] Even Fragment Length generates non-symmetric fragments')
-        upper_bound = 0 + divide_2
-        lower_bound = upper_bound - length + 1
-    offset_to_one = -lower_bound + 1
-
-    return lower_bound, upper_bound, offset_to_one
-
-
-def pdb_codes_to_iterable(code):
-    pdb_list = []
-    try:
-        with open(code, 'r') as f:
-            pdb_list = f.readlines()
-    except FileNotFoundError:
-        if isinstance(code, list):
-            pdb_list = code
-        else:
-            pdb_list.append(code)
-
-    clean_list = []
-    for pdb in pdb_list:
-        pdb = pdb.strip()
-        pdb = pdb.split(', ')
-        if isinstance(pdb, list):
-            for i in pdb:
-                clean_list.append(i.upper())
-        else:
-            clean_list.append(pdb.upper())
-    clean_list = list(set(clean_list))
-
-    return clean_list
+        logger.critical('%d is an even integer which is not symmetric about a single residue. '
+                        'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
+        raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
 
 
 def report_errors(results):
