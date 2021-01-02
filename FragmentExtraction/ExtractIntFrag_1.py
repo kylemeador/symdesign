@@ -11,8 +11,13 @@ import SymDesignUtils as SDUtils
 module = 'Extract Interface Fragments:'
 
 
-def extract_to_db():
+def extract_to_db(db_cursor, fragment_length=5):
     central_res_idx = int(frag_length / 2)
+    # Use the central_res_index to pull out the residue_number, combine with PDB_code, interface ID, and chain to give
+    # residue record which will populate the fragment table entry
+    # Need to link the paired fragment table to the individual fragment using the individual fragment records... Can I
+    # do a pass through the individual fragment records saving them first then using an ID returned for each to make the
+    # paired fragment table
 
 
 def extract_to_file(pdb, interaction_distance=8, fragment_length=5, out_path=os.getcwd(), individual=False,
@@ -53,12 +58,6 @@ def find_interacting_residue_fragments(pdb1, pdb2, interacting_pairs, frag_lengt
             # break iteration if residue 1 succeeds residue 2 or they are sequential, or frag 1 residues are in frag 2
             if residue_pair[0] + 1 >= residue_pair[1] and set(res_nums_pdb1) & set(res_nums_pdb2) != set():
                 continue
-            # _break = False
-            # for res in res_nums_pdb1:
-            #     if res in res_nums_pdb2:
-            #         _break = True
-            # if _break:
-            #     continue
 
         frag1 = pdb1.getResidueAtoms(pdb1.chain_id_list[0], res_nums_pdb1)
         frag2 = pdb2.getResidueAtoms(pdb2.chain_id_list[0], res_nums_pdb2)
@@ -92,7 +91,7 @@ def write_fragment_pair(fragment_pair, out_path=os.getcwd(), fragment_length=5, 
 
 
 def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paired=False, multi=False, num_threads=4):  # paired_outdir
-    # TODO parameterize individual and outdir in main script. Change paired name to same chain
+    # TODO parameterize individual and outdir in ExtractFragments main script. Change paired keyword to same_chain
     print('%s Beginning' % module)
     # Get Natural Interface PDB File Paths
     int_db_filepaths = SDUtils.get_all_pdb_file_paths(int_db_dir)
@@ -112,7 +111,8 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
         Frag.report_errors(result)
     else:
         for pdb in pdbs_of_interest:
-            extract_to_file(pdb, interface_dist, frag_length, outdir, individual, paired)
+            extract_to_file(pdb, interaction_distance=interface_dist, fragment_length=frag_length, out_path=outdir,
+                            individual=individual, same_chain=paired)
         # for pdb_path in int_db_filepaths:
         #     # Reading In PDB Structure
         #     pdb_id = os.path.splitext(os.path.basename(pdb_path))[0]
