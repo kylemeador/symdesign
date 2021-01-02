@@ -498,9 +498,8 @@ class PDB:
         self.chain_id_list = lm
         self.update_chain_sequences()
 
-    def rename_chain(self, chain_of_interest, new_chain):  # KM Added 8/19 
+    def rename_chain(self, chain_of_interest, new_chain):  # KM Added 8/19
         # Caution, will rename to already taken chain. Also, doesn't update SEQRES chain info
-        
         chain_atoms = self.chain(chain_of_interest)
         for atom in chain_atoms:
             atom.chain = new_chain
@@ -618,14 +617,11 @@ class PDB:
             print('Select N or C Term')
             return None
 
-    def getResidueAtoms(self, residue_chain_id, residue_number):
-        residue_atoms = []
-        for atom in self.all_atoms:
-            if atom.chain == residue_chain_id and atom.residue_number == residue_number:
-                residue_atoms.append(atom)
-        return residue_atoms
+    def getResidueAtoms(self, chain_id, residue_numbers):
+        residue_numbers = list(residue_numbers)
+        return [atom for atom in self.all_atoms if atom.chain == chain_id and atom.residue_number in residue_numbers]
 
-    def get_residue(self, chain_id, residue_number):  # KM added 04/15/20 to query single residue objects
+    def get_residue(self, chain_id, residue_number):
         return Residue(self.getResidueAtoms(chain_id, residue_number))
 
     def get_residues_chain(self, chain_id):
@@ -1373,3 +1369,6 @@ class PDB:
         # asu_pdb.write(asu_file_name, cryst1=asu_pdb.cryst)
         #
         # return asu_file_name
+
+    def __len__(self):
+        return len([0 for atom in self.all_atoms if atom.is_CA])
