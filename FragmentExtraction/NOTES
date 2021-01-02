@@ -1,0 +1,58 @@
+BUILDING INTERFACE FRAGMENT CLUSTERS
+
+Step 1: Extract all unique 5 residue interface mono-fragments (1 chain) for every chain pair in "BAChainPairs" and save them in "IntMonoFrags" using "1_ExtractIntFragSplit.py"
+
+Step 2: Randomly copy 8k mono-fragments and save them in "8kRandMonoFrags" directory using: "cp $(ls | sort -R | head -8000) ../8kRandMonoFrags/"
+
+Step 3: Calculate All to All RMSD of mono fragments in 8kRandMonoFrags using "2_AllToAllRMSD.py" ==> "8kRandMonoFrags_all_to_all_rmsd.txt"
+
+Step 4: Cluster mono fragments in 8kRandMonoFrags with 0.75 A CA RMSD threshold and save in "Clustered8kRandMonoFrags" using "3_ClusterAllToAllRMSD.py"
+
+Step 5: Copy representatives of top 5 populated clusters to "Top5MonoFragClustersRepresentative" and rename using "sort_clusters_by_size.py":
+
+	CLUSTERS SORTED BY SIZE (LARGEST TO SMALEST)
+	4m73_AB_frag_114_B 2808
+	4kgd_AC_frag_53_C 1080
+	1vki_AB_frag_34_B 401
+	2xdp_AB_frag_989_A 332
+	3fj5_AB_frag_106_A 291
+
+	TOTAL NUMBER OF CONSIDERED FRAGMENTS: 8000
+	NUMBER OF FRAGMENTS BELONGING TO A CLUSTER: 4912
+	NUMBER OF UNCLUSTERED FRAGMENTS 3088
+	PERCENT CLUSTERED: 61.4
+
+Step 6: Calculate All to All RMSD of Top 5 Representatives using "2_AllToAllRMSD.py" ==> top_5_monofrag_clusters_representative_all_to_all_rmsd.txt and Sort from smallest RMSD value to largest using "sort_rmsd.py":
+
+	('4kgd_AC_frag_53_C', '2xdp_AB_frag_989_A', 0.9568840957336466)
+	('3fj5_AB_frag_106_A', '4kgd_AC_frag_53_C', 1.3817893083460524)
+	('3fj5_AB_frag_106_A', '2xdp_AB_frag_989_A', 1.798049373568414)
+	('4m73_AB_frag_114_B', '1vki_AB_frag_34_B', 2.0510326594413373)
+	('3fj5_AB_frag_106_A', '4m73_AB_frag_114_B', 2.2534220723433847)
+	('3fj5_AB_frag_106_A', '1vki_AB_frag_34_B', 2.276259952398305)
+	('2xdp_AB_frag_989_A', '1vki_AB_frag_34_B', 2.6182415611855245)
+	('4kgd_AC_frag_53_C', '4m73_AB_frag_114_B', 2.91085290428432)
+	('4kgd_AC_frag_53_C', '1vki_AB_frag_34_B', 2.9226650218547983)
+	('4m73_AB_frag_114_B', '2xdp_AB_frag_989_A', 2.932248573228939)
+
+	
+Step 7: Center representatives in Top5MonoFragClustersRepresentative and save in "Top5MonoFragClustersRepresentativeCentered" using "4_CenterMonoFragmentRepresentatives.py" and Rename:
+	mv 4m73_AB_frag_114_B.pdb 1.pdb
+	mv 4kgd_AC_frag_53_C.pdb 2.pdb
+	mv 1vki_AB_frag_34_B.pdb 3.pdb
+	mv 2xdp_AB_frag_989_A.pdb 4.pdb
+	mv 3fj5_AB_frag_106_A.pdb 5.pdb
+
+Step 8: Extract all 5 residue interface fragments (2 chains) for every chain pair in "BAChainPairs" and save them in "IntFrags" using "5_ExtractIntFrag.py"
+
+Step 9: For both chains of all interface fragments in "IntFrags" map one chain to corresponding cluster representative whilst applying the same transformation to the other chain and add Guide atoms at 3A. Use "6_MapIntFragsToClusterRep.py" and save in "MappedIntFragsWithGuideAtoms" directory. 0.75 A CA RMSD threshold.
+
+Step 10: For each cluster in "MappedIntFragsWithGuideAtoms", calculate all to all Guide Atom RMSD for a random subset (max 20000) using "7_LimitedRandomAllToAllRMSDGuideAtomsMP.py" and save RMSD values <= 1.3A to text file "rand_limitedto_20000_all_to_all_guide_atom_rmsd.txt" in cluster directory
+
+Step 11: For each cluster in "MappedIntFragsWithGuideAtoms", get Cluster Representative using "8_GetIJKClusterRepresentatives.py" with "rand_limitedto_20000_all_to_all_guide_atom_rmsd.txt" and save in "I_J_K_ClusterRepresentatives"
+
+Step 12: Map interface fragments in clusters in "MappedIntFragsWithGuideAtoms" to a corresponding cluster representative in "I_J_K_ClusterRepresentatives" using "9_MapToIJKClusterRepresentative.py" and save in "IJK_ClusteredInterfaceFragmentDB"
+
+Step 13: Calculate All to All Guide Atom RMSD for every IJK Cluster using "10_IJKClusterAllToAllRMSDGuideAtoms.py"
+
+
