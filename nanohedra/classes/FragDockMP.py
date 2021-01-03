@@ -104,7 +104,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
         unique_interface_monofrags_infolist_pdb2 = []
         percent_of_interface_covered = 0.0
 
-        tx_parameters = tx_param_list[i][0]  # [OptimalExternalDOFShifts, OptimalInternalDOFShifts]
+        tx_parameters = tx_param_list[i][0]  # [OptimalExternalDOFShifts (n_dof_ext), OptimalInternalDOFShifts (n_dof_int)]
         initial_overlap_z_val = tx_param_list[i][1]
         ghostfrag_surffrag_pair = ghostfrag_surffrag_pair_list[i]
 
