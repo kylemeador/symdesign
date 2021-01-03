@@ -403,10 +403,10 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
     int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
-    # Get full assembly coordinates
-    expanded_pdb = expand_asu(template_pdb, design_symmetry, uc_dimensions=template_pdb.cryst_record)
+    # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.cryst is None
+    expanded_pdbs = expand_asu(template_pdb, design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions())  # Todo make the expanded_pdbs a Model.py?
     # should I split this into the oligomeric component parts?
-    oligomer_symmetry_int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], expanded_pdb)
+    oligomer_symmetry_int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], expanded_pdbs)
 
     # Get residue numbers as Residue objects to map across chain renumbering
     int_residue_objects = {}

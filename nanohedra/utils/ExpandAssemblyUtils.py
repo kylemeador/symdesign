@@ -102,10 +102,10 @@ def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
     return asu_symm_mates
 
 
-def write_expanded_ptgrp(expanded_ptgrp_pdbs, outfile_path):
+def write_expanded_ptgrp(expanded_ptgrp_pdbs, outfile_path):  # TODO DEPRECIATE
     outfile = open(outfile_path, "w")
     model_count = 1
-    for pdb in expanded_ptgrp_pdbs:
+    for pdb in expanded_ptgrp_pdbs:  # TODO enumerate
         outfile.write("MODEL     {:>4s}\n".format(str(model_count)))
         model_count += 1
         for atom in pdb.all_atoms:
@@ -314,6 +314,7 @@ def get_central_asu_pdb_3d(pdb1, pdb2, uc_dimensions):
 
 
 def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
+    """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
     unit_cell_sym_mates = [pdb_asu]
 
     asu_cart_coords = pdb_asu.extract_all_coords()
@@ -351,7 +352,75 @@ def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
     return unit_cell_sym_mates
 
 
-def get_surrounding_unit_cells_2d(unit_cell_sym_mates, uc_dimensions):
+def get_surrounding_unit_cells(unit_cell_sym_mates, uc_dimensions, dimension=None, return_side_chains=False):
+    """Returns a grid of unit cells for a symmetry group. Each unit cell is a list of ASU's in total grid list"""
+    if dimension == 3:
+        z_shifts, uc_copy_number = [-1, 0, 1], 8
+    elif dimension == 2:
+        z_shifts, uc_copy_number = [0], 26
+    else:
+        return None
+
+    if return_side_chains:  # get different function calls depending on the return type
+        extract_pdb_atoms = getattr(PDB, 'get_all_atoms')
+        extract_pdb_coords = getattr(PDB, '.extract_all_coords')
+    else:
+        extract_pdb_atoms = getattr(PDB, 'get_backbone_atoms')
+        extract_pdb_coords = getattr(PDB, 'extract_backbone_coords')
+
+    asu_atom_template = extract_pdb_atoms(unit_cell_sym_mates[0])
+    # asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()
+
+    central_uc_cart_coords = []
+    for unit_cell_sym_mate_pdb in unit_cell_sym_mates:
+        central_uc_cart_coords.extend(extract_pdb_coords(unit_cell_sym_mate_pdb))
+        # central_uc_bb_cart_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
+    central_uc_frac_coords = cart_to_frac(central_uc_cart_coords, uc_dimensions)
+
+    all_surrounding_uc_frac_coords = []
+    for x_shift in [-1, 0, 1]:
+        for y_shift in [-1, 0, 1]:
+            for z_shift in z_shifts:
+                if [x_shift, y_shift, z_shift] != [0, 0, 0]:
+                    shifted_uc_frac_coords = central_uc_frac_coords + [x_shift, y_shift, z_shift]
+                    all_surrounding_uc_frac_coords.extend(shifted_uc_frac_coords)
+
+    all_surrounding_uc_cart_coords = frac_to_cart(all_surrounding_uc_frac_coords, uc_dimensions)
+    all_surrounding_uc_cart_coords = np.split(all_surrounding_uc_cart_coords, uc_copy_number)
+
+    all_surrounding_unit_cells = []
+    for surrounding_uc_cart_coords in all_surrounding_uc_cart_coords:
+        all_uc_sym_mates_cart_coords = np.split(surrounding_uc_cart_coords, len(unit_cell_sym_mates))
+        one_surrounding_unit_cell = []
+        for uc_sym_mate_cart_coords in all_uc_sym_mates_cart_coords:
+            uc_sym_mate_pdb = PDB()
+            uc_sym_mate_atoms = []
+            # atom_count = 0
+            for atom_count, atom in enumerate(asu_atom_template):
+                x_transformed = uc_sym_mate_cart_coords[atom_count][0]
+                y_transformed = uc_sym_mate_cart_coords[atom_count][1]
+                z_transformed = uc_sym_mate_cart_coords[atom_count][2]
+                atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
+                                        atom.get_residue_type(), atom.get_chain(),
+                                        atom.get_residue_number(),
+                                        atom.get_code_for_insertion(), x_transformed, y_transformed,
+                                        z_transformed,
+                                        atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
+                                        atom.get_atom_charge())
+                uc_sym_mate_atoms.append(atom_transformed)
+                # atom_count += 1
+
+            uc_sym_mate_pdb.set_all_atoms(uc_sym_mate_atoms)
+            # uc_sym_mate_pdb = SDUtils.fill_pdb(uc_sym_mate_atoms) TODO
+            one_surrounding_unit_cell.append(uc_sym_mate_pdb)
+
+        all_surrounding_unit_cells.append(one_surrounding_unit_cell)
+
+    return all_surrounding_unit_cells
+
+
+def get_surrounding_unit_cells_2d(unit_cell_sym_mates, uc_dimensions):  # DEPRECIATE
+    """Returns a 3x3 grid of unit cells for a layer group"""
     all_surrounding_unit_cells = []
 
     asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()
@@ -401,7 +470,9 @@ def get_surrounding_unit_cells_2d(unit_cell_sym_mates, uc_dimensions):
     return all_surrounding_unit_cells
 
 
-def get_surrounding_unit_cells_3d(unit_cell_sym_mates, uc_dimensions):
+def get_surrounding_unit_cells_3d(unit_cell_sym_mates, uc_dimensions):  # DEPRECIATE
+    """Returns a 3x3x3 grid of unit cells for a space group. Each unit cell is a list in list,
+    each ASU an item in the unit cell list"""
     asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()
 
     central_uc_bb_cart_coords = []
@@ -450,7 +521,7 @@ def get_surrounding_unit_cells_3d(unit_cell_sym_mates, uc_dimensions):
     return all_surrounding_unit_cells
 
 
-def write_unit_cell_sym_mates(unit_cell_sym_mates, outfile_path):
+def write_unit_cell_sym_mates(unit_cell_sym_mates, outfile_path):  # Todo integrate with Model.py
     f = open(outfile_path, "a+")
     model_count = 0
     for unit_cell_sym_mate_pdb in unit_cell_sym_mates:
@@ -465,11 +536,11 @@ def write_unit_cell_sym_mates(unit_cell_sym_mates, outfile_path):
     f.close()
 
 
-def write_surrounding_unit_cells(surrounding_unit_cells, outfile_path):
+def write_surrounding_unit_cells(surrounding_unit_cells, outfile_path):  # Todo integrate with Model.py
     f = open(outfile_path, "a+")
 
     model_count = 0
-    for unit_cell in surrounding_unit_cells:
+    for unit_cell in surrounding_unit_cells:  # Todo remove the extra nest on UC generation
         for unit_cell_sym_mate_pdb in unit_cell:
             model_count += 1
             model_line = "MODEL     {:>4s}\n".format(str(model_count))
@@ -524,7 +595,18 @@ def surrounding_uc_is_clash(central_unit_cell, surrounding_unit_cells, clash_dis
         return True  # "CLASH!!"
 
 
-def expand_asu(asu, symmetry, uc_dimensions=None):
+def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):
+    """Return the expanded material from the input ASU, symmetry specification, and unit cell dimensions
+
+    Args:
+        asu (PDB): PDB object that contains the minimal protein for the specified material
+        symmetry (str): The Herman Melville symmetry nomenclature of the symmetric group, ex: P432, F23, I, etc.
+    Keyword Args:
+        uc_dimensions=None (list): [57, 57, 57, 90, 90, 90] lengths a, b, and c, then angles
+        return_side_chains=False (bool): Whether to return all side chain atoms
+    Returns:
+        (list(PDB)): Expanded to entire point group, 3x3 layer group, or 3x3x3 space group
+    """
     if symmetry.upper() in ['T', 'O', 'I']:
         expand_matrices = get_ptgrp_sym_op(symmetry.upper())
         return get_expanded_ptgrp_pdb(asu, expand_matrices)
@@ -535,18 +617,23 @@ def expand_asu(asu, symmetry, uc_dimensions=None):
             dimension = 3
         else:
             return None
-
         expand_matrices = get_sg_sym_op(symmetry)
-        return expand_uc(asu, expand_matrices, uc_dimensions, dimension)
+
+        return expand_uc(asu, expand_matrices, uc_dimensions, dimension, return_side_chains=return_side_chains)
 
 
-def expand_uc(pdb_asu, expand_matrices, uc_dimensions, dimension):
-    """Return the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell"""
+def expand_uc(pdb_asu, expand_matrices, uc_dimensions, dimension, return_side_chains=False):
+    """Return the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
+
+    Returns
+        (list(list(PDB))):
+    """
     unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions)
-    if dimension == 2:
-        all_surrounding_unit_cells = get_surrounding_unit_cells_2d(unit_cell_pdbs, uc_dimensions)
-    elif dimension == 3:
-        all_surrounding_unit_cells = get_surrounding_unit_cells_3d(unit_cell_pdbs, uc_dimensions)
+    if dimension in [2, 3]:
+        all_surrounding_unit_cells = get_surrounding_unit_cells(unit_cell_pdbs, uc_dimensions, dimension=dimension, return_side_chains=return_side_chains)
+        # all_surrounding_unit_cells = get_surrounding_unit_cells_2d(unit_cell_pdbs, uc_dimensions)
+    # elif dimension == 3:
+    #     all_surrounding_unit_cells = get_surrounding_unit_cells_3d(unit_cell_pdbs, uc_dimensions)
     else:
         return None
 
