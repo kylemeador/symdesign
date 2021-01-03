@@ -38,10 +38,11 @@ class OptimalTx:
 
         # calculate the initial difference between query and target (9 dim vector)
         guide_delta = np.transpose([guide_target_10.flatten('F') - guide_query_10.flatten('F')])
+        # flatten column vector matrix above [[x, x, x], [y, y, y], [z, z, z]] -> [x, y, z, x, y, z, x, y, z], then T
 
         # isotropic case based on simple rmsd
         self.cluster_rmsd = max(self.cluster_rmsd, 0.01)
-        diagval = 1. / (3. * self.cluster_rmsd ** 2)
+        diagval = 1. / (3. * self.cluster_rmsd ** 2)  # fill in values with 3x the mean squared deviation (deviation sum)
         var_tot_inv = np.zeros([9, 9])
         for i in range(9):
             var_tot_inv[i, i] = diagval
@@ -54,15 +55,15 @@ class OptimalTx:
 
         # convert degrees of freedom to 9-dim array
         dof = self.dof_convert9()
+        dofT = np.transpose(dof)  # degree of freedom transpose (actually the original dof as it is returned transposed)
 
         # solve the problem
-        dofT = np.transpose(dof)
-        dinvv = np.matmul(var_tot_inv, dof)
-        vtdinvv = np.matmul(dofT, dinvv)
-        vtdinvvinv = np.linalg.inv(vtdinvv)
+        dinvv = np.matmul(var_tot_inv, dof)  # degree of freedom x inverse variance
+        vtdinvv = np.matmul(dofT, dinvv)  # degree of freedom transpose x degree of freedom x inverse variance
+        vtdinvvinv = np.linalg.inv(vtdinvv)  # degree of freedom transpose x degree of freedom x inverse variance INV
 
-        dinvdelta = np.matmul(var_tot_inv, guide_delta)
-        vtdinvdelta = np.matmul(dofT, dinvdelta)
+        dinvdelta = np.matmul(var_tot_inv, guide_delta)  # guide atom diff x inverse deviation
+        vtdinvdelta = np.matmul(dofT, dinvdelta)  # guide atom diff x inv deviation x transpose of degrees of freedom
 
         shift = np.matmul(vtdinvvinv, vtdinvdelta)
 
@@ -82,22 +83,22 @@ class OptimalTx:
     @staticmethod
     def mat_vec_mul3(a, b):
         c = [0. for i in range(3)]
-
         for i in range(3):
-            c[i] = 0.
+            # c[i] = 0.
             for j in range(3):
                 c[i] += a[i][j] * b[j]
 
         return c
 
     def set_guide_atoms(self, rot_mat, coords):
-        rotated_coords = []
-
-        for coord in coords:
-            x, y, z = self.mat_vec_mul3(rot_mat, [coord[0], coord[1], coord[2]])
-            rotated_coords.append([x, y, z])
-
-        return rotated_coords
+        # rotated_coords = []
+        #
+        # for coord in coords:
+        #     x, y, z = self.mat_vec_mul3(rot_mat, [coord[0], coord[1], coord[2]])
+        #     rotated_coords.append([x, y, z])
+        #
+        # return rotated_coords
+        return [list(self.mat_vec_mul3(rot_mat, [coord[0], coord[1], coord[2]])) for coord in coords]
 
     def apply(self):
         # Apply Setting Matrix to Guide Atoms
