@@ -20,7 +20,7 @@ class PDB:
         self.all_atoms = []  # python list of Atoms
         self.res = None
         self.cryst_record = None
-        self.cryst = None
+        self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.dbref = {}
         self.header = []
         self.seqres_sequences = {}  # SEQRES entries. key is chainID, value is 'AGHKLAIDL'
@@ -53,6 +53,9 @@ class PDB:
 
     def get_filepath(self):
         return self.filepath
+
+    def get_uc_dimensions(self):
+        return list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
 
     def update_attributes_from_pdb(self, pdb):
         # self.all_atoms = pdb.all_atoms

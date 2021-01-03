@@ -1,17 +1,16 @@
 import os
-from PDB import PDB
 
 
 class Model:
     def __init__(self):
-        self.model_list = []
+        self.model_list = []  # list of PDB objects
 
     def add_model(self, pdb):
         self.model_list.append(pdb)
 
     def write(self, name, location=os.getcwd(), cryst1=None):
         out_path = os.path.join(location, '%s.pdb' % name)
-        with open(out_path, "w") as f:
+        with open(out_path, 'w') as f:
             if cryst1 and isinstance(cryst1, str) and cryst1.startswith('CRYST1'):
                 f.write('%s\n' % cryst1)
             for i, model in enumerate(self.model_list, 1):
