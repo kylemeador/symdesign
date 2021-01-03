@@ -114,9 +114,8 @@ def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):
     parsed_ref_tx_vec = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof)
 
     optimal_external_tx_vector = np.array([0.0, 0.0, 0.0])
-    for dof_shift_index in range(len(optimal_ext_dof_shifts)):
-        dof_shift = optimal_ext_dof_shifts[dof_shift_index]
-        var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_tx_vec, ext_dof_variables[dof_shift_index])
+    for idx, dof_shift in enumerate(optimal_ext_dof_shifts):
+        var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_tx_vec, ext_dof_variables[idx])
         shifted_var_vec = np.array(var_vec) * dof_shift
         optimal_external_tx_vector += shifted_var_vec
 
@@ -152,8 +151,8 @@ def get_rot_matrices(step_deg, axis, rot_range_deg):
 
 
 def get_degen_rotmatrices(degeneracy_matrices, rotation_matrices):
+    identity_matrix = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
     if rotation_matrices == list() and degeneracy_matrices is not None:
-        identity_matrix = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
         return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracy_matrices]
 
     elif rotation_matrices != list() and degeneracy_matrices is None:
@@ -162,12 +161,8 @@ def get_degen_rotmatrices(degeneracy_matrices, rotation_matrices):
     elif rotation_matrices != list() and degeneracy_matrices is not None:
         degen_rotmatrices = [rotation_matrices]
         for degen in degeneracy_matrices:
-            degen_list = []
-            for rot in rotation_matrices:
-                combined = np.matmul(rot, degen)
-                degen_list.append(combined.tolist())
+            degen_list = [np.matmul(rot, degen).tolist() for rot in rotation_matrices]
             degen_rotmatrices.append(degen_list)
         return degen_rotmatrices
     else:
-        identity_matrix = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
         return [[identity_matrix]]
