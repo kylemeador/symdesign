@@ -34,6 +34,8 @@ import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from AnalyzeMutatedSequences import extract_aa_seq, write_fasta_file
 from AnalyzeOutput import analyze_output
+from PDB import PDB
+from Pose import Model
 from nanohedra.utils.ExpandAssemblyUtils import expand_asu
 
 
@@ -289,10 +291,11 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # cleaned_pdb = os.path.join(des_dir.path, PUtils.clean)
     # ala_mut_pdb = os.path.splitext(cleaned_pdb)[0] + '_for_refine.pdb'
     # TODO no mut if glycine...
-    ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'  # TODO DesignDirectory des_fir.for_refine
-    consensus_pdb = os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb'
-    consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
-    refined_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '.pdb')
+    # ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'
+    # consensus_pdb = os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb'
+    # consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
+    # refined_pdb = os.path.join(des_dir.design_pdbs, os.path.basename(des_dir.refine_pdb))
+    # refined_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '.pdb')
     # '_%s.pdb' % PUtils.stage[1]) TODO clean this stupid mechanism only for P432
     # if out:file:o works, could use, os.path.join(des_dir.design_pdbs, PUtils.stage[1] + '.pdb') but it won't register
 
@@ -313,7 +316,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #     oligomers[name].rotate_translate(transformation_dict[i]['setting'], transformation_dict[i]['tx_ref'])
     #     # {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
 
-    template_pdb = SDUtils.read_pdb(des_dir.source)
+    template_pdb = PDB(file=des_dir.source)
+    # template_pdb = SDUtils.read_pdb(des_dir.source)
     num_chains = len(template_pdb.chain_id_list)
 
     # TODO JOSH Get rid of same chain ID problem....
@@ -355,7 +359,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         # assert len(name_pdb_file) == 1, '%s: More than one matching file found with %s' % \
         #                                 (des_dir.path, name + '_tx_*.pdb')
         oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
-        oligomer[name].AddName(name)
+        oligomer[name].set_name(name)
         # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
         sym_definition_files[name] = SDUtils.make_sdf(oligomer[name], modify_sym_energy=True)
         oligomer[name].reorder_chains()
@@ -403,10 +407,13 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
     int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
-    # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.cryst is None
-    expanded_pdbs = expand_asu(template_pdb, design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions())  # Todo make the expanded_pdbs a Model.py?
+    # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.get_uc_dimensions() is None
+    symmetrized_model = Model(expand_asu(template_pdb, design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
+    symmetrized_model_chain1 = symmetrized_model.select_chain(oligomer[pdb_codes[0]])
+    symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_CB_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
+    symmetrized_model_chain2 = symmetrized_model.select_chain(oligomer[pdb_codes[1]])
     # should I split this into the oligomeric component parts?
-    oligomer_symmetry_int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], expanded_pdbs)
+    oligomer_symmetry_int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], symmetrized_model_chain1_coords)
 
     # Get residue numbers as Residue objects to map across chain renumbering
     int_residue_objects = {}
@@ -474,6 +481,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             total_int_residue_objects.append(residue_obj)
             int_res_numbers[name].append(residue_obj.ca.residue_number)  # must use .ca.residue_number,.number is static
             mutated_pdb.mutate_to(names[name](c), residue_obj.ca.residue_number)
+            # Todo no mutation from GLY to ALA
 
     # Construct CB Tree for full interface atoms to map residue residue contacts
     # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
@@ -495,9 +503,10 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #                                                    for n in int_res_numbers[name]))
     logger.info('Interface Residues: %s' % ', '.join(str(n) + names[name](c) for c, name in enumerate(names)
                                                      for n in int_res_numbers[name]))
-    mutated_pdb.write(ala_mut_pdb)
+    mutated_pdb.write(des_dir.refine_pdb)
+    # mutated_pdb.write(ala_mut_pdb)
     # mutated_pdb.write(ala_mut_pdb, cryst1=cryst)
-    logger.debug('Cleaned PDB for Refine: \'%s\'' % ala_mut_pdb)
+    logger.debug('Cleaned PDB for Refine: \'%s\'' % des_dir.refine_pdb)
 
     # Get ASU distance parameters
     asu_oligomer_com_dist = []
@@ -731,8 +740,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Consensus:\n%s' % consensus)
     for n, name in enumerate(names):
         for residue in int_res_numbers[name]:  # one-indexed
-            mutated_pdb.mutate_to(names[name](n), residue, IUPACData.protein_letters_1to3[consensus[residue]].upper())
-    mutated_pdb.write(consensus_pdb)
+            mutated_pdb.mutate_to(names[name](n), residue, res_id=IUPACData.protein_letters_1to3[consensus[residue]].upper())
+    mutated_pdb.write(des_dir.consensus_pdb)
+    # mutated_pdb.write(consensus_pdb)
     # mutated_pdb.write(consensus_pdb, cryst1=cryst)
 
     # Update DesignDirectory with design information
@@ -759,8 +769,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     relax_cmd = main_cmd + \
         ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file),
          '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
-    refine_cmd = relax_cmd + ['-in:file:s', ala_mut_pdb,  '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
-    consensus_cmd = relax_cmd + ['-in:file:s', consensus_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
+    refine_cmd = relax_cmd + ['-in:file:s', des_dir.refine_pdb,  '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
+    consensus_cmd = relax_cmd + ['-in:file:s', des_dir.consensus_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
 
     # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
     if script:
@@ -784,20 +794,20 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     flags_design = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[2], outpath=des_dir.path)
     # TODO back out nstruct label to command distribution
     design_cmd = main_cmd + \
-        ['-in:file:s', refined_pdb, '-in:file:native', des_dir.asu, '-nstruct', str(PUtils.nstruct),
+        ['-in:file:s', des_dir.refined_pdb, '-in:file:native', des_dir.asu, '-nstruct', str(PUtils.nstruct),
          '@' + os.path.join(des_dir.path, flags_design), '-in:file:pssm', pssm_file, '-parser:protocol',
          os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
          '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file)]
 
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
     # TODO if nstruct is backed out, create pdb_list for metrics distribution
-    pdb_list_file = SDUtils.pdb_list_file(refined_pdb, total_pdbs=PUtils.nstruct, suffix='_' + PUtils.stage[2],
-                                          loc=des_dir.design_pdbs, additional=[consensus_design_pdb, ])
+    pdb_list_file = SDUtils.pdb_list_file(des_dir.refined_pdb, total_pdbs=PUtils.nstruct, suffix='_' + PUtils.stage[2],
+                                          loc=des_dir.design_pdbs, additional=[des_dir.consensus_design_pdb, ])
     design_variables += [('sdfA', sym_definition_files[pdb_codes[0]]), ('sdfB', sym_definition_files[pdb_codes[1]])]
 
     flags_metric = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[3], outpath=des_dir.path)
     metric_cmd = main_cmd + \
-        ['-in:file:l', pdb_list_file, '-in:file:native', refined_pdb, '@' + os.path.join(des_dir.path, flags_metric),
+        ['-in:file:l', pdb_list_file, '-in:file:native', des_dir.refined_pdb, '@' + os.path.join(des_dir.path, flags_metric),
          '-out:file:score_only', os.path.join(des_dir.scores, PUtils.scores_file),
          '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
 

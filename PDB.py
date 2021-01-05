@@ -11,42 +11,51 @@ from Bio.SeqUtils import IUPACData
 from sklearn.neighbors import BallTree
 
 from Atom import Atom
+from QueryProteinData.QueryPDB import get_pdb_info_by_entry
 from Residue import Residue
 from Stride import Stride
 
 
 class PDB:
-    def __init__(self):
+    def __init__(self, file=None):
+        self.accession_entity_map = {}
         self.all_atoms = []  # python list of Atoms
-        self.res = None
-        self.cryst_record = None
-        self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        self.dbref = {}
-        self.header = []
-        self.seqres_sequences = {}  # SEQRES entries. key is chainID, value is 'AGHKLAIDL'
+        self.api_entry = None
         self.atom_sequences = {}  # ATOM sequences. key is chain, value is 'AGHKLAIDL'
-        self.filepath = None  # PDB filepath if instance is read from PDB file
+        self.bb_coords = []
+        self.cb_coords = []
         self.chain_id_list = []  # list of unique chain IDs in PDB
-        self.entities = {}  # {1: ['A'], ...}  # for recap project - {0: {'chains': [], 'seq': 'GHIPLF...'}
+        self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+        self.cryst_record = None
+        self.dbref = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
+        self.design = False  # assume not a design unless explicitly found to be a design
+        self.entities = {}  # {1: {'chains': set(), 'seq': 'GHIPLF...'} (ZERO-index for recap project)
+        self.filepath = None  # PDB filepath if instance is read from PDB file
+        self.header = []
         self.name = None
         self.pdb_ss_asg = []
-        self.cb_coords = []
-        self.bb_coords = []
+        self.res = None
+        self.seqres_sequences = {}  # SEQRES entries. key is chainID, value is 'AGHKLAIDL'
 
-    def AddName(self, name):
+        if file:
+            self.readfile(file)
+
+    def set_name(self, name):
         self.name = name
 
     def set_all_atoms(self, atom_list):
+        """Set the PDB instance atoms to those specified in a list"""
         self.all_atoms = atom_list
+
+    def add_atoms(self, atom_list):
+        """Add Atoms in atom_list to the PDB instance"""
+        self.all_atoms += atom_list
 
     def set_chain_id_list(self, chain_id_list):
         self.chain_id_list = chain_id_list
 
     def set_filepath(self, filepath):
         self.filepath = filepath
-
-    def get_all_atoms(self):
-        return self.all_atoms
 
     def get_chain_id_list(self):
         return self.chain_id_list
@@ -63,6 +72,7 @@ class PDB:
         self.cryst_record = pdb.cryst_record
         self.cryst = pdb.cryst
         self.dbref = pdb.dbref
+        self.design = pdb.design
         self.header = pdb.header
         self.seqres_sequences = pdb.seqres_sequences
         # self.atom_sequences = pdb.atom_sequences
@@ -81,12 +91,13 @@ class PDB:
 
         return self.pdb_ss_asg
 
-    def readfile(self, filepath, remove_alt_location=False, coordinates_only=True):
-        # reads PDB file and feeds PDB instance
+    def readfile(self, filepath, remove_alt_location=True):  # changed default to forget about coordinates only
+        """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
 
         with open(self.filepath, 'r') as f:
-            pdb = f.readlines()
+            pdb_lines = f.readlines()
+            pdb_lines = list(map(str.rstrip, pdb_lines))
 
         available_chain_ids = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
                                'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
@@ -97,36 +108,7 @@ class PDB:
         model_chain_id, curr_chain_id = None, None
         model_chain_index = 0
         entity = None
-        for line in pdb:
-            line = line.rstrip()
-            if not coordinates_only:  # KM added 02/04/20 to deal with handling PDB headers
-                if line[0:6] == 'SEQRES':  # KM added 7/25/19 to deal with SEQRES info
-                    chain = line[11:12].strip()
-                    sequence = line[19:71].strip().split()
-                    if chain in self.seqres_sequences:
-                        self.seqres_sequences[chain] += sequence
-                    else:
-                        self.seqres_sequences[chain] = sequence
-                elif line[0:6] == 'CRYST1' or line[0:5] == 'SCALE':
-                    self.header.append(line)
-                elif line[0:5] == 'DBREF':
-                    # line = line.strip()
-                    chain = line[12:14].strip().upper()
-                    if line[5:6] == '2':
-                        db_accession_id = line[18:40].strip()
-                    else:
-                        db = line[26:33].strip()
-                        if line[5:6] == '1':  # skip grabbing db_accession_id until DBREF2
-                            continue
-                        db_accession_id = line[33:42].strip()
-                    self.dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
-                elif line[:21] == 'REMARK   2 RESOLUTION':
-                    try:
-                        self.res = float(line[22:30].strip().split()[0])
-                    except ValueError:
-                        self.res = None
-                continue
-
+        for line in pdb_lines:
             if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':  # KM modified 2/10/20 for MSE
                 # coordinates_only = False
                 number = int(line[6:11].strip())
@@ -176,12 +158,39 @@ class PDB:
                 start_of_new_model = True  # signifies that the next line comes after a new model
                 # model_chain_id = available_chain_ids[model_chain_index]
                 # model_chain_index += 1
+            elif line[0:6] == 'SEQRES':  # KM added 7/25/19 to deal with SEQRES info
+                chain = line[11:12].strip()
+                sequence = line[19:71].strip().split()
+                if chain in self.seqres_sequences:
+                    self.seqres_sequences[chain] += sequence
+                else:
+                    self.seqres_sequences[chain] = sequence
+            elif line[0:5] == 'DBREF':
+                # line = line.strip()
+                chain = line[12:14].strip().upper()
+                if line[5:6] == '2':
+                    db_accession_id = line[18:40].strip()
+                else:
+                    db = line[26:33].strip()
+                    if line[5:6] == '1':  # skip grabbing db_accession_id until DBREF2
+                        continue
+                    db_accession_id = line[33:42].strip()
+                self.dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
+            elif line[:21] == 'REMARK   2 RESOLUTION':
+                try:
+                    self.res = float(line[22:30].strip().split()[0])
+                except ValueError:
+                    self.res = None
             elif line[:6] == 'COMPND' and 'MOL_ID' in line:
                 entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
-            elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:
-                self.entities[entity] = {'chains': line[line.rfind(':') + 1:].strip().rstrip(';').split(',')}
+            elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
+                # entity number (starting from 1) = {'chains' : {A, B, C}}
+                self.entities[entity] = {'chains': set(line[line.rfind(':') + 1:].strip().rstrip(';').split(','))}
                 entity = None
+            elif line[0:5] == 'SCALE':
+                self.header.append(line)
             elif line[0:6] == 'CRYST1':
+                self.header.append(line)
                 self.cryst_record = line
                 try:
                     a = float(line[6:15].strip())
@@ -200,10 +209,14 @@ class PDB:
         self.renumber_atoms()
         if self.seqres_sequences:
             self.clean_sequences()
-        self.update_chain_sequences()
+        else:
+            self.design = True
 
-    def clean_sequences(self):  # Ensure the SEQRES information is accurate and convert to 1 AA format and {key: value}
-        # if self.sequences:
+        self.update_chain_sequences()
+        self.update_entity_sequences()
+
+    def clean_sequences(self):
+        """Ensure the SEQRES information is accurate and convert to 1 AA format and {key: value}"""
         for chain in self.seqres_sequences:
             for i, residue in enumerate(self.seqres_sequences[chain]):
                 try:
@@ -215,11 +228,8 @@ class PDB:
                         self.seqres_sequences[chain][i] = 'X'
             self.seqres_sequences[chain] = ''.join(self.seqres_sequences[chain])
 
-    def get_all_atoms(self):
-        return self.all_atoms
-
     def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):
-        # reads a python list of Atoms and feeds PDB instance
+        """Reads a python list of Atoms and feeds PDB instance updating chain info"""
         if store_cb_and_bb_coords:
             chain_ids = []
             for atom in atom_list:
@@ -242,6 +252,7 @@ class PDB:
             self.chain_id_list += chain_ids
         self.renumber_atoms()
         self.update_chain_sequences()
+        self.update_entities()
 
     # def retrieve_chain_ids(self):  # KM added 2/3/20 to deal with updating chain names after rename_chain(s) functions
     #     # creates a list of unique chain IDs in PDB and feeds it into chain_id_list maintaining order
@@ -255,67 +266,32 @@ class PDB:
     def get_chain_index(self, index):
         return self.chain_id_list[index]
 
+    def entity(self, entity_id):
+        """Return a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected entity"""
+        return [atom for atom in self.all_atoms if atom.chain in self.entities[entity_id]['chains']]
+
     def chain(self, chain_id):
-        # returns a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain ID
-        selected_atoms = []
-        for atom in self.all_atoms:
-            if atom.chain == chain_id:
-                selected_atoms.append(atom)
-        return selected_atoms
+        """Return a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain ID"""
+        return [atom for atom in self.all_atoms if atom.chain == chain_id]
 
     def chains(self, chain_id_list):
-        # returns a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain IDs
-        selected_atoms = []
-        for atom in self.all_atoms:
-            if atom.chain in chain_id_list:
-                selected_atoms.append(atom)
-        return selected_atoms
+        """Return a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain IDs"""
+        return [atom for atom in self.all_atoms if atom.chain in chain_id_list]
 
     def extract_all_coords(self):
-        coords = []
-        for atom in self.all_atoms:
-            [x, y, z] = [atom.x, atom.y, atom.z]
-            coords.append([x, y, z])
-        return coords
+        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms]
 
     def extract_backbone_coords(self):
-        coords = []
-        for atom in self.all_atoms:
-            if atom.is_backbone():
-                [x, y, z] = [atom.x, atom.y, atom.z]
-                coords.append([x, y, z])
-        return coords
+        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms if atom.is_backbone()]
 
     def extract_CA_coords(self):
-        coords = []
-        for atom in self.all_atoms:
-            if atom.is_CA():
-                [x, y, z] = [atom.x, atom.y, atom.z]
-                coords.append([x, y, z])
-        return coords
-
-    def get_CA_atoms(self):
-        ca_atoms = []
-        for atom in self.all_atoms:
-            if atom.is_CA():
-                ca_atoms.append(atom)
-        return ca_atoms
+        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms if atom.is_CA()]
 
     def extract_CB_coords(self, InclGlyCA=False):
-        coords = []
-        for atom in self.all_atoms:
-            if atom.is_CB(InclGlyCA=InclGlyCA):
-                [x, y, z] = [atom.x, atom.y, atom.z]
-                coords.append([x, y, z])
-        return coords
+        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     def extract_CB_coords_chain(self, chain, InclGlyCA=False):
-        coords = []
-        for atom in self.all_atoms:
-            if atom.is_CB(InclGlyCA=InclGlyCA) and atom.chain == chain:
-                [x, y, z] = [atom.x, atom.y, atom.z]
-                coords.append([x, y, z])
-        return coords
+        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms if atom.is_CB(InclGlyCA=InclGlyCA) and atom.chain == chain]
 
     def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):
         coords, cb_indices = [], []
@@ -332,6 +308,12 @@ class PDB:
 
         else:
             return coords
+
+    def get_all_atoms(self):
+        return self.all_atoms
+
+    def get_CA_atoms(self):
+        return [atom for atom in self.all_atoms if atom.is_CA()]
 
     def replace_coords(self, new_cords):
         for i in range(len(self.all_atoms)):
@@ -502,11 +484,11 @@ class PDB:
         self.update_chain_sequences()
 
     def rename_chain(self, chain_of_interest, new_chain):  # KM Added 8/19
-        # Caution, will rename to already taken chain. Also, doesn't update SEQRES chain info
-        chain_atoms = self.chain(chain_of_interest)
-        for atom in chain_atoms:
+        """Rename a single chain to a identifier of your choice.
+        Caution, will rename to already taken chain and doesn't update SEQRES chain dictionary
+        """
+        for atom in self.chain(chain_of_interest):
             atom.chain = new_chain
-            # chain_atoms[i].chain = new_chain
 
         self.chain_id_list[self.chain_id_list.index(chain_of_interest)] = new_chain
         self.update_chain_sequences()
@@ -547,11 +529,12 @@ class PDB:
         self.update_chain_sequences()
 
     def renumber_atoms(self):
+        """Renumber all atom entries one-indexed according to list order"""
         for idx, atom in enumerate(self.all_atoms, 1):
             atom.number = idx
 
     def pose_numbering(self):  # KM Added 12/16/19
-        # Starts numbering PDB residues at 1 and numbers sequentially until reaches last atom in file
+        """Starts numbering PDB residues at 1 and numbers sequentially until reaches last atom in file"""
         last_atom_index = len(self.all_atoms)
         # residues = len(self.get_all_residues())
         idx = 0  # offset , 1
@@ -1126,33 +1109,60 @@ class PDB:
 
         return round(temp / len(residue_atoms), 2)
 
-    def get_all_entities(self):  # KM added 08/21/20 to format or the ASU
+    def retrieve_pdb_info_from_api(self):
+        self.api_entry = get_pdb_info_by_entry(self.name)
+        self.update_entities_from_api()
+        self.update_dbref_from_api()
+
+    def update_entities_from_api(self):
+        if not self.api_entry:
+            self.api_entry = get_pdb_info_by_entry(self.name)
+        self.entities = {entity: {'chains': self.api_entry['entity'][entity]} for entity in self.api_entry['entity']}
+
+    def update_dbref_from_api(self):
+        if not self.api_entry:
+            self.api_entry = get_pdb_info_by_entry(self.name)
+        self.dbref = self.api_entry['dbref']
+
+    def update_entity_sequences(self, source='atom'):
+        if not self.entities:
+            if source == 'atom':
+                self.get_atom_entities()
+            elif source == 'pdb':
+                self.update_entities_from_api()
+        else:
+            for entity in self.entities:
+                self.entities[entity]['seq'] = self.atom_sequences[self.entities[entity]['chain'][0]]
+
+    def get_atom_entities(self):  # KM added 08/21/20 to format or the ASU
         """Find all unique entities in the pdb file, these are unique sequence/structure objects"""
         # TODO update to reflect parsing
         # seq_d = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
         # self.entities[copy.copy(count)] = {'chains': [self.chain_id_list[0]], 'seq': seq_d[self.chain_id_list[0]]}
-        count = 0
+        entity_count = 1
         for chain in self.atom_sequences:
             new_entity = True  # assume all chains are unique entities
             for entity in self.entities:
+                # check if the sequence associated with the atom chain is in the entity dictionary
                 if self.atom_sequences[chain] == self.entities[entity]['seq']:
                     score = len(self.atom_sequences[chain])
                 else:
                     alignment = pairwise2.align.localxx(self.atom_sequences[chain], self.entities[entity]['seq'])
-                    score = alignment[0][2]  # first alignment, score value
-                if score / len(self.entities[entity]['seq']) > 0.9:
+                    score = alignment[0][2]  # first alignment from localxx, grab score value
+                if score / len(self.entities[entity]['seq']) > 0.9:  # if score/length is > 90% similar, entity exists
                     # rmsd = Bio.Superimposer()
                     # if rmsd > 1:
                     self.entities[entity]['chains'].append(chain)
                     new_entity = False  # The entity is not unique, do not add
                     break
-            if new_entity:  # nothing was found
-                self.entities[copy.copy(count)] = {'chains': [chain], 'seq': self.atom_sequences[chain]}
-                count += 1
+            if new_entity:  # no existing entity matches, add new entity
+                self.entities[copy.copy(entity_count)] = {'chains': [chain], 'seq': self.atom_sequences[chain]}
+                entity_count += 1
 
-    def find_entity(self, chain):
+    def find_entity(self, chain_id):
+        """Return the entity associated with a particular chain"""
         for entity in self.entities:
-            if chain in self.entities[entity]['chains']:
+            if chain_id in self.entities[entity]['chains']:
                 return entity
 
     def match_entity_by_struct(self, other_struct=None, entity=None, force_closest=False):
@@ -1189,6 +1199,19 @@ class PDB:
                 if other_seq == self.entities[entity]['seq']:
                     return self.entities[entity]['chains'][0]
 
+    def generate_accession_map(self):
+        if self.entities and self.dbref:
+            pass
+        else:
+            self.retrieve_pdb_info_from_api()
+
+        for entity in self.entities:
+            for chain in self.entities[entity]:  # chain from set(chains)
+                if self.dbref[chain]['accession'] not in self.accession_entity_map:
+                #     self.accession_entity_map[self.dbref[chain]['accession']].add(entity)
+                # else:
+                    self.accession_entity_map[self.dbref[chain]['accession']] = {entity}
+
     def chain_interface_contacts(self, chain_id, distance=8, gly_ca=False):
         """Create a atom tree using CB atoms from one chain and all other atoms
 
@@ -1200,7 +1223,8 @@ class PDB:
         Returns:
             chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
         """
-        # Get chain CB Atom Coordinates into a numpy array [[x, y, z], ...]
+        # Get all CB Atom & chain CB Atom Coordinates into a numpy array [[x, y, z], ...]
+        all_coords = numpy.array(self.extract_CB_coords(InclGlyCA=gly_ca))
         chain_coords = numpy.array(self.extract_CB_coords_chain(chain_id, InclGlyCA=gly_ca))
 
         # Construct CB Tree for the chain
@@ -1210,15 +1234,13 @@ class PDB:
         chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
         all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
         chain_coord_indices, contact_cb_indices = [], []
-        # Find all the contacting CB indices and the indices where chain specific coords are located in all_coords
+        # Find the contacting CB indices and chain specific indices
         for i, idx in enumerate(all_cb_indices):
             if idx not in chain_cb_indices:
                 contact_cb_indices.append(idx)
             else:
                 chain_coord_indices.append(i)
 
-        # Get all CB Atom Coordinates into a numpy array [[x, y, z], ...]
-        all_coords = numpy.array(self.extract_CB_coords(InclGlyCA=gly_ca))
         # Remove chain specific coords from all coords by deleting them from numpy
         contact_coords = numpy.delete(all_coords, chain_coord_indices, axis=0)
         # Query chain CB Tree for all contacting Atoms within distance
@@ -1233,7 +1255,7 @@ class PDB:
                 for chain_idx in contacts:
                     chain_atoms.append(self.all_atoms[chain_cb_indices[chain_idx]])
 
-        return chain_atoms, all_contact_atoms
+        return chain_atoms, all_contact_atoms  # Todo return as interface pairs?
 
     def get_asu(self, chain=None, extra=False):
         """Return the atoms involved in the ASU with the provided chain
@@ -1243,7 +1265,7 @@ class PDB:
         Returns:
             (list): List of atoms involved in the identified asu
         """
-        self.get_all_entities()
+        self.get_atom_entities()
         if not chain:
             chain = self.chain_id_list[0]
 
