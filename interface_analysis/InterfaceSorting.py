@@ -455,7 +455,7 @@ if __name__ == '__main__':
 
     all_pdb_uniprot_file_name = '200206_MostCompleteAllPDBSpaceGroupUNPResInfo'  # .pkl'  # Todo parameterize
     all_pdb_uniprot_file = os.path.join(current_interface_file_path, all_pdb_uniprot_file_name)
-    # Dictionary Structure
+    # Dictionary Structure - will be 'dbref' instead of 'ref'
     #  {'entity': {1: ['A']}, 'res': 2.6, 'ref': {'A': {'db': 'UNP', 'accession': 'P35755'})
     #   'cryst': {'space': 'P 21 21 2', 'a_b_c': (106.464, 75.822, 34.109), 'ang_a_b_c': (90.0, 90.0, 90.0)}}
     # 200121 has 'path': '/home/kmeador/yeates/fragment_database/all/all_pdbs/kn/3KN7.pdb', not entity

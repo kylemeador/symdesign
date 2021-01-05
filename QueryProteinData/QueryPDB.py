@@ -572,7 +572,7 @@ def get_pdb_info_by_entry(entry):
     """Retrieve PDB information from the RCSB API
 
     Returns:
-        (dict): {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'ref': {chain: {'accession': ID, 'db': UNP}, ...},
+        (dict): {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
             'cryst': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
     """
     # Ex. entry = '4atz'
@@ -646,7 +646,7 @@ def get_pdb_info_by_entry(entry):
         # X-ray_only_keys - {'rcsb_cluster_flexibility'}
 
         chains = entity_json["rcsb_polymer_entity_container_identifiers"]['asym_ids']  # = ['A', 'B', 'C']
-        entity_chain_d[i] = chains
+        entity_chain_d[i] = set(chains)
         try:
             uniprot_id = entity_json["rcsb_polymer_entity_container_identifiers"]['uniprot_ids']
             database = 'UNP'
@@ -683,7 +683,7 @@ def get_pdb_info_by_entry(entry):
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-    return {'entity': entity_chain_d, 'res': resolution, 'ref': ref_d, 'cryst': cryst_d, 'method': exptl_method}
+    return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d, 'cryst': cryst_d, 'method': exptl_method}
 
 
 if __name__ == '__main__':

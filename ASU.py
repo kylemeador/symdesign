@@ -100,7 +100,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         asu.reorder_chains()
         # asu.pose_numbering()
         asu.reindex_all_chain_residues()
-        asu.get_all_entities()
+        asu.get_atom_entities()
 
         design_dir = os.path.join(output_dir, design)
         if not os.path.exists(design_dir):

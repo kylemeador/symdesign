@@ -14,6 +14,8 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 
+import Pose
+
 try:
     from Bio.SubsMat import MatrixInfo as matlist
     from Bio.Alphabet import generic_protein
@@ -185,7 +187,7 @@ def generate_mutations(all_design_files, wild_type_file, pose_num=False):
     pdb_dict = {'ref': SDUtils.read_pdb(wild_type_file)}
     for file_name in all_design_files:
         pdb = SDUtils.read_pdb(file_name)
-        pdb.AddName(os.path.splitext(os.path.basename(file_name))[0])
+        pdb.set_name(os.path.splitext(os.path.basename(file_name))[0])
         pdb_dict[pdb.name] = pdb
 
     return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
@@ -303,14 +305,13 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
     elif source == 'seqres':
         # Extract sequence from the SEQRES record
         fail = False
-        while True:
+        while True:  # TODO WTF is this used for
             if chain in pdb.seqres_sequences:
                 sequence = pdb.seqres_sequences[chain]
                 break
             else:
                 if not fail:
-                    temp_pdb = PDB.PDB()
-                    temp_pdb.readfile(pdb.filepath, coordinates_only=False)
+                    temp_pdb = PDB.PDB(file=pdb.filepath)
                     fail = True
                 else:
                     raise SDUtils.DesignError('Invalid PDB input, no SEQRES record found')
@@ -758,7 +759,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
         wt_seq_dict (dict): {chain: sequence, ...}
     """
     if not isinstance(pdb, PDB.PDB):
-        pdb = SDUtils.read_pdb(pdb, coordinates_only=False)
+        pdb = SDUtils.read_pdb(pdb)
 
     seq_dict = {}
     for _chain in pdb.chain_id_list:
@@ -1259,7 +1260,7 @@ if __name__ == '__main__':
     logger.info('Starting %s with options:\n%s' %
                 (__name__, '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
-    design_directory = SDUtils.DesignDirectory(args.directory)
+    design_directory = Pose.DesignDirectory(args.directory)
 
     logger.warning('If you are running into issues with locating files, the problem is not you, it is me. '
                    'I have limited capacity to locate specific files given the scope of my creation.')

@@ -1,9 +1,10 @@
-import os
 import argparse
+import os
 from glob import glob
-from Model import Model
+
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
+from Pose import Model
 
 
 def create_trajectory(design_directories, name='docking_trajectory', output_dir=os.getcwd()):
@@ -24,7 +25,7 @@ def merge_pose_pdbs(des_dir, frags=True):
         name_pdb_file = glob(os.path.join(des_dir.path, name + '_tx_*.pdb'))
         assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
         oligomers[name] = SDUtils.read_pdb(name_pdb_file[0])
-        oligomers[name].AddName(name)
+        oligomers[name].set_name(name)
         oligomers[name].reorder_chains(exclude_chains_list=taken_chains)
         taken_chains += oligomers[name].chain_id_list
     new_pdb = SDUtils.fill_pdb()
