@@ -9,6 +9,7 @@ from Bio.PDB.Atom import Atom as BioPDBAtom
 from Bio.PDB.Atom import PDBConstructionWarning
 from classes.PDB import *
 
+import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 
@@ -254,7 +255,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     ref_pdb1_ca_int_ch_atoms = []
     ref_pdb1_int_chids_ordered = []
     ref_pdb1_int_ca_atoms = []
-    for ref_pdb1_atom in ref_pdb1.chains(ref_pdb1_int_chids):
+    for ref_pdb1_atom in ref_pdb1.get_chain_atoms(ref_pdb1_int_chids):
         if ref_pdb1_atom.get_chain() not in ref_pdb1_int_chids_ordered:
             ref_pdb1_int_chids_ordered.append(ref_pdb1_atom.get_chain())
         if ref_pdb1_atom.is_CA():
@@ -266,7 +267,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     ref_pdb2_ca_int_ch_atoms = []
     ref_pdb2_int_chids_ordered = []
     ref_pdb2_int_ca_atoms = []
-    for ref_pdb2_atom in ref_pdb2.chains(ref_pdb2_int_chids):
+    for ref_pdb2_atom in ref_pdb2.get_chain_atoms(ref_pdb2_int_chids):
         if ref_pdb2_atom.get_chain() not in ref_pdb2_int_chids_ordered:
             ref_pdb2_int_chids_ordered.append(ref_pdb2_atom.get_chain())
         if ref_pdb2_atom.is_CA():
@@ -284,10 +285,10 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
     pdb1_chid_ca_atom_dict = {}
     for pdb1_chid in pdb1_chids:
-        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid) if a.is_CA()]
+        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.get_chain_atoms(pdb1_chid) if a.is_CA()]
     pdb2_chid_ca_atom_dict = {}
     for pdb2_chid in pdb2_chids:
-        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid) if a.is_CA()]
+        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.get_chain_atoms(pdb2_chid) if a.is_CA()]
 
     # construct lists of all possible chain id permutations for pdb1 and for pdb2
     # that could map onto reference pdb1 and reference pdb2 interface chains respectively
@@ -431,7 +432,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     ref_pdb1_ca_int_ch_atoms = []
     # ref_pdb1_int_chids_ordered = []  # unnecessary in python 3.6+
     ref_pdb1_ca_int_atoms = []
-    for ref_pdb1_atom in ref_pdb1.chains(ref_pdb1_int_chids):
+    for ref_pdb1_atom in ref_pdb1.get_chain_atoms(ref_pdb1_int_chids):
         # if ref_pdb1_atom.get_chain() not in ref_pdb1_int_chids_ordered:
         #     ref_pdb1_int_chids_ordered.append(ref_pdb1_atom.get_chain())
         if ref_pdb1_atom.is_CA():
@@ -443,7 +444,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     ref_pdb2_ca_int_ch_atoms = []
     # ref_pdb2_int_chids_ordered = []  # unnecessary in python 3.6+
     ref_pdb2_ca_int_atoms = []
-    for ref_pdb2_atom in ref_pdb2.chains(ref_pdb2_int_chids):
+    for ref_pdb2_atom in ref_pdb2.get_chain_atoms(ref_pdb2_int_chids):
         # if ref_pdb2_atom.get_chain() not in ref_pdb2_int_chids_ordered:
         #     ref_pdb2_int_chids_ordered.append(ref_pdb2_atom.get_chain())
         if ref_pdb2_atom.is_CA():
@@ -461,10 +462,10 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
     pdb1_chid_ca_atom_dict = {}
     for pdb1_chid in pdb1_chids:
-        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid) if a.is_CA()]
+        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.get_chain_atoms(pdb1_chid) if a.is_CA()]
     pdb2_chid_ca_atom_dict = {}
     for pdb2_chid in pdb2_chids:
-        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid) if a.is_CA()]
+        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.get_chain_atoms(pdb2_chid) if a.is_CA()]
 
     # construct lists of all possible chain id permutations for pdb1 and for pdb2
     # that could map onto reference pdb1 and reference pdb2 interface chains respectively
@@ -870,7 +871,7 @@ def main():
     all_poses, location = SDUtils.collect_directories(docked_poses_dirpath)  # , file=args.file)
     assert all_poses != list(), print('No %s directories found within \'%s\'! Please ensure correct location' %
                                       (PUtils.nano.title(), location))
-    all_design_directories = SDUtils.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
+    all_design_directories = DesignDirectory.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
     # return only directories for which an id is matched
     top_design_directories = SDUtils.get_pose_by_id(all_design_directories, top_ranked_ids)
 

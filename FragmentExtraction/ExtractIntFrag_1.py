@@ -1,5 +1,8 @@
 import os
 import sys
+
+import SequenceProfile
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
@@ -35,8 +38,8 @@ def extract_fragments(pdb, distance, frag_length, same_chain=False):
     pdb_ch2_id = pdb.chain_id_list[-1]
 
     # Create PDB instance for Ch1 and Ch2
-    pdb1 = SDUtils.fill_pdb(pdb.chain(pdb_ch1_id))
-    pdb2 = SDUtils.fill_pdb(pdb.chain(pdb_ch2_id))
+    pdb1 = SDUtils.fill_pdb(pdb.get_chain_atoms(pdb_ch1_id))
+    pdb2 = SDUtils.fill_pdb(pdb.get_chain_atoms(pdb_ch2_id))
     if pdb1.all_atoms == list() or pdb2.all_atoms == list():
         logger.info('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb.name))
         return pdb.name
@@ -51,16 +54,16 @@ def find_interacting_residue_fragments(pdb1, pdb2, interacting_pairs, frag_lengt
     fragment_pairs = []
     for residue_pair in interacting_pairs:
         # parameterize fragments based on input length
-        res_nums_pdb1 = [residue_pair[0] + i for i in range(*SDUtils.parameterize_frag_length(frag_length))]
-        res_nums_pdb2 = [residue_pair[1] + i for i in range(*SDUtils.parameterize_frag_length(frag_length))]
+        res_nums_pdb1 = [residue_pair[0] + i for i in range(*SequenceProfile.parameterize_frag_length(frag_length))]
+        res_nums_pdb2 = [residue_pair[1] + i for i in range(*SequenceProfile.parameterize_frag_length(frag_length))]
 
         if same_chain:
             # break iteration if residue 1 succeeds residue 2 or they are sequential, or frag 1 residues are in frag 2
             if residue_pair[0] + 1 >= residue_pair[1] and set(res_nums_pdb1) & set(res_nums_pdb2) != set():
                 continue
 
-        frag1 = pdb1.getResidueAtoms(pdb1.chain_id_list[0], res_nums_pdb1)
-        frag2 = pdb2.getResidueAtoms(pdb2.chain_id_list[0], res_nums_pdb2)
+        frag1 = pdb1.get_residue_atoms(pdb1.chain_id_list[0], res_nums_pdb1)
+        frag2 = pdb2.get_residue_atoms(pdb2.chain_id_list[0], res_nums_pdb2)
         if len(frag1) == frag_length and len(frag2) == frag_length:
             fragment_pairs.append((frag1, frag2))
 

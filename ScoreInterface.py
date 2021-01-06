@@ -368,9 +368,9 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
 def calculate_interface_score(interface_pdb):
     interface_name = interface_pdb.name
 
-    pdb1 = fill_pdb(interface_pdb.chain(interface_pdb.chain_id_list[0]))
+    pdb1 = fill_pdb(interface_pdb.get_chain_atoms(interface_pdb.chain_id_list[0]))
     pdb1.update_attributes_from_pdb(interface_pdb)
-    pdb2 = fill_pdb(interface_pdb.chain(interface_pdb.chain_id_list[-1]))
+    pdb2 = fill_pdb(interface_pdb.get_chain_atoms(interface_pdb.chain_id_list[-1]))
     pdb2.update_attributes_from_pdb(interface_pdb)
 
     pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l = get_interface_fragment_chain_residue_numbers(pdb1,

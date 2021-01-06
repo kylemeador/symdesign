@@ -7,6 +7,7 @@ from Bio.PDB.Atom import PDBConstructionWarning
 from classes.PDB import *
 from top_n_all_to_all_docked_poses_irmsd import map_align_interface_chains, interface_chains_and_resnums
 
+import DesignDirectory
 import SymDesignUtils as SDUtils
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
@@ -14,7 +15,7 @@ warnings.simplefilter('ignore', PDBConstructionWarning)
 
 ################################################### RANKING FUNCTION ###################################################
 def res_lev_sum_score_rank(all_design_directories):
-    designid_metric_tup_list = [(str(des_dir), SDUtils.gather_fragment_metrics(des_dir, score=True))
+    designid_metric_tup_list = [(str(des_dir), des_dir.gather_pose_metrics(score=True))
                                 for des_dir in all_design_directories]
     designid_metric_tup_list_sorted = sorted(designid_metric_tup_list, key=lambda tup: tup[1] is None, reverse=True)
     designid_metric_rank_dict = {d: (m, r) for r, (d, m) in enumerate(designid_metric_tup_list_sorted, 1)}
@@ -102,7 +103,7 @@ def main():
 
     # Retrieve all directories for the docked directory output
     all_poses, location = SDUtils.collect_directories(docked_poses_dirpath)  # , file=args.file)
-    all_design_directories = SDUtils.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
+    all_design_directories = DesignDirectory.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
 
     # find the chain and residue numbers at the interface of the reference pose
     ref1_chain_id_residue_d, ref2_chain_id_residue_d = interface_chains_and_resnums(ref_pdb1, ref_pdb2, cb_distance=9.0)

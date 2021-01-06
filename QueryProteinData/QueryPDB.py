@@ -576,7 +576,15 @@ def get_pdb_info_by_entry(entry):
             'cryst': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
     """
     # Ex. entry = '4atz'
-    entry_json = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry).json()
+    # ex. assembly = 1
+    # url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
+    # ex. chain
+    # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
+    entry = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
+    if entry.status_code != 200:
+        return None
+    else:
+        entry_json = entry.json()
     # The following information is returned. This can connect the entity ID to the chain
 
     # All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
@@ -635,7 +643,11 @@ def get_pdb_info_by_entry(entry):
     entity_chain_d, ref_d, db_d = {}, {}, {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
     for i in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
-        entity_json = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry.upper(), i)).json()
+        entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry.upper(), i))
+        if entity.status_code != 200:
+            return None
+        else:
+            entity_json = entity.json()
         # For all method types the following keys are available:
         # {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
         #  'rcsb_polymer_entity_feature_summary', 'rcsb_polymer_entity_align', 'rcsb_id', 'rcsb_cluster_membership',

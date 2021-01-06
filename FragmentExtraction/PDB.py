@@ -1,13 +1,15 @@
 #!/home/kmeador/miniconda3/bin/python
 import copy
+import math
+import os
+import subprocess
+
+import numpy
+from Bio.SeqUtils import IUPACData
+
 from Atom import Atom
 from Residue import Residue
-from Bio.SeqUtils import IUPACData
-import subprocess
 from Stride import Stride
-import numpy
-import os
-import math
 
 
 class PDB:
@@ -144,15 +146,15 @@ class PDB:
                 if atom.is_CB(InclGlyCA=False):
                     [x, y, z] = [atom.x, atom.y, atom.z]
                     self.cb_coords.append([x, y, z])
-                if atom.chain not in chain_ids:
-                    chain_ids.append(atom.chain)
+                if atom.get_chain_atoms not in chain_ids:
+                    chain_ids.append(atom.get_chain_atoms)
             self.chain_id_list = chain_ids
         else:
             chain_ids = []
             for atom in atom_list:
                 self.all_atoms.append(atom)
-                if atom.chain not in chain_ids:
-                    chain_ids.append(atom.chain)
+                if atom.get_chain_atoms not in chain_ids:
+                    chain_ids.append(atom.get_chain_atoms)
             self.chain_id_list = chain_ids
         self.retrieve_chain_ids()
 
@@ -160,7 +162,7 @@ class PDB:
         # creates a list of unique chain IDs in PDB and feeds it into chain_id_list
         chain_ids = []
         for atom in self.all_atoms:
-            chain_ids.append(atom.chain)
+            chain_ids.append(atom.get_chain_atoms)
         chain_ids = list(set(chain_ids))
         chain_ids.sort(key=lambda x: (x[0].isdigit(), x))
         self.chain_id_list = chain_ids
@@ -169,7 +171,7 @@ class PDB:
         # returns a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain ID
         selected_atoms = []
         for atom in self.all_atoms:
-            if atom.chain == chain_id:
+            if atom.get_chain_atoms == chain_id:
                 selected_atoms.append(atom)
         return selected_atoms
 
@@ -177,7 +179,7 @@ class PDB:
         # returns a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain IDs
         selected_atoms = []
         for atom in self.all_atoms:
-            if atom.chain in chain_id_list:
+            if atom.get_chain_atoms in chain_id_list:
                 selected_atoms.append(atom)
         return selected_atoms
 
@@ -222,7 +224,7 @@ class PDB:
     def extract_CB_coords_chain(self, chain, InclGlyCA=False):
         coords = []
         for atom in self.all_atoms:
-            if atom.is_CB(InclGlyCA=InclGlyCA) and atom.chain == chain:
+            if atom.is_CB(InclGlyCA=InclGlyCA) and atom.get_chain_atoms == chain:
                 [x, y, z] = [atom.x, atom.y, atom.z]
                 coords.append([x, y, z])
         return coords
@@ -380,23 +382,23 @@ class PDB:
 
         self.chain_id_list = lm
 
-        prev = self.all_atoms[0].chain
+        prev = self.all_atoms[0].get_chain_atoms
         c = 0
         l3 = []
         for i in range(len(self.all_atoms)):
-            if prev != self.all_atoms[i].chain:
+            if prev != self.all_atoms[i].get_chain_atoms:
                 c += 1
             l3.append(lm[c])
-            prev = self.all_atoms[i].chain
+            prev = self.all_atoms[i].get_chain_atoms
 
         for i in range(len(self.all_atoms)):
-            self.all_atoms[i].chain = l3[i]
+            self.all_atoms[i].get_chain_atoms = l3[i]
         self.retrieve_chain_ids()
 
     def rename_chain(self, chain_of_interest, new_chain):  # KM Added 8/19 Caution, will rename to already taken chain
         for i in range(len(self.all_atoms)):
-            if self.all_atoms[i].chain == chain_of_interest:
-                self.all_atoms[i].chain = new_chain
+            if self.all_atoms[i].get_chain_atoms == chain_of_interest:
+                self.all_atoms[i].get_chain_atoms = new_chain
         self.retrieve_chain_ids()
 
     def reorder_chains(self, excluded_chain_list=()):  # KM Added 12/16/19
@@ -417,17 +419,17 @@ class PDB:
             j += 1
         self.chain_id_list = l_moved
 
-        prev = self.all_atoms[0].chain
+        prev = self.all_atoms[0].get_chain_atoms
         chain_index = 0
         l3 = []
         for i in range(len(self.all_atoms)):
-            if prev != self.all_atoms[i].chain:
+            if prev != self.all_atoms[i].get_chain_atoms:
                 chain_index += 1
             l3.append(l_moved[chain_index])
-            prev = self.all_atoms[i].chain
+            prev = self.all_atoms[i].get_chain_atoms
 
         for i in range(len(self.all_atoms)):
-            self.all_atoms[i].chain = l3[i]
+            self.all_atoms[i].get_chain_atoms = l3[i]
 
     def renumber_residues(self):  # KM Added 12/16/19
         # Starts numbering PDB residues at 1 and numbers sequentially until reaches last atom in file
@@ -482,7 +484,7 @@ class PDB:
     def getResidueAtoms(self, residue_chain_id, residue_number):
         residue_atoms = []
         for atom in self.all_atoms:
-            if atom.chain == residue_chain_id and atom.residue_number == residue_number:
+            if atom.get_chain_atoms == residue_chain_id and atom.residue_number == residue_number:
                 residue_atoms.append(atom)
         return residue_atoms
 
@@ -722,20 +724,20 @@ class PDB:
             chain_id = None
             for i in range(len(self.all_atoms)):
                 atom = self.all_atoms[i]
-                if atom.chain != chain_id and atom.type == "CA":
+                if atom.get_chain_atoms != chain_id and atom.type == "CA":
                     ca_term_list.append(i)
-                    chain_id = atom.chain
+                    chain_id = atom.get_chain_atoms
             return ca_term_list
 
         elif term == "C":
             ca_term_list = []
-            chain_id = self.all_atoms[0].chain
+            chain_id = self.all_atoms[0].get_chain_atoms
             current_ca_indx = None
             for i in range(len(self.all_atoms)):
                 atom = self.all_atoms[i]
-                if atom.chain != chain_id:
+                if atom.get_chain_atoms != chain_id:
                     ca_term_list.append(current_ca_indx)
-                    chain_id = atom.chain
+                    chain_id = atom.get_chain_atoms
                 if atom.type == "CA":
                     current_ca_indx = i
             ca_term_list.append(current_ca_indx)
@@ -800,14 +802,14 @@ class PDB:
         if chain_selection == "all":
             surface_atoms = []
             for atom in self.all_atoms:
-                if (atom.chain, atom.residue_number) in sasa_out:
+                if (atom.get_chain_atoms, atom.residue_number) in sasa_out:
                     surface_atoms.append(atom)
             return surface_atoms
 
         else:
             surface_atoms = []
             for atom in self.chain(chain_selection):
-                if (atom.chain, atom.residue_number) in sasa_out:
+                if (atom.get_chain_atoms, atom.residue_number) in sasa_out:
                     surface_atoms.append(atom)
             return surface_atoms
 

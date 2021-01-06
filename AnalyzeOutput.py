@@ -15,8 +15,10 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 import AnalyzeMutatedSequences as Ams
+import DesignDirectory
 import PathUtils as PUtils
 # import PDB
+import SequenceProfile
 import SymDesignUtils as SDUtils
 
 # import CmdUtils as CUtils
@@ -882,11 +884,11 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # frag_db = os.path.basename(des_dir.info['issm'].split(PUtils.frag_type)[0])
     # interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[os.path.basename(des_dir.info['db'])])
-    interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[des_dir.info['db']])
+    interface_bkgd = SequenceProfile.get_db_aa_frequencies(PUtils.frag_directory[des_dir.info['db']])
     # profile_dict = {'evolution': pssm, 'fragment': issm, 'combined': dssm}
-    profile_dict = {'evolution': SDUtils.parse_pssm(des_dir.info['pssm']),
+    profile_dict = {'evolution': SequenceProfile.parse_pssm(des_dir.info['pssm']),
                     'fragment': SDUtils.unpickle(des_dir.info['issm']),
-                    'combined': SDUtils.parse_pssm(des_dir.info['dssm'])}
+                    'combined': SequenceProfile.parse_pssm(des_dir.info['dssm'])}
     issm_residues = list(set(profile_dict['fragment'].keys()))
     assert len(issm_residues) > 0, 'issm has no fragment information'
 
@@ -997,7 +999,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Calculate amino acid observation percent from residue dict and background SSM's
     obs_d = {}
     for profile in profile_dict:
-        obs_d[profile] = {design: mutation_conserved(residue_dict[design], SDUtils.offset_index(profile_dict[profile]))
+        obs_d[profile] = {design: mutation_conserved(residue_dict[design], SequenceProfile.offset_index(profile_dict[profile]))
                           for design in residue_dict}
 
     # Remove residues from fragment dict if no fragment information available for them
@@ -1037,7 +1039,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     scores_df['total_interface_residues'] = len(int_residues)
 
     # Gather miscellaneous pose specific metrics
-    other_pose_metrics = SDUtils.gather_fragment_metrics(des_dir)
+    other_pose_metrics = des_dir.gather_pose_metrics()
+    # other_pose_metrics = Pose.gather_fragment_metrics(des_dir)
     # nanohedra_score, average_fragment_z_score, unique_fragments
     other_pose_metrics['observations'] = len(designs)
     other_pose_metrics['symmetry'] = symmetry
@@ -1200,7 +1203,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     seq_pca = copy.deepcopy(res_pca)
     residue_dict.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
-    pairwise_sequence_diff_np = SDUtils.all_vs_all(residue_dict, SDUtils.sequence_difference)
+    pairwise_sequence_diff_np = SDUtils.all_vs_all(residue_dict, SequenceProfile.sequence_difference)
     pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
     seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
     # Compute the euclidean distance
@@ -1411,7 +1414,7 @@ if __name__ == '__main__':
     logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
     logger.info('All pose specific logs are located in their corresponding directories.\nEx: \'%s\'' %
                 os.path.join(all_poses[0].path, os.path.basename(all_poses[0].path) + '.log'))
-    all_design_directories = SDUtils.set_up_directory_objects(all_poses)
+    all_design_directories = DesignDirectory.set_up_directory_objects(all_poses)
 
     if args.no_save:
         save = False

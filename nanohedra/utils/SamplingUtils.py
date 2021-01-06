@@ -28,7 +28,7 @@ def get_degeneracy_matrices(oligomer_symmetry, design_symmetry):
             # example: in entry 82, only translations along <e,0.577e> are sampled.
             # This restriction only considers 1 out of the 2 equivalent Wyckoff positions.
             # <0,e> would also have to be searched as well to remove the "if" statement below.
-            # if (oligomer_symmetry, design_symmetry) != ("D3", "D6"):
+            # if (oligomer_symmetry, design_symmetry_pg) != ("D3", "D6"):
             if oligomer_symmetry == "D3":
                 degeneracy_matrices = [[[0.5, -0.86603, 0.0], [0.86603, 0.5, 0.0], [0.0, 0.0, 1.0]]]  # ROT60z
             elif oligomer_symmetry == "D4":

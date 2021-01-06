@@ -1,8 +1,8 @@
-import sys
 import os
-import numpy as np
-from PDB import PDB
+
 import FragUtils as Frag
+
+from PDB import PDB
 
 # Globals
 module = 'Extract Interface Fragments:'
@@ -69,8 +69,8 @@ def main():
         pdb_ch2 = PDB()
         pdb_ch1_id = pdb.chain_id_list[0]
         pdb_ch2_id = pdb.chain_id_list[1]
-        pdb_ch1.read_atom_list(pdb.chain(pdb_ch1_id))
-        pdb_ch2.read_atom_list(pdb.chain(pdb_ch2_id))
+        pdb_ch1.read_atom_list(pdb.get_chain_atoms(pdb_ch1_id))
+        pdb_ch2.read_atom_list(pdb.get_chain_atoms(pdb_ch2_id))
 
         # Find Pairs of Interacting Residues
         interacting_pairs = Frag.find_interface_pairs(pdb_ch1, pdb_ch2)

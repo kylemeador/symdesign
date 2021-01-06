@@ -45,7 +45,7 @@ class Atom:
 
     def distance(self, atom, intra=False):
         # returns distance (type float) between current instance of Atom and another instance of Atom
-        if self.chain == atom.chain and not intra:
+        if self.chain == atom.get_chain_atoms and not intra:
             print('Atoms Are In The Same Chain')
             return None
         else:
@@ -54,7 +54,7 @@ class Atom:
 
     def distance_squared(self, atom, intra=False):
         # returns squared distance (type float) between current instance of Atom and another instance of Atom
-        if self.chain == atom.chain and not intra:
+        if self.chain == atom.get_chain_atoms and not intra:
             print('Atoms Are In The Same Chain')
             return None
         else:
@@ -73,5 +73,5 @@ class Atom:
         return [self.x, self.y, self.z]
 
     def __eq__(self, other):
-        return (self.number == other.number and self.chain == other.chain and self.type == other.type and
+        return (self.number == other.number and self.chain == other.get_chain_atoms and self.type == other.type and
                 self.residue_type == other.residue_type)

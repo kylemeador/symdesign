@@ -3,9 +3,12 @@ class Residue:
         self.atom_list = atom_list
         self.ca = self.get_ca()
         self.cb = self.get_cb()
-        self.number = self.ca.residue_number
-        self.type = self.ca.residue_type
-        self.chain = self.ca.chain
+        self.number = self.ca.get_number()  # Todo test accessors
+        self.type = self.ca.get_type()
+        self.chain = self.ca.get_chain()
+
+    def get_atoms(self):
+        return self.atom_list
 
     def get_ca(self):
         for atom in self.atom_list:
@@ -70,8 +73,14 @@ class Residue:
         #print "NO RESIDUE FOUND"
         return None
 
-    def __eq__(self, other_residue):
-        return self.ca == other_residue.ca
+    def __key(self):
+        return self.number, self.chain, self.type
+
+    def __eq__(self, other):
+        # return self.ca == other_residue.ca
+        if isinstance(other, Residue):
+            return self.__key() == other.__key()
+        return NotImplemented
 
     def __str__(self):
         return_string = ""
@@ -80,4 +89,4 @@ class Residue:
         return return_string
 
     def __hash__(self):
-        return hash((self.number, self.chain, self.type))
+        return hash(self.__key())

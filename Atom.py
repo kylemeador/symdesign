@@ -19,13 +19,6 @@ class Atom:
         self.element_symbol = element_symbol
         self.atom_charge = atom_charge
 
-    def __str__(self):
-        # prints Atom in PDB format
-        return "{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}"\
-               "\n".format("ATOM", self.number, self.type, self.alt_location, self.residue_type, self.chain,
-                           self.residue_number, self.code_for_insertion, self.x, self.y, self.z, self.occ,
-                           self.temp_fact, self.element_symbol, self.atom_charge)
-
     def is_backbone(self):
         # returns True if atom is part of the proteins backbone and False otherwise
         backbone_specific_atom_type = ["N", "CA", "C", "O"]
@@ -72,10 +65,6 @@ class Atom:
     def coords(self):
         return [self.x, self.y, self.z]
 
-    def __eq__(self, other):
-        return (self.number == other.number and self.chain == other.chain and self.type == other.type and
-                self.residue_type == other.residue_type)
-
     def get_number(self):
         return self.number
 
@@ -117,3 +106,20 @@ class Atom:
 
     def get_atom_charge(self):
         return self.atom_charge
+
+    def __key(self):
+        return self.number, self.type
+
+    def __str__(self):
+        # prints Atom in PDB format
+        return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+               '\n'.format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
+                           self.residue_number, self.code_for_insertion, self.x, self.y, self.z, self.occ,
+                           self.temp_fact, self.element_symbol, self.atom_charge)
+
+    def __eq__(self, other):
+        return (self.number == other.number and self.chain == other.chain and self.type == other.type and
+                self.residue_type == other.residue_type)
+
+    def __hash__(self):
+        return hash(self.__key())

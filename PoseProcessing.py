@@ -30,7 +30,10 @@ from Bio.SeqUtils import IUPACData
 from sklearn.cluster import DBSCAN
 
 import CmdUtils as CUtils
+import DesignDirectory
+import PDB
 import PathUtils as PUtils
+import SequenceProfile
 import SymDesignUtils as SDUtils
 from AnalyzeMutatedSequences import extract_aa_seq, write_fasta_file
 from AnalyzeOutput import analyze_output
@@ -361,36 +364,37 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
         oligomer[name].set_name(name)
         # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
-        sym_definition_files[name] = SDUtils.make_sdf(oligomer[name], modify_sym_energy=True)
+        sym_definition_files[name] = oligomer[name].make_sdf(modify_sym_energy=True)
         oligomer[name].reorder_chains()
     logger.debug('%s: %d matching oligomers found' % (des_dir.path, len(oligomer)))
 
     # TODO insert mechanism to Decorate and then gather my own fragment decoration statistics
     # TODO supplement with names info and pull out by names
 
-    cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir, init=True)
+    cluster_residue_d, transformation_dict = des_dir.gather_pose_metrics(init=True)
+    # cluster_residue_d, transformation_dict = Pose.gather_fragment_metrics(des_dir, init=True)
     # v Used for central pair fragment mapping of the biological interface generated fragments
     cluster_freq_tuple_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
     # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
     #                         for cluster in cluster_residue_d}
 
     # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
-    cluster_freq_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'])
+    cluster_freq_d = {cluster: SequenceProfile.format_frequencies(cluster_residue_d[cluster]['freq'])
                       for cluster in cluster_residue_d}  # orange mapped to cluster tag
-    cluster_freq_twin_d = {cluster: SDUtils.format_frequencies(cluster_residue_d[cluster]['freq'], flip=True)
+    cluster_freq_twin_d = {cluster: SequenceProfile.format_frequencies(cluster_residue_d[cluster]['freq'], flip=True)
                            for cluster in cluster_residue_d}  # orange mapped to cluster tag
     cluster_residue_d = {cluster: cluster_residue_d[cluster]['pair'] for cluster in cluster_residue_d}
 
     # Set up protocol symmetry
-    docking_metrics = SDUtils.gather_docking_metrics(des_dir.log)
-    sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = SDUtils.symmetry_parameters(docking_metrics)
-    sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
-    protocol = PUtils.protocol[sym]
-    if sym > 0:  # layer or space
-        sym_def_file = SDUtils.sdf_lookup(sym, dummy=True)  # currently grabbing dummy.symm
+    des_dir.gather_docking_metrics()
+    # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = des_dir.symmetry_parameters()
+    # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
+    protocol = PUtils.protocol[des_dir.design_dim]
+    if des_dir.design_dim > 0:  # layer or space
+        sym_def_file = SDUtils.sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
         main_cmd += ['-symmetry_definition', 'CRYST1']
     else:  # point
-        sym_def_file = SDUtils.sdf_lookup(sym_entry_number)
+        sym_def_file = SDUtils.sdf_lookup(des_dir.sym_entry_number)
         main_cmd += ['-symmetry_definition', sym_def_file]
 
     # logger.info('Symmetry Information: %s' % cryst)
@@ -403,12 +407,12 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                                        for k, pair in enumerate(cluster_residue_d[cluster]))))
 
     # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
-    frag_residue_object_d = SDUtils.residue_number_to_object(template_pdb, cluster_residue_d)
+    frag_residue_object_d = SequenceProfile.residue_number_to_object(template_pdb, cluster_residue_d)
     logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
     int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
     # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.get_uc_dimensions() is None
-    symmetrized_model = Model(expand_asu(template_pdb, design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
+    symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
     symmetrized_model_chain1 = symmetrized_model.select_chain(oligomer[pdb_codes[0]])
     symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_CB_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
     symmetrized_model_chain2 = symmetrized_model.select_chain(oligomer[pdb_codes[1]])
@@ -421,7 +425,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         int_residue_objects[name] = []
         for residue in int_residues[k]:
             try:
-                int_residue_objects[name].append(template_pdb.get_residue(names[name](k), residue))
+                int_residue_objects[name].append(template_pdb.chain(names[name](k)).get_residue(residue))
+                # int_residue_objects[name].append(template_pdb.get_residue(names[name](k), residue))
             except IndexError:
                 raise SDUtils.DesignError('Oligomeric and ASU chains do not match. Interface likely involves '
                                           'missing density at oligomer \'%s\', chain \'%s\', residue \'%d\'. Resolve '
@@ -459,9 +464,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             template_pdb.insert_residue(chain, residue, gapped_residues_d[chain][residue]['from'])
 
 
-    template_pdb.pose_numbering()
+    template_pdb.renumber_residues()
     jump = template_pdb.getTermCAAtom('C', template_pdb.chain_id_list[0]).residue_number
-    template_residues = template_pdb.get_all_residues()
+    template_residues = template_pdb.get_residues()
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
     logger.info('Total number of residues is %d' % len(template_residues))
@@ -479,8 +484,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         int_res_numbers[name] = []
         for residue_obj in int_residue_objects[name]:
             total_int_residue_objects.append(residue_obj)
-            int_res_numbers[name].append(residue_obj.ca.residue_number)  # must use .ca.residue_number,.number is static
-            mutated_pdb.mutate_to(names[name](c), residue_obj.ca.residue_number)
+            int_res_numbers[name].append(residue_obj.number)  # Todo ensure .number is accessor to residue.ca Atom obj
+            mutated_pdb.mutate_to(names[name](c), residue_obj.number)
             # Todo no mutation from GLY to ALA
 
     # Construct CB Tree for full interface atoms to map residue residue contacts
@@ -511,8 +516,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Get ASU distance parameters
     asu_oligomer_com_dist = []
     for d, name in enumerate(names):
-        asu_oligomer_com_dist.append(np.linalg.norm(np.array(template_pdb.center_of_mass())
-                                                    - np.array(oligomer[name].center_of_mass())))
+        asu_oligomer_com_dist.append(np.linalg.norm(np.array(template_pdb.get_center_of_mass())
+                                                    - np.array(oligomer[name].get_center_of_mass())))
     max_com_dist = 0
     for com_dist in asu_oligomer_com_dist:
         if com_dist > max_com_dist:
@@ -542,7 +547,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                     pssm_files[name] = PUtils.temp
             if name not in pssm_files:
                 pssm_files[name] = {}
-                logger.debug('%s PSSM File not created' % name)
+                logger.debug('%s PSSM File not yet created' % name)
 
         # Extract/Format Sequence Information
         for n, name in enumerate(names):
@@ -565,7 +570,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         for name in names:
             if pssm_files[name] == dict():
                 logger.info('Generating PSSM file for %s' % name)
-                pssm_files[name], pssm_process[name] = SDUtils.hhblits(pdb_seq_file[name], outpath=des_dir.sequences)
+                pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name], outpath=des_dir.sequences)
                 logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
             elif pssm_files[name] == PUtils.temp:
                 logger.info('Waiting for profile generation...')
@@ -586,9 +591,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             os.remove(temp_file)
 
         # Extract PSSM for each protein and combine into single PSSM
-        pssm_dict = {name: SDUtils.parse_hhblits_pssm(pssm_files[name]) for name in names}
-        full_pssm = SDUtils.combine_pssm([pssm_dict[name] for name in pssm_dict])  # requires python3.6 or greater
-        pssm_file = SDUtils.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
+        pssm_dict = {name: SequenceProfile.parse_hhblits_pssm(pssm_files[name]) for name in names}
+        full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])  # requires python3.6 or greater
+        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
     else:
         time.sleep(1)
         while os.path.exists(temp_file):
@@ -599,7 +604,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             pssm_file = os.path.join(des_dir.path, PUtils.msa_pssm)
         else:
             pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
-        full_pssm = SDUtils.parse_pssm(pssm_file)
+        full_pssm = SequenceProfile.parse_pssm(pssm_file)
 
     # Check Pose and Profile for equality before proceeding
     second = False
@@ -634,14 +639,14 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         logger.debug('Position Specific Scoring Matrix: %s' % str(full_pssm))
 
     # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
-    fragment_range = SDUtils.parameterize_frag_length(frag_size)
-    full_design_dict = SDUtils.populate_design_dict(len(full_pssm), [j for j in range(*fragment_range)])
-    residue_cluster_map = SDUtils.convert_to_residue_cluster_map(frag_residue_object_d, fragment_range)
+    fragment_range = SequenceProfile.parameterize_frag_length(frag_size)
+    full_design_dict = SequenceProfile.populate_design_dict(len(full_pssm), [j for j in range(*fragment_range)])
+    residue_cluster_map = SequenceProfile.convert_to_residue_cluster_map(frag_residue_object_d, fragment_range)
     # ^cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
     #             Where the key is the 0 indexed residue id
 
     # # TODO all_frags
-    cluster_residue_pose_d = SDUtils.residue_object_to_number(frag_residue_object_d)
+    cluster_residue_pose_d = SequenceProfile.residue_object_to_number(frag_residue_object_d)
     # logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
     # # ^{cluster: [(78, 87, ...), ...]...}
     residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
@@ -662,23 +667,23 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         residue_cluster_map.pop(residue)
     logger.debug('Residue Cluster Map: %s' % str(residue_cluster_map))
 
-    cluster_dicts = SDUtils.get_cluster_dicts(db=frag_db, id_list=[j for j in cluster_residue_d])
-    full_cluster_dict = SDUtils.deconvolve_clusters(cluster_dicts, full_design_dict, residue_cluster_map)
-    final_issm = SDUtils.flatten_for_issm(full_cluster_dict, keep_extras=False)  # =False added for pickling 6/14/20
+    cluster_dicts = SequenceProfile.get_cluster_dicts(db=frag_db, id_list=[j for j in cluster_residue_d])
+    full_cluster_dict = SequenceProfile.deconvolve_clusters(cluster_dicts, full_design_dict, residue_cluster_map)
+    final_issm = SequenceProfile.flatten_for_issm(full_cluster_dict, keep_extras=False)  # =False added for pickling 6/14/20
     interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_type, out_path=des_dir.data)
     logger.debug('Fragment Specific Scoring Matrix: %s' % str(final_issm))
 
     # Make DSSM by combining fragment and evolutionary profile
-    fragment_alpha = SDUtils.find_alpha(final_issm, residue_cluster_map, db=frag_db)
-    dssm = SDUtils.combine_ssm(full_pssm, final_issm, fragment_alpha, db=frag_db, boltzmann=True)
-    dssm_file = SDUtils.make_pssm_file(dssm, PUtils.dssm, outpath=des_dir.path)
+    fragment_alpha = SequenceProfile.find_alpha(final_issm, residue_cluster_map, db=frag_db)
+    dssm = SequenceProfile.combine_ssm(full_pssm, final_issm, fragment_alpha, db=frag_db, boltzmann=True)
+    dssm_file = SequenceProfile.make_pssm_file(dssm, PUtils.dssm, outpath=des_dir.path)
     # logger.debug('Design Specific Scoring Matrix: %s' % dssm)
 
     # # Set up consensus design # TODO all_frags
     # # Combine residue fragment information to find residue sets for consensus
     # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
-    final_issm = SDUtils.offset_index(final_issm)  # change so it is one-indexed
-    frag_overlap = SDUtils.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
+    final_issm = SequenceProfile.offset_index(final_issm)  # change so it is one-indexed
+    frag_overlap = SequenceProfile.fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
     logger.debug('Residue frequency map:\n%s' % residue_freq_map)
     logger.debug('Residue interface edges:\n%s' % interface_residue_edges)  # This is perfect for Bale 2016 int connect
     logger.debug('Residue fragment overlap:\n%s' % frag_overlap)
@@ -709,7 +714,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     consensus_residues = {}
     all_pose_fragment_pairs = list(residue_freq_map.keys())
-    residue_cluster_map = SDUtils.offset_index(residue_cluster_map)  # change so it is one-indexed
+    residue_cluster_map = SequenceProfile.offset_index(residue_cluster_map)  # change so it is one-indexed
     # for residue in residue_cluster_map:
     for residue, partner in all_pose_fragment_pairs:
         for idx, cluster in residue_cluster_map[residue]['cluster']:
@@ -734,7 +739,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     consensus = {residue: dssm[residue]['type'] for residue in dssm}
     # ^{0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
     consensus.update(consensus_residues)
-    consensus = SDUtils.offset_index(consensus)
+    consensus = SequenceProfile.offset_index(consensus)
     # consensus = SDUtils.consensus_sequence(dssm)
     logger.debug('Consensus Residues only:\n%s' % consensus_residues)
     logger.debug('Consensus:\n%s' % consensus)
@@ -894,7 +899,7 @@ if __name__ == '__main__':
     assert all_designs != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct '
                                                   'location.' % (PUtils.nano, location))
     logger.info('%d Poses found in \'%s\'' % (len(all_designs), location))
-    all_design_dirs = SDUtils.set_up_directory_objects(all_designs)
+    all_design_dirs = DesignDirectory.set_up_directory_objects(all_designs)
     logger.info('All pose specific logs are located in their corresponding directories.\nEx: \'%s\'' %
                 os.path.join(all_design_dirs[0].path, os.path.basename(all_design_dirs[0].path) + '.log'))
 

@@ -287,8 +287,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     # Creating PDB instance for mapped and paired chains
     pdb_mapped = PDB()
     pdb_paired = PDB()
-    pdb_mapped.read_atom_list(pdb.chain(mapped_chain))
-    pdb_paired.read_atom_list(pdb.chain(paired_chain))
+    pdb_mapped.read_atom_list(pdb.get_chain_atoms(mapped_chain))
+    pdb_paired.read_atom_list(pdb.get_chain_atoms(paired_chain))
 
     # Query Atom Tree for all Ch2 Atoms within interaction_distance of Ch1 Atoms
     query, pdb_map_cb_indices, pdb_partner_cb_indices = construct_cb_atom_tree(pdb_mapped, pdb_paired, interaction_dist)
@@ -312,9 +312,9 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
 
     # Create dictionary and Count all atoms in each residue sidechain
     # ex. {'A': {32: (0, 9), 33: (0, 5), ...}, 'B':...}
-    res_counts_dict = {'mapped': {i.residue_number: [0, len(pdb_mapped.getResidueAtoms(mapped_chain, i.residue_number))
+    res_counts_dict = {'mapped': {i.residue_number: [0, len(pdb_mapped.get_residue_atoms(mapped_chain, i.residue_number))
                                                      - num_bb_atoms] for i in pdb_mapped.get_CA_atoms()},
-                       'paired': {i.residue_number: [0, len(pdb_paired.getResidueAtoms(paired_chain, i.residue_number))
+                       'paired': {i.residue_number: [0, len(pdb_paired.get_residue_atoms(paired_chain, i.residue_number))
                                                      - num_bb_atoms] for i in pdb_paired.get_CA_atoms()}}
     # Count all residue/residue interactions that do not originate from a backbone atom. In this way, side-chain to
     # backbone are counted for the sidechain residue, indicating significance. However, backbones are (mostly)

@@ -1,13 +1,16 @@
-import os
-import sys
-import shutil
 import argparse
 import logging
+import os
+import shutil
+import sys
 from itertools import repeat
+
 from Bio.SeqUtils import IUPACData
-import SymDesignUtils as SDUtils
+
 import PathUtils as PUtils
-import CmdUtils as CUtils
+import SequenceProfile
+import SymDesignUtils as SDUtils
+
 logging.getLogger().setLevel(logging.DEBUG)
 
 
@@ -37,12 +40,12 @@ def check_for_errors(des_dir, debug):
     pose_pssm, template_pdb = None, None
     for file in os.listdir(des_dir.path):
         if file.endswith('pose.dssm'):
-            pose_pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, file))
+            pose_pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, file))
         if file.endswith(PUtils.clean):
             template_pdb = SDUtils.read_pdb(os.path.join(des_dir.path, file))
 
     if pose_pssm and template_pdb:
-        template_residues = template_pdb.get_all_residues()
+        template_residues = template_pdb.get_residues()
         pose_correct = check_pssm_v_pose(des_dir, pose_pssm, template_residues)
         return pose_correct
     else:
@@ -58,7 +61,7 @@ def generate_profile(pdb, des_dir, debug):
     #         template_pdb = SDUtils.read_pdb(os.path.join(des_dir.path, file))
     #
     # if pose_pssm and template_pdb:
-    #     template_residues = template_pdb.get_all_residues()
+    #     template_residues = template_pdb.get_residues()
     #     pose_correct = check_pssm_v_pose(des_dir, pose_pssm, template_residues)
     #     return pose_correct
     # else:
@@ -111,8 +114,8 @@ def generate_profile(pdb, des_dir, debug):
         for name in names:
             if pssm_files[name] == dict():
                 des_logger.info('Generating PSSM file for %s' % name)
-                pssm_files[name], pssm_process[name] = SDUtils.hhblits(pdb_seq_file[name],
-                                                                       outpath=des_dir.sequences)
+                pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name],
+                                                                               outpath=des_dir.sequences)
                 des_logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
             elif pssm_files[name] == PUtils.temp:
                 des_logger.info('Waiting for profile generation...')
@@ -135,9 +138,9 @@ def generate_profile(pdb, des_dir, debug):
         # Extract PSSM for each protein and combine into single PSSM
         pssm_dict = {}
         for name in names:
-            pssm_dict[name] = SDUtils.parse_hhblits_pssm(pssm_files[name])
-        full_pssm = SDUtils.combine_pssm([pssm_dict[name] for name in pssm_dict])
-        pssm_file = SDUtils.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
+            pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
+        full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
+        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
     else:
         time.sleep(1)
         des_logger.info('Waiting for profile generation...')
@@ -148,7 +151,7 @@ def generate_profile(pdb, des_dir, debug):
             break
 
         pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
-        full_pssm = SDUtils.parse_pssm(pssm_file)
+        full_pssm = SequenceProfile.parse_pssm(pssm_file)
 
     # Check length for equality before proceeding
     if len(template_residues) != len(full_pssm):

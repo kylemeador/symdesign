@@ -15,7 +15,7 @@ def get_interface_fragments(pdb, chain_res_info, fragment_length=5):
         frag_atoms = []
         frag_res_nums = [res_num + i for i in range(-2, 3)]
         ca_count = 0
-        for atom in pdb.chain(chain):
+        for atom in pdb.get_chain_atoms(chain):
             if atom.residue_number in frag_res_nums:
                 frag_atoms.append(atom)
                 if atom.is_CA():
@@ -36,7 +36,7 @@ def get_surface_fragments(pdb, free_sasa_exe_path):
         frag_atoms = []
         frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
         ca_count = 0
-        for atom in pdb.chain(chain):
+        for atom in pdb.get_chain_atoms(chain):
             if atom.residue_number in frag_res_nums:
                 frag_atoms.append(atom)
                 if atom.is_CA():
@@ -58,7 +58,7 @@ def get_surface_fragments_chain(pdb, chain_id, free_sasa_exe_path):
             frag_atoms = []
             frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
             ca_count = 0
-            for atom in pdb.chain(chain):
+            for atom in pdb.get_chain_atoms(chain):
                 if atom.residue_number in frag_res_nums:
                     frag_atoms.append(atom)
                     if atom.is_CA():
