@@ -1,7 +1,8 @@
 import os
 import shutil
 
-from SymDesignUtils import collect_directories, set_up_directory_objects, gather_fragment_metrics
+from DesignDirectory import set_up_directory_objects
+from SymDesignUtils import collect_directories
 from nanohedra.classes.PDB import PDB
 
 
@@ -127,7 +128,7 @@ def rank(master_design_dirpath, metric, outdir):
     #
     #             design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
     print('Gathering directories and scores')
-    designpath_metric_tup_list = [(des_dir.path, gather_fragment_metrics(des_dir, score=True))
+    designpath_metric_tup_list = [(des_dir.path, des_dir.gather_pose_metrics(score=True))
                                   for des_dir in all_design_directories]
     print('Sorting')
     # if metric == 'score':

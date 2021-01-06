@@ -51,7 +51,7 @@ class Residue:
     @staticmethod
     def get_residue(number, chain, residue_type, residuelist):
         for residue in residuelist:
-            if residue.number == number and residue.chain == chain and residue.type == residue_type:
+            if residue.number == number and residue.get_chain_atoms == chain and residue.type == residue_type:
                 return residue
         #print "NO RESIDUE FOUND"
         return None

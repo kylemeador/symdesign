@@ -149,7 +149,7 @@ def main():
                 master_log_file.write("Oligomer 2 Symmetry: " + oligomer_symmetry_2 + "\n")
                 # master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % oligomer_symmetry_1)  # v1
                 master_log_file.write("Design Point Group Symmetry: %s\n" % design_symmetry)
-                # master_log_file.write("SCM Point Group Symmetry: %s\n" % design_symmetry)  # v1
+                # master_log_file.write("SCM Point Group Symmetry: %s\n" % design_symmetry_pg)  # v1
 
                 master_log_file.write("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))
                 master_log_file.write("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))

@@ -1,9 +1,10 @@
+import argparse
 import os
 from json import loads, dumps
-import argparse
-import SymDesignUtils as SDUtils
+
+import DesignDirectory
 import PathUtils as PUtils
-import CmdUtils as CUtils
+import SymDesignUtils as SDUtils
 
 
 def merge_scores(dirs1, dirs2):
@@ -52,14 +53,14 @@ if __name__ == '__main__':
     all_poses1, location = SDUtils.collect_designs(args.directory, file=args.file)
     assert all_poses1 != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct'
                                                  'location.' % (PUtils.nano, location))
-    all_design_directories1 = SDUtils.set_up_directory_objects(all_poses1)
+    all_design_directories1 = DesignDirectory.set_up_directory_objects(all_poses1)
     logger.info('%d Poses found in \'%s\'' % (len(all_poses1), location))
 
     # Grab all poses (directories) to be processed from either directory name or file
     all_poses2, location = SDUtils.collect_designs(args.directory, file=args.file)
     assert all_poses2 != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct'
                                                  'location.' % (PUtils.nano, location))
-    all_design_directories2 = SDUtils.set_up_directory_objects(all_poses2)
+    all_design_directories2 = DesignDirectory.set_up_directory_objects(all_poses2)
     logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location))
 
     success, failures = merge_scores(all_design_directories1, all_design_directories2)

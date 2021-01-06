@@ -18,6 +18,7 @@ import pandas as pd
 
 import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
+import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
@@ -234,10 +235,13 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
             for sym_idx, building_blocks in enumerate(des_dir.building_block_logs):  # Added from dock_dir patch
                 for bb_idx, log_file in enumerate(building_blocks):  # Added from dock_dir patch
                     f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
-                    degens, rotations = SDUtils.degen_and_rotation_parameters(
-                        SDUtils.gather_docking_metrics(des_dir.log[sym_idx]))
+                    # degens, rotations = Pose.degen_and_rotation_parameters(
+                    #     Pose.gather_docking_metrics(des_dir.log[sym_idx]))
+                    des_dir.gather_docking_metrics()  # log[sym_idx]))
+                    degens, rotations = des_dir.degen_and_rotation_parameters()
                     degen1, degen2 = tuple(degens)
-                    last_rot1, last_rot2 = SDUtils.compute_last_rotation_state(*rotations)
+                    last_rot1, last_rot2 = des_dir.compute_last_rotation_state()
+                    # last_rot1, last_rot2 = Pose.compute_last_rotation_state(*rotations)
                     # REMOVE after increment gone
                     f_degen1, f_degen2 = 1, 1
                     if f_rot2 > last_rot2:
@@ -506,7 +510,7 @@ if __name__ == '__main__':
             all_docked_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
             assert all_docked_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure '
                                                                'correct location' % (PUtils.nano.title(), location))
-            design_directories = SDUtils.set_up_directory_objects(all_docked_poses, symmetry=args.design_string)
+            design_directories = DesignDirectory.set_up_directory_objects(all_docked_poses, symmetry=args.design_string)
             logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
                         os.path.join(design_directories[0].path,
                                      '%s.log' % os.path.basename(design_directories[0].path)))
@@ -697,7 +701,7 @@ if __name__ == '__main__':
             assert all_poses2 != list(), logger.critical(
                 'No %s directories found within \'%s\'! Please ensure correct location' % (PUtils.nano.title(),
                                                                                            location2))
-            all_design_directories2 = SDUtils.set_up_directory_objects(all_poses2)
+            all_design_directories2 = DesignDirectory.set_up_directory_objects(all_poses2)
             logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location2))
             if args.mode == 'design':
                 directory_pairs, failures = pair_directories(all_design_directories2, design_directories)
@@ -798,7 +802,7 @@ if __name__ == '__main__':
             all_poses, pose_design_numbers = zip(*csv_lines)
             # pose_design_numbers = list(map(list, pose_design_numbers))
             # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
-            design_directories = SDUtils.set_up_directory_objects(all_poses, symmetry=args.design_string)
+            design_directories = DesignDirectory.set_up_directory_objects(all_poses, symmetry=args.design_string)
             results.append(zip(design_directories, pose_design_numbers))
             location = args.pose_design_file
         else:
@@ -848,7 +852,7 @@ if __name__ == '__main__':
                     final_poses = final_poses[:args.number]
                 logger.info('Final poses after clustering:\n%s' % '\n'.join(pose for pose in final_poses))
 
-                design_directories = SDUtils.set_up_directory_objects(final_poses, symmetry=args.design_string)
+                design_directories = DesignDirectory.set_up_directory_objects(final_poses, symmetry=args.design_string)
                 if args.consensus:
                     results.append(zip(design_directories, repeat('consensus')))
                     output = True
@@ -938,7 +942,7 @@ if __name__ == '__main__':
                 #     seqres_pose.read_atom_list(oligomer.chain(_chain))
                 #     # print('In', seqres_pose.chain_id_list)
                 # # print('Out', seqres_pose.chain_id_list)
-                # seqres_pose.pose_numbering()  # Why is this necessary
+                # seqres_pose.renumber_residues()  # Why is this necessary
                 # seqres_pose.seqres_sequences = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
                 # print('Reorder', seqres_pose.chain_id_list)
                 # Insert loops identified by comparison of SEQRES and ATOM
@@ -985,7 +989,7 @@ if __name__ == '__main__':
                 #                                            for chain in design_sequences]))
                 # Insert residues into design PDB object
                 for chain in all_missing_residues_d:
-                    # design_pose.pose_numbering()  TODO for correct pdb_number considering insert_residues function
+                    # design_pose.renumber_residues()  TODO for correct pdb_number considering insert_residues function
                     for residue in all_missing_residues_d[chain]:
                         design_pose.insert_residue(chain, residue, all_missing_residues_d[chain][residue]['from'])
                         # if chain == 'B':

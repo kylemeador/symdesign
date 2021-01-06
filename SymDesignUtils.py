@@ -8,30 +8,24 @@ import pickle
 import subprocess
 import sys
 from glob import glob
-from itertools import repeat, chain
+from itertools import chain
 from json import loads, dumps
 
 import numpy as np
 from Bio.PDB import PDBParser, Superimposer
 from Bio.SeqUtils import IUPACData
-from Bio.SubsMat import MatrixInfo as matlist
 from sklearn.neighbors import BallTree
 
 import CmdUtils as CUtils
 import PDB
 import PathUtils as PUtils
-# Globals
-from Pose import DesignDirectory
-
 # logging.getLogger().setLevel(logging.INFO)
+from SequenceProfile import populate_design_dict
+
+# Globals
 
 index_offset = 1
 rmsd_threshold = 1.0
-alph_3_aa_list = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-aa_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0,
-                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
-aa_weight_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
-                         'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
 layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
@@ -123,138 +117,6 @@ def sdf_lookup(point_type, dummy=False):
         for file in files:
             if symmetry_name in file:
                 return os.path.join(PUtils.symmetry_def_files, file)
-
-
-def scout_sdf_chains(pdb):
-    """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
-
-    perl $SymDesign/dependencies/rosetta/sdf/scout_symmdef_file.pl -p 3l8r_1ho1/DEGEN_1_1/ROT_36_1/tx_4/1ho1_tx_4.pdb
-    -i B C D E F G H
-
-    """
-    scout_cmd = ['perl', PUtils.scout_symmdef, '-p', pdb.filepath, '-a', pdb.chain_id_list[0], '-i'] + pdb.chain_id_list[1:]
-    logger.info(subprocess.list2cmdline(scout_cmd))
-    p = subprocess.run(scout_cmd, capture_output=True)
-    lines = p.stdout.decode('utf-8').strip().split('\n')
-    rotation_dict = {}
-    max_sym, max_chain = 0, None
-    for line in lines:
-        chain = line[0]
-        symmetry = int(line.split(':')[1][:6].rstrip('-fold'))
-        axis = list(map(float, line.split(':')[2].strip().split()))
-        rotation_dict[chain] = {'sym': symmetry, 'axis': np.array(axis)}
-        if symmetry > max_sym:
-            max_sym = symmetry
-            max_chain = chain
-
-    assert max_chain, logger.warning('%s: No symmetry found for SDF creation' % pdb.filepath)
-    # if max_chain:
-    #     chain_string = max_chain
-    # else:
-    #     raise DesignError('%s: No symmetry found for SDF creation' % pdb.filepath)
-
-    # Check for dihedral symmetry, ensuring selected chain is orthogonal to max symmetry axis
-    num_chains = len(pdb.chain_id_list)
-    if num_chains / max_sym == 2:
-        for chain in rotation_dict:
-            if rotation_dict[chain]['sym'] == 2:
-                if np.dot(rotation_dict[max_chain]['axis'], rotation_dict[chain]['axis']) < 0.01:
-                    max_chain += ' ' + chain
-                    break
-
-    return max_chain
-
-
-def make_sdf(pdb, modify_sym_energy=False, energy=2):
-    """Use the make_symmdef_file.pl script from Rosetta on an input structure
-
-    perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb -i B -q
-    Args:
-        pdb (PDB): An instance of the PDB object
-    Keyword Args:
-        modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
-        energy=2 (int): The scaler to modify the energy by
-    Returns:
-        Symmetry Definition filename
-    """
-    chains = scout_sdf_chains(pdb)
-    sdf_file_name = os.path.join(os.path.dirname(pdb.filepath), pdb.name + '.sdf')
-    sdf_cmd = ['perl', PUtils.make_symmdef, '-p', pdb.filepath, '-a', pdb.chain_id_list[0], '-i', chains, '-q']
-    logger.info(subprocess.list2cmdline(sdf_cmd))
-    with open(sdf_file_name, 'w') as file:
-        p = subprocess.Popen(sdf_cmd, stdout=file, stderr=subprocess.DEVNULL)
-        p.communicate()
-
-    assert p.returncode == 0, logger.error('%s: Symmetry Definition File generation failed' % pdb.filepath)
-
-    # Ensure proper formatting before proceeding # if dihedral:
-    subunits, virtuals, jumps_com, jumps_subunit, trunk = [], [], [], [], []
-    with open(sdf_file_name, 'r+') as file:
-        lines = file.readlines()
-        for i in range(len(lines)):
-            if lines[i].startswith('xyz'):
-                virtual = lines[i].split()[1]
-                if virtual.endswith('_base'):
-                    subunits.append(virtual)
-                else:
-                    virtuals.append(virtual.lstrip('VRT'))
-                # last_vrt = i + 1
-            elif lines[i].startswith('connect_virtual'):
-                jump = lines[i].split()[1].lstrip('JUMP')
-                if jump.endswith('_to_com'):
-                    jumps_com.append(jump[:-7])
-                elif jump.endswith('_to_subunit'):
-                    jumps_subunit.append(jump[:-11])
-                else:
-                    trunk.append(jump)
-                last_jump = i + 1
-        assert set(trunk) - set(virtuals) == set(), logger.error('%s: Symmetry Definition File VRTS are malformed'
-                                                                 % pdb.filepath)
-        assert len(pdb.chain_id_list) == len(subunits), logger.error('%s: Symmetry Definition File VRTX_base are malformed'
-                                                            % pdb.filepath)
-
-        if len(chains) > 1:  # dihedral = True
-            # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
-            virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
-        else:
-            if '' in virtuals:
-                virtuals.remove('')
-
-        jumps_com_to_add = set(virtuals) - set(jumps_com)
-        count = 0
-        if jumps_com_to_add != set():
-            for jump_com in jumps_com_to_add:
-                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_com VRT%s VRT%s_base\n'
-                             % (jump_com, jump_com, jump_com))
-                count += 1
-            lines[-2] = lines[-2].strip() + (len(jumps_com_to_add) * ' JUMP%s_to_subunit') \
-                % tuple(jump_subunit for jump_subunit in jumps_com_to_add)
-            lines[-2] += '\n'
-        jumps_subunit_to_add = set(virtuals) - set(jumps_subunit)
-        if jumps_subunit_to_add != set():
-            for jump_subunit in jumps_subunit_to_add:
-                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_subunit VRT%s_base SUBUNIT\n'
-                             % (jump_subunit, jump_subunit))
-                count += 1
-            lines[-1] = lines[-1].strip() + (len(jumps_subunit_to_add) * ' JUMP%s_to_subunit') \
-                % tuple(jump_subunit for jump_subunit in jumps_subunit_to_add)
-            lines[-1] += '\n'
-        if modify_sym_energy:
-            # new energy should equal the energy multiplier times the scoring subunit plus additional complex subunits,
-            # so num_subunits - 1
-            new_energy = 'E = %d*%s + ' % (energy, subunits[0])  # assumes that subunits are read in alphanumerical order
-            new_energy += ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:]))
-            lines[1] = new_energy + '\n'
-
-        file.seek(0)
-        for line in lines:
-            file.write(line)
-        file.truncate()
-        if count != 0:
-            logger.warning('%s: Symmetry Definition File for %s missing %d lines, fix was attempted. Modelling may be '
-                           'affected for pose' % (os.path.dirname(pdb.filepath), os.path.basename(pdb.filepath), count))
-
-    return sdf_file_name
 
 
 #####################
@@ -400,149 +262,149 @@ def index_intersection(indices):
     return list(final_indices)
 
 
-def reduce_pose_to_chains(pdb, chains):  # UNUSED
-    new_pdb = PDB.PDB()
-    new_pdb.read_atom_list(pdb.chains(chains))
-
-    return new_pdb
-
-
-def combine_pdb(pdb_1, pdb_2, name):  # UNUSED
-    """Take two pdb objects and write them to the same file
-
-    Args:
-        pdb_1 (PDB): First PDB to concatentate
-        pdb_2 (PDB): Second PDB
-        name (str): Name of the output file
-    """
-    pdb_1.write(name)
-    with open(name, 'a') as full_pdb:
-        for atom in pdb_2.all_atoms:
-            full_pdb.write(str(atom))  # .strip() + '\n')
-
-
-def identify_interface_chains(pdb1, pdb2):  # UNUSED
-    distance = 12  # Angstroms
-    pdb1_chains = []
-    pdb2_chains = []
-    # Get Queried CB Tree for all PDB2 Atoms within 12A of PDB1 CB Atoms
-    query, pdb1_cb_indices, pdb2_cb_indices = construct_cb_atom_tree(pdb1, pdb2, distance)
-
-    for pdb2_query_index in range(len(query)):
-        if query[pdb2_query_index].tolist() != list():
-            pdb2_chains.append(pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].chain)
-            for pdb1_query_index in query[pdb2_query_index]:
-                pdb1_chains.append(pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].chain)
-
-    pdb1_chains = list(set(pdb1_chains))
-    pdb2_chains = list(set(pdb2_chains))
-
-    return pdb1_chains, pdb2_chains
-
-
-def rosetta_score(pdb):  # UNUSED
-    # this will also format your output in rosetta numbering
-    cmd = [PUtils.rosetta, 'score_jd2.default.linuxgccrelease', '-renumber_pdb', '-ignore_unrecognized_res', '-s', pdb,
-           '-out:pdb']
-    subprocess.Popen(cmd, start_new_session=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-    return pdb + '_0001.pdb'
-
-
-def duplicate_ssm(pssm_dict, copies):  # UNUSED
-    duplicated_ssm = {}
-    duplication_start = len(pssm_dict)
-    for i in range(int(copies)):
-        if i == 0:
-            offset = 0
-        else:
-            offset = duplication_start * i
-        # j = 0
-        for line in pssm_dict:
-            duplicated_ssm[line + offset] = pssm_dict[line]
-            # j += 1
-
-    return duplicated_ssm
-
-
-def get_all_cluster(pdb, residue_cluster_id_list, db=PUtils.bio_fragmentDB):  # UNUSED DEPRECIATED
-    # generate an interface specific scoring matrix from the fragment library
-    # assuming residue_cluster_id_list has form [(1_2_24, [78, 87]), ...]
-    cluster_list = []
-    for cluster in residue_cluster_id_list:
-        cluster_loc = cluster[0].split('_')
-        res1 = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[0], cluster[1][0]))
-        res2 = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[1], cluster[1][1]))
-        filename = os.path.join(db, cluster_loc[0], cluster_loc[0] + '_' + cluster_loc[1], cluster_loc[0] +
-                                '_' + cluster_loc[1] + '_' + cluster_loc[2], cluster[0] + '.pkl')
-        cluster_list.append([[res1.ca, res2.ca], unpickle(filename)])
-
-    # OUTPUT format: [[[residue1_ca_atom, residue2_ca_atom], {'IJKClusterDict - such as 1_2_45'}], ...]
-    return cluster_list
-
-
-def convert_to_frag_dict(interface_residue_list, cluster_dict):  #UNUSED
-    # Make PDB/ATOM objects and dictionary into design dictionary
-    # INPUT format: interface_residue_list = [[[Atom_ca.residue1, Atom_ca.residue2], '1_2_45'], ...]
-    interface_residue_dict = {}
-    for residue_dict_pair in interface_residue_list:
-        residues = residue_dict_pair[0]
-        for i in range(len(residues)):
-            residues[i] = residues[i].residue_number
-        hash_ = (residues[0], residues[1])
-        interface_residue_dict[hash_] = cluster_dict[residue_dict_pair[1]]
-    # OUTPUT format: interface_residue_dict = {(78, 256): {'IJKClusterDict - such as 1_2_45'}, (64, 256): {...}, ...}
-    return interface_residue_dict
-
-
-def convert_to_rosetta_num(pdb, pose, interface_residue_list):  # UNUSED
-    # DEPRECIATED in favor of updating PDB/ATOM objects
-    # INPUT format: interface_residue_list = [[[78, 87], {'IJKClusterDict - such as 1_2_45'}], [[64, 87], {...}], ...]
-    component_chains = [pdb.chain_id_list[0], pdb.chain_id_list[-1]]
-    interface_residue_dict = {}
-    for residue_dict_pair in interface_residue_list:
-        residues = residue_dict_pair[0]
-        dict_ = residue_dict_pair[1]
-        new_key = []
-        pair_index = 0
-        for chain in component_chains:
-            new_key.append(pose.pdb_info().pdb2pose(chain, residues[pair_index]))
-            pair_index = 1
-        hash_ = (new_key[0], new_key[1])
-
-        interface_residue_dict[hash_] = dict_
-    # OUTPUT format: interface_residue_dict = {(78, 256): {'IJKClusterDict - such as 1_2_45'}, (64, 256): {...}, ...}
-    return interface_residue_dict
-
-
-def get_residue_list_atom(pdb, residue_list, chain=None):  # UNUSED DEPRECIATED
-    if chain is None:
-        chain = pdb.chain_id_list[0]
-    residues = []
-    for residue in residue_list:
-        res_atoms = PDB.Residue(pdb.getResidueAtoms(chain, residue))
-        residues.append(res_atoms)
-
-    return residues
-
-
-def get_residue_atom_list(pdb, residue_list, chain=None):  # UNUSED
-    if chain is None:
-        chain = pdb.chain_id_list[0]
-    residues = []
-    for residue in residue_list:
-        residues.append(pdb.getResidueAtoms(chain, residue))
-
-    return residues
-
-
-def make_issm(cluster_freq_dict, background):  # UNUSED
-    for residue in cluster_freq_dict:
-        for aa in cluster_freq_dict[residue]:
-            cluster_freq_dict[residue][aa] = round(2 * (math.log2((cluster_freq_dict[residue][aa] / background[aa]))))
-    issm = []
-
-    return issm
+# def reduce_pose_to_chains(pdb, chains):  # UNUSED
+#     new_pdb = PDB.PDB()
+#     new_pdb.read_atom_list(pdb.chains(chains))
+#
+#     return new_pdb
+#
+#
+# def combine_pdb(pdb_1, pdb_2, name):  # UNUSED
+#     """Take two pdb objects and write them to the same file
+#
+#     Args:
+#         pdb_1 (PDB): First PDB to concatentate
+#         pdb_2 (PDB): Second PDB
+#         name (str): Name of the output file
+#     """
+#     pdb_1.write(name)
+#     with open(name, 'a') as full_pdb:
+#         for atom in pdb_2.all_atoms:
+#             full_pdb.write(str(atom))  # .strip() + '\n')
+#
+#
+# def identify_interface_chains(pdb1, pdb2):  # UNUSED
+#     distance = 12  # Angstroms
+#     pdb1_chains = []
+#     pdb2_chains = []
+#     # Get Queried CB Tree for all PDB2 Atoms within 12A of PDB1 CB Atoms
+#     query, pdb1_cb_indices, pdb2_cb_indices = construct_cb_atom_tree(pdb1, pdb2, distance)
+#
+#     for pdb2_query_index in range(len(query)):
+#         if query[pdb2_query_index].tolist() != list():
+#             pdb2_chains.append(pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].chain)
+#             for pdb1_query_index in query[pdb2_query_index]:
+#                 pdb1_chains.append(pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].chain)
+#
+#     pdb1_chains = list(set(pdb1_chains))
+#     pdb2_chains = list(set(pdb2_chains))
+#
+#     return pdb1_chains, pdb2_chains
+#
+#
+# def rosetta_score(pdb):  # UNUSED
+#     # this will also format your output in rosetta numbering
+#     cmd = [PUtils.rosetta, 'score_jd2.default.linuxgccrelease', '-renumber_pdb', '-ignore_unrecognized_res', '-s', pdb,
+#            '-out:pdb']
+#     subprocess.Popen(cmd, start_new_session=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+#
+#     return pdb + '_0001.pdb'
+#
+#
+# def duplicate_ssm(pssm_dict, copies):  # UNUSED
+#     duplicated_ssm = {}
+#     duplication_start = len(pssm_dict)
+#     for i in range(int(copies)):
+#         if i == 0:
+#             offset = 0
+#         else:
+#             offset = duplication_start * i
+#         # j = 0
+#         for line in pssm_dict:
+#             duplicated_ssm[line + offset] = pssm_dict[line]
+#             # j += 1
+#
+#     return duplicated_ssm
+#
+#
+# def get_all_cluster(pdb, residue_cluster_id_list, db=PUtils.bio_fragmentDB):  # UNUSED DEPRECIATED
+#     # generate an interface specific scoring matrix from the fragment library
+#     # assuming residue_cluster_id_list has form [(1_2_24, [78, 87]), ...]
+#     cluster_list = []
+#     for cluster in residue_cluster_id_list:
+#         cluster_loc = cluster[0].split('_')
+#         res1 = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[0], cluster[1][0]))
+#         res2 = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[1], cluster[1][1]))
+#         filename = os.path.join(db, cluster_loc[0], cluster_loc[0] + '_' + cluster_loc[1], cluster_loc[0] +
+#                                 '_' + cluster_loc[1] + '_' + cluster_loc[2], cluster[0] + '.pkl')
+#         cluster_list.append([[res1.ca, res2.ca], unpickle(filename)])
+#
+#     # OUTPUT format: [[[residue1_ca_atom, residue2_ca_atom], {'IJKClusterDict - such as 1_2_45'}], ...]
+#     return cluster_list
+#
+#
+# def convert_to_frag_dict(interface_residue_list, cluster_dict):  #UNUSED
+#     # Make PDB/ATOM objects and dictionary into design dictionary
+#     # INPUT format: interface_residue_list = [[[Atom_ca.residue1, Atom_ca.residue2], '1_2_45'], ...]
+#     interface_residue_dict = {}
+#     for residue_dict_pair in interface_residue_list:
+#         residues = residue_dict_pair[0]
+#         for i in range(len(residues)):
+#             residues[i] = residues[i].residue_number
+#         hash_ = (residues[0], residues[1])
+#         interface_residue_dict[hash_] = cluster_dict[residue_dict_pair[1]]
+#     # OUTPUT format: interface_residue_dict = {(78, 256): {'IJKClusterDict - such as 1_2_45'}, (64, 256): {...}, ...}
+#     return interface_residue_dict
+#
+#
+# def convert_to_rosetta_num(pdb, pose, interface_residue_list):  # UNUSED
+#     # DEPRECIATED in favor of updating PDB/ATOM objects
+#     # INPUT format: interface_residue_list = [[[78, 87], {'IJKClusterDict - such as 1_2_45'}], [[64, 87], {...}], ...]
+#     component_chains = [pdb.chain_id_list[0], pdb.chain_id_list[-1]]
+#     interface_residue_dict = {}
+#     for residue_dict_pair in interface_residue_list:
+#         residues = residue_dict_pair[0]
+#         dict_ = residue_dict_pair[1]
+#         new_key = []
+#         pair_index = 0
+#         for chain in component_chains:
+#             new_key.append(pose.pdb_info().pdb2pose(chain, residues[pair_index]))
+#             pair_index = 1
+#         hash_ = (new_key[0], new_key[1])
+#
+#         interface_residue_dict[hash_] = dict_
+#     # OUTPUT format: interface_residue_dict = {(78, 256): {'IJKClusterDict - such as 1_2_45'}, (64, 256): {...}, ...}
+#     return interface_residue_dict
+#
+#
+# def get_residue_list_atom(pdb, residue_list, chain=None):  # UNUSED DEPRECIATED
+#     if chain is None:
+#         chain = pdb.chain_id_list[0]
+#     residues = []
+#     for residue in residue_list:
+#         res_atoms = PDB.Residue(pdb.getResidueAtoms(chain, residue))
+#         residues.append(res_atoms)
+#
+#     return residues
+#
+#
+# def get_residue_atom_list(pdb, residue_list, chain=None):  # UNUSED
+#     if chain is None:
+#         chain = pdb.chain_id_list[0]
+#     residues = []
+#     for residue in residue_list:
+#         residues.append(pdb.getResidueAtoms(chain, residue))
+#
+#     return residues
+#
+#
+# def make_issm(cluster_freq_dict, background):  # UNUSED
+#     for residue in cluster_freq_dict:
+#         for aa in cluster_freq_dict[residue]:
+#             cluster_freq_dict[residue][aa] = round(2 * (math.log2((cluster_freq_dict[residue][aa] / background[aa]))))
+#     issm = []
+#
+#     return issm
 
 
 def subdirectory(name):  # TODO PDBdb
@@ -795,7 +657,7 @@ def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
     return oligomers
 
 
-def read_pdb(file):
+def read_pdb(file):  # DEPRECIATE
     """Wrapper on the PDB __init__ and readfile functions
 
     Args:
@@ -806,7 +668,7 @@ def read_pdb(file):
     return PDB.PDB(file=file)
 
 
-def fill_pdb(atom_list=None):
+def fill_pdb(atom_list=None):  # DEPRECIATE
     """Wrapper on the PDB __init__ and readfile functions
 
     Args:
@@ -823,7 +685,7 @@ def fill_pdb(atom_list=None):
     return pdb
 
 
-def extract_asu(file, chain='A', outpath=None):
+def extract_asu(file, chain='A', outpath=None):  # DEPRECIATE
     """Takes a PDB file and extracts an ASU. ASU is defined as chain, plus all unique entities in contact with chain"""
     if outpath:
         asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0] + '.pdb')
@@ -947,779 +809,9 @@ def print_atoms(atom_list):  # DEBUG
     #     print(str(atom))
 
 
-##################
-# FRAGMENT DB
-##################
-
-
-def get_db_statistics(database):
-    """Retrieve summary statistics for a specific fragment database
-
-    Args:
-        database (str): Disk location of a fragment database
-    Returns:
-        stats (dict): {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
-            ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
-    """
-    for file in os.listdir(database):
-        if file.endswith('statistics.pkl'):
-            return unpickle(os.path.join(database, file))
-
-    return None  # Should never be called
-
-
-def get_db_aa_frequencies(database):
-    """Retrieve database specific interface background AA frequencies
-
-    Args:
-        database (str): Location of database on disk
-    Returns:
-        (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
-    """
-    return get_db_statistics(database)['frequencies']
-
-
-def get_cluster_dicts(db='biological_interfaces', id_list=None):  # TODO Rename
-    """Generate an interface specific scoring matrix from the fragment library
-
-    Args:
-    Keyword Args:
-        info_db=PUtils.biological_fragmentDB
-        id_list=None: [1_2_24, ...]
-    Returns:
-         cluster_dict: {'1_2_45': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}, ...}
-    """
-    info_db = PUtils.frag_directory[db]
-    if id_list is None:
-        directory_list = get_all_base_root_paths(info_db)
-    else:
-        directory_list = []
-        for _id in id_list:
-            c_id = _id.split('_')
-            _dir = os.path.join(info_db, c_id[0], c_id[0] + '_' + c_id[1], c_id[0] + '_' + c_id[1] + '_' + c_id[2])
-            directory_list.append(_dir)
-
-    cluster_dict = {}
-    for cluster in directory_list:
-        filename = os.path.join(cluster, os.path.basename(cluster) + '.pkl')
-        cluster_dict[os.path.basename(cluster)] = unpickle(filename)
-
-    return cluster_dict
-
-
-def return_cluster_id_string(cluster_rep, index_number=3):
-    while len(cluster_rep) < 3:
-        cluster_rep += '0'
-    if len(cluster_rep.split('_')) != 3:
-        index = [cluster_rep[:1], cluster_rep[1:2], cluster_rep[2:]]
-    else:
-        index = cluster_rep.split('_')
-
-    info = []
-    n = 0
-    for i in range(index_number):
-        info.append(index[i])
-        n += 1
-    while n < 3:
-        info.append('0')
-        n += 1
-
-    return '_'.join(info)
-
-
-def parameterize_frag_length(length):
-    """Generate fragment length range parameters for use in fragment functions"""
-    _range = math.floor(length / 2)
-    if length % 2 == 1:
-        return 0 - _range, 0 + _range + index_offset
-    else:
-        logger.critical('%d is an even integer which is not symmetric about a single residue. '
-                        'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
-        raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
-
-
-def format_frequencies(frequency_list, flip=False):
-    """Format list of paired frequency data into parsable paired format
-
-    Args:
-        frequency_list (list): [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
-    Keyword Args:
-        flip=False (bool): Whether to invert the mapping of internal tuple
-    Returns:
-        (dict): {'A': {'S': 0.02, 'T': 0.12}, ...}
-    """
-    if flip:
-        i, j = 1, 0
-    else:
-        i, j = 0, 1
-    freq_d = {}
-    for tup in frequency_list:
-        aa_mapped = tup[0][i]  # 0
-        aa_paired = tup[0][j]  # 1
-        freq = tup[1]
-        if aa_mapped in freq_d:
-            freq_d[aa_mapped][aa_paired] = freq
-        else:
-            freq_d[aa_mapped] = {aa_paired: freq}
-
-    return freq_d
-
-
-def fragment_overlap(residues, interaction_graph, freq_map):
-    """Take fragment contact list to find the possible AA types allowed in fragment pairs from the contact list
-
-    Args:
-        residues (iter): Iterable of residue numbers
-        interaction_graph (dict): {52: [54, 56, 72, 206], ...}
-        freq_map (dict): {(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
-    Returns:
-        overlap (dict): {residue: {'A', 'I', 'M', 'V'}, ...}
-    """
-    overlap = {}
-    for res in residues:
-        overlap[res] = set()
-        if res in interaction_graph:  # check for existence as some fragment info is not in the interface set
-            # overlap[res] = set()
-            for partner in interaction_graph[res]:
-                if (res, partner) in freq_map:
-                    overlap[res] |= set(freq_map[(res, partner)].keys())
-
-    for res in residues:
-        if res in interaction_graph:  # check for existence as some fragment info is not in the interface set
-            for partner in interaction_graph[res]:
-                if (res, partner) in freq_map:
-                    overlap[res] &= set(freq_map[(res, partner)].keys())
-
-    return overlap
-
-
-def overlap_consensus(issm, aa_set):
-    """Find the overlap constrained consensus sequence
-
-    Args:
-        issm (dict): {1: {'A': 0.1, 'C': 0.0, ...}, 14: {...}, ...}
-        aa_set (dict): {residue: {'A', 'I', 'M', 'V'}, ...}
-    Returns:
-        (dict): {23: 'T', 29: 'A', ...}
-    """
-    consensus = {}
-    for res in aa_set:
-        max_freq = 0.0
-        for aa in aa_set[res]:
-            # if max_freq < issm[(res, partner)][]:
-            if issm[res][aa] > max_freq:
-                max_freq = issm[res][aa]
-                consensus[res] = aa
-
-    return consensus
-
 ######################
-# Sequence Handling
+# Matrix Handling
 ######################
-
-
-def populate_design_dict(n, alph, counts=False):
-    """Return a dictionary with n elements and alph subelements.
-
-    Args:
-        n (int): number of residues in a design
-        alph (iter): alphabet of interest
-    Keyword Args:
-        counts=False (bool): If true include an integer placeholder for counting
-     Returns:
-         (dict): {0: {alph1: {}, alph2: {}, ...}, 1: {}, ...}
-            Custom length, 0 indexed dictionary with residue number keys
-     """
-    if counts:
-        return {residue: {i: 0 for i in alph} for residue in range(n)}
-    else:
-        return {residue: {i: dict() for i in alph} for residue in range(n)}
-
-
-def offset_index(dictionary, to_zero=False):
-    """Modify the index of a sequence dictionary. Default is to one-indexed. to_zero=True gives zero-indexed"""
-    if to_zero:
-        return {residue - index_offset: dictionary[residue] for residue in dictionary}
-    else:
-        return {residue + index_offset: dictionary[residue] for residue in dictionary}
-
-
-def residue_number_to_object(pdb, residue_dict):  # TODO supplement with names info and pull out by names
-    """Convert sets of residue numbers to sets of PDB.Residue objects
-
-    Args:
-        pdb (PDB): PDB object to extract residues from. Chain order matches residue order in residue_dict
-        residue_dict (dict): {'key1': [(78, 87, ...),], ...} - Entry mapped to residue sets
-    Returns:
-        residue_dict - {'key1': [(residue1_ca_atom, residue2_ca_atom, ...), ...] ...}
-    """
-    for entry in residue_dict:
-        pairs = []
-        for _set in range(len(residue_dict[entry])):
-            residue_obj_set = []
-            for i, residue in enumerate(residue_dict[entry][_set]):
-                resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
-                assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
-                residue_obj_set.append(resi_object)
-            pairs.append(tuple(residue_obj_set))
-        residue_dict[entry] = pairs
-
-    return residue_dict
-
-
-def residue_object_to_number(residue_dict):  # TODO supplement with names info and pull out by names
-    """Convert sets of PDB.Residue objects to residue numbers
-
-    Args:
-        pdb (PDB): PDB object to extract residues from. Chain order matches residue order in residue_dict
-        residue_dict (dict): {'key1': [(residue1_ca_atom, residue2_ca_atom, ...), ...] ...}
-    Returns:
-        residue_dict (dict): {'key1': [(78, 87, ...),], ...} - Entry mapped to residue sets
-    """
-    for entry in residue_dict:
-        pairs = []
-        # for _set in range(len(residue_dict[entry])):
-        for j, _set in enumerate(residue_dict[entry]):
-            residue_num_set = []
-            # for i, residue in enumerate(residue_dict[entry][_set]):
-            for residue in _set:
-                resi_number = residue.residue_number
-                # resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
-                # assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
-                residue_num_set.append(resi_number)
-            pairs.append(tuple(residue_num_set))
-        residue_dict[entry] = pairs
-
-    return residue_dict
-
-
-def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
-    """Make a residue and cluster/fragment index map
-
-    Args:
-        residue_cluster_dict (dict): {'1_2_45': [(residue1_ca_atom, residue2_ca_atom), ...] ...}
-        frag_range (dict): A range of the fragment size to search over. Ex: (-2, 3) for fragments of length 5
-    Returns:
-        cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
-            Where the key is the 0 indexed residue id
-    """
-    cluster_map = {}
-    for cluster in residue_cluster_dict:
-        for pair in range(len(residue_cluster_dict[cluster])):
-            for i, residue_atom in enumerate(residue_cluster_dict[cluster][pair]):
-                # for each residue in map add the same cluster to the range of fragment residue numbers
-                residue_num = residue_atom.residue_number - index_offset  # zero index
-                for j in range(*frag_range):
-                    if residue_num + j not in cluster_map:
-                        if i == 0:
-                            cluster_map[residue_num + j] = {'chain': 'mapped', 'cluster': []}
-                        else:
-                            cluster_map[residue_num + j] = {'chain': 'paired', 'cluster': []}
-                    cluster_map[residue_num + j]['cluster'].append((j, cluster))
-
-    return cluster_map
-
-
-def deconvolve_clusters(cluster_dict, design_dict, cluster_map):
-    """Add frequency information from a fragment database to a design dictionary
-
-    The frequency information is added in a fragment index dependent manner. If multiple fragment indices are present in
-    a single residue, a new observation is created for that fragment index.
-
-    Args:
-        cluster_dict (dict): {1_1_54: {'mapped': {aa_freq}, 'paired': {aa_freq}}, ...}
-            mapped/paired aa_dict = {-2: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37]}, -1: {}, ...}
-                Where 'stats'[0] is total fragments in cluster, and 'stats'[1] is weight of fragment index
-        design_dict (dict): {0: {-2: {'A': 0.1, 'C': 0.0, ...}, -1: {}, ... }, 1: {}, ...}
-        cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
-    Returns:
-        design_dict (dict): {0: {-2: {O: {'A': 0.1, 'C': 0.0, ...}, 1: {}}, -1: {}, ... }, 1: {}, ...}
-    """
-
-    for resi in cluster_map:
-        dict_type = cluster_map[resi]['chain']
-        observation = {-2: 0, -1: 0, 0: 0, 1: 0, 2: 0}
-        for index_cluster_pair in cluster_map[resi]['cluster']:
-            aa_freq = cluster_dict[index_cluster_pair[1]][dict_type][index_cluster_pair[0]]
-            # Add the aa_freq from cluster to the residue/frag_index/observation
-            try:
-                design_dict[resi][index_cluster_pair[0]][observation[index_cluster_pair[0]]] = aa_freq
-            except KeyError:
-                raise DesignError('Missing residue %d in %s.' % (resi, deconvolve_clusters.__name__))
-            observation[index_cluster_pair[0]] += 1
-    
-    return design_dict
-
-
-def flatten_for_issm(design_cluster_dict, keep_extras=True):
-    """Take a multi-observation, mulit-fragment index, fragment frequency dictionary and flatten to single frequency
-
-    Args:
-        design_cluster_dict (dict): {0: {-2: {'A': 0.1, 'C': 0.0, ...}, -1: {}, ... }, 1: {}, ...}
-            Dictionary containing fragment frequency and statistics across a design sequence
-    Keyword Args:
-        keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing fragment data
-    Returns:
-        design_cluster_dict (dict): {0: {'A': 0.1, 'C': 0.0, ...}, 13: {...}, ...}
-            Weighted average design dictionary combining all fragment profile information at a single residue
-    """
-    no_design = []
-    for res in design_cluster_dict:
-        total_residue_weight = 0
-        num_frag_weights_observed = 0
-        for index in design_cluster_dict[res]:
-            if design_cluster_dict[res][index] != dict():
-                total_obs_weight = 0
-                for obs in design_cluster_dict[res][index]:
-                    total_obs_weight += design_cluster_dict[res][index][obs]['stats'][1]
-                if total_obs_weight > 0:
-                    total_residue_weight += total_obs_weight
-                    obs_aa_dict = copy.deepcopy(aa_weight_counts_dict)
-                    obs_aa_dict['stats'][1] = total_obs_weight
-                    for obs in design_cluster_dict[res][index]:
-                        num_frag_weights_observed += 1
-                        obs_weight = design_cluster_dict[res][index][obs]['stats'][1]
-                        for aa in design_cluster_dict[res][index][obs]:
-                            if aa != 'stats':
-                                # Add all occurrences to summed frequencies list
-                                obs_aa_dict[aa] += design_cluster_dict[res][index][obs][aa] * (obs_weight /
-                                                                                               total_obs_weight)
-                    design_cluster_dict[res][index] = obs_aa_dict
-                else:
-                    # Case where no weights associated with observations (side chain not structurally significant)
-                    design_cluster_dict[res][index] = dict()
-
-        if total_residue_weight > 0:
-            res_aa_dict = copy.deepcopy(aa_weight_counts_dict)
-            res_aa_dict['stats'][1] = total_residue_weight
-            res_aa_dict['stats'][0] = num_frag_weights_observed
-            for index in design_cluster_dict[res]:
-                if design_cluster_dict[res][index] != dict():
-                    index_weight = design_cluster_dict[res][index]['stats'][1]
-                    for aa in design_cluster_dict[res][index]:
-                        if aa != 'stats':
-                            # Add all occurrences to summed frequencies list
-                            res_aa_dict[aa] += design_cluster_dict[res][index][aa] * (index_weight / total_residue_weight)
-            design_cluster_dict[res] = res_aa_dict
-        else:
-            # Add to list for removal from the design dict
-            no_design.append(res)
-
-    # Remove missing residues from dictionary
-    if keep_extras:
-        for res in no_design:
-            design_cluster_dict[res] = aa_weight_counts_dict
-    else:
-        for res in no_design:
-            design_cluster_dict.pop(res)
-
-    return design_cluster_dict
-
-
-def psiblast(query, outpath=None, remote=False):  # UNUSED
-    """Generate an position specific scoring matrix using PSI-BLAST subprocess
-
-    Args:
-        query (str): Basename of the sequence to use as a query, intended for use as pdb
-    Keyword Args:
-        outpath=None (str): Disk location where generated file should be written
-        remote=False (bool): Whether to perform the serach locally (need blast installed locally) or perform search through web
-    Returns:
-        outfile_name (str): Name of the file generated by psiblast
-        p (subprocess): Process object for monitoring progress of psiblast command
-    """
-    # I would like the background to come from Uniref90 instead of BLOSUM62 #TODO
-    if outpath is not None:
-        outfile_name = os.path.join(outpath, query + '.pssm')
-        direct = outpath
-    else:
-        outfile_name = query + '.hmm'
-        direct = os.getcwd()
-    if query + '.pssm' in os.listdir(direct):
-        cmd = ['echo', 'PSSM: ' + query + '.pssm already exists']
-        p = subprocess.Popen(cmd)
-
-        return outfile_name, p
-
-    cmd = ['psiblast', '-db', PUtils.alignmentdb, '-query', query + '.fasta', '-out_ascii_pssm', outfile_name,
-           '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']
-    if remote:
-        cmd.append('-remote')
-    else:
-        cmd.append('-num_threads')
-        cmd.append('8')
-
-    p = subprocess.Popen(cmd)
-
-    return outfile_name, p
-
-
-def hhblits(query, threads=CUtils.hhblits_threads, outpath=os.getcwd()):
-    """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
-
-    Args:
-        query (str): Basename of the sequence to use as a query, intended for use as pdb
-        threads (int): Number of cpu's to use for the process
-    Keyword Args:
-        outpath=None (str): Disk location where generated file should be written
-    Returns:
-        outfile_name (str): Name of the file generated by hhblits
-        p (subprocess): Process object for monitoring progress of hhblits command
-    """
-
-    outfile_name = os.path.join(outpath, os.path.splitext(os.path.basename(query))[0] + '.hmm')
-
-    cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', query, '-ohhm', outfile_name, '-v', '1', '-cpu', str(threads)]
-    logger.info('%s Profile Command: %s' % (query, subprocess.list2cmdline(cmd)))
-    p = subprocess.Popen(cmd)
-
-    return outfile_name, p
-
-
-@handle_errors_f(errors=(FileNotFoundError, ))
-def parse_pssm(file):
-    """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
-
-    Resulting residue dictionary is zero-indexed
-    Args:
-        file (str): The name/location of the file on disk
-    Returns:
-        pose_dict (dict): Dictionary containing residue indexed profile information
-            Ex: {0: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
-                {...}}
-    """
-    with open(file, 'r') as f:
-        lines = f.readlines()
-
-    pose_dict = {}
-    for line in lines:
-        line_data = line.strip().split()
-        if len(line_data) == 44:
-            resi = int(line_data[0]) - index_offset
-            pose_dict[resi] = copy.deepcopy(aa_counts_dict)
-            for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[resi], 22):
-                # Get normalized counts for pose_dict
-                pose_dict[resi][aa] = (int(line_data[i]) / 100.0)
-            pose_dict[resi]['lod'] = {}
-            for i, aa in enumerate(alph_3_aa_list, 2):
-                pose_dict[resi]['lod'][aa] = line_data[i]
-            pose_dict[resi]['type'] = line_data[1]
-            pose_dict[resi]['info'] = float(line_data[42])
-            pose_dict[resi]['weight'] = float(line_data[43])
-
-    return pose_dict
-
-
-def get_lod(aa_freq_dict, bg_dict, round_lod=True):
-    """Get the lod scores for an aa frequency distribution compared to a background frequency
-    Args:
-        aa_freq_dict (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
-        bg_dict (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
-    Keyword Args:
-        round_lod=True (bool): Whether or not to round the lod values to an integer
-    Returns:
-         lods (dict): {'A': 2, 'C': -9, 'D': -1, ...}
-    """
-    lods = {}
-    iteration = 0
-    for a in aa_freq_dict:
-        if aa_freq_dict[a] == 0:
-            lods[a] = -9
-        elif a != 'stats':
-            lods[a] = float((2.0 * math.log2(aa_freq_dict[a]/bg_dict[a])))  # + 0.0
-            if lods[a] < -9:
-                lods[a] = -9
-            if round_lod:
-                lods[a] = round(lods[a])
-            iteration += 1
-
-    return lods
-
-
-@handle_errors_f(errors=(FileNotFoundError, ))
-def parse_hhblits_pssm(file, null_background=True):
-    # Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
-    dummy = 0.00
-    null_bg = {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228, 'I': 0.0534,
-               'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401, 'R': 0.0599, 'S': 0.0791,
-               'T': 0.0584, 'V': 0.0632, 'W': 0.0127, 'Y': 0.0287}  # 'uniclust30_2018_08'
-
-    def to_freq(value):
-        if value == '*':
-            # When frequency is zero
-            return 0.0001
-        else:
-            # Equation: value = -1000 * log_2(frequency)
-            freq = 2 ** (-int(value)/1000)
-            return freq
-
-    with open(file, 'r') as f:
-        lines = f.readlines()
-
-    pose_dict = {}
-    read = False
-    for line in lines:
-        if not read:
-            if line[0:1] == '#':
-                read = True
-        else:
-            if line[0:4] == 'NULL':
-                if null_background:
-                    # use the provided null background from the profile search
-                    background = line.strip().split()
-                    null_bg = {i: {} for i in alph_3_aa_list}
-                    for i, aa in enumerate(alph_3_aa_list, 1):
-                        null_bg[aa] = to_freq(background[i])
-
-            if len(line.split()) == 23:
-                items = line.strip().split()
-                resi = int(items[1]) - index_offset  # make zero index so dict starts at 0
-                pose_dict[resi] = {}
-                for i, aa in enumerate(IUPACData.protein_letters, 2):
-                    pose_dict[resi][aa] = to_freq(items[i])
-                pose_dict[resi]['lod'] = get_lod(pose_dict[resi], null_bg)
-                pose_dict[resi]['type'] = items[0]
-                pose_dict[resi]['info'] = dummy
-                pose_dict[resi]['weight'] = dummy
-
-    # Output: {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-    # 'weight': 0.00}, {...}}
-    return pose_dict
-
-
-def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
-    """Create a PSI-BLAST format PSSM file from a PSSM dictionary
-
-    Args:
-        pssm_dict (dict): A pssm dictionary which has the fields 'A', 'C', (all aa's), 'lod', 'type', 'info', 'weight'
-        name (str): The name of the file
-    Keyword Args:
-        outpath=cwd (str): A specific location to write the .pssm file to
-    Returns:
-        out_file (str): Disk location of newly created .pssm file
-    """
-    lod_freq, counts_freq = False, False
-    separation_string1, separation_string2 = 3, 3
-    if type(pssm_dict[0]['lod']['A']) == float:
-        lod_freq = True
-        separation_string1 = 4
-    if type(pssm_dict[0]['A']) == float:
-        counts_freq = True
-
-    header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in alph_3_aa_list) \
-             + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in alph_3_aa_list) + '\n'
-    footer = ''
-    out_file = os.path.join(outpath, name)  # + '.pssm'
-    with open(out_file, 'w') as f:
-        f.write(header)
-        for res in pssm_dict:
-            aa_type = pssm_dict[res]['type']
-            lod_string = ''
-            if lod_freq:
-                for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                    lod_string += '{:>4.2f} '.format(pssm_dict[res]['lod'][aa])
-            else:
-                for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                    lod_string += '{:>3d} '.format(pssm_dict[res]['lod'][aa])
-            counts_string = ''
-            if counts_freq:
-                for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                    counts_string += '{:>3.0f} '.format(math.floor(pssm_dict[res][aa] * 100))
-            else:
-                for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                    counts_string += '{:>3d} '.format(pssm_dict[res][aa])
-            info = pssm_dict[res]['info']
-            weight = pssm_dict[res]['weight']
-            line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res + index_offset, aa_type, lod_string,
-                                                                             counts_string, round(info, 4),
-                                                                             round(weight, 4))
-            f.write(line)
-        f.write(footer)
-
-    return out_file
-
-
-def combine_pssm(pssms):
-    """To a first pssm, append subsequent pssms incrementing the residue number in each additional pssm
-
-    Args:
-        pssms (list(dict)): List of pssm dictionaries to concatentate
-    Returns:
-        combined_pssm (dict): Concatentated PSSM
-    """
-    combined_pssm = {}
-    new_key = 0
-    for i in range(len(pssms)):
-        # requires python 3.6+ to maintain sorted dictionaries
-        # for old_key in pssms[i]:
-        for old_key in sorted(list(pssms[i].keys())):
-            combined_pssm[new_key] = pssms[i][old_key]
-            new_key += 1
-
-    return combined_pssm
-
-
-def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=True, boltzmann=False, a=0.5):
-    """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
-
-    All input must be zero indexed
-    Args:
-        pssm (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W',
-            'info': 0.00, 'weight': 0.00}, {...}}
-              PSIBLAST -  {0: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
-                          'weight': 0.73}, {...}} CURRENTLY IMPOSSIBLE, NEED TO CHANGE THE LOD SCORE IN PARSING
-        issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
-        alpha (dict): {48: 0.5, 50: 0.321, ...}
-    Keyword Args:
-        db='biological_interfaces': Disk location of fragment database
-        favor_fragments=True (bool): Whether to favor fragment profile in the lod score of the resulting profile
-        boltzmann=True (bool): Whether to weight the fragment profile by the Boltzmann probability. If false, residues
-            are weighted by a local maximum over the residue scaled to a maximum provided in the standard Rosetta per
-            residue reference weight.
-        a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
-    Returns:
-        pssm (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-            'weight': 0.00}, ...}} - combined PSSM dictionary
-    """
-
-    # Combine fragment and evolutionary probability profile according to alpha parameter
-    for entry in alpha:
-        for aa in IUPACData.protein_letters:
-            pssm[entry][aa] = (alpha[entry] * issm[entry][aa]) + ((1 - alpha[entry]) * pssm[entry][aa])
-        logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
-                    % (entry + index_offset, alpha[entry] * 100))
-
-    if favor_fragments:
-        # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
-        # Used to weight fragments higher in design
-        boltzman_energy = 1
-        favor_seqprofile_score_modifier = 0.2 * CUtils.reference_average_residue_weight
-        db = PUtils.frag_directory[db]
-        stat_dict_bkg = get_db_aa_frequencies(db)
-        null_residue = get_lod(stat_dict_bkg, stat_dict_bkg)
-        null_residue = {aa: float(null_residue[aa]) for aa in null_residue}
-
-        for entry in pssm:
-            pssm[entry]['lod'] = null_residue
-        for entry in issm:
-            pssm[entry]['lod'] = get_lod(issm[entry], stat_dict_bkg, round_lod=False)
-            partition, max_lod = 0, 0.0
-            for aa in pssm[entry]['lod']:
-                # for use with a boltzman probability weighting, Z = sum(exp(score / kT))
-                if boltzmann:
-                    pssm[entry]['lod'][aa] = math.exp(pssm[entry]['lod'][aa] / boltzman_energy)
-                    partition += pssm[entry]['lod'][aa]
-                # remove any lod penalty
-                elif pssm[entry]['lod'][aa] < 0:
-                    pssm[entry]['lod'][aa] = 0
-                # find the maximum/residue (local) lod score
-                if pssm[entry]['lod'][aa] > max_lod:
-                    max_lod = pssm[entry]['lod'][aa]
-            modified_entry_alpha = (alpha[entry] / a) * favor_seqprofile_score_modifier
-            if boltzmann:
-                modifier = partition
-                modified_entry_alpha /= (max_lod / partition)
-            else:
-                modifier = max_lod
-            for aa in pssm[entry]['lod']:
-                pssm[entry]['lod'][aa] /= modifier
-                pssm[entry]['lod'][aa] *= modified_entry_alpha
-            logger.info('Residue %d Fragment lod ratio generated with alpha=%f'
-                        % (entry + index_offset, alpha[entry] / a))
-
-    return pssm
-
-
-def find_alpha(issm, cluster_map, db='biological_interfaces', a=0.5):
-    """Find fragment contribution to design with cap at alpha
-
-    Args:
-        issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
-        cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
-    Keyword Args:
-        db='biological_interfaces': Disk location of fragment database
-        a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
-    Returns:
-        alpha (dict): {48: 0.5, 50: 0.321, ...}
-    """
-    db = PUtils.frag_directory[db]
-    stat_dict = get_db_statistics(db)
-    alpha = {}
-    for entry in issm:  # cluster_map
-        if cluster_map[entry]['chain'] == 'mapped':
-            i = 0
-        else:
-            i = 1
-
-        contribution_total = 0.0
-        for count, residue_cluster_pair in enumerate(cluster_map[entry]['cluster'], 1):
-            cluster_id = return_cluster_id_string(residue_cluster_pair[1], index_number=2)
-            contribution_total += stat_dict[cluster_id][0][i]
-        stats_average = contribution_total / count
-        entry_ave_frag_weight = issm[entry]['stats'][1] / count  # total weight for issm entry / number of fragments
-        if entry_ave_frag_weight < stats_average:  # if design frag weight is less than db cluster average weight
-            # modify alpha proportionally to cluster average weight
-            alpha[entry] = a * (entry_ave_frag_weight / stats_average)
-        else:
-            alpha[entry] = a
-
-    return alpha
-
-
-def consensus_sequence(pssm):
-    """Return the consensus sequence from a PSSM
-
-    Args:
-        pssm (dict): pssm dictionary
-    Return:
-        consensus_identities (dict): {1: 'M', 2: 'H', ...} One-indexed
-    """
-    consensus_identities = {}
-    for residue in pssm:
-        max_lod = 0
-        max_res = pssm[residue]['type']
-        for aa in alph_3_aa_list:
-            if pssm[residue]['lod'][aa] > max_lod:
-                max_lod = pssm[residue]['lod'][aa]
-                max_res = aa
-        consensus_identities[residue + index_offset] = max_res
-
-    return consensus_identities
-
-
-def sequence_difference(seq1, seq2, d=None, matrix='blosum62'):  # TODO AMS
-    """Returns the sequence difference between two sequence iterators
-
-    Args:
-        seq1 (any): Either an iterable with residue type as array, or key, with residue type as d[seq1][residue]['type']
-        seq2 (any): Either an iterable with residue type as array, or key, with residue type as d[seq2][residue]['type']
-    Keyword Args:
-        d=None (dict): The dictionary to look up seq1 and seq2 if they are keys and the iterable is a dictionary
-        matrix='blosum62' (str): The type of matrix to score the sequence differences on
-    Returns:
-        (float): The computed sequence difference between seq1 and seq2
-    """
-    # s = 0
-    if d:
-        # seq1 = d[seq1]
-        # seq2 = d[seq2]
-        # for residue in d[seq1]:
-            # s.append((d[seq1][residue]['type'], d[seq2][residue]['type']))
-        pairs = [(d[seq1][residue]['type'], d[seq2][residue]['type']) for residue in d[seq1]]
-    else:
-        pairs = [(seq1_res, seq2[i]) for i, seq1_res in enumerate(seq1)]
-            # s.append((seq1[i], seq2[i]))
-    #     residue_iterator1 = seq1
-    #     residue_iterator2 = seq2
-    m = getattr(matlist, matrix)
-    s = 0
-    for tup in pairs:
-        try:
-            s += m[tup]
-        except KeyError:
-            s += m[(tup[1], tup[0])]
-
-    return s
 
 
 def all_vs_all(iterable, func, symmetrize=True):  # TODO SDUtils
@@ -2057,214 +1149,6 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
-def gather_docking_metrics(log_file):
-    with open(log_file, 'r') as master_log:  # os.path.join(base_directory, 'master_log.txt')
-        parameters = master_log.readlines()
-        for line in parameters:
-            if "PDB 1 Directory Path: " or 'Oligomer 1 Input Directory: ' in line:
-                pdb_dir1_path = line.split(':')[-1].strip()
-            elif "PDB 2 Directory Path: " or 'Oligomer 2 Input Directory: 'in line:
-                pdb_dir2_path = line.split(':')[-1].strip()
-            elif 'Master Output Directory: ' in line:
-                master_outdir = line.split(':')[-1].strip()
-            elif "Symmetry Entry Number: " or 'Nanohedra Entry Number: ' in line:
-                sym_entry_number = int(line.split(':')[-1].strip())
-            elif "Oligomer 1 Symmetry: " or 'Oligomer 1 Point Group Symmetry: ' in line:
-                oligomer_symmetry_1 = line.split(':')[-1].strip()
-            elif "Oligomer 2 Symmetry: " or 'Oligomer 2 Point Group Symmetry: ' in line:
-                oligomer_symmetry_2 = line.split(':')[-1].strip()
-            elif "Design Point Group Symmetry: " or 'SCM Point Group Symmetry: ' in line:  # TODO Is this ever layer or space group?
-                design_symmetry = line.split(':')[-1].strip()
-            elif "Oligomer 1 Internal ROT DOF: " in line:  # ,
-                internal_rot1 = line.split(':')[-1].strip()
-            elif "Oligomer 2 Internal ROT DOF: " in line:  # ,
-                internal_rot2 = line.split(':')[-1].strip()
-            elif "Oligomer 1 Internal Tx DOF: " in line:  # ,
-                internal_zshift1 = line.split(':')[-1].strip()
-            elif "Oligomer 2 Internal Tx DOF: " in line:  # ,
-                internal_zshift2 = line.split(':')[-1].strip()
-            elif "Oligomer 1 Setting Matrix: " in line:
-                set_mat1 = np.array(eval(line.split(':')[-1].strip()))
-            elif "Oligomer 2 Setting Matrix: " in line:
-                set_mat2 = np.array(eval(line.split(':')[-1].strip()))
-            elif "Oligomer 1 Reference Frame Tx DOF: " in line:  # ,
-                ref_frame_tx_dof1 = line.split(':')[-1].strip()
-            elif "Oligomer 2 Reference Frame Tx DOF: " in line:  # ,
-                ref_frame_tx_dof2 = line.split(':')[-1].strip()
-            elif "Resulting Design Symmetry: " or 'Resulting SCM Symmetry: ' in line:
-                result_design_sym = line.split(':')[-1].strip()
-            elif "Design Dimension: " or 'SCM Dimension: ' in line:
-                design_dim = int(line.split(':')[-1].strip())
-            elif "Unit Cell Specification: " or 'SCM Unit Cell Specification: ' in line:
-                uc_spec_string = line.split(':')[-1].strip()
-            elif "Oligomer 1 ROT Sampling Range: " in line:
-                rot_range_deg_pdb1 = int(line.split(':')[-1].strip())
-            elif "Oligomer 2 ROT Sampling Range: " in line:
-                rot_range_deg_pdb2 = int(line.split(':')[-1].strip())
-            elif "Oligomer 1 ROT Sampling Step: " in line:
-                rot_step_deg1 = int(line.split(':')[-1].strip())
-            elif "Oligomer 2 ROT Sampling Step: " in line:
-                rot_step_deg2 = int(line.split(':')[-1].strip())
-            elif 'Degeneracies Found for Oligomer 1' in line:
-                degen1 = line.split()[0]
-                if degen1.isdigit():
-                    degen1 = int(degen1) + 1  # number of degens is added to the original orientation
-                else:
-                    degen1 = 1  # No degens becomes a single degen
-            elif 'Degeneracies Found for Oligomer 2' in line:
-                degen2 = line.split()[0]
-                if degen2.isdigit():
-                    degen2 = int(degen2) + 1  # number of degens is added to the original orientation
-                else:
-                    degen2 = 1  # No degens becomes a single degen
-
-    return pdb_dir1_path, pdb_dir2_path, master_outdir, sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2,\
-        design_symmetry, internal_rot1, internal_rot2, rot_range_deg_pdb1, rot_range_deg_pdb2, rot_step_deg1, \
-        rot_step_deg2, internal_zshift1, internal_zshift2, ref_frame_tx_dof1, ref_frame_tx_dof2, set_mat1, set_mat2,\
-        result_design_sym, design_dim, uc_spec_string, degen1, degen2
-
-
-def pdb_input_parameters(args):
-    return args[0:2]
-
-
-def symmetry_parameters(args):
-    return args[3:7]
-
-
-def rotation_parameters(args):
-    return args[9:13]
-
-
-def degeneracy_parameters(args):
-    return args[-2:]
-
-
-def degen_and_rotation_parameters(args):
-    return degeneracy_parameters(args), rotation_parameters(args)
-
-
-def compute_last_rotation_state(range1, range2, step1, step2):
-    number_steps1 = range1 / step1
-    number_steps2 = range2 / step2
-
-    return int(number_steps1), int(number_steps2)
-
-
-@handle_errors_f(errors=(FileNotFoundError, ))
-def gather_fragment_metrics(_des_dir, init=False, score=False):
-    """Gather docking metrics from Nanohedra output
-    Args:
-        _des_dir (Pose.DesignDirectory): DesignDirectory Object
-    Keyword Args:
-        init=False (bool): Whether the information requested is for pose initialization
-        score=False (bool): Whether to return the score information only
-    Returns:
-        (dict): Either {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': }
-            transform_d {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
-            when clusters=False or {'1_2_24': [(78, 87, ...), ...], ...}
-    """
-    with open(os.path.join(_des_dir.path, PUtils.frag_file), 'r') as f:
-        frag_match_info_file = f.readlines()
-        residue_cluster_d, transform_d, z_value_dict = {}, {}, {}
-        for line in frag_match_info_file:
-            if line[:12] == 'Cluster ID: ':
-                cluster = line[12:].split()[0].strip().replace('i', '').replace('j', '').replace('k', '')
-                if cluster not in residue_cluster_d:
-                    # residue_cluster_d[cluster] = []  # TODO make compatible
-                    residue_cluster_d[cluster] = {'pair': []}
-                continue
-            elif line[:40] == 'Cluster Central Residue Pair Frequency: ':
-                # pair_freq = loads(line[40:])
-                # pair_freq = list(eval(line[40:].lstrip('[').rstrip(']')))  # .split(', ')
-                pair_freq = list(eval(line[40:]))  # .split(', ')
-                # pair_freq = list(map(eval, pair_freq_list))
-                residue_cluster_d[cluster]['freq'] = pair_freq
-                continue
-            # Cluster Central Residue Pair Frequency:
-            # [(('L', 'Q'), 0.2429), (('A', 'D'), 0.0571), (('V', 'D'), 0.0429), (('L', 'E'), 0.0429),
-            # (('T', 'L'), 0.0429), (('L', 'S'), 0.0429), (('T', 'D'), 0.0429), (('V', 'L'), 0.0286),
-            # (('I', 'K'), 0.0286), (('V', 'E'), 0.0286), (('L', 'L'), 0.0286), (('L', 'M'), 0.0286),
-            # (('L', 'K'), 0.0286), (('T', 'Q'), 0.0286), (('S', 'D'), 0.0286), (('Y', 'G'), 0.0286),
-            # (('I', 'F'), 0.0286), (('T', 'K'), 0.0286), (('V', 'I'), 0.0143), (('W', 'I'), 0.0143),
-            # (('V', 'Q'), 0.0143), (('I', 'L'), 0.0143), (('F', 'G'), 0.0143), (('E', 'H'), 0.0143),
-            # (('L', 'D'), 0.0143), (('N', 'M'), 0.0143), (('K', 'D'), 0.0143), (('L', 'H'), 0.0143),
-            # (('L', 'V'), 0.0143), (('L', 'R'), 0.0143)]
-
-            elif line[:43] == 'Surface Fragment Oligomer1 Residue Number: ':
-                # Always contains I fragment? #JOSH
-                res_chain1 = int(line[43:].strip())
-                continue
-            elif line[:43] == 'Surface Fragment Oligomer2 Residue Number: ':
-                # Always contains J fragment and Guide Atoms? #JOSH
-                res_chain2 = int(line[43:].strip())
-                # residue_cluster_d[cluster].append((res_chain1, res_chain2))
-                residue_cluster_d[cluster]['pair'].append((res_chain1, res_chain2))
-                continue
-            elif line[:17] == 'Overlap Z-Value: ':
-                try:
-                    z_value_dict[cluster] = float(line[17:].strip())
-                except ValueError:
-                    print('%s has misisng Z-value in frag_info_file.txt' % _des_dir)
-                    z_value_dict[cluster] = float(1.0)
-                continue
-            elif line[:17] == 'Nanohedra Score: ':
-                nanohedra_score = float(line[17:].strip())
-                continue
-        #             if line[:39] == 'Unique Interface Fragment Match Count: ':
-        #                 int_match = int(line[39:].strip())
-        #             if line[:39] == 'Unique Interface Fragment Total Count: ':
-        #                 int_total = int(line[39:].strip())
-            elif line[:20] == 'ROT/DEGEN MATRIX PDB':
-                # _matrix = np.array(loads(line[23:]))
-                _matrix = np.array(eval(line[23:]))
-                transform_d[int(line[20:21])] = {'rot/deg': _matrix}  # dict[pdb# (1, 2)] = {'transform_type': matrix}
-                continue
-            elif line[:15] == 'INTERNAL Tx PDB':  # without PDB1 or PDB2
-                # _matrix = np.array(loads(line[18:]))
-                _matrix = np.array(eval(line[18:]))
-                transform_d[int(line[15:16])]['tx_int'] = _matrix
-                continue
-            elif line[:18] == 'SETTING MATRIX PDB':
-                # _matrix = np.array(loads(line[21:]))
-                _matrix = np.array(eval(line[21:]))
-                transform_d[int(line[18:19])]['setting'] = _matrix
-                continue
-            elif line[:21] == 'REFERENCE FRAME Tx PDB':
-                # _matrix = np.array(loads(line[24:]))
-                _matrix = np.array(eval(line[24:]))
-                transform_d[int(line[21:22])]['tx_ref'] = _matrix
-                continue
-            elif 'Residue-Level Summation Score:' in line:
-                score = float(line[30:].rstrip())
-            # elif line[:23] == 'ROT/DEGEN MATRIX PDB1: ':
-            # elif line[:18] == 'INTERNAL Tx PDB1: ':  # with PDB1 or PDB2
-            # elif line[:21] == 'SETTING MATRIX PDB1: ':
-            # elif line[:24] == 'REFERENCE FRAME Tx PDB1: ':
-
-            # ROT/DEGEN MATRIX PDB1: [[1.0, -0.0, 0], [0.0, 1.0, 0], [0, 0, 1]]
-            # INTERNAL Tx PDB1: [0, 0, 45.96406061067895]
-            # SETTING MATRIX PDB1: [[0.707107, 0.408248, 0.57735], [-0.707107, 0.408248, 0.57735], [0.0, -0.816497, 0.57735]]
-            # REFERENCE FRAME Tx PDB1: None
-
-    if init:
-        for cluster in residue_cluster_d:
-            residue_cluster_d[cluster]['pair'] = list(set(residue_cluster_d[cluster]['pair']))
-
-        return residue_cluster_d, transform_d
-    elif score:
-        return score
-    else:
-        fragment_z_total = 0
-        for cluster in z_value_dict:
-            fragment_z_total += z_value_dict[cluster]
-        num_fragments = len(z_value_dict)
-        ave_z = fragment_z_total / num_fragments
-        return {'nanohedra_score': nanohedra_score, 'average_fragment_z_score': ave_z,
-                'unique_fragments': num_fragments}  # , 'int_total': int_total}
-
-
 ####################
 # MULTIPROCESSING
 ####################
@@ -2389,46 +1273,30 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
 ######################
 
 
-def set_up_directory_objects(design_list, mode='design', symmetry=None):
-    """Create DesignDirectory objects from a directory iterable. Add symmetry if using DesignDirectory strings"""
-    return [DesignDirectory(design, mode=mode, symmetry=symmetry) for design in design_list]
-
-
-def set_up_dock_dir(path, suffix=None):  # DEPRECIATED
-    """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
-    typical directory structuring"""
-    dock_dir = DesignDirectory(path, auto_structure=False)
-    # try:
-    # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation
-    dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
-    dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
-    # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-    dock_dir.building_blocks, dock_dir.building_block_logs = [], []
-    for k, _sym in enumerate(dock_dir.symmetry):
-        dock_dir.building_blocks.append(list())
-        dock_dir.building_block_logs.append(list())
-        for bb_dir in next(os.walk(_sym))[1]:
-            if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
-                dock_dir.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-                dock_dir.building_blocks[k].append(bb_dir)
-
-    # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
-    # dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
-    #                                  for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
-    #                                 for k, _sym in enumerate(dock_dir.symmetry)]  # for each sym in symmetry
-
-    return dock_dir
-
-
-def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
-    pseudo_dir = DesignDirectory(path, auto_structure=False)
-    # pseudo_dir.path = os.path.dirname(wildtype)
-    pseudo_dir.building_blocks = os.path.dirname(path)
-    pseudo_dir.design_pdbs = directory
-    pseudo_dir.scores = os.path.dirname(score)
-    pseudo_dir.all_scores = os.getcwd()
-
-    return pseudo_dir
+# def set_up_dock_dir(path, suffix=None):  # DEPRECIATED
+#     """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
+#     typical directory structuring"""
+#     dock_dir = DesignDirectory(path, auto_structure=False)
+#     # try:
+#     # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation
+#     dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
+#     dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
+#     # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
+#     dock_dir.building_blocks, dock_dir.building_block_logs = [], []
+#     for k, _sym in enumerate(dock_dir.symmetry):
+#         dock_dir.building_blocks.append(list())
+#         dock_dir.building_block_logs.append(list())
+#         for bb_dir in next(os.walk(_sym))[1]:
+#             if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
+#                 dock_dir.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
+#                 dock_dir.building_blocks[k].append(bb_dir)
+#
+#     # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
+#     # dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
+#     #                                  for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
+#     #                                 for k, _sym in enumerate(dock_dir.symmetry)]  # for each sym in symmetry
+#
+#     return dock_dir
 
 
 def get_pose_by_id(design_directories, ids):
@@ -2445,6 +1313,55 @@ def get_all_pdb_file_paths(pdb_dir):
 
 def get_directory_pdb_file_paths(pdb_dir):
     return glob(os.path.join(pdb_dir, '*.pdb*'))
+
+
+def get_base_nanohedra_dirs(base_dir):
+    """Find all master directories corresponding to the highest output level of Nanohedra.py outputs. This corresponds
+    to the DesignDirectory symmetry attribute
+    """
+    nanohedra_dirs = []
+    for root, dirs, files in os.walk(base_dir, followlinks=True):
+        if 'master_log.txt' in files:
+            nanohedra_dirs.append(root)
+            del dirs[:]
+            # print('found %d directories' % len(nanohedra_dirs))
+
+    return nanohedra_dirs
+
+
+def get_docked_directories(base_directory, directory_type='NanohedraEntry'):  # '*DockedPoses'
+    """Useful for when your docked directory is basically known but the """
+    all_directories = []
+    for root, dirs, files in os.walk(base_directory):
+        # if directory_type in dirs:
+        for _dir in dirs:
+            if directory_type in _dir:
+                all_directories.append(os.path.join(root, _dir))
+
+    return sorted(set(all_directories))
+    #
+    # return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
+
+
+def get_docked_dirs_from_base(base):
+    return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
+    # want to find all NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/tx_139
+
+    # for root1, dirs1, files1 in os.walk(base):  # NanohedraEntry1DockedPoses/
+    #     for dir1 in dirs1:  # 1abc_2xyz
+    #         for root2, dirs2, files2 in os.walk(os.path.join(base, dir1)):  # NanohedraEntry1DockedPoses/1abc_2xyz/
+    #             for dir2 in dirs2:  # DEGEN_1_1
+    #                 for root3, dirs3, files3 in os.walk(os.path.join(base, dir1, dir2)):  # NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/
+    #                     for dir3 in dirs3:  # ROT_1_1
+    #                         for root4, dirs4, files4 in os.walk(os.path.join(base, dir1, dir2, dir3)):  # NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/
+    #                             for dir4 in dirs4: # tx_139
+    #                                 if dir4.startswith('tx_'):
+
+    # baseline testing with
+    # timeit.timeit("import glob;glob.glob('*/*/*/*/')", number=1) Vs.
+    # timeit.timeit("import glob;get_design_directories('/share/gscratch/kmeador/crystal_design/
+    #     NanohedraEntry65MinMatched6_FULL')", setup="from __main__ import get_design_directories", number=1)
+    # gives 2.4859059400041588 versus 13.074574943981133
 
 
 def collect_directories(directory, file=None, dir_type='design'):
@@ -2478,68 +1395,19 @@ def collect_directories(directory, file=None, dir_type='design'):
     return sorted(set(all_directories)), location
 
 
-# DEPRECIATED
-def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # removed a .pkl 9/29/20 9/17/20 run used .pkl.pkl TODO remove vflip
-    all_directories = []
-    for root, dirs, files in os.walk(base_directory):
-        # for _dir in dirs:
-        if 'master_log.txt' in files:
-            if file.endswith(directory_type):
-                all_directories.append(root)
-    #
-    #
-    # return sorted(set(all_directories))
-
-    return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
-
-
-def get_docked_directories(base_directory, directory_type='NanohedraEntry'):  # '*DockedPoses'
-    """Useful for when your docked directory is basically known but the """
-    all_directories = []
-    for root, dirs, files in os.walk(base_directory):
-        # if directory_type in dirs:
-        for _dir in dirs:
-            if directory_type in _dir:
-                all_directories.append(os.path.join(root, _dir))
-
-    return sorted(set(all_directories))
-    #
-    # return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
-
-
-def get_base_nanohedra_dirs(base_dir):
-    """Find all master directories corresponding to the highest output level of Nanohedra.py outputs. This corresponds
-    to the DesignDirectory symmetry attribute
-    """
-    nanohedra_dirs = []
-    for root, dirs, files in os.walk(base_dir, followlinks=True):
-        if 'master_log.txt' in files:
-            nanohedra_dirs.append(root)
-            del dirs[:]
-            # print('found %d directories' % len(nanohedra_dirs))
-
-    return nanohedra_dirs
-
-
-def get_docked_dirs_from_base(base):
-    return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
-    # want to find all NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/tx_139
-
-    # for root1, dirs1, files1 in os.walk(base):  # NanohedraEntry1DockedPoses/
-    #     for dir1 in dirs1:  # 1abc_2xyz
-    #         for root2, dirs2, files2 in os.walk(os.path.join(base, dir1)):  # NanohedraEntry1DockedPoses/1abc_2xyz/
-    #             for dir2 in dirs2:  # DEGEN_1_1
-    #                 for root3, dirs3, files3 in os.walk(os.path.join(base, dir1, dir2)):  # NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/
-    #                     for dir3 in dirs3:  # ROT_1_1
-    #                         for root4, dirs4, files4 in os.walk(os.path.join(base, dir1, dir2, dir3)):  # NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/
-    #                             for dir4 in dirs4: # tx_139
-    #                                 if dir4.startswith('tx_'):
-
-    # baseline testing with
-    # timeit.timeit("import glob;glob.glob('*/*/*/*/')", number=1) Vs.
-    # timeit.timeit("import glob;get_design_directories('/share/gscratch/kmeador/crystal_design/
-    #     NanohedraEntry65MinMatched6_FULL')", setup="from __main__ import get_design_directories", number=1)
-    # gives 2.4859059400041588 versus 13.074574943981133
+# # DEPRECIATED
+# def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # removed a .pkl 9/29/20 9/17/20 run used .pkl.pkl TODO remove vflip
+#     all_directories = []
+#     for root, dirs, files in os.walk(base_directory):
+#         # for _dir in dirs:
+#         if 'master_log.txt' in files:
+#             if file.endswith(directory_type):
+#                 all_directories.append(root)
+#     #
+#     #
+#     # return sorted(set(all_directories))
+#
+#     return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
 
 
 ##############

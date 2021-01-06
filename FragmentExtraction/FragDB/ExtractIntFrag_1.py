@@ -1,8 +1,9 @@
 import os
 from itertools import repeat
-import multiprocessing as mp
-from PDB import PDB
+
 import FragUtils as Frag
+
+from PDB import PDB
 
 # Globals
 module = 'Extract Interface Fragments:'
@@ -29,8 +30,8 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
     # Create PDB instance for Ch1 and Ch2
     pdb_ch1 = PDB()
     pdb_ch2 = PDB()
-    pdb_ch1.read_atom_list(pdb.chain(pdb_ch1_id))
-    pdb_ch2.read_atom_list(pdb.chain(pdb_ch2_id))
+    pdb_ch1.read_atom_list(pdb.get_chain_atoms(pdb_ch1_id))
+    pdb_ch2.read_atom_list(pdb.get_chain_atoms(pdb_ch2_id))
 
     # Find Pairs of Interacting Residues
     if pdb_ch1.all_atoms == list() or pdb_ch2.all_atoms == list():
@@ -131,8 +132,8 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
             # Create PDB instance for Ch1 and Ch2
             pdb_ch1 = PDB()
             pdb_ch2 = PDB()
-            pdb_ch1.read_atom_list(pdb.chain(pdb_ch1_id))
-            pdb_ch2.read_atom_list(pdb.chain(pdb_ch2_id))
+            pdb_ch1.read_atom_list(pdb.get_chain_atoms(pdb_ch1_id))
+            pdb_ch2.read_atom_list(pdb.get_chain_atoms(pdb_ch2_id))
 
             # Find Pairs of Interacting Residues
             if pdb_ch1.all_atoms == list() or pdb_ch2.all_atoms == list():

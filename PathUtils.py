@@ -43,9 +43,9 @@ pdbs_outdir = 'rosetta_pdbs/'
 scores_outdir = 'scores/'
 scores_file = 'all_scores.sc'
 analysis_file = 'AllDesignPoseMetrics.csv'
-directory_structure = './design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\nEx:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
+directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\nEx:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
                       '\nIn design directory \'tx_c/\', output is located in \'%s\' and \'%s\'.' \
-                      '\nTotal design_symmetry score are located in ./design_symmetry/building_blocks/%s' \
+                      '\nTotal design_symmetry_pg score are located in ./design_symmetry_pg/building_blocks/%s' \
                       % (pdbs_outdir, scores_outdir, scores_outdir)
 variance = 0.8
 clustered_poses = 'ClusteredPoses'

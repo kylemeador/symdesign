@@ -98,7 +98,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             # asu = SDUtils.read_pdb(os.path.join(output_dir, design, 'design_asus', design  + '.pdb'))  # TODO new, asu is inside design directory
             asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
         asu.reorder_chains()
-        # asu.pose_numbering()
+        # asu.renumber_residues()
         asu.reindex_all_chain_residues()
         asu.get_atom_entities()
 
@@ -126,7 +126,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 success = False
                 break
             # oriented_pdb.name = pdb.lower()
-            # oriented_pdb.pose_numbering()  # Residue numbering needs to be same for each chain...
+            # oriented_pdb.renumber_residues()  # Residue numbering needs to be same for each chain...
             try:  # Some pdb's are messed up and don't have CA or CB?!
                 for chain in oriented_pdb.chain_id_list:
                     oriented_pdb.reindex_chain_residues(chain)
@@ -174,7 +174,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                         oriented_pdb.mutate_to(chain, residue - orient_offset,
                                                res_id=des_mutations_orient[residue]['to'])
             # fix the residue numbering to account for deletions
-            # asu.pose_numbering()
+            # asu.renumber_residues()
             # for chain in asu.chain_id_list:
             #     asu.reindex_chain_residues(chain)
             asu.reindex_all_chain_residues()

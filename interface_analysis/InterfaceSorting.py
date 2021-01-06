@@ -95,12 +95,12 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         #     break
         # else:
         if full_chain:  # get the entire chain
-            interface_atoms = deepcopy(pdb.chain(chain))
+            interface_atoms = deepcopy(pdb.get_chain_atoms(chain))
         else:  # get only the specific residues at the interface
             residues = chain_data_d[chain_id]['int_res']
             interface_atoms = []
             for residue_number in residues:
-                residue_atoms = pdb.getResidueAtoms(chain, residue_number)
+                residue_atoms = pdb.get_residue_atoms(chain, residue_number)
                 interface_atoms.extend(deepcopy(residue_atoms))
             # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
         chain_pdb = fill_pdb(interface_atoms)

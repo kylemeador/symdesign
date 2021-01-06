@@ -14,7 +14,8 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 
-import Pose
+import DesignDirectory
+import SequenceProfile
 
 try:
     from Bio.SubsMat import MatrixInfo as matlist
@@ -69,7 +70,7 @@ def gather_profile_info(pdb, des_dir, names):
     # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
     for name in names:
         logger.info('Generating PSSM file for %s' % name)
-        pssm_files[name], pssm_process[name] = SDUtils.hhblits(pdb_seq_file[name], outpath=des_dir.sequences)
+        pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name], outpath=des_dir.sequences)
         logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
 
     # Wait for PSSM command to complete
@@ -79,9 +80,9 @@ def gather_profile_info(pdb, des_dir, names):
     # Extract PSSM for each protein and combine into single PSSM
     pssm_dict = {}
     for name in names:
-        pssm_dict[name] = SDUtils.parse_hhblits_pssm(pssm_files[name])
-    full_pssm = SDUtils.combine_pssm([pssm_dict[name] for name in pssm_dict])
-    pssm_file = SDUtils.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
+        pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
+    full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
+    pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
 
     return pssm_file, full_pssm
 
@@ -919,16 +920,16 @@ def analyze_mutations(des_dir, mutated_sequences, residues=None, print_results=F
     ranked_frequencies = SDUtils.rank_possibilities(mutation_frequencies)
 
     # Calculate Jensen Shannon Divergence from DSSM using the occurrence data in col 2 and design Mutations
-    dssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
+    dssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
     design_divergence = pos_specific_jsd(mutation_frequencies, dssm)
 
-    interface_bkgd = SDUtils.get_db_aa_frequencies(db)
+    interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
     interface_divergence = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
 
     if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):  # TODO Wrap into DesignDirectory object
-        pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
+        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
     else:
-        pssm = SDUtils.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
+        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
     evolution_divergence = pos_specific_jsd(mutation_frequencies, pssm)
 
     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_frequencies, evolution_divergence,
@@ -1137,7 +1138,7 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
     # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, SDUtils.sequence_difference)
     # Using concatenated sequences makes the values incredibly similar and inflated as most residues are the same
     # doing min/max normalization to see variation
-    pairwise_sequence_diff_l = [SDUtils.sequence_difference(*seq_pair)
+    pairwise_sequence_diff_l = [SequenceProfile.sequence_difference(*seq_pair)
                                 for seq_pair in combinations(concatenated_sequences, 2)]
     pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
     _min = min(pairwise_sequence_diff_l)
@@ -1222,16 +1223,16 @@ def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):
     ranked_frequencies = SDUtils.rank_possibilities(mutation_probabilities)
 
     # Calculate Jensen Shannon Divergence from DSSM using the occurrence data in col 2 and design Mutations
-    dssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
+    dssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
     residue_divergence_values = pos_specific_jsd(mutation_probabilities, dssm)
 
-    interface_bkgd = SDUtils.get_db_aa_frequencies(db)
+    interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
     interface_divergence_values = SDUtils.compute_jsd(mutation_probabilities, interface_bkgd)
 
     if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):  # TODO Wrap into DesignDirectory object
-        pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
+        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
     else:
-        pssm = SDUtils.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
+        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
     evolution_divergence_values = pos_specific_jsd(mutation_probabilities, pssm)
 
     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_probabilities, evolution_divergence_values,
@@ -1260,7 +1261,7 @@ if __name__ == '__main__':
     logger.info('Starting %s with options:\n%s' %
                 (__name__, '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
-    design_directory = Pose.DesignDirectory(args.directory)
+    design_directory = DesignDirectory.DesignDirectory(args.directory)
 
     logger.warning('If you are running into issues with locating files, the problem is not you, it is me. '
                    'I have limited capacity to locate specific files given the scope of my creation.')
@@ -1271,7 +1272,7 @@ if __name__ == '__main__':
                           print_results=True)  # args.print)
     else:
         if args.directory and args.wildtype and args.score:
-            path_object = SDUtils.set_up_pseudo_design_dir(args.wildtype, args.directory, args.score)
+            path_object = DesignDirectory.set_up_pseudo_design_dir(args.wildtype, args.directory, args.score)
             analyze_mutations(design_directory, mutate_wildtype_sequences(args.directory, args.wildtype),
                               print_results=True)  # args.print)
         else:

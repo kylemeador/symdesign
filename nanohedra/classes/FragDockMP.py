@@ -795,11 +795,15 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log_filepath, zero=False)  # True
         ### Remove after design patch ###                                                   # Also this ^
         degen1_count, degen2_count = 0, 0
-        from SymDesignUtils import degen_and_rotation_parameters, gather_docking_metrics, compute_last_rotation_state
-        degens, rotations = degen_and_rotation_parameters(
-            gather_docking_metrics(os.path.join(master_outdir, 'master_log.txt')))
+        # degens, rotations = degen_and_rotation_parameters(
+        #     gather_docking_metrics(os.path.join(master_outdir, 'master_log.txt')))
+        from DesignDirectory import DesignDirectory
+        des_dir = DesignDirectory(master_outdir)
+        des_dir.gather_docking_metrics()
+        degens, rotations = des_dir.degen_and_rotation_parameters()
         # degen1, degen2 = tuple(degens)
-        last_rot1, last_rot2 = compute_last_rotation_state(*rotations)
+        last_rot1, last_rot2 = des_dir.compute_last_rotation_state()
+        # last_rot1, last_rot2 = compute_last_rotation_state(*rotations)
         if rot2_count > last_rot2:
             rot2_count = int(rot2_count % last_rot2)
         rot1_count -= 1

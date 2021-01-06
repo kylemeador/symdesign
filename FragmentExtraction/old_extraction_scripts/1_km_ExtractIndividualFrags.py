@@ -1,8 +1,9 @@
-import sys
 import os
+
 import numpy as np
-from PDB import PDB
 from sklearn.neighbors import BallTree
+
+from PDB import PDB
 
 # Globals
 module = 'Extract Individual Fragments:'
@@ -31,11 +32,11 @@ def main():
         # Creating PDB instance for Ch1 and Ch2
         pdb_ch1_id = pdb.chain_id_list[0]
         pdb_ch1 = PDB()
-        pdb_ch1.read_atom_list(pdb.chain(pdb.chain_id_list[0]))
+        pdb_ch1.read_atom_list(pdb.get_chain_atoms(pdb.chain_id_list[0]))
 
         pdb_ch2_id = pdb.chain_id_list[1]
         pdb_ch2 = PDB()
-        pdb_ch2.read_atom_list(pdb.chain(pdb.chain_id_list[1]))
+        pdb_ch2.read_atom_list(pdb.get_chain_atoms(pdb.chain_id_list[1]))
 
         # Getting Ch1 and Ch2 Coordinates
         ch1_cb_coords = pdb_ch1.extract_CB_coords(InclGlyCA=True)
