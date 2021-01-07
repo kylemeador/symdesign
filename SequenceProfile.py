@@ -59,7 +59,87 @@ class SequenceProfile:
         self.pssm_file = self.hhblits(out_path=out_path)  # design_directory.sequences
         self.pssm = self.parse_hhblits_pssm()
 
-    def add_fragment_profile(self):
+    @staticmethod
+    def parameterize_frag_length(length):
+        """Generate fragment length range parameters for use in fragment functions"""
+        _range = math.floor(length / 2)
+        if length % 2 == 1:
+            return 0 - _range, 0 + _range + index_offset
+        else:
+            logger.critical('%d is an even integer which is not symmetric about a single residue. '
+                            'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
+            raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
+
+    @staticmethod
+    def populate_design_dict(n, alph, counts=False):
+        """Return a dictionary with n elements and alph subelements.
+
+        Args:
+            n (int): number of residues in a design
+            alph (iter): alphabet of interest
+        Keyword Args:
+            counts=False (bool): If true include an integer placeholder for counting
+         Returns:
+             (dict): {0: {alph1: {}, alph2: {}, ...}, 1: {}, ...}
+                Custom length, 0 indexed dictionary with residue number keys
+         """
+        if counts:
+            return {residue: {i: 0 for i in alph} for residue in range(n)}
+        else:
+            return {residue: {i: dict() for i in alph} for residue in range(n)}
+
+    def add_fragment_profile(self, frag_cluster_residue_d, fragment_size):
+        # v Used for central pair fragment mapping of the biological interface generated fragments
+        cluster_freq_tuple_d = {cluster: frag_cluster_residue_d[cluster]['freq'] for cluster in frag_cluster_residue_d}
+        # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
+        #                         for cluster in cluster_residue_d}
+
+        # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
+        cluster_freq_d = {cluster: self.format_frequencies(frag_cluster_residue_d[cluster]['freq'])
+                          for cluster in frag_cluster_residue_d}  # orange mapped to cluster tag
+        cluster_freq_twin_d = {cluster: self.format_frequencies(frag_cluster_residue_d[cluster]['freq'], flip=True)
+                               for cluster in frag_cluster_residue_d}  # orange mapped to cluster tag
+        frag_cluster_residue_d = {cluster: frag_cluster_residue_d[cluster]['pair'] for cluster in frag_cluster_residue_d}
+
+        frag_residue_object_d = residue_number_to_object(self.structure, frag_cluster_residue_d)
+
+        # RENUMBER PDB POSE residues
+
+
+        # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
+        fragment_range = parameterize_frag_length(fragment_size)
+        design_d = populate_design_dict(len(self.pssm), [j for j in range(*fragment_range)])
+        # full_design_dict = populate_design_dict(len(full_pssm), [j for j in range(*fragment_range)])
+        residue_cluster_map = convert_to_residue_cluster_map(frag_residue_object_d, fragment_range)
+        # ^cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
+        #             Where the key is the 0 indexed residue id
+
+        # # TODO all_frags
+        cluster_residue_pose_d = SequenceProfile.residue_object_to_number(frag_residue_object_d)
+        # logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
+        # # ^{cluster: [(78, 87, ...), ...]...}
+        residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
+                            for residue_set in cluster_residue_pose_d[cluster]}  # blue
+        # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
+        # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
+        residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
+                                 for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
+
+        # remove entries which don't exist on protein because of fragment_index +- residues
+        not_available = []
+        for residue in residue_cluster_map:
+            if residue >= len(design_d) or residue < 0:
+                not_available.append(residue)
+                logger.warning('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
+                               'Fragment index will be deleted.' % (des_dir.path, residue + SDUtils.index_offset))
+        for residue in not_available:
+            residue_cluster_map.pop(residue)
+        logger.debug('Residue Cluster Map: %s' % str(residue_cluster_map))
+
+        cluster_dicts = SequenceProfile.get_cluster_dicts(db=frag_db, id_list=[j for j in frag_cluster_residue_d])
+        full_cluster_dict = SequenceProfile.deconvolve_clusters(cluster_dicts, design_d, residue_cluster_map)
+        final_issm = SequenceProfile.flatten_for_issm(full_cluster_dict,
+                                                      keep_extras=False)  # =False added for pickling 6/14/20
 
     def main(self, frag_cluster_residue_d):  # Todo clean up process from the PoseProcessing.initialization()
         # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
@@ -215,6 +295,16 @@ class SequenceProfile:
                     raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
                     # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
                 pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
+
+                for entity in pose:
+                    entity.add_evolutionary_profile(out_path=design_directory.sequences)
+                    entity.add_fragment_profile()
+
+                # Extract PSSM for each protein and combine into single PSSM TODO full pose!
+                # full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
+                # pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
+                #
+                # return pssm_file, full_pssm
                 rerun, second = False, True
             else:
                 break

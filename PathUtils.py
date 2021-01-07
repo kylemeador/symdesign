@@ -35,6 +35,7 @@ msa_pssm = 'asu_pose.pssm'
 dssm = 'pose.dssm'
 frag_dir = 'matching_fragment_representatives'
 frag_file = os.path.join(frag_dir, 'frag_match_info_file.txt')
+pose_file = 'docked_pose_info_file.txt'
 frag_type = '_fragment_profile'
 data = 'data'
 sequence_info = 'Sequence_Info'

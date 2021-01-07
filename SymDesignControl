@@ -208,7 +208,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                 complete.append(glob(os.path.join(_rmsd_dir(all_design_directories[k].symmetry[0]), '*_clustered.txt'))[0])
 
     elif _stage == 'nanohedra':
-        from nanohedra.classes.FragDockMP import get_last_sampling_state
+        from nanohedra.classes.FragDock import get_last_sampling_state
         # observed_building_blocks = []
         for des_dir in all_design_directories:
             # if os.path.basename(des_dir.building_blocks) in observed_building_blocks:

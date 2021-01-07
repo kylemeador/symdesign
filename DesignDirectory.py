@@ -1,6 +1,8 @@
 import os
 from glob import glob
 
+import numpy as np
+
 import PathUtils as PUtils
 from SymDesignUtils import logger, unpickle, read_pdb, start_log, handle_errors_f
 
@@ -98,11 +100,16 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
         self.degen2 = None
 
         self.fragment_cluster_residue_d = {}
+        self.fragment_observation_master_l = []
+        self.fragment_cluster_freq_d = {}
         self.transform_d = {}
         self.z_value_dict = {}
         self.nanohedra_score = None
         self.ave_z = None
         self.num_fragments = None
+
+        self.cannonical_pdb1 = None
+        self.cannonical_pdb2 = None
 
     def __str__(self):
         if self.symmetry:
@@ -310,117 +317,158 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
         return self.transform_d
 
     @handle_errors_f(errors=(FileNotFoundError, ))
-    def gather_pose_metrics(self, cluster=False, transform=False, score=False):
-        """Gather docking metrics from Nanohedra output
-
-        Keyword Args:
-            cluster=False (bool): Whether the information requested is for pose initialization
-            transform=False (bool): Whether the information requested is for pose symmetry initialization
-            score=False (bool): Whether to return the score information only
-        Returns:
-            (dict): Either {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': }
-                when transform=True  {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
-                when clusters=True {'1_2_24': [(78, 87, ...), ...], ...}
-        """
+    def gather_fragment_info(self):
+        """Gather fragment metrics from Nanohedra output"""
         with open(os.path.join(self.path, PUtils.frag_file), 'r') as f:
             frag_match_info_file = f.readlines()
+
             for line in frag_match_info_file:
+                if line[:6] == 'z-val:':
+                    z_val = float(line[6:].strip())
+                    match_score = 1 / float(1 + (z_val ** 2))
+                elif line[:21] == 'oligomer1 ch, resnum:':
+                    oligomer1_info = line[21:].strip().split(',')
+                    chain1 = oligomer1_info[0]
+                    residue_number1 = oligomer1_info[1]
+                elif line[:21] == 'oligomer2 ch, resnum:':
+                    oligomer2_info = line[21:].strip().split(',')
+                    chain2 = oligomer2_info[0]
+                    residue_number2 = oligomer2_info[1]
+                elif line[:3] == 'id:':
+                    cluster_id = line[3:].strip()
+                    self.fragment_observation_master_l.append({'residue1': residue_number1, 'residue2': residue_number2,
+                                                               'cluster': cluster_id, 'match_score': match_score})
+                    if cluster_id in self.fragment_cluster_residue_d:
+                        self.fragment_cluster_residue_d[cluster_id].add((residue_number1, residue_number2))
+                        # self.fragment_cluster_residue_d[cluster_id]['pair'].add((residue_number1, residue_number2))
+                    else:
+                        self.fragment_cluster_residue_d[cluster_id] = {(residue_number1, residue_number2)}
+                        # self.fragment_cluster_residue_d[cluster_id] = {'pair': {(residue_number1, residue_number2)}}
+                # "mean rmsd: %s\n" % str(cluster_rmsd))
+                # "aligned rep: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
+                elif line[:23] == 'central res pair freqs:':
+                    pair_freq = list(eval(line[23:].strip()))
+                    self.fragment_cluster_freq_d[cluster_id] = pair_freq
+                    # self.fragment_cluster_residue_d[cluster_id]['freq'] = pair_freq
+
+    @handle_errors_f(errors=(FileNotFoundError, ))
+    def gather_fragment_infov0(self):  # DEPRECIATED v0
+        """Gather fragment metrics from Nanohedra output"""
+        with open(os.path.join(self.path, PUtils.frag_file), 'r') as f:
+            frag_match_info_lines = f.readlines()
+            for line in frag_match_info_lines:
                 if line[:12] == 'Cluster ID: ':
                     cluster = line[12:].split()[0].strip().replace('i', '').replace('j', '').replace('k', '')
                     if cluster not in self.fragment_cluster_residue_d:
-                        # residue_cluster_d[cluster] = []  # TODO make compatible
-                        self.fragment_cluster_residue_d[cluster] = {'pair': []}
-                    continue
+                        self.fragment_cluster_residue_d[cluster] = {}
+                        # self.fragment_cluster_residue_d[cluster] = {'pair': {}}
                 elif line[:40] == 'Cluster Central Residue Pair Frequency: ':
-                    # pair_freq = loads(line[40:])
-                    # pair_freq = list(eval(line[40:].lstrip('[').rstrip(']')))  # .split(', ')
-                    pair_freq = list(eval(line[40:]))  # .split(', ')
-                    # pair_freq = list(map(eval, pair_freq_list))
-                    self.fragment_cluster_residue_d[cluster]['freq'] = pair_freq
-                    continue
-                # Cluster Central Residue Pair Frequency:
-                # [(('L', 'Q'), 0.2429), (('A', 'D'), 0.0571), (('V', 'D'), 0.0429), (('L', 'E'), 0.0429),
-                # (('T', 'L'), 0.0429), (('L', 'S'), 0.0429), (('T', 'D'), 0.0429), (('V', 'L'), 0.0286),
-                # (('I', 'K'), 0.0286), (('V', 'E'), 0.0286), (('L', 'L'), 0.0286), (('L', 'M'), 0.0286),
-                # (('L', 'K'), 0.0286), (('T', 'Q'), 0.0286), (('S', 'D'), 0.0286), (('Y', 'G'), 0.0286),
-                # (('I', 'F'), 0.0286), (('T', 'K'), 0.0286), (('V', 'I'), 0.0143), (('W', 'I'), 0.0143),
-                # (('V', 'Q'), 0.0143), (('I', 'L'), 0.0143), (('F', 'G'), 0.0143), (('E', 'H'), 0.0143),
-                # (('L', 'D'), 0.0143), (('N', 'M'), 0.0143), (('K', 'D'), 0.0143), (('L', 'H'), 0.0143),
-                # (('L', 'V'), 0.0143), (('L', 'R'), 0.0143)]
-
+                    pair_freq = list(eval(line[40:]))
+                    self.fragment_cluster_freq_d[cluster] = pair_freq
+                    # Cluster Central Residue Pair Frequency:
+                    # [(('L', 'Q'), 0.2429), (('A', 'D'), 0.0571), (('V', 'D'), 0.0429), (('L', 'E'), 0.0429),
+                    # (('T', 'L'), 0.0429), (('L', 'S'), 0.0429), (('T', 'D'), 0.0429), (('V', 'L'), 0.0286),
+                    # (('I', 'K'), 0.0286), (('V', 'E'), 0.0286), (('L', 'L'), 0.0286), (('L', 'M'), 0.0286),
+                    # (('L', 'K'), 0.0286), (('T', 'Q'), 0.0286), (('S', 'D'), 0.0286), (('Y', 'G'), 0.0286),
+                    # (('I', 'F'), 0.0286), (('T', 'K'), 0.0286), (('V', 'I'), 0.0143), (('W', 'I'), 0.0143),
+                    # (('V', 'Q'), 0.0143), (('I', 'L'), 0.0143), (('F', 'G'), 0.0143), (('E', 'H'), 0.0143),
+                    # (('L', 'D'), 0.0143), (('N', 'M'), 0.0143), (('K', 'D'), 0.0143), (('L', 'H'), 0.0143),
+                    # (('L', 'V'), 0.0143), (('L', 'R'), 0.0143)]
                 elif line[:43] == 'Surface Fragment Oligomer1 Residue Number: ':
-                    # Always contains I fragment? #JOSH
                     res_chain1 = int(line[43:].strip())
-                    continue
                 elif line[:43] == 'Surface Fragment Oligomer2 Residue Number: ':
-                    # Always contains J fragment and Guide Atoms? #JOSH
                     res_chain2 = int(line[43:].strip())
-                    # residue_cluster_d[cluster].append((res_chain1, res_chain2))
-                    self.fragment_cluster_residue_d[cluster]['pair'].append((res_chain1, res_chain2))
-                    continue
+                    self.fragment_cluster_residue_d[cluster].add((res_chain1, res_chain2))
+                    # self.fragment_cluster_residue_d[cluster]['pair'].add((res_chain1, res_chain2))
                 elif line[:17] == 'Overlap Z-Value: ':
-                    try:
-                        self.z_value_dict[cluster] = float(line[17:].strip())
-                    except ValueError:
-                        print('%s has misisng Z-value in frag_info_file.txt' % self.__str__())
-                        self.z_value_dict[cluster] = float(1.0)
-                    continue
+                    # try:
+                    self.z_value_dict[cluster] = float(line[17:].strip())
+                    # except ValueError:
+                    #     print('%s has misisng Z-value in frag_info_file.txt' % self.__str__())
+                    #     self.z_value_dict[cluster] = float(1.0)
                 # elif line[:17] == 'Nanohedra Score: ':  # Depreciated
                 #     nanohedra_score = float(line[17:].strip())
-                    continue
             #             if line[:39] == 'Unique Interface Fragment Match Count: ':
             #                 int_match = int(line[39:].strip())
             #             if line[:39] == 'Unique Interface Fragment Total Count: ':
             #                 int_total = int(line[39:].strip())
                 elif line[:20] == 'ROT/DEGEN MATRIX PDB':
-                    # _matrix = np.array(loads(line[23:]))
+                    # ROT/DEGEN MATRIX PDB1: [[1.0, -0.0, 0], [0.0, 1.0, 0], [0, 0, 1]]
                     _matrix = np.array(eval(line[23:]))
                     self.transform_d[int(line[20:21])] = {'rot/deg': _matrix}  # dict[pdb# (1, 2)] = {'transform_type': matrix}
-                    continue
-                elif line[:15] == 'INTERNAL Tx PDB':  # without PDB1 or PDB2
-                    # _matrix = np.array(loads(line[18:]))
+                elif line[:15] == 'INTERNAL Tx PDB':
+                    # INTERNAL Tx PDB1: [0, 0, 45.96406061067895]
                     _matrix = np.array(eval(line[18:]))
-                    self.transform_d[int(line[15:16])]['tx_int'] = _matrix
-                    continue
+                    self.transform_d[int(line[15:16].strip())]['tx_int'] = _matrix
                 elif line[:18] == 'SETTING MATRIX PDB':
-                    # _matrix = np.array(loads(line[21:]))
-                    _matrix = np.array(eval(line[21:]))
+                    # SETTING MATRIX PDB1: [[0.707107, 0.408248, 0.57735], [-0.707107, 0.408248, 0.57735], [0.0, -0.816497, 0.57735]]
+                    _matrix = np.array(eval(line[21:].strip()))
                     self.transform_d[int(line[18:19])]['setting'] = _matrix
-                    continue
                 elif line[:21] == 'REFERENCE FRAME Tx PDB':
-                    # _matrix = np.array(loads(line[24:]))
-                    _matrix = np.array(eval(line[24:]))
+                    # REFERENCE FRAME Tx PDB1: None
+                    _matrix = np.array(eval(line[24:].strip()))
                     self.transform_d[int(line[21:22])]['tx_ref'] = _matrix
-                    continue
                 elif 'Residue-Level Summation Score:' in line:
-                    self.nanohedra_score = float(line[30:].rstrip())
-                # elif line[:23] == 'ROT/DEGEN MATRIX PDB1: ':
-                # elif line[:18] == 'INTERNAL Tx PDB1: ':  # with PDB1 or PDB2
-                # elif line[:21] == 'SETTING MATRIX PDB1: ':
-                # elif line[:24] == 'REFERENCE FRAME Tx PDB1: ':
+                    self.nanohedra_score = float(line[30:].strip())
 
-                # ROT/DEGEN MATRIX PDB1: [[1.0, -0.0, 0], [0.0, 1.0, 0], [0, 0, 1]]
-                # INTERNAL Tx PDB1: [0, 0, 45.96406061067895]
-                # SETTING MATRIX PDB1: [[0.707107, 0.408248, 0.57735], [-0.707107, 0.408248, 0.57735], [0.0, -0.816497, 0.57735]]
-                # REFERENCE FRAME Tx PDB1: None
+        # for cluster in self.fragment_cluster_residue_d:
+        #     self.fragment_cluster_residue_d[cluster]['pair'] = list(set(residue_cluster_d[cluster]['pair']))
 
-        # if cluster:
-        for cluster in self.fragment_cluster_residue_d:
-            self.fragment_cluster_residue_d[cluster]['pair'] = list(set(residue_cluster_d[cluster]['pair']))
+    @handle_errors_f(errors=(FileNotFoundError, ))
+    def gather_pose_metrics(self):
+        """Gather docking metrics from Nanohedra output"""
+        with open(os.path.join(self.path, PUtils.pose_file), 'r') as f:
+            pose_info_file_lines = f.readlines()
+            for line in pose_info_file_lines:
+                if line[:15] == 'DOCKED POSE ID:':
+                    self.pose_id = line[15:].strip()
+                elif line[:38] == 'Unique Mono Fragments Matched (z<=1): ':
+                    self.high_quallity_int_residues_matched = int(line[38:].strip())
+                elif line[:31] == 'Unique Mono Fragments Matched: ':
+                    self.int_residues_matched = int(line[31:].strip())
+                elif line[:36] == 'Unique Mono Fragments at Interface: ':
+                    self.int_residues_total = int(line[36:].strip())
+                elif line[:25] == 'Interface Matched (%): ' % '%':
+                    self.percent_fragment = float(line[25:].strip())
+                elif line[:20] == 'ROT/DEGEN MATRIX PDB':
+                    data = eval(line[22:].strip())
+                    self.transform_d[int(line[20:21])] = {'rot/deg': np.array(data)}  # dict[pdb# (1, 2)] = {'transform_type': matrix}
+                elif line[:15] == 'INTERNAL Tx PDB':  # without PDB1 or PDB2
+                    data = eval(line[17:].strip())
+                    if data == 'None':
+                        self.transform_d[int(line[22:23])]['tx_ref'] = np.array([0, 0, 0])
+                    else:
+                        self.transform_d[int(line[15:16])]['tx_int'] = np.array(data)
 
-        #     return self.residue_cluster_d
-        # elif transform:
-        #     return self.transform_d
-        # elif score:
-        #     return self.nanohedra_score
-        # else:
-        #     fragment_z_total = 0
-        #     for cluster in self.z_value_dict:
-        #         fragment_z_total += self.z_value_dict[cluster]
-        #     num_fragments = len(self.z_value_dict)
-        #     ave_z = fragment_z_total / num_fragments
-        #     return {'nanohedra_score': self.nanohedra_score, 'average_fragment_z_score': self.ave_z,
-        #             'unique_fragments': self.num_fragments}  # , 'int_total': int_total}
+                elif line[:18] == 'SETTING MATRIX PDB':  # 'SETTING MATRIX PDB1: '
+                    data = eval(line[20:].strip())
+                    self.transform_d[int(line[18:19])]['setting'] = np.array(data)
+                # elif line[:19] == 'SETTING MATRIX PDB2':
+                #     data = eval(line[20:].strip())
+                #     self.transform_d[int(line[22:23])]['setting'] = np.array(data)
+
+                elif line[:22] == 'REFERENCE FRAME Tx PDB':
+                    data = eval(line[24:].strip())
+                    if data == 'None':
+                        self.transform_d[int(line[22:23])]['tx_ref'] = np.array([0, 0, 0])
+                    else:
+                        self.transform_d[int(line[22:23])]['tx_ref'] = np.array(data)
+                # elif line[:23] == 'REFERENCE FRAME Tx PDB2':
+                #     data = eval(line[24:].strip())
+                #     if data != 'None':
+                #         self.transform_d[int(line[22:23].strip())]['tx_ref2'] = np.array(data)
+                #     else:
+                #         self.transform_d[int(line[22:23].strip())]['tx_ref2'] = np.array([0, 0, 0])
+
+                elif 'Nanohedra Score:' in line:  # res_lev_sum_score
+                    self.nanohedra_score = float(line[16:].rstrip())
+                elif 'CRYST1 RECORD:' in line:
+                    self.cryst_record = line[15:].strip()
+
+                elif line[:31] == 'Canonical Orientation PDB1 Path':
+                    self.cannonical_pdb1 = line[:31].strip()
+                elif line[:31] == 'Canonical Orientation PDB2 Path':
+                    self.cannonical_pdb2 = line[:31].strip()
 
     def pdb_input_parameters(self):
         return self.pdb_dir1_path, self.pdb_dir2_path  # args[0:2]

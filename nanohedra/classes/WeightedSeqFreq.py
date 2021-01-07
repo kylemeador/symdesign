@@ -1,5 +1,6 @@
 class FragMatchInfo:
-    def __init__(self, res_pair_freqs, oligomer_1_ch_id, oligomer_1_res_num, oligomer_2_ch_id, oligomer_2_res_num, z_val):
+    def __init__(self, res_pair_freqs, oligomer_1_ch_id, oligomer_1_res_num, oligomer_2_ch_id, oligomer_2_res_num,
+                 z_val):
         self.res_pair_freqs = res_pair_freqs
         self.oligomer_1_ch_id = oligomer_1_ch_id
         self.oligomer_1_res_num = oligomer_1_res_num
@@ -76,8 +77,10 @@ class SeqFreqInfo:
 
             # weigh matched residue frequencies by match score
             # do so for the matched residue on oligomer 1 and the matched residue on oligomer 2
-            match_oligomer_1_freqs_w = {res_type: freq*match_score for (res_type, freq) in match_oligomer_1_freqs.items()}
-            match_oligomer_2_freqs_w = {res_type: freq*match_score for (res_type, freq) in match_oligomer_2_freqs.items()}
+            match_oligomer_1_freqs_w = {res_type: freq * match_score
+                                        for (res_type, freq) in match_oligomer_1_freqs.items()}
+            match_oligomer_2_freqs_w = {res_type: freq * match_score
+                                        for (res_type, freq) in match_oligomer_2_freqs.items()}
 
             # add match score to sum of the residue match scores
             # do so for the matched residue on oligomer 1 and the matched residue on oligomer 2
