@@ -35,9 +35,9 @@ interface_distance = 8
 #     interface_pairs = []
 #     for pdb2_index in range(len(query)):
 #         if query[pdb2_index].tolist() != list():
-#             pdb2_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_index]].residue_number
+#             pdb2_res_num = pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number
 #             for pdb1_index in query[pdb2_index]:
-#                 pdb1_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_index]].residue_number
+#                 pdb1_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_index]].residue_number
 #                 interface_pairs.append((pdb1_res_num, pdb2_res_num))
 #
 #     return interface_pairs
@@ -91,14 +91,14 @@ def main():
             ch2_res_num_list = [ch2_center_res - 2, ch2_center_res - 1, ch2_center_res, ch2_center_res + 1, ch2_center_res + 2]
 
             frag1_ca_count = 0
-            for atom in pdb_ch1.all_atoms:
+            for atom in pdb_ch1.get_atoms():
                 if atom.residue_number in ch1_res_num_list:
                     int_frag_out_atom_list_ch1.append(atom)
                     if atom.is_CA():
                         frag1_ca_count += 1
 
             frag2_ca_count = 0
-            for atom in pdb_ch2.all_atoms:
+            for atom in pdb_ch2.get_atoms():
                 if atom.residue_number in ch2_res_num_list:
                     int_frag_out_atom_list_ch2.append(atom)
                     if atom.is_CA():

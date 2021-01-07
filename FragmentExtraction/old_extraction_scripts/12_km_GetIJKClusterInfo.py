@@ -1,10 +1,12 @@
 import math
 import os
-#import PDB
-import numpy as np
-from PDB import PDB
-from Bio.SeqUtils import IUPACData
 from collections import Counter
+
+# import PDB
+import numpy as np
+from Bio.SeqUtils import IUPACData
+
+from PDB import PDB
 
 
 def populate_aa_dictionary(length):
@@ -116,7 +118,7 @@ def main():
                                 # cluster_member_partner_iplus_res_code = None
                                 mapped_chain_res_count = 0
                                 partner_chain_res_count = 0
-                                for atom in cluster_member_pdb.all_atoms:
+                                for atom in cluster_member_pdb.atoms:
                                     if atom.is_CA() and atom.chain == cluster_member_mapped_chain_id:
                                         residue_frequency[0][mapped_chain_res_count] = IUPACData.protein_letters_3to1[atom.residue_type.title()] if atom.residue_type.title() in IUPACData.protein_letters_3to1 else None
                                         mapped_chain_res_count += 1

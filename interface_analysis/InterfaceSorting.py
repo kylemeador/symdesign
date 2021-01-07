@@ -97,13 +97,14 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         if full_chain:  # get the entire chain
             interface_atoms = deepcopy(pdb.get_chain_atoms(chain))
         else:  # get only the specific residues at the interface
-            residues = chain_data_d[chain_id]['int_res']
-            interface_atoms = []
-            for residue_number in residues:
-                residue_atoms = pdb.get_residue_atoms(chain, residue_number)
-                interface_atoms.extend(deepcopy(residue_atoms))
+            residue_numbers = chain_data_d[chain_id]['int_res']
+            interface_atoms = pdb.get_residue_atoms(chain, residue_numbers)
+            # interface_atoms = []
+            # for residue_number in residues:
+            #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
+            #     interface_atoms.extend(deepcopy(residue_atoms))
             # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
-        chain_pdb = fill_pdb(interface_atoms)
+        chain_pdb = fill_pdb(deepcopy(interface_atoms))
         # chain_pdb.read_atom_list(interface_atoms)
 
         rot = chain_data_d[chain_id]['r_mat']
@@ -112,7 +113,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         chain_pdb.rename_chain(chain, temp_names[temp_name_idx])  # ensure that chain names are not the same
         temp_chain_d[temp_names[temp_name_idx]] = str(chain_id)
         interface_chain_pdbs.append(chain_pdb)
-        # interface_pdb.read_atom_list(chain_pdb.all_atoms)
+        # interface_pdb.read_atom_list(chain_pdb.atoms)
 
     interface_pdb = fill_pdb(iter_chain.from_iterable([chain_pdb.all_atoms for chain_pdb in interface_chain_pdbs]))
     if len(interface_pdb.chain_id_list) == 2:

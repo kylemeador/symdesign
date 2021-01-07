@@ -339,8 +339,8 @@ class Pose:
                     f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_atoms[-1].number + 1,
                                                                           chain_atoms[-1].residue_type, _chain,
                                                                           chain_atoms[-1].residue_number))
-                # f.write(''.join(str(atom) for atom in model.all_atoms))
-                # f.write('\n'.join(str(atom) for atom in model.all_atoms))
+                # f.write(''.join(str(atom) for atom in model.atoms))
+                # f.write('\n'.join(str(atom) for atom in model.atoms))
                 f.write('ENDMDL\n')
 
     @staticmethod

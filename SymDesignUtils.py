@@ -279,7 +279,7 @@ def index_intersection(indices):
 #     """
 #     pdb_1.write(name)
 #     with open(name, 'a') as full_pdb:
-#         for atom in pdb_2.all_atoms:
+#         for atom in pdb_2.atoms:
 #             full_pdb.write(str(atom))  # .strip() + '\n')
 #
 #
@@ -292,9 +292,9 @@ def index_intersection(indices):
 #
 #     for pdb2_query_index in range(len(query)):
 #         if query[pdb2_query_index].tolist() != list():
-#             pdb2_chains.append(pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].chain)
+#             pdb2_chains.append(pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].chain)
 #             for pdb1_query_index in query[pdb2_query_index]:
-#                 pdb1_chains.append(pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].chain)
+#                 pdb1_chains.append(pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].chain)
 #
 #     pdb1_chains = list(set(pdb1_chains))
 #     pdb2_chains = list(set(pdb2_chains))
@@ -696,7 +696,7 @@ def extract_asu(file, chain='A', outpath=None):  # DEPRECIATE
     pdb = read_pdb(file)
     asu_pdb = PDB.PDB()
     asu_pdb.__dict__ = pdb.__dict__.copy()
-    asu_pdb.all_atoms = pdb.get_asu(chain)
+    asu_pdb.atoms = pdb.get_asu(chain)
     # asu_pdb = fill_pdb(pdb.get_asu(chain))
     asu_pdb.write(asu_file_name, cryst1=asu_pdb.cryst)
 

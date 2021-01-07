@@ -131,7 +131,7 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
     # query_list = kdtree_central_asu_bb.query_radius(symm_mates_wo_asu_bb_coords, clash_distance)
     # for symm_mates_wo_asu_bb_coords_index in range(len(query_list)):
     #     for kdtree_central_asu_bb_index in query_list[symm_mates_wo_asu_bb_coords_index]:
-    #         print asu.all_atoms[asu_bb_indices[kdtree_central_asu_bb_index]]
+    #         print asu.atoms[asu_bb_indices[kdtree_central_asu_bb_index]]
     ##################
 
     if cb_clash_count[0] == 0:

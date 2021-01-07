@@ -2,10 +2,22 @@ import copy
 import math
 import os
 import subprocess
+import sys
+from glob import glob
+from itertools import chain
+
+try:
+    from Bio.SubsMat import MatrixInfo as matlist
+    from Bio.SeqUtils import IUPACData
+    from Bio.Alphabet import generic_protein  # , IUPAC
+except ImportError:
+    from Bio.Align.substitution_matrices import MatrixInfo as matlist
+    generic_protein = None
 
 import CmdUtils as CUtils
 import PDB
 import PathUtils as PUtils
+import SymDesignUtils as SDUtils
 from SymDesignUtils import DesignError, logger, handle_errors_f, unpickle, get_all_base_root_paths
 
 # Globals
@@ -18,33 +30,196 @@ aa_weight_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0,
 
 
 class SequenceProfile:
-    def __init__(self):
-        pass
+    def __init__(self, structure=None):
+        self.structure = structure  # should be initialized with a Chain obj, could be used with PDB obj in future
+        self.pdb_seq = None
+        self.pdb_seq_file = None
+        self.pssm_file = None
 
-    def add_evolutionary_profile(self):
+    def get_name(self):
+        # Todo mirrors Chain method, set up SequenceProfile id integration to Entity. MRO gives this lower precidence
+        # return self.id
+        return self.structure.get_name()
+
+    def add_evolutionary_profile(self, out_path=os.getcwd()):
+        # self.gather_profile_info(design_directory, names)
+
+        # Extract/Format Sequence Information
+        self.pdb_seq = self.structure.get_structure_sequence()
+        structure_name = self.structure.get_name()
+        # entity_name = self.structure.get_name()
+        # logger.debug('%s is chain %s in ASU' % (structure_name, chain_name))
+        logger.debug('%s Sequence=%s' % (structure_name, self.pdb_seq))
+        # DesignDirectory.pathbe removed as the input is perfectly symmetric so the tx_# won't matter for each entity
+        file_name = self.write_fasta_file(name='%s' % structure_name, out_path=out_path)  # design_directory.sequences
+        logger.debug('%s fasta file: %s' % (structure_name, file_name))
+
+        # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
+        logger.info('Generating PSSM file for %s' % structure_name)
+        self.pssm_file = self.hhblits(out_path=out_path)  # design_directory.sequences
+        self.pssm = self.parse_hhblits_pssm()
 
     def add_fragment_profile(self):
 
-    def main(self):
+    def main(self, frag_cluster_residue_d):  # Todo clean up process from the PoseProcessing.initialization()
         # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
-        cluster_residue_d = DesignDirectory.cluster_residue_d
-        template_pdb = DesignDirectory.source
+
+        # frag_cluster_residue_d = DesignDirectory.gather_pose_metrics(init=True)  Call this function with it
+        # ^ Format: {'1_2_24': [(78, 87, ...), ...], ...}
+        # Todo Can also re-score the interface upon Pose loading and return this information
+        # template_pdb = DesignDirectory.source NOW self.pdb
+
         # v Used for central pair fragment mapping of the biological interface generated fragments
-        cluster_freq_tuple_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
+        cluster_freq_tuple_d = {cluster: frag_cluster_residue_d[cluster]['freq'] for cluster in frag_cluster_residue_d}
         # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
         #                         for cluster in cluster_residue_d}
 
         # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
-        cluster_freq_d = {cluster: SequenceProfile.format_frequencies(cluster_residue_d[cluster]['freq'])
-                          for cluster in cluster_residue_d}  # orange mapped to cluster tag
+        cluster_freq_d = {cluster: self.format_frequencies(frag_cluster_residue_d[cluster]['freq'])
+                          for cluster in frag_cluster_residue_d}  # orange mapped to cluster tag
         cluster_freq_twin_d = {
-            cluster: SequenceProfile.format_frequencies(cluster_residue_d[cluster]['freq'], flip=True)
-            for cluster in cluster_residue_d}  # orange mapped to cluster tag
-        cluster_residue_d = {cluster: cluster_residue_d[cluster]['pair'] for cluster in cluster_residue_d}
+            cluster: self.format_frequencies(frag_cluster_residue_d[cluster]['freq'], flip=True)
+            for cluster in frag_cluster_residue_d}  # orange mapped to cluster tag
+        frag_cluster_residue_d = {cluster: frag_cluster_residue_d[cluster]['pair'] for cluster in frag_cluster_residue_d}
 
-        frag_residue_object_d = SequenceProfile.residue_number_to_object(template_pdb, cluster_residue_d)
+        frag_residue_object_d = SequenceProfile.residue_number_to_object(self.pdb, frag_cluster_residue_d)
 
         # RENUMBER PDB POSE residues
+
+        # Construct CB Tree for full interface atoms to map residue residue contacts
+        # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
+        interface = SDUtils.fill_pdb([atom for residue in total_int_residue_objects for atom in residue.atom_list])
+        interface_tree = SDUtils.residue_interaction_graph(interface)
+        interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
+
+        interface_residue_edges = {}
+        for idx, residue_contacts in enumerate(interface_tree):
+            if interface_tree[idx].tolist() != list():
+                residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
+                contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
+                            for contact_idx in interface_tree[idx]}
+                interface_residue_edges[residue] = contacts - {residue}
+        # ^ {78: [14, 67, 87, 109], ...}  green
+
+
+        # Check to see if other poses have collected design sequence info and grab PSSM
+        temp_file = os.path.join(des_dir.building_blocks, PUtils.temp)
+        rerun = False
+        if PUtils.clean not in os.listdir(des_dir.building_blocks):
+            shutil.copy(des_dir.asu, des_dir.building_blocks)
+            with open(temp_file, 'w') as f:
+                f.write('Still fetching data. Process will resume once data is gathered\n')
+
+            pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
+            logger.debug('Fetching PSSM Files')
+
+            # Check if other design combinations have already collected sequence info about design candidates
+            for name in names:
+                for seq_file in iglob(os.path.join(des_dir.sequences, name + '.*')):
+                    if seq_file == name + '.hmm':
+                        pssm_files[name] = os.path.join(des_dir.sequences, seq_file)
+                        logger.debug('%s PSSM Files=%s' % (name, pssm_files[name]))
+                        break
+                    elif seq_file == name + '.fasta':
+                        pssm_files[name] = PUtils.temp
+                if name not in pssm_files:
+                    pssm_files[name] = {}
+                    logger.debug('%s PSSM File not yet created' % name)
+
+            # Extract/Format Sequence Information
+            for n, name in enumerate(names):
+                if pssm_files[name] == dict():
+                    logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
+                    pdb_seq[name], errors[name] = extract_aa_seq(template_pdb, chain=names[name](n))
+                    logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
+                    if errors[name]:
+                        logger.warning('%s: Sequence generation ran into the following residue errors: %s'
+                                       % (des_dir.path, ', '.join(errors[name])))
+                    pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
+                    if not pdb_seq_file[name]:
+                        logger.critical(
+                            '%s: Unable to parse sequence. Check if PDB \'%s\' is valid' % (des_dir.path, name))
+                        raise SDUtils.DesignError('Unable to parse sequence')
+                        # raise SDUtils.DesignError('%s: Unable to parse sequence' % des_dir.path)
+                else:
+                    pdb_seq_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
+
+            # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
+            for name in names:
+                if pssm_files[name] == dict():
+                    logger.info('Generating PSSM file for %s' % name)
+                    pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name],
+                                                                                   outpath=des_dir.sequences)
+                    logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
+                elif pssm_files[name] == PUtils.temp:
+                    logger.info('Waiting for profile generation...')
+                    while True:
+                        time.sleep(20)
+                        if os.path.exists(os.path.join(des_dir.sequences, name + '.hmm')):
+                            pssm_files[name] = os.path.join(des_dir.sequences, name + '.hmm')
+                            pssm_process[name] = done_process
+                            break
+                else:
+                    logger.info('Found PSSM file for %s' % name)
+                    pssm_process[name] = done_process
+
+            # Wait for PSSM command to complete
+            for name in names:
+                pssm_process[name].communicate()
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+            # Extract PSSM for each protein and combine into single PSSM
+            pssm_dict = {name: SequenceProfile.parse_hhblits_pssm(pssm_files[name]) for name in names}
+            full_pssm = SequenceProfile.combine_pssm(
+                [pssm_dict[name] for name in pssm_dict])  # requires python3.6 or greater
+            pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
+        else:
+            time.sleep(1)
+            while os.path.exists(temp_file):
+                logger.info('Waiting for profile generation...')
+                time.sleep(20)
+            # Check to see if specific profile has been made for the pose.
+            if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):
+                pssm_file = os.path.join(des_dir.path, PUtils.msa_pssm)
+            else:
+                pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
+            full_pssm = SequenceProfile.parse_pssm(pssm_file)
+
+        # Check Pose and Profile for equality before proceeding
+        second = False
+        while True:
+            if len(full_pssm) != len(template_residues):
+                logger.warning(
+                    '%s: Profile and Pose sequences are different lengths!\nProfile=%d, Pose=%d. Generating new '
+                    'profile' % (des_dir.path, len(full_pssm), len(template_residues)))
+                rerun = True
+
+            if not rerun:
+                # Check sequence from Pose and PSSM to compare identity before proceeding
+                pssm_res, pose_res = {}, {}
+                for res in range(len(template_residues)):
+                    pssm_res[res] = full_pssm[res]['type']
+                    pose_res[res] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
+                    if pssm_res[res] != pose_res[res]:
+                        logger.warning(
+                            '%s: Profile and Pose sequences are different!\nResidue %d: Profile=%s, Pose=%s. '
+                            'Generating new profile' % (des_dir.path, res + SDUtils.index_offset, pssm_res[res],
+                                                        pose_res[res]))
+                        rerun = True
+                        break
+
+            if rerun:
+                if second:
+                    logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
+                    raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
+                    # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
+                pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
+                rerun, second = False, True
+            else:
+                break
+            logger.debug('Position Specific Scoring Matrix: %s' % str(full_pssm))
+
 
         # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
         fragment_range = SequenceProfile.parameterize_frag_length(frag_size)
@@ -52,6 +227,295 @@ class SequenceProfile:
         residue_cluster_map = SequenceProfile.convert_to_residue_cluster_map(frag_residue_object_d, fragment_range)
         # ^cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
         #             Where the key is the 0 indexed residue id
+
+        # # TODO all_frags
+        cluster_residue_pose_d = SequenceProfile.residue_object_to_number(frag_residue_object_d)
+        # logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
+        # # ^{cluster: [(78, 87, ...), ...]...}
+        residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
+                            for residue_set in cluster_residue_pose_d[cluster]}  # blue
+        # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
+        # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
+        residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
+                                 for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
+
+        # remove entries which don't exist on protein because of fragment_index +- residues
+        not_available = []
+        for residue in residue_cluster_map:
+            if residue >= len(full_design_dict) or residue < 0:
+                not_available.append(residue)
+                logger.warning('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
+                               'Fragment index will be deleted.' % (des_dir.path, residue + SDUtils.index_offset))
+        for residue in not_available:
+            residue_cluster_map.pop(residue)
+        logger.debug('Residue Cluster Map: %s' % str(residue_cluster_map))
+
+        cluster_dicts = SequenceProfile.get_cluster_dicts(db=frag_db, id_list=[j for j in frag_cluster_residue_d])
+        full_cluster_dict = SequenceProfile.deconvolve_clusters(cluster_dicts, full_design_dict, residue_cluster_map)
+        final_issm = SequenceProfile.flatten_for_issm(full_cluster_dict,
+                                                      keep_extras=False)  # =False added for pickling 6/14/20
+        interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_type, out_path=des_dir.data)
+        logger.debug('Fragment Specific Scoring Matrix: %s' % str(final_issm))
+
+        # Make DSSM by combining fragment and evolutionary profile
+        fragment_alpha = SequenceProfile.find_alpha(final_issm, residue_cluster_map, db=frag_db)
+        dssm = SequenceProfile.combine_ssm(full_pssm, final_issm, fragment_alpha, db=frag_db, boltzmann=True)
+        dssm_file = SequenceProfile.make_pssm_file(dssm, PUtils.dssm, outpath=des_dir.path)
+        # logger.debug('Design Specific Scoring Matrix: %s' % dssm)
+
+        # # Set up consensus design # TODO all_frags
+        # # Combine residue fragment information to find residue sets for consensus
+        # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
+        final_issm = SequenceProfile.offset_index(final_issm)  # change so it is one-indexed
+        frag_overlap = SequenceProfile.fragment_overlap(final_issm, interface_residue_edges,
+                                                        residue_freq_map)  # all one-indexed
+
+        # solve for consensus residues using the residue graph
+        consensus_residues = {}
+        all_pose_fragment_pairs = list(residue_freq_map.keys())
+        residue_cluster_map = SequenceProfile.offset_index(residue_cluster_map)  # change so it is one-indexed
+        # for residue in residue_cluster_map:
+        for residue, partner in all_pose_fragment_pairs:
+            for idx, cluster in residue_cluster_map[residue]['cluster']:
+                if idx == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
+                    for idx_p, cluster_p in residue_cluster_map[partner]['cluster']:
+                        if idx_p == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
+                            if residue_cluster_map[residue]['chain'] == 'mapped':
+                                # choose first AA from AA tuple in residue frequency d
+                                aa_i, aa_j = 0, 1
+                            else:  # choose second AA from AA tuple in residue frequency d
+                                aa_i, aa_j = 1, 0
+                            for pair_freq in cluster_freq_tuple_d[cluster]:
+                                # if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
+                                if residue in frag_overlap:  # edge case where fragment has no weight but it is center res
+                                    if pair_freq[0][aa_i] in frag_overlap[residue]:
+                                        # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
+                                        if partner in frag_overlap:
+                                            if pair_freq[0][aa_j] in frag_overlap[partner]:
+                                                consensus_residues[residue] = pair_freq[0][aa_i]
+                                                break  # because pair_freq's are sorted we end at the highest matching pair
+
+        consensus = {residue: dssm[residue]['type'] for residue in dssm}
+        # ^{0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
+        consensus.update(consensus_residues)
+        consensus = SequenceProfile.offset_index(consensus)
+
+    # @staticmethod
+    def format_frequencies(self, frequency_list, flip=False):
+        """Format list of paired frequency data into parsable paired format
+
+        Args:
+            frequency_list (list): [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
+        Keyword Args:
+            flip=False (bool): Whether to invert the mapping of internal tuple
+        Returns:
+            (dict): {'A': {'S': 0.02, 'T': 0.12}, ...}
+        """
+        if flip:
+            i, j = 1, 0
+        else:
+            i, j = 0, 1
+        freq_d = {}
+        for tup in frequency_list:
+            aa_mapped = tup[0][i]  # 0
+            aa_paired = tup[0][j]  # 1
+            freq = tup[1]
+            if aa_mapped in freq_d:
+                freq_d[aa_mapped][aa_paired] = freq
+            else:
+                freq_d[aa_mapped] = {aa_paired: freq}
+
+        return freq_d
+
+    # def gather_profile_info(self, des_dir):
+    #     """For a given PDB, find the chain wise profile (pssm) then combine into one continuous pssm
+    #
+    #     Args:
+    #         des_dir (DesignDirectory): Location of which to write output files in the design tree
+    #         log_stream (logging): Which log to pass logging directives to
+    #     """
+    #     errors, pdb_seq_file = {}, {}
+    #     logger.debug('Fetching PSSM Files')
+    #
+    #     # for n, name in enumerate(names):
+    #     # Extract/Format Sequence Information
+    #     # for n, entity in enumerate(self.pdb.entities):  # Todo remove the entities descriptor, only one entity/profile
+    #     # if pssm_files[name] == dict():
+    #     chain_name = self.structure.get_chain_name()  # Doesn't work with PDB
+    #     entity_name = self.structure.get_name()
+    #     logger.debug('%s is chain %s in ASU' % (entity_name, chain_name))
+    #     # pdb_seq[name], errors[name] = extract_aa_seq(self.pdb, chain=names[name](n))
+    #     self.pdb_seq[chain_name], errors[name] = extract_aa_seq(self.structure, chain=names[name](n))
+    #     logger.debug('%s Sequence=%s' % (chain_name, self.pdb_seq[chain_name]))
+    #     if errors[name]:
+    #         logger.warning(
+    #             'Sequence generation ran into the following residue errors: %s' % ', '.join(errors[name]))
+    #     self.write_fasta_file(name='%s_%s' % (chain_name, os.path.basename(des_dir.path)), out_path=des_dir.sequences)
+    #     if not pdb_seq_file[chain_name]:
+    #         logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
+    #         raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
+    #
+    #     # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
+    #     # for name in names:
+    #     logger.info('Generating PSSM file for %s' % entity_name)
+    #     self.pssm_file = self.hhblits(out_path=des_dir.sequences)
+    #     logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
+
+    def psiblast(self, query, outpath=None, remote=False):  # TODO
+        """Generate an position specific scoring matrix using PSI-BLAST subprocess
+
+        Args:
+            query (str): Basename of the sequence to use as a query, intended for use as pdb
+        Keyword Args:
+            outpath=None (str): Disk location where generated file should be written
+            remote=False (bool): Whether to perform the serach locally (need blast installed locally) or perform search through web
+        Returns:
+            outfile_name (str): Name of the file generated by psiblast
+            p (subprocess): Process object for monitoring progress of psiblast command
+        """
+        # I would like the background to come from Uniref90 instead of BLOSUM62 #TODO
+        if outpath is not None:
+            outfile_name = os.path.join(outpath, query + '.pssm')
+            direct = outpath
+        else:
+            outfile_name = query + '.hmm'
+            direct = os.getcwd()
+        if query + '.pssm' in os.listdir(direct):
+            cmd = ['echo', 'PSSM: ' + query + '.pssm already exists']
+            p = subprocess.Popen(cmd)
+
+            return outfile_name, p
+
+        cmd = ['psiblast', '-db', PUtils.alignmentdb, '-query', query + '.fasta', '-out_ascii_pssm', outfile_name,
+               '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']
+        if remote:
+            cmd.append('-remote')
+        else:
+            cmd.append('-num_threads')
+            cmd.append('8')
+
+        p = subprocess.Popen(cmd)
+
+        return outfile_name, p
+
+    @handle_errors_f(errors=(FileNotFoundError,))
+    def parse_psiblast_pssm(self):
+        """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
+
+        Resulting residue dictionary is zero-indexed
+        Returns:
+            pose_dict (dict): Dictionary containing residue indexed profile information
+                Ex: {0: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
+                    {...}}
+        """
+        with open(self.pssm_file, 'r') as f:
+            lines = f.readlines()
+
+        for line in lines:
+            line_data = line.strip().split()
+            if len(line_data) == 44:
+                resi = int(line_data[0]) - index_offset
+                self.pssm[resi] = copy.deepcopy(aa_counts_dict)
+                for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[resi], 22):
+                    # Get normalized counts for pose_dict
+                    self.pssm[resi][aa] = (int(line_data[i]) / 100.0)
+                self.pssm[resi]['lod'] = {}
+                for i, aa in enumerate(alph_3_aa_list, 2):
+                    self.pssm[resi]['lod'][aa] = line_data[i]
+                self.pssm[resi]['type'] = line_data[1]
+                self.pssm[resi]['info'] = float(line_data[42])
+                self.pssm[resi]['weight'] = float(line_data[43])
+
+    def hhblits(self, threads=CUtils.hhblits_threads, out_path=os.getcwd()):
+        """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
+
+        Keyword Args:
+            threads=CUtils.hhblits_threads (int): Number of cpu's to use for the process
+            outpath=None (str): Disk location where generated file should be written
+        Returns:
+            outfile_name (str): Name of the file generated by hhblits
+            p (subprocess): Process object for monitoring progress of hhblits command
+        """
+
+        self.pssm_file = os.path.join(out_path, os.path.splitext(os.path.basename(self.get_name()))[0] + '.hmm')
+
+        cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', self.pdb_seq_file, '-ohhm', self.pssm_file, '-v', '1',
+               '-cpu', str(threads)]
+        logger.info('%s Profile Command: %s' % (self.get_name(), subprocess.list2cmdline(cmd)))
+        p = subprocess.Popen(cmd)
+        p.communicate()
+
+        return self.pssm_file
+
+    @handle_errors_f(errors=(FileNotFoundError,))
+    def parse_hhblits_pssm(self, null_background=True):
+        """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
+
+        Returns:
+            (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                'weight': 0.00}, {...}}
+        """
+        dummy = 0.00
+        null_bg = {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228,
+                   'I': 0.0534,
+                   'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401, 'R': 0.0599,
+                   'S': 0.0791,
+                   'T': 0.0584, 'V': 0.0632, 'W': 0.0127, 'Y': 0.0287}  # 'uniclust30_2018_08'
+
+        def to_freq(value):
+            if value == '*':
+                # When frequency is zero
+                return 0.0001
+            else:
+                # Equation: value = -1000 * log_2(frequency)
+                freq = 2 ** (-int(value) / 1000)
+                return freq
+
+        with open(self.pssm_file, 'r') as f:
+            lines = f.readlines()
+
+        read = False
+        for line in lines:
+            if not read:
+                if line[0:1] == '#':
+                    read = True
+            else:
+                if line[0:4] == 'NULL':
+                    if null_background:
+                        # use the provided null background from the profile search
+                        background = line.strip().split()
+                        null_bg = {i: {} for i in alph_3_aa_list}
+                        for i, aa in enumerate(alph_3_aa_list, 1):
+                            null_bg[aa] = to_freq(background[i])
+
+                if len(line.split()) == 23:
+                    items = line.strip().split()
+                    resi = int(items[1]) - index_offset  # make zero index so dict starts at 0
+                    self.pssm[resi] = {}
+                    for i, aa in enumerate(IUPACData.protein_letters, 2):
+                        self.pssm[resi][aa] = to_freq(items[i])
+                    self.pssm[resi]['lod'] = get_lod(self.pssm[resi], null_bg)
+                    self.pssm[resi]['type'] = items[0]
+                    self.pssm[resi]['info'] = dummy
+                    self.pssm[resi]['weight'] = dummy
+
+    def write_fasta_file(self, name=None, out_path=os.getcwd()):
+        """Write a fasta file from sequence(s)
+
+        Keyword Args:
+            name=None (str): The name of the file to output
+            out_path=os.getcwd() (str): The location on disk to output file
+        Returns:
+            (str): The name of the output file
+        """
+        if not name:
+            name = self.get_name()
+        self.pdb_seq_file = os.path.join(out_path, '%s.fasta' % name)
+        with open(self.pdb_seq_file, 'w') as outfile:
+            outfile.write('>%s\n%s\n' % (name, self.pdb_seq))
+
+        return self.pdb_seq_file
+
 
 def overlap_consensus(issm, aa_set):
     """Find the overlap constrained consensus sequence
@@ -817,3 +1281,807 @@ def sequence_difference(seq1, seq2, d=None, matrix='blosum62'):  # TODO AMS
             s += m[(tup[1], tup[0])]
 
     return s
+
+
+def gather_profile_info(pdb, des_dir, names):
+    """For a given PDB, find the chain wise profile (pssm) then combine into one continuous pssm
+
+    Args:
+        pdb (PDB): PDB to generate a profile from. Sequence is taken from the ATOM record
+        des_dir (DesignDirectory): Location of which to write output files in the design tree
+        names (dict): The pdb names and corresponding chain of each protomer in the pdb object
+        log_stream (logging): Which log to pass logging directives to
+    Returns:
+        pssm_file (str): Location of the combined pssm file written to disk
+        full_pssm (dict): A combined pssm with all chains concatenated in the same order as pdb sequence
+    """
+    pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
+    logger.debug('Fetching PSSM Files')
+
+    # Extract/Format Sequence Information
+    for n, name in enumerate(names):
+        # if pssm_files[name] == dict():
+        logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
+        pdb_seq[name], errors[name] = extract_aa_seq(pdb, chain=names[name](n))
+        logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
+        if errors[name]:
+            logger.warning('Sequence generation ran into the following residue errors: %s' % ', '.join(errors[name]))
+        pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name + '_' + os.path.basename(des_dir.path),
+                                              outpath=des_dir.sequences)
+        if not pdb_seq_file[name]:
+            logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
+            raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
+
+    # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
+    for name in names:
+        logger.info('Generating PSSM file for %s' % name)
+        pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name], outpath=des_dir.sequences)
+        logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
+
+    # Wait for PSSM command to complete
+    for name in names:
+        pssm_process[name].communicate()
+
+    # Extract PSSM for each protein and combine into single PSSM
+    pssm_dict = {}
+    for name in names:
+        pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
+    full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
+    pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
+
+    return pssm_file, full_pssm
+
+
+def remove_non_mutations(frequency_msa, residue_list):
+    """Keep residues which are present in provided list
+
+    Args:
+        frequency_msa (dict): {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...}
+        residue_list (list): [15, 16, 18, 20, 34, 35, 67, 108, 119]
+    Returns:
+        mutation_dict (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+    """
+    mutation_dict = {}
+    for residue in frequency_msa:
+        if residue in residue_list:
+            mutation_dict[residue] = frequency_msa[residue]
+
+    return mutation_dict
+
+
+def return_consensus_design(frequency_sorted_msa):
+    for residue in frequency_sorted_msa:
+        if residue == 0:
+            pass
+        else:
+            if len(frequency_sorted_msa[residue]) > 2:
+                for alternative in frequency_sorted_msa[residue]:
+                    # Prepare for Letter sorting SchemA
+                    sequence_logo = None
+            else:
+                # DROP from analysis...
+                frequency_sorted_msa[residue] = None
+
+
+def pos_specific_jsd(msa, background):
+    """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
+
+    Both msa_dictionary and background must be the same index
+    Args:
+        msa (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+        background (dict): {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
+            Must contain residue index with inner dictionary of single amino acid types
+    Returns:
+        divergence_dict (dict): {15: 0.732, 16: 0.552, ...}
+    """
+    return {residue: res_divergence(msa[residue], background[residue]) for residue in msa if residue in background}
+
+
+def res_divergence(position_freq, bgd_freq, jsd_lambda=0.5):
+    """Calculate residue specific Jensen-Shannon Divergence value
+
+    Args:
+        position_freq (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+        bgd_freq (dict): {15: {'A': 0, 'R': 0, ...}
+    Keyword Args:
+        jsd_lambda=0.5 (float): Value bounded between 0 and 1
+    Returns:
+        divergence (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
+    """
+    sum_prob1, sum_prob2 = 0, 0
+    for aa in position_freq:
+        p = position_freq[aa]
+        q = bgd_freq[aa]
+        r = (jsd_lambda * p) + ((1 - jsd_lambda) * q)
+        if r == 0:
+            continue
+        if q != 0:
+            prob2 = (q * math.log(q / r, 2))
+            sum_prob2 += prob2
+        if p != 0:
+            prob1 = (p * math.log(p / r, 2))
+            sum_prob1 += prob1
+    divergence = round(jsd_lambda * sum_prob1 + (1 - jsd_lambda) * sum_prob2, 3)
+
+    return divergence
+
+
+def create_bio_msa(sequence_dict):
+    """
+    Args:
+        sequence_dict (dict): {name: sequence, ...}
+            ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+    Returns:
+        new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
+                                               SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
+    """
+    sequences = [SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
+    new_alignment = MultipleSeqAlignment(sequences)
+
+    return new_alignment
+
+
+def generate_mutations(all_design_files, wild_type_file, pose_num=False):
+    """From a list of PDB's and a wild-type PDB, generate a list of 'A5K' style mutations
+
+    Args:
+        all_design_files (list): PDB files on disk to extract sequence info and compare
+        wild_type_file (str): PDB file on disk which contains a reference sequence
+    Returns:
+        mutations (dict): {'file_name': {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+    """
+    pdb_dict = {'ref': SDUtils.read_pdb(wild_type_file)}
+    for file_name in all_design_files:
+        pdb = SDUtils.read_pdb(file_name)
+        pdb.set_name(os.path.splitext(os.path.basename(file_name))[0])
+        pdb_dict[pdb.name] = pdb
+
+    return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
+
+
+def read_fasta_file(file_name):
+    """Returns an iterator of SeqRecords"""
+    return SeqIO.parse(file_name, "fasta")
+    # sequence_records = [record for record in SeqIO.parse(file_name, "fasta")]
+    # return sequence_records
+
+
+def write_fasta(sequence_records, file_name):
+    """Writes an iterator of SeqRecords to a file. The file name is returned"""
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
+    return '%s.fasta' % file_name
+
+
+def concatenate_fasta_files(file_names, output='concatenated_fasta'):
+    """Take multiple fasta files and concatenate into a single file"""
+    seq_records = [read_fasta_file(file) for file in file_names]
+    return write_fasta(list(chain.from_iterable(seq_records)), output)
+
+
+def write_fasta_file(sequence, name, outpath=os.getcwd()):
+    """Write a fasta file from sequence(s)
+
+    Args:
+        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(name, sequence),
+            list of lists, etc. Smart solver using object type
+        name (str): The name of the file to output
+    Keyword Args:
+        path=os.getcwd() (str): The location on disk to output file
+    Returns:
+        (str): The name of the output file
+    """
+    file_name = os.path.join(outpath, name + '.fasta')
+    with open(file_name, 'w') as outfile:
+        if type(sequence) is list:
+            if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
+                for idx, seq in enumerate(sequence):
+                    outfile.write('>%s_%d\n' % (name, idx))  # header
+                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
+                        outfile.write(' '.join(aa for aa in seq))
+                    else:
+                        outfile.write(''.join(aa for aa in seq))
+            elif isinstance(sequence[0], str):
+                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
+            elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
+                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
+            else:
+                raise SDUtils.DesignError('Cannot parse data to make fasta')
+        elif isinstance(sequence, dict):
+            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
+        elif isinstance(sequence, str):
+            outfile.write('>%s\n%s\n' % (name, sequence))
+        else:
+            raise SDUtils.DesignError('Cannot parse data to make fasta')
+
+    return file_name
+
+
+def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
+    """Extracts amino acid sequence from either ATOM or SEQRES record of PDB object
+    Returns:
+        (str): Sequence of PDB
+    """
+    if type(chain) == int:
+        chain = pdb.chain_id_list[chain]
+    final_sequence = None
+    sequence_list = []
+    failures = []
+    aa_code = int(aa_code)
+
+    if source == 'atom':
+        # Extracts sequence from ATOM records
+        if aa_code == 1:
+            for atom in pdb.all_atoms:
+                if atom.chain == chain and atom.type == 'N' and (atom.alt_location == '' or atom.alt_location == 'A'):
+                    try:
+                        sequence_list.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
+                    except KeyError:
+                        sequence_list.append('X')
+                        failures.append((atom.residue_number, atom.residue_type))
+            final_sequence = ''.join(sequence_list)
+        elif aa_code == 3:
+            for atom in pdb.all_atoms:
+                if atom.chain == chain and atom.type == 'N' and atom.alt_location == '' or atom.alt_location == 'A':
+                    sequence_list.append(atom.residue_type)
+            final_sequence = sequence_list
+        else:
+            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
+
+    elif source == 'seqres':
+        # Extract sequence from the SEQRES record
+        fail = False
+        while True:  # TODO WTF is this used for
+            if chain in pdb.seqres_sequences:
+                sequence = pdb.seqres_sequences[chain]
+                break
+            else:
+                if not fail:
+                    temp_pdb = PDB.PDB(file=pdb.filepath)
+                    fail = True
+                else:
+                    raise SDUtils.DesignError('Invalid PDB input, no SEQRES record found')
+        if aa_code == 1:
+            final_sequence = sequence
+            for i in range(len(sequence)):
+                if sequence[i] == 'X':
+                    failures.append((i, sequence[i]))
+        elif aa_code == 3:
+            for i, residue in enumerate(sequence):
+                sequence_list.append(IUPACData.protein_letters_1to3[residue])
+                if residue == 'X':
+                    failures.append((i, residue))
+            final_sequence = sequence_list
+        else:
+            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
+    else:
+        raise SDUtils.DesignError('Invalid sequence input')
+
+    return final_sequence, failures
+
+
+def pdb_to_pose_num(reference_dict):
+    """Take a dictionary with chain name as keys and return the length of values as reference length
+
+    Order of dictionary must maintain chain order, so 'A', 'B', 'C'. Python 3.6+ should be used
+    """
+    offset_dict = {}
+    prior_chain, prior_chains_len = None, 0
+    for i, chain in enumerate(reference_dict):
+        if i > 0:
+            prior_chains_len += len(reference_dict[prior_chain])
+        offset_dict[chain] = prior_chains_len
+        # insert function here? Make this a decorator!?
+        prior_chain = chain
+
+    return offset_dict
+
+
+def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', mutation=False, pose_num=True,
+                              outpath=None):
+    """Extract the sequence from PDB objects
+
+    Args:
+        pdb_class_dict (dict): {pdb_code: PDB object, ...}
+    Keyword Args:
+        aa_code=1 (int): Whether to return sequence with one-letter or three-letter code [1,3]
+        seq_source='atom' (str): Whether to return the ATOM or SEQRES record ['atom','seqres','compare']
+        mutation=False (bool): Whether to return mutations in sequences compared to a reference.
+            Specified by pdb_code='ref'
+        outpath=None (str): Where to save the results to disk
+    Returns:
+        mutation_dict (dict): IF mutation=True {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...},
+            ...}
+        or
+        sequence_dict (dict): ELSE {pdb: {chain_id: 'Sequence', ...}, ...}
+    """
+    reference_seq_dict = None
+    if mutation:
+        # If looking for mutations, the reference PDB object should be given as 'ref' in the dictionary
+        if 'ref' not in pdb_class_dict:
+            sys.exit('No reference sequence specified, but mutations requested. Include a key \'ref\' in PDB dict!')
+        reference_seq_dict = {}
+        fail_ref = []
+        reference = pdb_class_dict['ref']
+        for chain in pdb_class_dict['ref'].chain_id_list:
+            reference_seq_dict[chain], fail = extract_aa_seq(reference, aa_code, seq_source, chain)
+            if fail != list():
+                fail_ref.append((reference, chain, fail))
+
+        if fail_ref:
+            logger.error('Ran into following errors generating mutational analysis reference:\n%s' % str(fail_ref))
+
+    if seq_source == 'compare':
+        mutation = True
+
+    def handle_extraction(pdb_code, _pdb, _aa, _source, _chain):
+        if _source == 'compare':
+            sequence1, failures1 = extract_aa_seq(_pdb, _aa, 'atom', _chain)
+            sequence2, failures2 = extract_aa_seq(_pdb, _aa, 'seqres', _chain)
+            _offset = True
+        else:
+            sequence1, failures1 = extract_aa_seq(_pdb, _aa, _source, _chain)
+            sequence2 = reference_seq_dict[_chain]
+            sequence_dict[pdb_code][_chain] = sequence1
+            _offset = False
+        if mutation:
+            seq_mutations = generate_mutations_from_seq(sequence1, sequence2, offset=_offset)
+            mutation_dict[pdb_code][_chain] = seq_mutations
+        if failures1:
+            error_list.append((_pdb, _chain, failures1))
+
+    error_list = []
+    sequence_dict = {}
+    mutation_dict = {}
+    for pdb in pdb_class_dict:
+        sequence_dict[pdb] = {}
+        mutation_dict[pdb] = {}
+        # if pdb == 'ref':
+        # if len(chain_dict[pdb]) > 1:
+        #     for chain in chain_dict[pdb]:
+        for chain in pdb_class_dict[pdb].chain_id_list:
+            handle_extraction(pdb, pdb_class_dict[pdb], aa_code, seq_source, chain)
+        # else:
+        #     handle_extraction(pdb, pdb_class_dict[pdb], aa_code, seq_source, chain_dict[pdb])
+
+    if outpath:
+        sequences = {}
+        for pdb in sequence_dict:
+            for chain in sequence_dict[pdb]:
+                sequences[pdb + '_' + chain] = sequence_dict[pdb][chain]
+        filepath = write_multi_line_fasta_file(sequences, 'sequence_extraction.fasta', path=outpath)
+        logger.info('The following file was written:\n%s' % filepath)
+
+    if error_list:
+        logger.error('The following residues were not extracted:\n%s' % str(error_list))
+
+    if mutation:
+        for chain in reference_seq_dict:
+            for i, aa in enumerate(reference_seq_dict[chain]):
+                mutation_dict['ref'][chain][i + index_offset] = {'from': reference_seq_dict[chain][i],
+                                                                 'to': reference_seq_dict[chain][i]}
+        if pose_num:
+            new_mutation_dict = {}
+            offset_dict = pdb_to_pose_num(reference_seq_dict)
+            for chain in offset_dict:
+                for pdb in mutation_dict:
+                    if pdb not in new_mutation_dict:
+                        new_mutation_dict[pdb] = {}
+                    new_mutation_dict[pdb][chain] = {}
+                    for mutation in mutation_dict[pdb][chain]:
+                        new_mutation_dict[pdb][chain][mutation+offset_dict[chain]] = mutation_dict[pdb][chain][mutation]
+            mutation_dict = new_mutation_dict
+
+        return mutation_dict
+    else:
+        return sequence_dict
+
+
+def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False):
+    """Takes a list of sequence mutations and returns the mutated form on wildtype
+
+    Args:
+        wild_type (str): Sequence to mutate
+        mutation_dict (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
+    Keyword Args:
+        aligned=False (bool): Whether the input sequences are already aligned
+        output=False (bool): Whether to make a .fasta file of the sequence
+    Returns:
+        all_sequences (dict): {name: sequence, ...}
+    """
+    return {pdb: make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned) for pdb in mutation_dict}
+
+
+def make_mutations(seq, mutations, find_orf=True):
+    """Modify a sequence to contain mutations specified by a mutation dictionary
+
+    Args:
+        seq (str): 'Wild-type' sequence to mutate
+        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
+    Keyword Args:
+        find_orf=True (bool): Whether or not to find the correct ORF for the mutations and the seq
+    Returns:
+        seq (str): The mutated sequence
+    """
+    # Seq can be either list or string
+    if find_orf:
+        offset = -find_orf_offset(seq, mutations)
+        logger.info('Found ORF. Offset = %d' % -offset)
+    else:
+        offset = index_offset
+
+    # zero index seq and 1 indexed mutation_dict
+    index_errors = []
+    for key in mutations:
+        try:
+            if seq[key - offset] == mutations[key]['from']:  # adjust seq for zero index slicing
+                seq = seq[:key - offset] + mutations[key]['to'] + seq[key - offset + 1:]
+            else:  # find correct offset, or mark mutation source as doomed
+                index_errors.append(key)
+        except IndexError:
+            print(key - offset)
+    if index_errors:
+        logger.warning('Index errors:\n%s' % str(index_errors))
+
+    return seq
+
+
+def find_orf_offset(seq, mutations):
+    """Using one sequence and mutation data, find the sequence offset which matches mutations closest
+
+    Args:
+        seq (str): 'Wild-type' sequence to mutate in 1 letter format
+        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
+    Returns:
+        orf_offset_index (int): The index to offset the sequence by in order to match the mutations the best
+    """
+    unsolvable = False
+    # for idx, aa in enumerate(seq):
+    #     if aa == 'M':
+    #         met_offset_d[idx] = 0
+    met_offset_d = {idx: 0 for idx, aa in enumerate(seq) if aa == 'M'}
+    methionine_positions = list(met_offset_d.keys())
+
+    while True:
+        if met_offset_d == dict():  # MET is missing/not the ORF start
+            met_offset_d = {start_idx: 0 for start_idx in range(0, 50)}
+
+        # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
+        for test_orf_index in met_offset_d:
+            for mutation_index in mutations:
+                try:
+                    if seq[test_orf_index + mutation_index - index_offset] == mutations[mutation_index]['from']:
+                        met_offset_d[test_orf_index] += 1
+                except IndexError:
+                    break
+
+        max_count = np.max(list(met_offset_d.values()))
+        # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
+        if max_count < len(mutations) / 2:
+            if unsolvable:
+                return 0  # TODO return not index change?
+                # break
+            unsolvable = True
+            met_offset_d = {}
+        else:
+            for offset in met_offset_d:  # offset is index here
+                if max_count == met_offset_d[offset]:
+                    orf_offset_index = offset  # + index_offset  # change to one-index
+                    break
+
+            closest_met = None
+            for met in methionine_positions:
+                if met <= orf_offset_index:
+                    closest_met = met
+                else:
+                    if closest_met is not None:
+                        orf_offset_index = closest_met  # + index_offset # change to one-index
+                    break
+
+            break
+            # orf_offset_index = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
+
+    return orf_offset_index
+
+
+def generate_alignment(seq1, seq2, matrix='blosum62'):
+    """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
+
+    Returns:
+
+    """
+    _matrix = getattr(matlist, matrix)
+    gap_penalty = -10
+    gap_ext_penalty = -1
+    # Create sequence alignment
+    return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+
+
+def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
+                                only_gaps=False):
+    """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from' and
+        'to' keywords
+
+    Indexed so first residue is 1. For PDB file comparison, mutant should be crystal sequence (ATOM), reference should
+        be expression sequence (SEQRES). only_gaps=True will return only the gapped area while blanks=True will return
+        all differences between the alignment sequences
+    Args:
+        mutant (str): Mutant sequence. Will be in the 'to' key
+        reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
+    Keyword Args:
+        offset=True (bool): Whether to calculate alignment offset
+        blanks=False (bool): Whether to include all indices that are outside the reference sequence or missing residues
+        termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
+        reference_gaps=False (bool): Whether to include indices that are missing residues inside the reference sequence
+        only_gaps=False (bool): Whether to only include all indices that are missing residues
+    Returns:
+        mutations (dict): {index: {'from': 'A', 'to': 'K'}, ...}
+    """
+    # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
+    if offset:
+        alignment = generate_alignment(mutant, reference)
+        align_seq_1 = alignment[0][0]
+        align_seq_2 = alignment[0][1]
+    else:
+        align_seq_1 = mutant
+        align_seq_2 = reference
+
+    # Extract differences from the alignment
+    starting_index_of_seq2 = align_seq_2.find(reference[0])
+    ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
+    mutations = {}
+    for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
+        if seq1_aa != seq2_aa:
+            mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
+            # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
+
+    remove_mutation_list = []
+    if only_gaps:  # remove the actual mutations
+        for entry in mutations:
+            if entry > 0 or entry <= ending_index_of_seq2:
+                if mutations[entry]['to'] != '-':
+                    remove_mutation_list.append(entry)
+        blanks = True
+    if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
+        termini, reference_gaps = True, True
+        # for entry in mutations:
+        #     for index in mutations[entry]:
+        #         if mutations[entry][index] == '-':
+        #             remove_mutation_list.append(entry)
+    if not termini:  # Remove indices outside of sequence 2
+        for entry in mutations:
+            if entry < 0 or entry > ending_index_of_seq2:
+                remove_mutation_list.append(entry)
+    if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
+        for entry in mutations:
+            if entry > 0 or entry <= ending_index_of_seq2:
+                if mutations[entry]['to'] == '-':
+                    remove_mutation_list.append(entry)
+
+    for entry in remove_mutation_list:
+        if entry in mutations:
+            mutations.pop(entry)
+
+    return mutations
+
+
+def make_mutations_chain_agnostic(mutation_dict):
+    """Remove chain identifier from mutation dictionary
+
+    Args:
+        mutation_dict (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+    Returns:
+        flattened_dict (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
+    """
+    flattened_dict = {}
+    for pdb in mutation_dict:
+        flattened_dict[pdb] = {}
+        for chain in mutation_dict[pdb]:
+            flattened_dict[pdb].update(mutation_dict[pdb][chain])
+
+    return flattened_dict
+
+
+def simplify_mutation_dict(mutation_dict, to=True):
+    """Simplify mutation dictionary to 'to'/'from' AA key
+
+    Args:
+        mutation_dict (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+    Keyword Args:
+        to=True (bool): Whether to use 'to' AA (True) or 'from' AA (False)
+    Returns:
+        mutation_dict (dict): {pdb: {mutation_index: 'K', ...}, ...}
+    """
+    simplification = get_mutation_to
+    if not to:
+        simplification = get_mutation_from
+
+    for pdb in mutation_dict:
+        for index in mutation_dict[pdb]:
+            mutation_dict[pdb][index] = simplification(mutation_dict[pdb][index])
+
+    return mutation_dict
+
+
+def get_mutation_from(mutation_dict):
+    """Remove 'to' identifier from mutation dictionary
+
+    Args:
+        mutation_dict (dict): {mutation_index: {'from': 'A', 'to': 'K'}, ...},
+    Returns:
+        mutation_dict (str): 'A'
+    """
+    return mutation_dict['from']
+
+
+def get_mutation_to(mutation_dict):
+    """Remove 'from' identifier from mutation dictionary
+    Args:
+        mutation_dict (dict): {mutation_index: {'from': 'A', 'to': 'K'}, ...},
+    Returns:
+        mutation_dict (str): 'K'
+    """
+    return mutation_dict['to']
+
+
+def generate_sequences(wild_type_seq_dict, all_design_mutations):
+    """Separate chains from mutation dictionary and generate mutated sequences
+
+    Args:
+        wild_type_seq_dict (dict): {chain: sequence, ...}
+        all_design_mutations (dict): {'name': {chain: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
+            Index so mutation_index starts at 1
+    Returns:
+        mutated_sequences (dict): {chain: {name: sequence, ...}
+    """
+    mutated_sequences = {}
+    for chain in wild_type_seq_dict:
+        chain_mutation_dict = {}
+        for pdb in all_design_mutations:
+            if chain in all_design_mutations[pdb]:
+                chain_mutation_dict[pdb] = all_design_mutations[pdb][chain]
+        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_seq_dict[chain], chain_mutation_dict,
+                                                                 aligned=True)
+
+    return mutated_sequences
+
+
+def get_wildtype_file(des_directory):
+    """Retrieve the wild-type file name from Design Directory"""
+    # wt_file = glob(os.path.join(des_directory.building_blocks, PUtils.clean))
+    wt_file = glob(os.path.join(des_directory.path, PUtils.clean))
+    assert len(wt_file) == 1, '%s: More than one matching file found with %s' % (des_directory.path, PUtils.asu)
+    return wt_file[0]
+    # for file in os.listdir(des_directory.building_blocks):
+    #     if file.endswith(PUtils.asu):
+    #         return os.path.join(des_directory.building_blocks, file)
+
+
+def get_pdb_sequences(pdb, chain=None, source='atom'):
+    """Return all sequences or those specified by a chain from a PDB file
+
+    Args:
+        pdb (str or PDB): Location on disk of a reference .pdb file or PDB object
+    Keyword Args:
+        chain=None (str): If a particular chain is desired, specify it
+        source='atom' (str): One of 'atom' or 'seqres'
+    Returns:
+        wt_seq_dict (dict): {chain: sequence, ...}
+    """
+    if not isinstance(pdb, PDB.PDB):
+        pdb = SDUtils.read_pdb(pdb)
+
+    seq_dict = {}
+    for _chain in pdb.chain_id_list:
+        seq_dict[_chain], fail = extract_aa_seq(pdb, source=source, chain=_chain)
+    if chain:
+        seq_dict = SDUtils.clean_dictionary(seq_dict, chain, remove=False)
+
+    return seq_dict
+
+
+def mutate_wildtype_sequences(sequence_dir_files, wild_type_file):
+    """Take a directory with PDB files and compare to a Wild-type PDB"""
+    wt_seq_dict = get_pdb_sequences(wild_type_file)
+    return generate_sequences(wt_seq_dict, generate_mutations(sequence_dir_files, wild_type_file))
+
+
+def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, des_divergence):
+    """Make final dictionary, index to sequence
+
+    Args:
+        sorted_freq (dict): {15: ['S', 'A', 'T'], ... }
+        mut_prob (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+        resi_divergence (dict): {15: 0.732, 16: 0.552, ...}
+        int_divergence (dict): {15: 0.732, 16: 0.552, ...}
+        des_divergence (dict): {15: 0.732, 16: 0.552, ...}
+    Returns:
+        weaved_dict (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
+    """
+    weaved_dict = {}
+    for residue in sorted_freq:
+        final_resi = residue + SDUtils.index_offset
+        weaved_dict[final_resi] = {}
+        for aa in sorted_freq[residue]:
+            weaved_dict[final_resi][aa] = round(mut_prob[residue][aa], 3)
+        weaved_dict[final_resi]['jsd'] = resi_divergence[residue]
+        weaved_dict[final_resi]['int_jsd'] = int_divergence[residue]
+        weaved_dict[final_resi]['des_jsd'] = des_divergence[residue]
+
+    return weaved_dict
+
+
+def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_prob, resi_divergence, int_divergence):
+    """Make final dictionary indexed to sequence, from same-indexed, residue numbered, sequence dictionaries
+
+    Args:
+        *args (dict)
+    Keyword Args:
+        base=None (dict): Original dictionary
+        **kwargs (dict): key=dictionary pairs to include in the final dictionary
+            sorted_freq={15: ['S', 'A', 'T'], ... }, mut_prob={15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...},
+                divergence (dict): {15: 0.732, 16: 0.552, ...}
+    Returns:
+        weaved_dict (dict): {16: {'freq': {'S': 0.134, 'A': 0.050, ...,} 'jsd': 0.732, 'int_jsd': 0.412}, ...}
+    """
+    if base_dict:
+        weaved_dict = base_dict
+    else:
+        weaved_dict = {}
+
+    # print('kwargs', kwargs)
+    for seq_dict in kwargs:
+        # print('seq_dict', seq_dict)
+        for residue in kwargs[seq_dict]:
+            if residue not in weaved_dict:
+                weaved_dict[residue] = {}
+            # else:
+            #     weaved_dict[residue][seq_dict] = {}
+            if isinstance(kwargs[seq_dict][residue], dict):  # TODO make endlessly recursive?
+                weaved_dict[residue][seq_dict] = {}
+                for sub_key in kwargs[seq_dict][residue]:  # kwargs[seq_dict][residue]
+                    weaved_dict[residue][seq_dict][sub_key] = kwargs[seq_dict][residue][sub_key]
+            else:
+                weaved_dict[residue][seq_dict] = kwargs[seq_dict][residue]
+
+    # ensure all residues in weaved_dict have every keyword
+    # missing_keys = {}
+    # for residue in weaved_dict:
+    #     missing_set = set(kwargs.keys()) - set(weaved_dict[residue].keys())
+    #     if missing_set:
+    #         for missing in missing_set:
+    #             weaved_dict[residue][missing] = None
+        # missing_keys[residue] = set(kwargs.keys()) - set(weaved_dict[residue].keys())
+    # for residue in missing_keys:
+
+    return weaved_dict
+
+
+def multi_chain_alignment(mutated_sequences):
+    """Combines different chain's Multiple Sequence Alignments into a single MSA
+
+    Args:
+        mutated_sequences (dict): {chain: {name: sequence, ...}
+    Returns:
+        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...,
+                                'query_with_gaps': 'MGS---THLVLK...'}}
+                                'counts': {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
+                                'rep': {0: 210, 1: 211, 2:211, ...}}
+            Zero-indexed counts and rep dictionary elements
+    """
+    alignment = {chain: create_bio_msa(mutated_sequences[chain]) for chain in mutated_sequences}
+
+    # Combine alignments for all chains from design file Ex: A: 1-102, B: 130. Alignment: 1-232
+    first = True
+    total_alignment = None
+    for chain in alignment:
+        if first:
+            total_alignment = alignment[chain][:, :]
+            first = False
+        else:
+            total_alignment += alignment[chain][:, :]
+
+    if total_alignment:
+        return SDUtils.process_alignment(total_alignment)
+    else:
+        logger.error('%s - No sequences were found!' % multi_chain_alignment.__name__)
+        raise SDUtils.DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)

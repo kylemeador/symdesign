@@ -97,10 +97,12 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
         self.degen1 = None
         self.degen2 = None
 
-        self.residue_cluster_d = {}
+        self.fragment_cluster_residue_d = {}
         self.transform_d = {}
         self.z_value_dict = {}
         self.nanohedra_score = None
+        self.ave_z = None
+        self.num_fragments = None
 
     def __str__(self):
         if self.symmetry:
@@ -287,33 +289,54 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
                     else:
                         self.degen2 = 1  # No degens becomes a single degen
 
+    def pose_score(self):
+        """Returns: (dict): """
+        return self.nanohedra_score
+
+    def pose_metrics(self):
+        """Returns: (dict): {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': }
+        """
+        return {'nanohedra_score': self.nanohedra_score, 'average_fragment_z_score': self.ave_z,
+                'unique_fragments': self.num_fragments}
+
+    def pose_fragments(self):
+        """Returns: (dict): {'1_2_24': [(78, 87, ...), ...], ...}
+        """
+        return self.fragment_cluster_residue_d
+
+    def pose_transformation(self):
+        """Returns: (dict): {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
+        """
+        return self.transform_d
+
     @handle_errors_f(errors=(FileNotFoundError, ))
-    def gather_pose_metrics(self, init=False, score=False):
+    def gather_pose_metrics(self, cluster=False, transform=False, score=False):
         """Gather docking metrics from Nanohedra output
 
         Keyword Args:
-            init=False (bool): Whether the information requested is for pose initialization
+            cluster=False (bool): Whether the information requested is for pose initialization
+            transform=False (bool): Whether the information requested is for pose symmetry initialization
             score=False (bool): Whether to return the score information only
         Returns:
             (dict): Either {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': }
-                transform_d {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
-                when clusters=False or {'1_2_24': [(78, 87, ...), ...], ...}
+                when transform=True  {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
+                when clusters=True {'1_2_24': [(78, 87, ...), ...], ...}
         """
         with open(os.path.join(self.path, PUtils.frag_file), 'r') as f:
             frag_match_info_file = f.readlines()
             for line in frag_match_info_file:
                 if line[:12] == 'Cluster ID: ':
                     cluster = line[12:].split()[0].strip().replace('i', '').replace('j', '').replace('k', '')
-                    if cluster not in self.residue_cluster_d:
+                    if cluster not in self.fragment_cluster_residue_d:
                         # residue_cluster_d[cluster] = []  # TODO make compatible
-                        self.residue_cluster_d[cluster] = {'pair': []}
+                        self.fragment_cluster_residue_d[cluster] = {'pair': []}
                     continue
                 elif line[:40] == 'Cluster Central Residue Pair Frequency: ':
                     # pair_freq = loads(line[40:])
                     # pair_freq = list(eval(line[40:].lstrip('[').rstrip(']')))  # .split(', ')
                     pair_freq = list(eval(line[40:]))  # .split(', ')
                     # pair_freq = list(map(eval, pair_freq_list))
-                    self.residue_cluster_d[cluster]['freq'] = pair_freq
+                    self.fragment_cluster_residue_d[cluster]['freq'] = pair_freq
                     continue
                 # Cluster Central Residue Pair Frequency:
                 # [(('L', 'Q'), 0.2429), (('A', 'D'), 0.0571), (('V', 'D'), 0.0429), (('L', 'E'), 0.0429),
@@ -333,7 +356,7 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
                     # Always contains J fragment and Guide Atoms? #JOSH
                     res_chain2 = int(line[43:].strip())
                     # residue_cluster_d[cluster].append((res_chain1, res_chain2))
-                    self.residue_cluster_d[cluster]['pair'].append((res_chain1, res_chain2))
+                    self.fragment_cluster_residue_d[cluster]['pair'].append((res_chain1, res_chain2))
                     continue
                 elif line[:17] == 'Overlap Z-Value: ':
                     try:
@@ -381,21 +404,23 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
                 # SETTING MATRIX PDB1: [[0.707107, 0.408248, 0.57735], [-0.707107, 0.408248, 0.57735], [0.0, -0.816497, 0.57735]]
                 # REFERENCE FRAME Tx PDB1: None
 
-        if init:
-            for cluster in self.residue_cluster_d:
-                self.residue_cluster_d[cluster]['pair'] = list(set(residue_cluster_d[cluster]['pair']))
+        # if cluster:
+        for cluster in self.fragment_cluster_residue_d:
+            self.fragment_cluster_residue_d[cluster]['pair'] = list(set(residue_cluster_d[cluster]['pair']))
 
-            return self.residue_cluster_d, self.transform_d
-        elif score:
-            return self.nanohedra_score
-        else:
-            fragment_z_total = 0
-            for cluster in self.z_value_dict:
-                fragment_z_total += self.z_value_dict[cluster]
-            num_fragments = len(self.z_value_dict)
-            ave_z = fragment_z_total / num_fragments
-            return {'nanohedra_score': self.nanohedra_score, 'average_fragment_z_score': ave_z,
-                    'unique_fragments': num_fragments}  # , 'int_total': int_total}
+        #     return self.residue_cluster_d
+        # elif transform:
+        #     return self.transform_d
+        # elif score:
+        #     return self.nanohedra_score
+        # else:
+        #     fragment_z_total = 0
+        #     for cluster in self.z_value_dict:
+        #         fragment_z_total += self.z_value_dict[cluster]
+        #     num_fragments = len(self.z_value_dict)
+        #     ave_z = fragment_z_total / num_fragments
+        #     return {'nanohedra_score': self.nanohedra_score, 'average_fragment_z_score': self.ave_z,
+        #             'unique_fragments': self.num_fragments}  # , 'int_total': int_total}
 
     def pdb_input_parameters(self):
         return self.pdb_dir1_path, self.pdb_dir2_path  # args[0:2]

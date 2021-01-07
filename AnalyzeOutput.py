@@ -14,7 +14,6 @@ from scipy.spatial.distance import pdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-import AnalyzeMutatedSequences as Ams
 import DesignDirectory
 import PathUtils as PUtils
 # import PDB
@@ -897,18 +896,18 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     all_design_scores = SDUtils.clean_interior_keys(all_design_scores, remove_score_columns)
 
     # Gather mutations for residue specific processing and design sequences
-    wild_type_file = Ams.get_wildtype_file(des_dir)
-    wt_sequence = Ams.get_pdb_sequences(wild_type_file)
+    wild_type_file = SequenceProfile.get_wildtype_file(des_dir)
+    wt_sequence = SequenceProfile.get_pdb_sequences(wild_type_file)
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     # logger.debug('Design Files: %s' % ', '.join(all_design_files))
-    sequence_mutations = Ams.generate_mutations(all_design_files, wild_type_file)
+    sequence_mutations = SequenceProfile.generate_mutations(all_design_files, wild_type_file)
     # logger.debug('Design Files: %s' % ', '.join(sequence_mutations))
-    offset_dict = Ams.pdb_to_pose_num(sequence_mutations['ref'])
+    offset_dict = SequenceProfile.pdb_to_pose_num(sequence_mutations['ref'])
     logger.debug('Chain offset: %s' % str(offset_dict))
 
     # Remove wt sequence and find all designs which have corresponding pdb files
     sequence_mutations.pop('ref')
-    all_design_sequences = Ams.generate_sequences(wt_sequence, sequence_mutations)  # TODO just pull from design pdbs...
+    all_design_sequences = SequenceProfile.generate_sequences(wt_sequence, sequence_mutations)  # TODO just pull from design pdbs...
     logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
                                                         for name in all_design_sequences[chain]))
     all_design_scores = remove_pdb_prefixes(all_design_scores)
@@ -987,9 +986,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
     # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-    all_mutations = Ams.generate_mutations(all_design_files, wild_type_file, pose_num=True)
-    all_mutations_no_chains = Ams.make_mutations_chain_agnostic(all_mutations)
-    all_mutations_simplified = Ams.simplify_mutation_dict(all_mutations_no_chains)
+    all_mutations = SequenceProfile.generate_mutations(all_design_files, wild_type_file, pose_num=True)
+    all_mutations_no_chains = SequenceProfile.make_mutations_chain_agnostic(all_mutations)
+    all_mutations_simplified = SequenceProfile.simplify_mutation_dict(all_mutations_no_chains)
     cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
     residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
                                             hbonds=interface_hbonds)
@@ -1007,7 +1006,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Add observation information into the residue dictionary
     for design in residue_dict:
         res_dict = {'observed_%s' % profile: obs_d[profile][design] for profile in obs_d}
-        residue_dict[design] = Ams.weave_sequence_dict(base_dict=residue_dict[design], **res_dict)
+        residue_dict[design] = SequenceProfile.weave_sequence_dict(base_dict=residue_dict[design], **res_dict)
 
     # Find the observed background for each design in the pose
     pose_observed_bkd = {profile: {design: per_res_metric(obs_d[profile][design]) for design in obs_d[profile]}
@@ -1039,7 +1038,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     scores_df['total_interface_residues'] = len(int_residues)
 
     # Gather miscellaneous pose specific metrics
-    other_pose_metrics = des_dir.gather_pose_metrics()
+    other_pose_metrics = des_dir.pose_metrics()
     # other_pose_metrics = Pose.gather_fragment_metrics(des_dir)
     # nanohedra_score, average_fragment_z_score, unique_fragments
     other_pose_metrics['observations'] = len(designs)
@@ -1058,12 +1057,12 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[1], residue)
     other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(int_residues), 2)
 
-    pose_alignment = Ams.multi_chain_alignment(all_design_sequences)
+    pose_alignment = SequenceProfile.multi_chain_alignment(all_design_sequences)
     mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], int_residues, remove=False)
     # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
     pose_res_dict = {}
     for profile in profile_dict:  # both mut_freq and profile_dict[profile] are zero indexed
-        pose_res_dict['divergence_%s' % profile] = Ams.pos_specific_jsd(mutation_frequencies, profile_dict[profile])
+        pose_res_dict['divergence_%s' % profile] = SequenceProfile.pos_specific_jsd(mutation_frequencies, profile_dict[profile])
 
     pose_res_dict['divergence_interface'] = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
     # pose_res_dict['hydrophobic_collapse_index'] = hci()  # TODO HCI
@@ -1125,9 +1124,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                                                    for name in all_design_sequences[chain]
                                                    if name in designs_by_protocol[protocol]}
                                            for chain in all_design_sequences}
-        protocol_alignment = Ams.multi_chain_alignment(sequences_by_protocol[protocol])
-        protocol_mutation_freq = Ams.remove_non_mutations(protocol_alignment['counts'], int_residues)
-        protocol_res_dict = {'divergence_%s' % profile: Ams.pos_specific_jsd(protocol_mutation_freq, profile_dict[profile])
+        protocol_alignment = SequenceProfile.multi_chain_alignment(sequences_by_protocol[protocol])
+        protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'], int_residues)
+        protocol_res_dict = {'divergence_%s' % profile: SequenceProfile.pos_specific_jsd(protocol_mutation_freq, profile_dict[profile])
                              for profile in profile_dict}  # both prot_freq and profile_dict[profile] are zero indexed
         protocol_res_dict['divergence_interface'] = SDUtils.compute_jsd(protocol_mutation_freq, interface_bkgd)
 

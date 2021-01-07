@@ -57,9 +57,9 @@ def main():
         interacting_pairs = []
         for ch2_query_index in range(len(query)):
             if query[ch2_query_index].tolist() != list():
-                ch2_cb_res_num = pdb_ch2.all_atoms[ch2_cb_indices[ch2_query_index]].residue_number
+                ch2_cb_res_num = pdb_ch2.atoms[ch2_cb_indices[ch2_query_index]].residue_number
                 for ch1_query_index in query[ch2_query_index]:
-                    ch1_cb_res_num = pdb_ch1.all_atoms[ch1_cb_indices[ch1_query_index]].residue_number
+                    ch1_cb_res_num = pdb_ch1.atoms[ch1_cb_indices[ch1_query_index]].residue_number
                     interacting_pairs.append((ch1_cb_res_num, ch2_cb_res_num))
 
         ch1_central_res_num_used = []
@@ -77,14 +77,14 @@ def main():
             ch2_res_num_list = [ch2_center_res - 2, ch2_center_res - 1, ch2_center_res, ch2_center_res + 1, ch2_center_res + 2]
 
             frag1_ca_count = 0
-            for atom in pdb_ch1.all_atoms:
+            for atom in pdb_ch1.atoms:
                 if atom.residue_number in ch1_res_num_list:
                     int_frag_out_atom_list_ch1.append(atom)
                     if atom.is_CA():
                         frag1_ca_count += 1
 
             frag2_ca_count = 0
-            for atom in pdb_ch2.all_atoms:
+            for atom in pdb_ch2.atoms:
                 if atom.residue_number in ch2_res_num_list:
                     int_frag_out_atom_list_ch2.append(atom)
                     if atom.is_CA():
