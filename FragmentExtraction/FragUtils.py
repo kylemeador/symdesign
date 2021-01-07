@@ -297,14 +297,14 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     interacting_pairs = []
     for patner_index in range(len(query)):
         if query[patner_index].tolist() != list():
-            if not pdb_paired.all_atoms[patner_index].is_backbone():
-                paired_atom_num = pdb_paired.all_atoms[patner_index].residue_number
+            if not pdb_paired.atoms[patner_index].is_backbone():
+                paired_atom_num = pdb_paired.atoms[patner_index].residue_number
             else:
                 # marks the atom number as backbone
                 paired_atom_num = False
             for mapped_index in query[patner_index]:
-                if not pdb_mapped.all_atoms[mapped_index].is_backbone():
-                    mapped_atom_num = pdb_mapped.all_atoms[mapped_index].residue_number
+                if not pdb_mapped.atoms[mapped_index].is_backbone():
+                    mapped_atom_num = pdb_mapped.atoms[mapped_index].residue_number
                 else:
                     # marks the atom number as backbone
                     mapped_atom_num = False

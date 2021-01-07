@@ -135,7 +135,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
             # pdb_ch2.read_atom_list(pdb.chain(pdb_ch2_id))
             #
             # # Find Pairs of Interacting Residues
-            # if pdb_ch1.all_atoms == list() or pdb_ch2.all_atoms == list():
+            # if pdb_ch1.atoms == list() or pdb_ch2.atoms == list():
             #     print('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb_id))
             #     continue
             # interacting_pairs = Frag.find_interface_pairs(pdb_ch1, pdb_ch2, interface_dist)
@@ -163,7 +163,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
             #
             #     frag1_ca_count = 0
             #     int_frag_out_atom_list_ch1 = []
-            #     for atom in pdb_ch1.all_atoms:
+            #     for atom in pdb_ch1.atoms:
             #         if atom.residue_number in ch1_res_num_list:
             #             int_frag_out_atom_list_ch1.append(atom)
             #             if atom.is_CA():
@@ -171,7 +171,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
             #
             #     frag2_ca_count = 0
             #     int_frag_out_atom_list_ch2 = []
-            #     for atom in pdb_ch2.all_atoms:
+            #     for atom in pdb_ch2.atoms:
             #         if atom.residue_number in ch2_res_num_list:
             #             int_frag_out_atom_list_ch2.append(atom)
             #             if atom.is_CA():

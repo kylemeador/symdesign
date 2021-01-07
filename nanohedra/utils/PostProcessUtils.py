@@ -128,7 +128,7 @@ def rank(master_design_dirpath, metric, outdir):
     #
     #             design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
     print('Gathering directories and scores')
-    designpath_metric_tup_list = [(des_dir.path, des_dir.gather_pose_metrics(score=True))
+    designpath_metric_tup_list = [(des_dir.path, des_dir.pose_score())
                                   for des_dir in all_design_directories]
     print('Sorting')
     # if metric == 'score':

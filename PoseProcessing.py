@@ -35,10 +35,10 @@ import PDB
 import PathUtils as PUtils
 import SequenceProfile
 import SymDesignUtils as SDUtils
-from AnalyzeMutatedSequences import extract_aa_seq, write_fasta_file
 from AnalyzeOutput import analyze_output
 from PDB import PDB
 from Pose import Model
+from SequenceProfile import gather_profile_info, write_fasta_file, extract_aa_seq
 from nanohedra.utils.ExpandAssemblyUtils import expand_asu
 
 
@@ -303,6 +303,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # if out:file:o works, could use, os.path.join(des_dir.design_pdbs, PUtils.stage[1] + '.pdb') but it won't register
 
     # Extract information from SymDock Output
+    des_dir.gather_docking_metrics()
+    des_dir.gather_pose_metrics()
     pdb_codes = str(os.path.basename(des_dir.building_blocks)).split('_')
     # cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir)
 
@@ -333,7 +335,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         first_oligomer = SDUtils.read_pdb(oligomer_file[0])
         # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
         for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
-            template_pdb.all_atoms[atom_idx].chain = template_pdb.chain_id_list[0].lower()
+            template_pdb.atoms[atom_idx].chain = template_pdb.chain_id_list[0].lower()
         template_pdb.chain_id_list = [template_pdb.chain_id_list[0].lower(), template_pdb.chain_id_list[0]]
         num_chains = len(template_pdb.chain_id_list)
         logger.warning('%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
@@ -371,7 +373,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # TODO insert mechanism to Decorate and then gather my own fragment decoration statistics
     # TODO supplement with names info and pull out by names
 
-    cluster_residue_d, transformation_dict = des_dir.gather_pose_metrics(init=True)
+    cluster_residue_d = des_dir.pose_fragments()
+    transformation_dict = des_dir.pose_transformation()
     # cluster_residue_d, transformation_dict = Pose.gather_fragment_metrics(des_dir, init=True)
     # v Used for central pair fragment mapping of the biological interface generated fragments
     cluster_freq_tuple_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
@@ -386,7 +389,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     cluster_residue_d = {cluster: cluster_residue_d[cluster]['pair'] for cluster in cluster_residue_d}
 
     # Set up protocol symmetry
-    des_dir.gather_docking_metrics()
     # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = des_dir.symmetry_parameters()
     # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
     protocol = PUtils.protocol[des_dir.design_dim]
@@ -632,7 +634,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
                 raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
                 # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-            pssm_file, full_pssm = SDUtils.gather_profile_info(template_pdb, des_dir, names)
+            pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
             rerun, second = False, True
         else:
             break
@@ -759,6 +761,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # TODO add oligomer data to .info
     info_pickle = SDUtils.pickle_object(des_dir.info, 'info', out_path=des_dir.data)
 
+    # -----------------------------------------------------------------------------------------------------------------
+    # Rosetta Execution formatting
     # RELAX: Prepare command and flags file
     refine_variables = [('pdb_reference', des_dir.asu), ('scripts', PUtils.rosetta_scripts),
                         ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),

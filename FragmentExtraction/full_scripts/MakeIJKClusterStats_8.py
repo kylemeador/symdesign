@@ -1,12 +1,12 @@
 import os
-import sys
-import math
 import pickle
-import numpy as np
-from PDB import PDB
-from Bio.SeqUtils import IUPACData
+
 import FragUtils as Frag
-import IJ_MPAllToAllRMSD_5 as Frag5
+import numpy as np
+from Bio.SeqUtils import IUPACData
+
+from PDB import PDB
+
 # from sklearn.neighbors import BallTree
 
 # Globals
@@ -48,14 +48,14 @@ module = 'Make IJK Cluster Frequency Files:'
 #     interacting_pairs = []
 #     for patner_index in range(len(query)):
 #         if query[patner_index].tolist() != list():
-#             if not pdb_paired.all_atoms[patner_index].is_backbone():
-#                 partner_atom_num = pdb_paired.all_atoms[patner_index].residue_number
+#             if not pdb_paired.atoms[patner_index].is_backbone():
+#                 partner_atom_num = pdb_paired.atoms[patner_index].residue_number
 #             else:
 #                 # marks the atom number as backbone
 #                 partner_atom_num = False
 #             for mapped_index in query[patner_index]:
-#                 if not pdb_mapped.all_atoms[mapped_index].is_backbone():
-#                     map_atom_num = pdb_mapped.all_atoms[mapped_index].residue_number
+#                 if not pdb_mapped.atoms[mapped_index].is_backbone():
+#                     map_atom_num = pdb_mapped.atoms[mapped_index].residue_number
 #                 else:
 #                     # marks the atom number as backbone
 #                     map_atom_num = False
@@ -139,7 +139,7 @@ module = 'Make IJK Cluster Frequency Files:'
 #
 # def get_guide_atoms(frag_pdb):
 #     guide_atoms = []
-#     for atom in frag_pdb.all_atoms:
+#     for atom in frag_pdb.atoms:
 #         if atom.chain == "9":
 #             guide_atoms.append(atom)
 #     if len(guide_atoms) == 3:
@@ -228,7 +228,7 @@ def main():
                             residue_frequency = np.empty((fragment_length, 2), dtype=object)
                             mapped_chain_res_count = 0
                             paired_chain_res_count = 0
-                            for atom in member_pdb.all_atoms:
+                            for atom in member_pdb.get_atoms():
                                 if atom.is_CA() and atom.chain == member_mapped_ch:
                                     residue_frequency[mapped_chain_res_count][0] = \
                                         IUPACData.protein_letters_3to1[atom.residue_type.title()] if \

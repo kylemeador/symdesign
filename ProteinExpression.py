@@ -4,8 +4,8 @@ import csv
 from Bio.SeqUtils import IUPACData
 from numpy import array
 
-import AnalyzeMutatedSequences as Ams
 import PathUtils as PUtils
+import SequenceProfile
 import SymDesignUtils as SDUtils
 
 
@@ -35,8 +35,8 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):
 
     partner_sequences = []
     for matching_pdb in pdb_chain_d:
-        partner_d = Ams.get_pdb_sequences(SDUtils.retrieve_pdb_file_path(matching_pdb), chain=pdb_chain_d[matching_pdb],
-                                          source='seqres')
+        partner_d = SequenceProfile.get_pdb_sequences(SDUtils.retrieve_pdb_file_path(matching_pdb), chain=pdb_chain_d[matching_pdb],
+                                                      source='seqres')
         partner_sequences.append(partner_d[pdb_chain_d[matching_pdb]])
         # TODO chain can be not found... Should this be available based on Uniprot-PDB Map creation? Need to extend this
 
@@ -162,7 +162,7 @@ def add_expression_tag(tag, sequence):
     """
     if not tag:
         return sequence
-    alignment = Ams.generate_alignment(tag, sequence)
+    alignment = SequenceProfile.generate_alignment(tag, sequence)
     tag_seq = alignment[0][0]
     seq = alignment[0][1]
     # print(alignment[0])

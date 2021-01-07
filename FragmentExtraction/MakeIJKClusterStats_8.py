@@ -1,12 +1,12 @@
 import os
-import sys
-import math
 import pickle
 from itertools import repeat
-import numpy as np
-from PDB import PDB
-from Bio.SeqUtils import IUPACData
+
 import FragUtils as Frag
+import numpy as np
+from Bio.SeqUtils import IUPACData
+
+from PDB import PDB
 
 # Globals
 module = 'Make IJK Cluster Frequency Files:'
@@ -56,7 +56,7 @@ def ijk_stats(cluster_rep_path, db_dir, info_outdir, frag_length, sc_dist):
             residue_frequency = np.empty((frag_length, 2), dtype=object)
             mapped_chain_res_count = 0
             paired_chain_res_count = 0
-            for atom in member_pdb.all_atoms:
+            for atom in member_pdb.get_atoms():
                 if atom.is_CA() and atom.chain == member_mapped_ch:
                     residue_frequency[mapped_chain_res_count][0] = \
                         IUPACData.protein_letters_3to1[atom.residue_type.title()] if \
@@ -199,7 +199,7 @@ def main(db_dir, info_outdir, frag_length, sc_dist, multi=False, num_threads=4):
                     residue_frequency = np.empty((frag_length, 2), dtype=object)
                     mapped_chain_res_count = 0
                     paired_chain_res_count = 0
-                    for atom in member_pdb.all_atoms:
+                    for atom in member_pdb.get_atoms():
                         if atom.is_CA() and atom.chain == member_mapped_ch:
                             residue_frequency[mapped_chain_res_count][0] = \
                                 IUPACData.protein_letters_3to1[atom.residue_type.title()] if \
@@ -326,9 +326,9 @@ if __name__ == '__main__':
     side_chain_contact_dist = 5
 
     outdir = os.path.join(os.getcwd(), 'ijk_clusters')
-    ijk_db = os.path.join(outdir, 'db_' + str(rmsd_thresh))
-    info_db = os.path.join(outdir, 'info_' + str(rmsd_thresh))
-    if not os.path.exists(info_outdir):
-        os.makedirs(info_outdir)
+    ijk_db = os.path.join(outdir, 'db_%d' % ijk_rmsd_thresh)
+    info_db = os.path.join(outdir, 'info_%d' % ijk_rmsd_thresh)
+    if not os.path.exists(info_db):
+        os.makedirs(info_db)
 
     main(ijk_db, info_db, _fragment_length, side_chain_contact_dist)

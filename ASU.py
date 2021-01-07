@@ -7,8 +7,8 @@ from itertools import repeat
 
 import pandas as pd
 
-import AnalyzeMutatedSequences as Ams
 import PathUtils as PUtils
+import SequenceProfile
 import SymDesignUtils as SDUtils
 # sys.path.append(PUtils.nanohedra_source)
 # print(sys.path)
@@ -140,10 +140,10 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a, force_closest=True)
             logger.debug('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
             logger.debug('Orient\t: %s' % oriented_pdb_seq_a)
-            des_mutations_asu = Ams.generate_mutations_from_seq(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu],
-                                                                blanks=True)
-            des_mutations_orient = Ams.generate_mutations_from_seq(asu.atom_sequences[chain_in_asu], oriented_pdb_seq_a,
-                                                                   blanks=True)
+            des_mutations_asu = SequenceProfile.generate_mutations_from_seq(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu],
+                                                                            blanks=True)
+            des_mutations_orient = SequenceProfile.generate_mutations_from_seq(asu.atom_sequences[chain_in_asu], oriented_pdb_seq_a,
+                                                                               blanks=True)
             logger.debug('ASU: %s' % des_mutations_asu)
             logger.debug('Orient: %s' % des_mutations_orient)
             # Ensure that the design mutations have the right index, must be adjusted for the offset of both sequences
@@ -185,8 +185,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             asu.update_chain_sequences()
             oriented_pdb.update_chain_sequences()
             oriented_pdb_seq_final = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
-            final_mutations = Ams.generate_mutations_from_seq(oriented_pdb_seq_final, asu.atom_sequences[chain_in_asu],
-                                                              offset=False, blanks=True)
+            final_mutations = SequenceProfile.generate_mutations_from_seq(oriented_pdb_seq_final, asu.atom_sequences[chain_in_asu],
+                                                                          offset=False, blanks=True)
             logger.debug('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
             logger.debug('Orient\t: %s' % oriented_pdb_seq_final)
             if final_mutations != dict():

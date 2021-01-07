@@ -1,21 +1,14 @@
 import argparse
-import math
 import os
 import sys
-from glob import glob
-from itertools import combinations, repeat, chain
+from itertools import combinations, repeat
 
 import numpy as np
 import pandas as pd
-from Bio import SeqIO
-from Bio import pairwise2
-from Bio.Align import MultipleSeqAlignment
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
-from Bio.SeqUtils import IUPACData
 
 import DesignDirectory
 import SequenceProfile
+from SequenceProfile import remove_non_mutations, pos_specific_jsd, mutate_wildtype_sequences, weave_mutation_dict
 
 try:
     from Bio.SubsMat import MatrixInfo as matlist
@@ -28,7 +21,6 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import BallTree
 from sklearn.preprocessing import StandardScaler
 
-import PDB
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 
@@ -38,910 +30,109 @@ db = PUtils.biological_fragmentDB
 index_offset = SDUtils.index_offset
 
 
-def gather_profile_info(pdb, des_dir, names):
-    """For a given PDB, find the chain wise profile (pssm) then combine into one continuous pssm
-
-    Args:
-        pdb (PDB): PDB to generate a profile from. Sequence is taken from the ATOM record
-        des_dir (DesignDirectory): Location of which to write output files in the design tree
-        names (dict): The pdb names and corresponding chain of each protomer in the pdb object
-        log_stream (logging): Which log to pass logging directives to
-    Returns:
-        pssm_file (str): Location of the combined pssm file written to disk
-        full_pssm (dict): A combined pssm with all chains concatenated in the same order as pdb sequence
-    """
-    pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
-    logger.debug('Fetching PSSM Files')
-
-    # Extract/Format Sequence Information
-    for n, name in enumerate(names):
-        # if pssm_files[name] == dict():
-        logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
-        pdb_seq[name], errors[name] = extract_aa_seq(pdb, chain=names[name](n))
-        logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
-        if errors[name]:
-            logger.warning('Sequence generation ran into the following residue errors: %s' % ', '.join(errors[name]))
-        pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name + '_' + os.path.basename(des_dir.path),
-                                              outpath=des_dir.sequences)
-        if not pdb_seq_file[name]:
-            logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
-            raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
-
-    # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
-    for name in names:
-        logger.info('Generating PSSM file for %s' % name)
-        pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name], outpath=des_dir.sequences)
-        logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
-
-    # Wait for PSSM command to complete
-    for name in names:
-        pssm_process[name].communicate()
-
-    # Extract PSSM for each protein and combine into single PSSM
-    pssm_dict = {}
-    for name in names:
-        pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
-    full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
-    pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
-
-    return pssm_file, full_pssm
-
-
-def remove_non_mutations(frequency_msa, residue_list):
-    """Keep residues which are present in provided list
-
-    Args:
-        frequency_msa (dict): {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...}
-        residue_list (list): [15, 16, 18, 20, 34, 35, 67, 108, 119]
-    Returns:
-        mutation_dict (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
-    """
-    mutation_dict = {}
-    for residue in frequency_msa:
-        if residue in residue_list:
-            mutation_dict[residue] = frequency_msa[residue]
-
-    return mutation_dict
-
-
-def return_consensus_design(frequency_sorted_msa):
-    for residue in frequency_sorted_msa:
-        if residue == 0:
-            pass
-        else:
-            if len(frequency_sorted_msa[residue]) > 2:
-                for alternative in frequency_sorted_msa[residue]:
-                    # Prepare for Letter sorting SchemA
-                    sequence_logo = None
-            else:
-                # DROP from analysis...
-                frequency_sorted_msa[residue] = None
-
-
-def pos_specific_jsd(msa, background):
-    """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
-
-    Both msa_dictionary and background must be the same index
-    Args:
-        msa (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
-        background (dict): {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
-            Must contain residue index with inner dictionary of single amino acid types
-    Returns:
-        divergence_dict (dict): {15: 0.732, 16: 0.552, ...}
-    """
-    return {residue: res_divergence(msa[residue], background[residue]) for residue in msa if residue in background}
-
-
-def res_divergence(position_freq, bgd_freq, jsd_lambda=0.5):
-    """Calculate residue specific Jensen-Shannon Divergence value
-
-    Args:
-        position_freq (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_freq (dict): {15: {'A': 0, 'R': 0, ...}
-    Keyword Args:
-        jsd_lambda=0.5 (float): Value bounded between 0 and 1
-    Returns:
-        divergence (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
-    """
-    sum_prob1, sum_prob2 = 0, 0
-    for aa in position_freq:
-        p = position_freq[aa]
-        q = bgd_freq[aa]
-        r = (jsd_lambda * p) + ((1 - jsd_lambda) * q)
-        if r == 0:
-            continue
-        if q != 0:
-            prob2 = (q * math.log(q / r, 2))
-            sum_prob2 += prob2
-        if p != 0:
-            prob1 = (p * math.log(p / r, 2))
-            sum_prob1 += prob1
-    divergence = round(jsd_lambda * sum_prob1 + (1 - jsd_lambda) * sum_prob2, 3)
-
-    return divergence
-
-
-def create_bio_msa(sequence_dict):
-    """
-    Args:
-        sequence_dict (dict): {name: sequence, ...}
-            ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
-    Returns:
-        new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
-                                               SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
-    """
-    sequences = [SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
-    new_alignment = MultipleSeqAlignment(sequences)
-
-    return new_alignment
-
-
-def generate_mutations(all_design_files, wild_type_file, pose_num=False):
-    """From a list of PDB's and a wild-type PDB, generate a list of 'A5K' style mutations
-
-    Args:
-        all_design_files (list): PDB files on disk to extract sequence info and compare
-        wild_type_file (str): PDB file on disk which contains a reference sequence
-    Returns:
-        mutations (dict): {'file_name': {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
-    """
-    pdb_dict = {'ref': SDUtils.read_pdb(wild_type_file)}
-    for file_name in all_design_files:
-        pdb = SDUtils.read_pdb(file_name)
-        pdb.set_name(os.path.splitext(os.path.basename(file_name))[0])
-        pdb_dict[pdb.name] = pdb
-
-    return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
-
-
 #####################
 # Sequence handling
 #####################
 
 
-def read_fasta_file(file_name):
-    """Returns an iterator of SeqRecords"""
-    return SeqIO.parse(file_name, "fasta")
-    # sequence_records = [record for record in SeqIO.parse(file_name, "fasta")]
-    # return sequence_records
-
-
-def write_fasta(sequence_records, file_name):
-    """Writes an iterator of SeqRecords to a file. The file name is returned"""
-    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
-    return '%s.fasta' % file_name
-
-
-def concatenate_fasta_files(file_names, output='concatenated_fasta'):
-    """Take multiple fasta files and concatenate into a single file"""
-    seq_records = [read_fasta_file(file) for file in file_names]
-    return write_fasta(list(chain.from_iterable(seq_records)), output)
-
-
-def write_fasta_file(sequence, name, outpath=os.getcwd()):
-    """Write a fasta file from sequence(s)
-
-    Args:
-        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(name, sequence),
-            list of lists, etc. Smart solver using object type
-        name (str): The name of the file to output
-    Keyword Args:
-        path=os.getcwd() (str): The location on disk to output file
-    Returns:
-        (str): The name of the output file
-    """
-    file_name = os.path.join(outpath, name + '.fasta')
-    with open(file_name, 'w') as outfile:
-        if type(sequence) is list:
-            if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
-                for idx, seq in enumerate(sequence):
-                    outfile.write('>%s_%d\n' % (name, idx))  # header
-                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
-                        outfile.write(' '.join(aa for aa in seq))
-                    else:
-                        outfile.write(''.join(aa for aa in seq))
-            elif isinstance(sequence[0], str):
-                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
-            elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
-                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
-            else:
-                raise SDUtils.DesignError('Cannot parse data to make fasta')
-        elif isinstance(sequence, dict):
-            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
-        elif isinstance(sequence, str):
-            outfile.write('>%s\n%s\n' % (name, sequence))
-        else:
-            raise SDUtils.DesignError('Cannot parse data to make fasta')
-
-    return file_name
-
-
-def write_multi_line_fasta_file(sequences, name, path=os.getcwd()):  # REDUNDANT DEPRECIATED
-    """Write a multi-line fasta file from a dictionary where the keys are >headers and values are sequences
-
-    Args:
-        sequences (dict): {'my_protein': 'MSGFGHKLGNLIGV...', ...}
-        name (str): The name of the file to output
-    Keyword Args:
-        path=os.getcwd() (str): The location on disk to output file
-    Returns:
-        (str): The name of the output file
-    """
-    file_name = os.path.join(path, name)
-    with open(file_name, 'r') as f:
-        # f.write('>%s\n' % seq)
-        f.write('\n'.join('>%s\n%s' % (seq_name, sequences[seq_name]) for seq_name in sequences))
-
-    return file_name
-
-
-def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
-    # Extracts amino acid sequence from either ATOM or SEQRES record of PDB object
-    if type(chain) == int:
-        chain = pdb.chain_id_list[chain]
-    final_sequence = None
-    sequence_list = []
-    failures = []
-    aa_code = int(aa_code)
-
-    if source == 'atom':
-        # Extracts sequence from ATOM records
-        if aa_code == 1:
-            for atom in pdb.all_atoms:
-                if atom.chain == chain and atom.type == 'N' and (atom.alt_location == '' or atom.alt_location == 'A'):
-                    try:
-                        sequence_list.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
-                    except KeyError:
-                        sequence_list.append('X')
-                        failures.append((atom.residue_number, atom.residue_type))
-            final_sequence = ''.join(sequence_list)
-        elif aa_code == 3:
-            for atom in pdb.all_atoms:
-                if atom.chain == chain and atom.type == 'N' and atom.alt_location == '' or atom.alt_location == 'A':
-                    sequence_list.append(atom.residue_type)
-            final_sequence = sequence_list
-        else:
-            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
-
-    elif source == 'seqres':
-        # Extract sequence from the SEQRES record
-        fail = False
-        while True:  # TODO WTF is this used for
-            if chain in pdb.seqres_sequences:
-                sequence = pdb.seqres_sequences[chain]
-                break
-            else:
-                if not fail:
-                    temp_pdb = PDB.PDB(file=pdb.filepath)
-                    fail = True
-                else:
-                    raise SDUtils.DesignError('Invalid PDB input, no SEQRES record found')
-        if aa_code == 1:
-            final_sequence = sequence
-            for i in range(len(sequence)):
-                if sequence[i] == 'X':
-                    failures.append((i, sequence[i]))
-        elif aa_code == 3:
-            for i, residue in enumerate(sequence):
-                sequence_list.append(IUPACData.protein_letters_1to3[residue])
-                if residue == 'X':
-                    failures.append((i, residue))
-            final_sequence = sequence_list
-        else:
-            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
-    else:
-        raise SDUtils.DesignError('Invalid sequence input')
-
-    return final_sequence, failures
-
-
-def pdb_to_pose_num(reference_dict):
-    """Take a dictionary with chain name as keys and return the length of values as reference length
-
-    Order of dictionary must maintain chain order, so 'A', 'B', 'C'. Python 3.6+ should be used
-    """
-    offset_dict = {}
-    prior_chain, prior_chains_len = None, 0
-    for i, chain in enumerate(reference_dict):
-        if i > 0:
-            prior_chains_len += len(reference_dict[prior_chain])
-        offset_dict[chain] = prior_chains_len
-        # insert function here? Make this a decorator!?
-        prior_chain = chain
-
-    return offset_dict
-
-
-def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', mutation=False, pose_num=True,
-                              outpath=None):
-    """Extract the sequence from PDB objects
-
-    Args:
-        pdb_class_dict (dict): {pdb_code: PDB object, ...}
-    Keyword Args:
-        aa_code=1 (int): Whether to return sequence with one-letter or three-letter code [1,3]
-        seq_source='atom' (str): Whether to return the ATOM or SEQRES record ['atom','seqres','compare']
-        mutation=False (bool): Whether to return mutations in sequences compared to a reference.
-            Specified by pdb_code='ref'
-        outpath=None (str): Where to save the results to disk
-    Returns:
-        mutation_dict (dict): IF mutation=True {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...},
-            ...}
-        or
-        sequence_dict (dict): ELSE {pdb: {chain_id: 'Sequence', ...}, ...}
-    """
-    reference_seq_dict = None
-    if mutation:
-        # If looking for mutations, the reference PDB object should be given as 'ref' in the dictionary
-        if 'ref' not in pdb_class_dict:
-            sys.exit('No reference sequence specified, but mutations requested. Include a key \'ref\' in PDB dict!')
-        reference_seq_dict = {}
-        fail_ref = []
-        reference = pdb_class_dict['ref']
-        for chain in pdb_class_dict['ref'].chain_id_list:
-            reference_seq_dict[chain], fail = extract_aa_seq(reference, aa_code, seq_source, chain)
-            if fail != list():
-                fail_ref.append((reference, chain, fail))
-
-        if fail_ref:
-            logger.error('Ran into following errors generating mutational analysis reference:\n%s' % str(fail_ref))
-
-    if seq_source == 'compare':
-        mutation = True
-
-    def handle_extraction(pdb_code, _pdb, _aa, _source, _chain):
-        if _source == 'compare':
-            sequence1, failures1 = extract_aa_seq(_pdb, _aa, 'atom', _chain)
-            sequence2, failures2 = extract_aa_seq(_pdb, _aa, 'seqres', _chain)
-            _offset = True
-        else:
-            sequence1, failures1 = extract_aa_seq(_pdb, _aa, _source, _chain)
-            sequence2 = reference_seq_dict[_chain]
-            sequence_dict[pdb_code][_chain] = sequence1
-            _offset = False
-        if mutation:
-            seq_mutations = generate_mutations_from_seq(sequence1, sequence2, offset=_offset)
-            mutation_dict[pdb_code][_chain] = seq_mutations
-        if failures1:
-            error_list.append((_pdb, _chain, failures1))
-
-    error_list = []
-    sequence_dict = {}
-    mutation_dict = {}
-    for pdb in pdb_class_dict:
-        sequence_dict[pdb] = {}
-        mutation_dict[pdb] = {}
-        # if pdb == 'ref':
-        # if len(chain_dict[pdb]) > 1:
-        #     for chain in chain_dict[pdb]:
-        for chain in pdb_class_dict[pdb].chain_id_list:
-            handle_extraction(pdb, pdb_class_dict[pdb], aa_code, seq_source, chain)
-        # else:
-        #     handle_extraction(pdb, pdb_class_dict[pdb], aa_code, seq_source, chain_dict[pdb])
-
-    if outpath:
-        sequences = {}
-        for pdb in sequence_dict:
-            for chain in sequence_dict[pdb]:
-                sequences[pdb + '_' + chain] = sequence_dict[pdb][chain]
-        filepath = write_multi_line_fasta_file(sequences, 'sequence_extraction.fasta', path=outpath)
-        logger.info('The following file was written:\n%s' % filepath)
-
-    if error_list:
-        logger.error('The following residues were not extracted:\n%s' % str(error_list))
-
-    if mutation:
-        for chain in reference_seq_dict:
-            for i, aa in enumerate(reference_seq_dict[chain]):
-                mutation_dict['ref'][chain][i + index_offset] = {'from': reference_seq_dict[chain][i],
-                                                                 'to': reference_seq_dict[chain][i]}
-        if pose_num:
-            new_mutation_dict = {}
-            offset_dict = pdb_to_pose_num(reference_seq_dict)
-            for chain in offset_dict:
-                for pdb in mutation_dict:
-                    if pdb not in new_mutation_dict:
-                        new_mutation_dict[pdb] = {}
-                    new_mutation_dict[pdb][chain] = {}
-                    for mutation in mutation_dict[pdb][chain]:
-                        new_mutation_dict[pdb][chain][mutation+offset_dict[chain]] = mutation_dict[pdb][chain][mutation]
-            mutation_dict = new_mutation_dict
-
-        return mutation_dict
-    else:
-        return sequence_dict
-
-
-def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False):
-    """Takes a list of sequence mutations and returns the mutated form on wildtype
-
-    Args:
-        wild_type (str): Sequence to mutate
-        mutation_dict (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
-    Keyword Args:
-        aligned=False (bool): Whether the input sequences are already aligned
-        output=False (bool): Whether to make a .fasta file of the sequence
-    Returns:
-        all_sequences (dict): {name: sequence, ...}
-    """
-    return {pdb: make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned) for pdb in mutation_dict}
-
-
-def make_mutations(seq, mutations, find_orf=True):
-    """Modify a sequence to contain mutations specified by a mutation dictionary
-
-    Args:
-        seq (str): 'Wild-type' sequence to mutate
-        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
-    Keyword Args:
-        find_orf=True (bool): Whether or not to find the correct ORF for the mutations and the seq
-    Returns:
-        seq (str): The mutated sequence
-    """
-    # Seq can be either list or string
-    if find_orf:
-        offset = -find_orf_offset(seq, mutations)
-        logger.info('Found ORF. Offset = %d' % -offset)
-    else:
-        offset = index_offset
-
-    # zero index seq and 1 indexed mutation_dict
-    index_errors = []
-    for key in mutations:
-        try:
-            if seq[key - offset] == mutations[key]['from']:  # adjust seq for zero index slicing
-                seq = seq[:key - offset] + mutations[key]['to'] + seq[key - offset + 1:]
-            else:  # find correct offset, or mark mutation source as doomed
-                index_errors.append(key)
-        except IndexError:
-            print(key - offset)
-    if index_errors:
-        logger.warning('Index errors:\n%s' % str(index_errors))
-
-    return seq
-
-
-def find_orf_offset(seq, mutations):
-    """Using one sequence and mutation data, find the sequence offset which matches mutations closest
-
-    Args:
-        seq (str): 'Wild-type' sequence to mutate in 1 letter format
-        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
-    Returns:
-        orf_offset_index (int): The index to offset the sequence by in order to match the mutations the best
-    """
-    unsolvable = False
-    # for idx, aa in enumerate(seq):
-    #     if aa == 'M':
-    #         met_offset_d[idx] = 0
-    met_offset_d = {idx: 0 for idx, aa in enumerate(seq) if aa == 'M'}
-    methionine_positions = list(met_offset_d.keys())
-
-    while True:
-        if met_offset_d == dict():  # MET is missing/not the ORF start
-            met_offset_d = {start_idx: 0 for start_idx in range(0, 50)}
-
-        # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
-        for test_orf_index in met_offset_d:
-            for mutation_index in mutations:
-                try:
-                    if seq[test_orf_index + mutation_index - index_offset] == mutations[mutation_index]['from']:
-                        met_offset_d[test_orf_index] += 1
-                except IndexError:
-                    break
-
-        max_count = np.max(list(met_offset_d.values()))
-        # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
-        if max_count < len(mutations) / 2:
-            if unsolvable:
-                return 0  # TODO return not index change?
-                # break
-            unsolvable = True
-            met_offset_d = {}
-        else:
-            for offset in met_offset_d:  # offset is index here
-                if max_count == met_offset_d[offset]:
-                    orf_offset_index = offset  # + index_offset  # change to one-index
-                    break
-
-            closest_met = None
-            for met in methionine_positions:
-                if met <= orf_offset_index:
-                    closest_met = met
-                else:
-                    if closest_met is not None:
-                        orf_offset_index = closest_met  # + index_offset # change to one-index
-                    break
-
-            break
-            # orf_offset_index = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
-
-    return orf_offset_index
-
-
-def parse_mutations(mutation_list):  # UNUSED
-    if isinstance(mutation_list, str):
-        mutation_list = mutation_list.split(', ')
-
-    # Takes a list of mutations in the form A37K and parses the index (37), the FROM aa (A), and the TO aa (K)
-    # output looks like {37: ('A', 'K'), 440: ('K', 'Y'), ...}
-    mutation_dict = {}
-    for mutation in mutation_list:
-        to_letter = mutation[-1]
-        from_letter = mutation[0]
-        index = int(mutation[1:-1])
-        mutation_dict[index] = (from_letter, to_letter)
-
-    return mutation_dict
-
-
-def generate_alignment(seq1, seq2, matrix='blosum62'):
-    """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
-
-    Returns:
-
-    """
-    _matrix = getattr(matlist, matrix)
-    gap_penalty = -10
-    gap_ext_penalty = -1
-    # Create sequence alignment
-    return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
-
-
-def generate_mutations_from_seq(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
-                                only_gaps=False):
-    """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from' and
-        'to' keywords
-
-    Indexed so first residue is 1. For PDB file comparison, mutant should be crystal sequence (ATOM), reference should
-        be expression sequence (SEQRES). only_gaps=True will return only the gapped area while blanks=True will return
-        all differences between the alignment sequences
-    Args:
-        mutant (str): Mutant sequence. Will be in the 'to' key
-        reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
-    Keyword Args:
-        offset=True (bool): Whether to calculate alignment offset
-        blanks=False (bool): Whether to include all indices that are outside the reference sequence or missing residues
-        termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
-        reference_gaps=False (bool): Whether to include indices that are missing residues inside the reference sequence
-        only_gaps=False (bool): Whether to only include all indices that are missing residues
-    Returns:
-        mutations (dict): {index: {'from': 'A', 'to': 'K'}, ...}
-    """
-    # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
-    if offset:
-        alignment = generate_alignment(mutant, reference)
-        align_seq_1 = alignment[0][0]
-        align_seq_2 = alignment[0][1]
-    else:
-        align_seq_1 = mutant
-        align_seq_2 = reference
-
-    # Extract differences from the alignment
-    starting_index_of_seq2 = align_seq_2.find(reference[0])
-    ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
-    mutations = {}
-    for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
-        if seq1_aa != seq2_aa:
-            mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
-            # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
-
-    remove_mutation_list = []
-    if only_gaps:  # remove the actual mutations
-        for entry in mutations:
-            if entry > 0 or entry <= ending_index_of_seq2:
-                if mutations[entry]['to'] != '-':
-                    remove_mutation_list.append(entry)
-        blanks = True
-    if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
-        termini, reference_gaps = True, True
-        # for entry in mutations:
-        #     for index in mutations[entry]:
-        #         if mutations[entry][index] == '-':
-        #             remove_mutation_list.append(entry)
-    if not termini:  # Remove indices outside of sequence 2
-        for entry in mutations:
-            if entry < 0 or entry > ending_index_of_seq2:
-                remove_mutation_list.append(entry)
-    if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
-        for entry in mutations:
-            if entry > 0 or entry <= ending_index_of_seq2:
-                if mutations[entry]['to'] == '-':
-                    remove_mutation_list.append(entry)
-
-    for entry in remove_mutation_list:
-        if entry in mutations:
-            mutations.pop(entry)
-
-    return mutations
-
-
-def make_mutations_chain_agnostic(mutation_dict):
-    """Remove chain identifier from mutation dictionary
-
-    Args:
-        mutation_dict (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
-    Returns:
-        flattened_dict (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
-    """
-    flattened_dict = {}
-    for pdb in mutation_dict:
-        flattened_dict[pdb] = {}
-        for chain in mutation_dict[pdb]:
-            flattened_dict[pdb].update(mutation_dict[pdb][chain])
-
-    return flattened_dict
-
-
-def simplify_mutation_dict(mutation_dict, to=True):
-    """Simplify mutation dictionary to 'to'/'from' AA key
-
-    Args:
-        mutation_dict (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
-    Keyword Args:
-        to=True (bool): Whether to use 'to' AA (True) or 'from' AA (False)
-    Returns:
-        mutation_dict (dict): {pdb: {mutation_index: 'K', ...}, ...}
-    """
-    simplification = get_mutation_to
-    if not to:
-        simplification = get_mutation_from
-
-    for pdb in mutation_dict:
-        for index in mutation_dict[pdb]:
-            mutation_dict[pdb][index] = simplification(mutation_dict[pdb][index])
-
-    return mutation_dict
-
-
-def get_mutation_from(mutation_dict):
-    """Remove 'to' identifier from mutation dictionary
-
-    Args:
-        mutation_dict (dict): {mutation_index: {'from': 'A', 'to': 'K'}, ...},
-    Returns:
-        mutation_dict (str): 'A'
-    """
-    return mutation_dict['from']
-
-
-def get_mutation_to(mutation_dict):
-    """Remove 'from' identifier from mutation dictionary
-    Args:
-        mutation_dict (dict): {mutation_index: {'from': 'A', 'to': 'K'}, ...},
-    Returns:
-        mutation_dict (str): 'K'
-    """
-    return mutation_dict['to']
-
-
-def generate_sequences(wild_type_seq_dict, all_design_mutations):
-    """Separate chains from mutation dictionary and generate mutated sequences
-
-    Args:
-        wild_type_seq_dict (dict): {chain: sequence, ...}
-        all_design_mutations (dict): {'name': {chain: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
-            Index so mutation_index starts at 1
-    Returns:
-        mutated_sequences (dict): {chain: {name: sequence, ...}
-    """
-    mutated_sequences = {}
-    for chain in wild_type_seq_dict:
-        chain_mutation_dict = {}
-        for pdb in all_design_mutations:
-            if chain in all_design_mutations[pdb]:
-                chain_mutation_dict[pdb] = all_design_mutations[pdb][chain]
-        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_seq_dict[chain], chain_mutation_dict,
-                                                                 aligned=True)
-
-    return mutated_sequences
-
-
-def get_wildtype_file(des_directory):
-    """Retrieve the wild-type file name from Design Directory"""
-    # wt_file = glob(os.path.join(des_directory.building_blocks, PUtils.clean))
-    wt_file = glob(os.path.join(des_directory.path, PUtils.clean))
-    assert len(wt_file) == 1, '%s: More than one matching file found with %s' % (des_directory.path, PUtils.asu)
-    return wt_file[0]
-    # for file in os.listdir(des_directory.building_blocks):
-    #     if file.endswith(PUtils.asu):
-    #         return os.path.join(des_directory.building_blocks, file)
-
-
-def get_pdb_sequences(pdb, chain=None, source='atom'):
-    """Return all sequences or those specified by a chain from a PDB file
-
-    Args:
-        pdb (str or PDB): Location on disk of a reference .pdb file or PDB object
-    Keyword Args:
-        chain=None (str): If a particular chain is desired, specify it
-        source='atom' (str): One of 'atom' or 'seqres'
-    Returns:
-        wt_seq_dict (dict): {chain: sequence, ...}
-    """
-    if not isinstance(pdb, PDB.PDB):
-        pdb = SDUtils.read_pdb(pdb)
-
-    seq_dict = {}
-    for _chain in pdb.chain_id_list:
-        seq_dict[_chain], fail = extract_aa_seq(pdb, source=source, chain=_chain)
-    if chain:
-        seq_dict = SDUtils.clean_dictionary(seq_dict, chain, remove=False)
-
-    return seq_dict
-
-
-def mutate_wildtype_sequences(sequence_dir_files, wild_type_file):
-    """Take a directory with PDB files and compare to a Wild-type PDB"""
-    wt_seq_dict = get_pdb_sequences(wild_type_file)
-    return generate_sequences(wt_seq_dict, generate_mutations(sequence_dir_files, wild_type_file))
-
-
-def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, des_divergence):
-    """Make final dictionary, index to sequence
-
-    Args:
-        sorted_freq (dict): {15: ['S', 'A', 'T'], ... }
-        mut_prob (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
-        resi_divergence (dict): {15: 0.732, 16: 0.552, ...}
-        int_divergence (dict): {15: 0.732, 16: 0.552, ...}
-        des_divergence (dict): {15: 0.732, 16: 0.552, ...}
-    Returns:
-        weaved_dict (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
-    """
-    weaved_dict = {}
-    for residue in sorted_freq:
-        final_resi = residue + SDUtils.index_offset
-        weaved_dict[final_resi] = {}
-        for aa in sorted_freq[residue]:
-            weaved_dict[final_resi][aa] = round(mut_prob[residue][aa], 3)
-        weaved_dict[final_resi]['jsd'] = resi_divergence[residue]
-        weaved_dict[final_resi]['int_jsd'] = int_divergence[residue]
-        weaved_dict[final_resi]['des_jsd'] = des_divergence[residue]
-
-    return weaved_dict
-
-
-def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_prob, resi_divergence, int_divergence):
-    """Make final dictionary indexed to sequence, from same-indexed, residue numbered, sequence dictionaries
-
-    Args:
-        *args (dict)
-    Keyword Args:
-        base=None (dict): Original dictionary
-        **kwargs (dict): key=dictionary pairs to include in the final dictionary
-            sorted_freq={15: ['S', 'A', 'T'], ... }, mut_prob={15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...},
-                divergence (dict): {15: 0.732, 16: 0.552, ...}
-    Returns:
-        weaved_dict (dict): {16: {'freq': {'S': 0.134, 'A': 0.050, ...,} 'jsd': 0.732, 'int_jsd': 0.412}, ...}
-    """
-    if base_dict:
-        weaved_dict = base_dict
-    else:
-        weaved_dict = {}
-
-    # print('kwargs', kwargs)
-    for seq_dict in kwargs:
-        # print('seq_dict', seq_dict)
-        for residue in kwargs[seq_dict]:
-            if residue not in weaved_dict:
-                weaved_dict[residue] = {}
-            # else:
-            #     weaved_dict[residue][seq_dict] = {}
-            if isinstance(kwargs[seq_dict][residue], dict):  # TODO make endlessly recursive?
-                weaved_dict[residue][seq_dict] = {}
-                for sub_key in kwargs[seq_dict][residue]:  # kwargs[seq_dict][residue]
-                    weaved_dict[residue][seq_dict][sub_key] = kwargs[seq_dict][residue][sub_key]
-            else:
-                weaved_dict[residue][seq_dict] = kwargs[seq_dict][residue]
-
-    # ensure all residues in weaved_dict have every keyword
-    # missing_keys = {}
-    # for residue in weaved_dict:
-    #     missing_set = set(kwargs.keys()) - set(weaved_dict[residue].keys())
-    #     if missing_set:
-    #         for missing in missing_set:
-    #             weaved_dict[residue][missing] = None
-        # missing_keys[residue] = set(kwargs.keys()) - set(weaved_dict[residue].keys())
-    # for residue in missing_keys:
-
-    return weaved_dict
-
-
-def multi_chain_alignment(mutated_sequences):
-    """Combines different chain's Multiple Sequence Alignments into a single MSA
-
-    Args:
-        mutated_sequences (dict): {chain: {name: sequence, ...}
-    Returns:
-        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...,
-                                'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
-                                'rep': {0: 210, 1: 211, 2:211, ...}}
-            Zero-indexed counts and rep dictionary elements
-    """
-    alignment = {chain: create_bio_msa(mutated_sequences[chain]) for chain in mutated_sequences}
-
-    # Combine alignments for all chains from design file Ex: A: 1-102, B: 130. Alignment: 1-232
-    first = True
-    total_alignment = None
-    for chain in alignment:
-        if first:
-            total_alignment = alignment[chain][:, :]
-            first = False
-        else:
-            total_alignment += alignment[chain][:, :]
-
-    if total_alignment:
-        return SDUtils.process_alignment(total_alignment)
-    else:
-        logger.error('%s - No sequences were found!' % multi_chain_alignment.__name__)
-        raise SDUtils.DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
-
-
-def analyze_mutations(des_dir, mutated_sequences, residues=None, print_results=False):  # DEPRECIATED
-    """Use the JSD to look at the mutation probabilities of a design. Combines chains after Multiple Sequence Alignment
-
-    Args:
-        des_dir (DesignDirectory): DesignDirectory Object
-        mutated_sequences (dict): {chain: {name: sequence, ...}
-    Keyword Args:
-        residues=None (list): [13, 16, 40, 88, 129, 130, 131, 190, 300] - A list of residue numbers
-        print_results=False (bool): Whether to print the results to standard out
-    Returns:
-        final_mutation_dict (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
-    """
-    alignment = {chain: create_bio_msa(mutated_sequences[chain]) for chain in mutated_sequences}
-
-    # Combine alignments for all chains from design file Ex: A: 1-102, B: 130. Alignment: 1-232
-    first = True
-    total_alignment = None
-    for chain in alignment:
-        if first:
-            total_alignment = alignment[chain][:, :]
-            first = False
-        else:
-            total_alignment += alignment[chain][:, :]
-
-    if total_alignment:
-        alignment_dict = SDUtils.process_alignment(total_alignment)
-    else:
-        logger.error('%s: No sequences were found!' % des_dir.path)
-        raise SDUtils.DesignError('No sequences were found in %s' % des_dir.path)
-
-    # Retrieve design information
-    if residues:
-        keep_residues = residues
-    else:
-        design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
-        keep_residues = SDUtils.get_interface_residues(design_flags, zero=True)
-
-    mutation_frequencies = remove_non_mutations(alignment_dict['counts'], keep_residues)
-    ranked_frequencies = SDUtils.rank_possibilities(mutation_frequencies)
-
-    # Calculate Jensen Shannon Divergence from DSSM using the occurrence data in col 2 and design Mutations
-    dssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
-    design_divergence = pos_specific_jsd(mutation_frequencies, dssm)
-
-    interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
-    interface_divergence = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
-
-    if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):  # TODO Wrap into DesignDirectory object
-        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
-    else:
-        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
-    evolution_divergence = pos_specific_jsd(mutation_frequencies, pssm)
-
-    final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_frequencies, evolution_divergence,
-                                              interface_divergence, design_divergence)
-
-    if print_results:
-        logger('Mutation Frequencies:', mutation_frequencies)
-        logger('Ranked Frequencies:', ranked_frequencies)
-        logger('Design Divergence values:', design_divergence)
-        logger('Evolution Divergence values:', evolution_divergence)
-
-    return final_mutation_dict
+# def write_multi_line_fasta_file(sequences, name, path=os.getcwd()):  # REDUNDANT DEPRECIATED
+#     """Write a multi-line fasta file from a dictionary where the keys are >headers and values are sequences
+#
+#     Args:
+#         sequences (dict): {'my_protein': 'MSGFGHKLGNLIGV...', ...}
+#         name (str): The name of the file to output
+#     Keyword Args:
+#         path=os.getcwd() (str): The location on disk to output file
+#     Returns:
+#         (str): The name of the output file
+#     """
+#     file_name = os.path.join(path, name)
+#     with open(file_name, 'r') as f:
+#         # f.write('>%s\n' % seq)
+#         f.write('\n'.join('>%s\n%s' % (seq_name, sequences[seq_name]) for seq_name in sequences))
+#
+#     return file_name
+
+
+# def parse_mutations(mutation_list):  # UNUSED
+#     if isinstance(mutation_list, str):
+#         mutation_list = mutation_list.split(', ')
+#
+#     # Takes a list of mutations in the form A37K and parses the index (37), the FROM aa (A), and the TO aa (K)
+#     # output looks like {37: ('A', 'K'), 440: ('K', 'Y'), ...}
+#     mutation_dict = {}
+#     for mutation in mutation_list:
+#         to_letter = mutation[-1]
+#         from_letter = mutation[0]
+#         index = int(mutation[1:-1])
+#         mutation_dict[index] = (from_letter, to_letter)
+#
+#     return mutation_dict
+
+
+# def analyze_mutations(des_dir, mutated_sequences, residues=None, print_results=False):  # DEPRECIATED
+#     """Use the JSD to look at the mutation probabilities of a design. Combines chains after Multiple Sequence Alignment
+#
+#     Args:
+#         des_dir (DesignDirectory): DesignDirectory Object
+#         mutated_sequences (dict): {chain: {name: sequence, ...}
+#     Keyword Args:
+#         residues=None (list): [13, 16, 40, 88, 129, 130, 131, 190, 300] - A list of residue numbers
+#         print_results=False (bool): Whether to print the results to standard out
+#     Returns:
+#         final_mutation_dict (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
+#     """
+#     alignment = {chain: create_bio_msa(mutated_sequences[chain]) for chain in mutated_sequences}
+#
+#     # Combine alignments for all chains from design file Ex: A: 1-102, B: 130. Alignment: 1-232
+#     first = True
+#     total_alignment = None
+#     for chain in alignment:
+#         if first:
+#             total_alignment = alignment[chain][:, :]
+#             first = False
+#         else:
+#             total_alignment += alignment[chain][:, :]
+#
+#     if total_alignment:
+#         alignment_dict = SDUtils.process_alignment(total_alignment)
+#     else:
+#         logger.error('%s: No sequences were found!' % des_dir.path)
+#         raise SDUtils.DesignError('No sequences were found in %s' % des_dir.path)
+#
+#     # Retrieve design information
+#     if residues:
+#         keep_residues = residues
+#     else:
+#         design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
+#         keep_residues = SDUtils.get_interface_residues(design_flags, zero=True)
+#
+#     mutation_frequencies = remove_non_mutations(alignment_dict['counts'], keep_residues)
+#     ranked_frequencies = SDUtils.rank_possibilities(mutation_frequencies)
+#
+#     # Calculate Jensen Shannon Divergence from DSSM using the occurrence data in col 2 and design Mutations
+#     dssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
+#     design_divergence = pos_specific_jsd(mutation_frequencies, dssm)
+#
+#     interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
+#     interface_divergence = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
+#
+#     if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):  # TODO Wrap into DesignDirectory object
+#         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
+#     else:
+#         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
+#     evolution_divergence = pos_specific_jsd(mutation_frequencies, pssm)
+#
+#     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_frequencies, evolution_divergence,
+#                                               interface_divergence, design_divergence)
+#
+#     if print_results:
+#         logger('Mutation Frequencies:', mutation_frequencies)
+#         logger('Ranked Frequencies:', ranked_frequencies)
+#         logger('Design Divergence values:', design_divergence)
+#         logger('Evolution Divergence values:', evolution_divergence)
+#
+#     return final_mutation_dict
 
 
 def df_filter_index_by_value(df, **kwargs):

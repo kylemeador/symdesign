@@ -24,7 +24,7 @@ from SymDesignUtils import logger
 class PDB:
     def __init__(self, file=None):
         # self.accession_entity_map = {}
-        self.all_atoms = []  # python list of Atoms
+        self.atoms = []  # python list of Atoms
         self.api_entry = None
         self.atom_sequences = {}  # ATOM sequences. key is chain, value is 'AGHKLAIDL'
         self.bb_coords = []
@@ -54,25 +54,31 @@ class PDB:
         if file:
             self.readfile(file)
 
-    def set_name(self, name):
-        self.name = name
+    # def set_name(self, name):
+    #     self.name = name
+    #
+    # def get_name(self):
+    #     return self.name
 
-    def set_all_atoms(self, atom_list):
-        """Set the PDB instance atoms to those specified in a list"""
-        self.all_atoms = atom_list
+    # def set_all_atoms(self, atom_list):
+    #     """Set the PDB instance atoms to those specified in a list"""
+    #     self.atoms = atom_list
 
-    def add_atoms(self, atom_list):
-        """Add Atoms in atom_list to the PDB instance"""
-        self.all_atoms += atom_list
+    # def add_atoms(self, atom_list):
+    #     """Add Atoms in atom_list to the PDB instance"""
+    #     self.atoms += atom_list
+
+    # def get_atoms(self):
+    #     return self.atoms
 
     def set_chain_id_list(self, chain_id_list):
         self.chain_id_list = chain_id_list
 
-    def set_filepath(self, filepath):
-        self.filepath = filepath
-
     def get_chain_id_list(self):
         return self.chain_id_list
+
+    def set_filepath(self, filepath):
+        self.filepath = filepath
 
     def get_filepath(self):
         return self.filepath
@@ -80,8 +86,8 @@ class PDB:
     def get_uc_dimensions(self):
         return list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
 
-    def update_attributes_from_pdb(self, pdb):
-        # self.all_atoms = pdb.all_atoms
+    def update_attributes_from_pdb(self, pdb):  # Todo copy full attribute dict without selected elements
+        # self.atoms = pdb.atoms
         self.res = pdb.res
         self.cryst_record = pdb.cryst_record
         self.cryst = pdb.cryst
@@ -184,11 +190,11 @@ class PDB:
                     if alt_location == '' or alt_location == 'A':
                         if atom.chain not in chain_ids:
                             chain_ids.append(atom.chain)
-                        self.all_atoms.append(atom)
+                        self.atoms.append(atom)
                 else:
                     if atom.chain not in chain_ids:
                         chain_ids.append(atom.chain)
-                    self.all_atoms.append(atom)
+                    self.atoms.append(atom)
             elif line[0:5] == 'MODEL':
                 multimodel = True
                 start_of_new_model = True  # signifies that the next line comes after a new model
@@ -293,7 +299,7 @@ class PDB:
         if store_cb_and_bb_coords:
             chain_ids = []
             for atom in atom_list:
-                self.all_atoms.append(atom)
+                self.atoms.append(atom)
                 if atom.is_backbone():
                     [x, y, z] = [atom.x, atom.y, atom.z]
                     self.bb_coords.append([x, y, z])
@@ -306,7 +312,7 @@ class PDB:
         else:
             chain_ids = []
             for atom in atom_list:
-                self.all_atoms.append(atom)
+                self.atoms.append(atom)
                 if atom.chain not in chain_ids:
                     chain_ids.append(atom.chain)
             self.chain_id_list += chain_ids
@@ -317,7 +323,7 @@ class PDB:
     # def retrieve_chain_ids(self):  # KM added 2/3/20 to deal with updating chain names after rename_chain(s) functions
     #     # creates a list of unique chain IDs in PDB and feeds it into chain_id_list maintaining order
     #     chain_ids = []
-    #     for atom in self.all_atoms:
+    #     for atom in self.atoms:
     #         chain_ids.append(atom.chain)
     #     chain_ids = list(set(chain_ids))
     #     # chain_ids.sort(key=lambda x: (x[0].isdigit(), x))
@@ -329,7 +335,7 @@ class PDB:
 
     def get_entity_atoms(self, entity_id):
         """Return list of Atoms containing the subset of Atoms that belong to the selected Entity"""
-        return [atom for atom in self.all_atoms if atom.chain in self.entity_d[entity_id]['chains']]
+        return [atom for atom in self.atoms if atom.chain in self.entity_d[entity_id]['chains']]
 
     # def get_chain_atoms(self, chain_ids):
     #     """Return list of Atoms containing the subset of Atoms that belong to the selected chain ids"""
@@ -339,30 +345,30 @@ class PDB:
     #             atoms.extend(self.get_chain_atoms(chain))
     #
     #     return atoms
-    #     # return [atom for atom in self.all_atoms if atom.chain in chain_id_list]
+    #     # return [atom for atom in self.atoms if atom.chain in chain_id_list]
 
     def extract_all_coords(self):
         """Grab all the coordinates from the PDB object"""
         # Todo create a coords attribute (class) which atoms are based off of
-        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms]
+        return [[atom.x, atom.y, atom.z] for atom in self.atoms]
 
     def extract_backbone_coords(self):
-        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms if atom.is_backbone()]
+        return [[atom.x, atom.y, atom.z] for atom in self.atoms if atom.is_backbone()]
 
     def extract_CA_coords(self):
-        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms if atom.is_CA()]
+        return [[atom.x, atom.y, atom.z] for atom in self.atoms if atom.is_CA()]
 
     def extract_CB_coords(self, InclGlyCA=False):
-        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
+        return [[atom.x, atom.y, atom.z] for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     def extract_CB_coords_chain(self, chain, InclGlyCA=False):
-        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms if atom.is_CB(InclGlyCA=InclGlyCA) and atom.chain == chain]
+        return [[atom.x, atom.y, atom.z] for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA) and atom.chain == chain]
 
     def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):
         coords, cb_indices = [], []
-        for i in range(len(self.all_atoms)):
-            if self.all_atoms[i].is_CB(InclGlyCA=InclGlyCA):
-                [x, y, z] = [self.all_atoms[i].x, self.all_atoms[i].y, self.all_atoms[i].z]
+        for i in range(len(self.atoms)):
+            if self.atoms[i].is_CB(InclGlyCA=InclGlyCA):
+                [x, y, z] = [self.atoms[i].x, self.atoms[i].y, self.atoms[i].z]
                 coords.append([x, y, z])
 
                 if ReturnWithCBIndices:
@@ -375,14 +381,14 @@ class PDB:
             return coords
 
     def get_all_atoms(self):
-        return self.all_atoms
+        return self.atoms
 
     def get_CA_atoms(self):
-        return [atom for atom in self.all_atoms if atom.is_CA()]
+        return [atom for atom in self.atoms if atom.is_CA()]
 
     def replace_coords(self, new_cords):
-        for i in range(len(self.all_atoms)):
-            self.all_atoms[i].x, self.all_atoms[i].y, self.all_atoms[i].z = \
+        for i in range(len(self.atoms)):
+            self.atoms[i].x, self.atoms[i].y, self.atoms[i].z = \
                 new_cords[i][0], new_cords[i][1], new_cords[i][2]
 
     def mat_vec_mul3(self, a, b):
@@ -394,7 +400,7 @@ class PDB:
         return c
 
     def rotate_translate(self, rot, tx):
-        for atom in self.all_atoms:
+        for atom in self.atoms:
             coord = [atom.x, atom.y, atom.z]
             coord_rot = self.mat_vec_mul3(rot, coord)
             newX = coord_rot[0] + tx[0]
@@ -403,7 +409,7 @@ class PDB:
             atom.x, atom.y, atom.z = newX, newY, newZ
 
     def translate(self, tx):
-        for atom in self.all_atoms:
+        for atom in self.atoms:
             coord = [atom.x, atom.y, atom.z]
             newX = coord[0] + tx[0]
             newY = coord[1] + tx[1]
@@ -412,7 +418,7 @@ class PDB:
 
     def rotate(self, rot, store_cb_and_bb_coords=False):
         if store_cb_and_bb_coords:
-            for atom in self.all_atoms:
+            for atom in self.atoms:
                 x, y, z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
                 atom.x, atom.y, atom.z = x, y, z
                 if atom.is_backbone():
@@ -420,7 +426,7 @@ class PDB:
                 if atom.is_CB(InclGlyCA=False):
                     self.cb_coords.append([atom.x, atom.y, atom.z])
         else:
-            for atom in self.all_atoms:
+            for atom in self.atoms:
                 x, y, z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
                 atom.x, atom.y, atom.z = x, y, z
 
@@ -440,7 +446,7 @@ class PDB:
         else:
             print('Axis does not exists!')
 
-        for atom in self.all_atoms:
+        for atom in self.atoms:
             coord = [atom.x, atom.y, atom.z]
             newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
             newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
@@ -464,7 +470,7 @@ class PDB:
             print('Axis does not exists!')
 
         rotated_atoms = []
-        for atom in self.all_atoms:
+        for atom in self.atoms:
             coord = [atom.x, atom.y, atom.z]
             newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
             newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
@@ -480,7 +486,7 @@ class PDB:
 
     def ReturnTranslatedPDB(self, tx, store_cb_and_bb_coords=False):
         translated_atoms = []
-        for atom in self.all_atoms:
+        for atom in self.atoms:
             coord = [atom.x, atom.y, atom.z]
             newX = coord[0] + tx[0]
             newY = coord[1] + tx[1]
@@ -502,8 +508,8 @@ class PDB:
             coord_copy = copy.deepcopy(coord)
             coord_rotated = self.mat_vec_mul3(rot, coord_copy)
             rotated_coords.append(coord_rotated)
-        for i in range(len(self.all_atoms)):
-            atom_copy = copy.deepcopy(self.all_atoms[i])
+        for i in range(len(self.atoms)):
+            atom_copy = copy.deepcopy(self.atoms[i])
             atom_copy.x = rotated_coords[i][0]
             atom_copy.y = rotated_coords[i][1]
             atom_copy.z = rotated_coords[i][2]
@@ -533,17 +539,17 @@ class PDB:
                 lm[i] = l_av[j]
                 j += 1
 
-        prev = self.all_atoms[0].chain
+        prev = self.atoms[0].chain
         c = 0
         l3 = []
-        for i in range(len(self.all_atoms)):
-            if prev != self.all_atoms[i].chain:
+        for i in range(len(self.atoms)):
+            if prev != self.atoms[i].chain:
                 c += 1
             l3.append(lm[c])
-            prev = self.all_atoms[i].chain
+            prev = self.atoms[i].chain
 
-        for i in range(len(self.all_atoms)):
-            self.all_atoms[i].chain = l3[i]
+        for i in range(len(self.atoms)):
+            self.atoms[i].chain = l3[i]
 
         self.chain_id_list = lm
         self.update_chain_sequences()
@@ -578,35 +584,35 @@ class PDB:
         for i in range(len(self.chain_id_list)):
             l_moved.append(l_available[i])
 
-        prev = self.all_atoms[0].chain
+        prev = self.atoms[0].chain
         chain_index = 0
         l3 = []
-        for i in range(len(self.all_atoms)):
-            if prev != self.all_atoms[i].chain:
+        for i in range(len(self.atoms)):
+            if prev != self.atoms[i].chain:
                 chain_index += 1
             l3.append(l_moved[chain_index])
-            prev = self.all_atoms[i].chain
+            prev = self.atoms[i].chain
 
-        for i in range(len(self.all_atoms)):
-            self.all_atoms[i].chain = l3[i]
+        for i in range(len(self.atoms)):
+            self.atoms[i].chain = l3[i]
         # Update chain_id_list
         self.chain_id_list = l_moved
         self.update_chain_sequences()
 
     def renumber_atoms(self):
         """Renumber all atom entries one-indexed according to list order"""
-        for idx, atom in enumerate(self.all_atoms, 1):
+        for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
 
     def renumber_residues(self):
         """Starts numbering PDB Residues at 1 and numbers sequentially until reaches last atom in file"""
-        last_atom_index = len(self.all_atoms)
+        last_atom_index = len(self.atoms)
         idx = 0  # offset , 1
         for i, residue in enumerate(self.residues, 1):
-            # current_res_num = self.all_atoms[idx].residue_number
+            # current_res_num = self.atoms[idx].residue_number
             current_res_num = residue.number
-            while self.all_atoms[idx].residue_number == current_res_num:
-                self.all_atoms[idx].residue_number = i  # + offset
+            while self.atoms[idx].residue_number == current_res_num:
+                self.atoms[idx].residue_number = i  # + offset
                 idx += 1
                 if idx == last_atom_index:
                     break
@@ -627,8 +633,8 @@ class PDB:
         last_atom_index = idx + len(chain_atoms)
         for i, residue in enumerate(self.get_chain_residues(chain), 1):
             current_res_num = residue.number
-            while self.all_atoms[idx].residue_number == current_res_num:
-                self.all_atoms[idx].residue_number = i
+            while self.atoms[idx].residue_number == current_res_num:
+                self.atoms[idx].residue_number = i
                 idx += 1
                 if idx == last_atom_index:
                     break
@@ -640,7 +646,7 @@ class PDB:
         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.000, 0.000, -80.000, 1.00, 20.00, "C", "")
 
         axis = [z_axis_a, z_axis_b, z_axis_c]
-        self.all_atoms.extend(axis)
+        self.atoms.extend(axis)
 
     def AddXYZAxes(self):
         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
@@ -656,7 +662,7 @@ class PDB:
         x_axis_c = Atom(3, "CA", " ", "GLY", "9", 3, " ", -80.000, 0.000, 0.000, 1.00, 20.00, "C", "")
 
         axes = [z_axis_a, z_axis_b, z_axis_c, y_axis_a, y_axis_b, y_axis_c, x_axis_a, x_axis_b, x_axis_c]
-        self.all_atoms.extend(axes)
+        self.atoms.extend(axes)
 
     def getTermCAAtom(self, term, chain_id):
         if term == "N":
@@ -676,14 +682,15 @@ class PDB:
             residue_numbers = list(residue_numbers)
 
         atoms = []
-        for residue in self.residues:
-            if residue.chain == chain_id and residue.number in residue_numbers:
-                atoms.extend(residue.get_atoms())
+        # for residue in self.residues:
+        #     if residue.chain == chain_id and residue.number in residue_numbers:
+        #         atoms.extend(residue.get_atoms())
 
-        for chain in self.chains:
-            if chain == chain_id:
+        _residues = self.chain(chain_id).residues(residue_numbers)
+        for _residue in _residues:
+            atoms.extend(_residue.get_atoms())
 
-        return
+        return atoms
 
     def create_chains(self):
         for chain in self.chain_id_list:
@@ -697,7 +704,7 @@ class PDB:
             if chain.id == chain_id:
                 return chain
 
-    def get_chain_atoms(self, chain_ids):
+    def get_chain_atoms(self, chain_ids):  # Todo Depreciate
         """Return list of Atoms containing the subset of Atoms that belong to the selected Chain(s)"""
         if not isinstance(chain_ids, list):
             chain_ids = list(chain_ids)
@@ -707,16 +714,16 @@ class PDB:
             if chain.name in chain_ids:
                 atoms.extend(chain.get_atoms())
         return atoms
-        # return [atom for atom in self.all_atoms if atom.chain == chain_id]
+        # return [atom for atom in self.atoms if atom.chain == chain_id]
 
-    def get_chain_residues(self, chain_id):
+    def get_chain_residues(self, chain_id):  # Todo Depreciate
         """Return the Residues included in a particular chain"""
         return [residue for residue in self.residues if residue.chain == chain_id]
 
     def create_residues(self):
-        current_residue_number = self.all_atoms[0].residue_number
+        current_residue_number = self.atoms[0].residue_number
         current_residue = []
-        for atom in self.all_atoms:
+        for atom in self.atoms:
             if atom.residue_number == current_residue_number:
                 current_residue.append(atom)
             else:
@@ -726,42 +733,45 @@ class PDB:
         # ensure last residue is added after iteration is complete
         self.residues.append(Residue(current_residue))
 
-    def get_residues(self):
-        return self.residues
+    # def get_residues(self):
+    #     return self.residues
 
-    def get_residue(self, chain_id, residue_number):  # Todo Depreciate
-        for residue in self.residues:
-            if residue.number == residue_number and residue.chain == chain_id:
-                return residue
-
-        return None
+    # def get_residue(self, chain_id, residue_number):  # Todo Depreciate
+    #     for residue in self.residues:
+    #         if residue.number == residue_number and residue.chain == chain_id:
+    #             return residue
+    #
+    #     return None
         # return Residue(self.getResidueAtoms(chain_id, residue_number))
 
-    def write(self, out_path, cryst1=None):
+    def write(self, out_path, cryst1=None):  # Todo Depreciate
         if not cryst1:
             cryst1 = self.cryst_record
         with open(out_path, "w") as outfile:
             if cryst1 and isinstance(cryst1, str) and cryst1.startswith("CRYST1"):
                 outfile.write(str(cryst1) + "\n")
-            outfile.write('\n'.join(str(atom) for atom in self.all_atoms))
+            outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
 
     def calculate_ss(self, chain_id="A", stride_exe_path='./stride/stride'):
         pdb_stride = Stride(self.filepath, chain_id, stride_exe_path)
         pdb_stride.run()
         self.pdb_ss_asg = pdb_stride.ss_asg
 
-    def getStructureSequence(self, chain_id):
-        sequence_list = []
-        for atom in self.get_chain_atoms(chain_id):
-            if atom.is_CA():
-                sequence_list.append(atom.residue_type)
-        one_letter = ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
-                              if k.title() in IUPACData.protein_letters_3to1_extended else '-' for k in sequence_list])
-
-        return one_letter
+    # def get_structure_sequence(self, aa_code=1):
+    #     """Returns the sequence of Residues found in the structure"""
+    #     sequence_list = [residue.type for residue in self.get_residues()]
+    #
+    #     if aa_code == 1:
+    #         sequence = ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
+    #                             if k.title() in IUPACData.protein_letters_3to1_extended else '-'
+    #                             for k in sequence_list])
+    #     else:
+    #         sequence = ' '.join(sequence_list)
+    #
+    #     return sequence
 
     def update_chain_sequences(self):
-        self.atom_sequences = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
+        self.atom_sequences = {chain: self.get_structure_sequence(chain) for chain in self.chain_id_list}
 
     def orient(self, symm, orient_dir, generate_oriented_pdb=True):
         # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps.
@@ -938,50 +948,37 @@ class PDB:
             return None
 
     def get_bb_indices(self):
-        bb_indices = []
-        for i in range(len(self.all_atoms)):
-            if self.all_atoms[i].is_backbone():
-                bb_indices.append(i)
-        return bb_indices
+        return [idx for idx, atom in enumerate(self.get_atoms()) if atom.is_backbone()]
 
     def get_cb_indices(self, InclGlyCA=False):
-        cb_indices = []
-        for i in range(len(self.all_atoms)):
-            if self.all_atoms[i].is_CB(InclGlyCA=InclGlyCA):
-                cb_indices.append(i)
-        return cb_indices
+        return [idx for idx, atom in enumerate(self.get_atoms()) if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     def get_cb_indices_chain(self, chain, InclGlyCA=False):
-        cb_indices = []
-        for i in range(len(self.all_atoms)):
-            if self.all_atoms[i].chain == chain:
-                if self.all_atoms[i].is_CB(InclGlyCA=InclGlyCA):
-                    cb_indices.append(i)
-        return cb_indices
+        return [idx for idx, atom in enumerate(self.get_atoms()) if atom.chain == chain and atom.is_CB(InclGlyCA=InclGlyCA)]
 
-    def get_term_ca_indices(self, term):
+    def get_term_ca_indices(self, term):  # DEPRECIATE
         if term == "N":
             ca_term_list = []
             chain_id = None
-            for i in range(len(self.all_atoms)):
-                atom = self.all_atoms[i]
+            for idx, atom in enumerate(self.get_atoms()):
+                # atom = self.atoms[i]
                 if atom.chain != chain_id and atom.type == "CA":
-                    ca_term_list.append(i)
+                    ca_term_list.append(idx)
                     chain_id = atom.chain
             return ca_term_list
 
         elif term == "C":
             ca_term_list = []
-            chain_id = self.all_atoms[0].chain
-            current_ca_indx = None
-            for i in range(len(self.all_atoms)):
-                atom = self.all_atoms[i]
+            chain_id = self.atoms[0].chain
+            current_ca_idx = None
+            for idx, atom in enumerate(self.get_atoms()):
+                # atom = self.atoms[i]
                 if atom.chain != chain_id:
-                    ca_term_list.append(current_ca_indx)
+                    ca_term_list.append(current_ca_idx)
                     chain_id = atom.chain
                 if atom.type == "CA":
-                    current_ca_indx = i
-            ca_term_list.append(current_ca_indx)
+                    current_ca_idx = idx
+            ca_term_list.append(current_ca_idx)
             return ca_term_list
 
         else:
@@ -990,15 +987,15 @@ class PDB:
 
     def get_helix_cb_indices(self, stride_exe_path):
         # only works for monomers or homo-complexes
-        h_cb_indices = []
         stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
         stride.run()
         stride_ss_asg = stride.ss_asg
-        for i in range(len(self.all_atoms)):
-            atom = self.all_atoms[i]
+        h_cb_indices = []
+        for idx, atom in enumerate(self.get_atoms()):
+            # atom = self.atoms[i]
             if atom.is_CB():
                 if (atom.residue_number, "H") in stride_ss_asg:
-                    h_cb_indices.append(i)
+                    h_cb_indices.append(idx)
         return h_cb_indices
 
     def get_sasa(self, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=0):
@@ -1040,8 +1037,8 @@ class PDB:
         stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
         stride.run()
         stride_ss_asg = stride.ss_asg
-        for i in range(len(self.all_atoms)):
-            atom = self.all_atoms[i]
+        for i in range(len(self.get_atoms())):
+            atom = self.atoms[i]
             if atom.is_CB():
                 if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_res:
                     h_cb_indices.append(i)
@@ -1065,7 +1062,7 @@ class PDB:
 
         surface_atoms = []
         if chain_selection == "all":
-            for atom in self.all_atoms:
+            for atom in self.get_atoms():
                 if (atom.chain, atom.residue_number) in sasa_chain_res_l:
                     surface_atoms.append(atom)
         else:
@@ -1116,19 +1113,17 @@ class PDB:
 
         return total_sasa
 
-    def mutate_to(self, chain, residue, res_id='ALA'):  # KM added 12/31/19 to mutate pdb Residue objects to alanine
+    def mutate_to(self, chain_id, residue_number, res_id='ALA'):  # KM added 12/31/19 to mutate pdb Residue objects to alanine
         """Mutate specific chain and residue to a new residue type. Type can be 1 or 3 letter format"""
         # if using residue number, then residue_atom_list[i] is necessary
         # else using Residue object, residue.atom_list[i] is necessary
         if res_id in IUPACData.protein_letters_1to3:
             res_id = IUPACData.protein_letters_1to3[res_id]
 
-        residue_atom_list = self.get_residue_atoms(chain, residue)  # residue.atom_list
+        residue_atom_list = self.chain(chain_id).residue(residue_number).get_atoms()
+        # residue_atom_list = self.get_residue_atoms(chain, residue)  # residue.atom_list
         delete = []
-        # for i in range(len(residue_atom_list)):
         for i, atom in enumerate(residue_atom_list):
-            # if residue_atom_list[i].is_backbone() or residue_atom_list[i].is_CB():
-            #     residue_atom_list[i].residue_type = res_id.upper()
             if atom.is_backbone() or atom.is_CB():
                 residue_atom_list[i].residue_type = res_id.upper()
             else:
@@ -1139,11 +1134,11 @@ class PDB:
             # for j in delete:
             for j in reversed(delete):
                 i = residue_atom_list[j]
-                self.all_atoms.remove(i)
+                self.atoms.remove(i)
             # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
             self.renumber_atoms()
 
-    def insert_residue(self, chain_id, residue_number, residue_type):
+    def insert_residue(self, chain_id, residue_number, residue_type):  # Todo Chain compatible
         """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
         indexed"""
         # Convert 3 letter aa to uppercase, 1 letter aa
@@ -1173,7 +1168,7 @@ class PDB:
             # insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number
 
         # Change all downstream residues
-        for atom in self.all_atoms[insert_atom_idx:]:
+        for atom in self.atoms[insert_atom_idx:]:
             # atom.number += len(insert_atoms)
             # if atom.chain == chain: TODO uncomment for pdb numbering
             atom.residue_number += 1
@@ -1189,13 +1184,13 @@ class PDB:
             atom.chain = chain_id
             atom.residue_number = residue_number
             atom.occ = 0
-            self.all_atoms.insert(insert_atom_idx, atom)
+            self.atoms.insert(insert_atom_idx, atom)
 
         self.renumber_pdb()
 
     def delete_residue(self, chain_id, residue_number):  # KM added 08/25/20 to remove missing residues between two files
-        # start = len(self.all_atoms)
-        # print(len(self.all_atoms))
+        # start = len(self.atoms)
+        # print(len(self.atoms))
         # residue = self.get_residue(chain, residue_number)
         chain = self.chain(chain_id)
         residue = chain.get_residue(residue_number)
@@ -1204,12 +1199,12 @@ class PDB:
         chain.residues.remove(residue)  # deletes Residue from Chain
         self.residues.remove(residue)  # deletes Residue from PDB
         self.renumber_pdb()
-        # print('Deleted: %d atoms' % (start - len(self.all_atoms)))
+        # print('Deleted: %d atoms' % (start - len(self.atoms)))
 
     def delete_atoms(self, atoms):
         # Need to call self.renumber_atoms() after every call to delete_atoms()
         for atom in atoms:
-            self.all_atoms.remove(atom)
+            self.atoms.remove(atom)
 
     def apply(self, rot, tx):  # KM added 02/10/20 to run extract_pdb_interfaces.py
         moved = []
@@ -1220,8 +1215,9 @@ class PDB:
             moved.append(coord_moved)
         self.replace_coords(moved)
 
-    def get_ave_residue_b_factor(self, chain, residue):
-        residue_atoms = self.get_residue_atoms(chain, residue)
+    def get_ave_residue_b_factor(self, chain_id, residue_number):
+        residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()
+        # residue_atoms = self.get_residue_atoms(chain, residue)
         temp = 0
         for atom in residue_atoms:
             temp += atom.temp_fact
@@ -1252,7 +1248,7 @@ class PDB:
     def get_atom_entities(self):  # KM added 08/21/20 to format or the ASU
         """Find all unique entities in the pdb file, these are unique sequence/structure objects"""
         # TODO update to reflect parsing
-        # seq_d = {chain: self.getStructureSequence(chain) for chain in self.chain_id_list}
+        # seq_d = {chain: self.get_structure_sequence(chain) for chain in self.chain_id_list}
         # self.entities[copy.copy(count)] = {'chains': [self.chain_id_list[0]], 'seq': seq_d[self.chain_id_list[0]]}
         entity_count = 1
         for chain in self.atom_sequences:
@@ -1365,7 +1361,7 @@ class PDB:
         # Construct CB Tree for the chain
         chain_tree = BallTree(chain_coords)
 
-        # Get CB Atom indices for the chain CB and all_atoms CB
+        # Get CB Atom indices for the chain CB and atoms CB
         chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
         all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
         chain_coord_indices, contact_cb_indices = [], []
@@ -1384,11 +1380,11 @@ class PDB:
         all_contact_atoms, chain_atoms = [], []
         for contact_idx, contacts in enumerate(chain_query):
             if chain_query[contact_idx].tolist() != list():
-                all_contact_atoms.append(self.all_atoms[contact_cb_indices[contact_idx]])
-                # residues2.append(pdb2.all_atoms[pdb2_cb_indices[pdb2_index]].residue_number)
+                all_contact_atoms.append(self.atoms[contact_cb_indices[contact_idx]])
+                # residues2.append(pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number)
                 # for pdb1_index in chain_query[contact_idx]:
                 for chain_idx in contacts:
-                    chain_atoms.append(self.all_atoms[chain_cb_indices[chain_idx]])
+                    chain_atoms.append(self.atoms[chain_cb_indices[chain_idx]])
 
         return chain_atoms, all_contact_atoms  # Todo return as interface pairs?
 
@@ -1532,7 +1528,7 @@ class PDB:
         # return asu_file_name
 
     def __len__(self):
-        return len([0 for atom in self.all_atoms if atom.is_CA])
+        return len([0 for residue in self.residues])
 
     def scout_symmetry(self):
         """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script

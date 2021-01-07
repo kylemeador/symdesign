@@ -1,12 +1,16 @@
-import os
 import argparse
-import pandas as pd
+import os
 from itertools import repeat
-# import PDB
-import SymDesignUtils as SDUtils
-import PathUtils as PUtils
+
+import pandas as pd
+
 import AnalyzeMutatedSequences as Ams
 import AnalyzeOutput as AOut
+import PathUtils as PUtils
+# import PDB
+import SequenceProfile
+import SymDesignUtils as SDUtils
+
 # import CmdUtils as CUtils
 logger = SDUtils.start_log(level=3)
 
@@ -18,7 +22,7 @@ def pose_jsd(des_dir, debug=False):
     other_pose_metrics = {}
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     pose_res_dict = Ams.analyze_mutations(des_dir,
-                                          Ams.mutate_wildtype_sequences(all_design_files, Ams.get_wildtype_file(des_dir)))
+                                          SequenceProfile.mutate_wildtype_sequences(all_design_files, SequenceProfile.get_wildtype_file(des_dir)))
     for key in per_res_keys:
         other_pose_metrics[key + '_per_res'] = AOut.per_res_metric(pose_res_dict, key=key)
 

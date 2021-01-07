@@ -15,7 +15,7 @@ warnings.simplefilter('ignore', PDBConstructionWarning)
 
 ################################################### RANKING FUNCTION ###################################################
 def res_lev_sum_score_rank(all_design_directories):
-    designid_metric_tup_list = [(str(des_dir), des_dir.gather_pose_metrics(score=True))
+    designid_metric_tup_list = [(str(des_dir), des_dir.pose_score())
                                 for des_dir in all_design_directories]
     designid_metric_tup_list_sorted = sorted(designid_metric_tup_list, key=lambda tup: tup[1] is None, reverse=True)
     designid_metric_rank_dict = {d: (m, r) for r, (d, m) in enumerate(designid_metric_tup_list_sorted, 1)}
