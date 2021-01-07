@@ -2,7 +2,7 @@ from itertools import product, combinations
 
 # from classes.FragDock import dock  # v1
 from nanohedra.classes.EulerLookup import EulerLookup
-from nanohedra.classes.FragDockMP import dock
+from nanohedra.classes.FragDock import dock
 from nanohedra.classes.Fragment import *
 from nanohedra.classes.SymEntry import *
 from nanohedra.utils.CmdLineArgParseUtils import *
