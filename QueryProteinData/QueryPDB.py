@@ -569,7 +569,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
 
 
 def get_pdb_info_by_entry(entry):
-    """Retrieve PDB information from the RCSB API
+    """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
 
     Returns:
         (dict): {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},

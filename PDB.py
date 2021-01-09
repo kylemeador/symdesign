@@ -16,12 +16,12 @@ from Atom import Atom
 from Chain import Chain
 from Entity import Entity
 from QueryProteinData.QueryPDB import get_pdb_info_by_entry
-from Residue import Residue
 from Stride import Stride
+from Structure import Structure
 from SymDesignUtils import logger
 
 
-class PDB:
+class PDB(Structure):
     def __init__(self, file=None):
         # self.accession_entity_map = {}
         self.atoms = []  # python list of Atoms
@@ -599,24 +599,24 @@ class PDB:
         self.chain_id_list = l_moved
         self.update_chain_sequences()
 
-    def renumber_atoms(self):
-        """Renumber all atom entries one-indexed according to list order"""
-        for idx, atom in enumerate(self.atoms, 1):
-            atom.number = idx
+    # def renumber_atoms(self):
+    #     """Renumber all atom entries one-indexed according to list order"""
+    #     for idx, atom in enumerate(self.atoms, 1):
+    #         atom.number = idx
 
-    def renumber_residues(self):
-        """Starts numbering PDB Residues at 1 and numbers sequentially until reaches last atom in file"""
-        last_atom_index = len(self.atoms)
-        idx = 0  # offset , 1
-        for i, residue in enumerate(self.residues, 1):
-            # current_res_num = self.atoms[idx].residue_number
-            current_res_num = residue.number
-            while self.atoms[idx].residue_number == current_res_num:
-                self.atoms[idx].residue_number = i  # + offset
-                idx += 1
-                if idx == last_atom_index:
-                    break
-        self.renumber_atoms()  # should be unnecessary
+    # def renumber_residues(self):
+    #     """Starts numbering PDB Residues at 1 and numbers sequentially until reaches last atom in file"""
+    #     last_atom_index = len(self.atoms)
+    #     idx = 0  # offset , 1
+    #     for i, residue in enumerate(self.residues, 1):
+    #         # current_res_num = self.atoms[idx].residue_number
+    #         current_res_num = residue.number
+    #         while self.atoms[idx].residue_number == current_res_num:
+    #             self.atoms[idx].residue_number = i  # + offset
+    #             idx += 1
+    #             if idx == last_atom_index:
+    #                 break
+    #     self.renumber_atoms()  # should be unnecessary
 
     def renumber_pdb(self):
         self.renumber_atoms()
@@ -686,7 +686,7 @@ class PDB:
         #     if residue.chain == chain_id and residue.number in residue_numbers:
         #         atoms.extend(residue.get_atoms())
 
-        _residues = self.chain(chain_id).residues(residue_numbers)
+        _residues = self.chain(chain_id).get_residues(numbers=residue_numbers)
         for _residue in _residues:
             atoms.extend(_residue.get_atoms())
 
@@ -720,18 +720,18 @@ class PDB:
         """Return the Residues included in a particular chain"""
         return [residue for residue in self.residues if residue.chain == chain_id]
 
-    def create_residues(self):
-        current_residue_number = self.atoms[0].residue_number
-        current_residue = []
-        for atom in self.atoms:
-            if atom.residue_number == current_residue_number:
-                current_residue.append(atom)
-            else:
-                self.residues.append(Residue(current_residue))
-                current_residue = [atom]
-                current_residue_number = atom.residue_number
-        # ensure last residue is added after iteration is complete
-        self.residues.append(Residue(current_residue))
+    # def create_residues(self):
+    #     current_residue_number = self.atoms[0].residue_number
+    #     current_residue = []
+    #     for atom in self.atoms:
+    #         if atom.residue_number == current_residue_number:
+    #             current_residue.append(atom)
+    #         else:
+    #             self.residues.append(Residue(current_residue))
+    #             current_residue = [atom]
+    #             current_residue_number = atom.residue_number
+    #     # ensure last residue is added after iteration is complete
+    #     self.residues.append(Residue(current_residue))
 
     # def get_residues(self):
     #     return self.residues
@@ -1193,7 +1193,7 @@ class PDB:
         # print(len(self.atoms))
         # residue = self.get_residue(chain, residue_number)
         chain = self.chain(chain_id)
-        residue = chain.get_residue(residue_number)
+        residue = chain.residue(residue_number)
         # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
         self.delete_atoms(residue.get_atoms())  # deletes Atoms from PDB
         chain.residues.remove(residue)  # deletes Residue from Chain

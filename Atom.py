@@ -2,13 +2,14 @@ import math
 
 
 class Atom:
-    def __init__(self, number, type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y, z,
-                 occ, temp_fact, element_symbol, atom_charge):
+    def __init__(self, number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y,
+                 z, occ, temp_fact, element_symbol, atom_charge):
         self.number = number
-        self.type = type
+        self.type = atom_type
         self.alt_location = alt_location
         self.residue_type = residue_type
         self.chain = chain
+        self.pdb_residue_number = residue_number
         self.residue_number = residue_number
         self.code_for_insertion = code_for_insertion
         self.x = x
@@ -80,6 +81,9 @@ class Atom:
     def get_chain(self):
         return self.chain
 
+    def get_pdb_residue_number(self):
+        return self.pdb_residue_number
+
     def get_residue_number(self):
         return self.residue_number
 
@@ -111,7 +115,7 @@ class Atom:
         return self.number, self.type
 
     def __str__(self):
-        # prints Atom in PDB format
+        """Represent Atom in PDB format"""
         return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
                '\n'.format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
                            self.residue_number, self.code_for_insertion, self.x, self.y, self.z, self.occ,
@@ -121,5 +125,5 @@ class Atom:
         return (self.number == other.number and self.chain == other.chain and self.type == other.type and
                 self.residue_type == other.residue_type)
 
-    def __hash__(self):
+    def __hash__(self):  # Todo current key is mutable so this hash is invalid
         return hash(self.__key())
