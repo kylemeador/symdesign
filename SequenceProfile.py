@@ -3,7 +3,7 @@ import math
 import os
 import subprocess
 import sys
-from glob import glob
+from glob import glob, iglob
 from itertools import chain
 
 try:
@@ -35,9 +35,11 @@ class SequenceProfile:
         self.pdb_seq = None
         self.pdb_seq_file = None
         self.pssm_file = None
+        self.pssm = {}
         self.frag_db = None
         self.fragment_map = {}
         self.fragment_frequency_map = {}
+        self.alpha = {}
         self.fragment_profile = {}
 
     def get_name(self):
@@ -45,613 +47,76 @@ class SequenceProfile:
         # return self.id
         return self.structure.get_name()
 
-    def add_evolutionary_profile(self, out_path=os.getcwd()):
-        # self.gather_profile_info(design_directory, names)
+    def add_profile(self, fragment_source=None, fragment_info_source=None, out_path=os.get_cwd(), pdb_numbering=True):
+        """Add the evolutionary and fragment profiles onto the SequenceProfile
 
-        # Extract/Format Sequence Information
-        self.pdb_seq = self.structure.get_structure_sequence()
-        structure_name = self.structure.get_name()
-        # entity_name = self.structure.get_name()
-        # logger.debug('%s is chain %s in ASU' % (structure_name, chain_name))
-        logger.debug('%s Sequence=%s' % (structure_name, self.pdb_seq))
-        # DesignDirectory.pathbe removed as the input is perfectly symmetric so the tx_# won't matter for each entity
-        file_name = self.write_fasta_file(name='%s' % structure_name, out_path=out_path)  # design_directory.sequences
-        logger.debug('%s fasta file: %s' % (structure_name, file_name))
-
-        # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
-        logger.info('Generating PSSM file for %s' % structure_name)
-        self.pssm_file = self.hhblits(out_path=out_path)  # design_directory.sequences
-        self.pssm = self.parse_hhblits_pssm()
-
-    def find_alpha(self, issm, cluster_map, db='biological_interfaces', a=0.5):
-        """Find fragment contribution to design with cap at alpha
-
-        Args:
-            issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
-            cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
         Keyword Args:
-            db='biological_interfaces': Disk location of fragment database
-            a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
-        Returns:
-            alpha (dict): {48: 0.5, 50: 0.321, ...}
+            fragment_source=None (list):
+            fragment_info_source=None (str): One of either 'mapped' or 'paired' indicating the chain fragment
+                information mapping
+            out_path=os.getcwd() (str): Location where sequence files should be written
+            pdb_numbering=True (bool):
         """
-        db = PUtils.frag_directory[db]
-        stat_dict = get_db_statistics(db)
-        alpha = {}
-        for entry in issm:  # cluster_map
-            if cluster_map[entry]['chain'] == 'mapped':
-                i = 0
-            else:
-                i = 1
+        if pdb_numbering:  # Renumber self.fragment_mapand self.fragment_frequency_map to Pose residue numbering
+            for idx, fragment in enumerate(fragment_source):
+                fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
+                fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
+                fragment_source[idx] = fragment
 
-            contribution_total, count = 0.0, 1
-            # count = len([1 for obs in cluster_map[entry][index] for index in cluster_map[entry]]) or 1
-            for count, residue_cluster_pair in enumerate(cluster_map[entry]['cluster'], 1):
-                cluster_id = return_cluster_id_string(residue_cluster_pair[1], index_number=2)  # get first two indices
-                contribution_total += stat_dict[cluster_id][0][i]  # get the average contribution of each fragment type
-            stats_average = contribution_total / issm[entry]['stats'][0]
-            entry_ave_frag_weight = issm[entry]['stats'][1] / issm[entry]['stats'][0]
-            # entry average fragment weight = total weight for issm entry / # of fragments with SC interactions
-            if entry_ave_frag_weight < stats_average:  # if design frag weight is less than db cluster average weight
-                # modify alpha proportionally to cluster average weight
-                alpha[entry] = a * (entry_ave_frag_weight / stats_average)
-            else:
-                alpha[entry] = a
+        if fragment_source and fragment_info_source:
 
-        return alpha
+            self.frag_db.get_cluster_info(ids=[fragment['cluster'] for fragment in fragment_source])
+            self.add_fragment_profile(fragment_source=fragment_source, info_source=fragment_info_source)
 
-    # @staticmethod
-    # def parameterize_frag_length(length):
-    #     """Generate fragment length range parameters for use in fragment functions"""
-    #     _range = math.floor(length / 2)
-    #     if length % 2 == 1:
-    #         return 0 - _range, 0 + _range + index_offset
-    #     else:
-    #         logger.critical('%d is an even integer which is not symmetric about a single residue. '
-    #                         'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
-    #         raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
+        # DesignDirectory.path could be removed as the input oligomers should be perfectly symmetric so the tx_# won't
+        # matter for each entity. right? Todo
+        self.add_evolutionary_profile(out_path=out_path)
+        self.combine_ssm(boltzmann=True)
 
-    @staticmethod
-    def populate_design_dictionary(n, alphabet, counts=False, zero_index=False):
-        """Return a dictionary with n elements, each integer key containing another dictionary with the items in
-        alphabet as keys. By default, values for the alphabet dictionary is an empty dictionary unless counts=True,
-        then a integer counter will be added instead
-
-        Args:
-            n (int): number of residues in a design
-            alphabet (iter): alphabet of interest
-        Keyword Args:
-            counts=False (bool): If True, include an integer placeholder for counting
-            zero_index=False (bool): If True, return the dictionary with zero indexing
-         Returns:
-             (dict): {0: {alph1: {}, alph2: {}, ...}, 1: {}, ...}
-                Custom length, 0 indexed dictionary with residue number keys
-         """
-        if zero_index:
-            offset = 0
-        else:
-            offset = index_offset
-
-        if counts:
-            return {residue + offset: {i: 0 for i in alphabet} for residue in range(n)}
-        else:
-            return {residue + offset: {i: dict() for i in alphabet} for residue in range(n)}
-
-    def connect_fragment_database(self, source='directory', location='biological_interfaces', length=5):
-        self.frag_db = FragmentDatabase(source=source, location=location, length=length)
-
-    def assign_fragments(self, fragments=None, source=None):
-        """Distribute fragment information to self.fragment_map
+    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits'):
+        """Add the evolutionary profile to the entity. Profile is generated through a position specific evolutionary
+        search
 
         Keyword Args:
-            source=None (str): Either mapped or paired
+            out_path=os.getcwd() (str): Location where sequence files should be written
+            profile_source='hhblits' (str): One of 'hhblits' or 'psiblast'
+
         """
-        if source not in ['mapped', 'paired']:
+        if profile_source not in ['hhblits', 'psiblast']:
             return None
 
-        self.fragment_map = self.populate_design_dictionary(self.structure.number_of_residues(),
-                                                            [j for j in range(*self.frag_db.fragment_range)])
-        for fragment in fragments:
-            residue_number = fragment[source]
-            for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
-                # if residue_number + j in self.fragment_map:  WITH EMPTY DESIGN DICT, THIS IS UNNECESSARY
-                #     if j in self.fragment_map[residue_number + j]:
-                self.fragment_map[residue_number + j][j].append({'chain': source, 'cluster': fragment['cluster'],
-                                                                 'match': fragment['match']})
-                #     else:
-                #         self.fragment_map[residue_number + j][j] = [{'chain': source, 'cluster': fragment['cluster'],
-                #                                                   'match': fragment['match']}]
-                # else:
-                #     self.fragment_map[residue_number + j] = {j: [{'chain': source, 'cluster': fragment['cluster'],
-                #                                                'match': fragment['match']}]}
-
-    def generate_fragment_frequency_map(self):
-        """Add frequency information to the fragment map from cluster information. The frequency information is added
-        in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a new
-        observation is created for that fragment index.
-
-        Converts a fragment_map with format:
-            (dict): {0: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
-                     1: {}, ...}
-        To a fragment_frequency_map with format:
-            (dict): {0: {-2: {O: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, 1: {}}, -1: {}, ... },
-                     1: {}, ...}
-        """
-
-        for residue_number in self.fragment_map:
-            self.fragment_frequency_map[residue_number] = {}
-            for frag_index in self.fragment_map[residue_number]:
-                self.fragment_frequency_map[residue_number][frag_index] = {}
-                # observation_d = {}
-                for obs_idx, fragment in enumerate(self.fragment_map[residue_number][frag_index]):
-                    cluster_id = fragment['cluster']
-                    freq_type = fragment['chain']
-                    aa_freq = self.frag_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_index)
-                    # {1_1_54: {'mapped': {aa_freq}, 'paired': {aa_freq}}, ...}
-                    #  mapped/paired aa_freq = {-2: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37]}, -1: {}, ...}
-                    #  Where 'stats'[0] is total fragments in cluster, and 'stats'[1] is weight of fragment index
-                    self.fragment_frequency_map[residue_number][frag_index][obs_idx] = aa_freq
-                    self.fragment_frequency_map[residue_number][frag_index][obs_idx]['match'] = fragment['match']
-                    # observation_d[obs_idx] = aa_freq
-                    # observation_d[obs_idx]['match'] = fragment['match']
-                # self.fragment_map[residue_number][frag_index] = observation_d
-
-    def combine_fragment_frequencies(self, keep_extras=True):
-        """Take a multi-fragment index, a multi-observation fragment frequency dictionary and flatten to single
-        frequency for each AA weighting each frequency by fragment index and observation
-
-        Takes the fragment_map with format:
-            (dict): {1: {-2: {0: 'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}}, 1: {}}, -1: {}, ... },
-                     1: {}, ...}
-                Dictionary containing fragment frequency and statistics across a design
-        Into
-            (dict): {1: {'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, 13: {...}, ...}
-                Weighted average design dictionary combining all fragment profile information at a single residue where
-                stats[0] is number of fragment observations at each residue, and stats[1] is the total fragment weight
-                over the entire residue
-        Keyword Args:
-            keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
-        """
-        no_design = []
-        for residue in self.fragment_frequency_map:
-            total_residue_weight = 0
-            num_fragments_observed = 0
-            for index in self.fragment_frequency_map[residue]:
-                if self.fragment_frequency_map[residue][index]:  # != dict():
-                    total_obs_weight = 0.0
-                    total_obs_match_weight = 0.0
-                    # total_match_weight = 0.0
-                    for obs in self.fragment_frequency_map[residue][index]:
-                        total_obs_weight += self.fragment_frequency_map[residue][index][obs]['stats'][1]
-                        total_obs_match_weight += self.fragment_frequency_map[residue][index][obs]['stats'][1] * \
-                                                  self.fragment_frequency_map[residue][index][obs]['match']
-                        # total_match_weight += self.fragment_frequency_map[residue][index][obs]['match']
-
-                    if total_obs_weight > 0:
-                        total_residue_weight += total_obs_weight
-                        obs_aa_dict = copy.deepcopy(aa_weight_counts_dict)  # {'A': 0, 'C': 0, ..., 'stats': [0, 1]}
-                        obs_aa_dict['stats'][1] = total_obs_weight
-                        for obs in self.fragment_frequency_map[residue][index]:
-                            num_fragments_observed += 1
-                            obs_match_weight = self.fragment_frequency_map[residue][index][obs]['stats'][1] * \
-                                               self.fragment_frequency_map[residue][index][obs]['match']
-                            # match_weight = self.fragment_frequency_map[residue][index][obs]['match']
-                            # obs_weight = self.fragment_frequency_map[residue][index][obs]['stats'][1]
-                            for aa in self.fragment_frequency_map[residue][index][obs]:
-                                if aa not in ['stats', 'match']:
-                                    # Multiply OBS and MATCH
-                                    modification_weight = (obs_match_weight / total_obs_match_weight)
-                                    # modification_weight = ((obs_weight + match_weight) /  # WHEN SUMMING OBS and MATCH
-                                    #                        (total_obs_weight + total_match_weight))
-                                    # modification_weight = (obs_weight / total_obs_weight)
-                                    # Add all occurrences to summed frequencies list
-                                    obs_aa_dict[aa] += self.fragment_frequency_map[residue][index][obs][aa] * modification_weight
-                        self.fragment_frequency_map[residue][index] = obs_aa_dict
-                    else:
-                        # Case where no weights associated with observations (side chain not structurally significant)
-                        self.fragment_frequency_map[residue][index] = dict()
-
-            if total_residue_weight > 0:
-                res_aa_dict = copy.deepcopy(aa_weight_counts_dict)
-                res_aa_dict['stats'][1] = total_residue_weight  # this is over all indices and observations
-                res_aa_dict['stats'][0] = num_fragments_observed  # this is over all indices and observations
-                for index in self.fragment_frequency_map[residue]:
-                    if self.fragment_frequency_map[residue][index] != dict():
-                        index_weight = self.fragment_frequency_map[residue][index]['stats'][1]  # total_obs_weight
-                        for aa in self.fragment_frequency_map[residue][index]:
-                            if aa not in ['stats', 'match']:
-                                # Add all occurrences to summed frequencies list
-                                res_aa_dict[aa] += self.fragment_frequency_map[residue][index][aa] * (
-                                            index_weight / total_residue_weight)
-                self.fragment_frequency_map[residue] = res_aa_dict
-            else:
-                # Add to list for removal from the design dict
-                no_design.append(residue)
-
-        # Remove missing residues from dictionary
-        if keep_extras:
-            for residue in no_design:
-                self.fragment_frequency_map[residue] = aa_weight_counts_dict
-        else:
-            for residue in no_design:
-                self.fragment_frequency_map.pop(residue)
-
-    def add_fragment_profile(self, fragment_source=None, pdb_numbering=True, fragment_size=5):
-        # v Used for central pair fragment mapping of the biological interface generated fragments
-        cluster_freq_tuple_d = {cluster: fragment_source_d[cluster]['freq'] for cluster in frag_cluster_residue_d}
-        # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
-        #                         for cluster in cluster_residue_d}
-
-        # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
-        # TODO freqs are now separate
-        cluster_freq_d = {cluster: self.format_frequencies(fragment_source[cluster]['freq'])
-                          for cluster in fragment_source}  # orange mapped to cluster tag
-        cluster_freq_twin_d = {cluster: self.format_frequencies(fragment_source[cluster]['freq'], flip=True)
-                               for cluster in fragment_source}  # orange mapped to cluster tag
-        frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
-
-        frag_residue_object_d = residue_number_to_object(self.structure, frag_cluster_residue_d)
-
-        # Todo move to outside this function
-        self.connect_fragment_database(location='biological_interfaces')
-        self.frag_db.get_cluster_info(ids=[fragment['cluster'] for fragment in fragment_source])
-        # fragment_source
-        # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
-        self.assign_fragments(fragments=fragment_source, source='mapped')
-        # must provide the list from des_dir.gather_fragment_metrics or InterfaceScoring.py then specify whether the
-        # Entity in question is from mapped or paired
-
-        # THIS WAS THE PDB RENUMBER STEP
-        # Generate an empty fragment map
-        # fragment_map = self.populate_design_dictionary(self.structure.number_of_residues(),
-        #                                                [j for j in range(*self.frag_db.fragment_range)])
-        if pdb_numbering:  # Renumber self.fragment_mapand self.fragment_frequency_map to Pose residue numbering
-            renumbered_fragment_map = {self.structure.residue_number_from_pdb(residue_number):
-                                           self.fragment_map[residue_number] for residue_number in self.fragment_map}
-            self.fragment_map = renumbered_fragment_map
-        #     fragment_map.update(renumbered_fragment_map)
-        # else:
-        #     fragment_map.update(self.fragment_map)
-        #
-        # self.fragment_map = fragment_map
-
-        # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
-        # # TODO all_frags
-        cluster_residue_pose_d = residue_object_to_number(frag_residue_object_d)
-        # logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
-        # # ^{cluster: [(78, 87, ...), ...]...}
-        residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
-                            for residue_set in cluster_residue_pose_d[cluster]}  # blue
-        # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
-        # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
-        residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
-                                 for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
-
-        # remove entries which don't exist on protein because of fragment_index +- residues
-        not_available = []
-        for residue in residue_cluster_map:
-            if residue >= len(design_d) or residue < 0:
-                not_available.append(residue)
-                logger.warning('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
-                               'Fragment index will be deleted.' % (des_dir.path, residue + SDUtils.index_offset))
-        for residue in not_available:
-            residue_cluster_map.pop(residue)
-        logger.debug('Residue Cluster Map: %s' % str(residue_cluster_map))
-
-        self.generate_fragment_frequency_map()
-        self.combine_fragment_frequencies(keep_extras=False)  # =False added for pickling 6/14/20
-
-    def main(self, frag_cluster_residue_d):  # Todo clean up process from the PoseProcessing.initialization()
-        # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
-
-        # frag_cluster_residue_d = DesignDirectory.gather_pose_metrics(init=True)  Call this function with it
-        # ^ Format: {'1_2_24': [(78, 87, ...), ...], ...}
-        # Todo Can also re-score the interface upon Pose loading and return this information
-        # template_pdb = DesignDirectory.source NOW self.pdb
-
-        # v Used for central pair fragment mapping of the biological interface generated fragments
-        cluster_freq_tuple_d = {cluster: frag_cluster_residue_d[cluster]['freq'] for cluster in frag_cluster_residue_d}
-        # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
-        #                         for cluster in cluster_residue_d}
-
-        # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
-        cluster_freq_d = {cluster: self.format_frequencies(frag_cluster_residue_d[cluster]['freq'])
-                          for cluster in frag_cluster_residue_d}  # orange mapped to cluster tag
-        cluster_freq_twin_d = {
-            cluster: self.format_frequencies(frag_cluster_residue_d[cluster]['freq'], flip=True)
-            for cluster in frag_cluster_residue_d}  # orange mapped to cluster tag
-        frag_cluster_residue_d = {cluster: frag_cluster_residue_d[cluster]['pair'] for cluster in frag_cluster_residue_d}
-
-        frag_residue_object_d = SequenceProfile.residue_number_to_object(self.pdb, frag_cluster_residue_d)
-
-        # RENUMBER PDB POSE residues
-
-        # Construct CB Tree for full interface atoms to map residue residue contacts
-        # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
-        interface = SDUtils.fill_pdb([atom for residue in total_int_residue_objects for atom in residue.atom_list])
-        interface_tree = SDUtils.residue_interaction_graph(interface)
-        interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
-
-        interface_residue_edges = {}
-        for idx, residue_contacts in enumerate(interface_tree):
-            if interface_tree[idx].tolist() != list():
-                residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
-                contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
-                            for contact_idx in interface_tree[idx]}
-                interface_residue_edges[residue] = contacts - {residue}
-        # ^ {78: [14, 67, 87, 109], ...}  green
-
-
-        # Check to see if other poses have collected design sequence info and grab PSSM
-        temp_file = os.path.join(des_dir.building_blocks, PUtils.temp)
-        rerun = False
-        if PUtils.clean not in os.listdir(des_dir.building_blocks):
-            shutil.copy(des_dir.asu, des_dir.building_blocks)
-            with open(temp_file, 'w') as f:
-                f.write('Still fetching data. Process will resume once data is gathered\n')
-
-            pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
-            logger.debug('Fetching PSSM Files')
-
-            # Check if other design combinations have already collected sequence info about design candidates
-            for name in names:
-                for seq_file in iglob(os.path.join(des_dir.sequences, name + '.*')):
-                    if seq_file == name + '.hmm':
-                        pssm_files[name] = os.path.join(des_dir.sequences, seq_file)
-                        logger.debug('%s PSSM Files=%s' % (name, pssm_files[name]))
-                        break
-                    elif seq_file == name + '.fasta':
-                        pssm_files[name] = PUtils.temp
-                if name not in pssm_files:
-                    pssm_files[name] = {}
-                    logger.debug('%s PSSM File not yet created' % name)
-
-            # Extract/Format Sequence Information
-            for n, name in enumerate(names):
-                if pssm_files[name] == dict():
-                    logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
-                    pdb_seq[name], errors[name] = extract_aa_seq(template_pdb, chain=names[name](n))
-                    logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
-                    if errors[name]:
-                        logger.warning('%s: Sequence generation ran into the following residue errors: %s'
-                                       % (des_dir.path, ', '.join(errors[name])))
-                    pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
-                    if not pdb_seq_file[name]:
-                        logger.critical(
-                            '%s: Unable to parse sequence. Check if PDB \'%s\' is valid' % (des_dir.path, name))
-                        raise SDUtils.DesignError('Unable to parse sequence')
-                        # raise SDUtils.DesignError('%s: Unable to parse sequence' % des_dir.path)
-                else:
-                    pdb_seq_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
-
-            # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
-            for name in names:
-                if pssm_files[name] == dict():
-                    logger.info('Generating PSSM file for %s' % name)
-                    pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name],
-                                                                                   outpath=des_dir.sequences)
-                    logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
-                elif pssm_files[name] == PUtils.temp:
-                    logger.info('Waiting for profile generation...')
-                    while True:
-                        time.sleep(20)
-                        if os.path.exists(os.path.join(des_dir.sequences, name + '.hmm')):
-                            pssm_files[name] = os.path.join(des_dir.sequences, name + '.hmm')
-                            pssm_process[name] = done_process
-                            break
-                else:
-                    logger.info('Found PSSM file for %s' % name)
-                    pssm_process[name] = done_process
-
-            # Wait for PSSM command to complete
-            for name in names:
-                pssm_process[name].communicate()
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
-
-            # Extract PSSM for each protein and combine into single PSSM
-            pssm_dict = {name: SequenceProfile.parse_hhblits_pssm(pssm_files[name]) for name in names}
-            full_pssm = SequenceProfile.combine_pssm(
-                [pssm_dict[name] for name in pssm_dict])  # requires python3.6 or greater
-            pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
-        else:
-            time.sleep(1)
-            while os.path.exists(temp_file):
-                logger.info('Waiting for profile generation...')
-                time.sleep(20)
-            # Check to see if specific profile has been made for the pose.
-            if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):
-                pssm_file = os.path.join(des_dir.path, PUtils.msa_pssm)
-            else:
-                pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
-            full_pssm = SequenceProfile.parse_pssm(pssm_file)
-
-        # Check Pose and Profile for equality before proceeding
-        second = False
-        while True:
-            if len(full_pssm) != len(template_residues):
-                logger.warning(
-                    '%s: Profile and Pose sequences are different lengths!\nProfile=%d, Pose=%d. Generating new '
-                    'profile' % (des_dir.path, len(full_pssm), len(template_residues)))
-                rerun = True
-
-            if not rerun:
-                # Check sequence from Pose and PSSM to compare identity before proceeding
-                pssm_res, pose_res = {}, {}
-                for res in range(len(template_residues)):
-                    pssm_res[res] = full_pssm[res]['type']
-                    pose_res[res] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
-                    if pssm_res[res] != pose_res[res]:
-                        logger.warning(
-                            '%s: Profile and Pose sequences are different!\nResidue %d: Profile=%s, Pose=%s. '
-                            'Generating new profile' % (des_dir.path, res + SDUtils.index_offset, pssm_res[res],
-                                                        pose_res[res]))
-                        rerun = True
-                        break
-
-            if rerun:
-                if second:
-                    logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                    raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
-                    # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
-
-                for entity in pose:
-                    entity.add_evolutionary_profile(out_path=design_directory.sequences)
-                    entity.add_fragment_profile()
-
-                # Extract PSSM for each protein and combine into single PSSM TODO full pose!
-                # full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
-                # pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
-                #
-                # return pssm_file, full_pssm
-                rerun, second = False, True
-            else:
+        # Check to see if the files of interest already exist
+        structure_name = self.structure.get_name()
+        for seq_file in iglob(os.path.join(out_path, '%s.*' % structure_name)):
+            if seq_file == '%s.hmm' % structure_name:
+                self.pssm_file = os.path.join(out_path, seq_file)
+                logger.debug('%s PSSM Files=%s' % (structure_name, self.pssm_file))
                 break
-            logger.debug('Position Specific Scoring Matrix: %s' % str(full_pssm))
+            elif seq_file == '%s.fasta' % structure_name:
+                self.pdb_seq_file = seq_file
 
+            logger.debug('%s PSSM File not yet created' % structure_name)
 
-        # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
-        fragment_range = SequenceProfile.parameterize_frag_length(frag_size)
-        full_design_dict = SequenceProfile.populate_design_dict(len(full_pssm), [j for j in range(*fragment_range)])
-        residue_cluster_map = SequenceProfile.convert_to_residue_cluster_map(frag_residue_object_d, fragment_range)
-        # ^cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
-        #             Where the key is the 0 indexed residue id
+        if not self.pdb_seq_file:
+            # Extract/Format Sequence Information Todo not structure sequence
+            self.pdb_seq = self.structure.get_structure_sequence()
+            logger.debug('%s Sequence=%s' % (structure_name, self.pdb_seq))
 
-        # # TODO all_frags
-        cluster_residue_pose_d = SequenceProfile.residue_object_to_number(frag_residue_object_d)
-        # logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
-        # # ^{cluster: [(78, 87, ...), ...]...}
-        residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
-                            for residue_set in cluster_residue_pose_d[cluster]}  # blue
-        # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
-        # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
-        residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
-                                 for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
+            # make self.pdb_seq_file
+            self.write_fasta_file(name='%s' % structure_name, out_path=out_path)
+            logger.debug('%s fasta file: %s' % (structure_name, self.pdb_seq_file))
 
-        # remove entries which don't exist on protein because of fragment_index +- residues
-        not_available = []
-        for residue in residue_cluster_map:
-            if residue >= len(full_design_dict) or residue < 0:
-                not_available.append(residue)
-                logger.warning('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
-                               'Fragment index will be deleted.' % (des_dir.path, residue + SDUtils.index_offset))
-        for residue in not_available:
-            residue_cluster_map.pop(residue)
-        logger.debug('Residue Cluster Map: %s' % str(residue_cluster_map))
-
-        cluster_dicts = SequenceProfile.get_cluster_dicts(db=frag_db, id_list=[j for j in frag_cluster_residue_d])
-        full_cluster_dict = SequenceProfile.deconvolve_clusters(cluster_dicts, full_design_dict, residue_cluster_map)
-        final_issm = SequenceProfile.flatten_for_issm(full_cluster_dict,
-                                                      keep_extras=False)  # =False added for pickling 6/14/20
-        interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_type, out_path=des_dir.data)
-        logger.debug('Fragment Specific Scoring Matrix: %s' % str(final_issm))
-
-        # Make DSSM by combining fragment and evolutionary profile
-        fragment_alpha = SequenceProfile.find_alpha(final_issm, residue_cluster_map, db=frag_db)
-        dssm = SequenceProfile.combine_ssm(full_pssm, final_issm, fragment_alpha, db=frag_db, boltzmann=True)
-        dssm_file = SequenceProfile.make_pssm_file(dssm, PUtils.dssm, outpath=des_dir.path)
-        # logger.debug('Design Specific Scoring Matrix: %s' % dssm)
-
-        # # Set up consensus design # TODO all_frags
-        # # Combine residue fragment information to find residue sets for consensus
-        # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
-        final_issm = SequenceProfile.offset_index(final_issm)  # change so it is one-indexed
-        frag_overlap = SequenceProfile.fragment_overlap(final_issm, interface_residue_edges,
-                                                        residue_freq_map)  # all one-indexed
-
-        # solve for consensus residues using the residue graph
-        consensus_residues = {}
-        all_pose_fragment_pairs = list(residue_freq_map.keys())
-        residue_cluster_map = SequenceProfile.offset_index(residue_cluster_map)  # change so it is one-indexed
-        # for residue in residue_cluster_map:
-        for residue, partner in all_pose_fragment_pairs:
-            for idx, cluster in residue_cluster_map[residue]['cluster']:
-                if idx == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
-                    for idx_p, cluster_p in residue_cluster_map[partner]['cluster']:
-                        if idx_p == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
-                            if residue_cluster_map[residue]['chain'] == 'mapped':
-                                # choose first AA from AA tuple in residue frequency d
-                                aa_i, aa_j = 0, 1
-                            else:  # choose second AA from AA tuple in residue frequency d
-                                aa_i, aa_j = 1, 0
-                            for pair_freq in cluster_freq_tuple_d[cluster]:
-                                # if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
-                                if residue in frag_overlap:  # edge case where fragment has no weight but it is center res
-                                    if pair_freq[0][aa_i] in frag_overlap[residue]:
-                                        # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
-                                        if partner in frag_overlap:
-                                            if pair_freq[0][aa_j] in frag_overlap[partner]:
-                                                consensus_residues[residue] = pair_freq[0][aa_i]
-                                                break  # because pair_freq's are sorted we end at the highest matching pair
-
-        consensus = {residue: dssm[residue]['type'] for residue in dssm}
-        # ^{0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
-        consensus.update(consensus_residues)
-        consensus = SequenceProfile.offset_index(consensus)
-
-    # @staticmethod
-    def format_frequencies(self, frequency_list, flip=False):
-        """Format list of paired frequency data into parsable paired format
-
-        Args:
-            frequency_list (list): [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
-        Keyword Args:
-            flip=False (bool): Whether to invert the mapping of internal tuple
-        Returns:
-            (dict): {'A': {'S': 0.02, 'T': 0.12}, ...}
-        """
-        if flip:
-            i, j = 1, 0
-        else:
-            i, j = 0, 1
-        freq_d = {}
-        for tup in frequency_list:
-            aa_mapped = tup[0][i]  # 0
-            aa_paired = tup[0][j]  # 1
-            freq = tup[1]
-            if aa_mapped in freq_d:
-                freq_d[aa_mapped][aa_paired] = freq
+        if not self.pssm_file:
+            # Make PSSM of sequence
+            logger.info('Generating PSSM file for %s' % structure_name)
+            if profile_source == 'psiblast':
+                self.pssm_file = self.psiblast(out_path=out_path)
+                self.pssm = self.parse_psiblast_pssm()
             else:
-                freq_d[aa_mapped] = {aa_paired: freq}
+                self.pssm_file = self.hhblits(out_path=out_path)
+                self.pssm = self.parse_hhblits_pssm()
 
-        return freq_d
-
-    # def gather_profile_info(self, des_dir):
-    #     """For a given PDB, find the chain wise profile (pssm) then combine into one continuous pssm
-    #
-    #     Args:
-    #         des_dir (DesignDirectory): Location of which to write output files in the design tree
-    #         log_stream (logging): Which log to pass logging directives to
-    #     """
-    #     errors, pdb_seq_file = {}, {}
-    #     logger.debug('Fetching PSSM Files')
-    #
-    #     # for n, name in enumerate(names):
-    #     # Extract/Format Sequence Information
-    #     # for n, entity in enumerate(self.pdb.entities):  # Todo remove the entities descriptor, only one entity/profile
-    #     # if pssm_files[name] == dict():
-    #     chain_name = self.structure.get_chain_name()  # Doesn't work with PDB
-    #     entity_name = self.structure.get_name()
-    #     logger.debug('%s is chain %s in ASU' % (entity_name, chain_name))
-    #     # pdb_seq[name], errors[name] = extract_aa_seq(self.pdb, chain=names[name](n))
-    #     self.pdb_seq[chain_name], errors[name] = extract_aa_seq(self.structure, chain=names[name](n))
-    #     logger.debug('%s Sequence=%s' % (chain_name, self.pdb_seq[chain_name]))
-    #     if errors[name]:
-    #         logger.warning(
-    #             'Sequence generation ran into the following residue errors: %s' % ', '.join(errors[name]))
-    #     self.write_fasta_file(name='%s_%s' % (chain_name, os.path.basename(des_dir.path)), out_path=des_dir.sequences)
-    #     if not pdb_seq_file[chain_name]:
-    #         logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
-    #         raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
-    #
-    #     # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
-    #     # for name in names:
-    #     logger.info('Generating PSSM file for %s' % entity_name)
-    #     self.pssm_file = self.hhblits(out_path=des_dir.sequences)
-    #     logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
-
-    def psiblast(self, query, outpath=None, remote=False):  # TODO
+    def psiblast(self, query, out_path=None, remote=False):  # TODO clean up like below hhblits
         """Generate an position specific scoring matrix using PSI-BLAST subprocess
 
         Args:
@@ -664,9 +129,9 @@ class SequenceProfile:
             p (subprocess): Process object for monitoring progress of psiblast command
         """
         # I would like the background to come from Uniref90 instead of BLOSUM62 #TODO
-        if outpath is not None:
-            outfile_name = os.path.join(outpath, query + '.pssm')
-            direct = outpath
+        if out_path is not None:
+            outfile_name = os.path.join(out_path, query + '.pssm')
+            direct = out_path
         else:
             outfile_name = query + '.hmm'
             direct = os.getcwd()
@@ -789,6 +254,25 @@ class SequenceProfile:
                     self.pssm[resi]['info'] = dummy
                     self.pssm[resi]['weight'] = dummy
 
+    def combine_pssm(self, pssms):
+        """To a first pssm, append subsequent pssms incrementing the residue number in each additional pssm
+
+        Args:
+            pssms (list(dict)): List of pssm dictionaries to concatentate
+        Returns:
+            combined_pssm (dict): Concatentated PSSM
+        """
+        combined_pssm = {}
+        new_key = 0
+        for i in range(len(pssms)):
+            # requires python 3.6+ to maintain sorted dictionaries
+            # for old_key in pssms[i]:
+            for old_key in sorted(list(pssms[i].keys())):
+                combined_pssm[new_key] = pssms[i][old_key]
+                new_key += 1
+
+        return combined_pssm
+
     def write_fasta_file(self, name=None, out_path=os.getcwd()):
         """Write a fasta file from sequence(s)
 
@@ -805,6 +289,648 @@ class SequenceProfile:
             outfile.write('>%s\n%s\n' % (name, self.pdb_seq))
 
         return self.pdb_seq_file
+
+    def add_fragment_profile(self, fragment_source=None, info_source=None):
+        # v Used for central pair fragment mapping of the biological interface generated fragments
+        cluster_freq_tuple_d = {cluster: fragment_source_d[cluster]['freq'] for cluster in frag_cluster_residue_d}
+        # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
+        #                         for cluster in cluster_residue_d}
+
+        # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
+        # TODO freqs are now separate
+        cluster_freq_d = {cluster: self.format_frequencies(fragment_source[cluster]['freq'])
+                          for cluster in fragment_source}  # orange mapped to cluster tag
+        cluster_freq_twin_d = {cluster: self.format_frequencies(fragment_source[cluster]['freq'], flip=True)
+                               for cluster in fragment_source}  # orange mapped to cluster tag
+        frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
+
+        frag_residue_object_d = residue_number_to_object(self.structure, frag_cluster_residue_d)
+
+        # fragment_source
+        # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
+        self.assign_fragments(fragments=fragment_source, source=info_source)
+
+        # THIS WAS THE PDB RENUMBER STEP
+        # Generate an empty fragment map
+        # fragment_map = self.populate_design_dictionary(self.structure.number_of_residues(),
+        #                                                [j for j in range(*self.frag_db.fragment_range)])
+        # if pdb_numbering:  # Renumber self.fragment_mapand self.fragment_frequency_map to Pose residue numbering
+        #     renumbered_fragment_map = {self.structure.residue_number_from_pdb(residue_number):
+        #                                    self.fragment_map[residue_number] for residue_number in self.fragment_map}
+        #     self.fragment_map = renumbered_fragment_map
+        #     fragment_map.update(renumbered_fragment_map)
+        # else:
+        #     fragment_map.update(self.fragment_map)
+        #
+        # self.fragment_map = fragment_map
+
+        # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
+        # # TODO all_frags
+        cluster_residue_pose_d = residue_object_to_number(frag_residue_object_d)
+        # logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
+        # # ^{cluster: [(78, 87, ...), ...]...}
+        residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
+                            for residue_set in cluster_residue_pose_d[cluster]}  # blue
+        # ^{(78, 87, ...): {'A': {'S': 0.02, 'T': 0.12}, ...}, ...}
+        # make residue_freq_map inverse pair frequencies with cluster_freq_twin_d
+        residue_freq_map.update({tuple(residue for residue in reversed(residue_set)): cluster_freq_twin_d[cluster]
+                                 for cluster in cluster_freq_twin_d for residue_set in residue_freq_map})
+
+        # remove entries which don't exist on protein because of fragment_index +- residues
+        not_available = []
+        for residue in residue_cluster_map:
+            if residue >= len(design_d) or residue < 0:
+                not_available.append(residue)
+                logger.warning('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
+                               'Fragment index will be deleted.' % (des_dir.path, residue + SDUtils.index_offset))
+        for residue in not_available:
+            residue_cluster_map.pop(residue)
+        logger.debug('Residue Cluster Map: %s' % str(residue_cluster_map))
+
+        self.generate_fragment_frequency_map()
+        # Todo, do I need false?
+        self.combine_fragment_frequencies(keep_extras=False)  # =False added for pickling 6/14/20
+
+    def find_alpha(self, alpha=0.5):
+        """Find fragment contribution to design with cap at alpha
+
+        Takes self.fragment_map
+            (dict) {1: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
+                    2: {}, ...}
+        To identify cluster_id and chain thus returning fragment contribution from the fragment database statistics
+            (dict): {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {_paired}],
+                                   total_fragment_observations],
+                     cluster_id2: ...,
+                     frequencies: {'A': 0.11, ...}}
+        Keyword Args:
+            alpha=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
+
+            dict): {48: 0.5, 50: 0.321, ...}
+        """
+        assert 0 <= alpha <= 1, logger.critical('%s: Alpha parameter must be between 0 and 1' %
+                                                self.combine_ssm.__name__)
+        fragment_statistics = self.frag_db.get_db_statistics()
+        for entry in self.fragment_frequency_map:  # cluster_map
+            if self.fragment_map[entry]['chain'] == 'mapped':
+                statistic_idx = 0
+            else:
+                statistic_idx = 1
+            # match score is bounded between 1 and 0.2
+            match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
+            bounded_floor = 0.2
+            match_sum = sum([self.fragment_map[entry][index][obs]['match'] for obs in self.fragment_map[entry][index]
+                             for index in self.fragment_map[entry]])
+
+            contribution_total = 0.0
+            for index in self.fragment_map[entry]:
+                for obs in self.fragment_map[entry][index]['cluster']:
+                    # get first two indices from the cluster_id
+                    cluster_id = return_cluster_id_string(self.fragment_map[entry][index][obs]['fragment'],
+                                                          index_number=2)
+                    contribution_total += fragment_statistics[cluster_id][0][statistic_idx]
+
+            # can't use the match count as the fragment index may have no useful residue information
+            # count = len([1 for obs in self.fragment_map[entry][index] for index in self.fragment_map[entry]]) or 1
+            # instead use # of fragments with SC interactions count from the frequency map
+            count = self.fragment_frequency_map[entry]['stats'][0]
+            if count == 0:
+                # ensure that match modifier is 0 so self.alpha[entry] is 0, there is no fragment information here!
+                count = match_sum * 5
+
+            match_average = match_sum / float(count)
+            # find the match modifier which spans from 0 to 1
+            if match_average < match_score_average:
+                match_modifier = ((match_average - bounded_floor) / (match_score_average - bounded_floor))
+            else:
+                match_modifier = match_score_average / match_score_average  # 1 is the maximum bound
+
+            # get the average contribution of each fragment type
+            stats_average = contribution_total / count
+            # get entry average fragment weight. total weight for issm entry / count
+            frag_weight_average = self.fragment_frequency_map[entry]['stats'][1] / match_sum
+
+            # modify alpha proportionally to cluster average weight and match_modifier
+            if frag_weight_average < stats_average:  # if design frag weight is less than db cluster average weight
+                self.alpha[entry] = alpha * (frag_weight_average / stats_average) * match_modifier
+            else:
+                self.alpha[entry] = alpha * match_modifier
+
+    def connect_fragment_database(self, source='directory', location='biological_interfaces', length=5):
+        self.frag_db = FragmentDatabase(source=source, location=location, length=length)
+
+    def assign_fragments(self, fragments=None, source=None):
+        """Distribute fragment information to self.fragment_map. One-indexed residue dictionary
+
+        Keyword Args:
+            source=None (str): Either mapped or paired
+        """
+        if source not in ['mapped', 'paired']:
+            return None
+
+        self.fragment_map = self.populate_design_dictionary(self.structure.number_of_residues(),
+                                                            [j for j in range(*self.frag_db.fragment_range)])
+        for fragment in fragments:
+            residue_number = fragment[source]
+            for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
+                # if residue_number + j in self.fragment_map:  WITH EMPTY DESIGN DICT, THIS IS UNNECESSARY
+                #     if j in self.fragment_map[residue_number + j]:
+                self.fragment_map[residue_number + j][j].append({'chain': source, 'cluster': fragment['cluster'],
+                                                                 'match': fragment['match']})
+                #     else:
+                #         self.fragment_map[residue_number + j][j] = [{'chain': source, 'cluster': fragment['cluster'],
+                #                                                   'match': fragment['match']}]
+                # else:
+                #     self.fragment_map[residue_number + j] = {j: [{'chain': source, 'cluster': fragment['cluster'],
+                #                                                'match': fragment['match']}]}
+        # remove entries which don't exist on protein because of fragment_index +- residues
+        not_available = []
+        for residue_number in self.fragment_map:
+            if 0 < residue_number >= self.structure.number_of_residues():  # or residue_number < 0:
+                not_available.append(residue_number)
+                logger.warning('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
+                               'Fragment index will be deleted.' % (des_dir.path, residue_number))
+        for residue_number in not_available:
+            residue_cluster_map.pop(residue_number)
+
+        logger.debug('Residue Cluster Map: %s' % str(self.fragment_map))
+
+    def generate_fragment_frequency_map(self):
+        """Add frequency information to the fragment map from cluster information. The frequency information is added
+        in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a new
+        observation is created for that fragment index.
+
+        Converts a fragment_map with format:
+            (dict): {0: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
+                     1: {}, ...}
+        To a fragment_frequency_map with format:
+            (dict): {0: {-2: {O: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, 1: {}}, -1: {}, ... },
+                     1: {}, ...}
+        """
+
+        for residue_number in self.fragment_map:
+            self.fragment_frequency_map[residue_number] = {}
+            for frag_index in self.fragment_map[residue_number]:
+                self.fragment_frequency_map[residue_number][frag_index] = {}
+                # observation_d = {}
+                for obs_idx, fragment in enumerate(self.fragment_map[residue_number][frag_index]):
+                    cluster_id = fragment['cluster']
+                    freq_type = fragment['chain']
+                    aa_freq = self.frag_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_index)
+                    # {1_1_54: {'mapped': {aa_freq}, 'paired': {aa_freq}}, ...}
+                    #  mapped/paired aa_freq = {-2: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37]}, -1: {}, ...}
+                    #  Where 'stats'[0] is total fragments in cluster, and 'stats'[1] is weight of fragment index
+                    self.fragment_frequency_map[residue_number][frag_index][obs_idx] = aa_freq
+                    self.fragment_frequency_map[residue_number][frag_index][obs_idx]['match'] = fragment['match']
+                    # observation_d[obs_idx] = aa_freq
+                    # observation_d[obs_idx]['match'] = fragment['match']
+                # self.fragment_map[residue_number][frag_index] = observation_d
+
+    def combine_fragment_frequencies(self, keep_extras=True):
+        """Take a multi-indexed, a multi-observation fragment frequency dictionary and flatten to single frequency for
+        each amino acid. Weight the frequency of each observation by the fragment indexed, observation weight and the
+        match between the fragment library and the observed fragment overlap
+
+        Takes the fragment_map with format:
+            (dict): {1: {-2: {0: 'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}}, 1: {}}, -1: {}, ... },
+                     2: {}, ...}
+                Dictionary containing fragment frequency and statistics across a design
+        And makes into
+            (dict): {1: {'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, 13: {...}, ...}
+                Weighted average design dictionary combining all fragment profile information at a single residue where
+                stats[0] is number of fragment observations at each residue, and stats[1] is the total fragment weight
+                over the entire residue
+        Keyword Args:
+            keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
+        """
+        no_design = []
+        for residue in self.fragment_frequency_map:
+            total_fragment_weight = 0
+            total_fragment_observations = 0
+            for index in self.fragment_frequency_map[residue]:
+                if self.fragment_frequency_map[residue][index]:
+                    # sum the weight for each fragment observation
+                    total_obs_weight = 0.0
+                    total_obs_x_match_weight = 0.0
+                    # total_match_weight = 0.0
+                    for obs in self.fragment_frequency_map[residue][index]:
+                        total_obs_weight += self.fragment_frequency_map[residue][index][obs]['stats'][1]
+                        total_obs_x_match_weight += self.fragment_frequency_map[residue][index][obs]['stats'][1] * \
+                                                    self.fragment_frequency_map[residue][index][obs]['match']
+                        # total_match_weight += self.fragment_frequency_map[residue][index][obs]['match']
+
+                    # Check if weights are associated with observations, if not side chain isn't significant!
+                    if total_obs_weight > 0:
+                        total_fragment_weight += total_obs_weight
+                        obs_aa_dict = copy.deepcopy(aa_weight_counts_dict)  # {'A': 0, 'C': 0, ..., 'stats': [0, 1]}
+                        obs_aa_dict['stats'][1] = total_obs_weight
+                        for obs in self.fragment_frequency_map[residue][index]:
+                            total_fragment_observations += 1
+                            obs_x_match_weight = self.fragment_frequency_map[residue][index][obs]['stats'][1] * \
+                                                 self.fragment_frequency_map[residue][index][obs]['match']
+                            # match_weight = self.fragment_frequency_map[residue][index][obs]['match']
+                            # obs_weight = self.fragment_frequency_map[residue][index][obs]['stats'][1]
+                            for aa in self.fragment_frequency_map[residue][index][obs]:
+                                if aa not in ['stats', 'match']:
+                                    # Multiply OBS and MATCH
+                                    modification_weight = (obs_x_match_weight / total_obs_x_match_weight)
+                                    # modification_weight = ((obs_weight + match_weight) /  # WHEN SUMMING OBS and MATCH
+                                    #                        (total_obs_weight + total_match_weight))
+                                    # modification_weight = (obs_weight / total_obs_weight)
+                                    # Add all occurrences to summed frequencies list
+                                    obs_aa_dict[aa] += self.fragment_frequency_map[residue][index][obs][aa] * modification_weight
+                        self.fragment_frequency_map[residue][index] = obs_aa_dict
+                    else:
+                        self.fragment_frequency_map[residue][index] = {}
+
+            if total_fragment_weight > 0:
+                res_aa_dict = copy.deepcopy(aa_weight_counts_dict)
+                res_aa_dict['stats'][1] = total_fragment_weight  # this is over all indices and observations
+                res_aa_dict['stats'][0] = total_fragment_observations  # this is over all indices and observations
+                for index in self.fragment_frequency_map[residue]:
+                    if self.fragment_frequency_map[residue][index]:
+                        index_weight = self.fragment_frequency_map[residue][index]['stats'][1]  # total_obs_weight
+                        for aa in self.fragment_frequency_map[residue][index]:
+                            if aa not in ['stats', 'match']:
+                                # Add all occurrences to summed frequencies list
+                                res_aa_dict[aa] += self.fragment_frequency_map[residue][index][aa] * (
+                                            index_weight / total_residue_weight)
+                self.fragment_frequency_map[residue] = res_aa_dict
+            else:
+                # Add to list for removal from the design dict
+                no_design.append(residue)
+
+        if keep_extras:
+            for residue in no_design:
+                self.fragment_frequency_map[residue] = aa_weight_counts_dict
+        else:  # remove missing residues from dictionary
+            for residue in no_design:
+                self.fragment_frequency_map.pop(residue)
+
+    def combine_ssm(self, favor_fragments=True, boltzmann=False, alpha=0.5):
+        """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
+
+        All input must be zero indexed
+
+        Takes self.pssm
+            (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                                   'weight': 0.00}, {...}}
+                    PSIBLAST - {0: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
+                                    'weight': 0.73}, {...}} CURRENTLY IMPOSSIBLE, NEED TO CHANGE LOD SCORE IN PARSING
+        self.fragment_frequency_map
+            (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
+        and self.alpha
+            (dict): {48: 0.5, 50: 0.321, ...}
+        Keyword Args:
+            favor_fragments=True (bool): Whether to favor fragment profile in the lod score of the resulting profile
+            boltzmann=True (bool): Whether to weight the fragment profile by the Boltzmann probability.
+                                   lod = z[i]/Z, Z = sum(exp(score[i]/kT))
+                   If=False, residues are weighted by the residue local maximum lod score in a linear fashion.
+            All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
+            alpha=0.5 (float): The maximum alpha value to use, bounded between 0 and 1
+
+        And outputs self.pssm
+            (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                         'weight': 0.00}, ...}} - combined PSSM dictionary
+        """
+        assert 0 <= alpha <= 1, logger.critical('%s: Alpha parameter must be between 0 and 1' %
+                                                self.combine_ssm.__name__)
+        # Combine fragment and evolutionary probability profile according to alpha parameter
+        for entry in self.alpha:
+            for aa in IUPACData.protein_letters:
+                self.pssm[entry][aa] = (self.alpha[entry] * self.fragment_frequency_map[entry][aa]) + \
+                                       ((1 - self.alpha[entry]) * self.pssm[entry][aa])
+            logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
+                        % (entry + index_offset, alpha[entry] * 100))
+
+        if favor_fragments:
+            # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
+            # Used to weight fragments higher in design
+            boltzman_energy = 1
+            favor_seqprofile_score_modifier = 0.2 * CUtils.reference_average_residue_weight
+            database_background_aa_frequencies = self.frag_db.get_db_aa_frequencies()
+
+            null_residue = get_lod(database_background_aa_frequencies, database_background_aa_frequencies)
+            null_residue = {aa: float(null_residue[aa]) for aa in null_residue}
+
+            for entry in self.pssm:
+                self.pssm[entry]['lod'] = null_residue  # Caution all reference same object
+            for entry in self.fragment_frequency_map:
+                self.pssm[entry]['lod'] = get_lod(self.fragment_frequency_map[entry],
+                                                  database_background_aa_frequencies, round_lod=False)
+                # get the sum for the partition function
+                partition, max_lod = 0, 0.0
+                for aa in self.pssm[entry]['lod']:
+                    if boltzmann:  # boltzmann probability distribution scaling, lod = z[i]/Z, Z = sum(exp(score[i]/kT))
+                        self.pssm[entry]['lod'][aa] = math.exp(self.pssm[entry]['lod'][aa] / boltzman_energy)
+                        partition += self.pssm[entry]['lod'][aa]
+                    # linear scaling, remove any lod penalty
+                    elif self.pssm[entry]['lod'][aa] < 0:
+                        self.pssm[entry]['lod'][aa] = 0
+                    # find the maximum/residue (local) lod score
+                    if self.pssm[entry]['lod'][aa] > max_lod:
+                        max_lod = self.pssm[entry]['lod'][aa]
+                # takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
+                modified_entry_alpha = (self.alpha[entry] / alpha) * favor_seqprofile_score_modifier
+                if boltzmann:
+                    modifier = partition
+                    modified_entry_alpha /= (max_lod / partition)
+                else:
+                    modifier = max_lod
+
+                # weight the final lod score by the modifier and the scaling factor for the chosen method
+                for aa in self.pssm[entry]['lod']:
+                    self.pssm[entry]['lod'][aa] /= modifier  # get percent total (boltzman) or percent max (linear)
+                    self.pssm[entry]['lod'][aa] *= modified_entry_alpha  # scale by score modifier
+                logger.info('Residue %d Fragment lod ratio generated with alpha=%f'
+                            % (entry + index_offset, self.alpha[entry] / alpha))
+
+    def main(self, frag_cluster_residue_d):  # Todo clean up process from the PoseProcessing.initialization()
+        # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
+
+        # frag_cluster_residue_d = DesignDirectory.gather_pose_metrics(init=True)  Call this function with it
+        # ^ Format: {'1_2_24': [(78, 87, ...), ...], ...}
+        # Todo Can also re-score the interface upon Pose loading and return this information
+        # template_pdb = DesignDirectory.source NOW self.pdb
+
+        # v Used for central pair fragment mapping of the biological interface generated fragments
+        cluster_freq_tuple_d = {cluster: frag_cluster_residue_d[cluster]['freq'] for cluster in frag_cluster_residue_d}
+        # cluster_freq_tuple_d = {cluster: {cluster_residue_d[cluster]['freq'][0]: cluster_residue_d[cluster]['freq'][1]}
+        #                         for cluster in cluster_residue_d}
+
+        # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
+        cluster_freq_d = {cluster: self.format_frequencies(frag_cluster_residue_d[cluster]['freq'])
+                          for cluster in frag_cluster_residue_d}  # orange mapped to cluster tag
+        cluster_freq_twin_d = {
+            cluster: self.format_frequencies(frag_cluster_residue_d[cluster]['freq'], flip=True)
+            for cluster in frag_cluster_residue_d}  # orange mapped to cluster tag
+        frag_cluster_residue_d = {cluster: frag_cluster_residue_d[cluster]['pair'] for cluster in frag_cluster_residue_d}
+
+        frag_residue_object_d = SequenceProfile.residue_number_to_object(self.pdb, frag_cluster_residue_d)
+
+        # RENUMBER PDB POSE residues
+
+        # Construct CB Tree for full interface atoms to map residue residue contacts
+        # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
+        interface = SDUtils.fill_pdb([atom for residue in total_int_residue_objects for atom in residue.atom_list])
+        interface_tree = SDUtils.residue_interaction_graph(interface)
+        interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
+
+        interface_residue_edges = {}
+        for idx, residue_contacts in enumerate(interface_tree):
+            if interface_tree[idx].tolist() != list():
+                residue = interface.all_atoms[interface_cb_indices[idx]].residue_number
+                contacts = {interface.all_atoms[interface_cb_indices[contact_idx]].residue_number
+                            for contact_idx in interface_tree[idx]}
+                interface_residue_edges[residue] = contacts - {residue}
+        # ^ {78: [14, 67, 87, 109], ...}  green
+
+        # Check to see if other poses have collected design sequence info and grab PSSM
+        temp_file = os.path.join(des_dir.building_blocks, PUtils.temp)
+        rerun = False
+        if PUtils.clean in os.listdir(des_dir.building_blocks):
+            time.sleep(1)
+            while os.path.exists(temp_file):
+                logger.info('Waiting for profile generation...')
+                time.sleep(20)
+            # Check to see if specific profile has been made for the pose.
+            if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):
+                pssm_file = os.path.join(des_dir.path, PUtils.msa_pssm)
+            else:
+                pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
+            full_pssm = SequenceProfile.parse_pssm(pssm_file)
+
+        for entity in pose:
+            # must provide the list from des_dir.gather_fragment_metrics or InterfaceScoring.py then specify whether the
+            # such as fragment_source = des_dir.fragment_observations
+            # Entity in question is from mapped or paired
+            fragment_info_source = 'mapped'  # Todo such as des_dir.oligomer1?
+            entity.connect_fragment_database(location='biological_interfaces')
+            entity.add_profile(fragment_source=des_dir.fragment_observations,
+                               fragment_info_source=fragment_info_source, out_path=des_dir.sequences,
+                               pdb_numbering=True)
+
+        # Extract PSSM for each protein and combine into single PSSM TODO full pose!
+        full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
+        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
+
+        logger.debug('Position Specific Scoring Matrix: %s' % str(full_pssm))
+
+        # Check Pose and Profile for equality before proceeding
+        second = False
+        while True:
+            if len(full_pssm) != len(template_residues):
+                logger.warning(
+                    '%s: Profile and Pose sequences are different lengths!\nProfile=%d, Pose=%d. Generating new '
+                    'profile' % (des_dir.path, len(full_pssm), len(template_residues)))
+                rerun = True
+
+            if not rerun:
+                # Check sequence from Pose and PSSM to compare identity before proceeding
+                pssm_res, pose_res = {}, {}
+                for res in range(len(template_residues)):
+                    pssm_res[res] = full_pssm[res]['type']
+                    pose_res[res] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
+                    if pssm_res[res] != pose_res[res]:
+                        logger.warning(
+                            '%s: Profile and Pose sequences are different!\nResidue %d: Profile=%s, Pose=%s. '
+                            'Generating new profile' % (des_dir.path, res + SDUtils.index_offset, pssm_res[res],
+                                                        pose_res[res]))
+                        rerun = True
+                        break
+
+            if rerun:
+                if second:
+                    logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
+                    raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
+                    # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
+                pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
+
+        # Todo, remove missing fragment entries here or add where they are loaded keep_extras = False  # =False added for pickling 6/14/20
+        interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_type, out_path=des_dir.data)
+        logger.debug('Fragment Specific Scoring Matrix: %s' % str(final_issm))
+
+        dssm_file = SequenceProfile.make_pssm_file(dssm, PUtils.dssm, outpath=des_dir.path)
+        # logger.debug('Design Specific Scoring Matrix: %s' % dssm)
+
+        # # Set up consensus design # TODO all_frags
+        # # Combine residue fragment information to find residue sets for consensus
+        # # issm_weights = {residue: final_issm[residue]['stats'] for residue in final_issm}
+        final_issm = SequenceProfile.offset_index(final_issm)  # change so it is one-indexed
+        frag_overlap = SequenceProfile.fragment_overlap(final_issm, interface_residue_edges,
+                                                        residue_freq_map)  # all one-indexed
+
+        # solve for consensus residues using the residue graph
+        consensus_residues = {}
+        all_pose_fragment_pairs = list(residue_freq_map.keys())
+        residue_cluster_map = SequenceProfile.offset_index(residue_cluster_map)  # change so it is one-indexed
+        # for residue in residue_cluster_map:
+        for residue, partner in all_pose_fragment_pairs:
+            for idx, cluster in residue_cluster_map[residue]['cluster']:
+                if idx == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
+                    for idx_p, cluster_p in residue_cluster_map[partner]['cluster']:
+                        if idx_p == 0:  # check if the fragment index is 0. No current information for other pairs 07/24/20
+                            if residue_cluster_map[residue]['chain'] == 'mapped':
+                                # choose first AA from AA tuple in residue frequency d
+                                aa_i, aa_j = 0, 1
+                            else:  # choose second AA from AA tuple in residue frequency d
+                                aa_i, aa_j = 1, 0
+                            for pair_freq in cluster_freq_tuple_d[cluster]:
+                                # if cluster_freq_tuple_d[cluster][k][0][aa_i] in frag_overlap[residue]:
+                                if residue in frag_overlap:  # edge case where fragment has no weight but it is center res
+                                    if pair_freq[0][aa_i] in frag_overlap[residue]:
+                                        # if cluster_freq_tuple_d[cluster][k][0][aa_j] in frag_overlap[partner]:
+                                        if partner in frag_overlap:
+                                            if pair_freq[0][aa_j] in frag_overlap[partner]:
+                                                consensus_residues[residue] = pair_freq[0][aa_i]
+                                                break  # because pair_freq's are sorted we end at the highest matching pair
+
+        # consensus = SDUtils.consensus_sequence(dssm)
+        logger.debug('Consensus Residues only:\n%s' % consensus_residues)
+        logger.debug('Consensus:\n%s' % consensus)
+        for n, name in enumerate(names):
+            for residue in int_res_numbers[name]:  # one-indexed
+                mutated_pdb.mutate_to(names[name](n), residue,
+                                      res_id=IUPACData.protein_letters_1to3[consensus[residue]].upper())
+        mutated_pdb.write(des_dir.consensus_pdb)
+        # mutated_pdb.write(consensus_pdb)
+        # mutated_pdb.write(consensus_pdb, cryst1=cryst)
+
+        # Update DesignDirectory with design information
+        des_dir.info['pssm'] = pssm_file
+        des_dir.info['issm'] = interface_data_file
+        des_dir.info['dssm'] = dssm_file
+        des_dir.info['db'] = frag_db
+        des_dir.info['des_residues'] = [j for name in names for j in int_res_numbers[name]]
+        # TODO add oligomer data to .info
+        info_pickle = SDUtils.pickle_object(des_dir.info, 'info', out_path=des_dir.data)
+
+    @staticmethod
+    def populate_design_dictionary(n, alphabet, counts=False, zero_index=False):
+        """Return a dictionary with n elements, each integer key containing another dictionary with the items in
+        alphabet as keys. By default, values for the alphabet dictionary is an empty dictionary unless counts=True,
+        then a integer counter will be added instead
+
+        Args:
+            n (int): number of residues in a design
+            alphabet (iter): alphabet of interest
+        Keyword Args:
+            counts=False (bool): If True, include an integer placeholder for counting
+            zero_index=False (bool): If True, return the dictionary with zero indexing
+         Returns:
+             (dict): {0: {alph1: {}, alph2: {}, ...}, 1: {}, ...}
+                Custom length, 0 indexed dictionary with residue number keys
+         """
+        if zero_index:
+            offset = 0
+        else:
+            offset = index_offset
+
+        if counts:
+            return {residue + offset: {i: 0 for i in alphabet} for residue in range(n)}
+        else:
+            return {residue + offset: {i: dict() for i in alphabet} for residue in range(n)}
+
+    @staticmethod
+    def get_lod(aa_freq, background, round_lod=True):
+        """Get the lod scores for an aa frequency distribution compared to a background frequency
+        Args:
+            aa_freq (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
+            background (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
+        Keyword Args:
+            round_lod=True (bool): Whether or not to round the lod values to an integer
+        Returns:
+             (dict): {'A': 2, 'C': -9, 'D': -1, ...}
+        """
+        lods = {aa: None for aa in aa_freq}
+        for aa in aa_freq:
+            if aa not in ['stats', 'match']:
+                lods[aa] = float((2.0 * math.log2(aa_freq[aa] / background[aa])))  # + 0.0
+                if aa_freq[aa] == 0 or lods[aa] < -9:
+                    lods[aa] = -9
+                if round_lod:
+                    lods[aa] = round(lods[aa])
+
+        return lods
+
+    @staticmethod
+    def make_pssm_file(pssm_dict, name, out_path=os.getcwd()):
+        """Create a PSI-BLAST format PSSM file from a PSSM dictionary
+
+        Args:
+            pssm_dict (dict): A pssm dictionary which has the fields: all aa's ('A', 'C', ...), 'lod', 'type', 'info', 'weight'
+            name (str): The name of the file including the extension
+        Keyword Args:
+            out_path=os.getcwd() (str): A specific location to write the file to
+        Returns:
+            (str): Disk location of newly created .pssm file
+        """
+        lod_freq, counts_freq = False, False
+        separation_string1, separation_string2 = 3, 3
+        if type(pssm_dict[0]['lod']['A']) == float:
+            lod_freq = True
+            separation_string1 = 4
+        if type(pssm_dict[0]['A']) == float:
+            counts_freq = True
+
+        header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in alph_3_aa_list) \
+                 + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in alph_3_aa_list) + '\n'
+        footer = ''
+        out_file = os.path.join(out_path, name)
+        with open(out_file, 'w') as f:
+            f.write(header)
+            for res in pssm_dict:
+                aa_type = pssm_dict[res]['type']
+                lod_string = ''
+                if lod_freq:
+                    for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                        lod_string += '{:>4.2f} '.format(pssm_dict[res]['lod'][aa])
+                else:
+                    for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                        lod_string += '{:>3d} '.format(pssm_dict[res]['lod'][aa])
+                counts_string = ''
+                if counts_freq:
+                    for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                        counts_string += '{:>3.0f} '.format(math.floor(pssm_dict[res][aa] * 100))
+                else:
+                    for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                        counts_string += '{:>3d} '.format(pssm_dict[res][aa])
+                info = pssm_dict[res]['info']
+                weight = pssm_dict[res]['weight']
+                line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res + index_offset, aa_type,
+                                                                                 lod_string,
+                                                                                 counts_string, round(info, 4),
+                                                                                 round(weight, 4))
+                f.write(line)
+            f.write(footer)
+
+        return out_file
+
+    @staticmethod
+    def format_frequencies(frequency_list, flip=False):
+        """Format list of paired frequency data into parsable paired format
+
+        Args:
+            frequency_list (list): [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
+        Keyword Args:
+            flip=False (bool): Whether to invert the mapping of internal tuple
+        Returns:
+            (dict): {'A': {'S': 0.02, 'T': 0.12}, ...}
+        """
+        if flip:
+            i, j = 1, 0
+        else:
+            i, j = 0, 1
+        freq_d = {}
+        for tup in frequency_list:
+            aa_mapped = tup[0][i]  # 0
+            aa_paired = tup[0][j]  # 1
+            freq = tup[1]
+            if aa_mapped in freq_d:
+                freq_d[aa_mapped][aa_paired] = freq
+            else:
+                freq_d[aa_mapped] = {aa_paired: freq}
+
+        return freq_d
 
 
 def overlap_consensus(issm, aa_set):
@@ -851,7 +977,15 @@ class FragmentDatabase:
         self.parameterize_frag_length(length)
 
     def get_db_statistics(self):
-        """Retrieve summary statistics for a specific fragment database located on directory"""
+        """Retrieve summary statistics for a specific fragment database located on directory
+
+        Returns:
+            (dict): {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {paired}],
+                                   total_fragment_observations],
+                     cluster_id2: ...,
+                     frequencies: {'A': 0.11, ...}}
+                ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
+        """
         if self.db:
             # Todo
             return None

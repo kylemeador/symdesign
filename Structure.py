@@ -112,12 +112,14 @@ class Structure:
         self.renumber_atoms()  # should be unnecessary
 
     def residue_number_from_pdb(self, residue_number):
+        """Returns the pose residue number from the queried .pdb number"""
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue.number
         return None
 
     def residue_number_to_pdb(self, residue_number):
+        """Returns the .pdb residue number from the queried pose number"""
         for residue in self.residues:
             if residue.number == residue_number:
                 return residue.number_pdb

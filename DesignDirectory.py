@@ -100,7 +100,7 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
         self.degen2 = None
 
         self.fragment_cluster_residue_d = {}
-        self.fragment_observation_master_l = []
+        self.fragment_observations = []
         self.fragment_cluster_freq_d = {}
         self.transform_d = {}
         self.z_value_dict = {}
@@ -316,9 +316,6 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
         """
         return self.transform_d
 
-
-
-
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
         """Gather fragment metrics from Nanohedra output"""
@@ -338,7 +335,7 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
                     residue_number2 = oligomer2_info[1]
                 elif line[:3] == 'id:':
                     cluster_id = line[3:].strip()
-                    self.fragment_observation_master_l.append({'mapped': residue_number1, 'paired': residue_number2,
+                    self.fragment_observations.append({'mapped': residue_number1, 'paired': residue_number2,
                                                                'cluster': cluster_id, 'match': match_score})
                     if cluster_id in self.fragment_cluster_residue_d:
                         self.fragment_cluster_residue_d[cluster_id].add((residue_number1, residue_number2))
