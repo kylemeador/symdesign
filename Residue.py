@@ -4,6 +4,7 @@ class Residue:
         self.ca = self.get_ca()
         self.cb = self.get_cb()
         self.number = self.ca.get_number()  # Todo test accessors
+        self.number_pdb = self.ca.get_pdb_residue_number()
         self.type = self.ca.get_type()
         self.chain = self.ca.get_chain()
 
@@ -88,5 +89,5 @@ class Residue:
             return_string += str(atom)
         return return_string
 
-    def __hash__(self):
+    def __hash__(self):  # Todo current key is mutable so this hash is invalid
         return hash(self.__key())

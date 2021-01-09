@@ -316,28 +316,30 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
         """
         return self.transform_d
 
+
+
+
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
         """Gather fragment metrics from Nanohedra output"""
         with open(os.path.join(self.path, PUtils.frag_file), 'r') as f:
             frag_match_info_file = f.readlines()
-
             for line in frag_match_info_file:
                 if line[:6] == 'z-val:':
-                    z_val = float(line[6:].strip())
-                    match_score = 1 / float(1 + (z_val ** 2))
+                    overlap_rmsd_divded_by_cluster_rmsd = float(line[6:].strip())
+                    match_score = 1 / float(1 + (overlap_rmsd_divded_by_cluster_rmsd ** 2))  # bounds between 0 and 1
                 elif line[:21] == 'oligomer1 ch, resnum:':
                     oligomer1_info = line[21:].strip().split(',')
-                    chain1 = oligomer1_info[0]
+                    chain1 = oligomer1_info[0]  # doesn't matter as all subunits are symmetric
                     residue_number1 = oligomer1_info[1]
                 elif line[:21] == 'oligomer2 ch, resnum:':
                     oligomer2_info = line[21:].strip().split(',')
-                    chain2 = oligomer2_info[0]
+                    chain2 = oligomer2_info[0]  # doesn't matter as all subunits are symmetric
                     residue_number2 = oligomer2_info[1]
                 elif line[:3] == 'id:':
                     cluster_id = line[3:].strip()
-                    self.fragment_observation_master_l.append({'residue1': residue_number1, 'residue2': residue_number2,
-                                                               'cluster': cluster_id, 'match_score': match_score})
+                    self.fragment_observation_master_l.append({'mapped': residue_number1, 'paired': residue_number2,
+                                                               'cluster': cluster_id, 'match': match_score})
                     if cluster_id in self.fragment_cluster_residue_d:
                         self.fragment_cluster_residue_d[cluster_id].add((residue_number1, residue_number2))
                         # self.fragment_cluster_residue_d[cluster_id]['pair'].add((residue_number1, residue_number2))
