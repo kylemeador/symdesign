@@ -5,8 +5,9 @@ def euclidean_squared_3d(coordinates_1, coordinates_2):
     if len(coordinates_1) != 3 or len(coordinates_2) != 3:
         raise ValueError("len(coordinate list) != 3")
 
-    elif type(coordinates_1) is not list or type(coordinates_2) is not list:
-        raise TypeError("input parameters are not of type list")
+    # KM removed as a tuple would suffice
+    # elif type(coordinates_1) is not list or type(coordinates_2) is not list:
+    #     raise TypeError("input parameters are not of type list")
 
     else:
         x1, y1, z1 = coordinates_1[0], coordinates_1[1], coordinates_1[2]

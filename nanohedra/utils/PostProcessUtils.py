@@ -1,6 +1,10 @@
 import os
 import shutil
-
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+grandparent_dir = os.path.dirname(parent_dir)
+sys.path.extend([parent_dir, grandparent_dir])
 from DesignDirectory import set_up_directory_objects
 from SymDesignUtils import collect_directories
 from nanohedra.classes.PDB import PDB
@@ -96,15 +100,12 @@ def score_and_frag_match_count_filter(master_design_dirpath, min_score, min_frag
 
 def rank(master_design_dirpath, metric, outdir):
     if metric == 'score':
-        # temporary patch for residue level summation score
-        # metric_str = "Nanohedra Score:"
-        metric_str = "Residue-Level Summation Score:"
+        metric_str = "Nanohedra Score:"
     elif metric == 'matched':
-        metric_str = "Unique Interface Fragment Match Count:"
+        metric_str = "Unique Mono Fragments Matched:"
     else:
-        raise ValueError(
-            '\n%s is not a recognized ranking metric. Recognized ranking metrics are: score and matched.\n' % str(
-                metric))
+        raise ValueError('\n%s is not a recognized ranking metric. Recognized ranking metrics are: score and matched.\n'
+                         % str(metric))
 
     # designpath_metric_tup_list = []
     print('finding all directories')

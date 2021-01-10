@@ -44,7 +44,7 @@ def generate_cryst1_record(dimensions, spacegroup):
 
 
 def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.dirname(
-    os.path.dirname(os.path.realpath(__file__))) + "/ExpandMatrices/POINT_GROUP_SYMM_OPERATORS"):
+    os.path.dirname(os.path.realpath(__file__))) + "/symmetry_operators/POINT_GROUP_SYMM_OPERATORS"):
     expand_matrix_filepath = expand_matrix_dir + "/" + sym_type + ".txt"
     expand_matrix_file = open(expand_matrix_filepath, "r")
     expand_matrix_lines = expand_matrix_file.readlines()
@@ -142,7 +142,7 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
 
 
 def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.dirname(
-    os.path.dirname(os.path.realpath(__file__))) + "/ExpandMatrices/SPACE_GROUP_SYMM_OPERATORS"):
+    os.path.dirname(os.path.realpath(__file__))) + "/symmetry_operators/SPACE_GROUP_SYMM_OPERATORS"):
     sg_op_filepath = space_group_operator_dir + "/" + sym_type + ".pickle"
     with open(sg_op_filepath, "rb") as sg_op_file:
         sg_sym_op = pickle.load(sg_op_file)
