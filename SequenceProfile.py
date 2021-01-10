@@ -73,6 +73,36 @@ class SequenceProfile:
         self.add_evolutionary_profile(out_path=out_path)
         self.combine_ssm(boltzmann=True)
 
+        # Check Pose and Profile for equality before proceeding
+        second = False
+        while True:
+            if len(full_pssm) != len(template_residues):
+                logger.warning(
+                    '%s: Profile and Pose sequences are different lengths!\nProfile=%d, Pose=%d. Generating new '
+                    'profile' % (des_dir.path, len(full_pssm), len(template_residues)))
+                rerun = True
+
+            if not rerun:
+                # Check sequence from Pose and PSSM to compare identity before proceeding
+                pssm_res, pose_res = {}, {}
+                for res in range(len(template_residues)):
+                    pssm_res[res] = full_pssm[res]['type']
+                    pose_res[res] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
+                    if pssm_res[res] != pose_res[res]:
+                        logger.warning(
+                            '%s: Profile and Pose sequences are different!\nResidue %d: Profile=%s, Pose=%s. '
+                            'Generating new profile' % (des_dir.path, res + SDUtils.index_offset, pssm_res[res],
+                                                        pose_res[res]))
+                        rerun = True
+                        break
+
+            if rerun:
+                if second:
+                    logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
+                    raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
+                    # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
+                pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
+
     def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits'):
         """Add the evolutionary profile to the entity. Profile is generated through a position specific evolutionary
         search
@@ -255,23 +285,20 @@ class SequenceProfile:
                     self.pssm[resi]['weight'] = dummy
 
     def combine_pssm(self, pssms):
-        """To a first pssm, append subsequent pssms incrementing the residue number in each additional pssm
+        """Combine a list of PSSM's incrementing the residue number in each additional PSSM
 
         Args:
-            pssms (list(dict)): List of pssm dictionaries to concatentate
-        Returns:
-            combined_pssm (dict): Concatentated PSSM
+            pssms (list(dict)): List of PSSM's to concatentate
+        Sets
+            self.pssm (dict): Using the list of input PSSM's, make a concatentated PSSM
         """
-        combined_pssm = {}
-        new_key = 0
+        # combined_pssm = {}
+        new_key = 1
         for i in range(len(pssms)):
-            # requires python 3.6+ to maintain sorted dictionaries
-            # for old_key in pssms[i]:
-            for old_key in sorted(list(pssms[i].keys())):
-                combined_pssm[new_key] = pssms[i][old_key]
+            for old_key in sorted(pssms[i].keys()):
+                self.pssm[new_key] = pssms[i][old_key]
                 new_key += 1
-
-        return combined_pssm
+        # return combined_pssm
 
     def write_fasta_file(self, name=None, out_path=os.getcwd()):
         """Write a fasta file from sequence(s)
@@ -445,12 +472,12 @@ class SequenceProfile:
         # remove entries which don't exist on protein because of fragment_index +- residues
         not_available = []
         for residue_number in self.fragment_map:
-            if 0 < residue_number >= self.structure.number_of_residues():  # or residue_number < 0:
+            if 0 < residue_number >= self.structure.number_of_residues():
                 not_available.append(residue_number)
-                logger.warning('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
-                               'Fragment index will be deleted.' % (des_dir.path, residue_number))
+                logger.debug('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
+                             'Fragment index will be deleted.' % (self.structure.get_name(), residue_number))
         for residue_number in not_available:
-            residue_cluster_map.pop(residue_number)
+            self.fragment_map.pop(residue_number)
 
         logger.debug('Residue Cluster Map: %s' % str(self.fragment_map))
 
@@ -710,40 +737,9 @@ class SequenceProfile:
                                pdb_numbering=True)
 
         # Extract PSSM for each protein and combine into single PSSM TODO full pose!
-        full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
-        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
-
+        full_pssm = pose.combine_pssm([entity.pssm for entity in pose])
         logger.debug('Position Specific Scoring Matrix: %s' % str(full_pssm))
-
-        # Check Pose and Profile for equality before proceeding
-        second = False
-        while True:
-            if len(full_pssm) != len(template_residues):
-                logger.warning(
-                    '%s: Profile and Pose sequences are different lengths!\nProfile=%d, Pose=%d. Generating new '
-                    'profile' % (des_dir.path, len(full_pssm), len(template_residues)))
-                rerun = True
-
-            if not rerun:
-                # Check sequence from Pose and PSSM to compare identity before proceeding
-                pssm_res, pose_res = {}, {}
-                for res in range(len(template_residues)):
-                    pssm_res[res] = full_pssm[res]['type']
-                    pose_res[res] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
-                    if pssm_res[res] != pose_res[res]:
-                        logger.warning(
-                            '%s: Profile and Pose sequences are different!\nResidue %d: Profile=%s, Pose=%s. '
-                            'Generating new profile' % (des_dir.path, res + SDUtils.index_offset, pssm_res[res],
-                                                        pose_res[res]))
-                        rerun = True
-                        break
-
-            if rerun:
-                if second:
-                    logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                    raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
-                    # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
+        pssm_file = pose.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
 
         # Todo, remove missing fragment entries here or add where they are loaded keep_extras = False  # =False added for pickling 6/14/20
         interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_type, out_path=des_dir.data)
