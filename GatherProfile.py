@@ -43,7 +43,7 @@ def check_for_errors(des_dir, debug):
         if file.endswith('pose.dssm'):
             pose_pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, file))
         if file.endswith(PUtils.clean):
-            template_pdb = SDUtils.read_pdb(os.path.join(des_dir.path, file))
+            template_pdb = PDB(file=os.path.join(des_dir.path, file))
 
     if pose_pssm and template_pdb:
         template_residues = template_pdb.get_residues()
@@ -59,7 +59,7 @@ def generate_profile(pdb, des_dir, debug):
     #     if file.endswith('pose.dssm'):
     #         pose_pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, file))
     #     if file.endswith(PUtils.clean):
-    #         template_pdb = SDUtils.read_pdb(os.path.join(des_dir.path, file))
+    #         template_pdb = PDB(file=os.path.join(des_dir.path, file))
     #
     # if pose_pssm and template_pdb:
     #     template_residues = template_pdb.get_residues()

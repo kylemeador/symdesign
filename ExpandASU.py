@@ -1,7 +1,8 @@
 import argparse
 import os
 
-from SymDesignUtils import read_pdb, start_log, to_iterable
+from PDB import PDB
+from SymDesignUtils import start_log, to_iterable
 from nanohedra.utils.ExpandAssemblyUtils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb, write_expanded_ptgrp
 
 
@@ -11,7 +12,7 @@ def expand_asu(file, symmetry, out_path=None):
     else:
         path_name = '%s_%s.pdb' % (os.path.splitext(file)[0], 'expanded')
 
-    asu_pdb = read_pdb(file)
+    asu_pdb = PDB(file=file)
     expand_matrices = get_ptgrp_sym_op(symmetry.upper())  # currently only works for T, O, I
     expanded_pdb = get_expanded_ptgrp_pdb(asu_pdb, expand_matrices)
     write_expanded_ptgrp(expanded_pdb, path_name)

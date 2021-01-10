@@ -18,7 +18,7 @@ except ImportError:
     generic_protein = None
 
 import CmdUtils as CUtils
-import PDB
+from PDB import PDB
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths
@@ -718,7 +718,7 @@ class SequenceProfile:
 
         # Construct CB Tree for full interface atoms to map residue residue contacts
         # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
-        interface = SDUtils.fill_pdb([atom for residue in total_int_residue_objects for atom in residue.atom_list])
+        interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atom_list])
         interface_tree = SDUtils.residue_interaction_graph(interface)
         interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
 
@@ -1977,9 +1977,9 @@ def generate_mutations(all_design_files, wild_type_file, pose_num=False):
     Returns:
         mutations (dict): {'file_name': {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
-    pdb_dict = {'ref': SDUtils.read_pdb(wild_type_file)}
+    pdb_dict = {'ref': PDB(file=wild_type_file)}
     for file_name in all_design_files:
-        pdb = SDUtils.read_pdb(file_name)
+        pdb = PDB(file=file_name)
         pdb.set_name(os.path.splitext(os.path.basename(file_name))[0])
         pdb_dict[pdb.name] = pdb
 
@@ -2515,8 +2515,8 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
     Returns:
         wt_seq_dict (dict): {chain: sequence, ...}
     """
-    if not isinstance(pdb, PDB.PDB):
-        pdb = SDUtils.read_pdb(pdb)
+    if not isinstance(pdb, PDB):
+        pdb = PDB(file=pdb)
 
     seq_dict = {}
     for _chain in pdb.chain_id_list:

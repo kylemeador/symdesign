@@ -38,8 +38,8 @@ def extract_fragments(pdb, distance, frag_length, same_chain=False):
     pdb_ch2_id = pdb.chain_id_list[-1]
 
     # Create PDB instance for Ch1 and Ch2
-    pdb1 = SDUtils.fill_pdb(pdb.get_chain_atoms(pdb_ch1_id))
-    pdb2 = SDUtils.fill_pdb(pdb.get_chain_atoms(pdb_ch2_id))
+    pdb1 = PDB(atoms=pdb.get_chain_atoms(pdb_ch1_id))
+    pdb2 = PDB(atoms=pdb.get_chain_atoms(pdb_ch2_id))
     if pdb1.all_atoms == list() or pdb2.all_atoms == list():
         logger.info('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb.name))
         return pdb.name
@@ -87,7 +87,7 @@ def write_fragment_pair(fragment_pair, out_path=os.getcwd(), fragment_length=5, 
         frag2.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb' % (frag2.name, frag2.chain_id_list[0],
                                                                                 frag2.all_atoms[central_res_idx])))
 
-    int_frag_out = SDUtils.fill_pdb(fragment_pair[0].all_atoms + fragment_pair[1].all_atoms)
+    int_frag_out = PDB(atoms=fragment_pair[0].all_atoms + fragment_pair[1].all_atoms)
     int_frag_out.write(os.path.join(out_path, 'paired', '%s_ch%s_%s_res%d_%d.pdb'
                                     % (frag1.name, frag1.chain_id_list[0], frag2.chain_id_list[0],
                                        frag1.all_atoms[central_res_idx], frag2.all_atoms[central_res_idx])))
@@ -102,7 +102,8 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
 
     print('%s Creating Neighbor CB Atom Trees at %d Angstroms Distance' % (module, interface_dist))
     # Reading In PDB Structures
-    pdbs_of_interest = [SDUtils.read_pdb(pdb_path) for pdb_path in int_db_filepaths]
+    pdbs_of_interest = [PDB(file=pdb_path) for pdb_path in int_db_filepaths]
+    # pdbs_of_interest = [SDUtils.read_pdb(pdb_path) for pdb_path in int_db_filepaths]
     for i, pdb in enumerate(pdbs_of_interest):
         pdbs_of_interest[i].name = os.path.splitext(os.path.basename(pdb.filepath))[0]
 

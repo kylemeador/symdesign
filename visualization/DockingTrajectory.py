@@ -5,6 +5,7 @@ from glob import glob
 import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
+from PDB import PDB
 from Pose import Model
 
 
@@ -25,20 +26,18 @@ def merge_pose_pdbs(des_dir, frags=True):
     for name in pdb_codes:
         name_pdb_file = glob(os.path.join(des_dir.path, name + '_tx_*.pdb'))
         assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
-        oligomers[name] = SDUtils.read_pdb(name_pdb_file[0])
+        oligomers[name] = PDB(file=name_pdb_file[0])
         oligomers[name].set_name(name)
         oligomers[name].reorder_chains(exclude_chains_list=taken_chains)
         taken_chains += oligomers[name].chain_id_list
-    new_pdb = SDUtils.fill_pdb()
-    for oligomer in oligomers:
-        new_pdb.read_atom_list(oligomers[oligomer].all_atoms)
+    new_pdb = PDB(atoms=[oligomers[oligomer].get_atoms() for oligomer in oligomers])
 
     if frags:
         # frag_pdbs = os.listdir(des_dir.frags)
         frag_pdbs = glob(os.path.join(des_dir.frags, '*.pdb'))
         frags_d = {}
         for i, frags in enumerate(frag_pdbs):
-            frags_d[i] = SDUtils.read_pdb(frags)
+            frags_d[i] = PDB(file=frags)
             frags_d[i].reorder_chains(exclude_chains_list=taken_chains)
             taken_chains += frags_d[i].chain_id_list
         for frags in frags_d:

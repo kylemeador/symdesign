@@ -17,8 +17,8 @@ from Bio.SeqUtils import IUPACData
 from sklearn.neighbors import BallTree
 
 import CmdUtils as CUtils
-import PDB
 import PathUtils as PUtils
+from PDB import PDB
 # logging.getLogger().setLevel(logging.INFO)
 from SequenceProfile import populate_design_dict
 
@@ -641,57 +641,11 @@ def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
     for code in codes:
         pdb_file_name = get_pdb(code, location=des_dir.pdbs)
         assert len(pdb_file_name) == 1, 'More than one matching file found for pdb code %s' % code
-        oligomers[code] = read_pdb(pdb_file_name[0])
+        oligomers[code] = PDB(file=pdb_file_name[0])
         oligomers[code].set_name(code)
         oligomers[code].reorder_chains()
 
     return oligomers
-
-
-def read_pdb(file):  # DEPRECIATE
-    """Wrapper on the PDB __init__ and readfile functions
-
-    Args:
-        file (str): Disk location of pdb file
-    Returns:
-        (PDB): Initialized PDB object
-    """
-    return PDB.PDB(file=file)
-
-
-def fill_pdb(atom_list=None):  # DEPRECIATE
-    """Wrapper on the PDB __init__ and readfile functions
-
-    Args:
-        atom_list (list): List of Atom objects
-    Returns:
-        pdb (PDB): Initialized PDB object
-    """
-    if not atom_list:
-        atom_list = []
-
-    pdb = PDB.PDB()
-    pdb.read_atom_list(atom_list)
-
-    return pdb
-
-
-def extract_asu(file, chain='A', outpath=None):  # DEPRECIATE
-    """Takes a PDB file and extracts an ASU. ASU is defined as chain, plus all unique entities in contact with chain"""
-    if outpath:
-        asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0] + '.pdb')
-        # asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0] + '_%s' % 'asu.pdb')
-    else:
-        asu_file_name = os.path.splitext(file)[0] + '_asu.pdb'
-
-    pdb = read_pdb(file)
-    asu_pdb = PDB.PDB()
-    asu_pdb.__dict__ = pdb.__dict__.copy()
-    asu_pdb.atoms = pdb.get_asu(chain)
-    # asu_pdb = fill_pdb(pdb.get_asu(chain))
-    asu_pdb.write(asu_file_name, cryst1=asu_pdb.cryst)
-
-    return asu_file_name
 
 
 def residue_interaction_graph(pdb, distance=8, gly_ca=True):

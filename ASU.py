@@ -14,6 +14,7 @@ import SymDesignUtils as SDUtils
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
 from BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
+from PDB import PDB
 
 # if sys.version[0] < 3:
 pickle_prot = 2
@@ -42,7 +43,8 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd):
     moved_oligomer = {}
     for pdb in chain_map:
         asu_chain = chain_map[pdb]['asu_chain']
-        oriented_oligomer = SDUtils.read_pdb(chain_map[pdb]['path'])
+        oriented_oligomer = PDB(file=chain_map[pdb]['path'])
+        # oriented_oligomer = SDUtils.read_pdb(chain_map[pdb]['path'])
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
         moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
@@ -73,7 +75,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         reading_csv = reader(f_csv)
         if pdb_dir:
             design_file_input = {os.path.splitext(row[0])[0]:
-                                 {'design_pdb': SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),
+                                 {'design_pdb': PDB(file=os.path.join(pdb_dir, row[0])),
+                                 # {'design_pdb': SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),
                                   'source_pdb': [(row[1], row[3]), (row[2], row[4])], 'final_sym': row[5]}
                                  for row in reading_csv}  # 'pdb1': 'sym1': 'pdb2': 'sym2':
         else:
@@ -95,8 +98,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         if pdb_dir:
             asu = design_file_input[design]['design_pdb'].return_asu()
         else:
-            # asu = SDUtils.read_pdb(os.path.join(output_dir, design, 'design_asus', design  + '.pdb'))  # TODO new, asu is inside design directory
-            asu = SDUtils.read_pdb(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
+            asu = PDB(file=os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
+            # asu = PDB(file=os.path.join(output_dir, design, 'design_asus', design  + '.pdb'))  # TODO in new, asu is inside design directory
         asu.reorder_chains()
         # asu.renumber_residues()
         asu.reindex_all_chain_residues()
@@ -119,7 +122,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 biological_assembly = 1
             new_file = SDUtils.download_pdb('%s_%s' % (pdb, biological_assembly),
                                             location=os.path.join(output_dir, 'biological_assemblies'))
-            downloaded_pdb = SDUtils.read_pdb(new_file)
+            downloaded_pdb = PDB(file=new_file)
+            # downloaded_pdb = SDUtils.read_pdb(new_file)
             oriented_pdb = downloaded_pdb.orient(sym, PUtils.orient_dir)  # , generate_oriented_pdb=False)
             if oriented_pdb.all_atoms == list():
                 logger.error('%s failed! Skipping design %s' % (pdb, design))

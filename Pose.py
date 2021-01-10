@@ -303,9 +303,7 @@ class Pose:
             all_uc_sym_mates_cart_coords = np.split(surrounding_uc_cart_coords, len(self.uc_sym_mates))
             one_surrounding_unit_cell = []
             for uc_sym_mate_cart_coords in all_uc_sym_mates_cart_coords:
-                uc_sym_mate_pdb = PDB()
                 uc_sym_mate_atoms = []
-                # atom_count = 0
                 for atom_count, atom in enumerate(asu_atom_template):
                     x_transformed = uc_sym_mate_cart_coords[atom_count][0]
                     y_transformed = uc_sym_mate_cart_coords[atom_count][1]
@@ -318,10 +316,8 @@ class Pose:
                                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
                                             atom.get_atom_charge())
                     uc_sym_mate_atoms.append(atom_transformed)
-                    # atom_count += 1
 
-                uc_sym_mate_pdb.set_all_atoms(uc_sym_mate_atoms)
-                # uc_sym_mate_pdb = SDUtils.fill_pdb(uc_sym_mate_atoms) TODO
+                uc_sym_mate_pdb = PDB(atoms=uc_sym_mate_atoms)
                 one_surrounding_unit_cell.append(uc_sym_mate_pdb)
 
             self.surrounding_uc_sym_mates.extend(one_surrounding_unit_cell)

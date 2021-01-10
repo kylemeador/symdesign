@@ -311,7 +311,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Fetch PDB object of each chain from PDBdb or PDB server # TODO set up pdb database
     # UNCOMMMENT WHEN DATABASE IS SET UP
     # # oligomers = SDUtils.fetch_pdbs(des_dir, pdb_codes)
-    # oligomers = {pdb_code: SDUtils.read_pdb(SDUtils.fetch_pdbs(pdb_code)) for pdb_code in pdb_codes}
+    # oligomers = {pdb_code: PDB(file=SDUtils.fetch_pdbs(pdb_code)) for pdb_code in pdb_codes}
     #
     # for i, name in enumerate(oligomers):
     #     # oligomers[name].translate(oligomers[name].center_of_mass())
@@ -322,7 +322,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #     # {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
 
     template_pdb = PDB(file=des_dir.source)
-    # template_pdb = SDUtils.read_pdb(des_dir.source)
     num_chains = len(template_pdb.chain_id_list)
 
     # TODO JOSH Get rid of same chain ID problem....
@@ -332,7 +331,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         assert len(oligomer_file) == 1, 'More than one matching file found with %s' % pdb_codes[0] + '_tx_*.pdb'
         # assert len(oligomer_file) == 1, '%s: More than one matching file found with %s' % \
         #                                 (des_dir.path, pdb_codes[0] + '_tx_*.pdb')
-        first_oligomer = SDUtils.read_pdb(oligomer_file[0])
+        first_oligomer = PDB(file=oligomer_file[0])
+        # first_oligomer = SDUtils.read_pdb(oligomer_file[0])
         # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
         for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
             template_pdb.atoms[atom_idx].chain = template_pdb.chain_id_list[0].lower()
@@ -363,7 +363,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
         # assert len(name_pdb_file) == 1, '%s: More than one matching file found with %s' % \
         #                                 (des_dir.path, name + '_tx_*.pdb')
-        oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
+        oligomer[name] = PDB(file=name_pdb_file[0])
+        # oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
         oligomer[name].set_name(name)
         # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
         sym_definition_files[name] = oligomer[name].make_sdf(modify_sym_energy=True)
@@ -492,7 +493,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Construct CB Tree for full interface atoms to map residue residue contacts
     # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
-    interface = SDUtils.fill_pdb([atom for residue in total_int_residue_objects for atom in residue.atom_list])
+    interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atom_list])
     interface_tree = SDUtils.residue_interaction_graph(interface)
     interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
 

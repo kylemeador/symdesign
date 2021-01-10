@@ -3,7 +3,7 @@ import math
 
 import numpy as np
 import pandas as pd
-from symdesign.SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, read_pdb, fill_pdb, mp_map
+from symdesign.SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, mp_map
 
 # from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
 from nanohedra.classes.EulerLookup import EulerLookup
@@ -368,9 +368,9 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
 def calculate_interface_score(interface_pdb):
     interface_name = interface_pdb.name
 
-    pdb1 = fill_pdb(interface_pdb.get_chain_atoms(interface_pdb.chain_id_list[0]))
+    pdb1 = PDB(atoms=interface_pdb.get_chain_atoms(interface_pdb.chain_id_list[0]))
     pdb1.update_attributes_from_pdb(interface_pdb)
-    pdb2 = fill_pdb(interface_pdb.get_chain_atoms(interface_pdb.chain_id_list[-1]))
+    pdb2 = PDB(atoms=interface_pdb.get_chain_atoms(interface_pdb.chain_id_list[-1]))
     pdb2.update_attributes_from_pdb(interface_pdb)
 
     pdb1_central_chainid_resnum_l, pdb2_central_chainid_resnum_l = get_interface_fragment_chain_residue_numbers(pdb1,
@@ -451,7 +451,8 @@ if __name__ == '__main__':
             del interface_filepaths[i]
 
         for interface_path in interface_filepaths:
-            pdb = read_pdb(interface_path)
+            pdb = PDB(file=interface_path)
+            # pdb = read_pdb(interface_path)
             pdb.name = os.path.splitext(os.path.basename(interface_path))[0]
 
     elif args.file:

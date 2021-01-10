@@ -5,7 +5,7 @@ import os
 # import PDB
 from Bio.SeqUtils import IUPACData
 
-from SymDesignUtils import read_pdb
+from PDB import PDB
 
 
 class ListFile:
@@ -1617,8 +1617,8 @@ class HelixFusion:
 
 
 def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
-        pdb1 = read_pdb(pdb1_path)
-        pdb2 = read_pdb(pdb2_path)
+        pdb1 = PDB(file=pdb1_path)
+        pdb2 = PDB(file=pdb2_path)
 
         if extend_helix:
             n_terminus = pdb1.getTermCAAtom('N', chain_1).residue_number

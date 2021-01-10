@@ -1,8 +1,8 @@
 #!/home/kmeador/miniconda3/bin/python
-import copy
 import math
 import os
 import subprocess
+from copy import copy, deepcopy
 from itertools import repeat
 
 import numpy as np
@@ -22,7 +22,8 @@ from SymDesignUtils import logger
 
 
 class PDB(Structure):
-    def __init__(self, file=None):
+    def __init__(self, file=None, atoms=None):
+        super().__init__()
         # self.accession_entity_map = {}
         self.atoms = []  # python list of Atoms
         self.api_entry = None
@@ -53,6 +54,8 @@ class PDB(Structure):
 
         if file:
             self.readfile(file)
+        elif atoms:
+            self.set_atoms(atoms)  # sets all atoms and residues in PDB
 
     # def set_name(self, name):
     #     self.name = name
@@ -85,6 +88,12 @@ class PDB(Structure):
 
     def get_uc_dimensions(self):
         return list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
+
+    def copy_metadata(self, other_pdb):
+        temp_metadata = deepcopy(other_pdb.__dict__.copy)
+        temp_metadata.pop('atoms')
+        temp_metadata.pop('residues')
+        self.__dict__ = temp_metadata
 
     def update_attributes_from_pdb(self, pdb):  # Todo copy full attribute dict without selected elements
         # self.atoms = pdb.atoms
@@ -470,12 +479,12 @@ class PDB(Structure):
             print('Axis does not exists!')
 
         rotated_atoms = []
-        for atom in self.atoms:
+        for atom in self.get_atoms():
             coord = [atom.x, atom.y, atom.z]
             newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
             newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
             newZ = coord[0] * rotmatrix[2][0] + coord[1] * rotmatrix[2][1] + coord[2] * rotmatrix[2][2]
-            rot_atom = copy.deepcopy(atom)
+            rot_atom = deepcopy(atom)
             rot_atom.x, rot_atom.y, rot_atom.z = newX, newY, newZ
             rotated_atoms.append(rot_atom)
 
@@ -486,12 +495,12 @@ class PDB(Structure):
 
     def ReturnTranslatedPDB(self, tx, store_cb_and_bb_coords=False):
         translated_atoms = []
-        for atom in self.atoms:
+        for atom in self.get_atoms():
             coord = [atom.x, atom.y, atom.z]
             newX = coord[0] + tx[0]
             newY = coord[1] + tx[1]
             newZ = coord[2] + tx[2]
-            tx_atom = copy.deepcopy(atom)
+            tx_atom = deepcopy(atom)
             tx_atom.x, tx_atom.y, tx_atom.z = newX, newY, newZ
             translated_atoms.append(tx_atom)
 
@@ -505,11 +514,11 @@ class PDB(Structure):
         return_atoms = []
         return_pdb = PDB()
         for coord in self.extract_all_coords():
-            coord_copy = copy.deepcopy(coord)
+            coord_copy = deepcopy(coord)
             coord_rotated = self.mat_vec_mul3(rot, coord_copy)
             rotated_coords.append(coord_rotated)
-        for i in range(len(self.atoms)):
-            atom_copy = copy.deepcopy(self.atoms[i])
+        for i in range(len(self.get_atoms())):
+            atom_copy = deepcopy(self.atoms[i])
             atom_copy.x = rotated_coords[i][0]
             atom_copy.y = rotated_coords[i][1]
             atom_copy.z = rotated_coords[i][2]
@@ -1267,7 +1276,7 @@ class PDB(Structure):
                     new_entity = False  # The entity is not unique, do not add
                     break
             if new_entity:  # no existing entity matches, add new entity
-                self.entity_d[copy.copy(entity_count)] = {'chains': [chain], 'seq': self.atom_sequences[chain]}
+                self.entity_d[copy(entity_count)] = {'chains': [chain], 'seq': self.atom_sequences[chain]}
                 entity_count += 1
 
         self.update_entity_d()
@@ -1418,7 +1427,7 @@ class PDB(Structure):
                     else:
                         interface_d[atom.chain].append(atom)
                 # print(interface_d)
-                # copy.deepcopy(interface_d)
+                # deepcopy(interface_d)
                 partner_interface_d, self_interface_d = {}, {}
                 for _chain in self.entity_d[entity]['chains']:
                     if _chain != chain:
@@ -1511,9 +1520,9 @@ class PDB(Structure):
 
     def return_asu(self, chain='A'):  # , outpath=None):
         """Returns the ASU as a new PDB object. See self.get_asu() for method"""
-        asu_pdb = PDB()
-        # asu_pdb.__dict__ = self.__dict__.copy()
-        asu_pdb.read_atom_list(self.get_asu(chain=chain))
+        asu_pdb = PDB(atoms=self.get_asu(chain=chain))
+        asu_pdb.copy_metadata(self)
+
         return asu_pdb
 
         # if outpath:
@@ -1522,7 +1531,6 @@ class PDB(Structure):
         # else:
         #     asu_file_name = os.path.splitext(self.filepath)[0] + '_asu.pdb'
 
-        # asu_pdb = fill_pdb(pdb.get_asu(chain))
         # asu_pdb.write(asu_file_name, cryst1=asu_pdb.cryst)
         #
         # return asu_file_name
