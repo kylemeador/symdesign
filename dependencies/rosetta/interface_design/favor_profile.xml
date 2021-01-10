@@ -47,6 +47,7 @@
 	</MOVE_MAP_FACTORIES>
 	
 	<MOVERS>
+		# This mover is unique for the favor protocol
 		<FavorSequenceProfile name="fsp" pssm="%%pssm_file%%" scaling="none" scorefxns="2015_nano" weight="1"/>
 		# add coordinateConstraints to restrict design movement during trajectory
 		<AddConstraints name="add_csts">
