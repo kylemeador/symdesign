@@ -25,6 +25,7 @@ import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from CommandDistributer import distribute
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
+from PDB import PDB
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
@@ -918,16 +919,17 @@ if __name__ == '__main__':
 
                 # Format sequences for expression
                 # coming in as (chain: seq}
-                design_pose = SDUtils.read_pdb(file[0])
+                design_pose = PDB(file=file[0])
                 design_sequences = SequenceProfile.get_pdb_sequences(design_pose)
                 pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
                 # need the original pose chain identity
-                # source_pose = SDUtils.read_pdb(pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
-                source_pose = SDUtils.read_pdb(pose_des_dir.source)  # Think this is the best, need to modify chains
+                # source_pose = PDB(file=pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
+                source_pose = PDB(file=pose_des_dir.source)  # Think this is the best, need to modify chains
                 source_pose.reorder_chains()
                 source_pose.atom_sequences = SequenceProfile.get_pdb_sequences(source_pose, source='atom')
                 # if not source_pose.sequences:
-                oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
+                oligomers = [PDB(file=SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
+                # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
                 oligomer_chain_database_chain_map = {chain: oligomers[k].chain_id_list[0]
                                                      for k, chain in enumerate(source_pose.chain_id_list)}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])

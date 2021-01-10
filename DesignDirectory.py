@@ -4,7 +4,7 @@ from glob import glob
 import numpy as np
 
 import PathUtils as PUtils
-from SymDesignUtils import logger, unpickle, read_pdb, start_log, handle_errors_f
+from SymDesignUtils import logger, unpickle, start_log, handle_errors_f
 
 
 class DesignDirectory:  # Todo remove all PDB specific information and add to Pose. only use to handle Pose paths
@@ -204,7 +204,8 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
                 name_pdb_file = glob(os.path.join(self.path, '%s*_tx_*.pdb' % name))
                 assert len(name_pdb_file) == 1, 'Incorrect match [%d != 1] found using %s*_tx_*.pdb!\nCheck %s' % \
                                                 (len(name_pdb_file), name, self.__str__())
-                self.oligomers[name] = read_pdb(name_pdb_file[0])
+                self.oligomers[name] = PDB(file=name_pdb_file[0])
+                # self.oligomers[name] = read_pdb(name_pdb_file[0])
                 self.oligomers[name].set_name(name)
                 self.oligomers[name].reorder_chains()
 

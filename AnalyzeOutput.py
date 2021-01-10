@@ -1047,7 +1047,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     other_pose_metrics['percent_fragment'] = len(profile_dict['fragment']) / len(int_residues)
 
     # Interface B Factor TODO ensure clean_asu.pdb has B-factors
-    wt_pdb = SDUtils.read_pdb(wild_type_file)
+    wt_pdb = PDB(file=wild_type_file)
     chain_sep = wt_pdb.getTermCAAtom('C', wt_pdb.chain_id_list[0]).residue_number  # this only works with 2 chains TODO
     int_b_factor = 0
     for residue in int_residues:

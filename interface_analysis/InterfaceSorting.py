@@ -9,9 +9,10 @@ from itertools import chain as iter_chain
 import requests
 import pandas as pd
 
+from PDB import PDB
 import ParsePisa as pp
-from SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, to_iterable, read_pdb, \
-    fill_pdb, retrieve_pdb_file_path, download_pisa, pisa_ref_d
+from SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, to_iterable, \
+    retrieve_pdb_file_path, download_pisa, pisa_ref_d
 
 import QueryProteinData.QueryPDB as qPDB
 
@@ -34,7 +35,7 @@ def return_pdb_interface(pdb_code, interface_id, full_chain=True, db=False):
             pdb_file_path = retrieve_pdb_file_path(pdb_code, directory=pdb_directory)
             pisa_file_path = retrieve_pisa_file_path(pdb_code, directory=pisa_directory)
             if pisa_file_path and pdb_file_path:
-                source_pdb = read_pdb(pdb_file_path)
+                source_pdb = PDB(file=pdb_file_path)
                 pisa_data = unpickle(pisa_file_path)
             else:
                 return None
@@ -77,7 +78,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
     # try:
     #     # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
     #     # This makes flexible with MySQL
-    #     source_pdb = read_pdb(pdb_file_path)
+    #     source_pdb = PDB(file=pdb_file_path)
     #     pisa_data = unpickle(pisa_file_path)  # Get PISA data
     #     interface_data = pisa_data['interfaces']
     #     # interface_data, chain_data = pp.parse_pisa_interfaces_xml(pisa_file_path)
@@ -104,7 +105,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
             #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
             #     interface_atoms.extend(deepcopy(residue_atoms))
             # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
-        chain_pdb = fill_pdb(deepcopy(interface_atoms))
+        chain_pdb = PDB(atoms=deepcopy(interface_atoms))
         # chain_pdb.read_atom_list(interface_atoms)
 
         rot = chain_data_d[chain_id]['r_mat']
@@ -115,7 +116,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         interface_chain_pdbs.append(chain_pdb)
         # interface_pdb.read_atom_list(chain_pdb.atoms)
 
-    interface_pdb = fill_pdb(iter_chain.from_iterable([chain_pdb.all_atoms for chain_pdb in interface_chain_pdbs]))
+    interface_pdb = PDB(atoms=iter_chain.from_iterable([chain_pdb.get_atoms() for chain_pdb in interface_chain_pdbs]))
     if len(interface_pdb.chain_id_list) == 2:
         for temp_name in temp_chain_d:
             interface_pdb.rename_chain(temp_name, temp_chain_d[temp_name])
@@ -468,7 +469,7 @@ if __name__ == '__main__':
         # else:  # From the database of files
         #     pdb_uniprot_info = {}
         #     for pdb_code in pdbs_of_interest:
-        #         pdb = read_pdb(retrieve_pdb_file_path(pdb_code, directory=pdb_directory), coordinates_only=False)
+        #         pdb = PDB(file=retrieve_pdb_file_path(pdb_code, directory=pdb_directory), coordinates_only=False)
         #         pdb_uniprot_info[pdb_code] = {'entity': pdb.entities, 'cryst': pdb.cryst, 'ref': pdb.dbref,
         #                                       'res': pdb.res}
 
