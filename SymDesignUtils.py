@@ -41,15 +41,6 @@ point_group_d = {8: 'I32', 14: 'I52', 56: 'I53', 4: 'T32', 52: 'T33'}
 ##########
 
 
-class DesignError(Exception):  # TODO make error messages one line instead of string iteration
-    # SymDesignUtils.DesignError: ('I', 'n', 'v', 'a', 'l', 'i', 'd', ' ', 'P', 'D', 'B', ' ', 'i', 'n', 'p', 'u', 't',
-    # ',', ' ', 'n', 'o', ' ', 'S', 'E', 'Q', 'R', 'E', 'S', ' ', 'r', 'e', 'c', 'o', 'r', 'd', ' ', 'f', 'o', 'u', 'n',
-    # 'd')
-
-    def __init__(self, message):
-        self.args = message
-
-
 def handle_errors_f(errors=(Exception, )):
     """Decorator to wrap a function with try: ... except errors: finally:
 

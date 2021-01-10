@@ -809,7 +809,7 @@ def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
 
 # @handle_errors(error_type=(SDUtils.DesignError, AssertionError))
 # TODO multiprocessing compliant (picklable) error decorator
-@SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
+@SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
 def analyze_output_s(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
                      figures=True):
     return analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
@@ -822,7 +822,7 @@ def analyze_output_mp(des_dir, delta_refine=False, merge_residue_data=False, deb
         pose = analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
                               save_trajectories=save_trajectories, figures=figures)
         return pose, None
-    except (SDUtils.DesignError, AssertionError) as e:
+    except (DesignDirectory.DesignError, AssertionError) as e:
         return None, (des_dir.path, e)
     # finally:
     #     print('Error occurred in %s' % des_dir.path)

@@ -7,6 +7,7 @@ from itertools import repeat
 
 from Bio.SeqUtils import IUPACData
 
+import DesignDirectory
 import PathUtils as PUtils
 import SequenceProfile
 import SymDesignUtils as SDUtils
@@ -49,7 +50,7 @@ def check_for_errors(des_dir, debug):
         pose_correct = check_pssm_v_pose(des_dir, pose_pssm, template_residues)
         return pose_correct
     else:
-        raise SDUtils.DesignError('Directory missing crucial files')
+        raise DesignDirectory.DesignError('Directory missing crucial files')
 
 
 def generate_profile(pdb, des_dir, debug):
@@ -106,7 +107,7 @@ def generate_profile(pdb, des_dir, debug):
                 if not pdb_seq_file[name]:
                     des_logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
                     # logger.critical('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
-                    raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
+                    raise DesignDirectory.DesignError('Unable to parse sequence in %s' % des_dir.path)
             else:
                 pdb_seq_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
 
@@ -176,7 +177,7 @@ def generate_profile(pdb, des_dir, debug):
                 # raise SDUtils.DesignError('%s: Pose length is the same, but residues different!' % des_dir.path)
                 rerun = True
                 break
-    raise SDUtils.DesignError('%s: Messed up pose')
+    raise DesignDirectory.DesignError('%s: Messed up pose')
     if rerun:
         pssm_file, full_pssm = SDUtils.gather_profile_info(template_pdb, des_dir, names, des_logger)
 

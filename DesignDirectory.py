@@ -505,3 +505,12 @@ def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to loca
     pseudo_dir.all_scores = os.getcwd()
 
     return pseudo_dir
+
+
+class DesignError(Exception):  # TODO make error messages one line instead of string iteration
+    # SymDesignUtils.DesignError: ('I', 'n', 'v', 'a', 'l', 'i', 'd', ' ', 'P', 'D', 'B', ' ', 'i', 'n', 'p', 'u', 't',
+    # ',', ' ', 'n', 'o', ' ', 'S', 'E', 'Q', 'R', 'E', 'S', ' ', 'r', 'e', 'c', 'o', 'r', 'd', ' ', 'f', 'o', 'u', 'n',
+    # 'd')
+
+    def __init__(self, message):
+        self.args = message
