@@ -245,7 +245,7 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
     return design_list
 
 
-@SDUtils.handle_errors(errors=(SDUtils.DesignError, AssertionError))
+@SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
 def select_sequences_s(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
     return select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
 
@@ -254,7 +254,7 @@ def select_sequences_mp(des_dir, weights=None, filter_file=PUtils.filter_and_sor
     try:
         pose = select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
         return pose, None
-    except (SDUtils.DesignError, AssertionError) as e:
+    except (DesignDirectory.DesignError, AssertionError) as e:
         return None, (des_dir.path, e)
 
 
@@ -393,7 +393,7 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
         try:
             energy_s = pd.Series(energy_s)
         except ValueError:
-            raise SDUtils.DesignError('no dataframe')
+            raise DesignDirectory.DesignError('no dataframe')
         energy_s.sort_values(inplace=True)
         final_seqs = zip(repeat(des_dir), energy_s.iloc[:number].index.to_list())  # , :].index.to_list()) - index_offset
     else:

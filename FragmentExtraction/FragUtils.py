@@ -10,7 +10,7 @@ from itertools import chain
 from sklearn.neighbors import BallTree
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 from PDB import PDB
-from SymDesignUtils import DesignError
+from DesignDirectory import DesignError
 
 # Globals
 module = 'Fragment Utilities:'
