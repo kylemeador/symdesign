@@ -8,8 +8,8 @@ from nanohedra.classes.SymEntry import *
 from nanohedra.utils.CmdLineArgParseUtils import *
 # from utils.NanohedraManualUtils import *  # v1
 from nanohedra.utils.ExpandAssemblyUtils import *
+from nanohedra.utils.NanohedraManualUtils import *
 from nanohedra.utils.SamplingUtils import get_degeneracy_matrices
-from nanohedra.utils.SymFragDockManualUtils import *
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"

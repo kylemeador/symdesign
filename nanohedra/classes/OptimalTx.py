@@ -90,13 +90,6 @@ class OptimalTx:
         return c
 
     def set_guide_atoms(self, rot_mat, coords):
-        # rotated_coords = []
-        #
-        # for coord in coords:
-        #     x, y, z = self.mat_vec_mul3(rot_mat, [coord[0], coord[1], coord[2]])
-        #     rotated_coords.append([x, y, z])
-        #
-        # return rotated_coords
         return [list(self.mat_vec_mul3(rot_mat, [coord[0], coord[1], coord[2]])) for coord in coords]
 
     def apply(self):
