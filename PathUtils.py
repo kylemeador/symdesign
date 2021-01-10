@@ -59,7 +59,7 @@ command = os.path.join(source, 'SymDesignControl')
 filter_designs = os.path.join(source, 'AnalyzeOutput.py')
 cmd_dist = os.path.join(source, 'CommandDistributer.py')
 dependency_dir = os.path.join(source, 'dependencies')
-sym_op_location = os.path.join(dependency_dir, 'ExpandMatrices')
+sym_op_location = os.path.join(dependency_dir, 'symmetry_operators')
 nanohedra_source = os.path.join(dependency_dir, nano)
 nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
 # Nanohedra inheritance
