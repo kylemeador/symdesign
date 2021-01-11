@@ -28,9 +28,9 @@ def get_interface_fragments(pdb, chain_res_info, fragment_length=5):
     return interface_frags
 
 
-def get_surface_fragments(pdb, free_sasa_exe_path):
+def get_surface_fragments(pdb):  # Todo to PDB.py
     surface_frags = []
-    surf_res_info = pdb.get_surface_resdiue_info(free_sasa_exe_path)
+    surf_res_info = pdb.get_surface_resdiue_info()
 
     for (chain, res_num) in surf_res_info:
         frag_atoms = []
@@ -49,9 +49,9 @@ def get_surface_fragments(pdb, free_sasa_exe_path):
     return surface_frags
 
 
-def get_surface_fragments_chain(pdb, chain_id, free_sasa_exe_path):
+def get_surface_fragments_chain(pdb, chain_id):  # DEPRECIATE
     surface_frags = []
-    surf_res_info = pdb.get_surface_resdiue_info(free_sasa_exe_path)
+    surf_res_info = pdb.get_surface_resdiue_info()
 
     for (chain, res_num) in surf_res_info:
         if chain == chain_id:

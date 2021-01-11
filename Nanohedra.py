@@ -412,16 +412,14 @@ def main():
                 with open(master_log_filepath, "a+") as master_log_file:
                     master_log_file.write("Docking %s / %s \n" % (pdb1_filename, pdb2_filename))
 
-                dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict,
-                     init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2,
-                     init_intfrag_cluster_info_dict, ijk_monofrag_cluster_rep_pdb_dict,
-                     ijk_intfrag_cluster_info_dict, free_sasa_exe_path, master_outdir, pdb1_path,
-                     pdb2_path, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2,
-                     is_internal_zshift1, is_internal_zshift2, result_design_sym, uc_spec_string,
-                     design_dim, expand_matrices, eul_lookup, init_max_z_val, subseq_max_z_val,
-                     degeneracy_matrices_1, degeneracy_matrices_2, rot_step_deg1,
-                     rot_range_deg_pdb1, rot_step_deg2, rot_range_deg_pdb2, output_exp_assembly,
-                     output_uc, output_surrounding_uc, min_matched, resume=resume, keep_time=timer)
+                dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
+                     init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict,
+                     ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict, master_outdir, pdb1_path,
+                     pdb2_path, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_internal_zshift1,
+                     is_internal_zshift2, result_design_sym, uc_spec_string, design_dim, expand_matrices, eul_lookup,
+                     init_max_z_val, subseq_max_z_val, degeneracy_matrices_1, degeneracy_matrices_2, rot_step_deg1,
+                     rot_range_deg_pdb1, rot_step_deg2, rot_range_deg_pdb2, output_exp_assembly, output_uc,
+                     output_surrounding_uc, min_matched, resume=resume, keep_time=timer)
 
         except KeyboardInterrupt:
             with open(master_log_filepath, "a+") as master_log_file:

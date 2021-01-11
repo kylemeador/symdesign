@@ -4,6 +4,8 @@ import os
 import subprocess
 
 import numpy
+
+from PathUtils import free_sasa_exe_path
 from classes.Atom import Atom
 from classes.Stride import Stride
 
@@ -39,8 +41,8 @@ class PDB:
     def get_filepath(self):
         return self.filepath
 
-    def get_ss_asg(self, chain_id="A", stride_exe_path='./stride/stride'):
-        pdb_stride = Stride(self.filepath, chain_id, stride_exe_path)
+    def get_ss_asg(self, chain_id="A"):  # , stride_exe_path=stride_exe_path):
+        pdb_stride = Stride(self.filepath, chain_id)
         pdb_stride.run()
         self.pdb_ss_asg = pdb_stride.ss_asg
 
@@ -402,8 +404,8 @@ class PDB:
             outfile.write(str(atom))
         outfile.close()
 
-    def calculate_ss(self, chain_id="A", stride_exe_path='./stride/stride'):
-        pdb_stride = Stride(self.filepath, chain_id, stride_exe_path)
+    def calculate_ss(self, chain_id="A"):  # , stride_exe_path=stride_exe_path):
+        pdb_stride = Stride(self.filepath, chain_id)
         pdb_stride.run()
         self.pdb_ss_asg = pdb_stride.ss_asg
 
@@ -592,7 +594,7 @@ class PDB:
                 cb_indices.append(i)
         return cb_indices
 
-    def get_surface_atoms(self, free_sasa_exe_path, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
+    def get_surface_atoms(self, free_sasa_exe_path=free_sasa_exe_path, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
         # proc = subprocess.Popen(
         #     '%s --format=seq --probe-radius %s %s' % (free_sasa_exe_path, str(probe_radius), self.filepath),
@@ -626,7 +628,7 @@ class PDB:
                     surface_atoms.append(atom)
             return surface_atoms
 
-    def get_surface_resdiue_info(self, free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
+    def get_surface_resdiue_info(self, free_sasa_exe_path=free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
         proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath],
                                 stdout=subprocess.PIPE)

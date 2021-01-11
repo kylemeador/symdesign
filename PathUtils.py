@@ -70,10 +70,10 @@ free_sasa_exe_path = os.path.join(source, 'sasa', 'freesasa-2.0', 'src', 'freesa
 # Stop Inheritance ####
 orient_dir = os.path.join(dependency_dir, 'orient')
 orient = os.path.join(orient_dir, orient_exe)
+stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 binaries = os.path.join(dependency_dir, 'bin')
 sbatch_templates = os.path.join(binaries, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
-process_commands = os.path.join(binaries, 'ProcessDesignCommands.sh `pwd`')  # DEPRECIATED
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 data_dir = os.path.join(source, data)
 uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
