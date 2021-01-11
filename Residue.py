@@ -7,9 +7,16 @@ class Residue:
         self.number_pdb = self.ca.get_pdb_residue_number()
         self.type = self.ca.get_type()
         self.chain = self.ca.get_chain()
+        self.secondary_structure = None
 
     def get_atoms(self):
         return self.atom_list
+
+    def get_secondary_structure(self):
+        return self.secondary_structure
+
+    def set_secondary_structure(self, ss_code):
+        self.secondary_structure = ss_code
 
     def get_ca(self):
         for atom in self.atom_list:

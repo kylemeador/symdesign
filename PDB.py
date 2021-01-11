@@ -45,7 +45,7 @@ class PDB(Structure):
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.header = []
         self.name = None
-        self.pdb_ss_asg = []
+        self.secondary_structure = None  # captured from Stride
         self.reference_aa = None
         self.res = None
         self.residues = []
@@ -118,23 +118,109 @@ class PDB(Structure):
         # self.chain_id_list = pdb.chain_id_list
         self.entity_d = pdb.entities
         self.name = pdb.name
-        self.pdb_ss_asg = pdb.pdb_ss_asg
+        self.secondary_structure = pdb.pdb_ss_asg
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
-    def get_ss_asg(self, chain_id='A'):  # , stride_exe_path='./stride/stride'):
-        pdb_stride = Stride(self.filepath, chain_id)
-        pdb_stride.run()
-        self.pdb_ss_asg = pdb_stride.ss_asg
-
-        return self.pdb_ss_asg
+    # def stride(self, chain=None):
+    #     # REM  -------------------- Secondary structure summary -------------------  XXXX
+    #     # REM                .         .         .         .         .               XXXX
+    #     # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
+    #     # STR       HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH  HHHHHHHHHHHHHHHHH               XXXX
+    #     # REM                                                                        XXXX
+    #     # SEQ  51   LIEESQN                                              57          XXXX
+    #     # STR       HHHHHH                                                           XXXX
+    #     # REM                                                                        XXXX
+    #     # LOC  AlphaHelix   ILE     3 A      ALA     33 A                            XXXX
+    #     # LOC  AlphaHelix   TRP    41 A      GLN     63 A                            XXXX
+    #     # REM                                                                        XXXX
+    #     # REM  --------------- Detailed secondary structure assignment-------------  XXXX
+    #     # REM                                                                        XXXX
+    #     # REM  |---Residue---|    |--Structure--|   |-Phi-|   |-Psi-|  |-Area-|      XXXX
+    #     # ASG  ILE A    3    1    H    AlphaHelix    360.00    -29.07     180.4      XXXX
+    #     # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
+    #     # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
+    #
+    #     # try:
+    #         # with open(os.devnull, 'w') as devnull:
+    #     stride_cmd = [self.stride_exe_path, '%s' % self.filepath]
+    #     #   -rId1Id2..  Read only chains Id1, Id2 ...
+    #     #   -cId1Id2..  Process only Chains Id1, Id2 ...
+    #     if chain:
+    #         stride_cmd.append('-c%s' % chain_id)
+    #
+    #     p = subprocess.Popen(stride_cmd, stderr=subprocess.DEVNULL)
+    #     out, err = p.communicate()
+    #     out_lines = out.decode('utf-8').split('\n')
+    #     # except:
+    #     #     stride_out = None
+    #
+    #     # if stride_out is not None:
+    #     #     lines = stride_out.split('\n')
+    #
+    #     for line in out_lines:
+    #         if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
+    #             self.chain(line[9:10]).residue(int(line[10:15].strip())).set_secondary_structure(line[24:25])
+    #     self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
+    #     # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
+    #     #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
+    #
+    # def is_N_Helical(self, window=5):
+    #     if len(self.secondary_structure) >= 2 * window:
+    #         for idx, residue_number in enumerate(sorted(self.secondary_structure.keys())):
+    #             temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(window))
+    #             # res_number = self.secondary_structure[0 + i:5 + i][0][0]
+    #             if 'H' * window in temp_window:
+    #                 return True  # , res_number
+    #             if idx == 6:
+    #                 break
+    #     return False  # , None
+    #
+    # def is_C_Helical(self, window=5):
+    #     if len(self.secondary_structure) >= 2 * window:
+    #         # for i in range(5):
+    #         for idx, residue_number in enumerate(sorted(self.secondary_structure.keys(), reverse=True)):
+    #             # reverse_ss_asg = self.secondary_structure[::-1]
+    #             temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(-window + 1, 1))
+    #             # res_number = reverse_ss_asg[0+i:5+i][4][0]
+    #             if 'H' * window in temp_window:
+    #                 return True  # , res_number
+    #             if idx == 6:
+    #                 break
+    #     return False  # , None
+    #
+    # def get_secondary_structure(self, chain_id=None):  # different from Josh PDB
+    #     if not self.secondary_structure:
+    #         self.stride(chain=chain_id)
+    #
+    #     return self.secondary_structure
 
     def entity(self, entity_id):
         for entity in self.entities:
             if entity.id == entity_id:
                 return entity
 
+    @staticmethod
+    def create_entity(representative_chain=None, chains=None, entity_name=None, uniprot_id=None):
+        """Create an Entity
+
+        Keyword Args:
+            representative_chain=None (str): The name of the chain to represent the Entity
+            chains=None (list): A list of all chains that match the Entity
+            entity_name=None (str): The name for the Entity. Typically PDB.name is used to make PDB compatible form
+            PDB EntryID_EntityID
+            uniprot_id=None (str): The unique UniProtID for the Entity
+        """
+        return Entity.from_representative(representative_chain=representative_chain, chains=chains,
+                                          entity_id=entity_name, uniprot_id=uniprot_id)
+
     def create_entities(self, entity_names=None):
+        """Create all Entities in the PDB.
+
+        Keyword Args:
+            entity_names=None (list): The list of names for each Entity is names are provided, otherwise, PDB.name will
+            be used to take PDB compatible form PDB EntryID_EntityID
+        """
         for entity in self.entity_d:
             # Todo test equality of chain == self.entity_d[entity]['representative']
             chain_l = [chain for chain in self.chains if chain in self.entity_d[entity]['chains']]  # ['representative']
@@ -144,9 +230,12 @@ class PDB(Structure):
                 entity_name = '%s_%d' % (self.name, entity)
             else:
                 entity_name = '%d' % entity
-            self.entities.append(Entity(chains=chain_l, entity_id=entity_name,
-                                        uniprot_id=self.entity_accession_map[entity],
-                                        representative=self.chain(self.entity_d[entity]['representative'])))
+            self.entities.append(self.create_entity(representative_chain=self.entity_d[entity]['representative'],
+                                                    chains=chain_l, entity_name=entity_name,
+                                                    uniprot_id=self.entity_accession_map[entity]))
+            # self.entities.append(Entity(chains=chain_l, entity_id=entity_name,
+            #                             uniprot_id=self.entity_accession_map[entity],
+            #                             representative_chain=self.chain(self.entity_d[entity]['representative'])))
 
     def readfile(self, filepath, remove_alt_location=True):  # changed default to forget about coordinates only
         """Reads .pdb file and feeds PDB instance"""
@@ -293,7 +382,10 @@ class PDB(Structure):
         # the highest order symmetry operation chain in a pdb plus any dihedral related chains
         self.create_residues()
         self.create_chains()
-        self.create_entities()
+        for entity in self.entity_d:
+            self.create_entity(entity, entity_name='%s_%s' % (self.name, entity))
+        # or
+        # self.create_entities()
         # if self.design:  # Todo maybe??
         #     self.process_symmetry()
 
@@ -751,7 +843,10 @@ class PDB(Structure):
         for chain in self.chain_id_list:
             self.chains.append(Chain(residues=self.get_chain_residues(chain), name=chain))
 
-    def get_chains(self):
+    def get_chains(self, names=None):
+        if names:
+            return [chain for chain in self.chains if chain.name in names]
+        else:
         return self.chains
 
     def chain(self, chain_id):
@@ -807,10 +902,10 @@ class PDB(Structure):
                 outfile.write(str(cryst1) + "\n")
             outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
 
-    def calculate_ss(self, chain_id='A'):
-        pdb_stride = Stride(self.filepath, chain_id)
-        pdb_stride.run()
-        self.pdb_ss_asg = pdb_stride.ss_asg
+    # def calculate_ss(self, chain_id='A'):
+    #     pdb_stride = Stride(self.filepath, chain_id)
+    #     pdb_stride.run()
+    #     self.secondary_structure = pdb_stride.ss_asg
 
     # def get_structure_sequence(self, aa_code=1):
     #     """Returns the sequence of Residues found in the structure"""
@@ -1054,9 +1149,9 @@ class PDB(Structure):
         return h_cb_indices
 
     def get_sasa(self, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=0):
-        proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
+        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
                                 , stdout=subprocess.PIPE)
-        (out, err) = proc.communicate()
+        out, err = p.communicate()
         out_lines = out.decode('utf-8').split('\n')
 
         sasa_out_chain, sasa_out_res, sasa_out = [], [], []

@@ -1255,7 +1255,7 @@ class AngleDistance:
 #                 if line[0:3] == "ASG":
 #                     self.ss_asg.append((int(filter(str.isdigit, line[10:15].strip())), line[24:25]))
 #
-#     def is_N_Helical(self):
+#     def is_n_term_helical(self):
 #         if len(self.ss_asg) >= 10:
 #             for i in range(5):
 #                 temp_window = ''.join([self.ss_asg[0+i:5+i][j][1] for j in range(5)])
@@ -1264,7 +1264,7 @@ class AngleDistance:
 #                     return True, res_number
 #         return False, None
 #
-#     def is_C_Helical(self):
+#     def is_c_term_helical(self):
 #         if len(self.ss_asg) >= 10:
 #             for i in range(5):
 #                 reverse_ss_asg = self.ss_asg[::-1]
@@ -1350,10 +1350,10 @@ class HelixFusion:
         #         stride_target.run()
         #         if len(stride_target.ss_asg) > 0:
         #             if self.targetprotein_term == "N":
-        #                 target_term_resi = stride_target.is_N_Helical()[1]
+        #                 target_term_resi = stride_target.is_n_term_helical()[1]
         #                 print("Done Running Stride On Target Molecule")
         #             else:
-        #                 target_term_resi = stride_target.is_C_Helical()[1]
+        #                 target_term_resi = stride_target.is_c_term_helical()[1]
         #                 print("Done Running Stride On Target Molecule")
         #         else:
         #             print("Error Running Stride On Target Molecule")
@@ -1418,9 +1418,9 @@ class HelixFusion:
                         stride_oligomer = Stride(oriented_oligomer_filepath)
                         stride_oligomer.run()
                         if self.oligomer_term == "N":
-                            oligomer_term_resi = stride_oligomer.is_N_Helical()[1]
+                            oligomer_term_resi = stride_oligomer.is_n_term_helical()[1]
                         elif self.oligomer_term == "C":
-                            oligomer_term_resi = stride_oligomer.is_C_Helical()[1]
+                            oligomer_term_resi = stride_oligomer.is_c_term_helical()[1]
                     else:
                         print("Select N or C Terminus For Oligomer")
                         return -1

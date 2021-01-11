@@ -36,7 +36,7 @@ class Stride:
                 if line[0:3] == "ASG":
                     self.ss_asg.append((int(filter(str.isdigit, line[10:15].strip())), line[24:25]))
 
-    def is_N_Helical(self):
+    def is_n_term_helical(self):
         if len(self.ss_asg) >= 10:
             for i in range(5):
                 temp_window = ''.join([self.ss_asg[0 + i:5 + i][j][1] for j in range(5)])
@@ -45,7 +45,7 @@ class Stride:
                     return True, res_number
         return False, None
 
-    def is_C_Helical(self):
+    def is_c_term_helical(self):
         if len(self.ss_asg) >= 10:
             for i in range(5):
                 reverse_ss_asg = self.ss_asg[::-1]
