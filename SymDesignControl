@@ -21,6 +21,7 @@ import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
 import DesignDirectory
 import PathUtils as PUtils
+import Pose
 import SequenceProfile
 import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
@@ -933,7 +934,7 @@ if __name__ == '__main__':
                 source_pose.reorder_chains()
                 source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
                 # if not source_pose.sequences:
-                oligomers = [PDB(file=SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
+                oligomers = [PDB(file=Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
                 # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
                 oligomer_chain_database_chain_map = {chain: oligomers[k].chain_id_list[0]
                                                      for k, chain in enumerate(source_pose.chain_id_list)}

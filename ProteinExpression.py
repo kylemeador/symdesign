@@ -6,6 +6,7 @@ from numpy import array
 
 import AnalyzeMutatedSequences
 import PathUtils as PUtils
+import Pose
 import SequenceProfile
 import SymDesignUtils as SDUtils
 
@@ -35,7 +36,7 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate fin
 
     partner_sequences = []
     for matching_pdb in pdb_chain_d:
-        partner_d = AnalyzeMutatedSequences.get_pdb_sequences(SDUtils.retrieve_pdb_file_path(matching_pdb), chain=pdb_chain_d[matching_pdb],
+        partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb), chain=pdb_chain_d[matching_pdb],
                                                               source='seqres')
         partner_sequences.append(partner_d[pdb_chain_d[matching_pdb]])
         # TODO chain can be not found... Should this be available based on Uniprot-PDB Map creation? Need to extend this

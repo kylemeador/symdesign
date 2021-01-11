@@ -20,7 +20,6 @@ import CmdUtils as CUtils
 import PathUtils as PUtils
 # from PDB import PDB
 # logging.getLogger().setLevel(logging.INFO)
-from Pose import download_pdb
 from SequenceProfile import populate_design_dict
 
 # Globals
@@ -544,35 +543,6 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
         io_save(failures)
 
         return False
-
-
-def retrieve_pdb_file_path(code, directory=PUtils.pdb_db):
-    """Fetch PDB object of each chain from PDBdb or PDB server
-
-        Args:
-            code (iter): Any iterable of PDB codes
-        Keyword Args:
-            location= : Location of the  on disk
-        Returns:
-            (str): path/to/your_pdb.pdb
-        """
-    if PUtils.pdb_source == 'download_pdb':
-        get_pdb = download_pdb
-        # doesn't return anything at the moment
-    else:
-        get_pdb = (lambda pdb_code, location=None: glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
-        # The below set up is my local pdb and the format of escher. cassini is slightly different, ughhh
-        # get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code),
-        #                                                      '%s.pdb' % pdb_code)))
-        # returns a list with matching file (should only be one)
-
-    # pdb_file = get_pdb(code, location)
-    pdb_file = get_pdb(code, location=directory)
-    # pdb_file = get_pdb(code, location=des_dir.pdbs)
-    assert len(pdb_file) == 1, 'More than one matching file found for PDB: %s' % code
-    assert pdb_file != list(), 'No matching file found for PDB: %s' % code
-
-    return pdb_file[0]
 
 
 def residue_interaction_graph(pdb, distance=8, gly_ca=True):

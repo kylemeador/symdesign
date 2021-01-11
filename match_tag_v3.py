@@ -4,6 +4,7 @@ import os
 
 import AnalyzeMutatedSequences
 import PathUtils as PUtils
+import Pose
 import SymDesignUtils as SDUtils
 
 
@@ -83,7 +84,7 @@ def find_expression_tags(des_dir):
         for matching_pdb_chain in all_matching_pdb_chain[pdb]:
             matching_pdb, chain = matching_pdb_chain.split('.')
             partner_sequences[pdb].append(
-                AnalyzeMutatedSequences.get_pdb_sequences(SDUtils.retrieve_pdb_file_path(matching_pdb), chain=chain,
+                AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb), chain=chain,
                                                           source='seqres'))
 
     # {pdb: {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...}
