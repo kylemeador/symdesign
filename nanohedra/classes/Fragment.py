@@ -1,11 +1,10 @@
 import os
 
 import numpy as np
-
-from nanohedra.classes.Atom import Atom
-from nanohedra.classes.PDB import PDB
-from nanohedra.utils.BioPDBUtils import biopdb_aligned_chain
-from nanohedra.utils.BioPDBUtils import biopdb_superimposer
+from classes.Atom import Atom
+from classes.PDB import PDB
+from utils.BioPDBUtils import biopdb_aligned_chain
+from utils.BioPDBUtils import biopdb_superimposer
 
 
 def get_interface_fragments(pdb, chain_res_info, fragment_length=5):

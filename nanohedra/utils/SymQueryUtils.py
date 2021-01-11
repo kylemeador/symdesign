@@ -1,4 +1,4 @@
-from nanohedra.classes.SymEntry import sym_comb_dict
+from classes.SymEntry import sym_comb_dict
 
 header_format_string = "{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}"
 query_output_format_string = "{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}"

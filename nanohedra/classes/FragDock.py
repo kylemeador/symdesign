@@ -2,15 +2,14 @@ import time
 
 import numpy as np
 import sklearn.neighbors
-
-from nanohedra.classes.Fragment import *
-from nanohedra.classes.OptimalTx import *
-from nanohedra.classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
-from nanohedra.utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
-from nanohedra.utils.GeneralUtils import *
-from nanohedra.utils.PDBUtils import *
-from nanohedra.utils.SamplingUtils import *
-from nanohedra.utils.SymmUtils import get_uc_dimensions
+from classes.Fragment import *
+from classes.OptimalTx import *
+from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
+from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
+from utils.GeneralUtils import *
+from utils.PDBUtils import *
+from utils.SamplingUtils import *
+from utils.SymmUtils import get_uc_dimensions
 
 
 def get_last_sampling_state(log_file_path, zero=True):

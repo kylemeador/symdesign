@@ -1058,14 +1058,14 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[1], residue)
     other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(int_residues), 2)
 
-    pose_alignment = SequenceProfile.multi_chain_alignment(all_design_sequences)
+    pose_alignment = AnalyzeMutatedSequences.multi_chain_alignment(all_design_sequences)
     mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], int_residues, remove=False)
     # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
     pose_res_dict = {}
     for profile in profile_dict:  # both mut_freq and profile_dict[profile] are zero indexed
         pose_res_dict['divergence_%s' % profile] = SequenceProfile.pos_specific_jsd(mutation_frequencies, profile_dict[profile])
 
-    pose_res_dict['divergence_interface'] = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
+    pose_res_dict['divergence_interface'] = AnalyzeMutatedSequences.compute_jsd(mutation_frequencies, interface_bkgd)
     # pose_res_dict['hydrophobic_collapse_index'] = hci()  # TODO HCI
 
     # Subtract residue info from reference (refine)
@@ -1125,11 +1125,11 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                                                    for name in all_design_sequences[chain]
                                                    if name in designs_by_protocol[protocol]}
                                            for chain in all_design_sequences}
-        protocol_alignment = SequenceProfile.multi_chain_alignment(sequences_by_protocol[protocol])
+        protocol_alignment = AnalyzeMutatedSequences.multi_chain_alignment(sequences_by_protocol[protocol])
         protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'], int_residues)
         protocol_res_dict = {'divergence_%s' % profile: SequenceProfile.pos_specific_jsd(protocol_mutation_freq, profile_dict[profile])
                              for profile in profile_dict}  # both prot_freq and profile_dict[profile] are zero indexed
-        protocol_res_dict['divergence_interface'] = SDUtils.compute_jsd(protocol_mutation_freq, interface_bkgd)
+        protocol_res_dict['divergence_interface'] = AnalyzeMutatedSequences.compute_jsd(protocol_mutation_freq, interface_bkgd)
 
         # Get per residue divergence metric by protocol
         for key in protocol_res_dict:

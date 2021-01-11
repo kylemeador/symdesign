@@ -7,7 +7,7 @@ grandparent_dir = os.path.dirname(parent_dir)
 sys.path.extend([parent_dir, grandparent_dir])
 from DesignDirectory import set_up_directory_objects
 from SymDesignUtils import collect_directories
-from nanohedra.classes.PDB import PDB
+from classes.PDB import PDB
 
 
 def frag_match_count_filter(master_design_dirpath, min_frag_match_count, master_design_outdir_path):

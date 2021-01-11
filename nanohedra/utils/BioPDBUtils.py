@@ -4,9 +4,8 @@ import Bio.PDB.Superimposer
 import numpy as np
 from Bio.PDB.Atom import Atom as BioPDBAtom
 from Bio.PDB.Atom import PDBConstructionWarning
-
-from nanohedra.classes.Atom import Atom
-from nanohedra.classes.PDB import PDB
+from classes.Atom import Atom
+from classes.PDB import PDB
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 

@@ -1,10 +1,10 @@
 import numpy as np
 import sklearn.neighbors
 
-from nanohedra.classes.Fragment import GhostFragment
-from nanohedra.classes.Fragment import MonoFragment
-from nanohedra.classes.PDB import *
-from nanohedra.utils.GeneralUtils import rot_txint_set_txext_frag_coord_sets
+from classes.Fragment import GhostFragment
+from classes.Fragment import MonoFragment
+from classes.PDB import *
+from utils.GeneralUtils import rot_txint_set_txext_frag_coord_sets
 
 
 def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):

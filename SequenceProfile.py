@@ -7,17 +7,16 @@ from itertools import chain
 
 from Bio import SeqIO  # import write, parse, SeqRecord
 from Bio import pairwise2
+# try:
+#     from Bio.SubsMat import MatrixInfo as matlist
+#     from Bio.Alphabet import generic_protein  # , IUPAC
+# except ImportError:
+from Bio.Align import substitution_matrices
 from Bio.SeqUtils import IUPACData
 
-try:
-    from Bio.SubsMat import MatrixInfo as matlist
-    from Bio.Alphabet import generic_protein  # , IUPAC
-except ImportError:
-    from Bio.Align.substitution_matrices import MatrixInfo as matlist
-    generic_protein = None
+generic_protein = None
 
 import CmdUtils as CUtils
-# from PDB import PDB
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths
@@ -62,7 +61,7 @@ class SequenceProfile:
     def get_sequence(self):
         return self.sequence
 
-    def add_profile(self, fragment_source=None, frag_alignment_type=None, out_path=os.get_cwd(), pdb_numbering=True):
+    def add_profile(self, fragment_source=None, frag_alignment_type=None, out_path=os.getcwd(), pdb_numbering=True):
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Keyword Args:
@@ -874,13 +873,14 @@ class SequenceProfile:
         return mutations
 
     @staticmethod
-    def generate_alignment(seq1, seq2, matrix='blosum62'):
+    def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
         """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
 
         Returns:
 
         """
-        _matrix = getattr(matlist, matrix)
+        # _matrix = getattr(matlist, matrix)
+        _matrix = substitution_matrices.load(matrix)
         gap_penalty = -10
         gap_ext_penalty = -1
         # Create sequence alignment
@@ -2402,34 +2402,3 @@ def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_
     # for residue in missing_keys:
 
     return weaved_dict
-
-
-def multi_chain_alignment(mutated_sequences):
-    """Combines different chain's Multiple Sequence Alignments into a single MSA
-
-    Args:
-        mutated_sequences (dict): {chain: {name: sequence, ...}
-    Returns:
-        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...,
-                                'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
-                                'rep': {0: 210, 1: 211, 2:211, ...}}
-            Zero-indexed counts and rep dictionary elements
-    """
-    alignment = {chain: create_bio_msa(mutated_sequences[chain]) for chain in mutated_sequences}
-
-    # Combine alignments for all chains from design file Ex: A: 1-102, B: 130. Alignment: 1-232
-    first = True
-    total_alignment = None
-    for chain in alignment:
-        if first:
-            total_alignment = alignment[chain][:, :]
-            first = False
-        else:
-            total_alignment += alignment[chain][:, :]
-
-    if total_alignment:
-        return SDUtils.process_alignment(total_alignment)
-    else:
-        logger.error('%s - No sequences were found!' % multi_chain_alignment.__name__)
-        raise DesignDirectory.DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)

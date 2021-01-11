@@ -4,10 +4,9 @@ import pickle
 
 import numpy as np
 import sklearn.neighbors
-
-from nanohedra.classes.Atom import Atom
-from nanohedra.classes.PDB import PDB
-from nanohedra.utils.GeneralUtils import center_of_mass_3d
+from classes.Atom import Atom
+from classes.PDB import PDB
+from utils.GeneralUtils import center_of_mass_3d
 
 # Globals
 sg_cryst1_fmt_dict = {'F222': 'F 2 2 2', 'P6222': 'P 62 2 2', 'I4132': 'I 41 3 2', 'P432': 'P 4 3 2',
