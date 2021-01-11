@@ -33,7 +33,7 @@ def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=Non
         transformed_pdb = PDB()
         transformed_atoms = []
         atom_index = 0
-        for atom in pdb.get_all_atoms():
+        for atom in pdb.get_atoms():
             x_transformed = pdb_coords[atom_index][0]
             y_transformed = pdb_coords[atom_index][1]
             z_transformed = pdb_coords[atom_index][2]
@@ -57,14 +57,14 @@ def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=Non
 
 def get_contacting_asu(pdb1, pdb2, contact_dist=8):
     pdb1_ca_coords_chain_dict = {}
-    for atom in pdb1.get_all_atoms():
+    for atom in pdb1.get_atoms():
         if atom.chain not in pdb1_ca_coords_chain_dict:
             pdb1_ca_coords_chain_dict[atom.chain] = [atom.coords()]
         else:
             pdb1_ca_coords_chain_dict[atom.chain].append(atom.coords())
 
     pdb2_ca_coords_chain_dict = {}
-    for atom in pdb2.get_all_atoms():
+    for atom in pdb2.get_atoms():
         if atom.chain not in pdb2_ca_coords_chain_dict:
             pdb2_ca_coords_chain_dict[atom.chain] = [atom.coords()]
         else:
@@ -280,7 +280,7 @@ def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_f
     for int_ghost_frag_index in range(len(interface_ghost_frag_list)):
         int_ghost_frag = interface_ghost_frag_list[int_ghost_frag_index]
         int_ghost_frag_pdb = int_ghost_frag.get_pdb()
-        int_ghost_frag_pdb_atoms = int_ghost_frag_pdb.get_all_atoms()
+        int_ghost_frag_pdb_atoms = int_ghost_frag_pdb.get_atoms()
 
         int_ghost_frag_transformed_pdb_coords = interface_ghost_frag_pdb_coords_list_transformed[int_ghost_frag_index]
         int_ghost_frag_pdb_transformed = PDB()
@@ -333,7 +333,7 @@ def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_f
         int_surf_frag_pdb_transformed = PDB()
         int_surf_frag_transformed_pdb_coords = interface_surf_frag_pdb_coords_list_transformed[int_surf_frag_index]
         int_surf_frag_transformed_pdb_atoms = []
-        int_surf_frag_pdb_atoms = int_surf_frag_pdb.get_all_atoms()
+        int_surf_frag_pdb_atoms = int_surf_frag_pdb.get_atoms()
         for atom_index in range(len(int_surf_frag_pdb_atoms)):
             atom = int_surf_frag_pdb_atoms[atom_index]
             x_transformed = int_surf_frag_transformed_pdb_coords[atom_index][0]

@@ -31,7 +31,7 @@ class PDB:
     def set_filepath(self, filepath):
         self.filepath = filepath
 
-    def get_all_atoms(self):
+    def get_atoms(self):
         return self.all_atoms
 
     def get_chain_id_list(self):

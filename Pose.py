@@ -202,7 +202,7 @@ class Pose:
             asu_sym_mate_pdb = PDB()
             asu_sym_mate_pdb_atom_list = []
             atom_count = 0
-            for atom in self.pdb.get_all_atoms():
+            for atom in self.pdb.get_atoms():
                 x_transformed = r_asu_coords[atom_count][0]
                 y_transformed = r_asu_coords[atom_count][1]
                 z_transformed = r_asu_coords[atom_count][2]
@@ -224,7 +224,7 @@ class Pose:
         self.uc_sym_mates = [self.pdb]
 
         if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_all_atoms')
+            extract_pdb_atoms = getattr(PDB, 'get_atoms')
             extract_pdb_coords = getattr(PDB, '.extract_all_coords')
         else:
             extract_pdb_atoms = getattr(PDB, 'get_backbone_atoms')
@@ -273,7 +273,7 @@ class Pose:
             return None
 
         if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_all_atoms')
+            extract_pdb_atoms = getattr(PDB, 'get_atoms')
             extract_pdb_coords = getattr(PDB, '.extract_all_coords')
         else:
             extract_pdb_atoms = getattr(PDB, 'get_backbone_atoms')

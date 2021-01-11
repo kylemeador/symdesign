@@ -643,11 +643,9 @@ def get_pdb_info_by_entry(entry):
     entity_chain_d, ref_d, db_d = {}, {}, {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
     for i in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
-        entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry.upper(), i))
-        if entity.status_code != 200:
-            return None
-        else:
-            entity_json = entity.json()
+        entity_id = '%s_%d' % (entry, i)
+        entity_json = query_entity_id(entity_id)
+
         # For all method types the following keys are available:
         # {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
         #  'rcsb_polymer_entity_feature_summary', 'rcsb_polymer_entity_align', 'rcsb_id', 'rcsb_cluster_membership',
@@ -696,6 +694,23 @@ def get_pdb_info_by_entry(entry):
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
     return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d, 'cryst': cryst_d, 'method': exptl_method}
+
+
+def query_entity_id(entity_id):
+    """Returns the JSON object for the entity_id requested. where entity_id format is PDBentryID_entityID"""
+    entity_id = entity_id.split('_')
+    entry = entity_id[0]
+    _id = entity_id[0]
+    entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry, _id))
+    if entity.status_code != 200:
+        return None
+    else:
+        return entity.json()
+
+
+def get_sequence_by_entity_id(entity_id):
+    entity_json = query_entity_id(entity_id)
+    return entity_json['entity_poly']['pdbx_seq_one_letter_code']
 
 
 if __name__ == '__main__':

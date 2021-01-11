@@ -8,7 +8,11 @@ import pandas as pd
 
 import DesignDirectory
 import SequenceProfile
-from SequenceProfile import remove_non_mutations, pos_specific_jsd, mutate_wildtype_sequences, weave_mutation_dict
+from PDB import PDB
+from PoseProcessing import extract_aa_seq
+from SequenceProfile import remove_non_mutations, pos_specific_jsd, weave_mutation_dict, \
+    generate_mutations, index_offset, make_mutations
+from SymDesignUtils import logger
 
 try:
     from Bio.SubsMat import MatrixInfo as matlist
@@ -430,6 +434,12 @@ def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):
                                               interface_divergence_values)
 
 
+def mutate_wildtype_sequences(sequence_dir_files, wild_type_file):
+    """Take a directory with PDB files and compare to a Wild-type PDB"""
+    wt_seq_dict = get_pdb_sequences(wild_type_file)
+    return generate_sequences(wt_seq_dict, generate_all_design_mutations(sequence_dir_files, wild_type_file))
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='%s\nAnalyze mutations compared to a wild_type protein. Requires a '
                                                  'directory with \'mutated\' PDB files and a wild-type PDB reference.'
@@ -470,3 +480,205 @@ if __name__ == '__main__':
             logger.critical('Must pass all three, wildtype, directory, and score if using non-standard %s '
                             'directory structure' % PUtils.program_name)
             sys.exit()
+
+
+def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=False):  # Todo DEPRECIATE
+    """From a list of PDB's and a wild-type PDB, generate a list of 'A5K' style mutations
+
+    Args:
+        all_design_files (list): PDB files on disk to extract sequence info and compare
+        wild_type_file (str): PDB file on disk which contains a reference sequence
+    Returns:
+        mutations (dict): {'file_name': {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+    """
+    pdb_dict = {'ref': PDB(file=wild_type_file)}
+    for file_name in all_design_files:
+        pdb = PDB(file=file_name)
+        pdb.set_name(os.path.splitext(os.path.basename(file_name))[0])
+        pdb_dict[pdb.name] = pdb
+
+    return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
+
+
+def pdb_to_pose_num(reference):
+    """Take a dictionary with chain name as keys and return the length of Pose numbering offset
+
+    Args:
+        reference (dict(iter)): {'A': 'MSGKLDA...', ...} or {'A': {1: 'A', 2: 'S', ...}, ...}
+    Order of dictionary must maintain chain order, so 'A', 'B', 'C'. Python 3.6+ should be used
+    Returns:
+        (dict): {'A': 0, 'B': 123, ...}
+    """
+    offset = {}
+    # prior_chain = None
+    prior_chains_len = 0
+    for i, chain in enumerate(reference):
+        if i > 0:
+            prior_chains_len += len(reference[prior_chain])
+        offset[chain] = prior_chains_len
+        # insert function here? Make this a decorator!?
+        prior_chain = chain
+
+    return offset
+
+
+def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', mutation=False, pose_num=True,
+                              outpath=None):
+    """Extract the sequence from PDB objects
+
+    Args:
+        pdb_class_dict (dict): {pdb_code: PDB object, ...}
+    Keyword Args:
+        aa_code=1 (int): Whether to return sequence with one-letter or three-letter code [1,3]
+        seq_source='atom' (str): Whether to return the ATOM or SEQRES record ['atom','seqres','compare']
+        mutation=False (bool): Whether to return mutations in sequences compared to a reference.
+            Specified by pdb_code='ref'
+        outpath=None (str): Where to save the results to disk
+    Returns:
+        mutation_dict (dict): IF mutation=True {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...},
+            ...}
+        or
+        sequence_dict (dict): ELSE {pdb: {chain_id: 'Sequence', ...}, ...}
+    """
+    reference_seq_dict = None
+    if mutation:
+        # If looking for mutations, the reference PDB object should be given as 'ref' in the dictionary
+        if 'ref' not in pdb_class_dict:
+            sys.exit('No reference sequence specified, but mutations requested. Include a key \'ref\' in PDB dict!')
+        reference_seq_dict = {}
+        fail_ref = []
+        reference = pdb_class_dict['ref']
+        for chain in pdb_class_dict['ref'].chain_id_list:
+            reference_seq_dict[chain], fail = extract_aa_seq(reference, aa_code, seq_source, chain)
+            if fail != list():
+                fail_ref.append((reference, chain, fail))
+
+        if fail_ref:
+            logger.error('Ran into following errors generating mutational analysis reference:\n%s' % str(fail_ref))
+
+    if seq_source == 'compare':
+        mutation = True
+
+    def handle_extraction(pdb_code, _pdb, _aa, _source, _chain):
+        if _source == 'compare':
+            sequence1, failures1 = extract_aa_seq(_pdb, _aa, 'atom', _chain)
+            sequence2, failures2 = extract_aa_seq(_pdb, _aa, 'seqres', _chain)
+            _offset = True
+        else:
+            sequence1, failures1 = extract_aa_seq(_pdb, _aa, _source, _chain)
+            sequence2 = reference_seq_dict[_chain]
+            sequence_dict[pdb_code][_chain] = sequence1
+            _offset = False
+        if mutation:
+            seq_mutations = generate_mutations(sequence1, sequence2, offset=_offset)
+            mutation_dict[pdb_code][_chain] = seq_mutations
+        if failures1:
+            error_list.append((_pdb, _chain, failures1))
+
+    error_list = []
+    sequence_dict = {}
+    mutation_dict = {}
+    for pdb in pdb_class_dict:
+        sequence_dict[pdb] = {}
+        mutation_dict[pdb] = {}
+        # if pdb == 'ref':
+        # if len(chain_dict[pdb]) > 1:
+        #     for chain in chain_dict[pdb]:
+        for chain in pdb_class_dict[pdb].chain_id_list:
+            # name, PDB obj, 1 or 3 letter code, ATOM or SEQRES, chain_id
+            handle_extraction(pdb, pdb_class_dict[pdb], aa_code, seq_source, chain)
+        # else:
+        #     handle_extraction(pdb, pdb_class_dict[pdb], aa_code, seq_source, chain_dict[pdb])
+
+    if outpath:
+        sequences = {}
+        for pdb in sequence_dict:
+            for chain in sequence_dict[pdb]:
+                sequences[pdb + '_' + chain] = sequence_dict[pdb][chain]
+        # filepath = write_multi_line_fasta_file(sequences, 'sequence_extraction.fasta', path=outpath)
+        # logger.info('The following file was written:\n%s' % filepath)
+        logger.info('No file was written:\n%s' % filepath)
+
+    if error_list:
+        logger.error('The following residues were not extracted:\n%s' % str(error_list))
+
+    if mutation:
+        for chain in reference_seq_dict:
+            for i, aa in enumerate(reference_seq_dict[chain]):
+                mutation_dict['ref'][chain][i + index_offset] = {'from': reference_seq_dict[chain][i],
+                                                                 'to': reference_seq_dict[chain][i]}
+        if pose_num:
+            new_mutation_dict = {}
+            offset_dict = pdb_to_pose_num(reference_seq_dict)
+            for chain in offset_dict:
+                for pdb in mutation_dict:
+                    if pdb not in new_mutation_dict:
+                        new_mutation_dict[pdb] = {}
+                    new_mutation_dict[pdb][chain] = {}
+                    for mutation in mutation_dict[pdb][chain]:
+                        new_mutation_dict[pdb][chain][mutation+offset_dict[chain]] = mutation_dict[pdb][chain][mutation]
+            mutation_dict = new_mutation_dict
+
+        return mutation_dict
+    else:
+        return sequence_dict
+
+
+def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False):
+    """Takes a list of sequence mutations and returns the mutated form on wildtype
+
+    Args:
+        wild_type (str): Sequence to mutate
+        mutation_dict (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
+    Keyword Args:
+        aligned=False (bool): Whether the input sequences are already aligned
+        output=False (bool): Whether to make a .fasta file of the sequence
+    Returns:
+        all_sequences (dict): {name: sequence, ...}
+    """
+    return {pdb: make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned) for pdb in mutation_dict}
+
+
+def generate_sequences(wild_type_seq_dict, all_design_mutations):
+    """Separate chains from mutation dictionary and generate mutated sequences
+
+    Args:
+        wild_type_seq_dict (dict): {chain: sequence, ...}
+        all_design_mutations (dict): {'name': {chain: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
+            Index so mutation_index starts at 1
+    Returns:
+        mutated_sequences (dict): {chain: {name: sequence, ...}
+    """
+    mutated_sequences = {}
+    for chain in wild_type_seq_dict:
+        chain_mutation_dict = {}
+        for pdb in all_design_mutations:
+            if chain in all_design_mutations[pdb]:
+                chain_mutation_dict[pdb] = all_design_mutations[pdb][chain]
+        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_seq_dict[chain], chain_mutation_dict,
+                                                                 aligned=True)
+
+    return mutated_sequences
+
+
+def get_pdb_sequences(pdb, chain=None, source='atom'):
+    """Return all sequences or those specified by a chain from a PDB file
+
+    Args:
+        pdb (str or PDB): Location on disk of a reference .pdb file or PDB object
+    Keyword Args:
+        chain=None (str): If a particular chain is desired, specify it
+        source='atom' (str): One of 'atom' or 'seqres'
+    Returns:
+        (dict): {chain: sequence, ...}
+    """
+    if not isinstance(pdb, PDB):
+        pdb = PDB(file=pdb)
+
+    seq_dict = {}
+    for _chain in pdb.chain_id_list:
+        seq_dict[_chain], fail = extract_aa_seq(pdb, source=source, chain=_chain)
+    if chain:
+        seq_dict = SDUtils.clean_dictionary(seq_dict, chain, remove=False)
+
+    return seq_dict

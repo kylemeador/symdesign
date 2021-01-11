@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import shutil
 import sys
 from itertools import repeat
 
@@ -53,133 +52,133 @@ def check_for_errors(des_dir, debug):
         raise DesignDirectory.DesignError('Directory missing crucial files')
 
 
-def generate_profile(pdb, des_dir, debug):
-    # pose_pssm, template_pdb = None, None
-    # for file in os.listdir(des_dir.path):
-    #     if file.endswith('pose.dssm'):
-    #         pose_pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, file))
-    #     if file.endswith(PUtils.clean):
-    #         template_pdb = PDB(file=os.path.join(des_dir.path, file))
-    #
-    # if pose_pssm and template_pdb:
-    #     template_residues = template_pdb.get_residues()
-    #     pose_correct = check_pssm_v_pose(des_dir, pose_pssm, template_residues)
-    #     return pose_correct
-    # else:
-    #     raise SDUtils.DesignError('Directory missing crucial files')
-
-    # Check to see if other poses have collected design sequence info and grab PSSM
-    temp_file = os.path.join(des_dir.building_blocks, PUtils.temp)
-    rerun = False
-    if PUtils.clean not in os.listdir(des_dir.building_blocks):
-        shutil.copy(pdb, des_dir.building_blocks)
-        with open(temp_file, 'w') as tf:
-            tf.write('Still fetching data. Process will resume once data is gathered\n')
-
-        pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
-        des_logger.debug('Fetching PSSM Files')
-
-        # Check if other design combinations have already collected sequence info about design candidates
-        for name in names:
-            for file in os.listdir(des_dir.sequences):
-                if fnmatch.fnmatch(file, name + '*'):
-                    if file == name + '.hmm':
-                        pssm_files[name] = os.path.join(des_dir.sequences, file)
-                        des_logger.debug('%s PSSM Files=%s' % (name, pssm_files[name]))
-                        break
-                    elif file == name + '.fasta':
-                        pssm_files[name] = PUtils.temp
-            if name not in pssm_files:
-                pssm_files[name] = {}
-                des_logger.debug('%s PSSM File not created' % name)
-
-        # Extract/Format Sequence Information
-        for n, name in enumerate(names):
-            if pssm_files[name] == dict():
-                des_logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
-                pdb_seq[name], errors[name] = SDUtils.extract_aa_seq(template_pdb, chain=names[name](n))
-                # pdb_seq[name], errors[name] = SDUtils.extract_aa_seq(oligomer[name], chain=names[name](n))
-                des_logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
-                if errors[name]:
-                    des_logger.warning('Sequence generation ran into the following residue errors: %s'
-                                       % ', '.join(errors[name]))
-                pdb_seq_file[name] = SDUtils.write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
-                if not pdb_seq_file[name]:
-                    des_logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
-                    # logger.critical('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
-                    raise DesignDirectory.DesignError('Unable to parse sequence in %s' % des_dir.path)
-            else:
-                pdb_seq_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
-
-        # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
-        for name in names:
-            if pssm_files[name] == dict():
-                des_logger.info('Generating PSSM file for %s' % name)
-                pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name],
-                                                                               outpath=des_dir.sequences)
-                des_logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
-            elif pssm_files[name] == PUtils.temp:
-                des_logger.info('Waiting for profile generation...')
-                while True:
-                    time.sleep(20)
-                    if os.path.exists(os.path.join(des_dir.sequences, name + '.hmm')):
-                        pssm_files[name] = os.path.join(des_dir.sequences, name + '.hmm')
-                        pssm_process[name] = done_process
-                        break
-            else:
-                des_logger.info('Found PSSM file for %s' % name)
-                pssm_process[name] = done_process
-
-        # Wait for PSSM command to complete
-        for name in names:
-            pssm_process[name].communicate()
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
-
-        # Extract PSSM for each protein and combine into single PSSM
-        pssm_dict = {}
-        for name in names:
-            pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
-        full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
-        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
-    else:
-        time.sleep(1)
-        des_logger.info('Waiting for profile generation...')
-        while True:
-            if os.path.exists(temp_file):
-                time.sleep(20)
-                continue
-            break
-
-        pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
-        full_pssm = SequenceProfile.parse_pssm(pssm_file)
-
-    # Check length for equality before proceeding
-    if len(template_residues) != len(full_pssm):
-        logging.warning('%s: The Pose seq and the Pose profile are different length Profile=%d, Pose=%d.'
-                        'Generating Rot/Tx specific profile'
-                        % (des_dir.path, len(template_residues), len(full_pssm)))
-        # des_logger
-        rerun = True
-
-    if not rerun:
-        # Check sequence from Pose and PSSM to compare identity before proceeding
-        pose_res, pssm_res, = {}, {}
-        for n in range(len(template_residues)):
-            res = jump - SDUtils.index_offset + n
-            pose_res[n] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
-            pssm_res[n] = full_pssm[res]['type']
-            if pssm_res[n] != pose_res[n]:
-                logging.warning('%s: The profile and the Pose seq are different. Residue %d, PSSM: %s, POSE: %s. '
-                                'Generating Rot/Tx specific profile' % (
-                                des_dir.path, res, pssm_res[n], pose_res[n]))
-                # des_logger.warning()
-                # raise SDUtils.DesignError('%s: Pose length is the same, but residues different!' % des_dir.path)
-                rerun = True
-                break
-    raise DesignDirectory.DesignError('%s: Messed up pose')
-    if rerun:
-        pssm_file, full_pssm = SDUtils.gather_profile_info(template_pdb, des_dir, names, des_logger)
+# def generate_profile(pdb, des_dir, debug):  # DEPRECIATED
+#     # pose_pssm, template_pdb = None, None
+#     # for file in os.listdir(des_dir.path):
+#     #     if file.endswith('pose.dssm'):
+#     #         pose_pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, file))
+#     #     if file.endswith(PUtils.clean):
+#     #         template_pdb = PDB(file=os.path.join(des_dir.path, file))
+#     #
+#     # if pose_pssm and template_pdb:
+#     #     template_residues = template_pdb.get_residues()
+#     #     pose_correct = check_pssm_v_pose(des_dir, pose_pssm, template_residues)
+#     #     return pose_correct
+#     # else:
+#     #     raise SDUtils.DesignError('Directory missing crucial files')
+#
+#     # Check to see if other poses have collected design sequence info and grab PSSM
+#     temp_file = os.path.join(des_dir.building_blocks, PUtils.temp)
+#     rerun = False
+#     if PUtils.clean not in os.listdir(des_dir.building_blocks):
+#         shutil.copy(pdb, des_dir.building_blocks)
+#         with open(temp_file, 'w') as tf:
+#             tf.write('Still fetching data. Process will resume once data is gathered\n')
+#
+#         pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
+#         des_logger.debug('Fetching PSSM Files')
+#
+#         # Check if other design combinations have already collected sequence info about design candidates
+#         for name in names:
+#             for file in os.listdir(des_dir.sequences):
+#                 if fnmatch.fnmatch(file, name + '*'):
+#                     if file == name + '.hmm':
+#                         pssm_files[name] = os.path.join(des_dir.sequences, file)
+#                         des_logger.debug('%s PSSM Files=%s' % (name, pssm_files[name]))
+#                         break
+#                     elif file == name + '.fasta':
+#                         pssm_files[name] = PUtils.temp
+#             if name not in pssm_files:
+#                 pssm_files[name] = {}
+#                 des_logger.debug('%s PSSM File not created' % name)
+#
+#         # Extract/Format Sequence Information
+#         for n, name in enumerate(names):
+#             if pssm_files[name] == dict():
+#                 des_logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
+#                 pdb_seq[name], errors[name] = SDUtils.extract_aa_seq(template_pdb, chain=names[name](n))
+#                 # pdb_seq[name], errors[name] = SDUtils.extract_aa_seq(oligomer[name], chain=names[name](n))
+#                 des_logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
+#                 if errors[name]:
+#                     des_logger.warning('Sequence generation ran into the following residue errors: %s'
+#                                        % ', '.join(errors[name]))
+#                 pdb_seq_file[name] = SDUtils.write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
+#                 if not pdb_seq_file[name]:
+#                     des_logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
+#                     # logger.critical('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
+#                     raise DesignDirectory.DesignError('Unable to parse sequence in %s' % des_dir.path)
+#             else:
+#                 pdb_seq_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
+#
+#         # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
+#         for name in names:
+#             if pssm_files[name] == dict():
+#                 des_logger.info('Generating PSSM file for %s' % name)
+#                 pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name],
+#                                                                                outpath=des_dir.sequences)
+#                 des_logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
+#             elif pssm_files[name] == PUtils.temp:
+#                 des_logger.info('Waiting for profile generation...')
+#                 while True:
+#                     time.sleep(20)
+#                     if os.path.exists(os.path.join(des_dir.sequences, name + '.hmm')):
+#                         pssm_files[name] = os.path.join(des_dir.sequences, name + '.hmm')
+#                         pssm_process[name] = done_process
+#                         break
+#             else:
+#                 des_logger.info('Found PSSM file for %s' % name)
+#                 pssm_process[name] = done_process
+#
+#         # Wait for PSSM command to complete
+#         for name in names:
+#             pssm_process[name].communicate()
+#         if os.path.exists(temp_file):
+#             os.remove(temp_file)
+#
+#         # Extract PSSM for each protein and combine into single PSSM
+#         pssm_dict = {}
+#         for name in names:
+#             pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
+#         full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
+#         pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
+#     else:
+#         time.sleep(1)
+#         des_logger.info('Waiting for profile generation...')
+#         while True:
+#             if os.path.exists(temp_file):
+#                 time.sleep(20)
+#                 continue
+#             break
+#
+#         pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
+#         full_pssm = SequenceProfile.parse_pssm(pssm_file)
+#
+#     # Check length for equality before proceeding
+#     if len(template_residues) != len(full_pssm):
+#         logging.warning('%s: The Pose seq and the Pose profile are different length Profile=%d, Pose=%d.'
+#                         'Generating Rot/Tx specific profile'
+#                         % (des_dir.path, len(template_residues), len(full_pssm)))
+#         # des_logger
+#         rerun = True
+#
+#     if not rerun:
+#         # Check sequence from Pose and PSSM to compare identity before proceeding
+#         pose_res, pssm_res, = {}, {}
+#         for n in range(len(template_residues)):
+#             res = jump - SDUtils.index_offset + n
+#             pose_res[n] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
+#             pssm_res[n] = full_pssm[res]['type']
+#             if pssm_res[n] != pose_res[n]:
+#                 logging.warning('%s: The profile and the Pose seq are different. Residue %d, PSSM: %s, POSE: %s. '
+#                                 'Generating Rot/Tx specific profile' % (
+#                                 des_dir.path, res, pssm_res[n], pose_res[n]))
+#                 # des_logger.warning()
+#                 # raise SDUtils.DesignError('%s: Pose length is the same, but residues different!' % des_dir.path)
+#                 rerun = True
+#                 break
+#     raise DesignDirectory.DesignError('%s: Messed up pose')
+#     if rerun:
+#         pssm_file, full_pssm = SDUtils.gather_profile_info(template_pdb, des_dir, names, des_logger)
 
 
 if __name__ == '__main__':

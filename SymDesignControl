@@ -16,6 +16,7 @@ from json import loads, dumps
 
 import pandas as pd
 
+import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
 import DesignDirectory
@@ -900,8 +901,6 @@ if __name__ == '__main__':
             os.makedirs(outdir_res)
 
         # Create symbolic links to the output PDB's
-        chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        final_sequences, inserted_sequences = {}, {}
         for pose in results:
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
@@ -917,16 +916,22 @@ if __name__ == '__main__':
                 except FileExistsError:
                     pass
 
-                # Format sequences for expression
+        # Format sequences for expression
+        chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        final_sequences, inserted_sequences = {}, {}
+        for pose in results:
+            pose_des_dirs, design = zip(*pose)
+            for i, pose_des_dir in enumerate(pose_des_dirs):
                 # coming in as (chain: seq}
-                design_pose = PDB(file=file[0])
-                design_sequences = SequenceProfile.get_pdb_sequences(design_pose)
+                design_pose = PDB(file=glob('%s*%s*' % (pose_des_dir.design_pdbs, design[i]))[0])
+                # v {chain: sequence, ...}
+                design_sequences = AnalyzeMutatedSequences.get_pdb_sequences(design_pose)
                 pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
                 # need the original pose chain identity
                 # source_pose = PDB(file=pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
                 source_pose = PDB(file=pose_des_dir.source)  # Think this is the best, need to modify chains
                 source_pose.reorder_chains()
-                source_pose.atom_sequences = SequenceProfile.get_pdb_sequences(source_pose, source='atom')
+                source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
                 # if not source_pose.sequences:
                 oligomers = [PDB(file=SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
                 # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
@@ -934,7 +939,7 @@ if __name__ == '__main__':
                                                      for k, chain in enumerate(source_pose.chain_id_list)}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
-                source_seqres = {chain: oligomers[k].seqres_sequences[oligomers[k].chain_id_list[0]]
+                source_seqres = {chain: oligomers[k].seqres[oligomers[k].chain_id_list[0]]
                                  for k, chain in enumerate(chains[:len(oligomers)])}
 
                 # seqres_pose = PDB.PDB()
@@ -959,16 +964,16 @@ if __name__ == '__main__':
                 #                                                 for chain in design_sequences]))
                 # print('Source SEQRES Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_seqres[chain])
                 #                                                   for chain in source_seqres]))
-                pose_offset_d = SequenceProfile.pdb_to_pose_num(source_seqres)
+                pose_offset_d = AnalyzeMutatedSequences.pdb_to_pose_num(source_seqres)
                 # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
                 #                                                                  seqres_pose.seqres_sequences[chain],
                 #                                                                  offset=True, only_gaps=True)
                 #                           for chain in design_sequences}
 
                 # Find all gaps between the SEQRES and ATOM record
-                all_missing_residues_d = {chain: SequenceProfile.generate_mutations_from_seq(source_pose.atom_sequences[chain],
-                                                                                             source_seqres[chain],
-                                                                                             offset=True, only_gaps=True)
+                all_missing_residues_d = {chain: SequenceProfile.generate_mutations(source_pose.atom_sequences[chain],
+                                                                                    source_seqres[chain], offset=True,
+                                                                                    only_gaps=True)
                                           for chain in source_seqres}
                 # pose_insert_offset_d = Ams.pdb_to_pose_num(all_missing_residues_d)
 
@@ -999,24 +1004,26 @@ if __name__ == '__main__':
                         #     print('%s\tLocation %d' % (design_pose.get_structure_sequence(chain), residue))
 
                 # Get modified sequence
-                design_sequences_disordered = SequenceProfile.get_pdb_sequences(design_pose)
+                design_sequences_disordered = AnalyzeMutatedSequences.get_pdb_sequences(design_pose)
                 # print('Disordered Insertions:\n%s' %
                 #       '\n'.join(['%s - %s' % (chain, design_sequences_disordered[chain])
                 #                  for chain in design_sequences_disordered]))
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
-                mutations = {chain: SequenceProfile.generate_mutations_from_seq(source_seqres[chain],
-                                                                                design_sequences[chain], offset=True)
+                # grabs the mutated residues from design in the index of the seqres sequence
+                mutations = {chain: SequenceProfile.generate_mutations(source_seqres[chain], design_sequences[chain])
                              for chain in design_sequences}
                 # print('Mutations:\n%s' %
                 #       '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
-                # Next I need the modified (residue inserted) design sequence to pull out the correct Met
-                coding_offset = {chain: SequenceProfile.find_orf_offset(design_sequences_disordered[chain], mutations[chain])
-                                 for chain in design_sequences_disordered}
 
+                # Next find the correct start MET using the modified (residue inserted) design sequence
+                coding_offset = {chain: SequenceProfile.find_orf_offset(design_sequences_disordered[chain],
+                                                                        mutations[chain])
+                                 for chain in design_sequences_disordered}
                 # print('Coding Offset:\n%s'
                 #       % '\n'.join(['%s: %s' % (chain, coding_offset[chain]) for chain in coding_offset]))
-                # Apply the coding sequence constraint to the design sequence
+
+                # Apply the ORF sequence start to the inserted design sequence, removing all residues prior
                 pretag_sequences = {chain: design_sequences_disordered[chain][coding_offset[chain]:]
                                     for chain in coding_offset}
                 # print('Pre-tag Sequences:\n%s' % '\n'.join([pretag_sequences[chain] for chain in pretag_sequences]))
@@ -1027,38 +1034,43 @@ if __name__ == '__main__':
                 # for chain in gapped_residues_d:
                 #     for residue in gapped_residues_d[chain]:
 
+                # Check for expression tag addition to the designed sequences
                 tag_sequences = {}
-                # Check if sequence already has tag and re-use
-                for pdb, chain in zip(pose_pdbs, pretag_sequences):
-                    if find_expression_tags(pretag_sequences[chain]) == dict():
-                        # Look for compatible tags
-                        tag_sequences[pdb] = \
-                            find_all_matching_pdb_expression_tags(pdb, oligomer_chain_database_chain_map[chain])
-                    else:
-                        tag_sequences[pdb] = None
+                for j, (pdb_code, chain) in enumerate(zip(pose_pdbs, pretag_sequences)):
+                    # if sequence doesn't have a tag find all compatible tags
+                    if not find_expression_tags(pretag_sequences[chain]):  # == dict():
+                        tag_sequences[pdb_code] = \
+                            find_all_matching_pdb_expression_tags(pdb_code, oligomer_chain_database_chain_map[chain])
+                        # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
+                        seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chains[j]])
+                    else:  # re-use existing
+                        # tag_sequences[pdb_code] = None
+                        seq = pretag_sequences[chains[j]]
 
                 # tag_sequences = {pdb: find_all_matching_pdb_expression_tags(pdb,
                 #                                                             oligomer_chain_database_chain_map[chain])
                 #                  for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
 
-                for j, pdb in enumerate(tag_sequences):
-                    if tag_sequences[pdb]:
-                        seq = add_expression_tag(tag_sequences[pdb]['seq'], pretag_sequences[chains[j]])
-                    else:
-                        seq = pretag_sequences[chains[j]]
+                # for j, pdb_code in enumerate(tag_sequences):
+                #     if tag_sequences[pdb_code]:
+                #         seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chains[j]])
+                #     else:
+                #         seq = pretag_sequences[chains[j]]
                     # If no MET start site, include one
                     if seq[0] != 'M':
                         seq = 'M%s' % seq
 
-                    design_string = '%s_design_%s_%s' % (pose_des_dir, design[i], pdb)
+                    design_string = '%s_design_%s_%s' % (pose_des_dir, design[i], pdb_code)
                     final_sequences[design_string] = seq
-                    # Find sequence additions compared to the design.
+
+                    # For final manual check of the process, find sequence additions compared to the design and output
+                    # concatenated to see where additions lie on sequence. Cross these addition with pose pdb to check
+                    # if insertion is compatible
                     full_insertions = {residue: {'to': aa}
                                        for residue, aa in enumerate(final_sequences[design_string], 1)}
-                    full_insertions.update(SequenceProfile.generate_mutations_from_seq(design_sequences[chains[j]],
-                                                                                       final_sequences[design_string],
-                                                                                       offset=True, blanks=True))
-
+                    full_insertions.update(
+                        SequenceProfile.generate_mutations(design_sequences[chains[j]], final_sequences[design_string],
+                                                           blanks=True))
                     # Reduce to sequence only
                     inserted_sequences[design_string] = '%s\n%s' % (''.join([full_insertions[idx]['to']
                                                                              for idx in full_insertions]),
@@ -1078,9 +1090,11 @@ if __name__ == '__main__':
                 #                            for j, pdb in enumerate(tag_sequences)}
 
         # Write output sequences to fasta file
-        seq_comparison_file = SequenceProfile.write_fasta_file(inserted_sequences, '%sSelected_Sequences_Expression_Additions' %
+        seq_file = SequenceProfile.write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
+                                                    outpath=outdir)
+        seq_comparison_file = SequenceProfile.write_fasta_file(inserted_sequences,
+                                                               '%sSelected_Sequences_Expression_Additions' %
                                                                args.selection_string, outpath=outdir)
-        seq_file = SequenceProfile.write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string, outpath=outdir)
 
     # Report any program exceptions
     terminate(exceptions)
