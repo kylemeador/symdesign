@@ -18,8 +18,9 @@ from sklearn.neighbors import BallTree
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-from PDB import PDB
+# from PDB import PDB
 # logging.getLogger().setLevel(logging.INFO)
+from Pose import download_pdb
 from SequenceProfile import populate_design_dict
 
 # Globals
@@ -398,10 +399,6 @@ def index_intersection(indices):
 #     return issm
 
 
-def subdirectory(name):  # TODO PDBdb
-    return name
-
-
 ###################
 # Bio.PDB Handling
 ###################
@@ -438,48 +435,6 @@ def superimpose(atoms):  # , rmsd_thresh):
 ###################
 # PDB Handling # TODO PDB.py
 ###################
-
-
-def download_pdb(pdb, location=os.getcwd(), asu=False):
-    """Download a pdbs from a file, a supplied list, or a single entry
-
-    Args:
-        pdb (str, list): PDB's of interest. If asu=False, code_# is format for biological assembly specific pdb.
-            Ex: 1bkh_2 fetches biological assembly 2
-    Keyword Args:
-        asu=False (bool): Whether or not to download the asymmetric unit file
-    Returns:
-        (None)
-    """
-    clean_list = to_iterable(pdb)
-
-    failures = []
-    for pdb in clean_list:
-        clean_pdb = pdb[0:4]  # .upper() redundant call
-        if asu:
-            assembly = ''
-        else:
-            assembly = pdb[-3:]
-            try:
-                assembly = assembly.split('_')[1]
-            except IndexError:
-                assembly = '1'
-
-        clean_pdb = '%s.pdb%s' % (clean_pdb, assembly)
-        file_name = os.path.join(location, clean_pdb)
-        current_file = glob(file_name)
-        # current_files = os.listdir(location)
-        # if clean_pdb not in current_files:
-        if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
-            # TODO subprocess.POPEN()
-            status = os.system('wget -q -O %s http://files.rcsb.org/download/%s' % (file_name, clean_pdb))
-            if status != 0:
-                failures.append(pdb)
-
-    if failures:
-        logger.error('PDB download ran into the following failures:\n%s' % ', '.join(failures))
-
-    return file_name  # if list then will only return the last file
 
 
 def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
@@ -618,34 +573,6 @@ def retrieve_pdb_file_path(code, directory=PUtils.pdb_db):
     assert pdb_file != list(), 'No matching file found for PDB: %s' % code
 
     return pdb_file[0]
-
-
-def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
-    """Fetch PDB object of each chain from PDBdb or PDB server
-
-    Args:
-        codes (iter): Any iterable of PDB codes
-    Keyword Args:
-        location= : Location of the  on disk
-    Returns:
-        (dict): {pdb_code: PDB.py object, ...}
-    """
-    if PUtils.pdb_source == 'download_pdb':
-        get_pdb = download_pdb
-        # doesn't return anything at the moment
-    else:
-        get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_location, subdirectory(pdb_code),
-                                                             '%s.pdb' % pdb_code)))
-        # returns a list with matching file (should only be one)
-    oligomers = {}
-    for code in codes:
-        pdb_file_name = get_pdb(code, location=des_dir.pdbs)
-        assert len(pdb_file_name) == 1, 'More than one matching file found for pdb code %s' % code
-        oligomers[code] = PDB(file=pdb_file_name[0])
-        oligomers[code].set_name(code)
-        oligomers[code].reorder_chains()
-
-    return oligomers
 
 
 def residue_interaction_graph(pdb, distance=8, gly_ca=True):
