@@ -12,13 +12,11 @@ from Bio.SeqUtils import IUPACData
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
-from Atom import Atom
-from Chain import Chain
 from Entity import Entity
-from PathUtils import free_sasa_exe_path
+from PathUtils import free_sasa_exe_path, stride_exe_path
 from QueryProteinData.QueryPDB import get_pdb_info_by_entry
 from Stride import Stride
-from Structure import Structure
+from Structure import Structure, Chain, Atom
 from SymDesignUtils import logger
 
 
@@ -66,23 +64,6 @@ class PDB(Structure):
     def from_atoms(cls, atoms):
         return cls(atoms=atoms)
 
-    # def set_name(self, name):
-    #     self.name = name
-    #
-    # def get_name(self):
-    #     return self.name
-
-    # def set_all_atoms(self, atom_list):
-    #     """Set the PDB instance atoms to those specified in a list"""
-    #     self.atoms = atom_list
-
-    # def add_atoms(self, atom_list):
-    #     """Add Atoms in atom_list to the PDB instance"""
-    #     self.atoms += atom_list
-
-    # def get_atoms(self):
-    #     return self.atoms
-
     def set_chain_id_list(self, chain_id_list):
         self.chain_id_list = chain_id_list
 
@@ -121,79 +102,6 @@ class PDB(Structure):
         self.secondary_structure = pdb.pdb_ss_asg
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
-
-    # def stride(self, chain=None):
-    #     # REM  -------------------- Secondary structure summary -------------------  XXXX
-    #     # REM                .         .         .         .         .               XXXX
-    #     # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
-    #     # STR       HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH  HHHHHHHHHHHHHHHHH               XXXX
-    #     # REM                                                                        XXXX
-    #     # SEQ  51   LIEESQN                                              57          XXXX
-    #     # STR       HHHHHH                                                           XXXX
-    #     # REM                                                                        XXXX
-    #     # LOC  AlphaHelix   ILE     3 A      ALA     33 A                            XXXX
-    #     # LOC  AlphaHelix   TRP    41 A      GLN     63 A                            XXXX
-    #     # REM                                                                        XXXX
-    #     # REM  --------------- Detailed secondary structure assignment-------------  XXXX
-    #     # REM                                                                        XXXX
-    #     # REM  |---Residue---|    |--Structure--|   |-Phi-|   |-Psi-|  |-Area-|      XXXX
-    #     # ASG  ILE A    3    1    H    AlphaHelix    360.00    -29.07     180.4      XXXX
-    #     # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
-    #     # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
-    #
-    #     # try:
-    #         # with open(os.devnull, 'w') as devnull:
-    #     stride_cmd = [self.stride_exe_path, '%s' % self.filepath]
-    #     #   -rId1Id2..  Read only chains Id1, Id2 ...
-    #     #   -cId1Id2..  Process only Chains Id1, Id2 ...
-    #     if chain:
-    #         stride_cmd.append('-c%s' % chain_id)
-    #
-    #     p = subprocess.Popen(stride_cmd, stderr=subprocess.DEVNULL)
-    #     out, err = p.communicate()
-    #     out_lines = out.decode('utf-8').split('\n')
-    #     # except:
-    #     #     stride_out = None
-    #
-    #     # if stride_out is not None:
-    #     #     lines = stride_out.split('\n')
-    #
-    #     for line in out_lines:
-    #         if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
-    #             self.chain(line[9:10]).residue(int(line[10:15].strip())).set_secondary_structure(line[24:25])
-    #     self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
-    #     # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
-    #     #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
-    #
-    # def is_N_Helical(self, window=5):
-    #     if len(self.secondary_structure) >= 2 * window:
-    #         for idx, residue_number in enumerate(sorted(self.secondary_structure.keys())):
-    #             temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(window))
-    #             # res_number = self.secondary_structure[0 + i:5 + i][0][0]
-    #             if 'H' * window in temp_window:
-    #                 return True  # , res_number
-    #             if idx == 6:
-    #                 break
-    #     return False  # , None
-    #
-    # def is_C_Helical(self, window=5):
-    #     if len(self.secondary_structure) >= 2 * window:
-    #         # for i in range(5):
-    #         for idx, residue_number in enumerate(sorted(self.secondary_structure.keys(), reverse=True)):
-    #             # reverse_ss_asg = self.secondary_structure[::-1]
-    #             temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(-window + 1, 1))
-    #             # res_number = reverse_ss_asg[0+i:5+i][4][0]
-    #             if 'H' * window in temp_window:
-    #                 return True  # , res_number
-    #             if idx == 6:
-    #                 break
-    #     return False  # , None
-    #
-    # def get_secondary_structure(self, chain_id=None):  # different from Josh PDB
-    #     if not self.secondary_structure:
-    #         self.stride(chain=chain_id)
-    #
-    #     return self.secondary_structure
 
     def entity(self, entity_id):
         for entity in self.entities:
@@ -459,16 +367,6 @@ class PDB(Structure):
         """Return list of Atoms containing the subset of Atoms that belong to the selected Entity"""
         return [atom for atom in self.get_atoms() if atom.chain in self.entity_d[entity_id]['chains']]
 
-    # def get_chain_atoms(self, chain_ids):
-    #     """Return list of Atoms containing the subset of Atoms that belong to the selected chain ids"""
-    #     atoms = []
-    #     for chain in self.chains:
-    #         if chain in chain_ids:
-    #             atoms.extend(self.get_chain_atoms(chain))
-    #
-    #     return atoms
-    #     # return [atom for atom in self.atoms if atom.chain in chain_id_list]
-
     def extract_all_coords(self):
         """Grab all the coordinates from the PDB object"""
         # Todo create a coords attribute (class) which atoms are based off of
@@ -525,16 +423,39 @@ class PDB(Structure):
                 out_coords.append([x, y, z])
             return out_coords
 
-    # def get_all_atoms(self):
-    #     return self.atoms
-
-    def get_CA_atoms(self):
-        return [atom for atom in self.get_atoms() if atom.is_CA()]
-
     def replace_coords(self, coords):
         """Replate all Atom coords with coords specified. Ensure the coords are the same length"""
         for idx, atom in enumerate(self.get_atoms()):
             atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
+
+    def get_term_ca_indices(self, term):  # DEPRECIATE
+        if term == "N":
+            ca_term_list = []
+            chain_id = None
+            for idx, atom in enumerate(self.get_atoms()):
+                # atom = self.atoms[i]
+                if atom.chain != chain_id and atom.type == "CA":
+                    ca_term_list.append(idx)
+                    chain_id = atom.chain
+            return ca_term_list
+
+        elif term == "C":
+            ca_term_list = []
+            chain_id = self.atoms[0].chain
+            current_ca_idx = None
+            for idx, atom in enumerate(self.get_atoms()):
+                # atom = self.atoms[i]
+                if atom.chain != chain_id:
+                    ca_term_list.append(current_ca_idx)
+                    chain_id = atom.chain
+                if atom.type == "CA":
+                    current_ca_idx = idx
+            ca_term_list.append(current_ca_idx)
+            return ca_term_list
+
+        else:
+            print('Select N or C Term')
+            return []
 
     def mat_vec_mul3(self, a, b):
         c = [0. for i in range(3)]
@@ -554,30 +475,26 @@ class PDB(Structure):
             atom.x, atom.y, atom.z = newX, newY, newZ
 
     def translate(self, tx):
-        for atom in self.atoms:
-            coord = [atom.x, atom.y, atom.z]
-            newX = coord[0] + tx[0]
-            newY = coord[1] + tx[1]
-            newZ = coord[2] + tx[2]
+        for atom in self.get_atoms():
+            newX = atom.x + tx[0]
+            newY = atom.y + tx[1]
+            newZ = atom.z + tx[2]
             atom.x, atom.y, atom.z = newX, newY, newZ
 
     def rotate(self, rot, store_cb_and_bb_coords=False):
         if store_cb_and_bb_coords:
-            for atom in self.atoms:
-                x, y, z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
-                atom.x, atom.y, atom.z = x, y, z
+            for atom in self.get_atoms():
+                atom.x, atom.y, atom.z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
                 if atom.is_backbone():
                     self.bb_coords.append([atom.x, atom.y, atom.z])
                 if atom.is_CB(InclGlyCA=False):
                     self.cb_coords.append([atom.x, atom.y, atom.z])
         else:
-            for atom in self.atoms:
-                x, y, z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
-                atom.x, atom.y, atom.z = x, y, z
+            for atom in self.get_atoms():
+                atom.x, atom.y, atom.z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
 
     def rotate_along_principal_axis(self, degrees=90.0, axis='x'):
-        """
-        Rotate the coordinates about the given axis
+        """Rotate the coordinates about the given axis
         """
         deg = math.radians(float(degrees))
 
@@ -591,16 +508,16 @@ class PDB(Structure):
         else:
             print('Axis does not exists!')
 
-        for atom in self.atoms:
+        for atom in self.get_atoms():
             coord = [atom.x, atom.y, atom.z]
+            # Todo replace below with atom.x, atom.y, atom.z = np.matmul(rotmatrix * coord)
             newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
             newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
             newZ = coord[0] * rotmatrix[2][0] + coord[1] * rotmatrix[2][1] + coord[2] * rotmatrix[2][2]
             atom.x, atom.y, atom.z = newX, newY, newZ
 
     def ReturnRotatedPDB(self, degrees=90.0, axis='x', store_cb_and_bb_coords=False):
-        """
-        Rotate the coordinates about the given axis
+        """Rotate the coordinates about the given axis
         """
         deg = math.radians(float(degrees))
 
@@ -624,8 +541,9 @@ class PDB(Structure):
             rot_atom.x, rot_atom.y, rot_atom.z = newX, newY, newZ
             rotated_atoms.append(rot_atom)
 
+        # rotated_pdb = PDB(atoms=)
         rotated_pdb = PDB()
-        rotated_pdb.read_atom_list(rotated_atoms, store_cb_and_bb_coords)
+        rotated_pdb.read_atom_list(rotated_atoms, store_cb_and_bb_coords=store_cb_and_bb_coords)
 
         return rotated_pdb
 
@@ -660,6 +578,7 @@ class PDB(Structure):
             atom_copy.z = rotated_coords[i][2]
             return_atoms.append(atom_copy)
         return_pdb.read_atom_list(return_atoms)
+
         return return_pdb
 
     def rename_chains(self, chain_list_fixed):
@@ -746,25 +665,6 @@ class PDB(Structure):
         self.chain_id_list = l_moved
         self.get_chain_sequences()
 
-    # def renumber_atoms(self):
-    #     """Renumber all atom entries one-indexed according to list order"""
-    #     for idx, atom in enumerate(self.atoms, 1):
-    #         atom.number = idx
-
-    # def renumber_residues(self):
-    #     """Starts numbering PDB Residues at 1 and numbers sequentially until reaches last atom in file"""
-    #     last_atom_index = len(self.atoms)
-    #     idx = 0  # offset , 1
-    #     for i, residue in enumerate(self.residues, 1):
-    #         # current_res_num = self.atoms[idx].residue_number
-    #         current_res_num = residue.number
-    #         while self.atoms[idx].residue_number == current_res_num:
-    #             self.atoms[idx].residue_number = i  # + offset
-    #             idx += 1
-    #             if idx == last_atom_index:
-    #                 break
-    #     self.renumber_atoms()  # should be unnecessary
-
     def renumber_pdb(self):
         self.renumber_atoms()
         self.renumber_residues()
@@ -847,7 +747,7 @@ class PDB(Structure):
         if names:
             return [chain for chain in self.chains if chain.name in names]
         else:
-        return self.chains
+            return self.chains
 
     def chain(self, chain_id):
         for chain in self.chains:
@@ -870,30 +770,6 @@ class PDB(Structure):
         """Return the Residues included in a particular chain"""
         return [residue for residue in self.residues if residue.chain == chain_id]
 
-    # def create_residues(self):
-    #     current_residue_number = self.atoms[0].residue_number
-    #     current_residue = []
-    #     for atom in self.atoms:
-    #         if atom.residue_number == current_residue_number:
-    #             current_residue.append(atom)
-    #         else:
-    #             self.residues.append(Residue(current_residue))
-    #             current_residue = [atom]
-    #             current_residue_number = atom.residue_number
-    #     # ensure last residue is added after iteration is complete
-    #     self.residues.append(Residue(current_residue))
-
-    # def get_residues(self):
-    #     return self.residues
-
-    # def get_residue(self, chain_id, residue_number):  # Todo Depreciate
-    #     for residue in self.residues:
-    #         if residue.number == residue_number and residue.chain == chain_id:
-    #             return residue
-    #
-    #     return None
-        # return Residue(self.getResidueAtoms(chain_id, residue_number))
-
     def write(self, out_path, cryst1=None):  # Todo Depreciate
         if not cryst1:
             cryst1 = self.cryst_record
@@ -902,25 +778,7 @@ class PDB(Structure):
                 outfile.write(str(cryst1) + "\n")
             outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
 
-    # def calculate_ss(self, chain_id='A'):
-    #     pdb_stride = Stride(self.filepath, chain_id)
-    #     pdb_stride.run()
-    #     self.secondary_structure = pdb_stride.ss_asg
-
-    # def get_structure_sequence(self, aa_code=1):
-    #     """Returns the sequence of Residues found in the structure"""
-    #     sequence_list = [residue.type for residue in self.get_residues()]
-    #
-    #     if aa_code == 1:
-    #         sequence = ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
-    #                             if k.title() in IUPACData.protein_letters_3to1_extended else '-'
-    #                             for k in sequence_list])
-    #     else:
-    #         sequence = ' '.join(sequence_list)
-    #
-    #     return sequence
-
-    def get_chain_sequences(self):
+    def get_chain_sequences(self):  # Todo Depreciate
         self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_id_list}
 
     def orient(self, symm, orient_dir, generate_oriented_pdb=True):
@@ -941,27 +799,6 @@ class PDB(Structure):
                 return 0
         else:
             return None
-
-    def get_center_of_mass(self):
-        return self.center_of_mass
-
-    def find_center_of_mass(self, coords):
-        """Given a numpy array of 3D coordinates, return the center of mass"""
-        # if not self.coords:
-        #     self.coords = self.extract_all_coords()
-        # number_of_coordinates = len(self.coords)
-
-
-        # com = [0. for j in range(3)]
-        # for i in range(number_of_coordinates):
-        #     for j in range(3):
-        #         com[j] = com[j] + self.coords[i][j]
-        # for j in range(3):
-        #     com[j] = com[j] / number_of_coordinates
-        # self.center_of_mass = com
-
-        divisor = 1 / len(coords)
-        return np.matmul(np.array.full((1, 3), divisor), coords)
 
     def sample_rot_tx_dof_coords(self, rot_step_deg=1, rot_range_deg=0, tx_step=1, start_tx_range=0, end_tx_range=0, axis="z", rotational_setting_matrix=None, degeneracy=None):
 
@@ -1097,60 +934,9 @@ class PDB(Structure):
         else:
             return None
 
-    def get_bb_indices(self):
-        return [idx for idx, atom in enumerate(self.get_atoms()) if atom.is_backbone()]
-
-    def get_cb_indices(self, InclGlyCA=False):
-        return [idx for idx, atom in enumerate(self.get_atoms()) if atom.is_CB(InclGlyCA=InclGlyCA)]
-
-    def get_cb_indices_chain(self, chain, InclGlyCA=False):
-        return [idx for idx, atom in enumerate(self.get_atoms()) if atom.chain == chain and atom.is_CB(InclGlyCA=InclGlyCA)]
-
-    def get_term_ca_indices(self, term):  # DEPRECIATE
-        if term == "N":
-            ca_term_list = []
-            chain_id = None
-            for idx, atom in enumerate(self.get_atoms()):
-                # atom = self.atoms[i]
-                if atom.chain != chain_id and atom.type == "CA":
-                    ca_term_list.append(idx)
-                    chain_id = atom.chain
-            return ca_term_list
-
-        elif term == "C":
-            ca_term_list = []
-            chain_id = self.atoms[0].chain
-            current_ca_idx = None
-            for idx, atom in enumerate(self.get_atoms()):
-                # atom = self.atoms[i]
-                if atom.chain != chain_id:
-                    ca_term_list.append(current_ca_idx)
-                    chain_id = atom.chain
-                if atom.type == "CA":
-                    current_ca_idx = idx
-            ca_term_list.append(current_ca_idx)
-            return ca_term_list
-
-        else:
-            print('Select N or C Term')
-            return []
-
-    def get_helix_cb_indices(self):
-        # only works for monomers or homo-complexes
-        stride = Stride(self.filepath, self.chain_id_list[0])
-        stride.run()
-        stride_ss_asg = stride.ss_asg
-        h_cb_indices = []
-        for idx, atom in enumerate(self.get_atoms()):
-            # atom = self.atoms[i]
-            if atom.is_CB():
-                if (atom.residue_number, "H") in stride_ss_asg:
-                    h_cb_indices.append(idx)
-        return h_cb_indices
-
-    def get_sasa(self, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=0):
-        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
-                                , stdout=subprocess.PIPE)
+    def get_sasa(self, probe_radius=1.4, sasa_thresh=0):
+        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath],
+                             stdout=subprocess.PIPE)
         out, err = p.communicate()
         out_lines = out.decode('utf-8').split('\n')
 
@@ -1167,21 +953,82 @@ class PDB(Structure):
 
         return sasa_out_chain, sasa_out_res, sasa_out
 
-    def get_surface_helix_cb_indices(self, stride_exe_path, free_sasa_exe_path, probe_radius=1.4, sasa_thresh=1):
+    def stride(self, chain=None):
+        # REM  -------------------- Secondary structure summary -------------------  XXXX
+        # REM                .         .         .         .         .               XXXX
+        # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
+        # STR       HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH  HHHHHHHHHHHHHHHHH               XXXX
+        # REM                                                                        XXXX
+        # SEQ  51   LIEESQN                                              57          XXXX
+        # STR       HHHHHH                                                           XXXX
+        # REM                                                                        XXXX
+        # LOC  AlphaHelix   ILE     3 A      ALA     33 A                            XXXX
+        # LOC  AlphaHelix   TRP    41 A      GLN     63 A                            XXXX
+        # REM                                                                        XXXX
+        # REM  --------------- Detailed secondary structure assignment-------------  XXXX
+        # REM                                                                        XXXX
+        # REM  |---Residue---|    |--Structure--|   |-Phi-|   |-Psi-|  |-Area-|      XXXX
+        # ASG  ILE A    3    1    H    AlphaHelix    360.00    -29.07     180.4      XXXX
+        # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
+        # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
+
+        # try:
+            # with open(os.devnull, 'w') as devnull:
+        stride_cmd = [stride_exe_path, '%s' % self.filepath]
+        #   -rId1Id2..  Read only chains Id1, Id2 ...
+        #   -cId1Id2..  Process only Chains Id1, Id2 ...
+        if chain:
+            stride_cmd.append('-c%s' % chain)
+
+        p = subprocess.Popen(stride_cmd, stderr=subprocess.DEVNULL)
+        out, err = p.communicate()
+        out_lines = out.decode('utf-8').split('\n')
+        # except:
+        #     stride_out = None
+
+        # if stride_out is not None:
+        #     lines = stride_out.split('\n')
+
+        for line in out_lines:
+            if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
+                self.chain(line[9:10]).residue(int(line[10:15].strip())).set_secondary_structure(line[24:25])
+        self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
+        # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
+        #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
+
+    def is_n_term_helical(self, window=5):
+        if len(self.secondary_structure) >= 2 * window:
+            for idx, residue_number in enumerate(sorted(self.secondary_structure.keys())):
+                temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(window))
+                # res_number = self.secondary_structure[0 + i:5 + i][0][0]
+                if 'H' * window in temp_window:
+                    return True  # , res_number
+                if idx == 6:
+                    break
+        return False  # , None
+
+    def is_c_term_helical(self, window=5):
+        if len(self.secondary_structure) >= 2 * window:
+            # for i in range(5):
+            for idx, residue_number in enumerate(sorted(self.secondary_structure.keys(), reverse=True)):
+                # reverse_ss_asg = self.secondary_structure[::-1]
+                temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(-window + 1, 1))
+                # res_number = reverse_ss_asg[0+i:5+i][4][0]
+                if 'H' * window in temp_window:
+                    return True  # , res_number
+                if idx == 6:
+                    break
+        return False  # , None
+
+    def get_secondary_structure(self, chain_id=None):  # different from Josh PDB
+        if not self.secondary_structure:
+            self.stride(chain=chain_id)
+
+        return self.secondary_structure
+
+    def get_surface_helix_cb_indices(self, probe_radius=1.4, sasa_thresh=1):
         # only works for monomers or homo-complexes
-        # proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
-        #                         , stdout=subprocess.PIPE)
-        # (out, err) = proc.communicate()
-        # out_lines = out.decode('utf-8').split('\n')
-        # sasa_out = []
-        # for line in out_lines:
-        #     if line != "\n" and line != "" and not line.startswith("#"):
-        #         res_num = int(line[5:10])
-        #         sasa = float(line[16:])
-        #         if sasa >= sasa_thresh:
-        #             if res_num not in sasa_out:
-        #                 sasa_out.append(res_num)
-        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+        sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
 
         h_cb_indices = []
         stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
@@ -1194,20 +1041,9 @@ class PDB(Structure):
                     h_cb_indices.append(i)
         return h_cb_indices
 
-    def get_surface_atoms(self, free_sasa_exe_path=free_sasa_exe_path, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
+    def get_surface_atoms(self, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
-        # proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %(free_sasa_exe_path, str(probe_radius), self.filepath), stdout=subprocess.PIPE, shell=True)
-        # (out, err) = proc.communicate()
-        # out_lines = out.split("\n")
-        # sasa_out = []
-        # for line in out_lines:
-        #     if line != "\n" and line != "" and not line.startswith("#"):
-        #         chain_id = line[4:5]
-        #         res_num = int(line[5:10])
-        #         sasa = float(line[16:])
-        #         if sasa > sasa_thresh:
-        #             sasa_out.append((chain_id, res_num))
-        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+        sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
         sasa_chain_res_l = zip(sasa_chain, sasa_res)
 
         surface_atoms = []
@@ -1222,40 +1058,15 @@ class PDB(Structure):
 
         return surface_atoms
 
-    def get_surface_resdiue_info(self, free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
+    def get_surface_resdiue_info(self, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
-        # proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
-        #                         , stdout=subprocess.PIPE)
-        # (out, err) = proc.communicate()
-        # out_lines = out.decode('utf-8').split('\n')
-        # sasa_out = []
-        # for line in out_lines:
-        #     if line != "\n" and line != "" and not line.startswith("#"):
-        #         chain_id = line[4:5]
-        #         res_num = int(line[5:10])
-        #         sasa = float(line[16:])
-        #         if sasa > sasa_thresh:
-        #             sasa_out.append((chain_id, res_num))
-        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+        sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
 
         return list(set(zip(sasa_chain, sasa_res)))
 
     def get_chain_residue_surface_area(self, chain_residue_pairs, free_sasa_exe_path, probe_radius=2.2):
         # only works for monomers or homo-complexes
-        # proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath]
-        #                         , stdout=subprocess.PIPE)
-        # (out, err) = proc.communicate()
-        # out_lines = out.decode('utf-8').split('\n')
-        # sasa_out = 0
-        # for line in out_lines:
-        #     if line != "\n" and line != "" and not line.startswith("#"):
-        #         chain_id = line[4:5]
-        #         res_num = int(line[5:10])
-        #         sasa = float(line[16:])
-        #         if (chain_id, res_num) in chain_residue_pairs:
-        #             sasa_out += sasa
-
-        sasa_chain, sasa_res, sasa = self.get_sasa(free_sasa_exe_path, probe_radius=probe_radius)
+        sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius)
         total_sasa = 0
         for chain, res, sasa in zip(sasa_chain, sasa_res, sasa):
             if (chain, res) in chain_residue_pairs:
@@ -1385,6 +1196,7 @@ class PDB(Structure):
             self.api_entry = get_pdb_info_by_entry(self.name)
         self.dbref = self.api_entry['dbref']
 
+    # Todo Might try to add all these calls to Entity
     def update_entities(self, source='atom'):
         if source == 'atom':
             self.get_atom_entities()
@@ -1513,7 +1325,8 @@ class PDB(Structure):
         chain_tree = BallTree(chain_coords)
 
         # Get CB Atom indices for the chain CB and atoms CB
-        chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
+        chain_cb_indices = self.chain(chain_id).get_cb_indices(chain_id, InclGlyCA=gly_ca)
+        # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
         all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
         chain_coord_indices, contact_cb_indices = [], []
         # Find the contacting CB indices and chain specific indices

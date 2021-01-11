@@ -3,8 +3,8 @@ from itertools import repeat
 
 import FragUtils as Frag
 
-from Atom import Atom
 from PDB import PDB
+from Structure import Atom
 
 # Globals
 module = 'Extract Interface Fragments:'
