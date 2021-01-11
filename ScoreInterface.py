@@ -3,14 +3,11 @@ import math
 
 import numpy as np
 import pandas as pd
-from symdesign.SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, mp_map
 
+from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, mp_map
 # from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
-from nanohedra.classes.EulerLookup import EulerLookup
-from nanohedra.classes.Fragment import *
-from nanohedra.utils.CmdLineArgParseUtils import *
-from nanohedra.utils.ExpandAssemblyUtils import *
-from nanohedra.utils.GeneralUtils import euclidean_squared_3d
+from classes import EulerLookup
+from utils import euclidean_squared_3d
 
 # Globals
 # Nanohedra.py Path

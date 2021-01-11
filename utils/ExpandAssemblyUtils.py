@@ -4,6 +4,7 @@ import pickle
 
 import numpy as np
 import sklearn.neighbors
+
 from classes.Atom import Atom
 from classes.PDB import PDB
 from utils.GeneralUtils import center_of_mass_3d

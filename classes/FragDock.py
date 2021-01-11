@@ -2,6 +2,7 @@ import time
 
 import numpy as np
 import sklearn.neighbors
+
 from classes.Fragment import *
 from classes.OptimalTx import *
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo

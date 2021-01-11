@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+
 from classes.Atom import Atom
 from classes.PDB import PDB
 from utils.BioPDBUtils import biopdb_aligned_chain
