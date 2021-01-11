@@ -17,7 +17,7 @@ except ImportError:
     generic_protein = None
 
 import CmdUtils as CUtils
-from PDB import PDB
+# from PDB import PDB
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths
@@ -731,9 +731,9 @@ class SequenceProfile:
 
         # Construct CB Tree for full interface atoms to map residue residue contacts
         # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
-        interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atom_list])
-        interface_tree = SDUtils.residue_interaction_graph(interface)
-        interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
+        # interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atom_list])
+        # interface_tree = SDUtils.residue_interaction_graph(interface)
+        # interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
 
         interface_residue_edges = {}
         for idx, residue_contacts in enumerate(interface_tree):
