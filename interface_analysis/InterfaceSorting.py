@@ -12,7 +12,8 @@ import pandas as pd
 from PDB import PDB
 import ParsePisa as pp
 from SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, to_iterable, \
-    retrieve_pdb_file_path, download_pisa, pisa_ref_d
+    download_pisa, pisa_ref_d
+from Pose import retrieve_pdb_file_path
 
 import QueryProteinData.QueryPDB as qPDB
 
