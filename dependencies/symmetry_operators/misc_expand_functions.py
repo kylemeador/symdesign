@@ -1,4 +1,8 @@
+import os
+
 import cPickle as pickle
+
+from PathUtils import sym_op_location
 
 
 def get_sg_sym_op(sym_type, sg_op_filepath):
@@ -56,4 +60,4 @@ def generate_sym_op_pickles(sg_op_filepath):
         sym_op_outfile.close()
 
 
-generate_sym_op_pickles("/Users/jlaniado/Desktop/dev/SymDock/SymInfoFiles/symmetry_operators/spacegroups_op.txt")
+generate_sym_op_pickles(os.path.join(sym_op_location, "spacegroups_op.txt"))

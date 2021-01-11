@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 import sklearn.neighbors
 
+from PathUtils import sym_op_location
 from classes.Atom import Atom
 from classes.PDB import PDB
 from utils.GeneralUtils import center_of_mass_3d
@@ -43,8 +44,7 @@ def generate_cryst1_record(dimensions, spacegroup):
     return cryst1_fmt.format(box=dimensions[:3], ang=dimensions[3:], spacegroup=fmt_spacegroup, zvalue=zvalue)
 
 
-def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.dirname(
-    os.path.dirname(os.path.realpath(__file__))) + "/symmetry_operators/POINT_GROUP_SYMM_OPERATORS"):
+def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, "POINT_GROUP_SYMM_OPERATORS")):
     expand_matrix_filepath = expand_matrix_dir + "/" + sym_type + ".txt"
     expand_matrix_file = open(expand_matrix_filepath, "r")
     expand_matrix_lines = expand_matrix_file.readlines()
@@ -141,8 +141,7 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
         return True  # "CLASH!!"
 
 
-def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.dirname(
-    os.path.dirname(os.path.realpath(__file__))) + "/symmetry_operators/SPACE_GROUP_SYMM_OPERATORS"):
+def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(sym_op_location, "SPACE_GROUP_SYMM_OPERATORS")):
     sg_op_filepath = space_group_operator_dir + "/" + sym_type + ".pickle"
     with open(sg_op_filepath, "rb") as sg_op_file:
         sg_sym_op = pickle.load(sg_op_file)

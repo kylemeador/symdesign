@@ -6,6 +6,7 @@ import random
 import re
 
 import numpy as np
+
 from classes.PDB import PDB
 from utils.ExpandAssemblyUtils import generate_cryst1_record
 from utils.SamplingUtils import get_optimal_external_tx_vector

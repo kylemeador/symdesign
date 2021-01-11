@@ -655,12 +655,12 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 #     This doesn't take up much extra memory, but makes future maintanence bad, for porting frags to fragDB say...
 def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
          init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict, ijk_monofrag_cluster_rep_pdb_dict,
-         ijk_intfrag_cluster_info_dict, free_sasa_exe_path, master_outdir, pdb1_path, pdb2_path, set_mat1, set_mat2,
-         ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1, is_zshift2, result_design_sym, uc_spec_string, design_dim,
-         expand_matrices, eul_lookup, init_max_z_val, subseq_max_z_val, degeneracy_matrices_1=None,
-         degeneracy_matrices_2=None, rot_step_deg_pdb1=1, rot_range_deg_pdb1=0, rot_step_deg_pdb2=1,
-         rot_range_deg_pdb2=0, output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, min_matched=3,
-         resume=False, keep_time=True):
+         ijk_intfrag_cluster_info_dict, master_outdir, pdb1_path, pdb2_path, set_mat1, set_mat2, ref_frame_tx_dof1,
+         ref_frame_tx_dof2, is_zshift1, is_zshift2, result_design_sym, uc_spec_string, design_dim, expand_matrices,
+         eul_lookup, init_max_z_val, subseq_max_z_val, degeneracy_matrices_1=None, degeneracy_matrices_2=None,
+         rot_step_deg_pdb1=1, rot_range_deg_pdb1=0, rot_step_deg_pdb2=1, rot_range_deg_pdb2=0,
+         output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, min_matched=3, resume=False,
+         keep_time=True):
 
     # Output Directory
     pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
@@ -692,7 +692,7 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
             get_init_ghost_frags_time_start = time.time()
 
     kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(np.array(pdb1.extract_backbone_coords()))
-    surf_frags_1 = get_surface_fragments(pdb1, free_sasa_exe_path)
+    surf_frags_1 = get_surface_fragments(pdb1)
     ghost_frag_list = []
     ghost_frag_guide_coords_list = []
     for frag1 in surf_frags_1:
@@ -750,7 +750,7 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
         log_file.close()
         if keep_time:
             get_init_surf_frags_time_start = time.time()
-    surf_frags_2 = get_surface_fragments(pdb2, free_sasa_exe_path)
+    surf_frags_2 = get_surface_fragments(pdb2)
     surf_frag_list = []
     surf_frags_oligomer_2_guide_coords_list = []
     for frag2 in surf_frags_2:

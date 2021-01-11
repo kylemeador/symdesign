@@ -1,6 +1,8 @@
 import os
 import subprocess
 
+from PathUtils import stride_exe_path
+
 
 class Stride:
     """
@@ -13,7 +15,7 @@ class Stride:
     C	    Coil (none of the above)
     """
 
-    def __init__(self, pdbfilepath, chain="A", stride_exe_path='./stride/stride'):
+    def __init__(self, pdbfilepath, chain="A", stride_exe_path=stride_exe_path):
         self.pdbfilepath = pdbfilepath
         self.ss_asg = []
         self.chain = chain

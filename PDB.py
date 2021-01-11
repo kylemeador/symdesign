@@ -15,6 +15,7 @@ import PathUtils as PUtils
 from Atom import Atom
 from Chain import Chain
 from Entity import Entity
+from PathUtils import free_sasa_exe_path
 from QueryProteinData.QueryPDB import get_pdb_info_by_entry
 from Stride import Stride
 from Structure import Structure
@@ -121,8 +122,8 @@ class PDB(Structure):
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
-    def get_ss_asg(self, chain_id="A", stride_exe_path='./stride/stride'):
-        pdb_stride = Stride(self.filepath, chain_id, stride_exe_path)
+    def get_ss_asg(self, chain_id='A'):  # , stride_exe_path='./stride/stride'):
+        pdb_stride = Stride(self.filepath, chain_id)
         pdb_stride.run()
         self.pdb_ss_asg = pdb_stride.ss_asg
 
@@ -806,8 +807,8 @@ class PDB(Structure):
                 outfile.write(str(cryst1) + "\n")
             outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
 
-    def calculate_ss(self, chain_id="A", stride_exe_path='./stride/stride'):
-        pdb_stride = Stride(self.filepath, chain_id, stride_exe_path)
+    def calculate_ss(self, chain_id='A'):
+        pdb_stride = Stride(self.filepath, chain_id)
         pdb_stride.run()
         self.pdb_ss_asg = pdb_stride.ss_asg
 
@@ -1039,9 +1040,9 @@ class PDB(Structure):
             print('Select N or C Term')
             return []
 
-    def get_helix_cb_indices(self, stride_exe_path):
+    def get_helix_cb_indices(self):
         # only works for monomers or homo-complexes
-        stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
+        stride = Stride(self.filepath, self.chain_id_list[0])
         stride.run()
         stride_ss_asg = stride.ss_asg
         h_cb_indices = []
@@ -1098,7 +1099,7 @@ class PDB(Structure):
                     h_cb_indices.append(i)
         return h_cb_indices
 
-    def get_surface_atoms(self, free_sasa_exe_path, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
+    def get_surface_atoms(self, free_sasa_exe_path=free_sasa_exe_path, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
         # proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' %(free_sasa_exe_path, str(probe_radius), self.filepath), stdout=subprocess.PIPE, shell=True)
         # (out, err) = proc.communicate()
