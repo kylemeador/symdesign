@@ -31,7 +31,7 @@ class FetchPDBBA:
     def fetch(self):
         print("FETCHING PDB FILES")
         for pdb in self.pdblist:
-                os.system("wget https://files.rcsb.org/download/%s.pdb1 >> fetch_pdb.out 2>&1" %pdb.rstrip())
+                os.system("wget https://files.rcsb.org/download/%s.pdb1 >> fetch_pdb.out 2>&1" % pdb.rstrip())
         print("DONE FETCHING PDB FILES")
 
 

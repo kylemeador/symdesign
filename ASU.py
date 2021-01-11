@@ -8,6 +8,7 @@ from itertools import repeat
 import pandas as pd
 
 import PathUtils as PUtils
+import Pose
 import SequenceProfile
 import SymDesignUtils as SDUtils
 # sys.path.append(PUtils.nanohedra_source)
@@ -120,8 +121,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             else:
                 logger.warning('%s: %s is not verified in QSBio! Arbitrarily choosing assembly 1' % (design, pdb))
                 biological_assembly = 1
-            new_file = SDUtils.download_pdb('%s_%s' % (pdb, biological_assembly),
-                                            location=os.path.join(output_dir, 'biological_assemblies'))
+            new_file = Pose.download_pdb('%s_%s' % (pdb, biological_assembly),
+                                         location=os.path.join(output_dir, 'biological_assemblies'))
             downloaded_pdb = PDB(file=new_file)
             # downloaded_pdb = SDUtils.read_pdb(new_file)
             oriented_pdb = downloaded_pdb.orient(sym, PUtils.orient_dir)  # , generate_oriented_pdb=False)
