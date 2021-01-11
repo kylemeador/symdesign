@@ -1,8 +1,8 @@
 import os
 import sys
 
-from nanohedra.utils import PostProcessUtils
-from nanohedra.utils import SymQueryUtils
+from utils import PostProcessUtils
+from utils import SymQueryUtils
 
 
 def query_mode(arg_list):

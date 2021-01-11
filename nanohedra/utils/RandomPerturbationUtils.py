@@ -6,11 +6,10 @@ import random
 import re
 
 import numpy as np
-
-from nanohedra.classes.PDB import PDB
-from nanohedra.utils.ExpandAssemblyUtils import generate_cryst1_record
-from nanohedra.utils.SamplingUtils import get_optimal_external_tx_vector
-from nanohedra.utils.SymmUtils import get_uc_dimensions
+from classes.PDB import PDB
+from utils.ExpandAssemblyUtils import generate_cryst1_record
+from utils.SamplingUtils import get_optimal_external_tx_vector
+from utils.SymmUtils import get_uc_dimensions
 
 
 def get_rot_matrix_z(angle_deg):

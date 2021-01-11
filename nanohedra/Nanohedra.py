@@ -1,15 +1,15 @@
 from itertools import product, combinations
 
 # from classes.FragDock import dock  # v1
-from nanohedra.classes.EulerLookup import EulerLookup
-from nanohedra.classes.FragDock import dock
-from nanohedra.classes.Fragment import *
-from nanohedra.classes.SymEntry import *
-from nanohedra.utils.CmdLineArgParseUtils import *
+from classes.EulerLookup import EulerLookup
+from classes.FragDock import dock
+from classes.Fragment import *
+from classes.SymEntry import *
+from utils.CmdLineArgParseUtils import *
 # from utils.NanohedraManualUtils import *  # v1
-from nanohedra.utils.ExpandAssemblyUtils import *
-from nanohedra.utils.NanohedraManualUtils import *
-from nanohedra.utils.SamplingUtils import get_degeneracy_matrices
+from utils.ExpandAssemblyUtils import *
+from utils.NanohedraManualUtils import *
+from utils.SamplingUtils import get_degeneracy_matrices
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"

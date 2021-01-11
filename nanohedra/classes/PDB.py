@@ -4,9 +4,8 @@ import os
 import subprocess
 
 import numpy
-
-from nanohedra.classes.Atom import Atom
-from nanohedra.classes.Stride import Stride
+from classes.Atom import Atom
+from classes.Stride import Stride
 
 
 class PDB:
