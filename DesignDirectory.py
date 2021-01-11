@@ -184,18 +184,22 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
         """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
         typical directory structuring"""
         # self.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation?
-        self.symmetry = self.path  # This is assuming that the output directory of Nanohedra is passed as the path
+        self.symmetry = self.path  # Assuming that the output directory (^ or v) of Nanohedra is passed as the path
         # self.symmetry = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(symmetry or '')))  # for design_recap
         self.log = os.path.join(self.symmetry, PUtils.master_log)
         # self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.symmetry]
-        for k, _sym in enumerate(self.symmetry):
-            self.building_blocks.append(list())
-            self.building_block_logs.append(list())
-            # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-            for bb_dir in next(os.walk(_sym))[1]:  # grabs the directories from os.walk, yielding just top level results
-                if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
-                    self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-                    self.building_blocks[k].append(bb_dir)
+        # for k, _sym in enumerate(self.symmetry):
+        # for k, _sym in enumerate(next(os.walk(self.symmetry))):
+        # self.building_blocks.append(list())
+        # self.building_block_logs.append(list())
+        # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
+        # for bb_dir in next(os.walk(_sym))[1]:  # grabs the directories from os.walk, yielding just top level results
+        for bb_dir in next(os.walk(self.symmetry))[1]:  # grab directories from os.walk, yielding just top level results
+            if os.path.exists(os.path.join(self.symmetry, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
+                self.building_blocks.append(bb_dir)
+                # self.building_blocks[k].append(bb_dir)
+                self.building_block_logs.append(os.path.join(self.symmetry, bb_dir, '%s_log.txt' % bb_dir))
+                # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
 
     def get_oligomers(self):
         if self.mode == 'design':

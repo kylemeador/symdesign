@@ -1172,14 +1172,10 @@ def get_base_nanohedra_dirs(base_dir):
 
 def get_docked_directories(base_directory, directory_type='NanohedraEntry'):  # '*DockedPoses'
     """Useful for when your docked directory is basically known but the """
-    all_directories = []
-    for root, dirs, files in os.walk(base_directory):
-        # if directory_type in dirs:
-        for _dir in dirs:
-            if directory_type in _dir:
-                all_directories.append(os.path.join(root, _dir))
-
-    return sorted(set(all_directories))
+    return [os.path.join(root, _dir) for root, dirs, files in os.walk(base_directory) for _dir in dirs
+            if directory_type in _dir]
+    # all_directories.append(os.path.join(root, _dir))
+    # return sorted(set(all_directories))
     #
     # return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
 
