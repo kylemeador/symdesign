@@ -29,7 +29,8 @@ def main():
 
         # Master Log File
         # master_log_filepath = os.path.join(master_outdir, "master_log.txt")
-        master_log_filepath = os.path.join(master_outdir, "nanohedra_master_logfile.txt")  # v1
+        # master_log_filepath = os.path.join(master_outdir, "nanohedra_master_logfile.txt")  # v1
+        master_log_filepath = os.path.join(master_outdir, PUtils.master_log)  # v1
 
         # Making Master Output Directory
         if not os.path.exists(master_outdir):

@@ -6,7 +6,7 @@ import os
 
 # Project strings and file names
 program_name = 'SymDesign'
-nano = 'nanohedra'
+nano = 'Nanohedra'  # 'nanohedra' v0
 orient_exe = 'orient_oligomer.f'
 hhblits = 'hhblits'
 rosetta = str(os.environ.get('ROSETTA'))

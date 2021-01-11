@@ -124,7 +124,8 @@ def merge_design_pair(pair):
     merge_designs()
 
 
-def designs(des_dir, file_type):
+def designs(des_dir, file_type):  # Todo DesignDirectory
+    """Return the paths of all design files in a DesignDirectory"""
     return os.path.join(des_dir.design_pdbs, file_type)
 
 
@@ -589,8 +590,8 @@ if __name__ == '__main__':
                 zipped_args = zip(design_directories, repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
             else:  # using combinations of directories with .pdb files
-                zipped_args = zip(repeat(args.entry), pdb_pairs, repeat(args.outdir),
-                                  repeat(args.design_string), repeat(extra_flags))
+                zipped_args = zip(repeat(args.entry), pdb_pairs, repeat(args.outdir), repeat(extra_flags),
+                                  repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
             results = list(results)
         else:
@@ -601,9 +602,13 @@ if __name__ == '__main__':
                     results.append(result)
                     exceptions.append(error)
             else:
+                count = 0
                 for path1, path2 in pdb_pairs:
-                    result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, args.design_string,
-                                                        extra_flags)
+                    if count % 23 == 2:
+                        print(args.entry, path1, path2, args.outdir, extra_flags, args.design_string)
+                    count += 1
+                    result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
+                                                        args.design_string)
                     results.append(result)
                     exceptions.append(error)
 
@@ -615,11 +620,15 @@ if __name__ == '__main__':
             design_f.write('\n'.join(docking_pair for docking_pair in command_directories if docking_pair))
 
         all_commands = [result for result in results if result]
-        command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
-        logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
-        # Todo ?SetupCommandsUserInput?
-        logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
-                    'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano))
+        if len(all_commands) > 0:
+            command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
+            logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
+            # Todo ?SetupCommandsUserInput?
+            logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
+                        'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano))
+        else:
+            logger.error('No \'%s\' commands were written!' % PUtils.nano)
+
     # ---------------------------------------------------
     elif args.sub_module == 'pose':  # -c command_only, -i fragment_library, -p mpi, -x suspend
         if args.mpi:
