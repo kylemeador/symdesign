@@ -26,8 +26,8 @@ sb_flag = '#SBATCH --'
 # sbatch = '_sbatch.sh'
 temp = 'temp.hold'
 pose_prefix = 'tx_'
-master_log = 'master_log.txt'
-# master_log = 'nanohedra_master_logfile.txt' v1
+# master_log = 'master_log.txt'  # v0
+master_log = 'nanohedra_master_logfile.txt'  # v1
 asu = 'asu.pdb'
 # asu = 'central_asu.pdb'
 clean = 'clean_asu.pdb'
@@ -60,11 +60,13 @@ filter_designs = os.path.join(source, 'AnalyzeOutput.py')
 cmd_dist = os.path.join(source, 'CommandDistributer.py')
 dependency_dir = os.path.join(source, 'dependencies')
 sym_op_location = os.path.join(dependency_dir, 'symmetry_operators')
-nanohedra_source = os.path.join(dependency_dir, nano)
-nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
+# nanohedra_source = os.path.join(dependency_dir, nano)
+nanohedra_main = os.path.join(source, '%s.py' % nano)
+# nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
 # Nanohedra inheritance
 # Free SASA Executable Path
-free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
+free_sasa_exe_path = os.path.join(source, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
+# free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
 # Stop Inheritance ####
 orient_dir = os.path.join(dependency_dir, 'orient')
 orient = os.path.join(orient_dir, orient_exe)

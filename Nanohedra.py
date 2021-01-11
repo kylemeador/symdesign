@@ -1,12 +1,12 @@
 from itertools import product, combinations
 
-# from classes.FragDock import dock  # v1
+import PathUtils as PUtils
+from SymDesignUtils import get_all_pdb_file_paths
 from classes.EulerLookup import EulerLookup
 from classes.FragDock import dock
 from classes.Fragment import *
 from classes.SymEntry import *
 from utils.CmdLineArgParseUtils import *
-# from utils.NanohedraManualUtils import *  # v1
 from utils.ExpandAssemblyUtils import *
 from utils.NanohedraManualUtils import *
 from utils.SamplingUtils import get_degeneracy_matrices
@@ -28,53 +28,51 @@ def main():
             get_docking_parameters_mp(cmd_line_in_params)
 
         # Master Log File
-        master_log_filepath = os.path.join(master_outdir, "master_log.txt")
-        # master_log_filepath = os.path.join(master_outdir, "nanohedra_master_logfile.txt")  # v1
+        # master_log_filepath = os.path.join(master_outdir, "master_log.txt")
+        master_log_filepath = os.path.join(master_outdir, "nanohedra_master_logfile.txt")  # v1
 
         # Making Master Output Directory
         if not os.path.exists(master_outdir):
             os.makedirs(master_outdir)
 
         # Getting PDB1 and PDB2 File paths
-        if '.pdb' in pdb1_path and '.pdb' in pdb2_path:  # Not in pdb_dir, for Nanohedra_wrap generated commands...
-            pdb_filepaths = [(pdb1_path, pdb2_path), ]
+        if '.pdb' in pdb1_path:  # files are not in pdb_dir, for Nanohedra_wrap generated commands...
+            pdb1_filepaths = [pdb1_path]
+            # pdb_filepaths = [(pdb1_path, pdb2_path), ]
         else:
-            # pdb1_filepaths = get_all_pdb_file_paths(pdb1_path)
-            pdb1_filepaths = []
-            for root1, dirs1, files1 in os.walk(pdb1_path):
-                for file1 in files1:
-                    if '.pdb' in file1:
-                        pdb1_filepaths.append(pdb1_path + "/" + file1)
-            if pdb1_path == pdb2_path:
-                # pdb_filepaths = combinations(get_all_pdb_file_paths(pdb1_path), 2)  # pre v1
-                pdb_filepaths = combinations(pdb1_filepaths, 2)
+            pdb1_filepaths = get_all_pdb_file_paths(pdb1_path)
+
+        if pdb1_path == pdb2_path:
+            # pdb_filepaths = combinations(get_all_pdb_file_paths(pdb1_path), 2)  # pre v1
+            pdb_filepaths = combinations(pdb1_filepaths, 2)
+        else:
+            if '.pdb' in pdb2_path:
+                pdb2_filepaths = [pdb2_path]
             else:
-                # pdb_filepaths = product(get_all_pdb_file_paths(pdb1_path), get_all_pdb_file_paths(pdb2_path))  # pre v1
-                # pdb2_filepaths = get_all_pdb_file_paths(pdb2_path)
-                pdb2_filepaths = []
-                for root1, dirs1, files1 in os.walk(pdb2_path):
-                    for file1 in files1:
-                        if '.pdb' in file1:
-                            pdb1_filepaths.append(pdb2_path + "/" + file1)
-                pdb_filepaths = product(pdb1_filepaths, pdb2_filepaths)
+                pdb2_filepaths = get_all_pdb_file_paths(pdb2_path)
+            pdb_filepaths = product(pdb1_filepaths, pdb2_filepaths)
 
         try:
             # Nanohedra.py Path
-            main_script_dir = os.path.dirname(os.path.realpath(__file__))
+            # main_script_dir = os.path.dirname(os.path.realpath(__file__))
 
             # Free SASA Executable Path
-            free_sasa_exe_path = os.path.join(main_script_dir, "sasa", "freesasa-2.0", "src", "freesasa")
+            free_sasa_exe_path = PUtils.free_sasa_exe_path
+            # free_sasa_exe_path = os.path.join(main_script_dir, "sasa", "freesasa-2.0", "src", "freesasa")
 
             # Orient Oligomer Fortran Executable Path
-            orient_executable_path = os.path.join(main_script_dir, 'orient/orient_oligomer')
+            orient_executable_path = PUtils.orient
+            # orient_executable_path = os.path.join(main_script_dir, 'orient/orient_oligomer')
             orient_assert_error_message = "Could not locate orient_oligomer executable here: %s\n" \
                                           "Check README file for instructions on how to compile " \
                                           "orient_oligomer.f" % orient_executable_path
             assert os.path.exists(orient_executable_path), orient_assert_error_message
-            orient_executable_dir = os.path.dirname(orient_executable_path)
+            orient_executable_dir = PUtils.orient_dir
+            # orient_executable_dir = os.path.dirname(orient_executable_path)
 
             # Fragment Database Directory Paths
-            frag_db = os.path.join(main_script_dir, "fragment_database")
+            frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamic at startup or use all fragDB
+            # frag_db = os.path.join(main_script_dir, "fragment_database")
             monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
             ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
             intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
@@ -179,159 +177,159 @@ def main():
                     "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg2) if is_internal_rot2 else str(None)))
 
                 def orient_pdb_file(filepath, oriented_outdir):
-                    # pdb_oriented_filepaths = []
-                    # for pdb_path in pdb_filepaths:
                     pdb = PDB()
                     pdb.readfile(filepath, remove_alt_location=True)
-                    pdb_filename = os.path.basename(pdb_path)
+                    # pdb1 = PDB(file=pdb1_path)  # v2
+                    pdb_filename = os.path.basename(filepath)
                     with open(master_log_filepath, 'a+') as f:
                         try:
-                            pdb.orient(oligomer_symmetry_1, oriented_outdir, orient_executable_dir)
-                            pdb_oriented_filepaths.append(oriented_pdb1_outdir + "/" + pdb_filename)
-                            # master_log_file = open(master_log_filepath, 'a+')
+                            pdb.orient(oligomer_symmetry_1, oriented_outdir, orient_executable_dir)  # returns 0
                             f.write("oriented: %s\n" % pdb_filename)
-                            # master_log_file.close()
                         except ValueError as val_err:
-                            # master_log_file = open(master_log_filepath, 'a+')
                             f.write(str(val_err))
-                            # master_log_file.close()
                         except RuntimeError as rt_err:
-                            # master_log_file = open(master_log_filepath, 'a+')
                             f.write(str(rt_err))
-                            # master_log_file.close()
-                    return pdb_oriented_filepaths
+                    return os.path.join(oriented_pdb1_outdir, pdb_filename)  # missing _orient.pdb?
 
                 # Orient Input Oligomers to Canonical Orientation
                 if oligomer_symmetry_1 == oligomer_symmetry_2:
+                    oligomer_input = 'Oligomer Input'
                     master_log_file.write("ORIENTING INPUT OLIGOMER PDB FILES\n")
                     master_log_file.close()
-                    oriented_pdb1_outdir = master_outdir + "/" + oligomer_symmetry_1 + "_oriented"
-                    if not os.path.exists(oriented_pdb1_outdir):
-                        os.makedirs(oriented_pdb1_outdir)
-                    pdb1_oriented_filepaths = []
-                    # pdb2_oriented_filepaths = []
-                    for pdb1_path in pdb1_filepaths:
-                        pdb1 = PDB()
-                        pdb1.readfile(pdb1_path, remove_alt_location=True)
-                        pdb1_filename = os.path.basename(pdb1_path)
-                        try:
-                            pdb1.orient(oligomer_symmetry_1, oriented_pdb1_outdir, orient_executable_dir)
-                            pdb1_oriented_filepaths.append(oriented_pdb1_outdir + "/" + pdb1_filename)
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write("oriented: %s\n" % pdb1_filename)
-                            master_log_file.close()
-                        except ValueError as val_err:
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write(str(val_err))
-                            master_log_file.close()
-                        except RuntimeError as rt_err:
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write(str(rt_err))
-                            master_log_file.close()
-                    if len(pdb1_oriented_filepaths) == 0:
-                        master_log_file = open(master_log_filepath, "a+")
-                        master_log_file.write("\nCOULD NOT ORIENT OLIGOMER INPUT PDB FILES\n")
-                        master_log_file.write(
-                            "CHECK %s/orient_oligomer_log.txt FOR MORE INFORMATION\n" % oriented_pdb1_outdir)
-                        master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
-                        master_log_file.close()
-                        sys.exit()
-                    elif len(pdb1_oriented_filepaths) == 1:
-                        master_log_file = open(master_log_filepath, "a+")
-                        master_log_file.write("\nAT LEAST 2 OLIGOMERS ARE REQUIRED WHEN THE ")
-                        master_log_file.write("2 OLIGOMERIC COMPONENTS OF A SCM OBEY THE SAME POINT GROUP SYMMETRY ")
-                        master_log_file.write("(IN THIS CASE: %s)\n" % oligomer_symmetry_1)
-                        master_log_file.write("HOWEVER ONLY 1 INPUT OLIGOMER PDB FILE COULD BE ORIENTED\n")
-                        master_log_file.write(
-                            "CHECK %s/orient_oligomer_log.txt FOR MORE INFORMATION\n" % oriented_pdb1_outdir)
-                        master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
-                        master_log_file.close()
-                        sys.exit()
-                    else:
-                        master_log_file = open(master_log_filepath, "a+")
-                        master_log_file.write(
-                            "Successfully Oriented %s out of the %s Oligomer Input PDB Files\n==> %s\n\n"
-                            % (str(len(pdb1_oriented_filepaths)), str(len(pdb1_filepaths)), oriented_pdb1_outdir))
-                        master_log_file.close()
                 else:
+                    oligomer_input = 'Oligomer 1 Input'
                     master_log_file.write("ORIENTING OLIGOMER 1 INPUT PDB FILE(S)\n")
                     master_log_file.close()
-                    oriented_pdb1_outdir = master_outdir + "/" + oligomer_symmetry_1 + "_oriented"
-                    if not os.path.exists(oriented_pdb1_outdir):
-                        os.makedirs(oriented_pdb1_outdir)
-                    pdb1_oriented_filepaths = []
-                    for pdb1_path in pdb1_filepaths:
-                        pdb1 = PDB()
-                        pdb1.readfile(pdb1_path, remove_alt_location=True)
-                        pdb1_filename = os.path.basename(pdb1_path)
-                        try:
-                            pdb1.orient(oligomer_symmetry_1, oriented_pdb1_outdir, orient_executable_dir)
-                            pdb1_oriented_filepaths.append(oriented_pdb1_outdir + "/" + pdb1_filename)
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write("oriented: %s\n" % pdb1_filename)
-                            master_log_file.close()
-                        except ValueError as val_err:
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write(str(val_err))
-                            master_log_file.close()
-                        except RuntimeError as rt_err:
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write(str(rt_err))
-                            master_log_file.close()
-                    if len(pdb1_oriented_filepaths) == 0:
-                        master_log_file = open(master_log_filepath, "a+")
-                        master_log_file.write("\nCOULD NOT ORIENT OLIGOMER 1 INPUT PDB FILE(S)\n")
-                        master_log_file.write(
-                            "CHECK %s/orient_oligomer_log.txt FOR MORE INFORMATION\n" % oriented_pdb1_outdir)
-                        master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
-                        master_log_file.close()
-                        sys.exit()
-                    else:
-                        master_log_file = open(master_log_filepath, "a+")
-                        master_log_file.write(
-                            "Successfully Oriented %s out of the %s Oligomer 1 Input PDB File(s)\n==> %s\n"
-                            % (str(len(pdb1_oriented_filepaths)), str(len(pdb1_filepaths)), oriented_pdb1_outdir))
-                        master_log_file.close()
 
-                    master_log_file = open(master_log_filepath, 'a+')
-                    master_log_file.write("\nORIENTING OLIGOMER 2 INPUT PDB FILE(S)\n")
+                oriented_pdb1_outdir = os.path.join(master_outdir, "%s_oriented" % oligomer_symmetry_1)
+                if not os.path.exists(oriented_pdb1_outdir):
+                    os.makedirs(oriented_pdb1_outdir)
+                pdb1_oriented_filepaths = [orient_pdb_file(pdb1_path, oriented_pdb1_outdir)
+                                           for pdb1_path in pdb1_filepaths]
+                #     pdb1_oriented_filepaths = []
+                #     for pdb1_path in pdb1_filepaths:
+                #         pdb1 = PDB()
+                #         pdb1.readfile(pdb1_path, remove_alt_location=True)
+                #         pdb1_filename = os.path.basename(pdb1_path)
+                #         # pdb1 = PDB(file=pdb1_path)  # v2
+                #         try:
+                #             pdb1.orient(oligomer_symmetry_1, oriented_pdb1_outdir, orient_executable_dir)
+                #             pdb1_oriented_filepaths.append(os.path.join(oriented_pdb1_outdir, pdb1_filename))
+                #             master_log_file = open(master_log_filepath, 'a+')
+                #             master_log_file.write("oriented: %s\n" % pdb1_filename)
+                #             master_log_file.close()
+                #         except ValueError as val_err:
+                #             master_log_file = open(master_log_filepath, 'a+')
+                #             master_log_file.write(str(val_err))
+                #             master_log_file.close()
+                #         except RuntimeError as rt_err:
+                #             master_log_file = open(master_log_filepath, 'a+')
+                #             master_log_file.write(str(rt_err))
+                #             master_log_file.close()
+
+                if len(pdb1_oriented_filepaths) == 0:
+                    master_log_file = open(master_log_filepath, "a+")
+                    master_log_file.write("\nCOULD NOT ORIENT %s PDB FILES\nCHECK %s/orient_oligomer_log.txt FOR "
+                                          "MORE INFORMATION\n" % (oligomer_input.upper(), oriented_pdb1_outdir))
+                    master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
                     master_log_file.close()
-                    oriented_pdb2_outdir = master_outdir + "/" + oligomer_symmetry_2 + "_oriented"
-                    if not os.path.exists(oriented_pdb2_outdir):
-                        os.makedirs(oriented_pdb2_outdir)
-                    pdb2_oriented_filepaths = []
-                    for pdb2_path in pdb2_filepaths:
-                        pdb2 = PDB()
-                        pdb2.readfile(pdb2_path, remove_alt_location=True)
-                        pdb2_filename = os.path.basename(pdb2_path)
-                        try:
-                            pdb2.orient(oligomer_symmetry_2, oriented_pdb2_outdir, orient_executable_dir)
-                            pdb2_oriented_filepaths.append(oriented_pdb2_outdir + "/" + pdb2_filename)
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write("oriented: %s\n" % pdb2_filename)
-                            master_log_file.close()
-                        except ValueError as val_err:
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write(str(val_err))
-                            master_log_file.close()
-                        except RuntimeError as rt_err:
-                            master_log_file = open(master_log_filepath, 'a+')
-                            master_log_file.write(str(rt_err))
-                            master_log_file.close()
-                    if len(pdb2_oriented_filepaths) == 0:
-                        master_log_file = open(master_log_filepath, "a+")
-                        master_log_file.write("\nCOULD NOT ORIENT OLIGOMER 2 INPUT PDB FILE(S)\n")
-                        master_log_file.write(
-                            "CHECK %s/orient_oligomer_log.txt FOR MORE INFORMATION\n" % oriented_pdb2_outdir)
-                        master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
-                        master_log_file.close()
-                        sys.exit()
-                    else:
-                        master_log_file = open(master_log_filepath, "a+")
-                        master_log_file.write(
-                            "Successfully Oriented %s out of the %s Oligomer 2 Input PDB File(s)\n==> %s\n\n"
-                            % (str(len(pdb2_oriented_filepaths)), str(len(pdb2_filepaths)), oriented_pdb2_outdir))
-                        master_log_file.close()
+                    sys.exit()
+                elif len(pdb1_oriented_filepaths) == 1 and oligomer_symmetry_1 == oligomer_symmetry_2:
+                    master_log_file = open(master_log_filepath, "a+")
+                    master_log_file.write("\nAT LEAST 2 OLIGOMERS ARE REQUIRED WHEN THE 2 OLIGOMERIC COMPONENTS OF "
+                                          "A SCM OBEY THE SAME POINT GROUP SYMMETRY (IN THIS CASE: %s)\nHOWEVER "
+                                          "ONLY 1 INPUT OLIGOMER PDB FILE COULD BE ORIENTED\nCHECK "
+                                          "%s/orient_oligomer_log.txt FOR MORE INFORMATION\n"
+                                          % (oligomer_symmetry_1, oriented_pdb1_outdir))
+                    master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
+                    master_log_file.close()
+                    sys.exit()
+                else:
+                    master_log_file = open(master_log_filepath, "a+")
+                    master_log_file.write("Successfully Oriented %s out of the %s Oligomer Input PDB Files\n==> %s\n\n"
+                                          % (str(len(pdb1_oriented_filepaths)), str(len(pdb1_filepaths)),
+                                             oriented_pdb1_outdir))
+                    master_log_file.close()
+
+                    # master_log_file.write("ORIENTING OLIGOMER 1 INPUT PDB FILE(S)\n")
+                    # master_log_file.close()
+                    # oriented_pdb1_outdir = master_outdir + "/" + oligomer_symmetry_1 + "_oriented"
+                    # if not os.path.exists(oriented_pdb1_outdir):
+                    #     os.makedirs(oriented_pdb1_outdir)
+                    # pdb1_oriented_filepaths = []
+                    # for pdb1_path in pdb1_filepaths:
+                    #     pdb1 = PDB()
+                    #     pdb1.readfile(pdb1_path, remove_alt_location=True)
+                    #     pdb1_filename = os.path.basename(pdb1_path)
+                    #     try:
+                    #         pdb1.orient(oligomer_symmetry_1, oriented_pdb1_outdir, orient_executable_dir)
+                    #         pdb1_oriented_filepaths.append(oriented_pdb1_outdir + "/" + pdb1_filename)
+                    #         master_log_file = open(master_log_filepath, 'a+')
+                    #         master_log_file.write("oriented: %s\n" % pdb1_filename)
+                    #         master_log_file.close()
+                    #     except ValueError as val_err:
+                    #         master_log_file = open(master_log_filepath, 'a+')
+                    #         master_log_file.write(str(val_err))
+                    #         master_log_file.close()
+                    #     except RuntimeError as rt_err:
+                    #         master_log_file = open(master_log_filepath, 'a+')
+                    #         master_log_file.write(str(rt_err))
+                    #         master_log_file.close()
+                    # if len(pdb1_oriented_filepaths) == 0:
+                    #     master_log_file = open(master_log_filepath, "a+")
+                    #     master_log_file.write("\nCOULD NOT ORIENT OLIGOMER 1 INPUT PDB FILE(S)\n")
+                    #     master_log_file.write(
+                    #         "CHECK %s/orient_oligomer_log.txt FOR MORE INFORMATION\n" % oriented_pdb1_outdir)
+                    #     master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
+                    #     master_log_file.close()
+                    #     sys.exit()
+                    # else:
+                    #     master_log_file = open(master_log_filepath, "a+")
+                    #     master_log_file.write(
+                    #         "Successfully Oriented %s out of the %s Oligomer 1 Input PDB File(s)\n==> %s\n"
+                    #         % (str(len(pdb1_oriented_filepaths)), str(len(pdb1_filepaths)), oriented_pdb1_outdir))
+                    #     master_log_file.close()
+
+                master_log_file = open(master_log_filepath, 'a+')
+                master_log_file.write("\nORIENTING OLIGOMER 2 INPUT PDB FILE(S)\n")
+                master_log_file.close()
+                oriented_pdb2_outdir = os.path.join(master_outdir, "%s_oriented" % oligomer_symmetry_2)
+                if not os.path.exists(oriented_pdb2_outdir):
+                    os.makedirs(oriented_pdb2_outdir)
+                pdb2_oriented_filepaths = [orient_pdb_file(pdb2_path, oriented_pdb2_outdir)
+                                           for pdb2_path in pdb2_filepaths]
+                #     pdb2_oriented_filepaths = []
+                #     for pdb2_path in pdb2_filepaths:
+                #         pdb2 = PDB()
+                #         pdb2.readfile(pdb2_path, remove_alt_location=True)
+                #         pdb2_filename = os.path.basename(pdb2_path)
+                #         try:
+                #             pdb2.orient(oligomer_symmetry_2, oriented_pdb2_outdir, orient_executable_dir)
+                #             pdb2_oriented_filepaths.append(oriented_pdb2_outdir + "/" + pdb2_filename)
+                #             master_log_file = open(master_log_filepath, 'a+')
+                #             master_log_file.write("oriented: %s\n" % pdb2_filename)
+                #             master_log_file.close()
+                #         except ValueError as val_err:
+                #             master_log_file = open(master_log_filepath, 'a+')
+                #             master_log_file.write(str(val_err))
+                #             master_log_file.close()
+                #         except RuntimeError as rt_err:
+                #             master_log_file = open(master_log_filepath, 'a+')
+                #             master_log_file.write(str(rt_err))
+                #             master_log_file.close()
+                if len(pdb2_oriented_filepaths) == 0:
+                    master_log_file = open(master_log_filepath, "a+")
+                    master_log_file.write("\nCOULD NOT ORIENT OLIGOMER 2 INPUT PDB FILE(S)\nCHECK "
+                                          "%s/orient_oligomer_log.txt FOR MORE INFORMATION\n" % oriented_pdb2_outdir)
+                    master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
+                    master_log_file.close()
+                    sys.exit()
+                else:
+                    master_log_file = open(master_log_filepath, "a+")
+                    master_log_file.write("Successfully Oriented %s out of the %s Oligomer 2 Input PDB File(s)\n==> "
+                                          "%s\n\n" % (str(len(pdb2_oriented_filepaths)), str(len(pdb2_filepaths)),
+                                                      oriented_pdb2_outdir))
+                    master_log_file.close()
 
                 # Get Degeneracy Matrices
                 master_log_file.write("Searching For Possible Degeneracies" + "\n")

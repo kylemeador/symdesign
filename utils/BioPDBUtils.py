@@ -4,6 +4,7 @@ import Bio.PDB.Superimposer
 import numpy as np
 from Bio.PDB.Atom import Atom as BioPDBAtom
 from Bio.PDB.Atom import PDBConstructionWarning
+
 from classes.Atom import Atom
 from classes.PDB import PDB
 
