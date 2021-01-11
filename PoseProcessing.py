@@ -38,7 +38,8 @@ import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output
 from PDB import PDB
 from Pose import Model
-from SequenceProfile import gather_profile_info, write_fasta_file, extract_aa_seq
+from SequenceProfile import write_fasta_file, SequenceProfile
+from SymDesignUtils import logger
 from nanohedra.utils.ExpandAssemblyUtils import expand_asu
 
 
@@ -441,8 +442,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 'residue in chain A + 1, etc')
     template_pdb.reorder_chains()
 
-    # # Insert loops identified by comparison of SEQRES and ATOM
-    # pdb_atom_seq = get_pdb_sequences(template_pdb, source='atom')
+    # # TODO Insert loops identified by comparison of SEQRES and ATOM
+    # pdb_atom_seq = get_pdb_sequences(template_pdb)
     # pose_offset_d = Ams.pdb_to_pose_num(pdb_atom_seq)
     # if template_pdb.atom_sequences:
     #     missing_termini_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain],
@@ -952,3 +953,115 @@ if __name__ == '__main__':
                         (args.directory, 'python ' + __file__ + ' distribute -s refine',
                          'python ' + __file__ + ' distribute -s design',
                          'python ' + __file__ + ' distribute -s metrics'))
+
+
+def gather_profile_info(pdb, des_dir, names):
+    """For a given PDB, find the chain wise profile (pssm) then combine into one continuous pssm
+
+    Args:
+        pdb (PDB): PDB to generate a profile from. Sequence is taken from the ATOM record
+        des_dir (DesignDirectory): Location of which to write output files in the design tree
+        names (dict): The pdb names and corresponding chain of each protomer in the pdb object
+        log_stream (logging): Which log to pass logging directives to
+    Returns:
+        pssm_file (str): Location of the combined pssm file written to disk
+        full_pssm (dict): A combined pssm with all chains concatenated in the same order as pdb sequence
+    """
+    pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
+    logger.debug('Fetching PSSM Files')
+
+    # Extract/Format Sequence Information
+    for n, name in enumerate(names):
+        # if pssm_files[name] == dict():
+        logger.debug('%s is chain %s in ASU' % (name, names[name](n)))
+        pdb_seq[name], errors[name] = extract_aa_seq(pdb, chain=names[name](n))
+        logger.debug('%s Sequence=%s' % (name, pdb_seq[name]))
+        if errors[name]:
+            logger.warning('Sequence generation ran into the following residue errors: %s' % ', '.join(errors[name]))
+        pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name + '_' + os.path.basename(des_dir.path),
+                                              outpath=des_dir.sequences)
+        if not pdb_seq_file[name]:
+            logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
+            raise DesignDirectory.DesignError('Unable to parse sequence in %s' % des_dir.path)
+
+    # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
+    for name in names:
+        logger.info('Generating PSSM file for %s' % name)
+        pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name], outpath=des_dir.sequences)
+        logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
+
+    # Wait for PSSM command to complete
+    for name in names:
+        pssm_process[name].communicate()
+
+    # Extract PSSM for each protein and combine into single PSSM
+    pssm_dict = {}
+    for name in names:
+        pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
+    full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
+    pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
+
+    return pssm_file, full_pssm
+
+
+def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
+    """Extracts amino acid sequence from either ATOM or SEQRES record of PDB object
+    Returns:
+        (str): Sequence of PDB
+    """
+    if type(chain) == int:
+        chain = pdb.chain_id_list[chain]
+    final_sequence = None
+    sequence_list = []
+    failures = []
+    aa_code = int(aa_code)
+
+    if source == 'atom':
+        # Extracts sequence from ATOM records
+        if aa_code == 1:
+            for atom in pdb.all_atoms:
+                if atom.chain == chain and atom.type == 'N' and (atom.alt_location == '' or atom.alt_location == 'A'):
+                    try:
+                        sequence_list.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
+                    except KeyError:
+                        sequence_list.append('X')
+                        failures.append((atom.residue_number, atom.residue_type))
+            final_sequence = ''.join(sequence_list)
+        elif aa_code == 3:
+            for atom in pdb.all_atoms:
+                if atom.chain == chain and atom.type == 'N' and atom.alt_location == '' or atom.alt_location == 'A':
+                    sequence_list.append(atom.residue_type)
+            final_sequence = sequence_list
+        else:
+            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
+
+    elif source == 'seqres':
+        # Extract sequence from the SEQRES record
+        fail = False
+        while True:  # TODO WTF is this used for
+            if chain in pdb.seqres_sequences:
+                sequence = pdb.seqres_sequences[chain]
+                break
+            else:
+                if not fail:
+                    temp_pdb = PDB.PDB(file=pdb.filepath)
+                    fail = True
+                else:
+                    raise DesignDirectory.DesignError('Invalid PDB input, no SEQRES record found')
+        if aa_code == 1:
+            final_sequence = sequence
+            for i in range(len(sequence)):
+                if sequence[i] == 'X':
+                    failures.append((i, sequence[i]))
+        elif aa_code == 3:
+            for i, residue in enumerate(sequence):
+                sequence_list.append(IUPACData.protein_letters_1to3[residue])
+                if residue == 'X':
+                    failures.append((i, residue))
+            final_sequence = sequence_list
+        else:
+            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
+    else:
+        raise DesignDirectory.DesignError('Invalid sequence input')
+
+    return final_sequence, failures

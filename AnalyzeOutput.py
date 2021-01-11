@@ -14,6 +14,7 @@ from scipy.spatial.distance import pdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
+import AnalyzeMutatedSequences
 import DesignDirectory
 import PathUtils as PUtils
 # import PDB
@@ -897,17 +898,17 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Gather mutations for residue specific processing and design sequences
     wild_type_file = SequenceProfile.get_wildtype_file(des_dir)
-    wt_sequence = SequenceProfile.get_pdb_sequences(wild_type_file)
+    wt_sequence = AnalyzeMutatedSequences.get_pdb_sequences(wild_type_file)
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     # logger.debug('Design Files: %s' % ', '.join(all_design_files))
-    sequence_mutations = SequenceProfile.generate_mutations(all_design_files, wild_type_file)
+    sequence_mutations = AnalyzeMutatedSequences.generate_all_design_mutations(all_design_files, wild_type_file)
     # logger.debug('Design Files: %s' % ', '.join(sequence_mutations))
-    offset_dict = SequenceProfile.pdb_to_pose_num(sequence_mutations['ref'])
+    offset_dict = AnalyzeMutatedSequences.pdb_to_pose_num(sequence_mutations['ref'])
     logger.debug('Chain offset: %s' % str(offset_dict))
 
     # Remove wt sequence and find all designs which have corresponding pdb files
     sequence_mutations.pop('ref')
-    all_design_sequences = SequenceProfile.generate_sequences(wt_sequence, sequence_mutations)  # TODO just pull from design pdbs...
+    all_design_sequences = AnalyzeMutatedSequences.generate_sequences(wt_sequence, sequence_mutations)  # TODO just pull from design pdbs...
     logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
                                                         for name in all_design_sequences[chain]))
     all_design_scores = remove_pdb_prefixes(all_design_scores)
@@ -986,7 +987,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
     # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-    all_mutations = SequenceProfile.generate_mutations(all_design_files, wild_type_file, pose_num=True)
+    all_mutations = AnalyzeMutatedSequences.generate_all_design_mutations(all_design_files, wild_type_file, pose_num=True)
     all_mutations_no_chains = SequenceProfile.make_mutations_chain_agnostic(all_mutations)
     all_mutations_simplified = SequenceProfile.simplify_mutation_dict(all_mutations_no_chains)
     cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)

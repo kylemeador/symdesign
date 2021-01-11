@@ -1,12 +1,15 @@
-import Bio.PDB.Superimposer
-from Bio.PDB.Atom import Atom as BioPDBAtom
-import numpy as np
 import warnings
+
+import Bio.PDB.Superimposer
+import numpy as np
+from Bio.PDB.Atom import Atom as BioPDBAtom
 from Bio.PDB.Atom import PDBConstructionWarning
-# from classes.PDB import PDB
-from PDB import PDB
+
 # from classes.Atom import Atom
 from Atom import Atom
+# from classes.PDB import PDB
+from PDB import PDB
+
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
 
@@ -21,7 +24,7 @@ def biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
                            " %s " % atom.type, atom.number, element=atom.element_symbol))
 
     pdb_moving_coords = []
-    for atom in pdb_moving.get_all_atoms():
+    for atom in pdb_moving.get_atoms():
         pdb_moving_coords.append([atom.get_x(), atom.get_y(), atom.get_z()])
         if atom.is_CA():
             if atom.chain == chain_id_moving:
@@ -41,7 +44,7 @@ def biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
     pdb_moving_copy.set_chain_id_list(pdb_moving.get_chain_id_list())
     pdb_moving_copy_atom_list = []
     atom_count = 0
-    for atom in pdb_moving.get_all_atoms():
+    for atom in pdb_moving.get_atoms():
         x_transformed = pdb_moving_coords_rot_tx[atom_count][0]
         y_transformed = pdb_moving_coords_rot_tx[atom_count][1]
         z_transformed = pdb_moving_coords_rot_tx[atom_count][2]

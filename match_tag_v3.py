@@ -2,8 +2,8 @@
 import csv
 import os
 
+import AnalyzeMutatedSequences
 import PathUtils as PUtils
-import SequenceProfile
 import SymDesignUtils as SDUtils
 
 
@@ -69,7 +69,7 @@ def find_expression_tags(des_dir):
 
     # {'A': 'MSGHHHHHHGKLKPNDLRI...'}, ...}
     pdbs = os.path.basename(des_dir.building_blocks).split('_')
-    desirgn_seq_d = SequenceProfile.get_pdb_sequences(des_dir.source, chain=None)
+    desirgn_seq_d = AnalyzeMutatedSequences.get_pdb_sequences(des_dir.source, chain=None)
     # {pdb: [1XYZ.A, 2ABC.B], ...}
     reference_seq_d, all_matching_pdb_chain = {}, {}
     for pdb_code, chain in zip(pdbs, desirgn_seq_d):
@@ -83,8 +83,8 @@ def find_expression_tags(des_dir):
         for matching_pdb_chain in all_matching_pdb_chain[pdb]:
             matching_pdb, chain = matching_pdb_chain.split('.')
             partner_sequences[pdb].append(
-                SequenceProfile.get_pdb_sequences(SDUtils.retrieve_pdb_file_path(matching_pdb), chain=chain,
-                                                  source='seqres'))
+                AnalyzeMutatedSequences.get_pdb_sequences(SDUtils.retrieve_pdb_file_path(matching_pdb), chain=chain,
+                                                          source='seqres'))
 
     # {pdb: {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...}
     pdb_tags = {}

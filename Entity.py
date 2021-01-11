@@ -18,6 +18,8 @@ class Entity(Chain, SequenceProfile):
 
     def get_chain_name(self):
         return self.representative.get_name()
+
+
     # FROM CHAIN super().__init__()
     #
     # def set_id(self, _id):

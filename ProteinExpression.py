@@ -4,6 +4,7 @@ import csv
 from Bio.SeqUtils import IUPACData
 from numpy import array
 
+import AnalyzeMutatedSequences
 import PathUtils as PUtils
 import SequenceProfile
 import SymDesignUtils as SDUtils
@@ -13,13 +14,12 @@ import SymDesignUtils as SDUtils
 # uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 
 
-def find_all_matching_pdb_expression_tags(pdb_code, chain):
-    """Take a pose and find expression tags from each PDB reference
+def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate find and user input functionality
+    """Take a pose and find expression tags from each PDB reference asking user for input on tag choice
 
     Args:
         pdb_code (str): The pdb to query tags from
         chain (str): The chain to query tags from
-        des_dir (DesignDirectory): Object containing the pose information
     Returns:
         (dict): {pdb: {'name': 'His Tag', 'seq': 'MSGHHHHHHGKLKPNDLRI'}, ...}
     """
@@ -35,8 +35,8 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):
 
     partner_sequences = []
     for matching_pdb in pdb_chain_d:
-        partner_d = SequenceProfile.get_pdb_sequences(SDUtils.retrieve_pdb_file_path(matching_pdb), chain=pdb_chain_d[matching_pdb],
-                                                      source='seqres')
+        partner_d = AnalyzeMutatedSequences.get_pdb_sequences(SDUtils.retrieve_pdb_file_path(matching_pdb), chain=pdb_chain_d[matching_pdb],
+                                                              source='seqres')
         partner_sequences.append(partner_d[pdb_chain_d[matching_pdb]])
         # TODO chain can be not found... Should this be available based on Uniprot-PDB Map creation? Need to extend this
 
@@ -196,16 +196,16 @@ def pull_uniprot_id_by_pdb(pdb_code, chain=None):
 
 
 def find_expression_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
-    """Find all strings (tags) on an input string (sequence) from a reference set of strings
+    """Find all tags on an input sequence from a reference set of tags
 
     Args:
         seq (str): 'MSGHHHHHHGKLKPNDLRI...'
     Keyword Args:
-        tags=affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
+        tag_file=PathUtils.affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
         alignment_length=12 (int): length to perform the clipping of the native sequence in addition to found tag
     Returns:
-        tag_dict (dict): {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...} if tags are
-            found, {} if none are found
+        (dict): {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...} if tags are found,
+         {} if none are found
     """
     with open(tag_file, 'r') as f:
         reader = csv.reader(f)

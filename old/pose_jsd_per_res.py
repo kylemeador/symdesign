@@ -4,6 +4,7 @@ from itertools import repeat
 
 import pandas as pd
 
+import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
 import AnalyzeOutput as AOut
 import PathUtils as PUtils
@@ -22,7 +23,7 @@ def pose_jsd(des_dir, debug=False):
     other_pose_metrics = {}
     all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     pose_res_dict = Ams.analyze_mutations(des_dir,
-                                          SequenceProfile.mutate_wildtype_sequences(all_design_files, SequenceProfile.get_wildtype_file(des_dir)))
+                                          AnalyzeMutatedSequences.mutate_wildtype_sequences(all_design_files, SequenceProfile.get_wildtype_file(des_dir)))
     for key in per_res_keys:
         other_pose_metrics[key + '_per_res'] = AOut.per_res_metric(pose_res_dict, key=key)
 
