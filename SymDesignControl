@@ -553,9 +553,9 @@ if __name__ == '__main__':
             # design_directories = [SDUtils.set_up_dock_dir(dock_dir, suffix=args.design_string) for dock_dir in
             #                       all_dock_directories]
         # else:
-        if len(all_dock_directories) == 0:
-            exit('No docking directories/files were found\nPlease specify --directory1, and/or --directory2 or '
-                 '--directory or --file. See %s' % PUtils.help(args.sub_module))
+            if len(design_directories) == 0:
+                exit('No docking directories/files were found\nPlease specify --directory1, and/or --directory2 or '
+                     '--directory or --file. See %s' % PUtils.help(args.sub_module))
 
         logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
                                                                                        location))
