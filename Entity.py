@@ -1,5 +1,5 @@
-from Chain import Chain
 from SequenceProfile import SequenceProfile
+from Structure import Chain
 
 
 class Entity(Chain, SequenceProfile):
