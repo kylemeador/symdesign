@@ -41,7 +41,7 @@ class PDB:
     def get_filepath(self):
         return self.filepath
 
-    def get_ss_asg(self, chain_id="A"):  # , stride_exe_path=stride_exe_path):
+    def get_secondary_structure(self, chain_id="A"):  # , stride_exe_path=stride_exe_path):
         pdb_stride = Stride(self.filepath, chain_id)
         pdb_stride.run()
         self.pdb_ss_asg = pdb_stride.ss_asg
@@ -404,10 +404,10 @@ class PDB:
             outfile.write(str(atom))
         outfile.close()
 
-    def calculate_ss(self, chain_id="A"):  # , stride_exe_path=stride_exe_path):
-        pdb_stride = Stride(self.filepath, chain_id)
-        pdb_stride.run()
-        self.pdb_ss_asg = pdb_stride.ss_asg
+    # def calculate_ss(self, chain_id="A"):  # , stride_exe_path=stride_exe_path):
+    #     pdb_stride = Stride(self.filepath, chain_id)
+    #     pdb_stride.run()
+    #     self.pdb_ss_asg = pdb_stride.ss_asg
 
     def orient(self, symm, orient_dir, generate_oriented_pdb=False):
         os.system('cp %s input.pdb' % self.filepath)

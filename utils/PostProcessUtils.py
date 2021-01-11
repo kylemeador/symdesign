@@ -187,7 +187,7 @@ def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_desi
     pdb_oligomer_1 = PDB()
     pdb_oligomer_1.readfile(original_oligomer_1_pdb_path)
     ch_id_oligomer_1 = pdb_oligomer_1.get_chain_id_list()[0]
-    ss_asg_oligomer_1 = pdb_oligomer_1.get_ss_asg(chain_id=ch_id_oligomer_1)
+    ss_asg_oligomer_1 = pdb_oligomer_1.get_secondary_structure(chain_id=ch_id_oligomer_1)
     ss_num_1 = 0
     prev_ss_type_1 = None
     for res_num_1, ss_type_1 in ss_asg_oligomer_1:
@@ -203,7 +203,7 @@ def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_desi
     pdb_oligomer_2 = PDB()
     pdb_oligomer_2.readfile(original_oligomer_2_pdb_path)
     ch_id_oligomer_2 = pdb_oligomer_2.get_chain_id_list()[0]
-    ss_asg_oligomer_2 = pdb_oligomer_2.get_ss_asg(chain_id=ch_id_oligomer_2)
+    ss_asg_oligomer_2 = pdb_oligomer_2.get_secondary_structure(chain_id=ch_id_oligomer_2)
     ss_num_2 = 0
     prev_ss_type_2 = None
     for res_num_2, ss_type_2 in ss_asg_oligomer_2:

@@ -37,7 +37,7 @@ class SequenceProfile:
     def __init__(self, structure=None):
         self.sequence = None
         self.structure = structure  # should be initialized with a Entity/Chain obj, could be used with PDB obj
-        self.structure_sequence = None
+        self.structure_sequence = self.structure.get_structure_sequence()
         self.pdb_seq_file = None
         self.pssm_file = None
         self.pssm = {}
@@ -154,10 +154,9 @@ class SequenceProfile:
 
         if not self.pdb_seq_file:
             # Extract/Format Sequence Information Todo not structure sequence
-            # self.structure_sequence = self.structure.get_structure_sequence()
             if not self.sequence:
                 self.sequence = self.structure.get_structure_sequence()
-            logger.debug('%s Sequence=%s' % (structure_name, self.structure_sequence))
+            logger.debug('%s Sequence=%s' % (structure_name, self.sequence))
 
             # make self.pdb_seq_file
             self.write_fasta_file(name='%s' % structure_name, out_path=out_path)
@@ -340,7 +339,8 @@ class SequenceProfile:
             name = self.get_name()
         self.pdb_seq_file = os.path.join(out_path, '%s.fasta' % name)
         with open(self.pdb_seq_file, 'w') as outfile:
-            outfile.write('>%s\n%s\n' % (name, self.structure_sequence))
+            outfile.write('>%s\n%s\n' % (name, self.sequence))
+            # outfile.write('>%s\n%s\n' % (name, self.structure_sequence))
 
         return self.pdb_seq_file
 

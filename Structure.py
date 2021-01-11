@@ -1,3 +1,5 @@
+import subprocess
+
 from Bio.SeqUtils import IUPACData
 
 from Residue import Residue
@@ -13,6 +15,7 @@ class Structure:
         self.residues = residues
         # self.id = None
         self.name = name
+        self.secondary_structure = None
         # self.sequence = None
 
     def get_name(self):
@@ -144,6 +147,79 @@ class Structure:
         # else:
         #     sequence = ' '.join(sequence_list)
         return sequence
+
+    def stride(self, chain=None):
+        # REM  -------------------- Secondary structure summary -------------------  XXXX
+        # REM                .         .         .         .         .               XXXX
+        # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
+        # STR       HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH  HHHHHHHHHHHHHHHHH               XXXX
+        # REM                                                                        XXXX
+        # SEQ  51   LIEESQN                                              57          XXXX
+        # STR       HHHHHH                                                           XXXX
+        # REM                                                                        XXXX
+        # LOC  AlphaHelix   ILE     3 A      ALA     33 A                            XXXX
+        # LOC  AlphaHelix   TRP    41 A      GLN     63 A                            XXXX
+        # REM                                                                        XXXX
+        # REM  --------------- Detailed secondary structure assignment-------------  XXXX
+        # REM                                                                        XXXX
+        # REM  |---Residue---|    |--Structure--|   |-Phi-|   |-Psi-|  |-Area-|      XXXX
+        # ASG  ILE A    3    1    H    AlphaHelix    360.00    -29.07     180.4      XXXX
+        # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
+        # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
+
+        # try:
+            # with open(os.devnull, 'w') as devnull:
+        stride_cmd = [self.stride_exe_path, '%s' % self.filepath]
+        #   -rId1Id2..  Read only chains Id1, Id2 ...
+        #   -cId1Id2..  Process only Chains Id1, Id2 ...
+        if chain:
+            stride_cmd.append('-c%s' % chain_id)
+
+        p = subprocess.Popen(stride_cmd, stderr=subprocess.DEVNULL)
+        out, err = p.communicate()
+        out_lines = out.decode('utf-8').split('\n')
+        # except:
+        #     stride_out = None
+
+        # if stride_out is not None:
+        #     lines = stride_out.split('\n')
+
+        for line in out_lines:
+            if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
+                self.chain(line[9:10]).residue(int(line[10:15].strip())).set_secondary_structure(line[24:25])
+        self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
+        # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
+        #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
+
+    def is_n_term_helical(self, window=5):
+        if len(self.secondary_structure) >= 2 * window:
+            for idx, residue_number in enumerate(sorted(self.secondary_structure.keys())):
+                temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(window))
+                # res_number = self.secondary_structure[0 + i:5 + i][0][0]
+                if 'H' * window in temp_window:
+                    return True  # , res_number
+                if idx == 6:
+                    break
+        return False  # , None
+
+    def is_c_term_helical(self, window=5):
+        if len(self.secondary_structure) >= 2 * window:
+            # for i in range(5):
+            for idx, residue_number in enumerate(sorted(self.secondary_structure.keys(), reverse=True)):
+                # reverse_ss_asg = self.secondary_structure[::-1]
+                temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(-window + 1, 1))
+                # res_number = reverse_ss_asg[0+i:5+i][4][0]
+                if 'H' * window in temp_window:
+                    return True  # , res_number
+                if idx == 6:
+                    break
+        return False  # , None
+
+    def get_secondary_structure(self, chain_id=None):  # different from Josh PDB
+        if not self.secondary_structure:
+            self.stride(chain=chain_id)
+
+        return self.secondary_structure
 
     def write(self, out_path=None, file_handle=None):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle"""
