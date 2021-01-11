@@ -526,24 +526,27 @@ if __name__ == '__main__':
         else:
             exit('No design directories/files were specified\nPlease specify --directory or --file.')
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
-    elif args.mode == 'dock':
+    elif args.mode == 'dock' or args.sub_module == 'dock':
         if args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                          dir_type=args.mode)
-            design_directories = [SDUtils.set_up_dock_dir(dock_dir, suffix=args.design_string) for dock_dir in
-                                  all_dock_directories]
+            design_directories = [DesignDirectory.set_up_directory_objects(dock_dir, mode=args.mode,
+                                                                           symmetry=args.design_string)
+                                  for dock_dir in all_dock_directories]
+            # design_directories = [SDUtils.set_up_dock_dir(dock_dir, suffix=args.design_string) for dock_dir in
+            #                       all_dock_directories]
         else:
             # Getting PDB1 and PDB2 File paths
             if not args.pdb_path1:
                 exit('No docking directories/files were specified\nPlease specify --directory or --file, or '
                      '--directory1, and/or --directory2. See %s' % PUtils.help(args.sub_module))
             if not args.entry:
-                exit('If using --pdb_path1 and/or --pdb_path2, please specify --entry as well. --entry can be found '
-                     'using SubModule \'query\'')
+                exit('If using --pdb_path1 (-d1) and/or --pdb_path2 (-d2), please specify --entry as well. '
+                     '--entry can be found using SubModule \'query\'')  # Todo
             if '.pdb' in args.pdb_path1 and '.pdb' in args.pdb_path2:
                 pdb_pairs = [(args.pdb1_path, args.pdb2_path), ]
             else:
-                if args.pdb_path1 == args.pdb_path2 or args.pdb_path2 is None:
+                if not args.pdb_path2 or args.pdb_path1 == args.pdb_path2:
                     pdb_pairs = combinations(SDUtils.get_all_pdb_file_paths(args.pdb_path1), 2)
                     location = args.pdb_path1
                 else:
@@ -551,7 +554,8 @@ if __name__ == '__main__':
                                         SDUtils.get_all_pdb_file_paths(args.pdb_path2))
                     location = args.pdb_path1, args.pdb_path2
                 design_directories = pdb_pairs  # for logging purposes below
-        logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories), location))
+        logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
+                                                                                       location))
     else:
         exit('Error: --mode flag must be passed since the module is %s!' % args.sub_module)
 
@@ -578,7 +582,7 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            if not pdb_pairs:  # directory or file set up docking directories
+            if not pdb_pairs:  # args.directory or args.file set up docking directories
                 zipped_args = zip(design_directories, repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
             else:  # using combinations of directories with .pdb files
@@ -600,16 +604,17 @@ if __name__ == '__main__':
                     results.append(result)
                     exceptions.append(error)
 
-        # if args.command_only: # TODO for future iteraiton where SymDesignControl can run Nanohedra.py jobs
+        # if args.command_only: # TODO for future iteration where SymDesignControl can run Nanohedra.py jobs
         # Make single file with names of each directory. Specific for docking due to no established directory
         args.file = os.path.join(args.directory, 'complete_docked_directories')
         with open(args.file, 'w') as design_f:
-            command_directories = map(os.path.dirname, results)
+            command_directories = map(os.path.dirname, results)  # get only the directory of the command
             design_f.write('\n'.join(docking_pair for docking_pair in command_directories if docking_pair))
 
         all_commands = [result for result in results if result]
         command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
         logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
+        # Todo ?SetupCommandsUserInput?
         logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
                     'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano))
     # ---------------------------------------------------

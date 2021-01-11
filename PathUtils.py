@@ -133,8 +133,8 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
                     stage[9]: os.path.join(sbatch_templates, stage[6])}
 
 # argparse help
-submodule_help = 'python %s %s -h' % (os.path.realpath(__file__), 'pose')
+submodule_help = 'python %s %s -h' % (os.path.realpath(command), 'pose')
 
 
-def help(module):
+def help(module):  # command is SymDesignControl
     return '\'%s %s -h\' for help' % (command, module)
