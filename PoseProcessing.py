@@ -40,7 +40,7 @@ from PDB import PDB
 from Pose import Model
 from SequenceProfile import write_fasta_file, SequenceProfile
 from SymDesignUtils import logger
-from utils import expand_asu
+from utils.ExpandAssemblyUtils import expand_asu
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):

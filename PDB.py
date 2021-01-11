@@ -43,7 +43,7 @@ class PDB(Structure):
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.header = []
         self.name = None
-        self.secondary_structure = None  # captured from Stride
+        # self.secondary_structure = None  # captured from Structure
         self.reference_aa = None
         self.res = None
         self.residues = []
@@ -99,7 +99,7 @@ class PDB(Structure):
         # self.chain_id_list = pdb.chain_id_list
         self.entity_d = pdb.entities
         self.name = pdb.name
-        self.secondary_structure = pdb.pdb_ss_asg
+        self.secondary_structure = pdb.secondary_structure
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
@@ -996,35 +996,18 @@ class PDB(Structure):
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
         #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
 
-    def is_n_term_helical(self, window=5):
-        if len(self.secondary_structure) >= 2 * window:
-            for idx, residue_number in enumerate(sorted(self.secondary_structure.keys())):
-                temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(window))
-                # res_number = self.secondary_structure[0 + i:5 + i][0][0]
-                if 'H' * window in temp_window:
-                    return True  # , res_number
-                if idx == 6:
-                    break
-        return False  # , None
+    def calculate_secondary_structure(self, chain=None):  # different from Josh PDB
+        self.stride(chain=chain)
 
-    def is_c_term_helical(self, window=5):
-        if len(self.secondary_structure) >= 2 * window:
-            # for i in range(5):
-            for idx, residue_number in enumerate(sorted(self.secondary_structure.keys(), reverse=True)):
-                # reverse_ss_asg = self.secondary_structure[::-1]
-                temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(-window + 1, 1))
-                # res_number = reverse_ss_asg[0+i:5+i][4][0]
-                if 'H' * window in temp_window:
-                    return True  # , res_number
-                if idx == 6:
-                    break
-        return False  # , None
-
-    def get_secondary_structure(self, chain_id=None):  # different from Josh PDB
-        if not self.secondary_structure:
-            self.stride(chain=chain_id)
-
-        return self.secondary_structure
+    def get_secondary_structure_chain(self, chain=None):
+        if self.secondary_structure:
+            return self.chain(chain).get_secondary_structure()
+        else:
+            self.fill_secondary_structure()
+            if list(filter(None, self.secondary_structure)):  # check if there is at least 1 secondary struc assignment
+                return self.chain(chain).get_secondary_structure()
+            else:
+                return None
 
     def get_surface_helix_cb_indices(self, probe_radius=1.4, sasa_thresh=1):
         # only works for monomers or homo-complexes

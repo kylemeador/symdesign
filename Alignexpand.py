@@ -1,8 +1,7 @@
-import os
 import sys
-from align_updated import align
-from ExpandASU import expand_asu
 
+from Align import align
+from utils.ExpandAssemblyUtils import expand_asu
 
 # sys.argv = list
 #python rogers_magic.py file darpin start2 end2 chain2

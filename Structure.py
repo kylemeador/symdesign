@@ -216,35 +216,59 @@ class Structure:
     #     # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
     #     #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
     #
-    # def is_n_term_helical(self, window=5):
-    #     if len(self.secondary_structure) >= 2 * window:
-    #         for idx, residue_number in enumerate(sorted(self.secondary_structure.keys())):
-    #             temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(window))
-    #             # res_number = self.secondary_structure[0 + i:5 + i][0][0]
-    #             if 'H' * window in temp_window:
-    #                 return True  # , res_number
-    #             if idx == 6:
-    #                 break
-    #     return False  # , None
-    #
-    # def is_c_term_helical(self, window=5):
-    #     if len(self.secondary_structure) >= 2 * window:
-    #         # for i in range(5):
-    #         for idx, residue_number in enumerate(sorted(self.secondary_structure.keys(), reverse=True)):
-    #             # reverse_ss_asg = self.secondary_structure[::-1]
-    #             temp_window = ''.join(self.secondary_structure[residue_number + j] for j in range(-window + 1, 1))
-    #             # res_number = reverse_ss_asg[0+i:5+i][4][0]
-    #             if 'H' * window in temp_window:
-    #                 return True  # , res_number
-    #             if idx == 6:
-    #                 break
-    #     return False  # , None
-    #
-    # def get_secondary_structure(self, chain_id=None):  # different from Josh PDB
-    #     if not self.secondary_structure:
-    #         self.stride(chain=chain_id)
-    #
-    #     return self.secondary_structure
+    def is_n_term_helical(self, window=5):
+        """Using assigned secondary structure, probe for a helical N-termini using a sequence seqment of five residues
+
+        Keyword Args:
+            window=5 (int): The segment size to search
+        Returns:
+            (bool): Whether the termini has a stretch of helical residues with length of the window
+        """
+        if self.secondary_structure and len(self.secondary_structure) >= 2 * window:
+            for idx, residue_secondary_structure in enumerate(self.secondary_structure):
+                temp_window = ''.join(self.secondary_structure[idx + j] for j in range(window))
+                # res_number = self.secondary_structure[0 + i:5 + i][0][0]
+                if 'H' * window in temp_window:
+                    return True  # , res_number
+                if idx == window:
+                    break
+        return False  # , None
+
+    def is_c_term_helical(self, window=5):
+        """Using assigned secondary structure, probe for a helical C-termini using a sequence seqment of five residues
+
+        Keyword Args:
+            window=5 (int): The segment size to search
+        Returns:
+            (bool): Whether the termini has a stretch of helical residues with length of the window
+        """
+        if self.secondary_structure and len(self.secondary_structure) >= 2 * window:
+            # for i in range(5):
+            for idx, residue_secondary_structure in enumerate(reversed(self.secondary_structure)):
+                # reverse_ss_asg = self.secondary_structure[::-1]
+                temp_window = ''.join(self.secondary_structure[idx + j] for j in range(-window + 1, 1))
+                # res_number = reverse_ss_asg[0+i:5+i][4][0]
+                if 'H' * window in temp_window:
+                    return True  # , res_number
+                if idx == window:
+                    break
+        return False  # ,
+
+    def get_secondary_structure(self):
+        if self.secondary_structure:
+            return self.secondary_structure
+        else:
+            self.fill_secondary_structure()
+            if list(filter(None, self.secondary_structure)):  # check if there is at least 1 secondary struc assignment
+                return self.secondary_structure
+            else:
+                return None
+
+    def fill_secondary_structure(self, secondary_structure=None):
+        if secondary_structure:
+            self.secondary_structure = secondary_structure
+        else:
+            self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
 
     def write(self, out_path=None, file_handle=None):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle"""
