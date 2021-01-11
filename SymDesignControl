@@ -543,7 +543,7 @@ if __name__ == '__main__':
                     pdb_pairs = product(SDUtils.get_all_pdb_file_paths(args.pdb_path1),
                                         SDUtils.get_all_pdb_file_paths(args.pdb_path2))
                     location = args.pdb_path1, args.pdb_path2
-                design_directories = pdb_pairs  # for logging purposes below
+                design_directories = list(pdb_pairs)  # for logging purposes below
         elif args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                          dir_type=args.mode)
