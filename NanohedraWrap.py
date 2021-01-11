@@ -97,10 +97,20 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 # TODO multiprocessing compliant (picklable) error decorator
 @SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
 def nanohedra_command_s(entry, path1, path2, out_dir, flags, suffix):
+    """Write out Nanohedra commands to shell scripts for processing by computational clusters
+
+    Return:
+        (str): The name of the file containing the Nanohedra command
+    """
     return nanohedra_command(entry, path1, path2, out_dir, flags, suffix)
 
 
 def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix):
+    """Write out Nanohedra commands to shell scripts for processing by computational clusters. Using Multiprocessing
+
+    Return:
+        (str): The name of the file containing the Nanohedra command
+    """
     try:
         file = nanohedra_command(entry, path1, path2, out_dir, flags, suffix)
         return file, None
@@ -112,7 +122,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, flags=None
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
     Return:
-        (str): The name of the file containging the Nanohedra command
+        (str): The name of the file containing the Nanohedra command
     """
 
     if not out_dir:
@@ -128,7 +138,6 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, flags=None
                                                              os.path.splitext(os.path.basename(path2))[0]))
         if not os.path.exists(nano_out_dir):
             os.makedirs(nano_out_dir)
-        # program = PUtils.nanohedra_s_main
 
     if default:
         step_1, step_2 = '3', '3'
