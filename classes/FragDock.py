@@ -659,8 +659,7 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
          ref_frame_tx_dof2, is_zshift1, is_zshift2, result_design_sym, uc_spec_string, design_dim, expand_matrices,
          eul_lookup, init_max_z_val, subseq_max_z_val, degeneracy_matrices_1=None, degeneracy_matrices_2=None,
          rot_step_deg_pdb1=1, rot_range_deg_pdb1=0, rot_step_deg_pdb2=1, rot_range_deg_pdb2=0,
-         output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, min_matched=3, resume=False,
-         keep_time=True):
+         output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
 
     # Output Directory
     pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
@@ -669,6 +668,10 @@ def dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monof
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     log_filepath = outdir + "/" + pdb1_name + "_" + pdb2_name + "_" + "log.txt"
+    if os.path.exists(log_filepath):
+        resume = True
+    else:
+        resume = False
 
     # Write to Logfile
     if not resume:

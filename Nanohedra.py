@@ -24,8 +24,8 @@ def main():
 
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, cores, \
-            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, resume, timer = \
-            get_docking_parameters_mp(cmd_line_in_params)
+            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, timer = \
+            get_docking_parameters(cmd_line_in_params)
 
         # Master Log File
         # master_log_filepath = os.path.join(master_outdir, "master_log.txt")
@@ -431,7 +431,7 @@ def main():
                      is_internal_zshift2, result_design_sym, uc_spec_string, design_dim, expand_matrices, eul_lookup,
                      init_max_z_val, subseq_max_z_val, degeneracy_matrices_1, degeneracy_matrices_2, rot_step_deg1,
                      rot_range_deg_pdb1, rot_step_deg2, rot_range_deg_pdb2, output_exp_assembly, output_uc,
-                     output_surrounding_uc, min_matched, resume=resume, keep_time=timer)
+                     output_surrounding_uc, min_matched, keep_time=timer)
 
                 master_log_file = open(master_log_filepath, "a+")
                 master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' %

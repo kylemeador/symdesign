@@ -154,6 +154,9 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
     if not os.path.exists(script_out_dir):
         os.makedirs(script_out_dir)
 
+    if not flags:
+        flags = []
+
     if default:
         step_1, step_2 = '3', '3'
     else:
