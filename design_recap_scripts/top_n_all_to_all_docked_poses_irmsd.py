@@ -7,11 +7,11 @@ import numpy as np
 import sklearn.neighbors
 from Bio.PDB.Atom import Atom as BioPDBAtom
 from Bio.PDB.Atom import PDBConstructionWarning
-from classes.PDB import *
 
 import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
+from classes.PDB import *
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
@@ -873,7 +873,8 @@ def main():
                                       (PUtils.nano.title(), location))
     all_design_directories = DesignDirectory.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
     # return only directories for which an id is matched
-    top_design_directories = SDUtils.get_pose_by_id(all_design_directories, top_ranked_ids)
+    top_design_directories = [des_dir for des_dir in all_design_directories if des_dir in top_ranked_ids]  # Todo test
+    # top_design_directories = SDUtils.get_pose_by_id(all_design_directories, top_ranked_ids)
 
     # obtain an irmsd value for all possible pairs of top scoring docked poses
     irmsds = all_to_all_docked_poses_irmsd_mp(top_design_directories, num_threads)  # returns ref_pose_id, query_pose_id, irmsd

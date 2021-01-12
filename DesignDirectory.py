@@ -213,6 +213,10 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
                 self.oligomers[name].set_name(name)
                 self.oligomers[name].reorder_chains()
 
+    def get_designs(self, design_type='design'):
+        """Return the paths of all design files in a DesignDirectory"""
+        return glob(os.path.join(self.design_pdbs, '*%s*' % design_type))
+
     # TODO generators for the various directory levels using the stored directory pieces
     def get_building_block_dir(self, building_block):
         for sym_idx, symm in enumerate(self.symmetry):
@@ -519,3 +523,6 @@ class DesignError(Exception):  # TODO make error messages one line instead of st
 
     def __init__(self, message):
         self.args = message
+
+    def __eq__(self, other):
+        return self.__str__() == other

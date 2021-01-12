@@ -21,7 +21,7 @@ per_res_keys = ['jsd', 'int_jsd']
 
 def pose_jsd(des_dir, debug=False):
     other_pose_metrics = {}
-    all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
+    all_design_files = des_dir.get_designs()
     pose_res_dict = Ams.analyze_mutations(des_dir,
                                           AnalyzeMutatedSequences.mutate_wildtype_sequences(all_design_files, SequenceProfile.get_wildtype_file(des_dir)))
     for key in per_res_keys:
