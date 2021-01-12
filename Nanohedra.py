@@ -189,12 +189,13 @@ def main():
                             try:
                                 pdb.orient(sym=oligomer_symmetry_1, out_dir=oriented_outdir)
                                 f.write("oriented: %s\n" % pdb_filename)
+                                return os.path.join(oriented_pdb1_outdir, pdb_filename)
                             except ValueError as val_err:
                                 f.write(str(val_err))
                             except RuntimeError as rt_err:
                                 f.write(str(rt_err))
-
-                    return os.path.join(oriented_pdb1_outdir, pdb_filename)  # missing _orient.pdb?
+                    else:
+                        return os.path.join(oriented_pdb1_outdir, pdb_filename)
 
                 # Orient Input Oligomers to Canonical Orientation
                 if oligomer_symmetry_1 == oligomer_symmetry_2:
