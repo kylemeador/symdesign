@@ -93,9 +93,9 @@ def main():
 
             # Default Fragment Guide Atom Overlap Z-Value Threshold For All Subsequent Matches
             subseq_max_z_val = 2.0
-            print('Open log')
+
             with open(master_log_filepath, "a+") as master_log_file:
-                print('writing log')
+
                 # Default Rotation Step
                 if is_internal_rot1 and rot_step_deg1 is None:
                     rot_step_deg1 = 3  # If rotation step not provided but required, set rotation step to default
@@ -196,7 +196,7 @@ def main():
                                 f.write(str(rt_err))
                     else:
                         return os.path.join(oriented_pdb1_outdir, pdb_filename)
-                print('orienting pdbs')
+
                 # Orient Input Oligomers to Canonical Orientation
                 if oligomer_symmetry_1 == oligomer_symmetry_2:
                     oligomer_input = 'Oligomer Input'
@@ -240,7 +240,8 @@ def main():
                     master_log_file.write("NANOHEDRA DOCKING RUN ENDED\n")
                     master_log_file.close()
                     sys.exit()
-                elif len(pdb1_oriented_filepaths) == 1 and oligomer_symmetry_1 == oligomer_symmetry_2:
+                elif len(pdb1_oriented_filepaths) == 1 and oligomer_symmetry_1 == oligomer_symmetry_2 \
+                        and '.pdb' not in pdb2_path:
                     # master_log_file = open(master_log_filepath, "a+")
                     master_log_file.write("\nAT LEAST 2 OLIGOMERS ARE REQUIRED WHEN THE 2 OLIGOMERIC COMPONENTS OF "
                                           "A SCM OBEY THE SAME POINT GROUP SYMMETRY (IN THIS CASE: %s)\nHOWEVER "
