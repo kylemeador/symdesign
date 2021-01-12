@@ -265,9 +265,9 @@ if ($ncs_mode == 1) {
 
 		## CA check
 		# if (scalar( @{ $chains{ $primary_chain } } ) != scalar( @{ $chains{ $sec_chain_ids[0] } } ) ) {
-			# print STDERR "ERROR! chains '$primary_chain' and '$sec_chain' have different residue counts! (".
-						 # scalar( @{ $chains{ $primary_chain } } )." vs ".scalar( @{ $chains{ $sec_chain_ids[0] } } ).")\n";
-			# die "Chain length mismatch!\n";
+		# 	print STDERR "ERROR! chains '$primary_chain' and '$sec_chain' have different residue counts! (".
+		# 				 scalar( @{ $chains{ $primary_chain } } )." vs ".scalar( @{ $chains{ $sec_chain_ids[0] } } ).")\n";
+		# 	die "Chain length mismatch!\n";
 		# }
 
 		# get superposition
