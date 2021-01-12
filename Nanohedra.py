@@ -187,7 +187,7 @@ def main():
                         # pdb1 = PDB(file=pdb1_path)  # v2
                         with open(master_log_filepath, 'a+') as f:
                             try:
-                                pdb.orient(oligomer_symmetry_1, oriented_outdir, orient_executable_dir)  # returns 0
+                                pdb.orient(sym=oligomer_symmetry_1, out_dir=oriented_outdir)
                                 f.write("oriented: %s\n" % pdb_filename)
                             except ValueError as val_err:
                                 f.write(str(val_err))
