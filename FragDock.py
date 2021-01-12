@@ -1596,8 +1596,8 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 
         # Get optimal shift parameters for the selected (Ghost Fragment, Surface Fragment) guide coodinate pairs
         with open(log_file_path, "a+") as log_file:
-            log_file.write(
-                "Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide coordinate pairs\n")
+            log_file.write("Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide "
+                           "coordinate pairs\n")
 
         ghostfrag_surffrag_pair_list = []
         tx_param_list = []
@@ -1955,7 +1955,7 @@ if __name__ == '__main__':
     if len(cmd_line_in_params) > 1:
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_exp_assembly, \
-        output_uc, output_surrounding_uc, min_matched, init_match_type, timer, initial = \
+            output_uc, output_surrounding_uc, min_matched, init_match_type, timer, initial = \
             get_docking_parameters(cmd_line_in_params)
 
         # Master Log File
