@@ -411,7 +411,8 @@ class PDB:
     #     self.pdb_ss_asg = pdb_stride.ss_asg
 
     def orient(self, sym=None, out_dir=None):
-        # orient_executable_dir = os.path.dirname(orient_exe_path)
+        """Orient a symmetric PDB at the origin with it's symmetry axis cannonically set on axis defined by symmetry
+        file"""
         valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10,
                                 "D6": 12, "I": 60, "O": 24, "T": 12}
         orient_log = os.path.join(out_dir, orient_log_file)
@@ -422,10 +423,8 @@ class PDB:
         with open(orient_log_file, 'a+') as log_f:
             number_of_subunits = len(self.chain_id_list)
             if number_of_subunits != valid_subunit_number[sym]:
-                # orient_log = open(orient_log, 'a+')
                 log_f.write("%s\n Oligomer could not be oriented: It has %d subunits while %d are expected for %s "
                             "symmetry\n\n" % (pdb_file_name, number_of_subunits, valid_subunit_number[sym], sym))
-                # orient_log.close()
                 raise ValueError(error_string)
 
             if not os.path.exists(out_dir):
@@ -441,35 +440,23 @@ class PDB:
                     os.remove(orient_output)
 
             clean_orient_input_output()
-            copyfile('%s' % self.filepath, orient_input)
+            copyfile(self.filepath, orient_input)
 
             p = subprocess.Popen([orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, cwd=orient_dir)
             in_symm_file = os.path.join(orient_dir, 'symm_files', sym)
             stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-            print(stdout)
             stderr = stderr.decode()  # 'utf-8' implied
-            stdout = stdout.decode()  # 'utf-8' implied
-            print(stdout)
-            print(stdout[28:])
-            stdout = pdb_file_name + stdout[28:]
+            stdout = pdb_file_name + stdout.decode()[28:]
+            # stdout = pdb_file_name + stdout[28:]
 
-            # orient_log = open('%s/%s' % (output_dir, 'orient_oligomer_log.txt'), 'a+')
             log_f.write(stdout)
-            # if stderr != '':
-            log_f.write('%s\n' % stderr)  # (stderr or ''))
-            # else:
-            #     orient_log.write('\n')
-            # orient_log.close()
+            log_f.write('%s\n' % stderr)
             oriented_file = os.path.join(out_dir, pdb_file_name)
             if os.path.exists(orient_output) and os.stat(orient_output).st_size != 0:
                 move(orient_output, oriented_file)
 
             clean_orient_input_output()
-            # if os.path.exists(orient_input):
-            #     os.remove(orient_input)
-            # if os.path.exists(orient_output):
-            #     os.remove(orient_output)
 
             if not os.path.exists(oriented_file):
                 raise RuntimeError(error_string)
