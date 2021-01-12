@@ -124,11 +124,6 @@ def merge_design_pair(pair):
     merge_designs()
 
 
-def designs(des_dir, file_type):  # Todo DesignDirectory
-    """Return the paths of all design files in a DesignDirectory"""
-    return os.path.join(des_dir.design_pdbs, file_type)
-
-
 def rsync_dir(des_dir):
     """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
     a single DEGEEN_1_2 directory making hard links for every file in a DEGEN_1_2 and higher directory to DEGEN_1_1"""
@@ -280,7 +275,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                 return False
 
         for des_dir in design_directories:
-            files = glob(designs(des_dir, PUtils.stage_f[_stage]['path']))
+            files = des_dir.get_designs(design_type=PUtils.stage_f[_stage]['path'])
             if number >= len(files):
                 complete.append(des_dir.path)
             else:

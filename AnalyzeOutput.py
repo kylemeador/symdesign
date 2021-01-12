@@ -899,7 +899,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Gather mutations for residue specific processing and design sequences
     wild_type_file = SequenceProfile.get_wildtype_file(des_dir)
     wt_sequence = AnalyzeMutatedSequences.get_pdb_sequences(wild_type_file)
-    all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
+    all_design_files = des_dir.get_designs()
+    # all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
     # logger.debug('Design Files: %s' % ', '.join(all_design_files))
     sequence_mutations = AnalyzeMutatedSequences.generate_all_design_mutations(all_design_files, wild_type_file)
     # logger.debug('Design Files: %s' % ', '.join(sequence_mutations))

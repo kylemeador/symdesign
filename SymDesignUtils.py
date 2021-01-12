@@ -18,7 +18,6 @@ from sklearn.neighbors import BallTree
 import CmdUtils as CUtils
 import PathUtils as PUtils
 
-# from PDB import PDB
 # logging.getLogger().setLevel(logging.INFO)
 
 # Globals
@@ -1143,20 +1142,21 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
 #     return dock_dir
 
 
-def get_pose_by_id(design_directories, ids):
-    return [des_dir for des_dir in design_directories if str(des_dir) in ids]
+# def get_pose_by_id(design_directories, ids):  # DEPRECIATED
+#     return [des_dir for des_dir in design_directories if str(des_dir) in ids]
 
 
 def get_all_base_root_paths(directory):
-    return [root for root, dirs, files in os.walk(directory) if not dirs]
+    return [os.path.abspath(root) for root, dirs, files in os.walk(directory) if not dirs]
 
 
 def get_all_pdb_file_paths(pdb_dir):
-    return [os.path.join(root, file) for root, dirs, files in os.walk(pdb_dir) for file in files if '.pdb' in file]
+    return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files
+            if '.pdb' in file]
 
 
-def get_directory_pdb_file_paths(pdb_dir):
-    return glob(os.path.join(pdb_dir, '*.pdb*'))
+# def get_directory_pdb_file_paths(pdb_dir):  # DEPRECIATED
+#     return glob(os.path.join(pdb_dir, '*.pdb*'))
 
 
 def get_base_nanohedra_dirs(base_dir):
