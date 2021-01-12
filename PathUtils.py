@@ -6,7 +6,7 @@ import os
 
 # Project strings and file names
 program_name = 'SymDesign'
-nano = 'Nanohedra'  # 'nanohedra' v0
+nano = 'nanohedra'  # v0 'Nanohedra'  # v1?
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
@@ -62,7 +62,7 @@ cmd_dist = os.path.join(source, 'CommandDistributer.py')
 dependency_dir = os.path.join(source, 'dependencies')
 sym_op_location = os.path.join(dependency_dir, 'symmetry_operators')
 # nanohedra_source = os.path.join(dependency_dir, nano)
-nanohedra_main = os.path.join(source, '%s.py' % nano)
+nanohedra_main = os.path.join(source, '%s.py' % nano.title())
 # nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
 # Nanohedra inheritance
 # Free SASA Executable Path
