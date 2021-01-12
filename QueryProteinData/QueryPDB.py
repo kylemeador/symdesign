@@ -645,6 +645,9 @@ def get_pdb_info_by_entry(entry):
     for i in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
         entity_id = '%s_%d' % (entry, i)
         entity_json = query_entity_id(entity_id)
+        # Todo ensure that the call doesn't fail. Example
+        #  chains = entity_json["rcsb_polymer_entity_container_identifiers"]['asym_ids']  # = ['A', 'B', 'C']
+        #   TypeError: 'NoneType' object is not subscriptable
 
         # For all method types the following keys are available:
         # {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
