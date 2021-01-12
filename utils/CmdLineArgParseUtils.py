@@ -45,142 +45,11 @@ def query_mode(arg_list):
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID QUERY" + '\033[0m')
 
     else:
-        sys.exit(
-            '\033[91m' + '\033[1m' + "ERROR: INVALID QUERY, CHOOSE ONE OF THE FOLLOWING QUERY FLAGS: -all_entries, -combination, -result, -counterpart, -dimension" + '\033[0m')
+        sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID QUERY, CHOOSE ONE OF THE FOLLOWING QUERY FLAGS: -all_entries,"
+                                          " -combination, -result, -counterpart, -dimension" + '\033[0m')
 
 
 def get_docking_parameters(arg_list):
-    if "-outdir" in arg_list:
-        outdir_index = arg_list.index('-outdir') + 1
-        if outdir_index < len(arg_list):
-            outdir = arg_list[outdir_index]
-        else:
-            log_filepath = os.getcwd() + "/Nanohedra_log.txt"
-            logfile = open(log_filepath, "a+")
-            logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
-            logfile.close()
-            sys.exit()
-    else:
-        log_filepath = os.getcwd() + "/Nanohedra_log.txt"
-        logfile = open(log_filepath, "a+")
-        logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
-        logfile.close()
-        sys.exit()
-
-    log_filepath = outdir + "/log.txt"
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    logfile = open(log_filepath, "w")
-
-    valid_flags = ["-dock", "-entry", "-pdb1_path", "-pdb2_path", "-rot_step1", "-rot_step2", "-output_uc",
-                   "-output_surrounding_uc", "-outdir"]
-
-    # CHECK INPUT FLAGS
-    for sys_input in arg_list:
-        if sys_input.startswith('-') and sys_input not in valid_flags:
-            logfile.write("ERROR: " + sys_input + " IS AN INVALID FLAG" + "\n")
-            logfile.write("VALID FLAGS FOR DOCKING ARE:" + "\n")
-            for flag in valid_flags:
-                logfile.write(flag + "\n")
-            logfile.close()
-            sys.exit()
-
-    # DOCK MODE
-    logfile.write("Nanohedra" + "\n")
-    logfile.write("MODE: DOCK" + '\n\n')
-
-    # SymEntry PARAMETER
-    if "-entry" in arg_list:
-        entry_index = arg_list.index('-entry') + 1
-        if entry_index < len(arg_list):
-            if arg_list[entry_index].isdigit() and (int(arg_list[entry_index]) in range(1, 126)):
-                entry = int(arg_list[arg_list.index('-entry') + 1])
-            else:
-                logfile.write("ERROR: INVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: 1 to 125" + "\n")
-                logfile.close()
-                sys.exit()
-        else:
-            logfile.write("ERROR: SYMMETRY ENTRY NOT SPECIFIED" + "\n")
-            logfile.close()
-            sys.exit()
-    else:
-        logfile.write("ERROR: SYMMETRY ENTRY NOT SPECIFIED" + "\n")
-        logfile.close()
-        sys.exit()
-
-    # General INPUT PARAMETERS
-    if ("-pdb1_path" in arg_list) and ("-pdb2_path" in arg_list):
-        path1_index = arg_list.index('-pdb1_path') + 1
-        path2_index = arg_list.index('-pdb2_path') + 1
-
-        if (path1_index < len(arg_list)) and (path2_index < len(arg_list)):
-            path1 = arg_list[arg_list.index('-pdb1_path') + 1]
-            path2 = arg_list[arg_list.index('-pdb2_path') + 1]
-            if os.path.exists(path1) and os.path.exists(path2):
-                pdb1_path = path1
-                pdb2_path = path2
-            else:
-                logfile.write("ERROR: SPECIFIED PDB PATH(S) DO(ES) NOT EXIST" + "\n")
-                logfile.close()
-                sys.exit()
-        else:
-            logfile.write("ERROR: PDB FILE PATHS NOT SPECIFIED" + "\n")
-            logfile.close()
-            sys.exit()
-    else:
-        logfile.write("ERROR: PDB FILE PATHS NOT SPECIFIED" + "\n")
-        logfile.close()
-        sys.exit()
-
-    # FragDock PARAMETERS
-    if "-rot_step1" in arg_list:
-        rot_step_index1 = arg_list.index('-rot_step1') + 1
-        if rot_step_index1 < len(arg_list):
-            if arg_list[rot_step_index1].isdigit():
-                rot_step_deg1 = int(arg_list[rot_step_index1])
-            else:
-                logfile.write("ERROR: ROTATION STEP SPECIFIED IS NOT AN INTEGER" + "\n")
-                logfile.close()
-                sys.exit()
-        else:
-            logfile.write("ERROR: ROTATION STEP NOT SPECIFIED" + "\n")
-            logfile.close()
-            sys.exit()
-    else:
-        rot_step_deg1 = None
-
-    if "-rot_step2" in arg_list:
-        rot_step_index2 = arg_list.index('-rot_step2') + 1
-        if rot_step_index2 < len(arg_list):
-            if arg_list[rot_step_index2].isdigit():
-                rot_step_deg2 = int(arg_list[rot_step_index2])
-            else:
-                logfile.write("ERROR: ROTATION STEP SPECIFIED IS NOT AN INTEGER" + "\n")
-                logfile.close()
-                sys.exit()
-        else:
-            logfile.write("ERROR: ROTATION STEP NOT SPECIFIED" + "\n")
-            logfile.close()
-            sys.exit()
-    else:
-        rot_step_deg2 = None
-
-    if "-output_uc" in arg_list:
-        output_uc = True
-    else:
-        output_uc = False
-
-    if "-output_surrounding_uc" in arg_list:
-        output_surrounding_uc = True
-    else:
-        output_surrounding_uc = False
-
-    logfile.close()
-
-    return entry, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, outdir, output_uc, output_surrounding_uc
-
-
-def get_docking_parameters_mp(arg_list):
     if "-outdir" in arg_list:
         outdir_index = arg_list.index('-outdir') + 1
         if outdir_index < len(arg_list):
@@ -376,7 +245,7 @@ def get_docking_parameters_mp(arg_list):
     master_logfile.close()
 
     return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, cores, output_exp_assembly, \
-        output_uc, output_surrounding_uc, min_matched, init_match_type, resume, keep_time
+        output_uc, output_surrounding_uc, min_matched, init_match_type, keep_time
 
 
 def postprocess_mode(arg_list):
