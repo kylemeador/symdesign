@@ -1,6 +1,6 @@
 __pycache__
 dependencies/nanohedra
 dependencies/hh-suite
-dependencies/orient
+dependencies/orient/orient_oligomer
 databases
 .DS_Store

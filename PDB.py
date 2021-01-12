@@ -800,6 +800,8 @@ class PDB(Structure):
         else:
             return None
 
+
+
     def sample_rot_tx_dof_coords(self, rot_step_deg=1, rot_range_deg=0, tx_step=1, start_tx_range=0, end_tx_range=0, axis="z", rotational_setting_matrix=None, degeneracy=None):
 
         def get_rot_matrices(step_deg, axis, rot_range_deg):

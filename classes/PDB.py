@@ -2,10 +2,11 @@ import copy
 import math
 import os
 import subprocess
+from shutil import copyfile, move
 
 import numpy
 
-from PathUtils import free_sasa_exe_path
+from PathUtils import free_sasa_exe_path, orient_dir, orient_exe_path, orient_log_file
 from classes.Atom import Atom
 from classes.Stride import Stride
 
@@ -409,21 +410,80 @@ class PDB:
     #     pdb_stride.run()
     #     self.pdb_ss_asg = pdb_stride.ss_asg
 
-    def orient(self, symm, orient_dir, generate_oriented_pdb=False):
-        os.system('cp %s input.pdb' % self.filepath)
-        os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' % (orient_dir, orient_dir, symm))
-        os.system('mv output.pdb %s_orient.pdb' % os.path.splitext(self.filepath)[0])
-        os.system('rm input.pdb')
-        if os.path.exists('%s_orient.pdb' % os.path.splitext(self.filepath)[0]):
-            if not generate_oriented_pdb:
-                oriented_pdb = PDB()
-                oriented_pdb.readfile('%s_orient.pdb' % os.path.splitext(self.filepath)[0])
-                os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])
-                return oriented_pdb
-            else:
-                return 0
-        else:
-            return None
+    def orient(self, sym=None, out_dir=None):
+        # orient_executable_dir = os.path.dirname(orient_exe_path)
+        valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10,
+                                "D6": 12, "I": 60, "O": 24, "T": 12}
+        orient_log = os.path.join(out_dir, orient_log_file)
+
+        pdb_file_name = os.path.basename(self.filepath)
+        error_string = 'orient_oligomer could not orient %s check %s for more information\n' % (pdb_file_name,
+                                                                                                orient_log)
+        with open(orient_log_file, 'a+') as log_f:
+            number_of_subunits = len(self.chain_id_list)
+            if number_of_subunits != valid_subunit_number[sym]:
+                # orient_log = open(orient_log, 'a+')
+                log_f.write("%s\n Oligomer could not be oriented: It has %d subunits while %d are expected for %s "
+                            "symmetry\n\n" % (pdb_file_name, number_of_subunits, valid_subunit_number[sym], sym))
+                # orient_log.close()
+                raise ValueError(error_string)
+
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+
+            orient_input = os.path.join(orient_dir, 'input.pdb')
+            orient_output = os.path.join(orient_dir, 'output.pdb')
+
+            def clean_orient_input_output():
+                if os.path.exists(orient_input):
+                    os.remove(orient_input)
+                if os.path.exists(orient_output):
+                    os.remove(orient_output)
+
+            clean_orient_input_output()
+            copyfile('%s' % self.filepath, orient_input)
+
+            p = subprocess.Popen([orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, cwd=orient_dir)
+            in_symm_file = os.path.join(orient_dir, 'symm_files', sym)
+            stdout, stderr = p.communicate(input=in_symm_file)
+            stdout = pdb_file_name + stdout[28:]
+
+            # orient_log = open('%s/%s' % (output_dir, 'orient_oligomer_log.txt'), 'a+')
+            log_f.write(stdout)
+            # if stderr != '':
+            log_f.write(stderr + '%s\n' % stderr)  # (stderr or ''))
+            # else:
+            #     orient_log.write('\n')
+            # orient_log.close()
+            oriented_file = os.path.join(out_dir, pdb_file_name)
+            if os.path.exists(orient_output) and os.stat(orient_output).st_size != 0:
+                move(orient_output, oriented_file)
+
+            clean_orient_input_output()
+            # if os.path.exists(orient_input):
+            #     os.remove(orient_input)
+            # if os.path.exists(orient_output):
+            #     os.remove(orient_output)
+
+            if not os.path.exists(oriented_file):
+                raise RuntimeError(error_string)
+
+    # def orient(self, sym, orient_dir, generate_oriented_pdb=False):
+    #     os.system('cp %s input.pdb' % self.filepath)
+    #     os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' % (orient_dir, orient_dir, sym))
+    #     os.system('mv output.pdb %s_orient.pdb' % os.path.splitext(self.filepath)[0])
+    #     os.system('rm input.pdb')
+    #     if os.path.exists('%s_orient.pdb' % os.path.splitext(self.filepath)[0]):
+    #         if not generate_oriented_pdb:
+    #             oriented_pdb = PDB()
+    #             oriented_pdb.readfile('%s_orient.pdb' % os.path.splitext(self.filepath)[0])
+    #             os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])
+    #             return oriented_pdb
+    #         else:
+    #             return 0
+    #     else:
+    #         return None
 
     def center_of_mass(self):
         coords = self.extract_all_coords()

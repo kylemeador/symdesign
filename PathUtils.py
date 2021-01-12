@@ -7,7 +7,8 @@ import os
 # Project strings and file names
 program_name = 'SymDesign'
 nano = 'Nanohedra'  # 'nanohedra' v0
-orient_exe = 'orient_oligomer.f'
+# orient_exe = 'orient_oligomer.f'  # Non_compiled
+orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
 rosetta = str(os.environ.get('ROSETTA'))
 nstruct = 25  # back to 50?
@@ -69,7 +70,8 @@ free_sasa_exe_path = os.path.join(source, 'sasa', 'freesasa-2.0', 'src', 'freesa
 # free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
 # Stop Inheritance ####
 orient_dir = os.path.join(dependency_dir, 'orient')
-orient = os.path.join(orient_dir, orient_exe)
+orient_exe_path = os.path.join(orient_dir, orient_exe)
+orient_log_file = 'orient_oligomer_log.txt'
 stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 binaries = os.path.join(dependency_dir, 'bin')
 sbatch_templates = os.path.join(binaries, 'sbatch')
