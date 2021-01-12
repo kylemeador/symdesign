@@ -136,6 +136,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
             pass
 
     script_out_dir = os.path.join(nano_out_dir, 'job_scripts')
+    program = PUtils.nanohedra_main
     if os.path.splitext(path1)[1] == '':  # check if path1 is directory
         if os.path.splitext(path2)[1] == '':  # check if path2 is directory
             # both are directories
@@ -150,6 +151,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
                                                os.path.splitext(os.path.basename(path2))[0])
             name = 'nanohedra_%s' % building_block_string
             script_out_dir = os.path.join(nano_out_dir, building_block_string)
+            program = PUtils.nanohedra_dock
 
     if not os.path.exists(script_out_dir):
         os.makedirs(script_out_dir)
@@ -162,7 +164,6 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
     else:
         step_1, step_2 = '2', '2'
 
-    program = PUtils.nanohedra_main
     _cmd = ['python', program, '-dock', '-entry', str(entry), '-pdb_dir1_path', path1, '-pdb_dir2_path', path2,
             '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir] + flags
 

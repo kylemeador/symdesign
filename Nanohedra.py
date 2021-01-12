@@ -1,9 +1,9 @@
 from itertools import product, combinations
 
 import PathUtils as PUtils
+from FragDock import nanohedra_dock
 from SymDesignUtils import get_all_pdb_file_paths
 from classes.EulerLookup import EulerLookup
-from classes.FragDock import dock
 from classes.Fragment import *
 from classes.SymEntry import *
 from utils.CmdLineArgParseUtils import *
@@ -66,7 +66,7 @@ def main():
 
             oligomer_symmetry_1 = sym_entry.get_group1_sym()
             oligomer_symmetry_2 = sym_entry.get_group2_sym()
-            design_symmetry = sym_entry.get_pt_grp_sym()
+            design_symmetry_pg = sym_entry.get_pt_grp_sym()
 
             rot_range_deg_pdb1 = sym_entry.get_rot_range_deg_1()
             rot_range_deg_pdb2 = sym_entry.get_rot_range_deg_2()
@@ -117,21 +117,21 @@ def main():
                     rot_step_deg2 = 1
 
                 master_log_file.write("NANOHEDRA PROJECT INFORMATION\n")
-                master_log_file.write("PDB 1 Directory Path: %s\n" % pdb1_path)
-                # master_log_file.write("Oligomer 1 Input Directory: %s\n" % pdb1_path)  # v1
-                master_log_file.write("PDB 2 Directory Path: %s\n" % pdb2_path)
-                # master_log_file.write("Oligomer 2 Input Directory: %s\n" % pdb2_path)  # v1
+                # master_log_file.write("PDB 1 Directory Path: %s\n" % pdb1_path)  # v0
+                master_log_file.write("Oligomer 1 Input Directory: %s\n" % pdb1_path)  # v1
+                # master_log_file.write("PDB 2 Directory Path: %s\n" % pdb2_path)  # v0
+                master_log_file.write("Oligomer 2 Input Directory: %s\n" % pdb2_path)  # v1
                 master_log_file.write("Master Output Directory: %s\n\n" % master_outdir)
 
                 master_log_file.write("SYMMETRY COMBINATION MATERIAL INFORMATION\n")
-                master_log_file.write("Symmetry Entry Number: %s\n" % str(sym_entry_number))
-                # master_log_file.write("Nanohedra Entry Number: %s\n" % str(sym_entry_number))  # v1
-                master_log_file.write("Oligomer 1 Symmetry: %s\n" % oligomer_symmetry_1)
-                # master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % oligomer_symmetry_1)  # v1
-                master_log_file.write("Oligomer 2 Symmetry: " + oligomer_symmetry_2 + "\n")
-                # master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % oligomer_symmetry_1)  # v1
-                master_log_file.write("Design Point Group Symmetry: %s\n" % design_symmetry)
-                # master_log_file.write("SCM Point Group Symmetry: %s\n" % design_symmetry_pg)  # v1
+                # master_log_file.write("Symmetry Entry Number: %s\n" % str(sym_entry_number))  # v0
+                master_log_file.write("Nanohedra Entry Number: %s\n" % str(sym_entry_number))  # v1
+                # master_log_file.write("Oligomer 1 Symmetry: %s\n" % oligomer_symmetry_1)  # v0
+                master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % oligomer_symmetry_1)  # v1
+                # master_log_file.write("Oligomer 2 Symmetry: " + oligomer_symmetry_2 + "\n")  # v0
+                master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % oligomer_symmetry_1)  # v1
+                # master_log_file.write("Design Point Group Symmetry: %s\n" % design_symmetry_pg)  # v0
+                master_log_file.write("SCM Point Group Symmetry: %s\n" % design_symmetry_pg)  # v1
 
                 master_log_file.write("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))
                 master_log_file.write("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
@@ -143,12 +143,12 @@ def main():
                     ref_frame_tx_dof1) if sym_entry.is_ref_frame_tx_dof1() else str(None))
                 master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n" % str(
                     ref_frame_tx_dof2) if sym_entry.is_ref_frame_tx_dof2() else str(None))
-                master_log_file.write("Resulting Design Symmetry: %s\n" % result_design_sym)
-                # master_log_file.write("Resulting SCM Symmetry: %s\n" % result_design_sym)  # v1
-                master_log_file.write("Design Dimension: %s\n" % str(design_dim))
-                # master_log_file.write("SCM Dimension: %s\n" % str(design_dim))  # v1
-                master_log_file.write("Unit Cell Specification: %s\n\n" % uc_spec_string)
-                # master_log_file.write("SCM Unit Cell Specification: %s\n\n" % uc_spec_string)  # v1
+                # master_log_file.write("Resulting Design Symmetry: %s\n" % result_design_sym)  # v0
+                master_log_file.write("Resulting SCM Symmetry: %s\n" % result_design_sym)  # v1
+                # master_log_file.write("Design Dimension: %s\n" % str(design_dim))  # v0
+                master_log_file.write("SCM Dimension: %s\n" % str(design_dim))  # v1
+                # master_log_file.write("Unit Cell Specification: %s\n\n" % uc_spec_string)  # v0
+                master_log_file.write("SCM Unit Cell Specification: %s\n\n" % uc_spec_string)  # v1
 
                 master_log_file.write("ROTATIONAL SAMPLING INFORMATION\n")
                 master_log_file.write(
@@ -345,8 +345,8 @@ def main():
 
                 # Get Degeneracy Matrices
                 master_log_file.write("Searching For Possible Degeneracies" + "\n")
-                degeneracy_matrices_1 = get_degeneracy_matrices(oligomer_symmetry_1, design_symmetry)
-                degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_2, design_symmetry)
+                degeneracy_matrices_1 = get_degeneracy_matrices(oligomer_symmetry_1, design_symmetry_pg)
+                degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_2, design_symmetry_pg)
                 if degeneracy_matrices_1 is None:
                     master_log_file.write("No Degeneracies Found for Oligomer 1" + "\n")
                 elif len(degeneracy_matrices_1) == 1:
@@ -424,14 +424,14 @@ def main():
                 with open(master_log_filepath, "a+") as master_log_file:
                     master_log_file.write("Docking %s / %s \n" % (pdb1_filename, pdb2_filename))
 
-                dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
-                     init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict,
-                     ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict, master_outdir, pdb1_path,
-                     pdb2_path, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_internal_zshift1,
-                     is_internal_zshift2, result_design_sym, uc_spec_string, design_dim, expand_matrices, eul_lookup,
-                     init_max_z_val, subseq_max_z_val, degeneracy_matrices_1, degeneracy_matrices_2, rot_step_deg1,
-                     rot_range_deg_pdb1, rot_step_deg2, rot_range_deg_pdb2, output_exp_assembly, output_uc,
-                     output_surrounding_uc, min_matched, keep_time=timer)
+                nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
+                               init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict,
+                               ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict, master_outdir, pdb1_path,
+                               pdb2_path, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_internal_zshift1,
+                               is_internal_zshift2, result_design_sym, uc_spec_string, design_dim, expand_matrices, eul_lookup,
+                               init_max_z_val, subseq_max_z_val, degeneracy_matrices_1, degeneracy_matrices_2, rot_step_deg1,
+                               rot_range_deg_pdb1, rot_step_deg2, rot_range_deg_pdb2, output_exp_assembly, output_uc,
+                               output_surrounding_uc, min_matched, keep_time=timer)
 
                 master_log_file = open(master_log_filepath, "a+")
                 master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' %
