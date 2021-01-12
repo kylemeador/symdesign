@@ -505,6 +505,7 @@ if __name__ == '__main__':
     else:
         logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
 
+    if not args.sub_module
     logger.info('Starting %s with options:\n\t%s' %
                 (os.path.basename(__file__),
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))

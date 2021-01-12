@@ -11,7 +11,7 @@ class OptimalTx:
         self.is_zshift1 = is_zshift1  # Whether or not the space has internal translational DOF
         self.is_zshift2 = is_zshift2  # Whether or not the space has internal translational DOF
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
-        self.n_dof_external = len(self.dof_ext)
+        self.n_dof_external = self.dof_ext.__len__
         self.cluster_rmsd = cluster_rmsd
         self.guide_atom_coords1 = guide_atom_coords1
         self.guide_atom_coords2 = guide_atom_coords2
@@ -23,8 +23,8 @@ class OptimalTx:
 
     def dof_convert9(self):
         # convert input degrees of freedom to 9-dim arrays, repeat DOF ext for each guide coordinate (3 sets of x, y, z)
-        dof = np.zeros((self.n_dof_external, 9))
-        for i in range(self.n_dof_external):
+        dof = np.zeros((self.get_n_dof_external(), 9))
+        for i in range(self.get_n_dof_external()):
             dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
         return np.transpose(dof)
 
@@ -102,7 +102,7 @@ class OptimalTx:
 
     def get_optimal_tx_dof_int(self):
         shift, error_zvalue = self.optimal_tx
-        index = self.n_dof_external
+        index = self.get_n_dof_external()
 
         tx_dof_int = []
         if self.is_zshift1:
@@ -116,14 +116,14 @@ class OptimalTx:
 
     def get_optimal_tx_dof_ext(self):
         shift, error_zvalue = self.optimal_tx
-        return shift[0:self.n_dof_external].tolist()
+        return shift[0:self.get_n_dof_external()].tolist()
 
     def get_all_optimal_shifts(self):
         shift, error_zvalue = self.optimal_tx
         return shift.tolist()
 
     def get_n_dof_external(self):
-        return self.n_dof_external
+        return self.n_dof_external()
 
     def get_n_dof_internal(self):
         return self.n_dof_internal
