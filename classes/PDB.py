@@ -446,7 +446,10 @@ class PDB:
             p = subprocess.Popen([orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, cwd=orient_dir)
             in_symm_file = os.path.join(orient_dir, 'symm_files', sym)
-            stdout, stderr = p.communicate(input=in_symm_file)
+            stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
+            stdout = stdout.decode()  # 'utf-8' implied
+            print(stdout)
+            print(stdout[28:])
             stdout = pdb_file_name + stdout[28:]
 
             # orient_log = open('%s/%s' % (output_dir, 'orient_oligomer_log.txt'), 'a+')
