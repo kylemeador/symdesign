@@ -334,14 +334,14 @@ def fix_files_mp(des_dir):
     return j, None
 
 
-def orient_pdb_file(pdb_path, oriented_out_dir, log_path):
+def orient_pdb_file(pdb_path, log_path, sym=None, out_dir=None):
     pdb_filename = os.path.basename(pdb_path)
-    oriented_file_path = os.path.join(oriented_out_dir, pdb_filename)
+    oriented_file_path = os.path.join(out_dir, pdb_filename)
     if not os.path.exists(oriented_file_path):
         pdb = PDB.from_file(pdb_path)
         with open(log_path, 'a+') as f:
             try:
-                pdb.orient(sym=oligomer_symmetry_1, out_dir=oriented_out_dir, generate_oriented_pdb=True)
+                pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True)
                 f.write("oriented: %s\n" % pdb_filename)
                 return oriented_file_path
             except ValueError as val_err:
@@ -575,9 +575,11 @@ if __name__ == '__main__':
                 pdb1_filepaths = [args.pdb_path1]
             else:
                 pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.pdb_path1)
-            pdb1_oriented_filepaths = [orient_pdb_file(pdb_path, oriented_pdb1_out_dir,
-                                                       os.path.join(oriented_pdb1_out_dir, PUtils.orient_log_file))
+            pdb1_oriented_filepaths = [orient_pdb_file(pdb_path,
+                                                       os.path.join(oriented_pdb1_out_dir, PUtils.orient_log_file),
+                                                       sym=oligomer_symmetry_1, out_dir=oriented_pdb1_out_dir)
                                        for pdb_path in pdb1_filepaths]
+            logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
             # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
 
             if args.pdb_path2:
@@ -591,9 +593,10 @@ if __name__ == '__main__':
                         pdb2_filepaths = [args.pdb_path2]
                     else:
                         pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.pdb_path2)
-                    pdb2_oriented_filepaths = [orient_pdb_file(pdb_path, oriented_pdb2_out_dir,
-                                                               os.path.join(oriented_pdb2_out_dir,
-                                                                            PUtils.orient_log_file))
+                    pdb2_oriented_filepaths = [orient_pdb_file(pdb_path,
+                                                               os.path.join(oriented_pdb1_out_dir,
+                                                                            PUtils.orient_log_file),
+                                                               sym=oligomer_symmetry_2, out_dir=oriented_pdb2_out_dir)
                                                for pdb_path in pdb2_filepaths]
 
                     pdb_pairs = list(product(filter(None, pdb1_oriented_filepaths), filter(None, pdb2_oriented_filepaths)))
