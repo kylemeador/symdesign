@@ -73,8 +73,8 @@ def get_docking_parameters(arg_list):
     master_logfile = open(master_log_filepath, "w")
 
     valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
-                   "-cores", "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly",
-                   "-init_match_type", '-resume', '-no_time']
+                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-init_match_type",
+                   '-no_time', '-initial']  # "-cores", '-resume'
 
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
@@ -133,22 +133,22 @@ def get_docking_parameters(arg_list):
         master_logfile.close()
         sys.exit()
 
-    if "-cores" in arg_list:
-        cores_index = arg_list.index('-cores') + 1
-
-        if cores_index < len(arg_list):
-            if arg_list[cores_index].isdigit():
-                cores = int(arg_list[cores_index])
-            else:
-                master_logfile.write("ERROR: VALUE SPECIFIED FOR NUMBER OF CPU CORES IS NOT AN INTEGER" + "\n")
-                master_logfile.close()
-                sys.exit()
-        else:
-            master_logfile.write("ERROR: NUMBER OF CPU CORES NOT SPECIFIED" + "\n")
-            master_logfile.close()
-            sys.exit()
-    else:
-        cores = 1
+    # if "-cores" in arg_list:
+    #     cores_index = arg_list.index('-cores') + 1
+    #
+    #     if cores_index < len(arg_list):
+    #         if arg_list[cores_index].isdigit():
+    #             cores = int(arg_list[cores_index])
+    #         else:
+    #             master_logfile.write("ERROR: VALUE SPECIFIED FOR NUMBER OF CPU CORES IS NOT AN INTEGER" + "\n")
+    #             master_logfile.close()
+    #             sys.exit()
+    #     else:
+    #         master_logfile.write("ERROR: NUMBER OF CPU CORES NOT SPECIFIED" + "\n")
+    #         master_logfile.close()
+    #         sys.exit()
+    # else:
+    #     cores = 1
 
     if "-init_match_type" in arg_list:
         init_match_type_index = arg_list.index('-init_match_type') + 1
@@ -232,10 +232,10 @@ def get_docking_parameters(arg_list):
     else:
         min_matched = 3
 
-    if '-resume' in arg_list:
-        resume = True
-    else:
-        resume = False
+    # if '-resume' in arg_list:
+    #     resume = True
+    # else:
+    #     resume = False
 
     if '-no_time' in arg_list:
         keep_time = False
@@ -244,8 +244,13 @@ def get_docking_parameters(arg_list):
 
     master_logfile.close()
 
-    return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, cores, output_exp_assembly, \
-        output_uc, output_surrounding_uc, min_matched, init_match_type, keep_time
+    if '-initial' in arg_list:
+        initial = True
+    else:
+        initial = False
+
+    return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_exp_assembly, \
+           output_uc, output_surrounding_uc, min_matched, init_match_type, keep_time, initial  #  cores, resume
 
 
 def postprocess_mode(arg_list):

@@ -31,6 +31,7 @@ from PDB import PDB
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
+from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
 
 
@@ -333,6 +334,24 @@ def fix_files_mp(des_dir):
     return j, None
 
 
+def orient_pdb_file(pdb_path, oriented_out_dir, log_path):
+    pdb_filename = os.path.basename(pdb_path)
+    oriented_file_path = os.path.join(oriented_out_dir, pdb_filename)
+    if not os.path.exists(oriented_file_path):
+        pdb = PDB.from_file(pdb_path)
+        with open(log_path, 'a+') as f:
+            try:
+                pdb.orient(sym=oligomer_symmetry_1, out_dir=oriented_out_dir, generate_oriented_pdb=True)
+                f.write("oriented: %s\n" % pdb_filename)
+                return oriented_file_path
+            except ValueError as val_err:
+                f.write(str(val_err))
+            except RuntimeError as rt_err:
+                f.write(str(rt_err))
+    else:
+        return oriented_file_path
+
+
 def terminate(all_exceptions):
     any_exceptions = [exception for exception in all_exceptions if exception]
     # any_exceptions = list(filter(bool, exceptions))
@@ -479,9 +498,8 @@ if __name__ == '__main__':
     parser_merge = subparsers.add_parser('merge', help='Merge all completed designs from location 2 (-f2/-d2) to '
                                                        'location 1(-f/-d). Includes renaming. Highly suggested you copy'
                                                        ' original data!!!')
-    parser_merge.add_argument('-d2', '--directory2', type=str, help='Directory 2 where poses should be copied '
-                                                                    'from and appended to location 1 poses',
-                              default=None)
+    parser_merge.add_argument('-d2', '--directory2', type=os.path.abspath, default=None,
+                              help='Directory 2 where poses should be copied from and appended to location 1 poses')
     parser_merge.add_argument('-f2', '--file2', type=str, help='File 2 where poses should be copied from and appended '
                                                                'to location 1 poses', default=None)
     parser_merge.add_argument('-F', '--force', action='store_true', help='Overwrite merge paths?\nDefault=False')
@@ -494,7 +512,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
     # ---------------------------------------------------
-    parser_query = subparsers.add_parser('query', help='Query Nanohedra docking entries')
+    parser_query = subparsers.add_parser('nanohedra_query', help='Query Nanohedra docking entries')
 
     args, additional_flags = parser.parse_known_args()
 
@@ -505,14 +523,14 @@ if __name__ == '__main__':
     else:
         logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
 
-    if not args.sub_module
-    logger.info('Starting %s with options:\n\t%s' %
-                (os.path.basename(__file__),
-                 '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
+    if args.sub_module != 'nanohedra_query':
+        logger.info('Starting %s with options:\n\t%s' %
+                    (os.path.basename(__file__),
+                     '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Grab all poses (directories) to be processed from either directory name or file
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
-    if args.sub_module in ['distribute', 'query']:
+    if args.sub_module in ['distribute', 'nanohedra_query']:
         pass
     elif args.mode == 'design':
         if args.directory or args.file:
@@ -538,27 +556,55 @@ if __name__ == '__main__':
         if args.pdb_path1:
             if not args.entry:
                 exit('If using --pdb_path1 (-d1) and/or --pdb_path2 (-d2), please specify --entry as well. '
-                     '--entry can be found using SubModule \'query\'')  # Todo Query Module
-            if '.pdb' in args.pdb_path1 and '.pdb' in args.pdb_path2:
-                pdb_pairs = [(args.pdb1_path, args.pdb2_path), ]
+                     '--entry can be found using SubModule \'nanohedra_query\'')  # Todo Query Module
+
             else:
-                if not args.pdb_path2 or args.pdb_path1 == args.pdb_path2:
-                    pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(args.pdb_path1), 2))
-                    location = args.pdb_path1
-                else:
-                    pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(args.pdb_path1),
-                                             SDUtils.get_all_pdb_file_paths(args.pdb_path2)))
-                    location = args.pdb_path1, args.pdb_path2
-                design_directories = pdb_pairs  # for logging purposes below
+                sym_entry = SymEntry(args.entry)
+                oligomer_symmetry_1 = sym_entry.get_group1_sym()
+                oligomer_symmetry_2 = sym_entry.get_group2_sym()
+
+            # Orient Input Oligomers to Canonical Orientation
+            oriented_pdb1_out_dir = os.path.join(os.path.dirname(args.pdb1_path), '%s_oriented_with_%s_symmetry'
+                                                 % (os.path.basename(args.pdb1_path), oligomer_symmetry_1))
+            if not os.path.exists(oriented_pdb1_out_dir):
+                os.makedirs(oriented_pdb1_out_dir)
+
+            if '.pdb' in args.pdb1_path:
+                pdb1_filepaths = [args.pdb1_path]
+            else:
+                pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.pdb1_path)
+            pdb1_oriented_filepaths = [orient_pdb_file(pdb1_path, oriented_pdb1_out_dir,
+                                                       os.path.join(oriented_pdb1_out_dir, PUtils.orient_log_file))
+                                       for pdb1_path in pdb1_filepaths]
+
+            if args.pdb2_path:
+                if args.pdb_path1 != args.pdb_path2:
+                    oriented_pdb2_out_dir = os.path.join(os.path.dirname(args.pdb2_path), '%s_oriented_with_%s_symmetry'
+                                                         % (os.path.basename(args.pdb2_path), oligomer_symmetry_2))
+                    if not os.path.exists(oriented_pdb2_out_dir):
+                        os.makedirs(oriented_pdb2_out_dir)
+
+                    if '.pdb' in args.pdb2_path:
+                        pdb2_filepaths = [args.pdb2_path]
+                    else:
+                        pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.pdb2_path)
+                    pdb2_oriented_filepaths = [orient_pdb_file(pdb2_path, oriented_pdb2_out_dir,
+                                                               os.path.join(oriented_pdb2_out_dir, PUtils.orient_log_file))
+                                               for pdb2_path in pdb2_filepaths]
+
+                    pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(pdb1_oriented_filepaths),
+                                             SDUtils.get_all_pdb_file_paths(pdb2_oriented_filepaths)))
+                    location = '%s & %s' % (args.pdb_path1, args.pdb_path2)
+            else:
+                pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(pdb1_oriented_filepaths), 2))
+                location = args.pdb_path1
+            design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
         elif args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                          dir_type=args.mode)
             design_directories = [DesignDirectory.set_up_directory_objects(dock_dir, mode=args.mode,
                                                                            symmetry=args.design_string)
                                   for dock_dir in all_dock_directories]
-            # design_directories = [SDUtils.set_up_dock_dir(dock_dir, suffix=args.design_string) for dock_dir in
-            #                       all_dock_directories]
-        # else:
             if len(design_directories) == 0:
                 exit('No docking directories/files were found\nPlease specify --directory1, and/or --directory2 or '
                      '--directory or --file. See %s' % PUtils.help(args.sub_module))
