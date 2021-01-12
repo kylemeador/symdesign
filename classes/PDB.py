@@ -447,9 +447,9 @@ class PDB:
                                  stderr=subprocess.PIPE, cwd=orient_dir)
             in_symm_file = os.path.join(orient_dir, 'symm_files', sym)
             stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-            stderr.decode()  # 'utf-8' implied
-            stdout.decode()  # 'utf-8' implied
-            # stdout = stdout.decode()  # 'utf-8' implied
+            print(stdout)
+            stderr = stderr.decode()  # 'utf-8' implied
+            stdout = stdout.decode()  # 'utf-8' implied
             print(stdout)
             print(stdout[28:])
             stdout = pdb_file_name + stdout[28:]
