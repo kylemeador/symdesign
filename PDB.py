@@ -268,13 +268,13 @@ class PDB(Structure):
             self.design = True
             # entity.retrieve_sequence_from_PDB(entity_id=None)
 
-        self.generate_entity_accession_map()
-        self.get_chain_sequences()
-        if not self.entity_d:
-            self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
-        else:
-            self.update_entity_d()
-        self.process_pdb()
+        # self.generate_entity_accession_map()  # Todo uncomment after debugging
+        # self.get_chain_sequences()
+        # if not self.entity_d:
+        #     self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
+        # else:
+        #     self.update_entity_d()
+        # self.process_pdb()
 
     def process_symmetry(self):
         """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
