@@ -366,10 +366,10 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser.add_argument('-c', '--command_only', action='store_true',
                         help='Should commands be written but not executed?\nDefault=False')
-    parser.add_argument('-d', '--directory', type=str, help='Directory where %s poses are located. Default=CWD'
-                                                            % PUtils.program_name, default=os.getcwd())
-    parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s poses' % PUtils.program_name,
-                        default=None)
+    parser.add_argument('-d', '--directory', type=os.path.abspath, default=os.getcwd(),
+                        help='Directory where %s poses are located. Default=CWD' % PUtils.program_name)
+    parser.add_argument('-f', '--file', type=os.path.abspath,
+                        help='File with location(s) of %s poses' % PUtils.program_name, default=None)
     parser.add_argument('-m', '--mode', type=str, choices=['design', 'dock'], help='Which mode to operate in?') \
         # , required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',
@@ -389,20 +389,18 @@ if __name__ == '__main__':
                                                      ' provide the overall directory location with program argument '
                                                      '-d/-f, otherwise, use the -d1 -d2 \'pose\' module arguments to '
                                                      'specify lists of oligomers to dock' % PUtils.nano.title())
-    parser_dock.add_argument('-d1', '--pdb_path1', type=str, help='Disk location where the first oligomers are located'
-                                                                  '\nREQUIRED',
-                             default=None, required=True)
-    parser_dock.add_argument('-d2', '--pdb_path2', type=str, help='Disk location where the second oligomers are located'
-                                                                  '\nDefault=None',
-                             default=None)
+    parser_dock.add_argument('-d1', '--pdb_path1', type=os.path.abspath, required=True,
+                             help='Disk location where the first oligomers are located\nREQUIRED', default=None)
+    parser_dock.add_argument('-d2', '--pdb_path2', type=os.path.abspath,
+                             help='Disk location where the second oligomers are located\nDefault=None', default=None)
     parser_dock.add_argument('-e', '--entry', type=int, help='The entry number of %s docking combinations to use' %
                                                              PUtils.nano.title(), default=None)
-    parser_dock.add_argument('-f', '--additional_flags', nargs='*', help='Any additional flags to pass to %s.py. Should'
-                                                                         ' be passed WITHOUT leading \'-\'!!' %
-                                                                         PUtils.nano.title(), default=None)
-    parser_dock.add_argument('-o', '--outdir', type=str, help='Where should the output from commands be written?\n'
-                                                              'Default=CWD/NanohedraEntry(entry)DockedPoses',
-                             default=None)
+    parser_dock.add_argument('-f', '--additional_flags', nargs='*', default=None,
+                             help='Any additional flags to pass to %s.py. Should be passed WITHOUT leading \'-\'!!'
+                                  % PUtils.nano.title())
+    parser_dock.add_argument('-o', '--outdir', type=str, default=None,
+                             help='Where should the output from commands be written?\n'
+                                  'Default=CWD/NanohedraEntry(entry)DockedPoses')
     # ---------------------------------------------------
     parser_pose = subparsers.add_parser('pose', help='Gather output from %s and format for input into Rosetta. '
                                                      'Sets up interface design constrained evolutionary profiles '
@@ -413,9 +411,9 @@ if __name__ == '__main__':
                                   '\nDefault=%s' %
                                   (','.join(list(PUtils.frag_directory.keys())), list(PUtils.frag_directory.keys())[0]),
                              default=list(PUtils.frag_directory.keys())[0])
-    parser_pose.add_argument('symmetry_group', type=int,
-                             help='What type of symmetry group does your design belong too? One of 0-Point Group, '
-                                  '2-Plane Group, or 3-Space Group')  # TODO remove from input, make automatic
+    # parser_pose.add_argument('symmetry_group', type=int,
+    #                          help='What type of symmetry group does your design belong too? One of 0-Point Group, '
+    #                               '2-Plane Group, or 3-Space Group')
     parser_pose.add_argument('-x', '--suspend', action='store_true',
                              help='Should Rosetta design trajectory be suspended?\nDefault=False')
     parser_pose.add_argument('-p', '--mpi', action='store_true',
@@ -434,17 +432,24 @@ if __name__ == '__main__':
     parser_analysis.add_argument('-g', '--delta_g', action='store_true',
                                  help='Compute deltaG versus Refine structure?\nDefault=False')
     # ---------------------------------------------------
-    parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs')
+    parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs. '
+                                                             'Either -d or -p is required. If both are provided, '
+                                                             '-p will be prioritized')
+    sequence_required = parser_sequence.add_mutually_exclusive_group(required=True)
+    sequence_required.add_argument('-d', '--dataframe', type=os.path.abspath,
+                                   help='Dataframe.csv from analysis containing pose info.')
+    sequence_required.add_argument('-p', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
+                                                                            ' sequence selector')
     parser_sequence.add_argument('-c', '--consensus', action='store_true', help='Whether to grab the consensus sequence'
                                                                                 '\nDefault=False')
-    parser_sequence.add_argument('-d', '--dataframe', type=str, help='Dataframe.csv from analysis containing pose info')
-    # TODO ^ require this or pose_design_file
+    # parser_sequence.add_argument('-d', '--dataframe', type=os.path.abspath, required=True,
+    #                              help='Dataframe.csv from analysis containing pose info')
     parser_sequence.add_argument('-f', '--filters', action='store_true', help='Metrics with which to filter on\n'
                                                                               'Default=None', default=None)
     parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
                                  default=1)
-    parser_sequence.add_argument('-p', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
-                                                                            ' sequence selector')
+    # parser_sequence.add_argument('-p', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
+    #                                                                         ' sequence selector')
     parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
     parser_sequence.add_argument('-w', '--weights', type=str, help='Weights of various metrics to final poses\n'
                                                                    'Default=1/number of --filters')
@@ -626,7 +631,7 @@ if __name__ == '__main__':
             args.success_file = None
             args.failure_file = None
             args.max_jobs = 80
-            distribute(logger, logger, stage=PUtils.nano, directory=args.directory, file=command_file,
+            distribute(logger, stage=PUtils.nano, directory=args.directory, file=command_file,
                        success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
             # logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
             #             'python %s -f %s distribute -s %s' % (__file__, command_file, PUtils.nano))  # args.file,
@@ -822,8 +827,8 @@ if __name__ == '__main__':
                     logger.info('For \'%s\' stage, default settings should generate %d files'
                                 % (stage, PUtils.stage_f[stage]['len']))
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
-    elif args.sub_module == 'sequence':  # -c consensus, -d dataframe, -f filters, -n number, -p pose_design_file, -s selection_string, -w weights
-        if args.pose_design_file:
+    elif args.sub_module == 'sequence':  # -c consensus, -d dataframe, -f filters, -n number, -p pose_design_file,
+        if args.pose_design_file:        # -s selection_string, -w weights
             # Grab all poses (directories) to be processed from either directory name or file
             with open(args.pose_design_file) as csv_file:
                 csv_lines = [line for line in reader(csv_file)]
