@@ -538,13 +538,13 @@ if __name__ == '__main__':
                 pdb_pairs = [(args.pdb1_path, args.pdb2_path), ]
             else:
                 if not args.pdb_path2 or args.pdb_path1 == args.pdb_path2:
-                    pdb_pairs = combinations(SDUtils.get_all_pdb_file_paths(args.pdb_path1), 2)
+                    pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(args.pdb_path1), 2))
                     location = args.pdb_path1
                 else:
-                    pdb_pairs = product(SDUtils.get_all_pdb_file_paths(args.pdb_path1),
-                                        SDUtils.get_all_pdb_file_paths(args.pdb_path2))
+                    pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(args.pdb_path1),
+                                             SDUtils.get_all_pdb_file_paths(args.pdb_path2)))
                     location = args.pdb_path1, args.pdb_path2
-                design_directories = list(pdb_pairs)  # for logging purposes below
+                design_directories = pdb_pairs  # for logging purposes below
         elif args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                          dir_type=args.mode)
@@ -602,11 +602,7 @@ if __name__ == '__main__':
                     results.append(result)
                     exceptions.append(error)
             else:
-                count = 0
                 for path1, path2 in pdb_pairs:
-                    if count % 23 == 2:
-                        print(args.entry, path1, path2, args.outdir, extra_flags, args.design_string)
-                    count += 1
                     result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
                                                         args.design_string)
                     results.append(result)
