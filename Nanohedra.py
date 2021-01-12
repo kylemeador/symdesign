@@ -24,7 +24,7 @@ def main():
 
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, cores, \
-        output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, resume, timer = \
+            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, resume, timer = \
             get_docking_parameters_mp(cmd_line_in_params)
 
         # Master Log File
@@ -51,7 +51,7 @@ def main():
                                           "Check README file for instructions on how to compile " \
                                           "orient_oligomer.f" % orient_executable_path
             assert os.path.exists(orient_executable_path), orient_assert_error_message
-            orient_executable_dir = PUtils.orient_dir
+            # orient_executable_dir = PUtils.orient_dir
             # orient_executable_dir = os.path.dirname(orient_executable_path)
 
             # Fragment Database Directory Paths
@@ -93,9 +93,9 @@ def main():
 
             # Default Fragment Guide Atom Overlap Z-Value Threshold For All Subsequent Matches
             subseq_max_z_val = 2.0
-
+            print('Open log')
             with open(master_log_filepath, "a+") as master_log_file:
-
+                print('writing log')
                 # Default Rotation Step
                 if is_internal_rot1 and rot_step_deg1 is None:
                     rot_step_deg1 = 3  # If rotation step not provided but required, set rotation step to default
@@ -196,7 +196,7 @@ def main():
                                 f.write(str(rt_err))
                     else:
                         return os.path.join(oriented_pdb1_outdir, pdb_filename)
-
+                print('orienting pdbs')
                 # Orient Input Oligomers to Canonical Orientation
                 if oligomer_symmetry_1 == oligomer_symmetry_2:
                     oligomer_input = 'Oligomer Input'
