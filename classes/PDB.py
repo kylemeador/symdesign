@@ -447,7 +447,9 @@ class PDB:
                                  stderr=subprocess.PIPE, cwd=orient_dir)
             in_symm_file = os.path.join(orient_dir, 'symm_files', sym)
             stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-            stdout = stdout.decode()  # 'utf-8' implied
+            stderr.decode()  # 'utf-8' implied
+            stdout.decode()  # 'utf-8' implied
+            # stdout = stdout.decode()  # 'utf-8' implied
             print(stdout)
             print(stdout[28:])
             stdout = pdb_file_name + stdout[28:]
@@ -455,7 +457,7 @@ class PDB:
             # orient_log = open('%s/%s' % (output_dir, 'orient_oligomer_log.txt'), 'a+')
             log_f.write(stdout)
             # if stderr != '':
-            log_f.write(stderr + '%s\n' % stderr)  # (stderr or ''))
+            log_f.write('%s\n' % stderr)  # (stderr or ''))
             # else:
             #     orient_log.write('\n')
             # orient_log.close()
