@@ -36,7 +36,7 @@ def get_surface_fragments(pdb):  # Todo to PDB.py
         frag_atoms = []
         frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
         ca_count = 0
-        for atom in pdb.get_chain_atoms(chain):
+        for atom in pdb.chain(chain):
             if atom.residue_number in frag_res_nums:
                 frag_atoms.append(atom)
                 if atom.is_CA():
