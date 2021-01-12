@@ -118,7 +118,7 @@ def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix):
         return None, ((path1, path2), e)
 
 
-def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, flags=None, default=True):
+def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None, default=True):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
     Return:

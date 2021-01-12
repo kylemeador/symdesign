@@ -590,7 +590,7 @@ if __name__ == '__main__':
                 zipped_args = zip(design_directories, repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
             else:  # using combinations of directories with .pdb files
-                zipped_args = zip(repeat(args.entry), pdb_pairs, repeat(args.outdir), repeat(extra_flags),
+                zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
                                   repeat(args.design_string))
                 results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
             results = list(results)
