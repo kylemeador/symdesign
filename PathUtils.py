@@ -66,7 +66,7 @@ nanohedra_main = os.path.join(source, '%s.py' % nano.title())
 # nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
 # Nanohedra inheritance
 # Free SASA Executable Path
-free_sasa_exe_path = os.path.join(source, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
+free_sasa_exe_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
 # free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
 # Stop Inheritance ####
 orient_dir = os.path.join(dependency_dir, 'orient')
