@@ -511,7 +511,7 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
-    if args.sub_module == 'distribute':
+    if args.sub_module in ['distribute', 'query']:
         pass
     elif args.mode == 'design':
         if args.directory or args.file:
