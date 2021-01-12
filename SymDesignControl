@@ -31,6 +31,7 @@ from PDB import PDB
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
+from utils.CmdLineArgParseUtils import query_mode
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -492,6 +493,8 @@ if __name__ == '__main__':
                                                              'consolidate_degen or pose_map')
     # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
+    # ---------------------------------------------------
+    parser_query = subparsers.add_parser('query', help='Query Nanohedra docking entries')
 
     args, additional_flags = parser.parse_known_args()
 
@@ -1125,6 +1128,10 @@ if __name__ == '__main__':
         seq_comparison_file = SequenceProfile.write_fasta_file(inserted_sequences,
                                                                '%sSelected_Sequences_Expression_Additions' %
                                                                args.selection_string, outpath=outdir)
+    elif args.sub_module == 'query':
+        query_flags = [__file__, '-query'] + additional_flags
+        print(query_flags)
+        query_mode(query_flags)
 
     # Report any program exceptions
     terminate(exceptions)
