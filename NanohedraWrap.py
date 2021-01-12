@@ -135,11 +135,12 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
         except FileExistsError:
             pass
 
-    if os.path.splitext(path1)[1] != '':  # check if the path1 provided is not a directory
-        nano_out_dir = os.path.join(nano_out_dir, '%s_%s' % (os.path.splitext(os.path.basename(path1))[0],
-                                                             os.path.splitext(os.path.basename(path2))[0]))
-        if not os.path.exists(nano_out_dir):
-            os.makedirs(nano_out_dir)
+    # removed below as this portion is handled by Nanohedra.py
+    # if os.path.splitext(path1)[1] != '':  # check if the path1 provided is not a directory
+    #     nano_out_dir = os.path.join(nano_out_dir, '%s_%s' % (os.path.splitext(os.path.basename(path1))[0],
+    #                                                          os.path.splitext(os.path.basename(path2))[0]))
+    #     if not os.path.exists(nano_out_dir):
+    #         os.makedirs(nano_out_dir)
 
     if default:
         step_1, step_2 = '3', '3'
