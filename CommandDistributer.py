@@ -104,7 +104,7 @@ def distribute(logger, stage=None, directory=None, file=None, success_file=None,
         logger.critial('No --stage specified. Required!!!')
         exit()
     if file or directory:
-        _commands, location = SDUtils.collect_directories(args.directory, file=file)
+        _commands, location = SDUtils.collect_directories(directory, file=file)
     else:
         logger.error('Error: You must pass a file containing a list of commands to process. This is typically output to'
                      ' a \'[stage].cmds\' file. Ensure that this file exists and resubmit with -f \'[stage].cmds\'\n')
