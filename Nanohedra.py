@@ -295,7 +295,8 @@ def main():
                     #         "Successfully Oriented %s out of the %s Oligomer 1 Input PDB File(s)\n==> %s\n"
                     #         % (str(len(pdb1_oriented_filepaths)), str(len(pdb1_filepaths)), oriented_pdb1_outdir))
                     #     master_log_file.close()
-                if oligomer_symmetry_1 == oligomer_symmetry_2:
+                if oligomer_symmetry_1 == oligomer_symmetry_2 and '.pdb' not in pdb2_path:
+                    # in case two paths have same sym, otherwise we need to orient pdb2_filepaths as well
                     # pdb_filepaths = combinations(get_all_pdb_file_paths(pdb1_path), 2)  # pre v1
                     pdb_filepaths = combinations(pdb1_oriented_filepaths, 2)
                 else:
