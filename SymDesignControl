@@ -602,7 +602,7 @@ if __name__ == '__main__':
                     #                          SDUtils.get_all_pdb_file_paths(oriented_pdb2_out_dir)))
                     location = '%s & %s' % (args.pdb_path1, args.pdb_path2)
             else:
-                pdb_pairs = list(combinations(filter(None, pdb1_oriented_filepaths), 2))
+                pdb_pairs = list(combinations(list(filter(None, pdb1_oriented_filepaths)), 2))
                 # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
                 # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
                 location = args.pdb_path1
