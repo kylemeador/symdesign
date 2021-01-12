@@ -820,10 +820,10 @@ class PDB(Structure):
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
 
-            orient_input = 'input.pdb'
-            orient_output = 'output.pdb'
-            # orient_input = os.path.join(orient_dir, 'input.pdb')
-            # orient_output = os.path.join(orient_dir, 'output.pdb')
+            # orient_input = 'input.pdb'
+            # orient_output = 'output.pdb'
+            orient_input = os.path.join(orient_dir, 'input.pdb')
+            orient_output = os.path.join(orient_dir, 'output.pdb')
 
             def clean_orient_input_output():
                 if os.path.exists(orient_input):
@@ -833,7 +833,8 @@ class PDB(Structure):
 
             clean_orient_input_output()
             # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps.
-            self.write('input.pdb')
+            self.write(orient_input)
+            # self.write('input.pdb')
             # copyfile(self.filepath, orient_input)
 
             p = subprocess.Popen([orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
