@@ -376,7 +376,7 @@ def get_docking_parameters_mp(arg_list):
     master_logfile.close()
 
     return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, cores, output_exp_assembly, \
-           output_uc, output_surrounding_uc, min_matched, init_match_type, resume, keep_time
+        output_uc, output_surrounding_uc, min_matched, init_match_type, resume, keep_time
 
 
 def postprocess_mode(arg_list):
