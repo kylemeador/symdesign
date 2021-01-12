@@ -515,13 +515,14 @@ if __name__ == '__main__':
             all_docked_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
             assert all_docked_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure '
                                                                'correct location' % (PUtils.nano.title(), location))
-            design_directories = DesignDirectory.set_up_directory_objects(all_docked_poses, symmetry=args.design_string)
+            design_directories = DesignDirectory.set_up_directory_objects(all_docked_poses, mode=args.mode,
+                                                                          symmetry=args.design_string)
             logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
                         os.path.join(design_directories[0].path,
                                      '%s.log' % os.path.basename(design_directories[0].path)))
             if not args.file:
-                # Make single file with names of each directory
-                args.file = os.path.join(args.directory, 'all_pose_directories')
+                # Make single file with names of each directory where all_docked_poses can be found
+                args.file = os.path.join(args.directory, 'all_docked_pose.paths')  # Todo Parametrized
                 with open(args.file, 'w') as design_f:
                     design_f.write('\n'.join(pose for pose in all_docked_poses))
         else:
@@ -533,7 +534,7 @@ if __name__ == '__main__':
         if args.pdb_path1:
             if not args.entry:
                 exit('If using --pdb_path1 (-d1) and/or --pdb_path2 (-d2), please specify --entry as well. '
-                     '--entry can be found using SubModule \'query\'')  # Todo
+                     '--entry can be found using SubModule \'query\'')  # Todo Query Module
             if '.pdb' in args.pdb_path1 and '.pdb' in args.pdb_path2:
                 pdb_pairs = [(args.pdb1_path, args.pdb2_path), ]
             else:
@@ -586,31 +587,38 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             mp_threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
-            if not pdb_pairs:  # args.directory or args.file set up docking directories
-                zipped_args = zip(design_directories, repeat(args.design_string))
-                results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
-            else:  # using combinations of directories with .pdb files
-                zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
-                                  repeat(args.design_string))
-                results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
-            results = list(results)
+            if args.command_only:
+                if not pdb_pairs:  # args.directory or args.file set up docking directories
+                    zipped_args = zip(design_directories, repeat(args.design_string))
+                    results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
+                else:  # using combinations of directories with .pdb files
+                    zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
+                                      repeat(args.design_string))
+                    results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
+                results = list(results)
+            else:  # TODO implementation where SymDesignControl calls Nanohedra.py
+                print('Can\'t run designs from here yet. Must pass python %s -c for execution' % __file__)
+                pass
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
-            if not pdb_pairs:  # single directory docking (already made directories)
-                for dock_directory in design_directories:
-                    result, error = nanohedra_recap_s(dock_directory, args.design_string)
-                    results.append(result)
-                    exceptions.append(error)
-            else:
-                for path1, path2 in pdb_pairs:
-                    result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
-                                                        args.design_string)
-                    results.append(result)
-                    exceptions.append(error)
+            if args.command_only:
+                if not pdb_pairs:  # single directory docking (already made directories)
+                    for dock_directory in design_directories:
+                        result, error = nanohedra_recap_s(dock_directory, args.design_string)
+                        results.append(result)
+                        exceptions.append(error)
+                else:
+                    for path1, path2 in pdb_pairs:
+                        result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
+                                                            args.design_string)
+                        results.append(result)
+                        exceptions.append(error)
+            else:  # TODO implementation where SymDesignControl calls Nanohedra.py
+                print('Can\'t run designs from here yet. Must pass python %s -c for execution' % __file__)
+                pass
 
-        # if args.command_only: # TODO for future iteration where SymDesignControl can run Nanohedra.py jobs
         # Make single file with names of each directory. Specific for docking due to no established directory
-        args.file = os.path.join(args.directory, 'complete_docked_directories')
+        args.file = os.path.join(args.directory, 'all_docked_directories.paths')  # Todo Parameterized
         with open(args.file, 'w') as design_f:
             command_directories = map(os.path.dirname, results)  # get only the directory of the command
             design_f.write('\n'.join(docking_pair for docking_pair in command_directories if docking_pair))
@@ -619,9 +627,14 @@ if __name__ == '__main__':
         if len(all_commands) > 0:
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
-            # Todo ?SetupCommandsUserInput?
-            logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
-                        'python %s -f %s distribute -s %s' % (__file__, args.file, PUtils.nano))
+
+            args.success_file = None
+            args.failure_file = None
+            args.max_jobs = 80
+            distribute(logger, logger, stage=PUtils.nano, directory=args.directory, file=command_file,
+                       success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
+            # logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
+            #             'python %s -f %s distribute -s %s' % (__file__, command_file, PUtils.nano))  # args.file,
         else:
             logger.error('No \'%s\' commands were written!' % PUtils.nano)
 
@@ -666,9 +679,12 @@ if __name__ == '__main__':
                     break
                 command_files[i] = SDUtils.write_commands(all_commands[i], name=stage, loc=args.directory)
                 logger.info('All \'%s\' commands were written to \'%s\'' % (stage, command_files[i]))
+            # Todo make automatic like for Docking
             logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s' %
-                        (args.directory, '\n'.join(['python %s -f %s distribute -s %s' % (__file__, args.file, stage)
-                                                    for stage in list(PUtils.stage_f.keys())[:3]])))
+                        (args.directory, '\n'.join(['python %s -f %s distribute -s %s' %
+                                                    (__file__, command_files[i], stage)
+                                                    for i, stage in enumerate(list(PUtils.stage_f.keys()))[:3]])))
+            #                                                                                        args.file,
             # TODO make args.file equal to command_files[i] and change distribution to no stage prefix...
     # ---------------------------------------------------
     elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs

@@ -99,67 +99,80 @@ def run(cmd, log_file, program='bash'):  # , log_file=None):
         return False
 
 
-def distribute(args, logger):
-    if args.file:
-        _commands, location = SDUtils.collect_directories(args.directory, file=args.file)
+def distribute(logger, stage=None, directory=None, file=None, success_file=None, failure_file=None, max_jobs=80):
+    if not stage:
+        logger.critial('No --stage specified. Required!!!')
+        exit()
+    if file or directory:
+        _commands, location = SDUtils.collect_directories(args.directory, file=file)
     else:
         logger.error('Error: You must pass a file containing a list of commands to process. This is typically output to'
-                     ' a \'stage.cmd\' file. Ensure that this file exists and resubmit with -f \'stage.cmd\', replacing'
-                     ' stage with the desired stage.')
+                     ' a \'[stage].cmds\' file. Ensure that this file exists and resubmit with -f \'[stage].cmds\'\n')
+        #             ', replacing stage with the desired stage.')
+        exit()
 
-    # Automatically detect if the commands file has executable scripts
-    script_present = '-C'
-    for _command in _commands:
-        if not os.path.exists(_command):
-            script_present = False
-            break
+    # Automatically detect if the commands file has executable scripts or errors
+    for idx, _command in enumerate(_commands):
+        if not os.path.exists(_command):  # check for any missing commands and report
+            exit('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
+                 % (idx + 1, file, _command))
+        if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
+            if idx != 0 and script_present:  # There was a change from script files to non-script files
+                exit('%s is malformed at line %d! All commands must either have a file extension or not. Cannot mix!\n'
+                     % (idx + 1, file))
+            script_present = None
+            # break
+        else:  # the command string is a shell script
+            if idx != 0 and not script_present:  # There was a change from non-script files to script files
+                exit('%s is malformed at line %d! All commands must either have a file extension or not. Cannot mix!\n'
+                     % (idx + 1, file))
+            script_present = '-c'
 
     # Create success and failures files
     ran_num = int(100 * random())
-    if not args.success_file:
-        args.success_file = os.path.join(args.directory, '%s_sbatch-%d_success.log' % (args.stage, ran_num))
-    if not args.failure_file:
-        args.failure_file = os.path.join(args.directory, '%s_sbatch-%d_failures.log' % (args.stage, ran_num))
+    if not success_file:
+        success_file = os.path.join(directory, '%s_sbatch-%d_success.log' % (stage, ran_num))
+    if not failure_file:
+        failure_file = os.path.join(directory, '%s_sbatch-%d_failures.log' % (stage, ran_num))
     logger.info('\nSuccessful poses will be listed in \'%s\'\nFailed poses will be listed in \'%s\''
-                % (args.success_file, args.failure_file))
+                % (success_file, failure_file))
 
     # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
-    with open(PUtils.sbatch_templates[args.stage]) as template_f:
+    with open(PUtils.sbatch_templates[stage]) as template_f:
         template_sbatch = template_f.readlines()
 
     # Make sbatch file from template, array details, and command distribution script
-    filename = os.path.join(args.directory, '%s_%s-%d.sh' % (args.stage, PUtils.sbatch, ran_num))
-    output = os.path.join(args.directory, 'output')
+    filename = os.path.join(directory, '%s_%s-%d.sh' % (stage, PUtils.sbatch, ran_num))
+    output = os.path.join(directory, 'output')
     if not os.path.exists(output):
         os.mkdir(output)
 
-    command_divisor = CUtils.process_scale[args.stage]
+    command_divisor = CUtils.process_scale[stage]
     with open(filename, 'w') as new_f:
         for template_line in template_sbatch:
             new_f.write(template_line)
         out = 'output=%s/%s' % (output, '%A_%a.out')
         new_f.write(PUtils.sb_flag + out + '\n')
-        array = 'array=1-%d%%%d' % (int(len(_commands) / command_divisor + 0.5), args.max_jobs)
+        array = 'array=1-%d%%%d' % (int(len(_commands) / command_divisor + 0.5), max_jobs)
         new_f.write(PUtils.sb_flag + array + '\n')
         new_f.write('\npython %s --stage %s --success_file %s --failure_file %s --command_file %s %s\n' %
-                    (PUtils.cmd_dist, args.stage, args.success_file, args.failure_file, args.file,
+                    (PUtils.cmd_dist, stage, success_file, failure_file, file,
                      (script_present or '')))
 
-    logger.info('To distribute commands enter the following:\ncd %s\nsbatch %s'
-                % (args.directory, os.path.basename(filename)))
+    logger.info('To distribute commands, ensure the sbatch script (%s) is correct, then enter the following:'
+                '\nsbatch %s' % (filename, os.path.basename(filename)))  # '\ncd' %s directory
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=os.path.basename(__file__)
                                      + '\nGather commands set up by %s and distribute to computational nodes for '
                                      'Rosetta processing.' % PUtils.program_name)
-    parser.add_argument('-s', '--stage', choices=tuple(CUtils.process_scale.keys()),
+    parser.add_argument('-s', '--stage', choices=tuple(CUtils.process_scale.keys()),  # Todo depreciate stage
                         help='The stage of design to be distributed. Each stage has optimal computing requirements to'
                              ' maximally utilize computers . One of %s' % ', '.join(list(CUtils.process_scale.keys())))
-    # TODO combine with command file as 1 arg?
-    parser.add_argument('-C', '--command_present', action='store_true',
-                        help='Whether command file has commands already')
-    parser.add_argument('-c', '--command_file', help='File with command(s) to be distributed. Required', required=True)  # TODO -f
+    parser.add_argument('-c', '--command_present', action='store_true',
+                        help='Whether command file has commands already')  # TODO combine with command file as 1 arg
+    parser.add_argument('-f', '--command_file', help='File with command(s) to be distributed. Required', required=True)
     parser.add_argument('-y', '--success_file', help='The disk location of output file containing successful commands')
     parser.add_argument('-n', '--failure_file', help='The disk location of output file containing failed commands')
     args = parser.parse_args()
@@ -185,21 +198,11 @@ if __name__ == '__main__':
 
     if args.command_present:
         command_paths = specific_commands
-        # log_files = [os.path.join(os.path.dirname(log_dir), '%s.log' % os.path.splitext(os.path.basename(log_dir))[0] for log_dir in command_paths)]
     else:
         command_paths = list(map(path_maker, specific_commands))
 
     log_files = [os.path.join(os.path.dirname(log_dir), '%s.log' % os.path.splitext(os.path.basename(log_dir))[0])
                  for log_dir in command_paths]
-    #
-    # if args.stage == 'nanohedra':
-    #     log_dirs = [SDUtils.set_up_pseudo_design_dir(cmd, os.getcwd(), os.getcwd()) for cmd in specific_commands]
-    #     # des_dirs = [SDUtils.set_up_pseudo_design_dir(cmd, os.getcwd(), os.getcwd()) for cmd in specific_commands]
-    # else:
-    #
-    #     # des_dirs = SDUtils.set_up_pseudo_design_dir(poses)
-    #     # des_dirs = SDUtils.set_up_directory_objects(poses)
-    # log_files = [os.path.join(log_dir, os.path.basename(log_dir) + '.log') for log_dir in log_dirs]
     commands = zip(command_paths, log_files)
 
     # Ensure all log files exist

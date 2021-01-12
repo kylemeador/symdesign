@@ -806,10 +806,13 @@ def write_shell_script(command, name='script', outpath=os.getcwd(), additional=N
 
 
 def write_commands(command_list, name='all_commands', loc=os.getcwd()):  # TODO loc, location, outpath. Standardize!!!
-    file = os.path.join(loc, name + '.cmd')
+    if len(command_list) > 1:
+        extension = '.cmds'
+    else:
+        extension = '.cmd'
+    file = os.path.join(loc, name + extension)
     with open(file, 'w') as f:
-        for command in command_list:
-            f.write(command + '\n')
+        f.write('\n'.join(command for command in command_list))
 
     return file
 
