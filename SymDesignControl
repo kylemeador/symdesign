@@ -565,6 +565,7 @@ if __name__ == '__main__':
                 oligomer_symmetry_2 = sym_entry.get_group2_sym()
 
             # Orient Input Oligomers to Canonical Orientation
+            logger.info('Orienting PDB\'s for Nanohedra Docking')
             oriented_pdb1_out_dir = os.path.join(os.path.dirname(args.pdb_path1), '%s_oriented_with_%s_symmetry'
                                                  % (os.path.basename(args.pdb_path1), oligomer_symmetry_1))
             if not os.path.exists(oriented_pdb1_out_dir):
@@ -602,7 +603,7 @@ if __name__ == '__main__':
                     location = '%s & %s' % (args.pdb_path1, args.pdb_path2)
             else:
                 pdb_pairs = list(combinations(filter(None, pdb1_oriented_filepaths), 2))
-                pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
+                # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
                 # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
                 location = args.pdb_path1
             design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
