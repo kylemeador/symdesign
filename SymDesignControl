@@ -593,12 +593,13 @@ if __name__ == '__main__':
                                                                             PUtils.orient_log_file))
                                                for pdb_path in pdb2_filepaths]
 
-                    pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir),
-                                             SDUtils.get_all_pdb_file_paths(oriented_pdb2_out_dir)))
+                    pdb_pairs = list(product(pdb1_oriented_filepaths, pdb2_oriented_filepaths))
+                    # pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir),
+                    #                          SDUtils.get_all_pdb_file_paths(oriented_pdb2_out_dir)))
                     location = '%s & %s' % (args.pdb_path1, args.pdb_path2)
             else:
-                pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
-                # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(pdb1_oriented_filepaths), 2))
+                pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
+                # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
                 location = args.pdb_path1
             design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
         elif args.directory or args.file:
