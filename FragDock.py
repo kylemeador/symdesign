@@ -1364,7 +1364,7 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
                 optimal_shifts.append(False)
         else:
             # failedj += 1
-            # optimal_shifts.append(False)
+            optimal_shifts.append(False)
 
     # print('%d Failed the J matching' % failedj)
 
