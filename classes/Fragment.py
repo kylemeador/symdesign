@@ -72,7 +72,7 @@ def get_surface_fragments_chain(pdb, chain_id):  # DEPRECIATE
 
 
 class GhostFragment:
-    def __init__(self, pdb, i_frag_type, j_frag_type, k_frag_type, ghostfrag_central_res_tup, ijk_rmsd,
+    def __init__(self, pdb, i_frag_type, j_frag_type, k_frag_type, ijk_rmsd, ghostfrag_central_res_tup,
                  aligned_surf_frag_central_res_tup, guide_atoms=None, guide_coords=None, pdb_coords=None):
         self.pdb = pdb
         self.i_frag_type = i_frag_type
