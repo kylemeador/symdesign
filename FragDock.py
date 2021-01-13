@@ -45,7 +45,7 @@ def get_last_sampling_state(log_file_path, zero=True):
 def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list,
                                cluster_rmsd, outdir_path, pose_id, is_initial_match=False):
 
-    out_info_file_path = outdir_path + "/frag_match_info_file.txt"
+    out_info_file_path = os.path.join(outdir_path, PUtils.frag_text_file)
     out_info_file = open(out_info_file_path, "a+")
 
     aligned_central_res_info = ghost_frag.get_aligned_central_res_info()
@@ -329,7 +329,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                                  if z_value <= high_quality_match_value])
 
                     if high_qual_match_count >= min_matched:
-                        for idx, (interface_ghost_frag, interface_mono_frag) in enumerate(ghostfrag_surffrag_pairs):
+                        for frag_idx, (interface_ghost_frag, interface_mono_frag) in enumerate(ghostfrag_surffrag_pairs):
 
                             ghost_frag_i_type = interface_ghost_frag.get_i_frag_type()
                             ghost_frag_j_type = interface_ghost_frag.get_j_frag_type()
@@ -350,7 +350,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                             covered_residues_pdb2 = [
                                 (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num + j)
                                 for j in range(-2, 3)]
-                            score_term = passing_fragment_overlap[idx][0]
+                            score_term = passing_fragment_overlap[frag_idx][0]
                             for k in range(5):
                                 chid1, resnum1 = covered_residues_pdb1[k]
                                 chid2, resnum2 = covered_residues_pdb2[k]
@@ -374,9 +374,9 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 unique_interface_monofrags_infolist_pdb2.append(
                                     (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
 
-                            z_val = passing_fragment_overlap[idx][1]
+                            z_val = passing_fragment_overlap[frag_idx][1]
                             frag_match_info_list.append((interface_ghost_frag, interface_mono_frag, z_val,
-                                                         cluster_id, idx + 1,
+                                                         cluster_id, frag_idx + 1,
                                                          interface_ghost_frag_cluster_res_freq_list,
                                                          interface_ghost_frag.get_rmsd()))
                         unique_matched_interface_monofrag_count = len(unique_interface_monofrags_infolist_pdb1) + len(
@@ -555,42 +555,44 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 # initial_match for the initial matched fragment
                                 # high_qual_match for fragments that were matched with z values <= 1
                                 # low_qual_match for fragments that were matched with z values > 1
-                                matched_frag_reps_outdir_path = tx_subdir_out_path + "/matching_fragments"
-                                # matched_frag_reps_outdir_path = tx_subdir_out_path + "/matching_fragment_representatives"
+                                matched_frag_reps_outdir_path = os.path.join(tx_subdir_out_path, "matching_fragments")
                                 if not os.path.exists(matched_frag_reps_outdir_path):
                                     os.makedirs(matched_frag_reps_outdir_path)
 
-                                init_match_outdir_path = matched_frag_reps_outdir_path + "/initial_match"
+                                init_match_outdir_path = os.path.join(matched_frag_reps_outdir_path,
+                                                                      "initial_match")
                                 if not os.path.exists(init_match_outdir_path):
                                     os.makedirs(init_match_outdir_path)
 
-                                high_qual_matches_outdir_path = matched_frag_reps_outdir_path + "/high_qual_match"
+                                high_qual_matches_outdir_path = os.path.join(matched_frag_reps_outdir_path,
+                                                                             'high_qual_match')
                                 if not os.path.exists(high_qual_matches_outdir_path):
                                     os.makedirs(high_qual_matches_outdir_path)
 
-                                low_qual_matches_outdir_path = matched_frag_reps_outdir_path + "/low_qual_match"
+                                low_qual_matches_outdir_path = os.path.join(matched_frag_reps_outdir_path,
+                                                                            "low_qual_match")
                                 if not os.path.exists(low_qual_matches_outdir_path):
                                     os.makedirs(low_qual_matches_outdir_path)
 
                                 # Write out initial match interface fragment
                                 match_number = 0
-                                init_match_surf_frag = ghostfrag_surffrag_pair[1]
-                                init_match_ghost_frag_i_type = init_match_ghost_frag.get_i_frag_type()
-                                init_match_ghost_frag_j_type = init_match_ghost_frag.get_j_frag_type()
-                                init_match_ghost_frag_k_type = init_match_ghost_frag.get_k_frag_type()
-                                init_match_ghost_frag_cluster_res_freq_list = \
-                                ijk_intfrag_cluster_info_dict[init_match_ghost_frag_i_type][init_match_ghost_frag_j_type][
-                                    init_match_ghost_frag_k_type].get_central_residue_pair_freqs()
-                                init_match_cluster_id = "i%s_j%s_k%s" % (
-                                init_match_ghost_frag_i_type, init_match_ghost_frag_j_type, init_match_ghost_frag_k_type)
+                                initial_ghost_frag_i = init_match_ghost_frag.get_i_frag_type()
+                                initial_ghost_frag_j = init_match_ghost_frag.get_j_frag_type()
+                                initial_ghost_frag_k = init_match_ghost_frag.get_k_frag_type()
+                                initial_ghost_frag_cluster_res_freqs = \
+                                    ijk_intfrag_cluster_info_dict[initial_ghost_frag_i][initial_ghost_frag_j][
+                                        initial_ghost_frag_k].get_central_residue_pair_freqs()
+                                init_match_cluster_id = "i%s_j%s_k%s" % (initial_ghost_frag_i, initial_ghost_frag_j,
+                                                                         initial_ghost_frag_k)
+                                # if write_frags:
                                 init_match_ghost_frag_pdb_copy.write(
-                                    init_match_outdir_path + "/int_frag_i%s_j%s_k%s_0.pdb" % (
-                                    init_match_ghost_frag_i_type, init_match_ghost_frag_j_type,
-                                    init_match_ghost_frag_k_type))
-                                init_match_ghost_frag_cluster_rmsd = init_match_surf_frag.get_rmsd()
+                                    os.path.join(init_match_outdir_path, 'int_frag_%s_%d.pdb'
+                                                 % (init_match_cluster_id, match_number)))
+                                init_match_ghost_frag_cluster_rmsd = init_match_ghost_frag.get_rmsd()
+                                init_match_surf_frag = ghostfrag_surffrag_pair[1]
                                 write_frag_match_info_file(init_match_ghost_frag, init_match_surf_frag,
                                                            initial_overlap_z_val, init_match_cluster_id, match_number,
-                                                           init_match_ghost_frag_cluster_res_freq_list,
+                                                           initial_ghost_frag_cluster_res_freqs,
                                                            init_match_ghost_frag_cluster_rmsd,
                                                            matched_frag_reps_outdir_path, pose_id,
                                                            is_initial_match=True)
@@ -610,9 +612,10 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                         matched_frag_outdir_path = high_qual_matches_outdir_path
                                     else:
                                         matched_frag_outdir_path = low_qual_matches_outdir_path
+                                    # if write_frags:
                                     interface_ghost_frag.get_pdb().write(
-                                        matched_frag_outdir_path + "/int_frag_i%s_j%s_k%s_%s.pdb" % (
-                                        ghost_frag_i_type, ghost_frag_j_type, ghost_frag_k_type, str(matched_frag[4])))
+                                        os.path.join(matched_frag_outdir_path, 'int_frag_%s_%d.pdb'
+                                                     % (matched_frag[3], matched_frag[4])))
                                     write_frag_match_info_file(matched_frag[0], matched_frag[1], matched_frag[2],
                                                                matched_frag[3], matched_frag[4], matched_frag[5],
                                                                matched_frag[6], matched_frag_reps_outdir_path,
@@ -632,8 +635,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                     res_pair_freq_info_list.append(match_res_pair_freq_info)
 
                                 weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
-                                weighted_seq_freq_info.write(
-                                    matched_frag_reps_outdir_path + "/frag_match_info_file.txt")
+                                weighted_seq_freq_info.write(os.path.join(matched_frag_reps_outdir_path, PUtils.frag_text_file))
 
                                 # Calculate Nanohedra Residue Level Summation Score
                                 res_lev_sum_score = 0

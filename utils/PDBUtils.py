@@ -7,7 +7,7 @@ from classes.PDB import *
 from utils.GeneralUtils import rot_txint_set_txext_frag_coord_sets
 
 
-def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):
+def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):  # Todo to PDB
     pdb_coords = np.array(pdb.extract_all_coords())
 
     if pdb_coords.size != 0:
