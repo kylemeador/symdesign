@@ -61,6 +61,7 @@ class OptimalTx:
         for i in range(self.n_dof):
             self.dof9[i] = (np.array(number_of_coordinates * [self.dof[i]])).flatten()
             # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
+        print('9 converted: %s' % self.dof9)
         self.dof9 = np.transpose(self.dof9)
         # return np.transpose(dof9)
 
@@ -101,6 +102,8 @@ class OptimalTx:
         dofT = np.transpose(self.dof9)  # degree of freedom transpose (row major - n_dof_ext x 9)
 
         # solve the problem
+        print('9: %s' % self.dof9)
+        print('var_inv_tot: %s' % var_tot_inv)
         dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance x degree of freedom = (9 x n_dof)
         vtdinvv = np.matmul(dofT, dinvv)  # degree of freedom transpose x (9 x n_dof) = (n_dof x n_dof)
         vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
