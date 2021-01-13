@@ -435,7 +435,7 @@ def main():
 
                 master_log_file = open(master_log_filepath, "a+")
                 master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' %
-                                                                           (pdb1_oriented_filename, pdb2_oriented_filename)))
+                                                                           (pdb1_filename, pdb2_filename)))
                 master_log_file.close()
 
             master_log_file = open(master_log_filepath, "a+")

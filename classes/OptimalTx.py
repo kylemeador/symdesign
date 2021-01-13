@@ -56,7 +56,7 @@ class OptimalTx:
         return cls(tx_params=optimal_tx_params, error=error_zvalue)
 
     def dof_convert9(self, number_of_coordinates=3):
-        # convert input degrees of freedom to 9-dim arrays, repeat DOF ext for each set of 3 coordinates (3 sets)
+        """convert input degrees of freedom to 9-dim arrays, repeat DOF ext for each set of 3 coordinates (3 sets)"""
         self.dof9 = np.zeros((self.n_dof, 9))
         for i in range(self.n_dof):
             self.dof9[i] = (np.array(number_of_coordinates * [self.dof[i]])).flatten()
@@ -65,8 +65,12 @@ class OptimalTx:
         # return np.transpose(dof9)
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
-        # This routine does the work to solve the optimal shift problem
-        print(coords_rmsd_reference)
+        """This routine does the work to solve the optimal shift problem
+
+        Returns:
+            (list(list)), (float): Returns the optimal translation for the set of coordinates and their error value
+        """
+
         # form the guide coords into a matrix (column vectors)
         guide_target_10 = np.transpose(np.array(coords1))
         # guide_target_10 = np.transpose(np.array(self.guide_atom_coords1_set))
