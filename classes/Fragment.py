@@ -72,12 +72,13 @@ def get_surface_fragments_chain(pdb, chain_id):  # DEPRECIATE
 
 
 class GhostFragment:
-    def __init__(self, pdb, i_frag_type, j_frag_type, k_frag_type, ghostfrag_central_res_tup,
+    def __init__(self, pdb, i_frag_type, j_frag_type, k_frag_type, ghostfrag_central_res_tup, ijk_rmsd,
                  aligned_surf_frag_central_res_tup, guide_atoms=None, guide_coords=None, pdb_coords=None):
         self.pdb = pdb
         self.i_frag_type = i_frag_type
         self.j_frag_type = j_frag_type
         self.k_frag_type = k_frag_type
+        self.rmsd = ijk_rmsd
         self.central_res_tup = ghostfrag_central_res_tup
         self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup
 
@@ -113,6 +114,9 @@ class GhostFragment:
 
     def get_k_frag_type(self):
         return self.k_frag_type
+
+    def get_rmsd(self):
+        return self.rmsd
 
     def get_pdb(self):
         return self.pdb
@@ -232,12 +236,14 @@ class MonoFragment:
                   20.00, "O", "")
         self.guide_atoms = [a1, a2, a3]
 
-    def get_ghost_fragments(self, intfrag_cluster_rep_dict, kdtree_oligomer_backbone, clash_dist=2.2):
+    def get_ghost_fragments(self, intfrag_cluster_rep_dict, kdtree_oligomer_backbone, intfrag_cluster_info_dict,
+                            clash_dist=2.2):
         if self.type in intfrag_cluster_rep_dict:
             ghost_fragments = []
             for j_type in intfrag_cluster_rep_dict[self.type]:
                 for k_type in intfrag_cluster_rep_dict[self.type][j_type]:
                     intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
+                    rmsd = intfrag_cluster_info_dict[self.type][j_type][k_type]
                     intfrag_pdb = intfrag[0]
                     intfrag_mapped_chain_id = intfrag[1]
                     intfrag_mapped_chain_central_res_num = intfrag[2]
@@ -263,8 +269,8 @@ class MonoFragment:
 
                     if cb_clash_count[0] == 0:
                         ghost_fragments.append(
-                            GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, ghostfrag_central_res_tup,
-                                          self.get_central_res_tup()))
+                            GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, rmsd,
+                                          ghostfrag_central_res_tup, self.get_central_res_tup()))
 
             return ghost_fragments
 

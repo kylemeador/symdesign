@@ -300,6 +300,7 @@ def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_f
 
         int_ghost_frag_transformed = GhostFragment(int_ghost_frag_pdb_transformed, int_ghost_frag.get_i_frag_type(),
                                                    int_ghost_frag.get_j_frag_type(), int_ghost_frag.get_k_frag_type(),
+                                                   int_ghost_frag.get_rmsd(),
                                                    int_ghost_frag.get_central_res_tup(),
                                                    int_ghost_frag.get_aligned_surf_frag_central_res_tup(),
                                                    guide_atoms=int_ghost_frag_pdb_transformed_atoms[-3:],
