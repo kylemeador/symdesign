@@ -163,7 +163,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
         # tx_parameters contains [OptimalExternalDOFShifts (n_dof_ext), OptimalInternalDOFShifts (n_dof_int)]
         tx_parameters = optimal_tx_params[tx_idx][0]
         # tx_parameters = optimal_tx_params[tx_idx]
-        print('TX Parameters: %s\nLen: %d' % (tx_parameters, len(tx_parameters)))
+
         initial_overlap_z_val = optimal_tx_params[tx_idx][1]
         # initial_overlap_z_val = tx_parameters.get_zvalue()
         ghostfrag_surffrag_pair = ghostfrag_surffrag_pair_list[tx_idx]
@@ -179,7 +179,6 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
         # Get Oligomer1 Optimal Internal Translation vector
         representative_int_dof_tx_param_1 = None
         if is_zshift1:
-            print('DOF EXTERNAL: %s' % n_dof_external)
             representative_int_dof_tx_param_1 = [0, 0, tx_parameters[n_dof_external: n_dof_external + 1][0]]
 
         # Get Oligomer1 Optimal External Translation vector
@@ -238,10 +237,8 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 
             copy_rot_tr_set_time_stop = time.time()
             copy_rot_tr_set_time = copy_rot_tr_set_time_stop - copy_rot_tr_set_time_start
-            log_file = open(log_filepath, "a+")
-            # log_file.write("\t\t Optimal Shift %s" % str(i) + "\n")
-            log_file.write("\tCopy and Transform Oligomer1 and Oligomer2 (took: %s s)\n" % str(copy_rot_tr_set_time))
-            log_file.close()
+            with open(log_filepath, "a+") as log_file:
+                log_file.write("\tCopy and Transform Oligomer1 and Oligomer2 (took: %s s)\n" % str(copy_rot_tr_set_time))
 
             # Check if PDB1 and PDB2 backbones clash
             oligomer1_oligomer2_clash_time_start = time.time()
@@ -252,11 +249,9 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
             oligomer1_oligomer2_clash_time = oligomer1_oligomer2_clash_time_end - oligomer1_oligomer2_clash_time_start
 
             if cb_clash_count[0] == 0:
-
-                log_file = open(log_filepath, "a+")
-                log_file.write("\tNO Backbone Clash when Oligomer1 and Oligomer2 are Docked (took: %s s)"
-                               % str(oligomer1_oligomer2_clash_time) + "\n")
-                log_file.close()
+                with open(log_filepath, "a+") as log_file:
+                    log_file.write("\tNO Backbone Clash when Oligomer1 and Oligomer2 are Docked (took: %s s)\n"
+                                   % str(oligomer1_oligomer2_clash_time))
 
                 # Full Interface Fragment Match
                 # TODO BIG This routine takes the bulk of the docking program due to the high amount of calculations.
@@ -283,19 +278,19 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                 get_int_ghost_surf_frags_time_end = time.time()
                 get_int_ghost_surf_frags_time = get_int_ghost_surf_frags_time_end - get_int_ghost_surf_frags_time_start
 
-                unique_total_interface_monofrags_count = unique_interface_frag_count_pdb1 + unique_interface_frag_count_pdb2
+                unique_total_interface_monofrags_count = unique_interface_frag_count_pdb1 + \
+                                                         unique_interface_frag_count_pdb2
 
                 if unique_total_interface_monofrags_count > 0:
+                    with open(log_filepath, "a+") as log_file:
+                        log_file.write("\tNewly Formed Interface Contains %s Unique Fragments on Oligomer 1 and %s on "
+                                       "Oligomer 2\n" % (str(unique_interface_frag_count_pdb1),
+                                                         str(unique_interface_frag_count_pdb2)))
+                        log_file.write("\t(took: %s s to get interface surface fragments and interface ghost fragments"
+                                       " with their guide atoms)\n" % str(get_int_ghost_surf_frags_time))
 
-                    log_file = open(log_filepath, "a+")
-                    log_file.write("\tNewly Formed Interface Contains %s "
-                                   "Unique Fragments on Oligomer 1 and %s on Oligomer 2\n"
-                                   % (str(unique_interface_frag_count_pdb1), str(unique_interface_frag_count_pdb2)))
-                    log_file.write("\t(took: %s s to get interface surface fragments and interface ghost fragments"
-                                   " with their guide atoms)\n" % str(get_int_ghost_surf_frags_time))
-                    log_file.close()
-
-                    # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Mono Fragment) guide coodinate pairs in the same Euler rotational space bucket
+                    # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Mono Fragment) guide coodinate pairs
+                    # in the same Euler rotational space bucket
                     eul_lookup_start_time = time.time()
                     eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_l,
                                                                                interface_monofrag2_guide_coords_l)
@@ -313,7 +308,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                                                          interface_monofrag2_l,
                                                                          interface_monofrag2_guide_coords_l,
                                                                          z_value_func=calculate_overlap,
-                                                                         max_z_val=max_z_val)
+                                                                         max_z_value=max_z_val)
                     passing_fragment_overlap = list(filter(None, all_fragment_overlap))
                     ghostfrag_surffrag_pairs = [(interface_ghostfrag_l[idx], interface_monofrag2_l[idx])
                                                 for idx, boolean in all_fragment_overlap if boolean]
@@ -321,14 +316,13 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                     overlap_score_time_stop = time.time()
                     overlap_score_time = overlap_score_time_stop - overlap_score_time_start
 
-                    log_file = open(log_filepath, "a+")
-                    log_file.write("\t%d Fragment Match(es) Found in Complete Cluster "
-                                   "Representative Fragment Library\n" % len(passing_fragment_overlap))
-                    log_file.write("\t(Euler Lookup took %s s for %d fragment pairs and Overlap Score Calculation took"
-                                   " %s for %d fragment pairs)\n" %
-                                   (str(eul_lookup_time), len(eul_lookup_all_to_all_list), str(overlap_score_time),
-                                    len(eul_lookup_true_list)))
-                    log_file.close()
+                    with open(log_filepath, "a+") as log_file:
+                        log_file.write("\t%d Fragment Match(es) Found in Complete Cluster Representative Fragment "
+                                       "Library\n\t(Euler Lookup took %s s for %d fragment pairs and Overlap Score "
+                                       "Calculation took %s for %d fragment pairs)\n" %
+                                       (len(passing_fragment_overlap), str(eul_lookup_time),
+                                        len(eul_lookup_all_to_all_list), str(overlap_score_time),
+                                        len(eul_lookup_true_list)))
 
                     high_qual_match_count = sum([1 for match_score, z_value in passing_fragment_overlap
                                                  if z_value <= high_quality_match_value])
@@ -369,20 +363,6 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 else:
                                     chid_resnum_scores_dict_pdb2[(chid2, resnum2)].append(score_term)
 
-                            # these next two blocks serve to calculate high_qual_match_count, then unique_matched_interface_monofrag_count
-                            z_val = passing_fragment_overlap[idx][1]
-                            # if z_val <= 1:
-                            #     if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) \
-                            #             not in unique_interface_monofrags_infolist_highqual_pdb1:
-                            #         unique_interface_monofrags_infolist_highqual_pdb1.append(
-                            #             (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num))
-                            #     if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) \
-                            #             not in unique_interface_monofrags_infolist_highqual_pdb2:
-                            #         unique_interface_monofrags_infolist_highqual_pdb2.append(
-                            #             (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
-
-                            #######################################################
-
                             if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) \
                                     not in unique_interface_monofrags_infolist_pdb1:
                                 unique_interface_monofrags_infolist_pdb1.append(
@@ -393,6 +373,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 unique_interface_monofrags_infolist_pdb2.append(
                                     (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
 
+                            z_val = passing_fragment_overlap[idx][1]
                             frag_match_info_list.append((interface_ghost_frag, interface_mono_frag, z_val,
                                                          cluster_id, idx + 1,
                                                          interface_ghost_frag_cluster_res_freq_list,
@@ -402,8 +383,6 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                         percent_of_interface_covered = unique_matched_interface_monofrag_count / float(
                             unique_total_interface_monofrags_count)
 
-
-                    #
                     # for index_pair in eul_lookup_true_list:
                     #     interface_ghost_frag = interface_ghostfrag_l[index_pair[0]]
                     #     interface_ghost_frag_guide_coords = interface_ghostfrag_guide_coords_l[index_pair[0]]
@@ -547,11 +526,10 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 if not os.path.exists(tx_subdir_out_path):
                                     os.makedirs(tx_subdir_out_path)
 
-                                log_file = open(log_filepath, "a+")
-                                log_file.write("\tNO Backbone Clash when Designed Assembly is Expanded "
-                                               "(took: %s s including writing)" % str(exp_des_clash_time) + "\n")
-                                log_file.write("\tSUCCESSFUL DOCKED POSE: %s\n" % tx_subdir_out_path)
-                                log_file.close()
+                                with open(log_filepath, "a+") as log_file:
+                                    log_file.write("\tNO Backbone Clash when Designed Assembly is Expanded (took: %s s "
+                                                   "including writing)\n\tSUCCESSFUL DOCKED POSE: %s\n" %
+                                                   (str(exp_des_clash_time), tx_subdir_out_path))
 
                                 # Write PDB1 and PDB2 files
                                 cryst1_record = None
@@ -559,8 +537,8 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                     cryst1_record = generate_cryst1_record(uc_dimensions, result_design_sym)
                                 pdb1_fname = os.path.splitext(os.path.basename(pdb1.get_filepath()))[0]
                                 pdb2_fname = os.path.splitext(os.path.basename(pdb2.get_filepath()))[0]
-                                pdb1_copy.write(tx_subdir_out_path + "/" + pdb1_fname + "_" + sampling_id + ".pdb")
-                                pdb2_copy.write(tx_subdir_out_path + "/" + pdb2_fname + "_" + sampling_id + ".pdb")
+                                pdb1_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb1_fname, sampling_id)))
+                                pdb2_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb2_fname, sampling_id)))
 
                                 # Initial Interface Fragment Match
                                 # Rotate, translate and set initial match interface fragment
