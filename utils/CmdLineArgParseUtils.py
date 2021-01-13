@@ -1,6 +1,7 @@
 import os
 import sys
 
+from PathUtils import master_log
 from utils import PostProcessUtils
 from utils import SymQueryUtils
 
@@ -67,7 +68,8 @@ def get_docking_parameters(arg_list):
         logfile.close()
         sys.exit()
 
-    master_log_filepath = outdir + "/master_log.txt"
+    master_log_filepath = os.path.join(outdir, master_log)
+    # master_log_filepath = outdir + "/master_log.txt"
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     master_logfile = open(master_log_filepath, "w")
