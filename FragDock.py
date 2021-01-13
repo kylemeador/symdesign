@@ -2033,8 +2033,9 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                         # print('Out of %d possible, %d were below the threshold' %
                         #       (len(all_optimal_shifts),  len(passing_optimal_shifts)))
                         # print(all_optimal_shifts[:10])
-                        ghostfrag_surffrag_pairs = [(ghost_frag_list[idx], surf_frag_list[idx]) for idx, boolean in
-                                                    enumerate(all_optimal_shifts) if boolean]
+                        ghostfrag_surffrag_pairs = [(ghost_frag_list[eul_lookup_true_list[idx][0]],
+                                                     surf_frag_list[eul_lookup_true_list[idx][1]])
+                                                    for idx, boolean in enumerate(all_optimal_shifts) if boolean]
 
                         if len(passing_optimal_shifts) == 0:
                             with open(log_file_path, "a+") as log_file:
