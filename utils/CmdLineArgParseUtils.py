@@ -1,7 +1,7 @@
 import os
 import sys
 
-# from PathUtils import master_log
+from PathUtils import master_log
 from utils import PostProcessUtils
 from utils import SymQueryUtils
 
@@ -68,8 +68,14 @@ def get_docking_parameters(arg_list):
         logfile.close()
         sys.exit()
 
+
     if not os.path.exists(outdir):
         os.makedirs(outdir)
+
+    master_log_filepath = os.path.join(outdir, master_log)
+    # with open(master_log_filepath, "w") as master_logfile:
+    master_logfile = open(master_log_filepath, "w")
+    master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
 
     valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
                    "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-init_match_type",
