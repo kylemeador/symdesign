@@ -1352,6 +1352,7 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
             #     all_optimal_shifts = o.get_all_optimal_shifts()
             #     optimal_tx_params.append((all_optimal_shifts, o.get_zvalue()))
                 optimal_shifts.append((result, z_value))
+                print('Found a shift!')
             # optimal_shifts.append(OptimalTx.from_tx_params(optimal_tx.get_all_optimal_shifts(),
             #                                                    optimal_tx.get_zvalue()))
             else:
@@ -2011,6 +2012,8 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                         # optimal_shifts_mask = [True if opt_shift.get_zvalue() <= init_max_z_val else False for opt_shift
                         #                        in all_optimal_shifts]
                         passing_optimal_shifts = list(filter(None, all_optimal_shifts))
+                        print('Out of %d possible, %d were below the threshold' %
+                              (len(all_optimal_shifts),  len(all_optimal_shifts)))
                         ghostfrag_surffrag_pairs = [(ghost_frag_list[idx], surf_frag_list[idx]) for idx, boolean in
                                                     enumerate(all_optimal_shifts) if boolean]
 
