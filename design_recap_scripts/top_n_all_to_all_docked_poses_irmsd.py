@@ -11,7 +11,8 @@ from Bio.PDB.Atom import PDBConstructionWarning
 import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from classes.PDB import *
+# from classes.PDB import *
+from PDB import PDB
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
