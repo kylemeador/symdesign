@@ -9,13 +9,13 @@ class OptimalTx:
         if setting1:
             self.setting1 = np.array(setting1)
         else:
-            self.setting1 = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
+            self.setting1 = np.array([])  # Todo make np.matmul handle an empty matrix
 
         if setting2:
             self.setting2 = np.array(setting2)
         else:
-            self.setting2 = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
-        print('setting: %s' % setting1)
+            self.setting2 = np.array([])  # Todo make np.matmul handle an empty matrix
+
         self.is_zshift1 = is_zshift1  # Whether or not the space has internal translational DOF
         self.is_zshift2 = is_zshift2  # Whether or not the space has internal translational DOF
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
