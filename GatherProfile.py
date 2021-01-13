@@ -75,7 +75,7 @@ def check_for_errors(des_dir, debug):
 #         with open(temp_file, 'w') as tf:
 #             tf.write('Still fetching data. Process will resume once data is gathered\n')
 #
-#         pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
+#         pssm_files, pdb_seq, errors, sequence_file, pssm_process = {}, {}, {}, {}, {}
 #         des_logger.debug('Fetching PSSM Files')
 #
 #         # Check if other design combinations have already collected sequence info about design candidates
@@ -102,21 +102,21 @@ def check_for_errors(des_dir, debug):
 #                 if errors[name]:
 #                     des_logger.warning('Sequence generation ran into the following residue errors: %s'
 #                                        % ', '.join(errors[name]))
-#                 pdb_seq_file[name] = SDUtils.write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
-#                 if not pdb_seq_file[name]:
+#                 sequence_file[name] = SDUtils.write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
+#                 if not sequence_file[name]:
 #                     des_logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
 #                     # logger.critical('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
 #                     raise DesignDirectory.DesignError('Unable to parse sequence in %s' % des_dir.path)
 #             else:
-#                 pdb_seq_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
+#                 sequence_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
 #
 #         # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
 #         for name in names:
 #             if pssm_files[name] == dict():
 #                 des_logger.info('Generating PSSM file for %s' % name)
-#                 pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(pdb_seq_file[name],
+#                 pssm_files[name], pssm_process[name] = SequenceProfile.hhblits(sequence_file[name],
 #                                                                                outpath=des_dir.sequences)
-#                 des_logger.debug('%s seq file: %s' % (name, pdb_seq_file[name]))
+#                 des_logger.debug('%s seq file: %s' % (name, sequence_file[name]))
 #             elif pssm_files[name] == PUtils.temp:
 #                 des_logger.info('Waiting for profile generation...')
 #                 while True:

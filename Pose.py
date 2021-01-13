@@ -6,6 +6,7 @@ import numpy as np
 
 import PathUtils as PUtils
 from PDB import PDB
+from SequenceProfile import SequenceProfile
 # Globals
 from SymDesignUtils import to_iterable, logger
 
@@ -64,11 +65,14 @@ class Model:
         return [pdb.replace_coords(new_cords[i]) for i, pdb in enumerate(self.model_list)]
 
 
-class Pose:
+class Pose(PDB, SequenceProfile):
     # made of multiple pdb objects
     def __init__(self, initial_pdb=None, file=None, symmetry=None):
+        super().__init__()  # PDB init
+        super().__init__(structure=self)  # SequenceProfile init
         self.pdb = None  # the pose specific pdb
         self.pdbs = []  # the member pdbs which make up the pose
+        # self.entities = []  # from PDB
         self.pdbs_d = {}
         self.pose_pdb_accession_map = {}
         self.uc_dimensions = []
@@ -85,18 +89,21 @@ class Pose:
 
         if file:
             pdb = PDB(file=file)
+            # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
+            # this would be:
+            # coords, atoms, residues, chains, entities, design, (host of others read from file)
             self.add_pdb(pdb)
-
-    @classmethod
-    def from_file(cls, filename):
-        return cls(file=filename)
 
     @classmethod
     def from_pdb(cls, pdb):
         return cls(initial_pdb=pdb)
 
+    # @classmethod  # In PDB class
+    # def from_file(cls, file):
+    #     return cls(file=file)
+
     def add_pdb(self, pdb):
-        """Add a pdb to the pose_pdb as well as the list of member pdbs"""
+        """Add a PDB to the PosePDB as well as the member PDB list"""
         self.pdbs.append(pdb)
         self.pdbs_d[pdb.name] = pdb
         # self.pdbs_d[id(pdb)] = pdb
@@ -112,6 +119,43 @@ class Pose:
         # Todo Entity()
         entity_chain = pdb.entities[entity]['representative']
         self.pdb.add_atoms(pdb.get_chain_atoms(entity_chain))
+
+    def initialize_pose(self):
+
+        for entity in pose:
+            # must provide the list from des_dir.gather_fragment_metrics or InterfaceScoring.py then specify whether the
+            # Entity in question is from mapped or paired
+            # such as fragment_source = des_dir.fragment_observations
+            fragment_info_source = 'mapped'  # Todo store in variable like des_dir.oligomer1?
+            entity.connect_fragment_database(location='biological_interfaces')
+            entity.add_profile(fragment_source=des_dir.fragment_observations,
+                               frag_alignment_type=fragment_info_source,
+                               out_path=des_dir.sequences, pdb_numbering=True)
+
+        # Extract PSSM for each protein and combine into single PSSM TODO full pose!
+        pose.combine_pssm([entity.pssm for entity in pose])  # sets pose.pssm
+        logger.debug('Position Specific Scoring Matrix: %s' % str(pose.pssm))
+        pssm_file = pose.make_pssm_file(pose.pssm, PUtils.msa_pssm, outpath=des_dir.path)  # static
+
+        pose.combine_fragment_profile([entity.fragment_profile for entity in pose])  # sets pose.pssm
+        logger.debug('Fragment Specific Scoring Matrix: %s' % str(pose.fragment_profile))
+        # Todo, remove missing fragment entries here or add where they are loaded keep_extras = False  # =False added for pickling 6/14/20
+        interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_type, out_path=des_dir.data)
+
+        pose.combine_dssm([entity.dssm for entity in pose])  # sets pose.pssm
+        logger.debug('Design Specific Scoring Matrix: %s' % str(pose.dssm))
+        dssm_file = pose.make_pssm_file(pose.dssm, PUtils.dssm, outpath=des_dir.path)  # static
+
+        self.solve_consensus()
+
+        # Update DesignDirectory with design information
+        des_dir.info['pssm'] = pssm_file
+        des_dir.info['issm'] = interface_data_file
+        des_dir.info['dssm'] = dssm_file
+        des_dir.info['db'] = frag_db
+        des_dir.info['des_residues'] = [j for name in names for j in int_res_numbers[name]]
+        # TODO add oligomer data to .info
+        info_pickle = SDUtils.pickle_object(des_dir.info, 'info', out_path=des_dir.data)
 
     def set_symmetry(self, symmetry):
         self.symmetry = ''.join(symmetry.split())  # ensure the symmetry is Hermann–Mauguin notation
