@@ -66,7 +66,7 @@ class OptimalTx:
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
         # This routine does the work to solve the optimal shift problem
-
+        print(coords_rmsd_reference)
         # form the guide coords into a matrix (column vectors)
         guide_target_10 = np.transpose(np.array(coords1))
         # guide_target_10 = np.transpose(np.array(self.guide_atom_coords1_set))
