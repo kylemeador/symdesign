@@ -96,7 +96,7 @@ class OptimalTx:
 
         # Use degrees of freedom 9-dim array
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
-        dof_t = np.transpose(self.dof9)  # degree of freedom transpose (row major - n_dof_ext x 9)
+        dof_t = np.transpose(self.dof9)  # degree of freedom transpose (row major: n_dof_ext x 9)
 
         # solve the problem
         # print('dof: %s' % self.dof)
@@ -135,10 +135,11 @@ class OptimalTx:
 
         return c
 
-    @staticmethod
-    def set_coords(mat, coords):
+    # @staticmethod
+    def set_coords(self,mat, coords):
         """Apply a matrix to a set of 3 sets of x, y, z coordinates"""
-        return np.matmul(mat, coords)
+        # return np.matmul(mat, coords)
+        return [self.mat_vec_mul3(mat, [coord[0], coord[1], coord[2]]) for coord in coords]
 
     def apply(self, coords1=None, coords2=None, coords_rmsd_reference=None):
         """Apply Setting Matrix to provided Guide Atoms and solve for the translational shifts to overlap them"""

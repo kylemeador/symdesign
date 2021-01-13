@@ -1326,8 +1326,8 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
                                   max_z_value=2):  # optimal_tx comes in from z_value_func
     # ghostfrag_surffrag_pair_list = []
     optimal_shifts = []
-    count = 0
-    failedj = 0
+    # count = 0
+    # failedj = 0
     for index_pair in index_pairs:
         ghost_frag = ghost_frags[index_pair[0]]
         coords1 = coords_l1[index_pair[0]]
@@ -1338,9 +1338,9 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
         surf_frag = surface_frags[index_pair[1]]
         coords2 = coords_l2[index_pair[1]]
         # surf_frag.get_guide_coords()
-        if count % 10000 == 240:
-            print('Iteration %d: %s\n%s' % (count, str(ghost_frag.get_guide_coords()), str(coords1)))
-        count += 1
+        # if count % 10000 == 240:
+        #     print('Iteration %d: %s\n%s' % (count, str(ghost_frag.get_guide_coords()), str(coords1)))
+        # count += 1
         if surf_frag.get_type() == ghost_frag.get_j_frag_type():  # could move this as mask outside
             result, z_value = z_value_func(coords1=coords1, coords2=coords2,
                                            coords_rmsd_reference=ghost_frag.get_rmsd())
@@ -1348,8 +1348,8 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
             # o = OptimalTx(set_mat1, set_mat2, is_zshift1, is_zshift2, ghost_frag_cluster_rmsd,
             #               ghost_frag_guide_coords, surf_frag_guide_coords, dof_ext)
             # o.apply()
-            if count % 10000 == 240:
-                print('Iteration %d: %d\n%s' % (count, z_value, str(result)))
+            # if count % 10000 == 240:
+            #     print('Iteration %d: %d\n%s' % (count, z_value, str(result)))
             # if optimal_tx.get_zvalue() <= max_z_value:
             if z_value <= max_z_value:
             #     ghostfrag_surffrag_pair_list.append((ghost_frag, surf_frag))
@@ -1357,16 +1357,16 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
             #     all_optimal_shifts = o.get_all_optimal_shifts()
             #     optimal_tx_params.append((all_optimal_shifts, o.get_zvalue()))
                 optimal_shifts.append((result, z_value))
-                print('Found a shift!')
+                # print('Found a shift!')
             # optimal_shifts.append(OptimalTx.from_tx_params(optimal_tx.get_all_optimal_shifts(),
             #                                                    optimal_tx.get_zvalue()))
             else:
                 optimal_shifts.append(False)
         else:
-            failedj += 1
-            optimal_shifts.append(False)
+            # failedj += 1
+            # optimal_shifts.append(False)
 
-    print('%d Failed the J matching' % failedj)
+    # print('%d Failed the J matching' % failedj)
 
     return optimal_shifts
 
@@ -2006,7 +2006,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
 
                         surf_frags_2_guide_coords_list_rot_and_set_for_eul = np.matmul(
                             surf_frags_2_guide_coords_list_rot, set_mat2_np_t)
-                        print('Set for Euler Lookup:', surf_frags_2_guide_coords_list_rot_and_set_for_eul[:5])
+                        # print('Set for Euler Lookup:', surf_frags_2_guide_coords_list_rot_and_set_for_eul[:5])
 
                         eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(
                             ghost_frag_guide_coords_list_rot_and_set_for_eul,
@@ -2019,7 +2019,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("Get optimal shift parameters for the selected Ghost Fragment/Surface "
                                            "Fragment guide coordinate pairs\n")
-                        print('Euler Lookup:', eul_lookup_true_list[:5])
+                        # print('Euler Lookup:', eul_lookup_true_list[:5])
                         all_optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
                                                                            ghost_frag_guide_coords_list_rot,
                                                                            surf_frag_list,
@@ -2030,9 +2030,9 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                         # optimal_shifts_mask = [True if opt_shift.get_zvalue() <= init_max_z_val else False for opt_shift
                         #                        in all_optimal_shifts]
                         passing_optimal_shifts = list(filter(None, all_optimal_shifts))
-                        print('Out of %d possible, %d were below the threshold' %
-                              (len(all_optimal_shifts),  len(passing_optimal_shifts)))
-                        print(all_optimal_shifts[:10])
+                        # print('Out of %d possible, %d were below the threshold' %
+                        #       (len(all_optimal_shifts),  len(passing_optimal_shifts)))
+                        # print(all_optimal_shifts[:10])
                         ghostfrag_surffrag_pairs = [(ghost_frag_list[idx], surf_frag_list[idx]) for idx, boolean in
                                                     enumerate(all_optimal_shifts) if boolean]
 
