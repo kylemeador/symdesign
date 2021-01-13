@@ -1340,6 +1340,7 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
         # surf_frag.get_guide_coords()
         if count % 10000 == 240:
             print('Iteration %d: %d\n%s' % (count, str(ghost_frag.get_guide_coords()), str(coords1)))
+        count += 1
         if surf_frag.get_type() == ghost_frag.get_j_frag_type():  # could move this as mask outside
             result, z_value = z_value_func(coords1=coords1, coords2=coords2,
                                            coords_rmsd_reference=ghost_frag.get_rmsd())
