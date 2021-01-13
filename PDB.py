@@ -25,13 +25,13 @@ class PDB(Structure):
     def __init__(self, file=None, atoms=None):
         super().__init__()
         # self.accession_entity_map = {}
-        self.atoms = []  # python list of Atoms
+        # self.atoms = []  # captured from Structure
         self.api_entry = None
         self.atom_sequences = {}  # ATOM sequences. key is chain, value is 'AGHKLAIDL'
         self.bb_coords = []
         self.cb_coords = []
-        self.center_of_mass = None
-        self.chain_id_list = []  # list of unique chain IDs in PDB
+        # self.center_of_mass = None  # captured from Structure
+        self.chain_id_list = []  # unique chain IDs in PDB
         self.chains = []
         self.coords = []
         self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
@@ -43,11 +43,11 @@ class PDB(Structure):
         self.entity_accession_map = {}
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.header = []
-        self.name = None
+        # self.name = None  # captured from Structure
         # self.secondary_structure = None  # captured from Structure
         self.reference_aa = None
-        self.res = None
-        self.residues = []
+        self.resolution = None
+        # self.residues = []  # captured from Structure
         self.rotation_d = {}
         self.seqres = {}  # SEQRES entries. key is chainID, value is 'AGHKLAIDL'
         self.profile = {}
@@ -88,7 +88,7 @@ class PDB(Structure):
 
     def update_attributes_from_pdb(self, pdb):  # Todo copy full attribute dict without selected elements
         # self.atoms = pdb.atoms
-        self.res = pdb.res
+        self.resolution = pdb.res
         self.cryst_record = pdb.cryst_record
         self.cryst = pdb.cryst
         self.dbref = pdb.dbref
@@ -232,9 +232,9 @@ class PDB(Structure):
                 self.dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
             elif line[:21] == 'REMARK   2 RESOLUTION':
                 try:
-                    self.res = float(line[22:30].strip().split()[0])
+                    self.resolution = float(line[22:30].strip().split()[0])
                 except ValueError:
-                    self.res = None
+                    self.resolution = None
             elif line[:6] == 'COMPND' and 'MOL_ID' in line:
                 entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
             elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
