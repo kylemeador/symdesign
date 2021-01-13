@@ -243,7 +243,7 @@ class MonoFragment:
             for j_type in intfrag_cluster_rep_dict[self.type]:
                 for k_type in intfrag_cluster_rep_dict[self.type][j_type]:
                     intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
-                    rmsd = intfrag_cluster_info_dict[self.type][j_type][k_type]
+                    rmsd = intfrag_cluster_info_dict[self.type][j_type][k_type].get_rmsd()
                     intfrag_pdb = intfrag[0]
                     intfrag_mapped_chain_id = intfrag[1]
                     intfrag_mapped_chain_central_res_num = intfrag[2]
