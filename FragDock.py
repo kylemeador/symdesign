@@ -500,12 +500,12 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                         asu_pdb_1, asu_pdb_2 = get_contacting_asu(pdb1_copy, pdb2_copy)
 
                         # Check if design has any clashes when expanded
-                        tx_subdir_out_path = os.path.join(rot_subdir_out_path, "tx_%d" % tx_idx + 1)
-                        oligomers_subdir = rot_subdir_out_path.split("/")[-3]
-                        degen_subdir = rot_subdir_out_path.split("/")[-2]
-                        rot_subdir = rot_subdir_out_path.split("/")[-1]
-                        pose_id = oligomers_subdir + "_" + degen_subdir + "_" + rot_subdir + "_TX_%d" % tx_idx + 1
-                        sampling_id = degen_subdir + "_" + rot_subdir + "_TX_%d" % tx_idx + 1
+                        tx_subdir_out_path = os.path.join(rot_subdir_out_path, "tx_%d" % (tx_idx + 1))
+                        oligomers_subdir = rot_subdir_out_path.split(os.sep)[-3]
+                        degen_subdir = rot_subdir_out_path.split(os.sep)[-2]
+                        rot_subdir = rot_subdir_out_path.split(os.sep)[-1]
+                        pose_id = "%s_%s_%s_TX_%d" % (oligomers_subdir, degen_subdir, rot_subdir, (tx_idx + 1))
+                        sampling_id = '%s_%s_TX_%d' % (degen_subdir, rot_subdir, (tx_idx + 1))
                         if asu_pdb_1 is not None and asu_pdb_2 is not None:
                             exp_des_clash_time_start = time.time()
                             exp_des_is_clash = expanded_design_is_clash(asu_pdb_1, asu_pdb_2, design_dim,
