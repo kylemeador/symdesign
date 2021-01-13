@@ -135,9 +135,8 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 
     high_quality_match_value = 1
     for tx_idx in range(len(optimal_tx_params)):
-        log_file = open(log_filepath, "a+")
-        log_file.write("Optimal Shift %d\n" % tx_idx + 1)
-        log_file.close()
+        with open(log_filepath, "a+") as log_file:
+            log_file.write("Optimal Shift %d\n" % (tx_idx + 1))
 
         # Dictionaries for PDB1 and PDB2 with (ch_id, res_num) tuples as keys for every residue that is covered by at
         # least 1 matched fragment. Dictionary values are lists containing 1 / (1 + z^2) values for every fragment match
