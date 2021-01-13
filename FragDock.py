@@ -1338,7 +1338,8 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
         surf_frag = surface_frags[index_pair[1]]
         coords2 = coords_l2[index_pair[1]]
         # surf_frag.get_guide_coords()
-
+        if count % 10000 == 240:
+            print('Iteration %d: %d\n%s' % (count, str(ghost_frag.get_guide_coords()), str(coords1)))
         if surf_frag.get_type() == ghost_frag.get_j_frag_type():  # could move this as mask outside
             result, z_value = z_value_func(coords1=coords1, coords2=coords2,
                                            coords_rmsd_reference=ghost_frag.get_rmsd())
@@ -1549,7 +1550,7 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 
     with open(master_log_filepath, "a+") as master_log_file:
         master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
-                                                      os.path.basename(os.path.splitext(pdb1_path)[0])))
+                                                      os.path.basename(os.path.splitext(pdb2_path)[0])))
 
     nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
                    init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict,
@@ -2004,6 +2005,8 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
 
                         surf_frags_2_guide_coords_list_rot_and_set_for_eul = np.matmul(
                             surf_frags_2_guide_coords_list_rot, set_mat2_np_t)
+                        print('Set for Euler Lookup:', surf_frags_2_guide_coords_list_rot_and_set_for_eul[:5])
+
                         eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(
                             ghost_frag_guide_coords_list_rot_and_set_for_eul,
                             surf_frags_2_guide_coords_list_rot_and_set_for_eul)
@@ -2015,7 +2018,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("Get optimal shift parameters for the selected Ghost Fragment/Surface "
                                            "Fragment guide coordinate pairs\n")
-
+                        print('Euler Lookup:', eul_lookup_true_list[:5])
                         all_optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
                                                                            ghost_frag_guide_coords_list_rot,
                                                                            surf_frag_list,
@@ -2078,7 +2081,7 @@ if __name__ == '__main__':
             time.sleep(1)
             with open(master_log_filepath, "a+") as master_log_file:
                 master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
-                                                              os.path.basename(os.path.splitext(pdb1_path)[0])))
+                                                              os.path.basename(os.path.splitext(pdb2_path)[0])))
 
         try:
             nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir,
