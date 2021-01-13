@@ -286,8 +286,8 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                         log_file.write("\tNewly Formed Interface Contains %s Unique Fragments on Oligomer 1 and %s on "
                                        "Oligomer 2\n" % (str(unique_interface_frag_count_pdb1),
                                                          str(unique_interface_frag_count_pdb2)))
-                        log_file.write("\t(took: %s s to get interface surface fragments and interface ghost fragments"
-                                       " with their guide atoms)\n" % str(get_int_ghost_surf_frags_time))
+                        log_file.write("\t(took: %s s to get interface surface and ghost fragments with their guide "
+                                       "coordinates)\n" % str(get_int_ghost_surf_frags_time))
 
                     # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Mono Fragment) guide coodinate pairs
                     # in the same Euler rotational space bucket
@@ -1436,7 +1436,7 @@ if __name__ == '__main__':
             if not os.path.exists(master_outdir):
                 os.makedirs(master_outdir)
         else:
-            time.sleep(1)
+            time.sleep(1)  # ensure that the first file was able to write before adding below log
             with open(master_log_filepath, "a+") as master_log_file:
                 master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
                                                               os.path.basename(os.path.splitext(pdb2_path)[0])))
