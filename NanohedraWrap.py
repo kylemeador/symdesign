@@ -96,29 +96,29 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
 # TODO multiprocessing compliant (picklable) error decorator
 @SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
-def nanohedra_command_s(entry, path1, path2, out_dir, flags, suffix):
+def nanohedra_command_s(entry, path1, path2, out_dir, flags, suffix, initial):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
     Return:
         (str): The name of the file containing the Nanohedra command
     """
-    return nanohedra_command(entry, path1, path2, out_dir, flags, suffix)
+    return nanohedra_command(entry, path1, path2, out_dir=out_dir, flags=flags, suffix=suffix, initial=initial)
 
 
-def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix):
+def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix, initial):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters. Using Multiprocessing
 
     Return:
         (str): The name of the file containing the Nanohedra command
     """
     try:
-        file = nanohedra_command(entry, path1, path2, out_dir, flags, suffix)
+        file = nanohedra_command(entry, path1, path2, out_dir=out_dir, flags=flags, suffix=suffix, initial=initial)
         return file, None
     except (DesignDirectory.DesignError, AssertionError) as e:
         return None, ((path1, path2), e)
 
 
-def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None, default=True):
+def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None, default=True, initial=False):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
     Return:
@@ -156,15 +156,17 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
     if not os.path.exists(script_out_dir):
         os.makedirs(script_out_dir)
 
-    if not flags:
-        flags = []
-
     if default:
         step_1, step_2 = '3', '3'
     else:
         step_1, step_2 = '2', '2'
 
     _cmd = ['python', program, '-dock', '-entry', str(entry), '-pdb_dir1_path', path1, '-pdb_dir2_path', path2,
-            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir] + flags
+            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir]
+    if flags:
+        _cmd.extend(flags)
+
+    if initial:
+        _cmd.extend('-initial')
 
     return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name=name, outpath=script_out_dir)

@@ -531,6 +531,7 @@ if __name__ == '__main__':
 
     # Grab all poses (directories) to be processed from either directory name or file
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
+    initial_iter = None
     if args.sub_module in ['distribute', 'nanohedra_query']:
         pass
     elif args.mode == 'design':
@@ -604,11 +605,13 @@ if __name__ == '__main__':
                     # pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir),
                     #                          SDUtils.get_all_pdb_file_paths(oriented_pdb2_out_dir)))
                     location = '%s & %s' % (args.pdb_path1, args.pdb_path2)
-            else:
-                pdb_pairs = list(combinations(list(filter(None, pdb1_oriented_filepaths)), 2))
+            else:  # Todo add initial to the first some how
+                pdb_pairs = list(combinations(filter(None, pdb1_oriented_filepaths), 2))
                 # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
                 # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
                 location = args.pdb_path1
+            initial_iter = [False for i in range(len(pdb_pairs))]
+            initial_iter[0] = True
             design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
         elif args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
@@ -649,13 +652,13 @@ if __name__ == '__main__':
             mp_threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
             if args.command_only:
-                if not pdb_pairs:  # args.directory or args.file set up docking directories
+                if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
+                    zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
+                                      repeat(args.design_string), repeat(initial_iter))
+                    results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
+                else:  # args.directory or args.file set up docking directories
                     zipped_args = zip(design_directories, repeat(args.design_string))
                     results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, mp_threads))
-                else:  # using combinations of directories with .pdb files
-                    zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
-                                      repeat(args.design_string))
-                    results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
                 results = list(results)
             else:  # TODO implementation where SymDesignControl calls Nanohedra.py
                 print('Can\'t run designs from here yet. Must pass python %s -c for execution' % __file__)
@@ -663,15 +666,15 @@ if __name__ == '__main__':
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
             if args.command_only:
-                if not pdb_pairs:  # single directory docking (already made directories)
-                    for dock_directory in design_directories:
-                        result, error = nanohedra_recap_s(dock_directory, args.design_string)
+                if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
+                    for initial, (path1, path2) in zip(initial_iter, pdb_pairs):
+                        result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
+                                                            args.design_string, initial)
                         results.append(result)
                         exceptions.append(error)
-                else:
-                    for path1, path2 in pdb_pairs:
-                        result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
-                                                            args.design_string)
+                else:  # single directory docking (already made directories)
+                    for dock_directory in design_directories:
+                        result, error = nanohedra_recap_s(dock_directory, args.design_string)
                         results.append(result)
                         exceptions.append(error)
             else:  # TODO implementation where SymDesignControl calls Nanohedra.py
