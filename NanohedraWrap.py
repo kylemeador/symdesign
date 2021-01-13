@@ -167,6 +167,6 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
         _cmd.extend(flags)
 
     if initial:
-        _cmd.extend('-initial')
+        _cmd.extend(['-initial'])
 
     return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name=name, outpath=script_out_dir)
