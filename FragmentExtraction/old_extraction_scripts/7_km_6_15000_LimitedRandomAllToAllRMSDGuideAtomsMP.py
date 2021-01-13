@@ -1,11 +1,12 @@
-import sys
-import os
-from Bio.PDB import *
+import itertools
 import math
 import multiprocessing as mp
-from random import shuffle
+import os
 import time
-import itertools
+from random import shuffle
+
+from Bio.PDB import *
+from Bio.PDB import PDBParser
 
 
 def guide_atom_rmsd(biopdb_guide_atoms_tup):
@@ -31,14 +32,10 @@ def guide_atom_rmsd(biopdb_guide_atoms_tup):
             else:
                 return None
         else:
-            print "\n"
-            print "NO ATOMS TO COMPARE" + biopdb_1_id + " " + biopdb_2_id
-            print "\n"
+            print("\nNO ATOMS TO COMPARE %s %s\n" (biopdb_1_id, biopdb_2_id))
             return -1
     else:
-        print "\n"
-        print "LENGTH MISMATCH" + biopdb_1_id + " " + biopdb_2_id
-        print "\n"
+        print("\nLENGTH MISMATCH %s %s\n" (biopdb_1_id, biopdb_2_id))
         return -1
 
 
