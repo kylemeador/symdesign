@@ -15,11 +15,6 @@ class OptimalTx:
             # self.n_dof_external = self.dof_ext.__len__
             self.dof = self.dof_ext.copy()
             self.dof9 = None
-            self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
-            self.n_dof = self.dof.shape[0]
-            self.dof_convert9()
-        else:
-            self.n_dof_external = 0
 
         # add internal z-shift degrees of freedom to 9-dim arrays if they exist
         if self.is_zshift1:
@@ -30,12 +25,12 @@ class OptimalTx:
             # self.dof_ext = np.append(self.dof_ext, self.setting2[:, 2:3].T, axis=0)
         self.n_dof_internal = [self.is_zshift1, self.is_zshift2].count(True)
 
-        # if self.dof_ext:
-        #     self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
-        #     self.n_dof = self.dof.shape[0]
-        #     self.dof_convert9()
-        # else:
-        #     self.n_dof_external = 0
+        if setting1:
+            self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
+            self.n_dof = self.dof.shape[0]
+            self.dof_convert9()
+        else:
+            self.n_dof_external = 0
 
         # self.cluster_rmsd = cluster_rmsd
         # self.guide_atom_coords1 = guide_atom_coords1
@@ -108,9 +103,9 @@ class OptimalTx:
         dofT = np.transpose(self.dof9)  # degree of freedom transpose (row major - n_dof_ext x 9)
 
         # solve the problem
-        print('dof: %s' % self.dof)
-        print('9: %s' % self.dof9)
-        print('var_inv_tot: %s' % var_tot_inv)
+        # print('dof: %s' % self.dof)
+        # print('9: %s' % self.dof9)
+        # print('var_inv_tot: %s' % var_tot_inv)
         dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance x degree of freedom = (9 x n_dof)
         vtdinvv = np.matmul(dofT, dinvv)  # degree of freedom transpose x (9 x n_dof) = (n_dof x n_dof)
         vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
@@ -124,7 +119,7 @@ class OptimalTx:
         resid = np.matmul(self.dof9, shift) - guide_delta
         residT = np.transpose(resid)
 
-        error = sqrt(np.matmul(residT, resid) / float(3.0)) / self.cluster_rmsd  # NEW ERROR. Is float(3.0) the scale?
+        error = sqrt(np.matmul(residT, resid) / float(3.0)) / coords_rmsd_reference  # NEW ERROR. Is float(3.0) a scale?
         # sqrt(variance / 3) / cluster_rmsd # old error
 
         # etmp = np.matmul(var_tot_inv, resid)  # need to comment out, old error
