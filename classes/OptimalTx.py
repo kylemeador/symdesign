@@ -6,14 +6,20 @@ import numpy as np
 class OptimalTx:
     def __init__(self, setting1=None, setting2=None, is_zshift1=None, is_zshift2=None, dof_ext=None, tx_params=None,
                  error=None):  # this was before dor_ext -> cluster_rmsd, guide_atom_coords1, guide_atom_coords2
-        self.setting1 = np.array(setting1)
-        self.setting2 = np.array(setting2)
-        self.is_zshift1 = is_zshift1  # Whether or not the space has internal translational DOF
-        self.is_zshift2 = is_zshift2  # Whether or not the space has internal translational DOF
-        self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
-        # self.n_dof_external = self.dof_ext.__len__
-        self.dof = self.dof_ext.copy()
-        self.dof9 = None
+        if setting1:
+            self.setting1 = np.array(setting1)
+            self.setting2 = np.array(setting2)
+            self.is_zshift1 = is_zshift1  # Whether or not the space has internal translational DOF
+            self.is_zshift2 = is_zshift2  # Whether or not the space has internal translational DOF
+            self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
+            # self.n_dof_external = self.dof_ext.__len__
+            self.dof = self.dof_ext.copy()
+            self.dof9 = None
+            self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
+            self.n_dof = self.dof.shape[0]
+            self.dof_convert9()
+        else:
+            self.n_dof_external = 0
 
         # add internal z-shift degrees of freedom to 9-dim arrays if they exist
         if self.is_zshift1:
@@ -24,12 +30,12 @@ class OptimalTx:
             # self.dof_ext = np.append(self.dof_ext, self.setting2[:, 2:3].T, axis=0)
         self.n_dof_internal = [self.is_zshift1, self.is_zshift2].count(True)
 
-        if self.dof_ext:
-            self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
-            self.n_dof = self.dof.shape[0]
-            self.dof_convert9()
-        else:
-            self.n_dof_external = 0
+        # if self.dof_ext:
+        #     self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
+        #     self.n_dof = self.dof.shape[0]
+        #     self.dof_convert9()
+        # else:
+        #     self.n_dof_external = 0
 
         # self.cluster_rmsd = cluster_rmsd
         # self.guide_atom_coords1 = guide_atom_coords1
@@ -102,6 +108,7 @@ class OptimalTx:
         dofT = np.transpose(self.dof9)  # degree of freedom transpose (row major - n_dof_ext x 9)
 
         # solve the problem
+        print('dof: %s' % self.dof)
         print('9: %s' % self.dof9)
         print('var_inv_tot: %s' % var_tot_inv)
         dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance x degree of freedom = (9 x n_dof)
