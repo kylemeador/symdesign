@@ -1326,6 +1326,8 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
                                   max_z_value=2):  # optimal_tx comes in from z_value_func
     # ghostfrag_surffrag_pair_list = []
     optimal_shifts = []
+    count = 0
+    failedj = 0
     for index_pair in index_pairs:
         ghost_frag = ghost_frags[index_pair[0]]
         coords1 = coords_l1[index_pair[0]]
@@ -1344,7 +1346,8 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
             # o = OptimalTx(set_mat1, set_mat2, is_zshift1, is_zshift2, ghost_frag_cluster_rmsd,
             #               ghost_frag_guide_coords, surf_frag_guide_coords, dof_ext)
             # o.apply()
-
+            if count % 10000 == 240:
+                print('Iteration %d: %d\n%s' % (count, z_value, str(result)))
             # if optimal_tx.get_zvalue() <= max_z_value:
             if z_value <= max_z_value:
             #     ghostfrag_surffrag_pair_list.append((ghost_frag, surf_frag))
@@ -1357,6 +1360,11 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
             #                                                    optimal_tx.get_zvalue()))
             else:
                 optimal_shifts.append(False)
+        else:
+            failedj += 1
+            optimal_shifts.append(False)
+
+    print('%d Failed the J matching' % failedj)
 
     return optimal_shifts
 
@@ -1409,13 +1417,6 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 
     degeneracy_matrices_1 = get_degeneracy_matrices(oligomer_symmetry_1, design_symmetry_pg)
     degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_2, design_symmetry_pg)
-    # Create fragment database for all ijk cluster representatives
-    ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
-                             intfrag_cluster_info_dirpath)
-    # Get complete IJK fragment representatives database dictionaries
-    ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-    ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-    ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
 
     if main_log:
         with open(master_log_filepath, "a+") as master_log_file:
@@ -1515,6 +1516,14 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
                 master_log_file.write("Retrieving Database of Helix-Helix Interface Fragment Cluster "
                                       "Representatives\n\n")
 
+    # Create fragment database for all ijk cluster representatives
+    ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
+                             intfrag_cluster_info_dirpath)
+    # Get complete IJK fragment representatives database dictionaries
+    ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
+    ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
+    ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+
     init_match_mapped = init_match_type.split('_')[0]
     init_match_paired = init_match_type.split('_')[1]
     # 1_1 Get Helix-Helix fragment representatives database dict for initial interface fragment matching
@@ -1538,6 +1547,10 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     else:
         expand_matrices = get_ptgrp_sym_op(result_design_sym)
 
+    with open(master_log_filepath, "a+") as master_log_file:
+        master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
+                                                      os.path.basename(os.path.splitext(pdb1_path)[0])))
+
     nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
                    init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict,
                    ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict, master_outdir, pdb1_path,
@@ -1559,6 +1572,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                    subseq_max_z_val, degeneracy_matrices_1=None, degeneracy_matrices_2=None, rot_step_deg_pdb1=1,
                    rot_range_deg_pdb1=0, rot_step_deg_pdb2=1, rot_range_deg_pdb2=0, output_exp_assembly=False,
                    output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
+
     # Output Directory
     pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
     pdb2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
@@ -2044,9 +2058,6 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
     with open(master_log_filepath, "a+") as master_log_file:
         master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
 
-    with open(master_log_filepath, "a+") as master_log_file:
-        master_log_file.write("\nCOMPLETED FRAGMENT-BASED SYMMETRY DOCKING PROTOCOL\n\nDONE\n")
-
 
 if __name__ == '__main__':
     cmd_line_in_params = sys.argv
@@ -2063,6 +2074,11 @@ if __name__ == '__main__':
             # Making Master Output Directory
             if not os.path.exists(master_outdir):
                 os.makedirs(master_outdir)
+        else:
+            time.sleep(1)
+            with open(master_log_filepath, "a+") as master_log_file:
+                master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
+                                                              os.path.basename(os.path.splitext(pdb1_path)[0])))
 
         try:
             nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir,

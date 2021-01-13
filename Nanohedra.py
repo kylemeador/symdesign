@@ -433,10 +433,10 @@ def main():
                                rot_range_deg_pdb1, rot_step_deg2, rot_range_deg_pdb2, output_exp_assembly, output_uc,
                                output_surrounding_uc, min_matched, keep_time=timer)
 
-                master_log_file = open(master_log_filepath, "a+")
-                master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' %
-                                                                           (pdb1_filename, pdb2_filename)))
-                master_log_file.close()
+                # master_log_file = open(master_log_filepath, "a+")
+                # master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' %
+                #                                                            (pdb1_filename, pdb2_filename)))
+                # master_log_file.close()
 
             master_log_file = open(master_log_filepath, "a+")
             master_log_file.write("\nCOMPLETED FRAGMENT-BASED SYMMETRY DOCKING PROTOCOL\n\n")
