@@ -15,7 +15,7 @@ class OptimalTx:
             self.setting2 = np.array(setting2)
         else:
             self.setting2 = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
-        print('DOF: %s' % dof_ext)
+        print('setting: %s' % setting1)
         self.is_zshift1 = is_zshift1  # Whether or not the space has internal translational DOF
         self.is_zshift2 = is_zshift2  # Whether or not the space has internal translational DOF
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)

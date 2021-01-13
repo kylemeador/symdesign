@@ -2176,7 +2176,7 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
                         #                        in all_optimal_shifts]
                         passing_optimal_shifts = list(filter(None, all_optimal_shifts))
                         ghostfrag_surffrag_pairs = [(ghost_frag_list[idx], surf_frag_list[idx]) for idx, boolean in
-                                                    all_optimal_shifts if boolean]
+                                                    enumerate(all_optimal_shifts) if boolean]
 
                         if len(passing_optimal_shifts) == 0:
                             with open(log_file_path, "a+") as log_file:
