@@ -31,6 +31,8 @@ def main():
         # master_log_filepath = os.path.join(master_outdir, "master_log.txt")
         # master_log_filepath = os.path.join(master_outdir, "nanohedra_master_logfile.txt")  # v1
         master_log_filepath = os.path.join(master_outdir, PUtils.master_log)  # v1
+        with open(master_log_filepath, "w") as master_logfile:
+            master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
 
         # Making Master Output Directory
         if not os.path.exists(master_outdir):
