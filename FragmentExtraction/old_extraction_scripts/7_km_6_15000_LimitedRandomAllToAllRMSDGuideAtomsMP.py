@@ -32,10 +32,10 @@ def guide_atom_rmsd(biopdb_guide_atoms_tup):
             else:
                 return None
         else:
-            print("\nNO ATOMS TO COMPARE %s %s\n" (biopdb_1_id, biopdb_2_id))
+            print("\nNO ATOMS TO COMPARE %s %s\n" % (biopdb_1_id, biopdb_2_id))
             return -1
     else:
-        print("\nLENGTH MISMATCH %s %s\n" (biopdb_1_id, biopdb_2_id))
+        print("\nLENGTH MISMATCH %s %s\n" % (biopdb_1_id, biopdb_2_id))
         return -1
 
 
