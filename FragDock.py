@@ -1435,8 +1435,8 @@ if __name__ == '__main__':
             # Making Master Output Directory
             if not os.path.exists(master_outdir):
                 os.makedirs(master_outdir)
-            with open(master_log_filepath, "w") as master_logfile:
-                master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
+            # with open(master_log_filepath, "w") as master_logfile:
+            #     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
         else:
             time.sleep(1)  # ensure that the first file was able to write before adding below log
             with open(master_log_filepath, "a+") as master_log_file:
