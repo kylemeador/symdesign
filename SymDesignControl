@@ -654,7 +654,7 @@ if __name__ == '__main__':
             if args.command_only:
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
-                                      repeat(args.design_string), repeat(initial_iter))
+                                      repeat(args.design_string), initial_iter)
                     results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, mp_threads))
                 else:  # args.directory or args.file set up docking directories
                     zipped_args = zip(design_directories, repeat(args.design_string))
