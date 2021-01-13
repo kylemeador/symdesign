@@ -174,8 +174,8 @@ def score_interface(pdb1, pdb2, pdb1_unique_chain_central_res_l, pdb2_unique_cha
     # percent_interface_matched = 0.0
     # pair_count = 0
     total_overlap_count = 0
-    # tx_parameters = tx_param_list[i][0]
-    # initial_overlap_z_val = tx_param_list[i][1]
+    # tx_parameters = optimal_tx_params[i][0]
+    # initial_overlap_z_val = optimal_tx_params[i][1]
     # ghostfrag_surffrag_pair = ghostfrag_surffrag_pair_list[i]
     unique_fragment_indicies = []
     fragment_i_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
