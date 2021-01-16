@@ -133,7 +133,8 @@ def standardize_intra_oligomer_chain_lengths(oligomer1_pdb):
 ############################################## ROTATED AND TRANSLATED PDB ##############################################
 def rotated_translated_atoms(atom_list, rot, tx):
 
-    coordinates = [[atom.get_x(), atom.get_y(), atom.get_z()] for atom in atom_list]
+    coordinates = [[atom.coords] for atom in atom_list]
+    # coordinates = [[atom.get_x(), atom.get_y(), atom.get_z()] for atom in atom_list]
 
     coordinates_rot = np.matmul(coordinates, np.transpose(rot))
     coordinates_rot_tx = coordinates_rot + tx

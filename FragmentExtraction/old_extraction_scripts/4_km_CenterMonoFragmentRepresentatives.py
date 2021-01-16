@@ -1,5 +1,5 @@
-import sys
 import os
+
 from PDB import PDB
 
 
@@ -22,7 +22,7 @@ def main():
                 pdb.readfile(top_representatives_dir + "/" + filename, remove_alt_location=True)
 
                 # Get Central Residue (5 Residue Fragment => 3rd Residue) CA Coordinates
-                pdb_ca_atoms = pdb.get_CA_atoms()
+                pdb_ca_atoms = pdb.get_ca_atoms()
                 central_ca_atom = pdb_ca_atoms[2]
                 central_ca_coords = central_ca_atom.coords()
 

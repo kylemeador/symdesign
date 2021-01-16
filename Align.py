@@ -3,7 +3,9 @@ import math
 import os
 
 from PDB import PDB
-from Stride import Stride
+
+
+# from Stride import Stride
 
 
 class ListFile:
@@ -415,7 +417,7 @@ class AtomPair:
 #                 out_coords.append([x, y, z])
 #             return out_coords
 #
-#     def extract_all_coords(self):
+#     def extract_coords(self):
 #         coords = []
 #         for atom in self.all_atoms:
 #             [x, y, z] = [atom.x, atom.y, atom.z]
@@ -430,7 +432,7 @@ class AtomPair:
 #                 coords.append([x, y, z])
 #         return coords
 #
-#     def replace_coords(self, new_cords):
+#     def set_atom_coordinates(self, new_cords):
 #         for i in range(len(self.all_atoms)):
 #             self.all_atoms[i].x, self.all_atoms[i].y, self.all_atoms[i].z = new_cords[i][0], new_cords[i][1], \
 #                                                                             new_cords[i][2]
@@ -445,12 +447,12 @@ class AtomPair:
 #
 #     def apply(self, rot, tx):
 #         moved = []
-#         for coord in self.extract_all_coords():
+#         for coord in self.extract_coords():
 #             coord_moved = self.mat_vec_mul3(rot, coord)
 #             for j in range(3):
 #                 coord_moved[j] += tx[j]
 #             moved.append(coord_moved)
-#         self.replace_coords(moved)
+#         self.set_atom_coordinates(moved)
 #
 #     def apply_transformation_to_D2axes(self, rot, tx):
 #         moved_axis_x = []
@@ -478,11 +480,11 @@ class AtomPair:
 #
 #     # def translate3d(self, tx):
 #     #     translated = []
-#     #     for coord in self.extract_all_coords():
+#     #     for coord in self.extract_coords():
 #     #         for j in range(3):
 #     #             coord[j] += tx[j]
 #     #         translated.append(coord)
-#     #     self.replace_coords(translated)
+#     #     self.set_atom_coordinates(translated)
 #
 #     def rotatePDB(self, degrees=90.0, axis='x'):
 #         """
@@ -501,12 +503,12 @@ class AtomPair:
 #             print("Axis does not exist!")
 #
 #         rotated = []
-#         for coord in self.extract_all_coords():
+#         for coord in self.extract_coords():
 #             newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
 #             newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
 #             newZ = coord[0] * rotmatrix[2][0] + coord[1] * rotmatrix[2][1] + coord[2] * rotmatrix[2][2]
 #             rotated.append([newX, newY, newZ])
-#         self.replace_coords(rotated)
+#         self.set_atom_coordinates(rotated)
 #
 #     def rename_chains(self, chain_list_fixed):
 #         lf = chain_list_fixed

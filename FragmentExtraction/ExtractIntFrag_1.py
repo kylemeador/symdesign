@@ -1,6 +1,7 @@
 import os
 import sys
 
+import Pose
 import SequenceProfile
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -44,7 +45,7 @@ def extract_fragments(pdb, distance, frag_length, same_chain=False):
         logger.info('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb.name))
         return pdb.name
     # Find Pairs of Interacting Residues
-    interacting_pairs = SDUtils.find_interface_pairs(pdb1, pdb2, distance=distance)
+    interacting_pairs = Pose.find_interface_pairs(pdb1, pdb2, distance=distance)
     fragment_pairs = find_interacting_residue_fragments(pdb1, pdb2, interacting_pairs, frag_length, same_chain=same_chain)
 
     return fragment_pairs
