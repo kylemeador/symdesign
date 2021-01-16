@@ -4,7 +4,49 @@ from numpy import linalg as LA
 
 class Coords:
     def __init__(self, coords=None):
-        self.coords = np.array(coords)
+        if coords:
+            self.coords = np.array(coords)
+        else:
+            self.coords = np.array([])
+
+    @property
+    def coords(self):  # , transformation_operator=None):
+        """This holds the atomic coords which is a view from the Structure that created them"""
+        # if transformation_operator:
+        #     return np.matmul([self.x, self.y, self.z], transformation_operator)
+        # else:
+        return self.coords  # [self.x, self.y, self.z]
+
+    @coords.setter
+    def coords(self, coords):
+        self.coords = coords
+
+    def __len__(self):
+        return self.coords.shape[0]
+
+    # @property
+    # def x(self):
+    #     return self.coords[0]  # x
+    #
+    # @x.setter
+    # def x(self, x):
+    #     self.coords[0] = x
+    #
+    # @property
+    # def y(self):
+    #     return self.coords[1]  # y
+    #
+    # @y.setter
+    # def y(self, y):
+    #     self.coords[1] = y
+    #
+    # @property
+    # def z(self):
+    #     return self.coords[2]  # z
+    #
+    # @z.setter
+    # def z(self, z):
+    #     self.coords[2] = z
 
 
 def superposition3d(aa_xf_orig, aa_xm_orig, a_weights=None, allow_rescale=False, report_quaternion=False):
