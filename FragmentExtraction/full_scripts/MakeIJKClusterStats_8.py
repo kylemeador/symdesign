@@ -64,9 +64,9 @@ module = 'Make IJK Cluster Frequency Files:'
 #     # Create dictionary and Count all atoms in each residue sidechain
 #     # ex. {'A': {32: (0, 9), 33: (0, 5), ...}, 'B':...}
 #     res_counts_dict = {'mapped': {i.residue_number: [0, len(pdb_mapped.getResidueAtoms(mapped_chain, i.residue_number))
-#                                                      - num_bb_atoms] for i in pdb_mapped.get_CA_atoms()},
+#                                                      - num_bb_atoms] for i in pdb_mapped.get_ca_atoms()},
 #                        'paired': {i.residue_number: [0, len(pdb_paired.getResidueAtoms(paired_chain, i.residue_number))
-#                                                      - num_bb_atoms] for i in pdb_paired.get_CA_atoms()}}
+#                                                      - num_bb_atoms] for i in pdb_paired.get_ca_atoms()}}
 #     # Count all residue/residue interactions that do not originate from a backbone atom. In this way, side-chain to
 #     # backbone are counted for the sidechain residue, indicating significance. However, backbones are (mostly)
 #     # identical, and therefore, their interaction should be conserved in each member of the cluster and not counted
