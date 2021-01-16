@@ -31,23 +31,33 @@ aa_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
 aa_weight_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
                          'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
+add_fragment_profile_instructions = 'To add fragment information, call PDB.score_interface_with_nanohedra()'
 
 
 class SequenceProfile:
     def __init__(self, structure=None):
         self.sequence = None
         self.sequence_source = None
-        self.structure = structure  # should be initialized with a Entity/Chain obj, could be used with PDB obj
-        self.structure_sequence = self.structure.get_structure_sequence()
+        self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
+        self.structure_sequence = None
         self.sequence_file = None
         self.pssm_file = None
-        self.pssm = {}
+        self.pssm = {}  # position specific scoring matrix
+        self.dssm_file = None
         self.dssm = {}  # design specific scoring matrix
         self.frag_db = None
+        self.fragment_queries = {}
         self.fragment_map = {}
         self.fragment_profile = {}
         self.alpha = {}
-        self.fragment_profile = {}
+
+        if structure:
+            self.structure = structure
+            self.structure_sequence = self.structure.get_structure_sequence()
+
+    @classmethod
+    def from_structure(cls, structure=None):
+        return cls(structure=structure)
 
     def get_name(self):
         # Todo mirrors Chain method, set up SequenceProfile id integration to Entity. MRO gives this lower precidence
@@ -64,7 +74,7 @@ class SequenceProfile:
     def get_sequence(self):
         return self.sequence
 
-    def add_profile(self, fragment_source=None, frag_alignment_type=None, out_path=os.getcwd(), pdb_numbering=True):
+    def add_profile(self, fragment_source=None, out_path=os.getcwd(), pdb_numbering=True): # frag_alignment_type=None
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Keyword Args:
@@ -79,18 +89,27 @@ class SequenceProfile:
                 fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
                 fragment_source[idx] = fragment
 
-        if fragment_source and frag_alignment_type:
-
-            self.frag_db.get_cluster_info(ids=[fragment['cluster'] for fragment in fragment_source])
-            self.add_fragment_profile(fragment_source=fragment_source, alignment_type=frag_alignment_type)
+        if self.fragment_map and self.frag_db:
+            self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
+                                               for fragment in idx_d.values()])
+        else:
+            self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
 
         # DesignDirectory.path could be removed as the input oligomers should be perfectly symmetric so the tx_# won't
-        # matter for each entity. right? Todo
+        # matter for each entity. right? Todo check this assumption...
         self.add_evolutionary_profile(out_path=out_path)
         self.combine_ssm(boltzmann=True)
 
-    def profile_length(self):  # Todo
-        return len(self.profile)
+    def set_profile_length(self):
+        self.profile_length = len(self.profile)
+
+    @property
+    def profile_length(self):
+        return self._profile_length
+
+    @profile_length.setter
+    def profile_length(self, length):
+        self._profile_length = length
 
     def atom_profile(self):
         """Make the atom profile from the structure.sequence and the profile"""
@@ -101,10 +120,11 @@ class SequenceProfile:
         """Check Pose and Profile for equality before proceeding"""
         second, rerun = False, False
         while True:
-            if self.profile_length() != self.structure.number_of_residues():
+            # Todo must set profile length before this function
+            if self.profile_length != self.structure.number_of_residues:  # ():
                 logger.warning('%s: Profile and Pose sequences are different lengths!\nProfile=%d, Pose=%d. Generating '
                                'new profile' % (self.structure.file_path, len(self.profile),
-                                                self.structure.number_of_residues()))
+                                                self.structure.number_of_residues))  # ()
                 rerun = True
 
             # if not rerun:
@@ -375,19 +395,35 @@ class SequenceProfile:
 
         return self.sequence_file
 
-    def add_fragment_profile(self, fragment_source=None, alignment_type=None):
+    def add_fragment_query(self, entity1=None, entity2=None, query=None):
+        if entity1 and entity2 and query:
+            self.fragment_queries[(entity1, entity2)] = query
+
+    def add_fragment_profile(self):  # , fragment_source=None, alignment_type=None):
         # fragment_source
         # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
-        self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
+        # now done at the pose_level
+        # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
+        query_idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
+        if self.fragment_queries:
+            for query_pair, fragments in self.fragment_queries.items():
+                for query_idx, entity_name in enumerate(query_pair):
+                    if entity_name == self.structure.get_name():
+                        self.assign_fragments(fragments=fragments, alignment_type=query_idx_to_alignment_type[query_idx])
 
         # if pdb_numbering:  # Renumber self.fragment_mapand self.fragment_profile to Pose residue numbering
         #     renumbered_fragment_map = {self.structure.residue_number_from_pdb(residue_number):
         #                                    self.fragment_map[residue_number] for residue_number in self.fragment_map}
         #     fragment_map.update(renumbered_fragment_map)
-
-        self.generate_fragment_frequency_map()
-        # Todo, do I need keep_extras=false?
-        self.simplify_fragment_profile(keep_extras=False)  # =False added for pickling 6/14/20
+        if self.fragment_map:
+            self.generate_fragment_frequency_map()
+            # Todo, do I need keep_extras=false?
+            self.simplify_fragment_profile(keep_extras=False)  # =False added for pickling 6/14/20
+        else:
+            print('No fragment information associated with the Entity %s yet! You must add to the profile otherwise '
+                  'only evolutionary values will be used.\n%s'
+                  % (self.structure.get_name(), add_fragment_profile_instructions))
+            return None
 
     def find_alpha(self, alpha=0.5):
         """Find fragment contribution to design with cap at alpha
@@ -410,7 +446,8 @@ class SequenceProfile:
                                                 self.combine_ssm.__name__)
         fragment_statistics = self.frag_db.get_db_statistics()
         for entry in self.fragment_profile:  # cluster_map
-            if self.fragment_map[entry]['chain'] == 'mapped':
+            if self.fragment_map[entry]['chain'] == 'mapped':  # query_idx_to_alignment_type ={0: 'mapped', 1: 'paired'}
+
                 statistic_idx = 0
             else:
                 statistic_idx = 1
@@ -461,20 +498,24 @@ class SequenceProfile:
         """Distribute fragment information to self.fragment_map. One-indexed residue dictionary
 
         Keyword Args:
-            source=None (str): Either mapped or paired
+            alignment_type=None (str): Either mapped or paired
         """
         if alignment_type not in ['mapped', 'paired']:
             return None
 
-        self.fragment_map = self.populate_design_dictionary(self.structure.number_of_residues(),
-                                                            [j for j in range(*self.frag_db.fragment_range)])
+        if not self.fragment_map:
+            self.fragment_map = self.populate_design_dictionary(self.structure.number_of_residues,  # (),
+                                                                [j for j in range(*self.frag_db.fragment_range)],
+                                                                dtype=set)
+        # fragments
+        # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
         for fragment in fragments:
             residue_number = fragment[alignment_type]
             for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
                 # if residue_number + j in self.fragment_map:  WITH EMPTY DESIGN DICT, THIS IS UNNECESSARY
                 #     if j in self.fragment_map[residue_number + j]:
-                self.fragment_map[residue_number + j][j].append({'chain': alignment_type, 'cluster': fragment['cluster'],
-                                                                 'match': fragment['match']})
+                self.fragment_map[residue_number + j][j].add({'chain': alignment_type, 'cluster': fragment['cluster'],
+                                                              'match': fragment['match']})
                 #     else:
                 #         self.fragment_map[residue_number + j][j] = [{'chain': source, 'cluster': fragment['cluster'],
                 #                                                   'match': fragment['match']}]
@@ -482,18 +523,18 @@ class SequenceProfile:
                 #     self.fragment_map[residue_number + j] = {j: [{'chain': source, 'cluster': fragment['cluster'],
                 #                                                'match': fragment['match']}]}
         # remove entries which don't exist on protein because of fragment_index +- residues
-        not_available = [residue_number for residue_number in self.fragment_map if 0 < residue_number >= self.structure.number_of_residues()]
+        not_available = [residue_number for residue_number in self.fragment_map
+                         if 0 < residue_number >= self.structure.number_of_residues]  # ()]
         for residue_number in not_available:
             logger.debug('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
                          'Fragment index will be deleted.' % (self.structure.get_name(), residue_number))
-        for residue_number in not_available:
             self.fragment_map.pop(residue_number)
 
         logger.debug('Residue Cluster Map: %s' % str(self.fragment_map))
 
     def generate_fragment_frequency_map(self):
-        """Add frequency information to the fragment map from cluster information. The frequency information is added
-        in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a new
+        """Add frequency information to the fragment profile using parsed cluster information. Frequency information is
+        added in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a new
         observation is created for that fragment index.
 
         Converts a fragment_map with format:
@@ -874,15 +915,16 @@ class SequenceProfile:
         # return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
 
     @staticmethod
-    def populate_design_dictionary(n, alphabet, counts=False, zero_index=False):
+    def populate_design_dictionary(n, alphabet, dtype=dict, zero_index=False):
         """Return a dictionary with n elements, each integer key containing another dictionary with the items in
-        alphabet as keys. By default, values for the alphabet dictionary is an empty dictionary unless counts=True,
-        then a integer counter will be added instead
+        alphabet as keys. By default, the data type inside the alphabet dictionary is a dictionary. Can set dtype as any
+        viable type including list, set, tuple, or int. If dtype is int, 0 will be added to use for counting
 
         Args:
             n (int): number of residues in a design
             alphabet (iter): alphabet of interest
         Keyword Args:
+            dtype=dict (object): The type of object present in the interior dictionary
             counts=False (bool): If True, include an integer placeholder for counting
             zero_index=False (bool): If True, return the dictionary with zero indexing
          Returns:
@@ -894,10 +936,10 @@ class SequenceProfile:
         else:
             offset = index_offset
 
-        if counts:
-            return {residue + offset: {i: 0 for i in alphabet} for residue in range(n)}
-        else:
-            return {residue + offset: {i: dict() for i in alphabet} for residue in range(n)}
+        # if counts:
+        #     return {residue + offset: {i: 0 for i in alphabet} for residue in range(n)}
+        # else:
+        return {residue + offset: {i: dtype() for i in alphabet} for residue in range(n)}
 
     @staticmethod
     def get_lod(aa_freq, background, round_lod=True):
@@ -1080,6 +1122,8 @@ class FragmentDatabase:
             (dict):
         """
         if cluster:
+            if cluster not in self.cluster_dict:
+                self.get_cluster_info(ids=[cluster])
             if source:
                 if index and source in ['mapped', 'paired']:
                     return self.cluster_dict[cluster][source][index]
@@ -1099,7 +1143,7 @@ class FragmentDatabase:
              cluster_dict: {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}, ...}
         """
         if self.db:
-            print('No DB connected yet!')
+            print('No DB connected yet!')  # Todo logger
             return None
         else:
             if not ids:
