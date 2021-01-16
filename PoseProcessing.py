@@ -33,6 +33,7 @@ import CmdUtils as CUtils
 import DesignDirectory
 import PDB
 import PathUtils as PUtils
+import Pose
 import SequenceProfile
 import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output
@@ -414,14 +415,14 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     frag_residue_object_d = SequenceProfile.residue_number_to_object(template_pdb, cluster_residue_d)
     logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
-    int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
+    int_residues = Pose.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
     # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.get_uc_dimensions() is None
     symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
     symmetrized_model_chain1 = symmetrized_model.select_chain(oligomer[pdb_codes[0]])
     symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_CB_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
     symmetrized_model_chain2 = symmetrized_model.select_chain(oligomer[pdb_codes[1]])
     # should I split this into the oligomeric component parts?
-    oligomer_symmetry_int_residues = SDUtils.find_interface_residues(oligomer[pdb_codes[0]], symmetrized_model_chain1_coords)
+    oligomer_symmetry_int_residues = Pose.find_interface_residues(oligomer[pdb_codes[0]], symmetrized_model_chain1_coords)
 
     # Get residue numbers as Residue objects to map across chain renumbering
     int_residue_objects = {}
@@ -674,7 +675,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     cluster_dicts = SequenceProfile.get_cluster_dicts(db=frag_db, id_list=[j for j in cluster_residue_d])
     full_cluster_dict = SequenceProfile.deconvolve_clusters(cluster_dicts, full_design_dict, residue_cluster_map)
     final_issm = SequenceProfile.flatten_for_issm(full_cluster_dict, keep_extras=False)  # =False added for pickling 6/14/20
-    interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_type, out_path=des_dir.data)
+    interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_profile, out_path=des_dir.data)
     logger.debug('Fragment Specific Scoring Matrix: %s' % str(final_issm))
 
     # Make DSSM by combining fragment and evolutionary profile
@@ -870,7 +871,7 @@ if __name__ == '__main__':
     # TODO, function for selecting the appropriate interface library given a viable input
     parser.add_argument('-i', '--fragment_database', type=str, help='Database to match fragments for interface specific'
                                                                     ' scoring matrices. Default=biological_interfaces',
-                        default=PUtils.biological_fragmentDB)
+                        default='biological_interfaces')  # PUtils.biological_fragmentDB <- this is a path, need keyword
     parser.add_argument('symmetry_group', type=int, help='What type of symmetry group does your design belong too? '
                                                          'One of 0-Point Group, 2-Plane Group, or 3-Space Group')
     parser.add_argument('-c', '--command_only', action='store_true', help='Should commands be written but not executed?'
