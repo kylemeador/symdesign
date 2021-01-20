@@ -8,6 +8,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
+from Coords import Coords
 from FragDock import filter_euler_lookup_by_zvalue, calculate_overlap
 from PDB import PDB
 from ScoreInterface import ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_rep_dict, \
@@ -86,8 +87,10 @@ class Model:  # (PDB)
     def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):  # TODO
         return [pdb.get_CB_coords(ReturnWithCBIndices=ReturnWithCBIndices, InclGlyCA=InclGlyCA) for pdb in self.models]
 
-    def set_atom_coordinates(self, new_cords):
-        return [pdb.set_atom_coordinates(new_cords[i]) for i, pdb in enumerate(self.models)]
+    def set_atom_coordinates(self, new_coords):  # Todo
+        for i, pdb in enumerate(self.models):
+            pdb.coords = Coords(new_coords[i])
+        # return [pdb.set_atom_coordinates(new_cords[i]) for i, pdb in enumerate(self.models)]
 
 
 class SymmetricModel(Model):
@@ -297,9 +300,11 @@ class SymmetricModel(Model):
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
         for model_idx in range(self.number_of_models):  # range(1,
             symmetry_mate_pdb = copy.copy(self.asu)
-            symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
-                                                                     (model_idx * self.asu.number_of_atoms)
-                                                                     + self.asu.number_of_atoms])
+            symmetry_mate_pdb.coords = Coords(self.model_coords[(model_idx * self.asu.number_of_atoms):
+                                                                ((model_idx + 1) * self.asu.number_of_atoms)])
+            # symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
+            #                                                          (model_idx * self.asu.number_of_atoms)
+            #                                                          + self.asu.number_of_atoms])
             self.models.append(symmetry_mate_pdb)
 
     def find_asu_equivalent_symmetry_mate(self, residue_query_number=1):
@@ -357,7 +362,8 @@ class SymmetricModel(Model):
             r_mat = np.transpose(np.array(rot))  # Todo numpy incomming expand_matrices
             r_asu_coords = np.matmul(pdb_coords, r_mat)
             symmetry_mate_pdb = copy.copy(pdb)
-            symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
+            symmetry_mate_pdb.coords = Coords(r_asu_coords)
+            # symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
             asu_symm_mates.append(symmetry_mate_pdb)
 
         return asu_symm_mates
@@ -385,7 +391,8 @@ class SymmetricModel(Model):
             tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords)  # We want numpy array, not .tolist()
 
             symmetry_mate_pdb = copy.copy(pdb)
-            symmetry_mate_pdb.set_atom_coordinates(tr_asu_cart_coords)
+            symmetry_mate_pdb.coords = Coords(tr_asu_cart_coords)
+            # symmetry_mate_pdb.set_atom_coordinates(tr_asu_cart_coords)
             asu_symm_mates.append(symmetry_mate_pdb)
 
         return asu_symm_mates
@@ -426,10 +433,14 @@ class SymmetricModel(Model):
             for y_shift in [-1, 0, 1]:
                 for z_shift in z_shifts:
                     symmetry_mate_pdb = copy.copy(pdb)
-                    symmetry_mate_pdb.set_atom_coordinates(self.frac_to_cart(all_uc_frac_coords
-                                                                             [(uc_idx * number_coords):
-                                                                              (uc_idx * number_coords) + number_coords]
-                                                                             + [x_shift, y_shift, z_shift]))
+                    symmetry_mate_pdb.coords = Coords(self.frac_to_cart(all_uc_frac_coords
+                                                                        [(uc_idx * number_coords):
+                                                                         ((uc_idx + 1) * number_coords)]
+                                                                        + [x_shift, y_shift, z_shift]))
+                    # symmetry_mate_pdb.set_atom_coordinates(self.frac_to_cart(all_uc_frac_coords
+                    #                                                          [(uc_idx * number_coords):
+                    #                                                           (uc_idx * number_coords) + number_coords]
+                    #                                                          + [x_shift, y_shift, z_shift]))
                     asu_symm_mates.append(symmetry_mate_pdb)
 
         assert len(asu_symm_mates) == uc_number * zvalue_dict[self.symmetry], \

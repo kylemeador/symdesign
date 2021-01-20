@@ -3,15 +3,14 @@ import math
 import numpy as np
 from Bio.SeqUtils import IUPACData
 
-from Coords import Coords
-
 
 # from Bio.Alphabet import IUPAC
 
 
-class Structure(Coords):
-    def __init__(self, atoms=None, residues=None, name=None):
-        super().__init__()  # gets self.coords
+class Structure:  # (Coords):
+    def __init__(self, atoms=None, residues=None, name=None, coords=None):
+        # self.coords = coords
+        # super().__init__(coords=coords)  # gets self.coords
         self.atoms = []  # atoms
         self.residues = []  # residues
         # self.id = None
@@ -41,6 +40,28 @@ class Structure(Coords):
     def set_name(self, name):
         self.name = name
 
+    @property
+    def coords(self):
+        return self._coords[self.atom_indecies]
+
+    @coords.setter
+    def coords(self, coords):
+        self._coords = coords
+        for atom in self.atoms:
+            atom.coords = coords
+
+    @property
+    def atom_indecies(self):  # Todo has relevance to Residue
+        if self._atom_indecies:
+            return self._atom_indecies
+        else:
+            self.atom_indecies = [atom.index for atom in self.atoms]
+            return self._atom_indecies
+
+    @atom_indecies.setter
+    def atom_indecies(self, indecies):
+        self._atom_indecies = np.array(indecies)
+
     def get_coords(self):
         """Return the numpy array of Coords from the Structure"""
         return self.coords
@@ -61,7 +82,7 @@ class Structure(Coords):
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CA()]
         return self.coords[index_mask]
 
-    def get_cb_coords(self, InclGlyCA=InclGlyCA):
+    def get_cb_coords(self, InclGlyCA=True):
         """Return a view of the numpy array of Coords from the Structure with CB atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
         return self.coords[index_mask]
@@ -94,18 +115,22 @@ class Structure(Coords):
     def set_atoms(self, atom_list):
         """Set the Structure atoms to Atoms in atom_list"""
         self.atoms = atom_list
-        self.update_structure(atom_list)
+        self.create_residues()
+        # self.update_structure(atom_list)
+        self.set_length()
 
     def add_atoms(self, atom_list):
         """Add Atoms in atom_list to the structure instance"""
         self.atoms.extend(atom_list)
-        self.update_structure(atom_list)
+        self.create_residues()
+        # self.update_structure(atom_list)
+        self.set_length()
 
     def update_structure(self, atom_list):
-        self.reindex_atoms()
-        self.coords = np.append(self.coords, [atom.coords for atom in atom_list])
-        self.set_atom_coordinates(self.coords)
-        self.create_residues()
+        # self.reindex_atoms()
+        # self.coords = np.append(self.coords, [atom.coords for atom in atom_list])
+        # self.set_atom_coordinates(self.coords)
+        # self.create_residues()
         self.set_length()
 
     def get_atom_indices(self):
@@ -158,14 +183,14 @@ class Structure(Coords):
         for idx, atom in enumerate(self.atoms):
             atom.index = idx
 
-    def set_atom_coordinates(self, coords):
-        """Set/Replace all Atom coordinates with coords specified. Must be in the same order to apply correctly!"""
-        assert len(self.atoms) == coords.shape[0], '%s: ERROR setting Atom coordinates, # Atoms (%d) !=  # Coords (%d)'\
-                                                   % (self.name, len(self.atoms), coords.shape[0])
-        self.coords = coords
-        for idx, atom in enumerate(self.get_atoms()):
-            atom.coords = coords[idx]
-            # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
+    # def set_atom_coordinates(self, coords):
+    #     """Set/Replace all Atom coordinates with coords specified. Must be in the same order to apply correctly!"""
+    #     assert len(self.atoms) == coords.shape[0], '%s: ERROR setting Atom coordinates, # Atoms (%d) !=  # Coords (%d)'\
+    #                                                % (self.name, len(self.atoms), coords.shape[0])
+    #     self.coords = coords
+    #     for idx, atom in enumerate(self.get_atoms()):
+    #         atom.coords = coords[idx]
+    #         # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
 
     # @property Todo
     def get_residues(self, numbers=None):
@@ -178,24 +203,26 @@ class Structure(Coords):
 
     def set_residues(self, residue_list):
         """Set the Structure residues to Residues provided in a residue list"""
-        self.residues = []  # residue_list
-        atom_list = [atom for atom in residue_list.get_atoms()]
+        self.residues = residue_list  # []
+        atom_list = [atom for residue in residue_list for atom in residue.get_atoms()]
         self.atoms = atom_list
-        self.update_structure(atom_list)
+        # self.update_structure(atom_list)
+        self.set_length()
 
     def add_residues(self, residue_list):
-        """Add Residues in a residue list to the structure instance"""
-        # self.residues.extend(residue_list)
+        """Add Residues in a residue list to the Structure instance"""
+        self.residues.extend(residue_list)
         atom_list = [atom for atom in residue_list.get_atoms()]
         self.atoms.extend(atom_list)
-        self.update_structure(atom_list)
+        # self.update_structure(atom_list)
+        self.set_length()
 
     # update_structure():
     #  self.reindex_atoms() -> self.coords = np.append(self.coords, [atom.coords for atom in atom_list]) ->
     #  self.set_atom_coordinates(self.coords) -> self.create_residues() -> self.set_length()
 
     def create_residues(self):
-        """For the structure, create all possible Residue instances"""
+        """For the Structure, create all possible Residue instances"""
         current_residue_number = self.atoms[0].residue_number
         current_residue = []
         for atom in self.atoms:
@@ -419,8 +446,8 @@ class Structure(Coords):
 
 
 class Chain(Structure):
-    def __init__(self, residues=None, name=None):
-        super().__init__(residues=residues, name=name)
+    def __init__(self, residues=None, name=None, coords=None):
+        super().__init__(residues=residues, name=name, coords=coords)
         # self.residues = residues
         # self.id = name
 
@@ -441,6 +468,9 @@ class Residue:
         self.type = self.ca.get_type()
         self.chain = self.ca.get_chain()
         self.secondary_structure = None
+
+    def coords(self):
+        return [atom.coords for atom in self.atom_list]
 
     def get_atoms(self):
         return self.atom_list
@@ -499,7 +529,7 @@ class Residue:
         for residue in residuelist:
             if residue.number == number and residue.chain == chain and residue.type == residue_type:
                 return residue
-        #print "NO RESIDUE FOUND"
+        # print("NO RESIDUE FOUND")
         return None
 
     def __key(self):
@@ -521,11 +551,12 @@ class Residue:
         return hash(self.__key())
 
 
-class Atom(Coords):
+class Atom:  # (Coords):
+    """An Atom container with the full Structure coordinates and the Atom unique data. Pass a reference to the full
+    Structure coordinates for Keyword Arg coords=self.coords"""
     def __init__(self, index=None, number=None, atom_type=None, alt_location=None, residue_type=None, chain=None,
                  residue_number=None, code_for_insertion=None, occ=None, temp_fact=None, element_symbol=None,
                  atom_charge=None, coords=None):  # x, y, z,
-        super().__init__(coords=coords)
         self.index = index
         self.number = number
         self.type = atom_type
@@ -535,10 +566,12 @@ class Atom(Coords):
         self.pdb_residue_number = residue_number
         self.residue_number = residue_number
         self.code_for_insertion = code_for_insertion
-        # self.coords = coords  # from Coords class
+        # super().__init__(coords=coords)  # init from Coords class
+        self.coords = coords
         # self.x = x
         # self.y = y
         # self.z = z
+        # self.coordinates =
         self.occ = occ
         self.temp_fact = temp_fact
         self.element_symbol = element_symbol
@@ -587,17 +620,17 @@ class Atom(Coords):
     def translate(self, tx):
         self.coords = self.coords + tx
 
-    # @property
-    # def coords(self):  # , transformation_operator=None):
-    #     """This holds the atomic coords which is a view from the Structure that created them"""
-    #     # if transformation_operator:
-    #     #     return np.matmul([self.x, self.y, self.z], transformation_operator)
-    #     # else:
-    #     return self.coords  # [self.x, self.y, self.z]
-    #
-    # @coords.setter
-    # def coords(self, coords):
-    #     self.coords = coords
+    @property
+    def coords(self):  # , transformation_operator=None):
+        """This holds the atomic coords which is a view from the Structure that created them"""
+        # if transformation_operator:
+        #     return np.matmul([self.x, self.y, self.z], transformation_operator)
+        # else:
+        return self._coords[self.index]  # [self.x, self.y, self.z]
+
+    @coords.setter
+    def coords(self, coords):
+        self._coords = coords
 
     def get_index(self):
         return self.index
@@ -632,7 +665,8 @@ class Atom(Coords):
 
     @x.setter
     def x(self, x):
-        self.coords[0] = x
+        self._coords[self.index][0] = x
+        # self.coords[0] = x
 
     @property
     def y(self):
@@ -640,7 +674,8 @@ class Atom(Coords):
 
     @y.setter
     def y(self, y):
-        self.coords[1] = y
+        self._coords[self.index][1] = y
+        # self.coords[1] = y
 
     @property
     def z(self):
@@ -648,7 +683,8 @@ class Atom(Coords):
 
     @z.setter
     def z(self, z):
-        self.coords[2] = z
+        self._coords[self.index][2] = z
+        # self.coords[2] = z
 
     def get_occ(self):
         return self.occ

@@ -5,9 +5,10 @@ from numpy import linalg as LA
 class Coords:
     def __init__(self, coords=None):
         if coords:
-            self.coords = np.array(coords)
+            self.coords = coords
         else:
-            self.coords = np.array([])
+            self.coords = []
+        # self.indecies = None
 
     @property
     def coords(self):  # , transformation_operator=None):
@@ -15,11 +16,11 @@ class Coords:
         # if transformation_operator:
         #     return np.matmul([self.x, self.y, self.z], transformation_operator)
         # else:
-        return self.coords  # [self.x, self.y, self.z]
+        return self._coords  # [self.indecies]  # [self.x, self.y, self.z]
 
     @coords.setter
     def coords(self, coords):
-        self.coords = coords
+        self._coords = np.array(coords)
 
     def __len__(self):
         return self.coords.shape[0]
