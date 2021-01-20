@@ -12,6 +12,7 @@ from Bio.SeqUtils import IUPACData
 # from Bio.Alphabet import IUPAC
 from sklearn.neighbors import BallTree
 
+from Coords import Coords
 from Entity import Entity
 from PathUtils import free_sasa_exe_path, stride_exe_path
 from PathUtils import scout_symmdef, make_symmdef, orient_exe_path, orient_log_file, orient_dir
@@ -51,7 +52,7 @@ class PDB(Structure):
         self.rotation_d = {}
         self.seqres = {}  # SEQRES entries. key is chainID, value is 'AGHKLAIDL'
         self.profile = {}
-        self.uc_dimernsions = []
+        self.uc_dimensions = []
         self.space_group = None
 
         if file:
@@ -225,8 +226,8 @@ class PDB(Structure):
             elif line[0:6] == 'CRYST1':
                 self.header.append(line)
                 self.cryst_record = line.strip()
-                self.uc_dimernsions, self.space_group = self.parse_cryst_record(self.cryst_record)
-                a, b, c, ang_a, ang_b, ang_c = self.uc_dimernsions
+                self.uc_dimensions, self.space_group = self.parse_cryst_record(self.cryst_record)
+                a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
                 # try:
                 #     a = float(line[6:15].strip())
@@ -240,9 +241,9 @@ class PDB(Structure):
                 #     ang_a, ang_b, ang_c = a, b, c
                 # space_group = line[55:66].strip()
 
-        self.coords = np.array(coords)
         self.atoms = [Atom.from_info(*info) for info in atom_info]
-        self.set_atom_coordinates(self.coords)
+        self.coords = Coords(coords)  # np.array(coords)
+        # self.set_atom_coordinates(self.coords)
         # assert len(self.atoms) == self.coords.shape[0], '%s: ERROR parseing Atoms (%d) and Coords (%d). Wrong size!' \
         #                                                 % (self.filepath, len(self.atoms), self.coords.shape[0])
         # for atom_idx, atom in enumerate(self.atoms):
@@ -256,13 +257,13 @@ class PDB(Structure):
             self.design = True
             # entity.retrieve_sequence_from_PDB(entity_id=None)
 
-        # self.generate_entity_accession_map()  # Todo uncomment after debugging
-        # self.get_chain_sequences()
-        # if not self.entity_d:
-        #     self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
-        # else:
-        #     self.update_entity_d()
-        # self.process_pdb()
+        self.generate_entity_accession_map()  # Todo uncomment after debugging
+        self.get_chain_sequences()
+        if not self.entity_d:
+            self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
+        else:
+            self.update_entity_d()
+        self.process_pdb()
 
     def process_symmetry(self):
         """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
@@ -270,7 +271,7 @@ class PDB(Structure):
 
     def process_pdb(self):
         """Process all Atoms in PDB to Residue, Chain, and Entity objects"""  # TODO make modern
-        self.coords = self.extract_coords()
+        # self.coords = self.extract_coords()
         self.center_of_mass = self.find_center_of_mass(np.array(self.coords))  # Todo atom array
         # self.scout_symmetry()  # Todo worry about this later, for now use Nanohedra full symmetry from Pose
         # chains = self.find_symmetrically_significant_chains()
@@ -1213,12 +1214,15 @@ class PDB(Structure):
 
     def apply(self, rot, tx):
         moved = []
-        for coord in self.extract_coords():
-            coord_moved = self.mat_vec_mul3(rot, coord)
-            for j in range(3):
-                coord_moved[j] += tx[j]
-            moved.append(coord_moved)
-        self.set_atom_coordinates(moved)
+        # for coord in self.extract_coords():
+        #    coord_moved = self.mat_vec_mul3(rot, coord)
+        #    for j in range(3):
+        #         coord_moved[j] += tx[j]
+        #    moved.append(coord_moved)
+        moved = np.matmul(np.array(rot), self.get_coords())
+        moved = moved + np.array(tx)
+        self.coords = Coords(moved)
+        # self.set_atom_coordinates(moved)
 
     def get_ave_residue_b_factor(self, chain_id, residue_number):
         residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()
