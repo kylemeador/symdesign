@@ -2,6 +2,7 @@ import copy
 import os
 import pickle
 from glob import glob
+from itertools import chain, combinations
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -116,48 +117,37 @@ class SymmetricModel(Model):
             if symmetry:
                 self.symmetry = symmetry
                 # self.symmetry = ''.join(symmetry.split())  # ensure the symmetry is NO SPACES Hermann–Mauguin notation
-                if self.symmetry in ['T', 'O', 'I']:
-                    self.dimension = 0
-                    self.expand_matrices = self.get_ptgrp_sym_op(self.symmetry)  # Todo numpy expand_matrices
-                    # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
-                else:
-                    if self.symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
-                        self.dimension = 2
-                    elif self.symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
-                        self.dimension = 3
-                    self.expand_matrices = self.get_sg_sym_op(self.symmetry)
-                    # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
+
+        if self.symmetry in ['T', 'O', 'I']:
+            self.dimension = 0
+            self.expand_matrices = self.get_ptgrp_sym_op(self.symmetry)  # Todo numpy expand_matrices
+            # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
+        else:
+            if self.symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
+                self.dimension = 2
+            elif self.symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
+                self.dimension = 3
+            self.expand_matrices = self.get_sg_sym_op(self.symmetry)
+            # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
 
         if generate_assembly:
             self.generate_symmetric_assembly()
 
-    def generate_symmetric_assembly(self, return_side_chains=False, surrounding_uc=False, generate_symmetry_mates=False):
+    def generate_symmetric_assembly(self, return_side_chains=True, surrounding_uc=False, generate_symmetry_mates=False):
         """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
         dimensions if self.dimension > 0. Expands assembly to complete point group, or the unit cell
 
         Keyword Args:
-            return_side_chains=False (bool): Whether to return all side chain atoms, default is backbone and CB atoms
+            return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
             surrounding_uc=False (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         if self.dimension == 0:  # symmetry in ['T', 'O', 'I']: Todo add other point groups
             self.get_point_group_coords(return_side_chains=return_side_chains)
-            if generate_symmetry_mates:
-                self.get_point_group_symmetry_mates()
         else:
-            self.expand_uc(return_side_chains=return_side_chains, surrounding_uc=surrounding_uc,
-                           generate_symmetry_mates=generate_symmetry_mates)
+            self.expand_uc_coords(return_side_chains=return_side_chains, surrounding_uc=surrounding_uc)
 
-    def expand_uc(self, surrounding_uc, generate_symmetry_mates, **kwargs):  # return_side_chains=False, surrounding_uc=False
-        """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
-        """
-        self.get_unit_cell_coords(**kwargs)  # # return_side_chains=return_side_chains
-        if surrounding_uc:
-            self.get_surrounding_unit_cell_coords()  # return_side_chains=return_side_chains FOR Coord expansion
-            # self.get_surrounding_unit_cell_coords()  # return_side_chains=return_side_chains FOR PDB expansion
         if generate_symmetry_mates:
-            self.get_unit_cell_symmetry_mates()
-            if surrounding_uc:
-                self.get_surrounding_unit_cell_symmetry_mates()
+            self.get_assembly_symmetry_mates()
 
     def expand_uc_coords(self, surrounding_uc, **kwargs):  # return_side_chains=False, surrounding_uc=False
         """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
@@ -167,16 +157,6 @@ class SymmetricModel(Model):
             self.get_surrounding_unit_cell_coords()  # return_side_chains=return_side_chains FOR Coord expansion
             # self.get_surrounding_unit_cell_coords()  # return_side_chains=return_side_chains FOR PDB expansion
 
-    def expand_uc_symmetry_mates(self, surrounding_uc, **kwargs):  # return_side_chains=False, surrounding_uc=False
-        """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
-        """
-        # self.get_unit_cell_coords(**kwargs)  # # return_side_chains=return_side_chains
-        self.get_unit_cell_symmetry_mates(**kwargs)
-        if surrounding_uc:
-            # self.get_surrounding_unit_cell_coords()  # return_side_chains=return_side_chains FOR Coord expansion
-            self.get_surrounding_unit_cell_symmetry_mates()
-            # self.get_surrounding_unit_cell_coords()  # return_side_chains=return_side_chains FOR PDB expansion
-
     def cart_to_frac(self, cart_coords):
         """Takes a numpy array of coordinates (and finds the fractional coordinates from cartesian coordinates
         From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
@@ -184,6 +164,9 @@ class SymmetricModel(Model):
         Returns:
             (Numpy.array):
         """
+        if not self.uc_dimensions:
+            return None
+
         a2r = np.pi / 180.0
         a, b, c, alpha, beta, gamma = self.uc_dimensions
         alpha *= a2r
@@ -209,6 +192,9 @@ class SymmetricModel(Model):
         """Takes a numpy array of coordinates and finds the cartesian coordinates from fractional coordinates
         From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
         """
+        if not self.uc_dimensions:
+            return None
+
         a2r = np.pi / 180.0
         a, b, c, alpha, beta, gamma = self.uc_dimensions
         alpha *= a2r
@@ -228,14 +214,12 @@ class SymmetricModel(Model):
 
         return np.matmul(frac_coords, np.transpose(m_inv))
 
-    def get_point_group_coords(self, return_side_chains=False):  # just gets coords
+    def get_point_group_coords(self, return_side_chains=True):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         self.number_of_models = valid_subunit_number[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type
-            # extract_pdb_atoms = getattr(PDB, 'get_atoms')
             get_pdb_coords = getattr(PDB, 'get_coords')
         else:
-            # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
             get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         self.coords = get_pdb_coords(self.asu)
@@ -247,15 +231,13 @@ class SymmetricModel(Model):
             self.model_coords[idx * len(self.coords): (idx * len(self.coords)) + len(self.coords)] = r_asu_coords
         # self.model_coords = np.array(self.model_coords)
 
-    def get_unit_cell_coords(self, return_side_chains=False):  # just gets coords
+    def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
         self.models = [self.asu]
         self.number_of_models = zvalue_dict[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type
-            # extract_pdb_atoms = getattr(PDB, 'get_atoms')
             get_pdb_coords = getattr(PDB, 'get_coords')
         else:
-            # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
             get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         self.coords = get_pdb_coords(self.asu)
@@ -278,7 +260,7 @@ class SymmetricModel(Model):
             # self.model_coords.extend(self.frac_to_cart(rt_asu_frac_coords).tolist())
         # self.model_coords = np.array(self.model_coords)
 
-    def get_surrounding_unit_cell_coords(self):  # just gets coords
+    def get_surrounding_unit_cell_coords(self):
         """Generates a grid of unit cell coordinates for a symmetry group. Modifies model_coords from a unit cell
         representation to a grid of unit cells, either 3x3 for a layer group or 3x3x3 for a space group"""
         if self.dimension == 3:
@@ -288,44 +270,22 @@ class SymmetricModel(Model):
         else:
             return None
 
-        # if return_side_chains:  # get different function calls depending on the return type
-        #     # extract_pdb_atoms = getattr(PDB, 'get_atoms')
-        #     extract_pdb_coords = getattr(PDB, 'extract_coords')
-        # else:
-        #     # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-        #     extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-
-        # asu_atom_template = PDB.from_atoms(extract_pdb_atoms(self.pdb))
-        # asu_atom_template = extract_pdb_atoms(self.pdb)
-        # asu_bb_atom_template = uc_sym_mates[0].get_backbone_atoms()
-
-        # central_uc_cart_coords = extract_pdb_coords(self.model_coords)
-        # central_uc_cart_coords = []
-        # for unit_cell_sym_mate_pdb in self.uc_sym_mates:
-        #     central_uc_cart_coords.extend(extract_pdb_coords(unit_cell_sym_mate_pdb))
-        #     # central_uc_bb_cart_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
         central_uc_frac_coords = self.cart_to_frac(self.model_coords)
-        # central_uc_frac_coords = self.cart_to_frac(np.array(central_uc_cart_coords))
-
-        # all_surrounding_uc_frac_coords = []
         uc_coord_length = self.model_coords.shape[0]
         self.model_coords = np.empty((uc_coord_length * uc_number, 3), dtype=float)
         idx = 0
         for x_shift in [-1, 0, 1]:
             for y_shift in [-1, 0, 1]:
                 for z_shift in z_shifts:
-                    # if [x_shift, y_shift, z_shift] != [0, 0, 0]:
-                    # all_surrounding_uc_frac_coords.extend(central_uc_frac_coords + [x_shift, y_shift, z_shift])
+                    # add central uc_coords to the model coords after applying the correct tx of frac coords & convert
                     self.model_coords[(idx * uc_coord_length): (idx * uc_coord_length) + uc_coord_length] = \
-                        self.frac_to_cart(central_uc_frac_coords)
+                        self.frac_to_cart(central_uc_frac_coords + [x_shift, y_shift, z_shift])
                     idx += 1
 
-        # self.model_coords = self.frac_to_cart(np.array(all_surrounding_uc_frac_coords))
         self.number_of_models = zvalue_dict[self.symmetry] * uc_number
 
-    def get_point_group_symmetry_mates(self, return_side_chains=False):  # For getting PDB copies
-        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
-        self.number_of_models = valid_subunit_number[self.symmetry]
+    def get_assembly_symmetry_mates(self, return_side_chains=True):  # For getting PDB copies
+        """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
         if return_side_chains:  # get different function calls depending on the return type
             extract_pdb_atoms = getattr(PDB, 'get_atoms')
             # extract_pdb_coords = getattr(PDB, 'extract_coords')
@@ -333,156 +293,251 @@ class SymmetricModel(Model):
             extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
             # extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
 
-        # self.coords = extract_pdb_coords(self.pdb)
-        # for rot in self.expand_matrices:  # Todo numpy incomming expand_matrices
-        #     r_mat = np.transpose(np.array(rot))
-        #     r_asu_coords = np.matmul(self.coords, r_mat)
-        self.models.append(self.asu)
-        prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
-        for model in range(1, self.number_of_models):
+        # self.models.append(copy.copy(self.asu))
+        # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
+        for model_idx in range(self.number_of_models):  # range(1,
             symmetry_mate_pdb = copy.copy(self.asu)
-            symmetry_mate_pdb.set_atom_coordinates(self.model_coords[prior_idx: prior_idx + self.asu.number_of_atoms])
-            # symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
-
-            # asu_sym_mate_pdb = PDB()
-            # asu_sym_mate_pdb_atom_list = []
-            # atom_count = 0
-            # for atom in self.asu.get_atoms():
-            #     x_transformed = r_asu_coords[atom_count][0]
-            #     y_transformed = r_asu_coords[atom_count][1]
-            #     z_transformed = r_asu_coords[atom_count][2]
-            #     atom_transformed = Atom(atom_count, atom.get_type(), atom.get_alt_location(),
-            #                             atom.get_residue_type(), atom.get_chain(),
-            #                             atom.get_residue_number(),
-            #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
-            #                             z_transformed,
-            #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-            #                             atom.get_atom_charge())
-            #     atom_count += 1
-            #     asu_sym_mate_pdb_atom_list.append(atom_transformed)
-            #
-            # asu_sym_mate_pdb.set_all_atoms(asu_sym_mate_pdb_atom_list)
+            symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
+                                                                     (model_idx * self.asu.number_of_atoms)
+                                                                     + self.asu.number_of_atoms])
             self.models.append(symmetry_mate_pdb)
 
-    def get_unit_cell_symmetry_mates(self, return_side_chains=False):  # For getting PDB copies # TODO model after PG ^
-        """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
-        self.models = [self.pdb]
-        self.number_of_models = zvalue_dict[self.symmetry]
+    def find_asu_equivalent_symmetry_mate(self, residue_query_number=1):
+        """Find the asu equivalent model in the SymmetricModel. Zero-indexed
 
+        model_coords must be from all atoms which by default is True
+        """
+        if not self.symmetry:
+            return None
+
+        template_atom_coords = self.asu.residue(residue_query_number).ca.coords
+        template_atom_index = self.asu.residue(residue_query_number).ca.index
+        for model_number in range(self.number_of_models):
+            if template_atom_coords == self.model_coords[(model_number * len(self.coords)) + template_atom_index]:
+                #                      self.pdb.number_of_atoms
+                return model_number
+
+        print('%s is FAILING' % self.find_asu_equivalent_symmetry_mate.__name__)
+
+    def return_symmetry_mates(self, pdb, **kwargs):  # return_side_chains=False, surrounding_uc=False):
+        """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
+        dimensions if self.dimension > 0. Expands assembly to complete point group, or the unit cell
+
+        Keyword Args:
+            return_side_chains=True (bool): Whether to return all side chain atoms. False gives backbone and CB atoms
+            surrounding_uc=False (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        """
+        if self.dimension == 0:
+            return self.return_point_group_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains)
+        else:
+            return self.return_crystal_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains,
+            #                                                           surrounding_uc=surrounding_uc)
+
+    def return_crystal_symmetry_mates(self, pdb, surrounding_uc, **kwargs):  # return_side_chains=False, surrounding_uc=False
+        """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
+        """
+        if surrounding_uc:
+            self.return_surrounding_unit_cell_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains FOR Coord expansion
+        else:
+            self.return_unit_cell_symmetry_mates(pdb, **kwargs)  # # return_side_chains=return_side_chains
+
+    # @staticmethod
+    def return_point_group_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
+        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_atoms')
-            # extract_pdb_coords = getattr(PDB, 'extract_coords')
+            extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+            extract_pdb_coords = getattr(PDB, 'extract_coords')
         else:
             extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            # extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+            extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+
+        asu_symm_mates = []
+        pdb_coords = extract_pdb_coords(pdb)
+        for rot in self.expand_matrices:
+            r_mat = np.transpose(np.array(rot))  # Todo numpy incomming expand_matrices
+            r_asu_coords = np.matmul(pdb_coords, r_mat)
+            symmetry_mate_pdb = copy.copy(pdb)
+            symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
+            asu_symm_mates.append(symmetry_mate_pdb)
+
+        return asu_symm_mates
+
+    def return_unit_cell_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
+        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
+        if return_side_chains:  # get different function calls depending on the return type
+            extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+            extract_pdb_coords = getattr(PDB, 'extract_coords')
+        else:
+            extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+            extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
 
         # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
-        # asu_cart_coords = extract_pdb_coords(self.pdb)
+        asu_cart_coords = extract_pdb_coords(pdb)
         # asu_frac_coords = self.cart_to_frac(np.array(asu_cart_coords))
-        # asu_frac_coords = self.cart_to_frac(asu_cart_coords)
-
+        asu_frac_coords = self.cart_to_frac(asu_cart_coords)
+        asu_symm_mates = []
         for r, t in self.expand_matrices:
             t_vec = np.array(t)  # Todo numpy incomming expand_matrices
-            # t_vec = t
             r_mat = np.transpose(np.array(r))
-            # r_mat = np.transpose(r)
 
             r_asu_frac_coords = np.matmul(asu_frac_coords, r_mat)
             tr_asu_frac_coords = r_asu_frac_coords + t_vec
+            tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords)  # We want numpy array, not .tolist()
 
-            tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords).tolist()
-
-            symmetry_mate_pdb = PDB.from_atoms(extract_pdb_atoms(self.pdb))
+            symmetry_mate_pdb = copy.copy(pdb)
             symmetry_mate_pdb.set_atom_coordinates(tr_asu_cart_coords)
-            # atoms = copy.copy(self.pdb.get_atoms())
+            asu_symm_mates.append(symmetry_mate_pdb)
 
-            # unit_cell_sym_mate_pdb_atom_list = []
-            # atom_count = 0
-            # for atom in extract_pdb_atoms(self.pdb):
-            #     x_transformed = tr_asu_cart_coords[atom_count][0]
-            #     y_transformed = tr_asu_cart_coords[atom_count][1]
-            #     z_transformed = tr_asu_cart_coords[atom_count][2]
-            #     # makes a shallow copy of the atoms and a deepcopy with replacement of the new coords
-            #     atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
-            #                             atom.get_residue_type(), atom.get_chain(),
-            #                             atom.get_residue_number(),
-            #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
-            #                             z_transformed,
-            #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-            #                             atom.get_atom_charge())
-            #     atom_count += 1
-            #     unit_cell_sym_mate_pdb_atom_list.append(atom_transformed)
-            # symmetry_mate_pdb.set_all_atoms(unit_cell_sym_mate_pdb_atom_list)
+        return asu_symm_mates
 
-            self.models.append(symmetry_mate_pdb)
+    def return_surrounding_unit_cell_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
+        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
+        if return_side_chains:  # get different function calls depending on the return type
+            extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+            extract_pdb_coords = getattr(PDB, 'extract_coords')
+        else:
+            extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+            extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
 
-    def get_surrounding_unit_cell_symmetry_mates(self):  # For getting PDB copies  # TODO model after UC ^
-        """Returns a grid of unit cells for a symmetry group. Each unit cell is a list of ASU's in total grid list"""
-        # self.number_of_models = zvalue_dict[self.symmetry] * uc_number  # Todo this figure out in context
+        # could move the next block to a get all uc frac coords and remove redundancy from here and return_uc_sym_mates
+        asu_cart_coords = extract_pdb_coords(pdb)
+        asu_frac_coords = self.cart_to_frac(asu_cart_coords)
+        all_uc_frac_coords = []
+        for r, t in self.expand_matrices:
+            t_vec = np.array(t)  # Todo numpy incomming expand_matrices
+            r_mat = np.transpose(np.array(r))
+
+            r_asu_frac_coords = np.matmul(asu_frac_coords, r_mat)
+            tr_asu_frac_coords = r_asu_frac_coords + t_vec
+            all_uc_frac_coords.extend(tr_asu_frac_coords)
+            # tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords)  # We want numpy array, not .tolist()
+
         if self.dimension == 3:
             z_shifts, uc_number = [-1, 0, 1], 9
         elif self.dimension == 2:
             z_shifts, uc_number = [0], 27
-            self.number_of_models = zvalue_dict[self.symmetry] * uc_number
         else:
             return None
 
-        # if return_side_chains:  # get different function calls depending on the return type
-        #     extract_pdb_atoms = getattr(PDB, 'get_atoms')
-        #     extract_pdb_coords = getattr(PDB, 'extract_coords')
-        # else:
-        #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-        #     extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-
-        asu_atom_template = PDB.from_atoms(self.models[0].get_atoms())  # Todo may need some other mods with return_side_chains gone
-        # asu_atom_template = extract_pdb_atoms(self.pdb)
-        # asu_bb_atom_template = uc_sym_mates[0].get_backbone_atoms()
-
-        central_uc_cart_coords = extract_pdb_coords(self.models)
-        # central_uc_cart_coords = []
-        # for unit_cell_sym_mate_pdb in self.uc_sym_mates:
-        #     central_uc_cart_coords.extend(extract_pdb_coords(unit_cell_sym_mate_pdb))
-        #     # central_uc_bb_cart_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
-        central_uc_frac_coords = self.cart_to_frac(central_uc_cart_coords)  # Todo flatten list?
-        # central_uc_frac_coords = self.cart_to_frac(np.array(central_uc_cart_coords))
-
-        all_surrounding_uc_frac_coords = []
+        number_coords = len(asu_frac_coords)
+        asu_symm_mates = []
+        uc_idx = 0
         for x_shift in [-1, 0, 1]:
             for y_shift in [-1, 0, 1]:
                 for z_shift in z_shifts:
-                    if [x_shift, y_shift, z_shift] != [0, 0, 0]:
-                        all_surrounding_uc_frac_coords.extend(central_uc_frac_coords + [x_shift, y_shift, z_shift])
+                    symmetry_mate_pdb = copy.copy(pdb)
+                    symmetry_mate_pdb.set_atom_coordinates(self.frac_to_cart(all_uc_frac_coords
+                                                                             [(uc_idx * number_coords):
+                                                                              (uc_idx * number_coords) + number_coords]
+                                                                             + [x_shift, y_shift, z_shift]))
+                    asu_symm_mates.append(symmetry_mate_pdb)
 
-        all_surrounding_uc_cart_coords = np.split(self.frac_to_cart(np.array(all_surrounding_uc_frac_coords)),
-                                                  number_of_models)
-        # all_surrounding_uc_cart_coords = np.split(all_surrounding_uc_cart_coords, number_of_models)
+        assert len(asu_symm_mates) == uc_number * zvalue_dict[self.symmetry], \
+            'Number of models %d is incorrect! Should be %d' % (len(asu_symm_mates), uc_number *
+                                                                zvalue_dict[self.symmetry])
 
-        for surrounding_uc_cart_coords in all_surrounding_uc_cart_coords:
-            all_uc_sym_mates_cart_coords = np.split(surrounding_uc_cart_coords, len(self.models))
-            # one_surrounding_unit_cell = []
-            for uc_sym_mate_cart_coords in all_uc_sym_mates_cart_coords:
-                uc_sym_mate_pdb = copy.copy(asu_atom_template)
-                uc_sym_mate_pdb.set_atom_coordinates(uc_sym_mate_cart_coords)
+        return asu_symm_mates
 
-                # uc_sym_mate_atoms = []
-                # for atom_count, atom in enumerate(asu_atom_template):
-                #     x_transformed = uc_sym_mate_cart_coords[atom_count][0]
-                #     y_transformed = uc_sym_mate_cart_coords[atom_count][1]
-                #     z_transformed = uc_sym_mate_cart_coords[atom_count][2]
-                #     atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
-                #                             atom.get_residue_type(), atom.get_chain(),
-                #                             atom.get_residue_number(),
-                #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
-                #                             z_transformed,
-                #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-                #                             atom.get_atom_charge())
-                #     uc_sym_mate_atoms.append(atom_transformed)
-
-                # uc_sym_mate_pdb = PDB(atoms=uc_sym_mate_atoms)
-                # one_surrounding_unit_cell.append(uc_sym_mate_pdb)
-
-                self.models.extend(uc_sym_mate_pdb)
-            # self.models.extend(one_surrounding_unit_cell)
+    # def get_point_group_symmetry_mates(self, return_side_chains=False):  # For getting PDB copies
+    #     """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
+    #     if return_side_chains:  # get different function calls depending on the return type
+    #         extract_pdb_atoms = getattr(PDB, 'get_atoms')
+    #         # extract_pdb_coords = getattr(PDB, 'extract_coords')
+    #     else:
+    #         extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+    #         # extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+    #
+    #     self.models.append(copy.copy(self.asu))
+    #     prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
+    #     for model in range(1, self.number_of_models):
+    #         symmetry_mate_pdb = copy.copy(self.asu)
+    #         symmetry_mate_pdb.set_atom_coordinates(self.model_coords[prior_idx: prior_idx + self.asu.number_of_atoms])
+    #         self.models.append(symmetry_mate_pdb)
+    #
+    # def get_unit_cell_symmetry_mates(self, return_side_chains=False):  # For getting PDB copies # TODO model after PG ^
+    #     """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
+    #     if return_side_chains:  # get different function calls depending on the return type
+    #         extract_pdb_atoms = getattr(PDB, 'get_atoms')
+    #         # extract_pdb_coords = getattr(PDB, 'extract_coords')
+    #     else:
+    #         extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+    #         # extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+    #
+    #     # self.models.append(copy.copy(self.asu))
+    #     # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
+    #     for model_idx in range(self.number_of_models):  # range(1,
+    #         symmetry_mate_pdb = copy.copy(self.asu)
+    #         symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
+    #                                                                  (model_idx * self.asu.number_of_atoms)
+    #                                                                  + self.asu.number_of_atoms])
+    #         self.models.append(symmetry_mate_pdb)
+    #
+    # def get_surrounding_unit_cell_symmetry_mates(self):  # For getting PDB copies  # TODO model after UC ^
+    #     """Returns a grid of unit cells for a symmetry group. Each unit cell is a list of ASU's in total grid list"""
+    #     # self.number_of_models = zvalue_dict[self.symmetry] * uc_number  # Todo this figure out in context
+    #     if self.dimension == 3:
+    #         z_shifts, uc_number = [-1, 0, 1], 9
+    #     elif self.dimension == 2:
+    #         z_shifts, uc_number = [0], 27
+    #     else:
+    #         return None
+    #
+    #     # if return_side_chains:  # get different function calls depending on the return type
+    #     #     extract_pdb_atoms = getattr(PDB, 'get_atoms')
+    #     #     extract_pdb_coords = getattr(PDB, 'extract_coords')
+    #     # else:
+    #     #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+    #     #     extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+    #
+    #     asu_atom_template = PDB.from_atoms(self.models[0].get_atoms())  # Todo may need some other mods with return_side_chains gone
+    #     # asu_atom_template = extract_pdb_atoms(self.pdb)
+    #     # asu_bb_atom_template = uc_sym_mates[0].get_backbone_atoms()
+    #
+    #     central_uc_cart_coords = extract_pdb_coords(self.models)
+    #     # central_uc_cart_coords = []
+    #     # for unit_cell_sym_mate_pdb in self.uc_sym_mates:
+    #     #     central_uc_cart_coords.extend(extract_pdb_coords(unit_cell_sym_mate_pdb))
+    #     #     # central_uc_bb_cart_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
+    #     central_uc_frac_coords = self.cart_to_frac(central_uc_cart_coords)  # Todo flatten list?
+    #     # central_uc_frac_coords = self.cart_to_frac(np.array(central_uc_cart_coords))
+    #
+    #     all_surrounding_uc_frac_coords = []
+    #     for x_shift in [-1, 0, 1]:
+    #         for y_shift in [-1, 0, 1]:
+    #             for z_shift in z_shifts:
+    #                 if [x_shift, y_shift, z_shift] != [0, 0, 0]:
+    #                     all_surrounding_uc_frac_coords.extend(central_uc_frac_coords + [x_shift, y_shift, z_shift])
+    #
+    #     all_surrounding_uc_cart_coords = np.split(self.frac_to_cart(np.array(all_surrounding_uc_frac_coords)),
+    #                                               number_of_models)
+    #     # all_surrounding_uc_cart_coords = np.split(all_surrounding_uc_cart_coords, number_of_models)
+    #
+    #     for surrounding_uc_cart_coords in all_surrounding_uc_cart_coords:
+    #         all_uc_sym_mates_cart_coords = np.split(surrounding_uc_cart_coords, len(self.models))
+    #         # one_surrounding_unit_cell = []
+    #         for uc_sym_mate_cart_coords in all_uc_sym_mates_cart_coords:
+    #             uc_sym_mate_pdb = copy.copy(asu_atom_template)
+    #             uc_sym_mate_pdb.set_atom_coordinates(uc_sym_mate_cart_coords)
+    #
+    #             # uc_sym_mate_atoms = []
+    #             # for atom_count, atom in enumerate(asu_atom_template):
+    #             #     x_transformed = uc_sym_mate_cart_coords[atom_count][0]
+    #             #     y_transformed = uc_sym_mate_cart_coords[atom_count][1]
+    #             #     z_transformed = uc_sym_mate_cart_coords[atom_count][2]
+    #             #     atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
+    #             #                             atom.get_residue_type(), atom.get_chain(),
+    #             #                             atom.get_residue_number(),
+    #             #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
+    #             #                             z_transformed,
+    #             #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
+    #             #                             atom.get_atom_charge())
+    #             #     uc_sym_mate_atoms.append(atom_transformed)
+    #
+    #             # uc_sym_mate_pdb = PDB(atoms=uc_sym_mate_atoms)
+    #             # one_surrounding_unit_cell.append(uc_sym_mate_pdb)
+    #
+    #             self.models.extend(uc_sym_mate_pdb)
+    #         # self.models.extend(one_surrounding_unit_cell)
 
     def write(self, name, location=os.getcwd(), cryst1=None):  # Todo write model, write symmetry
         out_path = os.path.join(location, '%s.pdb' % name)
@@ -532,13 +587,15 @@ class SymmetricModel(Model):
         return sg_sym_op
 
 
-class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Model? as is imported from SymmetricModel
+class Pose(Model, SymmetricModel, SequenceProfile):
+    # (PDB) Todo get rid of Model? as is imported from SymmetricModel
+    #        how to deal with self.pdb versus self.asu? self.pdb should always be used and self.pdb should be self.asu
+    #        when symmetry is present.
     """A Pose is made of multiple PDB objects all sharing a common feature such as symmetric copies or modifications to
     the PDB sequence
     """
-    def __init__(self, asu=None, initial_pdb=None, file=None, symmetry=None):
+    def __init__(self, asu=None, pdb=None, file=None, symmetry=None):
         super().__init__(structure=self)  # SequenceProfile init
-        # super().__init__()  # Model init, PDB? I think init is handled above for all Super Classes
         # self.pdb = None  # the pose specific pdb  # Model
         # self.models = []  # from Model
         self.pdbs = []  # the member pdbs which make up the pose
@@ -550,12 +607,13 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Mod
         # self.surrounding_uc_sym_mates = []
 
         # # Model
+        super().__init__()  # Model init, PDB? I think init is handled above for all Super Classes
         # # self.pdb = None  # Model
         # # self.models = []  # Model
 
         # super().__init__()  # SymmetricModel init is handled above
-
-        self.set_symmetry(symmetry=symmetry)
+        # if symmetry:
+        #     self.set_symmetry(symmetry=symmetry)
         # self.generate_symmetric_assembly(return_side_chains=False, surrounding_uc=False)
         # SymmetricModel
         # self.asu = None  # the pose specific asu
@@ -571,19 +629,21 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Mod
         if asu:
             self.asu = asu
 
-        if initial_pdb:
-            self.add_pdb(initial_pdb)
+        if pdb:
+            self.set_pdb(pdb)
+            self.initialize_symmetry()
 
         if file:
-            pdb = PDB(file=file)
+            pdb = PDB.from_file(file)
             # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
             # this would be:
             # coords, atoms, residues, chains, entities, design, (host of others read from file)
-            self.add_pdb(pdb)
+            self.set_pdb(pdb)
+            self.initialize_symmetry()
 
     @classmethod
     def from_pdb(cls, pdb):
-        return cls(initial_pdb=pdb)
+        return cls(pdb=pdb)
 
     @classmethod
     def from_asu(cls, asu):
@@ -592,6 +652,9 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Mod
     # @classmethod  # In PDB class
     # def from_file(cls, file):
     #     return cls(file=file)
+
+    def set_pdb(self, pdb):
+        self.pdb = pdb
 
     def add_pdb(self, pdb):
         """Add a PDB to the PosePDB as well as the member PDB list"""
@@ -610,6 +673,12 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Mod
         # Todo Entity()
         entity_chain = pdb.entities[entity]['representative']
         self.asu.add_atoms(pdb.get_chain_atoms(entity_chain))
+
+    def initialize_symmetry(self):
+        if self.pdb.space_group and self.pdb.uc_dimernsions:
+            self.set_symmetry(symmetry=self.pdb.space_group, uc_dimensions=self.pdb.uc_dimernsions)
+        elif self.pdb.cryst_record:
+            self.set_symmetry(cryst1=self.pdb.cryst_record)
 
     def construct_cb_atom_tree(self, entity1, entity2, distance=8):
         """Create a atom tree using CB atoms from two PDB's
@@ -643,28 +712,38 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Mod
     def find_interface_pairs(self, entity1=None, entity2=None, distance=8, include_glycine=True):
         """Get pairs of residues across an interface within a certain distance. Symmetry aware
 
-            Keyword Args:
-                entity1=None (str): First entity name to measure interface between
-                entity2=None (str): Second entity name to measure interface between
-                distance=8 (int): The distance to query the interface in Angstroms
-                include_glycine=True (bool): Whether glycine CA should be included in the tree
-            Returns:
-                interface_pairs (list(tuple): A list of interface residue numbers across the interface
+        If symmetry is used, entity2 needs to be symmeterized with all atomic coordinates, by default this is True
+        Keyword Args:
+            entity1=None (str): First entity name to measure interface between
+            entity2=None (str): Second entity name to measure interface between
+            distance=8 (int): The distance to query the interface in Angstroms
+            include_glycine=True (bool): Whether glycine CA should be included in the tree
+        Returns:
+            interface_pairs (list(tuple): A list of interface residue numbers across the interface
         """
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        entity1_atoms = self.asu.entity(entity1).get_atoms()
+        entity1_atoms = self.asu.entity(entity1).get_atoms()  # if passing by name
+        # entity1_atoms = entity1.get_atoms()  # if passing by Structure object
         entity1_indecies = np.array(self.asu.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
-        # mask = np.ones(self.asu.number_of_atoms, dtype=int)  # mask everything
-        # mask[index_array] = 0  # we unmask the useful coordinates
         entity1_coords = self.coords[entity1_indecies]  # only get the coordinate indices we want!
 
-        entity2_atoms = self.asu.entity(entity2).get_atoms()
+        entity2_atoms = self.asu.entity(entity2).get_atoms()  # if passing by name
+        # entity2_atoms = entity2.get_atoms()  # if passing by Structure object
         entity2_indecies = np.array(self.asu.entity(entity2).get_cb_indices(InclGlyCA=include_glycine))
-        if self.model_coords:
-            entity2_indecies = [idx + (self.asu.number_of_atoms * model_number) for idx in entity2_indecies
-                                for model_number in range(self.number_of_models)]
+        if self.symmetry:  # self.model_coords:
+            # get all symmetric indices if the pose is symmetric
+            entity2_indecies = np.array([idx + (self.asu.number_of_atoms * model_number)
+                                         for model_number in range(self.number_of_models) for idx in entity2_indecies])
+            # Todo mask=[residue_numbers?] default parameter
+            if entity2 == entity1:  # the entity is the same however, we don't want interactions with the same sym mate
+                model_number = self.find_asu_equivalent_symmetry_mate()
+                start_idx = self.asu.number_of_atoms * model_number
+                end_idx = self.asu.number_of_atoms * (model_number + 1)
+                # Todo test logic, have to offset the index by 1 from the start and end_idx values
+                entity2_indecies = [idx for idx in entity2_indecies if idx >= end_idx or idx < start_idx]
+            entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             entity2_coords = self.model_coords[entity2_indecies]  # only get the coordinate indices we want!
         else:
             entity2_coords = self.coords[entity2_indecies]  # only get the coordinate indices we want!
@@ -709,28 +788,31 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Mod
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
         # interface_name = self.asu
-
-        entity1 = self.asu.get_entity(entity1)
-        if self.model_coords:  # find the interface using symmetry
-            entity2 = self.asu.get_entity(entity2)
-
-        else:
-            entity2 = self.asu.get_entity(entity2)
-
-
-        entity1_residue_numbers, entity2_residue_numbers = self.find_interface_residues(entity1=entity1, entity2=entity2)
+        entity1_residue_numbers, entity2_residue_numbers = self.find_interface_residues(entity1=entity1,
+                                                                                        entity2=entity2)
         # pdb1_interface_sa = pdb1.get_surface_area_residues(entity1_residue_numbers)
         # pdb2_interface_sa = pdb2.get_surface_area_residues(entity2_residue_numbers)
         # interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
 
-        interface_frags1 = entity1.get_fragments(entity1_residue_numbers)
-        interface_frags2 = entity2.get_fragments(entity2, entity2_residue_numbers)
-        entity1_coords = entity1.extract_coords()
+        entity1_pdb = self.asu.get_entity(entity1)
+        # if self.symmetry:  # self.model_coords:  # find the interface using symmetry
+        #     if entity2 == entity1:  # check to ensure we only measure the interchain contacts
+        #         entity2_pdb =
+        #     else:
+        #         entity2_pdb = self.asu.get_entity(entity2)
+        # else:
+        entity2_pdb = self.asu.get_entity(entity2)
+        interface_frags1 = entity1_pdb.get_fragments(entity1_residue_numbers)
+        interface_frags2 = entity2_pdb.get_fragments(entity2_residue_numbers)
+        if self.symmetry:
+            interface_frags2_nested = [self.return_symmetry_mates(frag) for frag in interface_frags2]
+            interface_frags2 = list(chain.from_iterable(interface_frags2_nested))
 
+        entity1_coords = entity1.extract_coords()
         fragment_matches = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
 
-    def calculate_interface_score(self):
+    def return_interface_metrics(self):
         """From the reported fragment queries, find the interface scores"""
         interface_metrics_d = {}
         for query, fragment_matches in self.fragment_queries.items():
@@ -752,10 +834,10 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Mod
                                           'percent_residues_fragment_center': percent_interface_matched,
                                           'percent_fragment_helix': fragment_content_d['1'],
                                           'percent_fragment_strand': fragment_content_d['2'],
-                                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
-                                                                   + fragment_content_d['5']}
+                                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4'] +
+                                          fragment_content_d['5']}
 
-        return interface_metric_d
+        return interface_metrics_d
 
     def initialize_pose(self, design_dir=None, symmetry=None, frag_db='biological_interfaces'):
         # Todo ensure ASU
@@ -764,6 +846,9 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # (PDB) Todo get rid of Mod
 
         self.set_symmetry(symmetry=symmetry)
         self.connect_fragment_database(location=frag_db)
+        for entity_pair in combinations(self.entities, 2):
+            self.query_interface_for_fragments(*entity_pair)
+
         query_idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
         for query_pair, fragments in self.fragment_queries.items():
             for query_idx, entity_name in enumerate(query_pair):
