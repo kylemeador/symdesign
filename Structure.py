@@ -42,19 +42,24 @@ class Structure:  # (Coords):
 
     @property
     def coords(self):
-        return self._coords[self.atom_indecies]
+        return self._coords.get_indicies(self.atom_indecies)
 
     @coords.setter
     def coords(self, coords):
+        # assert len(self.atoms) == coords.shape[0], '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
+        #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
         self._coords = coords
         for atom in self.atoms:
             atom.coords = coords
 
     @property
     def atom_indecies(self):  # Todo has relevance to Residue
-        if self._atom_indecies:
+        # if self._atom_indecies:
+        try:
+            # self._atom_indecies:
             return self._atom_indecies
-        else:
+        except AttributeError:
+        # else:
             self.atom_indecies = [atom.index for atom in self.atoms]
             return self._atom_indecies
 
@@ -300,10 +305,10 @@ class Structure:  # (Coords):
     def get_center_of_mass(self):
         return self.center_of_mass
 
-    def find_center_of_mass(self, coords):  # Todo, make reference self.coords
+    def find_center_of_mass(self):
         """Given a numpy array of 3D coordinates, return the center of mass"""
-        divisor = 1 / len(coords)
-        return np.matmul(np.array.full((1, 3), divisor), coords)
+        divisor = 1 / len(self.atom_indecies)
+        return np.matmul(np.full((1, 3), divisor), np.transpose(self.coords))
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
@@ -446,8 +451,8 @@ class Structure:  # (Coords):
 
 
 class Chain(Structure):
-    def __init__(self, residues=None, name=None, coords=None):
-        super().__init__(residues=residues, name=name, coords=coords)
+    def __init__(self, chain_name=None, residues=None, coords=None):
+        super().__init__(residues=residues, name=chain_name, coords=coords)
         # self.residues = residues
         # self.id = name
 
@@ -463,10 +468,10 @@ class Residue:
         self.atom_list = atom_list
         self.ca = self.get_ca()
         self.cb = self.get_cb()
-        self.number = self.ca.get_number()  # Todo test accessors, maybe make property
-        self.number_pdb = self.ca.get_pdb_residue_number()
-        self.type = self.ca.get_type()
-        self.chain = self.ca.get_chain()
+        self.number = self.ca.residue_number  # get_number()  # Todo test accessors, maybe make property
+        self.number_pdb = self.ca.pdb_residue_number  # get_pdb_residue_number()
+        self.type = self.ca.residue_type  # get_type()
+        self.chain = self.ca.chain  # get_chain()
         self.secondary_structure = None
 
     def coords(self):

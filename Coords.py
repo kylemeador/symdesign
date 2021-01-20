@@ -22,6 +22,12 @@ class Coords:
     def coords(self, coords):
         self._coords = np.array(coords)
 
+    def get_indicies(self, indicies=None):
+        if indicies.any:
+            return self._coords[indicies]
+        else:
+            return self.coords
+
     def __len__(self):
         return self.coords.shape[0]
 
