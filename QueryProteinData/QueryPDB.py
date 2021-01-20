@@ -582,6 +582,7 @@ def get_pdb_info_by_entry(entry):
     # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
     entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
     if entry_request.status_code != 200:
+        print('%s not found in the PDB!' % entry)
         return None
     else:
         entry_json = entry_request.json()
@@ -659,7 +660,7 @@ def get_pdb_info_by_entry(entry):
         # X-ray_only_keys - {'rcsb_cluster_flexibility'}
         if entity_json:
             chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', 'C']
-            entity_chain_d[i] = set(chains)
+            entity_chain_d[i] = chains  # <- now a list instead of set(chains)
             try:
                 uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
                 database = 'UNP'
@@ -694,6 +695,7 @@ def get_pdb_info_by_entry(entry):
 
             ref_d = {chain: db_d for chain in chains}
         else:
+            print('%s not found in the PDB!' % entity_id)
             return None
     # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
@@ -705,14 +707,15 @@ def get_pdb_info_by_entry(entry):
 def query_entity_id(entity_id):
     """Returns the JSON object for the entity_id requested. where entity_id format is PDBentryID_entityID. If the query
      fails, returns None"""
-    entity_id = entity_id.split('_')
-    entry = entity_id[0]
-    _id = entity_id[0]
+    entity_id_split = entity_id.split('_')
+    entry = entity_id_split[0]
+    _id = entity_id_split[1]
     entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry, _id))
-    if entity.status_code != 200:
-        return None
-    else:
+    if entity.status_code == 200:
         return entity.json()
+    else:
+        # print('%s entity request failed!' % entity_id)
+        return None
 
 
 def get_sequence_by_entity_id(entity_id):

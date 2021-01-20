@@ -242,6 +242,7 @@ class PDB(Structure):
                 # space_group = line[55:66].strip()
 
         self.atoms = [Atom.from_info(*info) for info in atom_info]
+        self.renumber_atoms()
         self.coords = Coords(coords)  # np.array(coords)
         # self.set_atom_coordinates(self.coords)
         # assert len(self.atoms) == self.coords.shape[0], '%s: ERROR parseing Atoms (%d) and Coords (%d). Wrong size!' \
@@ -249,7 +250,7 @@ class PDB(Structure):
         # for atom_idx, atom in enumerate(self.atoms):
         #     atom.coords = self.coords[atom_idx]
         self.chain_id_list = chain_ids
-        self.renumber_atoms()
+        self.process_pdb()
 
         if seq_res_lines:
             self.parse_seqres(seqres_lines=seq_res_lines)
@@ -257,13 +258,12 @@ class PDB(Structure):
             self.design = True
             # entity.retrieve_sequence_from_PDB(entity_id=None)
 
-        self.generate_entity_accession_map()  # Todo uncomment after debugging
-        self.get_chain_sequences()
+        # self.get_chain_sequences()
+        # self.generate_entity_accession_map()
         if not self.entity_d:
             self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
         else:
             self.update_entity_d()
-        self.process_pdb()
 
     def process_symmetry(self):
         """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
@@ -272,7 +272,7 @@ class PDB(Structure):
     def process_pdb(self):
         """Process all Atoms in PDB to Residue, Chain, and Entity objects"""  # TODO make modern
         # self.coords = self.extract_coords()
-        self.center_of_mass = self.find_center_of_mass(np.array(self.coords))  # Todo atom array
+        self.center_of_mass = self.find_center_of_mass()
         # self.scout_symmetry()  # Todo worry about this later, for now use Nanohedra full symmetry from Pose
         # chains = self.find_symmetrically_significant_chains()
         # if len(chains) > 1:
@@ -280,10 +280,12 @@ class PDB(Structure):
         # the highest order symmetry operation chain in a pdb plus any dihedral related chains
         self.create_residues()
         self.create_chains()
-        for entity in self.entity_d:
-            self.create_entity(entity, entity_name='%s_%s' % (self.name, entity))
+        self.get_chain_sequences()
+        # for entity in self.entity_d:
+        #     self.create_entity(entity, entity_name='%s_%s' % (self.name, entity))
         # or
-        # self.create_entities()
+        self.create_entities()
+        self.generate_entity_accession_map()
         # if self.design:  # Todo maybe??
         #     self.process_symmetry()
 
@@ -739,7 +741,7 @@ class PDB(Structure):
 
     def create_chains(self):
         for chain in self.chain_id_list:
-            self.chains.append(Chain(residues=self.get_chain_residues(chain), name=chain))
+            self.chains.append(Chain(chain_name=chain, residues=self.get_chain_residues(chain), coords=self.coords))
 
     def get_chains(self, names=None):
         if names:
@@ -749,8 +751,10 @@ class PDB(Structure):
 
     def chain(self, chain_id):
         for chain in self.chains:
-            if chain.id == chain_id:
+            # if chain.id == chain_id:
+            if chain.name == chain_id:
                 return chain
+        return None
 
     def get_chain_atoms(self, chain_ids):  # Todo Depreciate
         """Return list of Atoms containing the subset of Atoms that belong to the selected Chain(s)"""
@@ -1324,7 +1328,7 @@ class PDB(Structure):
 
     def update_entity_representatives(self):
         for entity in self.entity_d:
-            self.entity_d[entity]['representative'] = self.entity_d[entity]['chain'][0]
+            self.entity_d[entity]['representative'] = self.entity_d[entity]['chains'][0]
 
     def update_entity_sequences(self):
         for entity in self.entity_d:
