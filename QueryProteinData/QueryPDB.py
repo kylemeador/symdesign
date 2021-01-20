@@ -580,11 +580,11 @@ def get_pdb_info_by_entry(entry):
     # url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
     # ex. chain
     # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
-    entry = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
-    if entry.status_code != 200:
+    entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
+    if entry_request.status_code != 200:
         return None
     else:
-        entry_json = entry.json()
+        entry_json = entry_request.json()
     # The following information is returned. This can connect the entity ID to the chain
 
     # All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
@@ -657,41 +657,44 @@ def get_pdb_info_by_entry(entry):
         # NMR only - {'rcsb_polymer_entity_feature'}
         # EM only - set()
         # X-ray_only_keys - {'rcsb_cluster_flexibility'}
+        if entity_json:
+            chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', 'C']
+            entity_chain_d[i] = set(chains)
+            try:
+                uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
+                database = 'UNP'
+                db_d = {'db': database, 'accession': uniprot_id}
+            except KeyError:
+                # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
+                # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
+                identifiers = [[ident['database_accession'], ident['database_name']]
+                               for ident in entity_json[
+                                   'rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
 
-        chains = entity_json["rcsb_polymer_entity_container_identifiers"]['asym_ids']  # = ['A', 'B', 'C']
-        entity_chain_d[i] = set(chains)
-        try:
-            uniprot_id = entity_json["rcsb_polymer_entity_container_identifiers"]['uniprot_ids']
-            database = 'UNP'
-            db_d = {'db': database, 'accession': uniprot_id}
-        except KeyError:
-            # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
-            # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
-            identifiers = [[ident['database_accession'], ident['database_name']] for ident in
-                           entity_json['rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
+                if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
+                    whatever_else = None
+                    priority_l = [None for i in range(len(identifiers))]
+                    for i, tup in enumerate(identifiers, 1):
+                        if tup[1] == 'UniProt':
+                            priority_l[0] = i
+                            identifiers[i - 1][1] = 'UNP'
+                        elif tup[1] == 'GenBank':
+                            priority_l[1] = i  # two elements are required from above len check, never IndexError
+                            identifiers[i - 1][1] = 'GB'
+                        elif not whatever_else:
+                            whatever_else = i
+                    for idx in priority_l:
+                        if idx:  # we have found a database from the priority list, choose the corresponding identifier idx
+                            db_d = {'accession': identifiers[idx - 1][0], 'db': identifiers[idx - 1][1]}
+                            break
+                        else:
+                            db_d = {'accession': identifiers[whatever_else - 1][0], 'db': identifiers[whatever_else - 1][1]}
+                else:
+                    db_d = {'accession': identifiers[0], 'db': identifiers[1]}
 
-            if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
-                whatever_else = None
-                priority_l = [None for i in range(len(identifiers))]
-                for i, tup in enumerate(identifiers, 1):
-                    if tup[1] == 'UniProt':
-                        priority_l[0] = i
-                        identifiers[i - 1][1] = 'UNP'
-                    elif tup[1] == 'GenBank':
-                        priority_l[1] = i  # two elements are required from above len check, never IndexError
-                        identifiers[i - 1][1] = 'GB'
-                    elif not whatever_else:
-                        whatever_else = i
-                for idx in priority_l:
-                    if idx:  # we have found a database from the priority list, choose the corresponding identifier idx
-                        db_d = {'accession': identifiers[idx - 1][0], 'db': identifiers[idx - 1][1]}
-                        break
-                    else:
-                        db_d = {'accession': identifiers[whatever_else - 1][0], 'db': identifiers[whatever_else - 1][1]}
-            else:
-                db_d = {'accession': identifiers[0], 'db': identifiers[1]}
-
-        ref_d = {chain: db_d for chain in chains}
+            ref_d = {chain: db_d for chain in chains}
+        else:
+            return None
     # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
@@ -700,7 +703,8 @@ def get_pdb_info_by_entry(entry):
 
 
 def query_entity_id(entity_id):
-    """Returns the JSON object for the entity_id requested. where entity_id format is PDBentryID_entityID"""
+    """Returns the JSON object for the entity_id requested. where entity_id format is PDBentryID_entityID. If the query
+     fails, returns None"""
     entity_id = entity_id.split('_')
     entry = entity_id[0]
     _id = entity_id[0]
