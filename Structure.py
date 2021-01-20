@@ -160,7 +160,7 @@ class Structure(Coords):
 
     def set_atom_coordinates(self, coords):
         """Set/Replace all Atom coordinates with coords specified. Must be in the same order to apply correctly!"""
-        assert len(self.atoms) == coords.shape[0], '%s: ERROR setting Atom coordinates, # Atoms (%d) !=  # Coords (%d)' \
+        assert len(self.atoms) == coords.shape[0], '%s: ERROR setting Atom coordinates, # Atoms (%d) !=  # Coords (%d)'\
                                                    % (self.name, len(self.atoms), coords.shape[0])
         self.coords = coords
         for idx, atom in enumerate(self.get_atoms()):
@@ -409,7 +409,7 @@ class Structure(Coords):
                 interface_frags.append(Structure.from_residues(self.residue(frag_residue_numbers)))
 
         for structure in interface_frags:
-            structure.chain_id_list = [structure.get_residues().chain]  # Todo test if I can add an attribute like this
+            structure.chain_id_list = [structure.get_residues()[0].chain]  # Todo test if I can add attribute
 
         return interface_frags
 

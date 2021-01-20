@@ -1090,7 +1090,7 @@ def get_base_nanohedra_dirs(base_dir):
     """
     nanohedra_dirs = []
     for root, dirs, files in os.walk(base_dir, followlinks=True):
-        if 'master_log.txt' in files:
+        if PUtils.master_log in files:
             nanohedra_dirs.append(root)
             del dirs[:]
             # print('found %d directories' % len(nanohedra_dirs))
