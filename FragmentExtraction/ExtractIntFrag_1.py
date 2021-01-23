@@ -63,8 +63,10 @@ def find_interacting_residue_fragments(pdb1, pdb2, interacting_pairs, frag_lengt
             if residue_pair[0] + 1 >= residue_pair[1] and set(res_nums_pdb1) & set(res_nums_pdb2) != set():
                 continue
 
-        frag1 = pdb1.get_residue_atoms(pdb1.chain_id_list[0], res_nums_pdb1)
-        frag2 = pdb2.get_residue_atoms(pdb2.chain_id_list[0], res_nums_pdb2)
+        frag1 = pdb1.chain(pdb1.chain_id_list[0]).get_residue_atoms(res_nums_pdb1)
+        # frag1 = pdb1.get_residue_atoms(pdb1.chain_id_list[0], res_nums_pdb1)
+        frag2 = pdb2.chain(pdb2.chain_id_list[0]).get_residue_atoms(res_nums_pdb2)
+        # frag2 = pdb2.get_residue_atoms(pdb2.chain_id_list[0], res_nums_pdb2)
         if len(frag1) == frag_length and len(frag2) == frag_length:
             fragment_pairs.append((frag1, frag2))
 
