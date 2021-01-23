@@ -35,7 +35,8 @@ add_fragment_profile_instructions = 'To add fragment information, call PDB.score
 
 
 class SequenceProfile:
-    def __init__(self, structure=None):
+    def __init__(self, structure=None, **kwargs):
+        super().__init__(**kwargs)
         self.sequence = None
         self.sequence_source = None
         self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
@@ -447,15 +448,14 @@ class SequenceProfile:
         fragment_statistics = self.frag_db.get_db_statistics()
         for entry in self.fragment_profile:  # cluster_map
             if self.fragment_map[entry]['chain'] == 'mapped':  # query_idx_to_alignment_type ={0: 'mapped', 1: 'paired'}
-
                 statistic_idx = 0
             else:
                 statistic_idx = 1
             # match score is bounded between 1 and 0.2
             match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
             bounded_floor = 0.2
-            match_sum = sum([self.fragment_map[entry][index][obs]['match'] for obs in self.fragment_map[entry][index]
-                             for index in self.fragment_map[entry]])
+            match_sum = sum([self.fragment_map[entry][index][obs]['match'] for index in self.fragment_map[entry]
+                             for obs in self.fragment_map[entry][index]])
 
             contribution_total = 0.0
             for index in self.fragment_map[entry]:

@@ -8,7 +8,8 @@ from Bio.SeqUtils import IUPACData
 
 
 class Structure:  # (Coords):
-    def __init__(self, atoms=None, residues=None, name=None, coords=None):
+    def __init__(self, atoms=None, residues=None, name=None, coords=None, **kwargs):
+        super().__init__(**kwargs)
         # self.coords = coords
         # super().__init__(coords=coords)  # gets self.coords
         self.atoms = []  # atoms
@@ -23,6 +24,8 @@ class Structure:  # (Coords):
             self.set_atoms(atoms)
         if residues:
             self.set_residues(residues)
+        if isinstance(coords, np.ndarray) and coords.any():
+            self.coords = coords
 
     @classmethod
     def from_atoms(cls, atoms):
