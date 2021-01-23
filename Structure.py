@@ -1,10 +1,12 @@
 import math
+from collections.abc import Iterable
 
 import numpy as np
 from Bio.SeqUtils import IUPACData
-
+from numpy.linalg import eigh, LinAlgError
 
 # from Bio.Alphabet import IUPAC
+from SequenceProfile import SequenceProfile
 
 
 class Structure:  # (Coords):
@@ -45,24 +47,27 @@ class Structure:  # (Coords):
 
     @property
     def coords(self):
+        """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
+        belonging to the specific Structure instance"""
         return self._coords.get_indicies(self.atom_indecies)
 
     @coords.setter
     def coords(self, coords):
         # assert len(self.atoms) == coords.shape[0], '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
         #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
-        self._coords = coords
-        for atom in self.atoms:
-            atom.coords = coords
+        if isinstance(coords, Coords):
+            self._coords = coords
+            for atom in self.atoms:
+                atom.coords = coords
+        else:
+            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+                                 'view')
 
     @property
     def atom_indecies(self):  # Todo has relevance to Residue
-        # if self._atom_indecies:
         try:
-            # self._atom_indecies:
             return self._atom_indecies
         except AttributeError:
-        # else:
             self.atom_indecies = [atom.index for atom in self.atoms]
             return self._atom_indecies
 
@@ -115,7 +120,7 @@ class Structure:  # (Coords):
     # @property Todo
     def get_atoms(self, numbers=None):
         """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned"""
-        if numbers:
+        if numbers and isinstance(numbers, Iterable):
             return [atom for atom in self.atoms if atom.number in numbers]
         else:
             return self.atoms
@@ -176,7 +181,7 @@ class Structure:  # (Coords):
         return [atom for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
 
     def atom(self, atom_number):
-        """Retrieve the Atom specified"""
+        """Retrieve the Atom specified by atom number"""
         for atom in self.atoms:
             if atom.number == atom_number:
                 return atom
@@ -202,15 +207,15 @@ class Structure:  # (Coords):
 
     # @property Todo
     def get_residues(self, numbers=None):
-        """Retrieve Residues in structure. Returns all by default. If numbers=(list) selected Residues numbers are
-        returned"""
-        if numbers:
+        """Retrieve Residues in Structure. Returns all by default. If a list of numbers is provided, the selected
+        Residues numbers are returned"""
+        if numbers and isinstance(numbers, Iterable):
             return [residue for residue in self.residues if residue.number in numbers]
         else:
             return self.residues
 
     def set_residues(self, residue_list):
-        """Set the Structure residues to Residues provided in a residue list"""
+        """Set the Structure residues to Residue objects provided in a list"""
         self.residues = residue_list  # []
         atom_list = [atom for residue in residue_list for atom in residue.get_atoms()]
         self.atoms = atom_list
@@ -218,7 +223,7 @@ class Structure:  # (Coords):
         self.set_length()
 
     def add_residues(self, residue_list):
-        """Add Residues in a residue list to the Structure instance"""
+        """Add Residue objects in a list to the Structure instance"""
         self.residues.extend(residue_list)
         atom_list = [atom for atom in residue_list.get_atoms()]
         self.atoms.extend(atom_list)
@@ -249,6 +254,10 @@ class Structure:  # (Coords):
             if residue.number == residue_number:
                 return residue
         return None
+
+    def get_residue_atoms(self, residue_numbers):
+        """Return the Atoms contained in the Residue objects matching a set of residue numbers"""
+        return [residue.get_atoms() for residue in self.get_residues(numbers=residue_numbers)]
 
     def residue_from_pdb(self, residue_number):
         """Returns the Residue object from the Structure according to PDB residue number"""
@@ -291,7 +300,11 @@ class Structure:  # (Coords):
 
     @property
     def number_of_atoms(self):
-        return self._number_of_atoms
+        try:
+            return self._number_of_atoms
+        except AttributeError:
+            self.set_length()
+            return self._number_of_atoms
 
     @number_of_atoms.setter
     def number_of_atoms(self, length):
@@ -299,7 +312,11 @@ class Structure:  # (Coords):
 
     @property
     def number_of_residues(self):
-        return self._number_of_residues
+        try:
+            return self._number_of_residues
+        except AttributeError:
+            self.set_length()
+            return self._number_of_residues
 
     @number_of_residues.setter
     def number_of_residues(self, length):
@@ -309,9 +326,9 @@ class Structure:  # (Coords):
         return self.center_of_mass
 
     def find_center_of_mass(self):
-        """Given a numpy array of 3D coordinates, return the center of mass"""
+        """Retrieve the center of mass for the specified Structure"""
         divisor = 1 / len(self.atom_indecies)
-        return np.matmul(np.full((1, 3), divisor), np.transpose(self.coords))
+        self.center_of_mass = np.matmul(np.full((1, 3), divisor), np.transpose(self.coords))
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
@@ -453,9 +470,73 @@ class Structure:  # (Coords):
     #     mask = [0 for i in range(length)]
 
 
+class Entity(SequenceProfile, Structure):  # Chain
+    """Entity
+    Initialize with Keyword Args:
+        representative=None (Chain): The Chain that should represent the Entity
+        chains=None (list): A list of all Chain objects that match the Entity
+        name=None (str): The name for the Entity. Typically PDB.name is used to make PDB compatible form
+        PDB EntryID_EntityID
+        uniprot_id=None (str): The unique UniProtID for the Entity
+    """
+    def __init__(self, representative=None, chains=None, name=None, uniprot_id=None, coords=None):
+        self.chains = chains  # [Chain objs]
+        # self.representative_chain = representative_chain
+        # use the self.structure __init__ from SequenceProfile for the structure identifier
+        # Chain init
+        super().__init__(name=name, residues=representative.get_residues(), coords=coords, structure=self)
+        # super().__init__(chain_name=representative_chain.name, residues=representative_chain.get_residues(),
+        #                  coords=representative_chain.coords)
+        # super().__init__(chain_name=entity_id, residues=self.chain(representative_chain).get_residues(), coords=coords)
+        # SequenceProfile init
+        # super().__init__(structure=self)
+        # self.representative = representative  # Chain obj
+        # super().__init__(structure=self.representative)  # SequenceProfile init
+        # self.residues = self.chain(representative).get_residues()  # reflected above in super() call to Chain
+        # self.name = entity_id  # reflected above in super() call to Chain
+
+        # self.entity_id = entity_id
+        self.uniprot_id = uniprot_id
+
+    @classmethod
+    def from_representative(cls, representative=None, chains=None, name=None, uniprot_id=None, coords=None):
+        return cls(representative=representative, chains=chains, name=name,
+                   uniprot_id=uniprot_id, coords=coords)  # **kwargs
+
+    # def get_representative_chain(self):
+    #     return self.representative
+
+    def chain(self, chain_id):  # Also in PDB
+        for chain in self.chains:
+            if chain.name == chain_id:
+                return chain
+        return None
+
+    # Todo set up captain chain and mate chains dependence
+
+    # FROM CHAIN super().__init__()
+    #
+    # def set_id(self, _id):
+    #     self.id = _id
+    #
+    # def get_atoms(self):
+    #     atoms = []
+    #     for residue in self.get_residues():
+    #         atoms.extend(residue.get_atoms())
+    #     return atoms
+    #
+    # def get_residues(self):
+    #     return self.residues
+    #
+    # def residue(self, residue_number):
+    #     for residue in self.residues:
+    #         if residue.number == residue_number:
+    #             return residue
+
+
 class Chain(Structure):
-    def __init__(self, chain_name=None, residues=None, coords=None):
-        super().__init__(residues=residues, name=chain_name, coords=coords)
+    def __init__(self, name=None, residues=None, coords=None):
+        super().__init__(residues=residues, name=name, coords=coords)
         # self.residues = residues
         # self.id = name
 
@@ -531,6 +612,18 @@ class Residue:
             if self.in_contact(residue, distance_thresh, side_chain_only):
                 return True
         return False
+
+    @property
+    def number_of_atoms(self):
+        try:
+            return self._number_of_atoms
+        except AttributeError:
+            self.number_of_atoms = len(self.get_atoms())
+            return self._number_of_atoms
+
+    @number_of_atoms.setter
+    def number_of_atoms(self, length):
+        self._number_of_atoms = length
 
     @staticmethod
     def get_residue(number, chain, residue_type, residuelist):
@@ -722,3 +815,335 @@ class Atom:  # (Coords):
 
     def __hash__(self):  # Todo current key is mutable so this hash is invalid
         return hash(self.__key())
+
+
+class Coords:
+    def __init__(self, coords=None):
+        if coords:
+            self.coords = coords
+        else:
+            self.coords = []
+        # self.indecies = None
+
+    @property
+    def coords(self):  # , transformation_operator=None):
+        """This holds the atomic coords which is a view from the Structure that created them"""
+        # if transformation_operator:
+        #     return np.matmul([self.x, self.y, self.z], transformation_operator)
+        # else:
+        return self._coords  # [self.indecies]  # [self.x, self.y, self.z]
+
+    @coords.setter
+    def coords(self, coords):
+        self._coords = np.array(coords)
+
+    def get_indicies(self, indicies=None):
+        if indicies.any():
+            return self._coords[indicies]
+        else:
+            return self.coords
+
+    def __len__(self):
+        return self.coords.shape[0]
+
+    # @property
+    # def x(self):
+    #     return self.coords[0]  # x
+    #
+    # @x.setter
+    # def x(self, x):
+    #     self.coords[0] = x
+    #
+    # @property
+    # def y(self):
+    #     return self.coords[1]  # y
+    #
+    # @y.setter
+    # def y(self, y):
+    #     self.coords[1] = y
+    #
+    # @property
+    # def z(self):
+    #     return self.coords[2]  # z
+    #
+    # @z.setter
+    # def z(self, z):
+    #     self.coords[2] = z
+
+
+def superposition3d(aa_xf_orig, aa_xm_orig, a_weights=None, allow_rescale=False, report_quaternion=False):
+    """
+    MIT License. Copyright (c) 2016, Andrew Jewett
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+    documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+    rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+    permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+    Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+    WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+    OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+    Superpose3D() takes two lists of xyz coordinates (same length), and attempts to superimpose them using rotations,
+     translations, and (optionally) rescale operations in order to minimize the root-mean-squared-distance (RMSD)
+     between them. These operations should be applied to the "aa_xf_orig" argument.
+
+    This function implements a more general variant of the method from:
+    R. Diamond, (1988) "A Note on the Rotational Superposition Problem", Acta Cryst. A44, pp. 211-216
+    This version has been augmented slightly. The version in the original paper only considers rotation and translation
+    and does not allow the coordinates of either object to be rescaled (multiplication by a scalar).
+    (Additional documentation can be found at https://pypi.org/project/superpose3d/ )
+
+    Args:
+        aa_xf_orig (numpy.array): The coordinates for the "frozen" object
+        aa_xm_orig (numpy.array): The coordinates for the "mobile" object
+    Keyword Args:
+        aWeights=None (numpy.array): The optional weights for the calculation of RMSD
+        allow_rescale=False (bool): Attempt to rescale the mobile point cloud in addition to translation/rotation?
+        report_quaternion=False (bool): Whether to report the rotation angle and axis in typical quaternion fashion
+    Returns:
+        (float, numpy.array, numpy.array, float): Corresponding to the rmsd, optimal rotation_matrix or
+        quaternion_matrix (if report_quaternion=True), optimal_translation_vector, and optimal_scale_factor.
+        The quaternion_matrix has the first row storing cos(θ/2) (where θ is the rotation angle). The following 3 rows
+        form a vector (of length sin(θ/2)), pointing along the axis of rotation.
+        Details here: https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+    """
+    # convert input lists as to numpy arrays
+
+    aa_xf_orig = np.array(aa_xf_orig)
+    aa_xm_orig = np.array(aa_xm_orig)
+
+    if aa_xf_orig.shape[0] != aa_xm_orig.shape[0]:
+        raise ValueError("Inputs should have the same size.")
+
+    number_of_points = aa_xf_orig.shape[0]
+    # Find the center of mass of each object:
+    """ # old code (using for-loops)
+    if (aWeights == None) or (len(aWeights) == 0):
+        aWeights = np.full(number_of_points, 1.0)
+    a_center_f = np.zeros(3)
+    a_center_m = np.zeros(3)
+    sum_weights = 0.0
+    for n in range(0, number_of_points):
+        for d in range(0, 3):
+            a_center_f[d] += aaXf_orig[n][d]*aWeights[n]
+            a_center_m[d] += aaXm_orig[n][d]*aWeights[n]
+        sum_weights += aWeights[n]
+    """
+    # new code (avoiding for-loops)
+    # convert weights into array
+    if not a_weights or (len(a_weights) == 0):
+        a_weights = np.full((number_of_points, 1), 1.0)
+    else:
+        # reshape aWeights so multiplications are done column-wise
+        a_weights = np.array(a_weights).reshape(number_of_points, 1)
+
+    a_center_f = np.sum(aa_xf_orig * a_weights, axis=0)
+    a_center_m = np.sum(aa_xm_orig * a_weights, axis=0)
+    sum_weights = np.sum(a_weights, axis=0)
+
+    # Subtract the centers-of-mass from the original coordinates for each object
+    """ # old code (using for-loops)
+    if sum_weights != 0:
+        for d in range(0, 3):
+            a_center_f[d] /= sum_weights
+            a_center_m[d] /= sum_weights
+    for n in range(0, number_of_points):
+        for d in range(0, 3):
+            aa_xf[n][d] = aaXf_orig[n][d] - a_center_f[d]
+            aa_xm[n][d] = aaXm_orig[n][d] - a_center_m[d]
+    """
+    # new code (avoiding for-loops)
+    if sum_weights != 0:
+        a_center_f /= sum_weights
+        a_center_m /= sum_weights
+    aa_xf = aa_xf_orig - a_center_f
+    aa_xm = aa_xm_orig - a_center_m
+
+    # Calculate the "M" array from the Diamond paper (equation 16)
+    """ # old code (using for-loops)
+    M = np.zeros((3,3))
+    for n in range(0, number_of_points):
+        for i in range(0, 3):
+            for j in range(0, 3):
+                M[i][j] += aWeights[n] * aa_xm[n][i] * aa_xf[n][j]
+    """
+    M = np.matmul(aa_xm.T, (aa_xf * a_weights))
+
+    # Calculate Q (equation 17)
+
+    """ # old code (using for-loops)
+    traceM = 0.0
+    for i in range(0, 3):
+        traceM += M[i][i]
+    Q = np.empty((3,3))
+    for i in range(0, 3):
+        for j in range(0, 3):
+            Q[i][j] = M[i][j] + M[j][i]
+            if i==j:
+                Q[i][j] -= 2.0 * traceM
+    """
+    Q = M + M.T - 2 * np.eye(3) * np.trace(M)
+
+    # Calculate v (equation 18)
+    v = np.empty(3)
+    v[0] = M[1][2] - M[2][1]
+    v[1] = M[2][0] - M[0][2]
+    v[2] = M[0][1] - M[1][0]
+
+    # Calculate "P" (equation 22)
+    """ # old code (using for-loops)
+    P = np.empty((4,4))
+    for i in range(0,3):
+        for j in range(0,3):
+            P[i][j] = Q[i][j]
+    P[0][3] = v[0]
+    P[3][0] = v[0]
+    P[1][3] = v[1]
+    P[3][1] = v[1]
+    P[2][3] = v[2]
+    P[3][2] = v[2]
+    P[3][3] = 0.0
+    """
+    P = np.zeros((4, 4))
+    P[:3, :3] = Q
+    P[3, :3] = v
+    P[:3, 3] = v
+
+    # Calculate "p".
+    # "p" contains the optimal rotation (in backwards-quaternion format)
+    # (Note: A discussion of various quaternion conventions is included below.)
+    # First, specify the default value for p:
+    p = np.zeros(4)
+    p[3] = 1.0           # p = [0,0,0,1]    default value
+    pPp = 0.0            # = p^T * P * p    (zero by default)
+    singular = (number_of_points < 2)   # (it doesn't make sense to rotate a single point)
+
+    try:
+        # http://docs.scipy.org/doc/numpy/reference/generated/numpy.linalg.eigh.html
+        a_eigenvals, aa_eigenvects = eigh(P)
+    except LinAlgError:
+        singular = True  # (I have never seen this happen.)
+
+    if not singular:  # (don't crash if the caller supplies nonsensical input)
+        """ # old code (using for-loops)
+        eval_max = a_eigenvals[0]
+        i_eval_max = 0
+        for i in range(1, 4):
+            if a_eigenvals[i] > eval_max:
+                eval_max = a_eigenvals[i]
+                i_eval_max = i
+        p[0] = aa_eigenvects[0][i_eval_max]
+        p[1] = aa_eigenvects[1][i_eval_max]
+        p[2] = aa_eigenvects[2][i_eval_max]
+        p[3] = aa_eigenvects[3][i_eval_max]
+        pPp = eval_max
+        """
+        # new code (avoiding for-loops)
+        i_eval_max = np.argmax(a_eigenvals)
+        pPp = np.max(a_eigenvals)
+        p[:] = aa_eigenvects[:, i_eval_max]
+
+    # normalize the vector
+    # (It should be normalized already, but just in case it is not, do it again)
+    p /= np.linalg.norm(p)
+
+    # Finally, calculate the rotation matrix corresponding to "p"
+    # (p is in backwards-quaternion format)
+
+    aa_rotate = np.empty((3, 3))
+    aa_rotate[0][0] = (p[0]*p[0])-(p[1]*p[1])-(p[2]*p[2])+(p[3]*p[3])
+    aa_rotate[1][1] = -(p[0]*p[0])+(p[1]*p[1])-(p[2]*p[2])+(p[3]*p[3])
+    aa_rotate[2][2] = -(p[0]*p[0])-(p[1]*p[1])+(p[2]*p[2])+(p[3]*p[3])
+    aa_rotate[0][1] = 2*(p[0]*p[1] - p[2]*p[3])
+    aa_rotate[1][0] = 2*(p[0]*p[1] + p[2]*p[3])
+    aa_rotate[1][2] = 2*(p[1]*p[2] - p[0]*p[3])
+    aa_rotate[2][1] = 2*(p[1]*p[2] + p[0]*p[3])
+    aa_rotate[0][2] = 2*(p[0]*p[2] + p[1]*p[3])
+    aa_rotate[2][0] = 2*(p[0]*p[2] - p[1]*p[3])
+
+    # Alternatively, in modern python versions, this code also works:
+    """
+    from scipy.spatial.transform import Rotation as R
+    the_rotation = R.from_quat(p)
+    aa_rotate = the_rotation.as_matrix()
+    """
+
+    # Optional: Decide the scale factor, c
+    c = 1.0   # by default, don't rescale the coordinates
+    if allow_rescale and (not singular):
+        """ # old code (using for-loops)
+        Waxaixai = 0.0
+        WaxaiXai = 0.0
+        for a in range(0, number_of_points):
+            for i in range(0, 3):
+                Waxaixai += aWeights[a] * aa_xm[a][i] * aa_xm[a][i]
+                WaxaiXai += aWeights[a] * aa_xm[a][i] * aa_xf[a][i]
+        """
+        # new code (avoiding for-loops)
+        Waxaixai = np.sum(a_weights * aa_xm ** 2)
+        WaxaiXai = np.sum(a_weights * aa_xf ** 2)
+
+        c = (WaxaiXai + pPp) / Waxaixai
+
+    # Finally compute the RMSD between the two coordinate sets:
+    # First compute E0 from equation 24 of the paper
+
+    """ # old code (using for-loops)
+    E0 = 0.0
+    for n in range(0, number_of_points):
+        for d in range(0, 3):
+            # (remember to include the scale factor "c" that we inserted)
+            E0 += aWeights[n] * ((aa_xf[n][d] - c*aa_xm[n][d])**2)
+    sum_sqr_dist = E0 - c*2.0*pPp
+    if sum_sqr_dist < 0.0: #(edge case due to rounding error)
+        sum_sqr_dist = 0.0
+    """
+    # new code (avoiding for-loops)
+    E0 = np.sum((aa_xf - c * aa_xm) ** 2)
+    sum_sqr_dist = max(0, E0 - c * 2.0 * pPp)
+
+    rmsd = 0.0
+    if sum_weights != 0.0:
+        rmsd = np.sqrt(sum_sqr_dist/sum_weights)
+
+    # Lastly, calculate the translational offset:
+    # Recall that:
+    #RMSD=sqrt((Σ_i  w_i * |X_i - (Σ_j c*R_ij*x_j + T_i))|^2) / (Σ_j w_j))
+    #    =sqrt((Σ_i  w_i * |X_i - x_i'|^2) / (Σ_j w_j))
+    #  where
+    # x_i' = Σ_j c*R_ij*x_j + T_i
+    #      = Xcm_i + c*R_ij*(x_j - xcm_j)
+    #  and Xcm and xcm = center_of_mass for the frozen and mobile point clouds
+    #                  = a_center_f[]       and       a_center_m[],  respectively
+    # Hence:
+    #  T_i = Xcm_i - Σ_j c*R_ij*xcm_j  =  a_translate[i]
+
+    """ # old code (using for-loops)
+    a_translate = np.empty(3)
+    for i in range(0,3):
+        a_translate[i] = a_center_f[i]
+        for j in range(0,3):
+            a_translate[i] -= c*aa_rotate[i][j]*a_center_m[j]
+    """
+    # new code (avoiding for-loops)
+    a_translate = a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,)
+
+    if report_quaternion:  # does the caller want the quaternion?
+        # The p array is a quaternion that uses this convention:
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.from_quat.html
+        # However it seems that the following convention is much more popular:
+        # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+        # https://mathworld.wolfram.com/Quaternion.html
+        # So I return "q" (a version of "p" using the more popular convention).
+        q = np.empty(4)
+        q[0] = p[3]
+        q[1] = p[0]
+        q[2] = p[1]
+        q[3] = p[2]
+        return rmsd, q, a_translate, c
+    else:
+        return rmsd, aa_rotate, a_translate, c
