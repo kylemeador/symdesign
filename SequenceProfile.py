@@ -22,7 +22,7 @@ import SymDesignUtils as SDUtils
 from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths
 import DesignDirectory
 # from DesignDirectory import
-from QueryProteinData.QueryPDB import get_sequence_by_entity_id
+from Query.PDB import get_sequence_by_entity_id
 
 # Globals
 index_offset = 1

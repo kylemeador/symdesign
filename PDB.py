@@ -15,7 +15,7 @@ from sklearn.neighbors import BallTree
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_symmdef, orient_exe_path, \
     orient_log_file, orient_dir
-from QueryProteinData.QueryPDB import get_pdb_info_by_entry
+from Query.PDB import get_pdb_info_by_entry
 from Stride import Stride
 from Structure import Structure, Chain, Atom, Coords, Entity
 from SymDesignUtils import logger
