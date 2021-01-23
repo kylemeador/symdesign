@@ -284,8 +284,8 @@ class PDB(Structure):
         # for entity in self.entity_d:
         #     self.create_entity(entity, entity_name='%s_%s' % (self.name, entity))
         # or
-        self.create_entities()
         self.generate_entity_accession_map()
+        self.create_entities()
         # if self.design:  # Todo maybe??
         #     self.process_symmetry()
 
@@ -1263,19 +1263,20 @@ class PDB(Structure):
         """
         for entity in self.entity_d:
             # Todo test equality of chain == self.entity_d[entity]['representative']
-            chain_l = [chain for chain in self.chains if chain in self.entity_d[entity]['chains']]  # ['representative']
+            chain_l = [self.chain(chain_id) for chain_id in self.entity_d[entity]['chains']]  # ['representative']
             if entity_names:
                 entity_name = '%s' % entity_names[entity - 1]  # zero-index
-            elif self.name:
-                entity_name = '%s_%d' % (self.name, entity)
+            # elif self.name:
+            #     entity_name = '%s_%d' % (self.name, entity)
             else:
                 entity_name = '%d' % entity
-            self.entities.append(self.create_entity(representative_chain=self.entity_d[entity]['representative'],
-                                                    chains=chain_l, entity_name=entity_name,
-                                                    uniprot_id=self.entity_accession_map[entity]))
-            # self.entities.append(Entity(chains=chain_l, entity_id=entity_name,
-            #                             uniprot_id=self.entity_accession_map[entity],
-            #                             representative_chain=self.chain(self.entity_d[entity]['representative'])))
+            # self.entities.append(self.create_entity(representative_chain=self.entity_d[entity]['representative'],
+            #                                         chains=chain_l, entity_id=entity_name,
+            #                                         uniprot_id=self.entity_accession_map[entity]))
+            self.entities.append(Entity.from_representative(chains=chain_l, entity_id=entity_name, coords=self.coords,
+                                                            uniprot_id=self.entity_accession_map[entity],
+                                                            representative=self.chain(self.entity_d[
+                                                                                          entity]['representative'])))
 
     # Todo Might try to add all these calls to Entity
     def update_entities(self, source='atom'):

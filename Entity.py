@@ -1,16 +1,19 @@
 from SequenceProfile import SequenceProfile
-from Structure import Chain
+from Structure import Structure
 
 
-class Entity(Chain, SequenceProfile):
-    def __init__(self, representative_chain=None, chains=None, entity_id=None, uniprot_id=None):
+class Entity(SequenceProfile, Structure):  # Chain
+    def __init__(self, representative=None, chains=None, entity_id=None, uniprot_id=None, coords=None):
         self.chains = chains  # [Chain objs]
-        self.representative_chain = representative_chain
+        # self.representative_chain = representative_chain
         # use the self.structure __init__ from SequenceProfile for the structure identifier
-        # Todo grab a unique residue list from the chain representative
-        # residues = representative.get_residues()  # A stub. This is kinda the behvior I would want. fill a self.residues with the master entity residues
-        super().__init__(residues=self.chain(representative_chain).get_residues(), name=entity_id)  # Chain init
-        super().__init__(structure=self)  # SequenceProfile init
+        # Chain init
+        super().__init__(name=entity_id, residues=representative.get_residues(), coords=coords, structure=self)  # representative.coords
+        # super().__init__(chain_name=representative_chain.name, residues=representative_chain.get_residues(),
+        #                  coords=representative_chain.coords)
+        # super().__init__(chain_name=entity_id, residues=self.chain(representative_chain).get_residues(), coords=coords)
+        # SequenceProfile init
+        # super().__init__(structure=self)
         # self.representative = representative  # Chain obj
         # super().__init__(structure=self.representative)  # SequenceProfile init
         # self.residues = self.chain(representative).get_residues()  # reflected above in super() call to Chain
@@ -20,17 +23,20 @@ class Entity(Chain, SequenceProfile):
         self.uniprot_id = uniprot_id
 
     @classmethod
-    def from_representative(cls, representative_chain=None, chains=None, entity_id=None, uniprot_id=None):
-        return cls(representative_chain=representative_chain, chains=chains, entity_id=entity_id,
-                   uniprot_id=uniprot_id)
+    def from_representative(cls, representative=None, chains=None, entity_id=None, uniprot_id=None, coords=None):
+        return cls(representative=representative, chains=chains, entity_id=entity_id,
+                   uniprot_id=uniprot_id, coords=coords)  # **kwargs
 
     def get_representative_chain(self):
         return self.representative_chain
 
     def chain(self, chain_id):  # Also in PDB
         for chain in self.chains:
-            if chain.id == chain_id:
+            if chain.name == chain_id:
                 return chain
+        return None
+
+    # Todo set up captain chain and mate chains dependence
 
     # FROM CHAIN super().__init__()
     #
