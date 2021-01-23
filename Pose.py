@@ -8,17 +8,33 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
-from Coords import Coords
 from FragDock import filter_euler_lookup_by_zvalue, calculate_overlap
 from PDB import PDB
-from ScoreInterface import ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_rep_dict, \
-    ijk_intfrag_cluster_info_dict, eul_lookup, get_interface_fragment_chain_residue_numbers
 from SequenceProfile import SequenceProfile
+from Structure import Coords
 # Globals
 from SymDesignUtils import to_iterable, logger
 from classes.Fragment import MonoFragment
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from utils.SymmUtils import valid_subunit_number
+
+# Fragment Database Directory Paths
+# frag_db = os.path.join(main_script_path, 'data', 'databases', 'fragment_db', 'biological_interfaces')
+frag_db = PUtils.frag_directory['biological_interfaces']
+monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
+ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
+intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
+
+# # Create fragment database for all ijk cluster representatives
+# ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
+#                          intfrag_cluster_info_dirpath)
+# # Get complete IJK fragment representatives database dictionaries
+# ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
+# ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
+# ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+#
+# # Initialize Euler Lookup Class
+# eul_lookup = EulerLookup()
 
 config_directory = PUtils.pdb_db
 sym_op_location = PUtils.sym_op_location
@@ -93,11 +109,12 @@ class Model:  # (PDB)
         # return [pdb.set_atom_coordinates(new_cords[i]) for i, pdb in enumerate(self.models)]
 
 
-class SymmetricModel(Model):
-    def __init__(self, models=None, symmetry=None):
-        super().__init__()  # for Model Todo should I have this?
-        # self.pdb = None  # Model
-        # self.models = []  # Model
+class SymmetricModel:  # (Model)
+    def __init__(self, models=None, symmetry=None, **kwargs):
+        super().__init__(**kwargs)
+        # super().__init__()  # for Model Todo should I have this?
+        self.pdb = None  # Model
+        self.models = []  # Model
         self.asu = None  # the pose specific asu
         self.coords = []
         self.model_coords = []
@@ -130,7 +147,7 @@ class SymmetricModel(Model):
                 self.dimension = 2
             elif self.symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
                 self.dimension = 3
-            self.expand_matrices = self.get_sg_sym_op(self.symmetry)
+            self.expand_matrices = self.get_sg_sym_op(''.join(self.symmetry.split()))
             # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
 
         if generate_assembly:
@@ -236,7 +253,7 @@ class SymmetricModel(Model):
 
     def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
-        self.models = [self.asu]
+        # self.models = [self.asu]
         self.number_of_models = zvalue_dict[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type
             get_pdb_coords = getattr(PDB, 'get_coords')
@@ -598,17 +615,46 @@ class SymmetricModel(Model):
         return sg_sym_op
 
 
-class Pose(Model, SymmetricModel, SequenceProfile):
-    # (PDB) Todo get rid of Model? as is imported from SymmetricModel
-    #        how to deal with self.pdb versus self.asu? self.pdb should always be used and self.pdb should be self.asu
-    #        when symmetry is present.
+class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model? could be imported from SymmetricModel
     """A Pose is made of multiple PDB objects all sharing a common feature such as symmetric copies or modifications to
     the PDB sequence
     """
-    def __init__(self, asu=None, pdb=None, file=None, symmetry=None):
-        super().__init__(structure=self)  # SequenceProfile init
+    def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, symmetry=None, **kwargs):
+        # super().__init__(**kwargs)
+        super().__init__()
+
+        if pdb:
+            self.pdb = pdb
+            # self.set_pdb(pdb)
+            # self.initialize_symmetry()
+
+        if pdb_file:
+            self.pdb = PDB.from_file(pdb_file)
+            # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
+            # this would be:
+            # coords, atoms, residues, chains, entities, design, (host of others read from file)
+            # self.set_pdb(pdb)
+            # self.initialize_symmetry()
+
+        if asu:  # Todo ensure a Structure/PDB object
+            self.asu = asu
+            self.pdb = self.asu
+            # self.initialize_symmetry()
+
+        if asu_file:
+            self.asu = PDB.from_file(asu_file)
+            # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
+            # this would be:
+            # coords, atoms, residues, chains, entities, design, (host of others read from file)
+            # self.set_pdb(pdb)
+            self.pdb = self.asu
+            # self.initialize_symmetry()
+
+        self.initialize_symmetry()
+
+        # super().__init__()  # structure=self)  # SequenceProfile init
         # self.pdb = None  # the pose specific pdb  # Model
-        # self.models = []  # from Model
+        # self.models = []  # from Model or SymmetricModel
         self.pdbs = []  # the member pdbs which make up the pose
         # self.entities = []  # from PDB
         self.pdbs_d = {}
@@ -618,7 +664,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):
         # self.surrounding_uc_sym_mates = []
 
         # # Model
-        super().__init__()  # Model init, PDB? I think init is handled above for all Super Classes
+        # super().__init__()  # Model init, PDB? init is handled above for all Super Classes
         # # self.pdb = None  # Model
         # # self.models = []  # Model
 
@@ -637,35 +683,49 @@ class Pose(Model, SymmetricModel, SequenceProfile):
         # self.expand_matrices = None
         # self.number_of_models = None
 
-        if asu:
-            self.asu = asu
-
-        if pdb:
-            self.set_pdb(pdb)
-            self.initialize_symmetry()
-
-        if file:
-            pdb = PDB.from_file(file)
-            # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
-            # this would be:
-            # coords, atoms, residues, chains, entities, design, (host of others read from file)
-            self.set_pdb(pdb)
-            self.initialize_symmetry()
-
     @classmethod
     def from_pdb(cls, pdb):
         return cls(pdb=pdb)
 
     @classmethod
+    def pdb_from_file(cls, pdb_file):
+        return cls(pdb_file=pdb_file)
+
+    @classmethod
     def from_asu(cls, asu):
         return cls(asu=asu)
+
+    @classmethod
+    def asu_from_file(cls, asu_file):
+        return cls(asu_file=asu_file)
 
     # @classmethod  # In PDB class
     # def from_file(cls, file):
     #     return cls(file=file)
 
-    def set_pdb(self, pdb):
-        self.pdb = pdb
+    # @property
+    # def asu(self):
+    #     return self._asu
+    #
+    # @asu.setter
+    # def asu(self, pdb):
+    #     self_.asu = pdb
+    #
+    # @property
+    # def pdb(self):
+    #     return self._pdb
+    #
+    # @pdb.setter
+    # def pdb(self, pdb):
+    #     self._pdb = pdb
+
+    @property
+    def entities(self):
+        return self.pdb.entities
+
+    @entities.setter
+    def entities(self, entities):
+        self.pdb.entities = entities
 
     def add_pdb(self, pdb):
         """Add a PDB to the PosePDB as well as the member PDB list"""
@@ -673,25 +733,32 @@ class Pose(Model, SymmetricModel, SequenceProfile):
         self.pdbs_d[pdb.name] = pdb
         # self.pdbs_d[id(pdb)] = pdb
         self.add_entities_to_pose(self, pdb)
+        # Todo turn multiple PDB's into one structure representative
+        # self.pdb.add_atoms(pdb.get_atoms())
 
     def add_entities_to_pose(self, pdb):
         """Add each unique entity in a pdb to the pose, updating all metadata"""
-        self.pose_pdb_accession_map[pdb.name] = pdb.entity_accession_map
-        for entity in pdb.accession_entity_map:
-            self.add_entity(pdb, entity)
+        # self.pose_pdb_accession_map[pdb.name] = pdb.entity_accession_map
+        self.pose_pdb_accession_map[pdb.name] = pdb.entity_d
+        # for entity in pdb.accession_entity_map:
+        for idx, entity in enumerate(pdb.entities):
+            self.add_entity(entity, name='%s_%d' % (pdb.name, idx))
 
-    def add_entity(self, pdb, entity):
-        # Todo Entity()
+    def add_entity(self, entity, name=None):
+        # Todo Fix this garbage... Entity()
+        self.entities = None
         entity_chain = pdb.entities[entity]['representative']
-        self.asu.add_atoms(pdb.get_chain_atoms(entity_chain))
+        self.asu.add_atoms(entity.get_atoms())
 
     def initialize_symmetry(self):
-        if self.pdb.space_group and self.pdb.uc_dimernsions:
-            self.set_symmetry(symmetry=self.pdb.space_group, uc_dimensions=self.pdb.uc_dimernsions)
+        if self.pdb.space_group and self.pdb.uc_dimensions:
+            self.set_symmetry(symmetry=self.pdb.space_group, uc_dimensions=self.pdb.uc_dimensions)
         elif self.pdb.cryst_record:
             self.set_symmetry(cryst1=self.pdb.cryst_record)
+        else:
+            print('No symmetry present in the Pose PDB')
 
-    def construct_cb_atom_tree(self, entity1, entity2, distance=8):
+    def construct_cb_atom_tree(self, entity1, entity2, distance=8):  # TODO UNUSED
         """Create a atom tree using CB atoms from two PDB's
 
         Args:
@@ -852,10 +919,12 @@ class Pose(Model, SymmetricModel, SequenceProfile):
 
     def initialize_pose(self, design_dir=None, symmetry=None, frag_db='biological_interfaces'):
         # Todo ensure ASU
-        # Todo fix chains
+        # Todo fix chains/entities
         # Todo connect design_dir obj or query user for their files
 
-        self.set_symmetry(symmetry=symmetry)
+        if symmetry and isinstance(symmetry, dict):  # otherwise done on __init__()
+            self.set_symmetry(**symmetry)
+
         self.connect_fragment_database(location=frag_db)
         for entity_pair in combinations(self.entities, 2):
             self.query_interface_for_fragments(*entity_pair)
@@ -864,10 +933,10 @@ class Pose(Model, SymmetricModel, SequenceProfile):
         for query_pair, fragments in self.fragment_queries.items():
             for query_idx, entity_name in enumerate(query_pair):
                 # if entity_name == entity.get_name():
-                self.asu.entity(entity_name).assign_fragments(fragments=fragments,
+                self.pdb.entity(entity_name).assign_fragments(fragments=fragments,
                                                               alignment_type=query_idx_to_alignment_type[query_idx])
 
-        for entity in self.asu.entities:
+        for entity in self.entities:
             # must provide the list from des_dir.gather_fragment_metrics or InterfaceScoring.py then specify whether the
             # Entity in question is from mapped or paired
             # such as fragment_source = des_dir.fragment_observations
@@ -877,12 +946,12 @@ class Pose(Model, SymmetricModel, SequenceProfile):
 
         # Extract PSSM for each protein and combine into single PSSM
         # set pose.pssm
-        self.combine_pssm([entity.pssm for entity in self.asu.entities])
+        self.combine_pssm([entity.pssm for entity in self.entities])
         logger.debug('Position Specific Scoring Matrix: %s' % str(self.pssm))
         self.pssm_file = self.make_pssm_file(self.pssm, PUtils.msa_pssm, outpath=design_dir.path)  # staticmethod
 
         # set pose.fragment_profile
-        self.combine_fragment_profile([entity.fragment_profile for entity in self.asu.entities])
+        self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
         logger.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
         # Todo, remove missing fragment entries here or add where they are loaded keep_extras = False  # =False added for pickling 6/14/20
         # interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_profile, out_path=des_dir.data)
@@ -1291,3 +1360,63 @@ def calculate_interface_score(interface_pdb):
                          + fragment_content_d['5']}
 
     return interface_name, interface_metrics
+
+
+def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
+    """Given two PDBs, return the unique chain and interacting residue lists"""
+    # Get the interface residues
+    pdb1_cb_coords, pdb1_cb_indices = pdb1.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
+    pdb2_cb_coords, pdb2_cb_indices = pdb2.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
+
+    pdb1_cb_kdtree = sklearn.neighbors.BallTree(np.array(pdb1_cb_coords))
+
+    # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
+    query = pdb1_cb_kdtree.query_radius(pdb2_cb_coords, cb_distance)
+
+    # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
+    interacting_pairs = []
+    for pdb2_query_index in range(len(query)):
+        if query[pdb2_query_index].tolist() != list():
+            pdb2_cb_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].residue_number
+            pdb2_cb_chain_id = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].chain
+            for pdb1_query_index in query[pdb2_query_index]:
+                pdb1_cb_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
+                pdb1_cb_chain_id = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].chain
+                interacting_pairs.append(((pdb1_cb_res_num, pdb1_cb_chain_id), (pdb2_cb_res_num, pdb2_cb_chain_id)))
+
+    # Get interface fragment information
+    pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list = [], []
+    for pair in interacting_pairs:
+
+        pdb1_central_res_num = pair[0][0]
+        pdb1_central_chain_id = pair[0][1]
+        pdb2_central_res_num = pair[1][0]
+        pdb2_central_chain_id = pair[1][1]
+
+        pdb1_res_num_list = [pdb1_central_res_num - 2, pdb1_central_res_num - 1, pdb1_central_res_num,
+                             pdb1_central_res_num + 1, pdb1_central_res_num + 2]
+        pdb2_res_num_list = [pdb2_central_res_num - 2, pdb2_central_res_num - 1, pdb2_central_res_num,
+                             pdb2_central_res_num + 1, pdb2_central_res_num + 2]
+
+        frag1_ca_count = 0
+        for atom in pdb1.all_atoms:
+            if atom.chain == pdb1_central_chain_id:
+                if atom.residue_number in pdb1_res_num_list:
+                    if atom.is_CA():
+                        frag1_ca_count += 1
+
+        frag2_ca_count = 0
+        for atom in pdb2.all_atoms:
+            if atom.chain == pdb2_central_chain_id:
+                if atom.residue_number in pdb2_res_num_list:
+                    if atom.is_CA():
+                        frag2_ca_count += 1
+
+        if frag1_ca_count == 5 and frag2_ca_count == 5:
+            if (pdb1_central_chain_id, pdb1_central_res_num) not in pdb1_central_chainid_resnum_unique_list:
+                pdb1_central_chainid_resnum_unique_list.append((pdb1_central_chain_id, pdb1_central_res_num))
+
+            if (pdb2_central_chain_id, pdb2_central_res_num) not in pdb2_central_chainid_resnum_unique_list:
+                pdb2_central_chainid_resnum_unique_list.append((pdb2_central_chain_id, pdb2_central_res_num))
+
+    return pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list

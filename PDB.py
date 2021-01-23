@@ -2,6 +2,7 @@
 import math
 import os
 import subprocess
+from collections.abc import Iterable
 from copy import copy, deepcopy
 from itertools import repeat
 from shutil import move
@@ -12,13 +13,11 @@ from Bio.SeqUtils import IUPACData
 # from Bio.Alphabet import IUPAC
 from sklearn.neighbors import BallTree
 
-from Coords import Coords
-from Entity import Entity
-from PathUtils import free_sasa_exe_path, stride_exe_path
-from PathUtils import scout_symmdef, make_symmdef, orient_exe_path, orient_log_file, orient_dir
+from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_symmdef, orient_exe_path, \
+    orient_log_file, orient_dir
 from QueryProteinData.QueryPDB import get_pdb_info_by_entry
 from Stride import Stride
-from Structure import Structure, Chain, Atom
+from Structure import Structure, Chain, Atom, Coords, Entity
 from SymDesignUtils import logger
 
 
@@ -28,20 +27,21 @@ class PDB(Structure):
         # self.accession_entity_map = {}
         # self.atoms = []  # captured from Structure
         self.api_entry = None
-        self.atom_sequences = {}  # ATOM sequences. key is chain, value is 'AGHKLAIDL'
+        self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
         self.bb_coords = []
         self.cb_coords = []
         # self.center_of_mass = None  # captured from Structure
         self.chain_id_list = []  # unique chain IDs in PDB
         self.chains = []
-        # self.coords = []
+        # self.coords = []  # captured from Structure
         self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.cryst_record = None
         self.dbref = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
         self.design = False  # assume not a design unless explicitly found to be a design
         self.entities = []
-        self.entity_d = {}  # {1: {'chains': set(), 'seq': 'GHIPLF...', 'representative': 'A'} (ZERO-indexed for recap project!!!)
-        self.entity_accession_map = {}
+        self.entity_d = {}  # {1: {'chains': set(), 'seq': 'GHIPLF...', 'representative': 'A'}
+        # ^ ZERO-indexed for recap project!!!
+        # self.entity_accession_map = {}
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.header = []
         # self.name = None  # captured from Structure
@@ -88,7 +88,7 @@ class PDB(Structure):
         return list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
 
     def copy_metadata(self, other_pdb):
-        temp_metadata = deepcopy(other_pdb.__dict__.copy)
+        temp_metadata = copy(other_pdb.__dict__.copy)
         temp_metadata.pop('atoms')
         temp_metadata.pop('residues')
         self.__dict__ = temp_metadata
@@ -260,34 +260,33 @@ class PDB(Structure):
 
         # self.get_chain_sequences()
         # self.generate_entity_accession_map()
-        if not self.entity_d:
-            self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
-        else:
-            self.update_entity_d()
+        # if not self.entity_d:
+        #     self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
+        # else:
+        #     self.update_entity_d()
 
     def process_symmetry(self):
         """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
         return None
 
     def process_pdb(self):
-        """Process all Atoms in PDB to Residue, Chain, and Entity objects"""  # TODO make modern
-        # self.coords = self.extract_coords()
-        self.center_of_mass = self.find_center_of_mass()
+        """Process all Atoms in PDB to Residue, Chain, and Entity objects"""
+        self.find_center_of_mass()
+        self.create_residues()
+        self.create_chains()
+        self.get_chain_sequences()
+        self.create_entities()
+        # or
+        # for entity in self.entity_d:
+        #     self.create_entity(entity, entity_name='%s_%s' % (self.name, entity))
+
+        # if self.design:  # Todo maybe??
+        #     self.process_symmetry()
         # self.scout_symmetry()  # Todo worry about this later, for now use Nanohedra full symmetry from Pose
         # chains = self.find_symmetrically_significant_chains()
         # if len(chains) > 1:
         #     dihedral = True
         # the highest order symmetry operation chain in a pdb plus any dihedral related chains
-        self.create_residues()
-        self.create_chains()
-        self.get_chain_sequences()
-        # for entity in self.entity_d:
-        #     self.create_entity(entity, entity_name='%s_%s' % (self.name, entity))
-        # or
-        self.generate_entity_accession_map()
-        self.create_entities()
-        # if self.design:  # Todo maybe??
-        #     self.process_symmetry()
 
     def parse_seqres(self, seqres_lines=None):
         """Convert SEQRES information to single amino acid dictionary format
@@ -316,7 +315,7 @@ class PDB(Structure):
                         self.seqres[chain][i] = '-'
             self.seqres[chain] = ''.join(self.seqres[chain])
 
-    def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):
+    def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):  # TODO DEPRECIATE
         """Reads a python list of Atoms and feeds PDB instance updating chain info"""
         if store_cb_and_bb_coords:
             chain_ids = []
@@ -340,7 +339,7 @@ class PDB(Structure):
             self.chain_id_list += chain_ids
         self.renumber_atoms()
         self.get_chain_sequences()
-        self.update_entities(source='pdb')  # get entity information from the PDB
+        # self.update_entities()  # get entity information from the PDB
 
     # def retrieve_chain_ids(self):  # KM added 2/3/20 to deal with updating chain names after rename_chain(s) functions
     #     # creates a list of unique chain IDs in PDB and feeds it into chain_id_list maintaining order
@@ -355,9 +354,9 @@ class PDB(Structure):
         """Return the chain name associated with a set of Atoms when the chain name for those Atoms is changed"""
         return self.chain_id_list[index]
 
-    def get_entity_atoms(self, entity_id):
-        """Return list of Atoms containing the subset of Atoms that belong to the selected Entity"""
-        return [atom for atom in self.get_atoms() if atom.chain in self.entity_d[entity_id]['chains']]
+    # def get_entity_atoms(self, entity_id):
+    #     """Return list of Atoms containing the subset of Atoms that belong to the selected Entity"""
+    #     return [atom for atom in self.get_atoms() if atom.chain in self.entity_d[entity_id]['chains']]
 
     # def extract_coords(self):
     #     """Grab all the coordinates from the PDB object"""
@@ -724,34 +723,37 @@ class PDB(Structure):
             print('Select N or C Term')
             return None
 
-    def get_residue_atoms(self, chain_id, residue_numbers):
-        if not isinstance(residue_numbers, list):
-            residue_numbers = list(residue_numbers)
-
-        atoms = []
-        # for residue in self.residues:
-        #     if residue.chain == chain_id and residue.number in residue_numbers:
-        #         atoms.extend(residue.get_atoms())
-
-        _residues = self.chain(chain_id).get_residues(numbers=residue_numbers)
-        for _residue in _residues:
-            atoms.extend(_residue.get_atoms())
-
-        return atoms
+    # def get_residue_atoms(self, chain_id, residue_numbers):
+    #     if not isinstance(residue_numbers, list):
+    #         residue_numbers = list(residue_numbers)
+    #
+    #     atoms = []
+    #     # for residue in self.residues:
+    #     #     if residue.chain == chain_id and residue.number in residue_numbers:
+    #     #         atoms.extend(residue.get_atoms())
+    #
+    #     _residues = self.chain(chain_id).get_residues(numbers=residue_numbers)
+    #     for _residue in _residues:
+    #         atoms.extend(_residue.get_atoms())
+    #
+    #     return atoms
 
     def create_chains(self):
-        for chain in self.chain_id_list:
-            self.chains.append(Chain(chain_name=chain, residues=self.get_chain_residues(chain), coords=self.coords))
+        for chain_id in self.chain_id_list:
+            self.chains.append(Chain(name=chain_id,
+                                     residues=[residue for residue in self.residues if residue.chain == chain_id],  # self.get_chain_residues(chain)
+                                     coords=self._coords))
 
     def get_chains(self, names=None):
-        if names:
+        """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
+        returned"""
+        if names and isinstance(names, Iterable):
             return [chain for chain in self.chains if chain.name in names]
         else:
             return self.chains
 
     def chain(self, chain_id):
         for chain in self.chains:
-            # if chain.id == chain_id:
             if chain.name == chain_id:
                 return chain
         return None
@@ -768,9 +770,9 @@ class PDB(Structure):
         return atoms
         # return [atom for atom in self.atoms if atom.chain == chain_id]
 
-    def get_chain_residues(self, chain_id):  # Todo Depreciate
-        """Return the Residues included in a particular chain"""
-        return [residue for residue in self.residues if residue.chain == chain_id]
+    # def get_chain_residues(self, chain_id):  # Todo Depreciate
+    #     """Return the Residues included in a particular chain"""
+    #     return [residue for residue in self.residues if residue.chain == chain_id]
 
     def write(self, out_path, cryst1=None):  # Todo Depreciate
         if not cryst1:
@@ -1198,7 +1200,7 @@ class PDB(Structure):
 
         self.renumber_pdb()
 
-    def delete_residue(self, chain_id, residue_number):  # KM added 08/25/20 to remove missing residues between two files
+    def delete_residue(self, chain_id, residue_number):
         # start = len(self.atoms)
         # print(len(self.atoms))
         # residue = self.get_residue(chain, residue_number)
@@ -1216,15 +1218,21 @@ class PDB(Structure):
         for atom in atoms:
             self.atoms.remove(atom)
 
-    def apply(self, rot, tx):
-        moved = []
+    def apply(self, rot=None, tx=None):
+        """Apply a transformation to the PDB object"""
+        # moved = []
         # for coord in self.extract_coords():
         #    coord_moved = self.mat_vec_mul3(rot, coord)
         #    for j in range(3):
         #         coord_moved[j] += tx[j]
         #    moved.append(coord_moved)
-        moved = np.matmul(np.array(rot), self.get_coords())
-        moved = moved + np.array(tx)
+        if rot:
+            moved = np.matmul(np.array(rot), self.coords)
+        else:
+            moved = self.coords
+        if tx:
+            moved = moved + np.array(tx)
+
         self.coords = Coords(moved)
         # self.set_atom_coordinates(moved)
 
@@ -1237,16 +1245,34 @@ class PDB(Structure):
 
         return round(temp / len(residue_atoms), 2)
 
-    def retrieve_pdb_info_from_api(self):
-        if not self.api_entry and self.name and len(self.name) == 4:
-            self.api_entry = get_pdb_info_by_entry(self.name)
-            self.update_dbref_from_api()
-            self.update_entities_from_api()
+    def retrieve_pdb_info_from_api(self, pdb_code=None):
+        if not pdb_code:
+            # if self.name:
+            pdb_code = self.name
+            # else:
+            #     print('No PDB code associated with file! Cannot retrieve Entity information from PDB API')
+            #     return None
+        if len(pdb_code) == 4:
+            if not self.api_entry:
+                self.api_entry = get_pdb_info_by_entry(pdb_code)
+                return True
+        else:
+            print('PDB code \'%s\' is not of the required format and will not be found with the PDB API.' % pdb_code)
+            return False
+        # if not self.api_entry and self.name and len(self.name) == 4:
+        #     self.api_entry = get_pdb_info_by_entry(self.name)
+        # self.get_dbref_info_from_api()
+        # self.get_entity_info_from_api()
 
-    def update_dbref_from_api(self):
-        if not self.api_entry and self.name and len(self.name) == 4:
-            self.api_entry = get_pdb_info_by_entry(self.name)
-        self.dbref = self.api_entry['dbref']
+    def get_dbref_info_from_api(self, pdb_code=None):
+        if self.retrieve_pdb_info_from_api(pdb_code=pdb_code):
+        # if not self.api_entry and self.name and len(self.name) == 4:
+        #     self.api_entry = get_pdb_info_by_entry(self.name)
+            self.dbref = self.api_entry['dbref']
+            return True
+        else:
+            print('Protein database reference could not be located.')
+            return False
 
     def entity(self, entity_id):
         for entity in self.entities:
@@ -1254,46 +1280,50 @@ class PDB(Structure):
                 return entity
         return None
 
-    def create_entities(self, entity_names=None):
-        """Create all Entities in the PDB.
+    def create_entities(self, entity_names=None, pdb_code=None):
+        """Create all Entities in the PDB object searching for the required information if it was not found during
+        parsing
 
         Keyword Args:
             entity_names=None (list): The list of names for each Entity is names are provided, otherwise, PDB.name will
             be used to take PDB compatible form PDB EntryID_EntityID
+            pdb_code=None (str): The four character code specifing the entry ID from the PDB
         """
-        for entity in self.entity_d:
-            # Todo test equality of chain == self.entity_d[entity]['representative']
-            chain_l = [self.chain(chain_id) for chain_id in self.entity_d[entity]['chains']]  # ['representative']
+        if not self.entity_d:
+            self.update_entities(pdb_code=pdb_code)
+
+        for entity, info in self.entity_d.items():
+            chain_l = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
             if entity_names:
                 entity_name = '%s' % entity_names[entity - 1]  # zero-index
-            # elif self.name:
-            #     entity_name = '%s_%d' % (self.name, entity)
             else:
                 entity_name = '%d' % entity
             # self.entities.append(self.create_entity(representative_chain=self.entity_d[entity]['representative'],
             #                                         chains=chain_l, entity_id=entity_name,
             #                                         uniprot_id=self.entity_accession_map[entity]))
-            self.entities.append(Entity.from_representative(chains=chain_l, entity_id=entity_name, coords=self.coords,
-                                                            uniprot_id=self.entity_accession_map[entity],
-                                                            representative=self.chain(self.entity_d[
-                                                                                          entity]['representative'])))
+            self.entities.append(Entity.from_representative(chains=chain_l, name=entity_name, coords=self._coords,
+                                                            uniprot_id=info['accession'],
+                                                            representative=self.chain(info['representative'])))
 
-    # Todo Might try to add all these calls to Entity
-    def update_entities(self, source='atom'):
-        if source == 'atom':
-            self.get_atom_entities()
-        elif source == 'pdb':
-            self.update_entities_from_api()
+    def update_entities(self, pdb_code=None):
+        """Add Entity information to the PDB object using the PDB API if pdb_code is specified or .pdb filename is a
+        four letter code. If not gather Entitiy information from the ATOM records"""
+        if pdb_code or self.name:
+            self.get_entity_info_from_api(pdb_code=pdb_code)
+        else:
+            self.get_entity_info_from_atoms()
 
-    def update_entity_d(self):
+        # self.update_entity_d()
+        self.update_entity_representatives()
+        self.update_entity_accession_id()
+
+    def update_entity_d(self):  # Unused
         self.update_entity_representatives()
         self.update_entity_sequences()
+        self.update_entity_accession_id()
 
-    def get_atom_entities(self):  # KM added 08/21/20 to format or the ASU
-        """Find all unique entities in the pdb file, these are unique sequence/structure objects"""
-        # TODO update to reflect parsing
-        # seq_d = {chain: self.get_structure_sequence(chain) for chain in self.chain_id_list}
-        # self.entities[copy.copy(count)] = {'chains': [self.chain_id_list[0]], 'seq': seq_d[self.chain_id_list[0]]}
+    def get_entity_info_from_atoms(self):
+        """Find all unique Entities in the input .pdb file. These are unique sequence objects"""
         entity_count = 1
         for chain in self.atom_sequences:
             new_entity = True  # assume all chains are unique entities
@@ -1314,32 +1344,50 @@ class PDB(Structure):
                 self.entity_d[copy(entity_count)] = {'chains': [chain], 'seq': self.atom_sequences[chain]}
                 entity_count += 1
 
-        self.update_entity_d()
-
-    def update_entities_from_api(self, pdb_code=None):
-        if pdb_code:
-            name = pdb_code
+    def get_entity_info_from_api(self, pdb_code=None):
+        """Query the PDB API for the PDB entry_ID to find the corresponding Enitity information"""
+        if self.retrieve_pdb_info_from_api(pdb_code=pdb_code):
+            self.entity_d = {entity: {'chains': self.api_entry['entity'][entity]} for entity in
+                             self.api_entry['entity']}
+            self.update_entity_sequences()
         else:
-            name = self.name
-
-        if not self.api_entry and name and len(name) == 4:
-            self.api_entry = get_pdb_info_by_entry(name)
-        self.entity_d = {entity: {'chains': self.api_entry['entity'][entity]} for entity in self.api_entry['entity']}
-        self.update_entity_d()
+            self.get_entity_info_from_atoms()
+            print('Entities were generated from ATOM records.')
 
     def update_entity_representatives(self):
+        """For each Entity, gather the chain representative by choosing the first chain in the file
+        Todo choose the most symmetrically average chain if Entity is symmetric!
+        """
         for entity in self.entity_d:
             self.entity_d[entity]['representative'] = self.entity_d[entity]['chains'][0]
 
     def update_entity_sequences(self):
+        """For each Entity, gather the sequence of the chain representative"""
         for entity in self.entity_d:
             self.entity_d[entity]['seq'] = self.atom_sequences[self.entity_d[entity]['representative']]
 
+    def update_entity_accession_id(self):
+        """Create a map (dictionary) between identified entities (not yet Entity objs) and their accession code
+        If entities from psuedo generation, then may not.
+        """
+        # dbref will not be generated unless specified by call to API or from .pdb file
+        if not self.dbref:  # check if from .pdb file
+            if not self.get_dbref_info_from_api():
+                for entity in self.entity_d:
+                    self.entity_d[entity]['accession'] = None
+                return None
+            # self.retrieve_pdb_info_from_api()
+        for entity, info in self.entity_d.items():
+            self.entity_d[entity]['accession'] = self.dbref[info['representative']]['accession']
+        # self.entity_accession_map = {entity: self.dbref[self.entity_d[entity]['representative']]['accession']
+        #                              for entity in self.entity_d}
+
     def find_entity_by_chain(self, chain_id):
         """Return the entity associated with a particular chain"""
-        for entity in self.entity_d:
-            if chain_id in self.entity_d[entity]['chains']:
+        for entity, info in self.entity_d.items():
+            if chain_id in info['chains']:
                 return entity
+        return None
 
     def match_entity_by_struct(self, other_struct=None, entity=None, force_closest=False):
         """From another set of atoms, returns the first matching chain from the corresponding entity"""
@@ -1375,18 +1423,6 @@ class PDB(Structure):
             for entity in self.entity_d:
                 if other_seq == self.entity_d[entity]['seq']:
                     return self.entity_d[entity]['representative'][0]
-
-    def generate_entity_accession_map(self):
-        """Create a map (dictionary) between identified entities (not yet Entity objs) and their accession code"""
-        if self.entity_d and self.dbref:
-            # if PDB is from downloaded .pdb file, these attributes match, if entities from psuedo generation, then
-            # may not. dbref should never be generated unless specified by api call or from .pdb file. Logic holds up
-            pass
-        else:
-            self.retrieve_pdb_info_from_api()
-
-        self.entity_accession_map = {entity: self.dbref[self.entity_d[entity]['representative']]['accession']
-                                     for entity in self.entity_d}
 
     def chain_interface_contacts(self, chain_id, distance=8, gly_ca=False):
         """Create a atom tree using CB atoms from one chain and all other atoms
@@ -1443,7 +1479,7 @@ class PDB(Structure):
         Returns:
             (list): List of atoms involved in the identified asu
         """
-        self.get_atom_entities()
+        self.get_entity_info_from_atoms()
         if not chain:
             chain = self.chain_id_list[0]
 
@@ -1735,16 +1771,16 @@ class PDB(Structure):
         space_group = cryst1_string[55:66].strip()  # not in
         return [a, b, c, ang_a, ang_b, ang_c], space_group
 
-    @staticmethod
-    def create_entity(representative_chain=None, chains=None, entity_name=None, uniprot_id=None):
-        """Create an Entity
-
-        Keyword Args:
-            representative_chain=None (str): The name of the chain to represent the Entity
-            chains=None (list): A list of all chains that match the Entity
-            entity_name=None (str): The name for the Entity. Typically PDB.name is used to make PDB compatible form
-            PDB EntryID_EntityID
-            uniprot_id=None (str): The unique UniProtID for the Entity
-        """
-        return Entity.from_representative(representative_chain=representative_chain, chains=chains,
-                                          entity_id=entity_name, uniprot_id=uniprot_id)
+    # @staticmethod
+    # def create_entity(representative_chain=None, chains=None, entity_name=None, uniprot_id=None):
+    #     """Create an Entity
+    #
+    #     Keyword Args:
+    #         representative_chain=None (str): The name of the chain to represent the Entity
+    #         chains=None (list): A list of all chains that match the Entity
+    #         entity_name=None (str): The name for the Entity. Typically PDB.name is used to make PDB compatible form
+    #         PDB EntryID_EntityID
+    #         uniprot_id=None (str): The unique UniProtID for the Entity
+    #     """
+    #     return Entity.from_representative(representative_chain=representative_chain, chains=chains,
+    #                                       name=entity_name, uniprot_id=uniprot_id)
