@@ -5,13 +5,17 @@ import subprocess
 from glob import glob, iglob
 from itertools import chain
 
-from Bio import SeqIO  # import write, parse, SeqRecord
+from Bio import SeqIO  # import write, parse
 from Bio import pairwise2
+from Bio.Align import MultipleSeqAlignment
 # try:
 #     from Bio.SubsMat import MatrixInfo as matlist
 #     from Bio.Alphabet import generic_protein  # , IUPAC
 # except ImportError:
 from Bio.Align import substitution_matrices
+from Bio.Alphabet import IUPAC
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 
 generic_protein = None
@@ -31,7 +35,7 @@ aa_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
 aa_weight_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
                          'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
-add_fragment_profile_instructions = 'To add fragment information, call PDB.score_interface_with_nanohedra()'
+add_fragment_profile_instructions = 'To add fragment information, call PDB.score_interface_with_nanohedra()'  # Todo
 
 
 class SequenceProfile:
@@ -75,31 +79,43 @@ class SequenceProfile:
     def get_sequence(self):
         return self.sequence
 
-    def add_profile(self, fragment_source=None, out_path=os.getcwd(), pdb_numbering=True): # frag_alignment_type=None
+    def add_profile(self, evolution=True, out_path=os.getcwd(),
+                    fragments=True, fragment_observations=None, entities=None, pdb_numbering=True):
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Keyword Args:
             fragment_source=None (list):
-            frag_alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
+            alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
             out_path=os.getcwd() (str): Location where sequence files should be written
             pdb_numbering=True (bool):
         """
-        if pdb_numbering:  # Renumber self.fragment_mapand self.fragment_profile to Pose residue numbering
-            for idx, fragment in enumerate(fragment_source):
-                fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-                fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-                fragment_source[idx] = fragment
+        if fragments:  # add fragment information to the SequenceProfile
+            if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
+                if entities:
+                    self.add_fragment_query(entity1=entities[0], entity2=entities[1], query=fragment_observations,
+                                            pdb_numbering=pdb_numbering)
+                    # if pdb_numbering:  # Renumber to Pose residue numbering
+                    #     fragment_source = self.renumber_fragments_to_pose(fragment_source)
+                    #     for idx, fragment in enumerate(fragment_source):
+                    #         fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
+                    #         fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
+                    #         fragment_source[idx] = fragment
+                    # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
+                else:
+                    print('Error: argument entities (tuple) is required with fragment_observations')
+                    return None
 
-        if self.fragment_map and self.frag_db:
-            self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
-                                               for fragment in idx_d.values()])
-        else:
+            elif self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
+                self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
+                                                   for fragment in idx_d.values()])
+            # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
 
-        # DesignDirectory.path could be removed as the input oligomers should be perfectly symmetric so the tx_# won't
-        # matter for each entity. right? Todo check this assumption...
-        self.add_evolutionary_profile(out_path=out_path)
-        self.combine_ssm(boltzmann=True)
+        if evolution:  # add evolutionary information to the SequenceProfile
+            # DesignDirectory.path could be removed as the input oligomers should be perfectly symmetric so the tx won't
+            # matter for each entity. right? Todo check this assumption...
+            self.add_evolutionary_profile(out_path=out_path)
+            self.combine_ssm(boltzmann=True)
 
     def set_profile_length(self):
         self.profile_length = len(self.profile)
@@ -396,7 +412,26 @@ class SequenceProfile:
 
         return self.sequence_file
 
-    def add_fragment_query(self, entity1=None, entity2=None, query=None):
+    def renumber_fragments_to_pose(self, fragments):
+        for idx, fragment in enumerate(fragments):
+            # if self.structure.residue_from_pdb_numbering():
+            map_pose_number = self.structure.residue_number_from_pdb(fragment['mapped'])
+            fragment['mapped'] = map_pose_number if map_pose_number else fragment['mapped']
+            pair_pose_number = self.structure.residue_number_from_pdb(fragment['mapped'])
+            fragment['mapped'] = pair_pose_number if pair_pose_number else fragment['mapped']
+            # fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
+            # fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
+            fragments[idx] = fragment
+
+        return fragments
+
+    def add_fragment_query(self, entity1=None, entity2=None, query=None, pdb_numbering=False):
+        if pdb_numbering:  # Renumber self.fragment_map and self.fragment_profile to Pose residue numbering
+            query = self.renumber_fragments_to_pose(query)
+            # for idx, fragment in enumerate(fragment_source):
+            #     fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
+            #     fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
+            #     fragment_source[idx] = fragment
         if entity1 and entity2 and query:
             self.fragment_queries[(entity1, entity2)] = query
 
@@ -405,26 +440,22 @@ class SequenceProfile:
         # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
         # now done at the pose_level
         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
-        query_idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
-        if self.fragment_queries:
-            for query_pair, fragments in self.fragment_queries.items():
-                for query_idx, entity_name in enumerate(query_pair):
-                    if entity_name == self.structure.get_name():
-                        self.assign_fragments(fragments=fragments, alignment_type=query_idx_to_alignment_type[query_idx])
-
-        # if pdb_numbering:  # Renumber self.fragment_mapand self.fragment_profile to Pose residue numbering
-        #     renumbered_fragment_map = {self.structure.residue_number_from_pdb(residue_number):
-        #                                    self.fragment_map[residue_number] for residue_number in self.fragment_map}
-        #     fragment_map.update(renumbered_fragment_map)
         if self.fragment_map:
-            self.generate_fragment_frequency_map()
-            # Todo, do I need keep_extras=false?
-            self.simplify_fragment_profile(keep_extras=False)  # =False added for pickling 6/14/20
+            self.generate_fragment_profile()
+            self.simplify_fragment_profile(keep_extras=False)  # =False added for issm pickling and analyze_output
         else:
-            print('No fragment information associated with the Entity %s yet! You must add to the profile otherwise '
-                  'only evolutionary values will be used.\n%s'
-                  % (self.structure.get_name(), add_fragment_profile_instructions))
-            return None
+            idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
+            if self.fragment_queries:
+                for query_pair, fragments in self.fragment_queries.items():
+                    for query_idx, entity_name in enumerate(query_pair):
+                        if entity_name == self.structure.get_name():
+                            # add to fragment map
+                            self.assign_fragments(fragments=fragments, alignment_type=idx_to_alignment_type[query_idx])
+            else:
+                print('No fragment information associated with the Entity %s yet! You must add to the profile otherwise'
+                      ' only evolutionary values will be used.\n%s'
+                      % (self.structure.get_name(), add_fragment_profile_instructions))
+                return None
 
     def find_alpha(self, alpha=0.5):
         """Find fragment contribution to design with cap at alpha
@@ -445,33 +476,36 @@ class SequenceProfile:
         """
         assert 0 <= alpha <= 1, logger.critical('%s: Alpha parameter must be between 0 and 1' %
                                                 self.combine_ssm.__name__)
-        fragment_statistics = self.frag_db.get_db_statistics()
-        for entry in self.fragment_profile:  # cluster_map
-            if self.fragment_map[entry]['chain'] == 'mapped':  # query_idx_to_alignment_type ={0: 'mapped', 1: 'paired'}
-                statistic_idx = 0
-            else:
-                statistic_idx = 1
+        alignment_type_to_idx = {'mapped': 0, 'paired': 1}
+        match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
+        bounded_floor = 0.2
+        fragment_stats = self.frag_db.get_db_statistics()
+        for entry in self.fragment_profile:
             # match score is bounded between 1 and 0.2
-            match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
-            bounded_floor = 0.2
-            match_sum = sum([self.fragment_map[entry][index][obs]['match'] for index in self.fragment_map[entry]
-                             for obs in self.fragment_map[entry][index]])
+            # match_sum = sum([self.fragment_map[entry][index][obs]['match'] for index in self.fragment_map[entry]
+            match_sum = sum(obs['match'] for index_values in self.fragment_map[entry].values() for obs in index_values)
+            contribution_total = sum(fragment_stats[self.get_cluster_id(obs['cluster'], index=2)][0]
+                                     [alignment_type_to_idx[obs['chain']]]
+                                     for index_values in self.fragment_map[entry].values() for obs in index_values)
 
-            contribution_total = 0.0
-            for index in self.fragment_map[entry]:
-                for obs in self.fragment_map[entry][index]['cluster']:
-                    # get first two indices from the cluster_id
-                    cluster_id = return_cluster_id_string(self.fragment_map[entry][index][obs]['fragment'],
-                                                          index_number=2)
-                    contribution_total += fragment_statistics[cluster_id][0][statistic_idx]
+            # contribution_total = 0.0
+            # for index in self.fragment_map[entry]:
+            #     # for obs in self.fragment_map[entry][index]['cluster']: # WAS
+            #     for obs in self.fragment_map[entry][index]:
+            #         # get first two indices from the cluster_id
+            #         # cluster_id = return_cluster_id_string(self.fragment_map[entry][index][obs]['fragment'], # WAS
+            #         cluster_id = return_cluster_id_string(obs['cluster'], index_number=2)
+            #
+            #         # from the fragment statistics grab the average index weight for the observed chain alignment type
+            #         contribution_total += fragment_stats[cluster_id][0][alignment_type_to_idx[obs['chain']]]
 
             # can't use the match count as the fragment index may have no useful residue information
             # count = len([1 for obs in self.fragment_map[entry][index] for index in self.fragment_map[entry]]) or 1
             # instead use # of fragments with SC interactions count from the frequency map
             count = self.fragment_profile[entry]['stats'][0]
             if count == 0:
-                # ensure that match modifier is 0 so self.alpha[entry] is 0, there is no fragment information here!
-                count = match_sum * 5
+                # ensure that match modifier is 0 so self.alpha[entry] is 0, as there is no fragment information here!
+                count = match_sum * 5  # makes the match average = 0.5
 
             match_average = match_sum / float(count)
             # find the match modifier which spans from 0 to 1
@@ -532,7 +566,7 @@ class SequenceProfile:
 
         logger.debug('Residue Cluster Map: %s' % str(self.fragment_map))
 
-    def generate_fragment_frequency_map(self):
+    def generate_fragment_profile(self):
         """Add frequency information to the fragment profile using parsed cluster information. Frequency information is
         added in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a new
         observation is created for that fragment index.
@@ -1164,7 +1198,7 @@ class FragmentDatabase:
             return self.cluster_dict
 
     @staticmethod
-    def return_cluster_id_string(cluster_id, index_number=3):
+    def get_cluster_id(cluster_id, index=3):
         """Returns the cluster identification string according the specified index
 
         Args:
@@ -1182,7 +1216,7 @@ class FragmentDatabase:
         else:
             index = cluster_id.split('_')
 
-        info = [index[i] for i in range(index_number)]
+        info = [index[i] for i in range(index)]
 
         while len(info) < 3:  # ensure the returned string has at least 3 indices
             info.append('0')
@@ -2033,21 +2067,20 @@ def create_bio_msa(sequence_dict):
         new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
                                                SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
     """
-    sequences = [SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
+    sequences = [SeqRecord(Seq(sequence_dict[name], IUPAC.protein), id=name) for name in sequence_dict]
+    # sequences = [SeqIO.SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
     new_alignment = MultipleSeqAlignment(sequences)
 
     return new_alignment
 
 
 def read_fasta_file(file_name):
-    """Returns an iterator of SeqRecords"""
-    return SeqIO.parse(file_name, "fasta")
-    # sequence_records = [record for record in SeqIO.parse(file_name, "fasta")]
-    # return sequence_records
+    """Returns an iterator of SeqRecords. Ex. [record1, record2, ...]"""
+    return SeqIO.parse(file_name, 'fasta')
 
 
 def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
-    """Writes an iterator of SeqRecords to a file. The file name is returned"""
+    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
     if not file_name:
         return None
     if '.fasta' in file_name:
