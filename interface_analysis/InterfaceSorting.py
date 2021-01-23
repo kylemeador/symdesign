@@ -15,7 +15,7 @@ from SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_
     download_pisa, pisa_ref_d
 from Pose import retrieve_pdb_file_path
 
-import QueryProteinData.QueryPDB as qPDB
+import Query.PDB as qPDB
 
 # Globals
 pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}
