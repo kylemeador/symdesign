@@ -1,7 +1,6 @@
 import argparse
 import os
 
-import numpy as np
 import pandas as pd
 
 from PDB import PDB
@@ -10,6 +9,7 @@ from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, mp_map
 # from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
 from classes import EulerLookup
 from classes.Fragment import FragmentDB
+from interface_analysis.InterfaceSorting import return_pdb_interface
 
 # Globals
 # Nanohedra.py Path
@@ -36,66 +36,6 @@ if not ijk_intfrag_cluster_rep_dict:
 
 # Initialize Euler Lookup Class
 eul_lookup = EulerLookup()
-
-
-def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
-    """Given two PDBs, return the unique chain and interacting residue lists"""
-    # Get the interface residues
-    pdb1_cb_coords, pdb1_cb_indices = pdb1.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
-    pdb2_cb_coords, pdb2_cb_indices = pdb2.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
-
-    pdb1_cb_kdtree = sklearn.neighbors.BallTree(np.array(pdb1_cb_coords))
-
-    # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
-    query = pdb1_cb_kdtree.query_radius(pdb2_cb_coords, cb_distance)
-
-    # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
-    interacting_pairs = []
-    for pdb2_query_index in range(len(query)):
-        if query[pdb2_query_index].tolist() != list():
-            pdb2_cb_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].residue_number
-            pdb2_cb_chain_id = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].chain
-            for pdb1_query_index in query[pdb2_query_index]:
-                pdb1_cb_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
-                pdb1_cb_chain_id = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].chain
-                interacting_pairs.append(((pdb1_cb_res_num, pdb1_cb_chain_id), (pdb2_cb_res_num, pdb2_cb_chain_id)))
-
-    # Get interface fragment information
-    pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list = [], []
-    for pair in interacting_pairs:
-
-        pdb1_central_res_num = pair[0][0]
-        pdb1_central_chain_id = pair[0][1]
-        pdb2_central_res_num = pair[1][0]
-        pdb2_central_chain_id = pair[1][1]
-
-        pdb1_res_num_list = [pdb1_central_res_num - 2, pdb1_central_res_num - 1, pdb1_central_res_num,
-                             pdb1_central_res_num + 1, pdb1_central_res_num + 2]
-        pdb2_res_num_list = [pdb2_central_res_num - 2, pdb2_central_res_num - 1, pdb2_central_res_num,
-                             pdb2_central_res_num + 1, pdb2_central_res_num + 2]
-
-        frag1_ca_count = 0
-        for atom in pdb1.all_atoms:
-            if atom.chain == pdb1_central_chain_id:
-                if atom.residue_number in pdb1_res_num_list:
-                    if atom.is_CA():
-                        frag1_ca_count += 1
-
-        frag2_ca_count = 0
-        for atom in pdb2.all_atoms:
-            if atom.chain == pdb2_central_chain_id:
-                if atom.residue_number in pdb2_res_num_list:
-                    if atom.is_CA():
-                        frag2_ca_count += 1
-
-        if frag1_ca_count == 5 and frag2_ca_count == 5:
-            if (pdb1_central_chain_id, pdb1_central_res_num) not in pdb1_central_chainid_resnum_unique_list:
-                pdb1_central_chainid_resnum_unique_list.append((pdb1_central_chain_id, pdb1_central_res_num))
-
-            if (pdb2_central_chain_id, pdb2_central_res_num) not in pdb2_central_chainid_resnum_unique_list:
-                pdb2_central_chainid_resnum_unique_list.append((pdb2_central_chain_id, pdb2_central_res_num))
-
-    return pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list
 
 
 if __name__ == '__main__':
