@@ -13,7 +13,7 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile
 from Structure import Coords
 # Globals
-from SymDesignUtils import to_iterable, logger
+from SymDesignUtils import to_iterable, logger, pickle_object
 from classes.Fragment import MonoFragment
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from utils.SymmUtils import valid_subunit_number
@@ -650,6 +650,10 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
             self.pdb = self.asu
             # self.initialize_symmetry()
 
+        self.design_mask = set()
+        self.design_residues = []
+        self.fragment_observations = []
+
         self.initialize_symmetry()
 
         # super().__init__()  # structure=self)  # SequenceProfile init
@@ -773,13 +777,13 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
             pdb2_cb_indices (list): List of all CB indices from pdb2
         """
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        entity1_indecies = np.array(self.asu.entity(entity1).get_cb_indices())
+        entity1_indices = np.array(self.asu.entity(entity1).get_cb_indices())
         # mask = np.ones(self.asu.number_of_atoms, dtype=int)  # mask everything
         # mask[index_array] = 0  # we unmask the useful coordinates
-        entity1_coords = self.coords[entity1_indecies]  # only get the coordinate indices we want!
+        entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want!
 
-        entity2_indecies = np.array(self.asu.entity(entity2).get_cb_indices())
-        entity2_coords = self.coords[entity2_indecies]  # only get the coordinate indices we want!
+        entity2_indices = np.array(self.asu.entity(entity2).get_cb_indices())
+        entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want!
 
         # Construct CB Tree for PDB1
         entity1_tree = BallTree(entity1_coords)
@@ -788,9 +792,10 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         return entity1_tree.query_radius(entity2_coords, distance)
 
     def find_interface_pairs(self, entity1=None, entity2=None, distance=8, include_glycine=True):
-        """Get pairs of residues across an interface within a certain distance. Symmetry aware
+        """Get pairs of residue numbers that have CB atoms within a certain distance (in contact) between two Entities.
+        Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
+        Design mask aware
 
-        If symmetry is used, entity2 needs to be symmeterized with all atomic coordinates, by default this is True
         Keyword Args:
             entity1=None (str): First entity name to measure interface between
             entity2=None (str): Second entity name to measure interface between
@@ -804,27 +809,30 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         entity1_atoms = self.asu.entity(entity1).get_atoms()  # if passing by name
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure object
-        entity1_indecies = np.array(self.asu.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
-        entity1_coords = self.coords[entity1_indecies]  # only get the coordinate indices we want!
+        entity1_indices = np.array(self.asu.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
+        entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want!
 
         entity2_atoms = self.asu.entity(entity2).get_atoms()  # if passing by name
         # entity2_atoms = entity2.get_atoms()  # if passing by Structure object
-        entity2_indecies = np.array(self.asu.entity(entity2).get_cb_indices(InclGlyCA=include_glycine))
+        entity2_indices = np.array(self.asu.entity(entity2).get_cb_indices(InclGlyCA=include_glycine))
+        if self.design_mask:  # subtract the masked atom indices from the entity indices
+            entity1_indices = np.array(set(entity1_indices) - self.design_mask)
+            entity2_indices = np.array(set(entity2_indices) - self.design_mask)
         if self.symmetry:  # self.model_coords:
             # get all symmetric indices if the pose is symmetric
-            entity2_indecies = np.array([idx + (self.asu.number_of_atoms * model_number)
-                                         for model_number in range(self.number_of_models) for idx in entity2_indecies])
+            entity2_indices = np.array([idx + (self.asu.number_of_atoms * model_number)
+                                         for model_number in range(self.number_of_models) for idx in entity2_indices])
             # Todo mask=[residue_numbers?] default parameter
             if entity2 == entity1:  # the entity is the same however, we don't want interactions with the same sym mate
                 model_number = self.find_asu_equivalent_symmetry_mate()
                 start_idx = self.asu.number_of_atoms * model_number
                 end_idx = self.asu.number_of_atoms * (model_number + 1)
                 # Todo test logic, have to offset the index by 1 from the start and end_idx values
-                entity2_indecies = [idx for idx in entity2_indecies if idx >= end_idx or idx < start_idx]
+                entity2_indices = [idx for idx in entity2_indices if idx >= end_idx or idx < start_idx]
             entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
-            entity2_coords = self.model_coords[entity2_indecies]  # only get the coordinate indices we want!
+            entity2_coords = self.model_coords[entity2_indices]  # only get the coordinate indices we want!
         else:
-            entity2_coords = self.coords[entity2_indecies]  # only get the coordinate indices we want!
+            entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want!
 
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         entity1_tree = BallTree(entity1_coords)
@@ -834,15 +842,15 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # interface_pairs = []
         # for entity2_idx in range(entity2_query.size):
         #     # if entity2_query[entity2_idx].size > 0:
-        #     #     entity2_residue_number = entity2_atoms[entity2_indecies[entity2_idx]].residue_number
+        #     #     entity2_residue_number = entity2_atoms[entity2_indices[entity2_idx]].residue_number
         #         for entity1_idx in entity2_query[entity2_idx]:
-        #             # entity1_residue_number = entity1_atoms[entity1_indecies[entity1_idx]].residue_number
-        #             interface_pairs.append((entity1_atoms[entity1_indecies[entity1_idx]].residue_number,
-        #                                     entity2_atoms[entity2_indecies[entity2_idx]].residue_number))
+        #             # entity1_residue_number = entity1_atoms[entity1_indices[entity1_idx]].residue_number
+        #             interface_pairs.append((entity1_atoms[entity1_indices[entity1_idx]].residue_number,
+        #                                     entity2_atoms[entity2_indices[entity2_idx]].residue_number))
         #             # interface_pairs.append((entity1_residue_number, entity2_residue_number))
         # return interface_pairs
-        return [(entity1_atoms[entity1_indecies[entity1_idx]].residue_number,
-                 entity2_atoms[entity2_indecies[entity2_idx]].residue_number)
+        return [(entity1_atoms[entity1_indices[entity1_idx]].residue_number,
+                 entity2_atoms[entity2_indices[entity2_idx]].residue_number)
                 for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
 
     @staticmethod
@@ -868,6 +876,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # interface_name = self.asu
         entity1_residue_numbers, entity2_residue_numbers = self.find_interface_residues(entity1=entity1,
                                                                                         entity2=entity2)
+        self.design_residues.extend(entity1_residue_numbers + entity2_residue_numbers)
         # pdb1_interface_sa = pdb1.get_surface_area_residues(entity1_residue_numbers)
         # pdb2_interface_sa = pdb2.get_surface_area_residues(entity2_residue_numbers)
         # interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
@@ -917,60 +926,85 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
 
         return interface_metrics_d
 
-    def initialize_pose(self, design_dir=None, symmetry=None, frag_db='biological_interfaces'):
+    def initialize_pose(self, design_dir=None, symmetry=None, mask=None, evolution=True,
+                        fragments=True, query_fragments=False, existing_fragments=None, frag_db='biological_interfaces',
+                        ):
+        """Take the provided PDB, and use the ASU to compute calculations relevant to interface design.
+
+        This process identifies the ASU (if one is not explicitly provided, enables Pose symmetry,
+        """
         # Todo ensure ASU
-        # Todo fix chains/entities
-        # Todo connect design_dir obj or query user for their files
+        if mask:
+            self.design_mask = set(self.asu.get_residue_indices(numbers=mask))
 
         if symmetry and isinstance(symmetry, dict):  # otherwise done on __init__()
             self.set_symmetry(**symmetry)
 
-        self.connect_fragment_database(location=frag_db)
-        for entity_pair in combinations(self.entities, 2):
-            self.query_interface_for_fragments(*entity_pair)
+        if design_dir.info:  # pose has already been initialized for design
 
-        query_idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
-        for query_pair, fragments in self.fragment_queries.items():
-            for query_idx, entity_name in enumerate(query_pair):
-                # if entity_name == entity.get_name():
-                self.pdb.entity(entity_name).assign_fragments(fragments=fragments,
-                                                              alignment_type=query_idx_to_alignment_type[query_idx])
+        elif fragments:
+            if query_fragments:  # search for new fragment information
+                self.connect_fragment_database(location=frag_db)
+                for entity_pair in combinations(self.entities, 2):
+                    self.query_interface_for_fragments(*entity_pair)
+            else:  # add existing fragment information to the pose
+                # must provide des_dir.fragment_observations from des_dir.gather_fragment_metrics then specify whether
+                # the Entity in question is from mapped or paired (entity1 is mapped, entity2 is paired from Nanohedra)
+                # Need to renumber fragments to Pose residue numbering when we add to the available queries
+                if existing_fragments:  # add provided fragment information to the pose
+                    # Todo DesignDirectory.gather_fragment_info(self)
+                    #   design_dir.fragment_observations?
+                    with open(existing_fragments, 'r') as f:
+                        fragment_source = f.readlines()
+                else:
+                    fragment_source = self.design_dir.fragment_observations
+                # self.fragment_queries[tuple(entity.name for entity in self.entities)] = fragment_source
+                entity_ids = tuple(entity.name for entity in self.entities)
+                self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
+                                        pdb_numbering=True)
+                # for entity in self.entities:
+                #     entity.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
+                #                               pdb_numbering=True)
+
+            idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
+            for query_pair, fragments in self.fragment_queries.items():
+                for query_idx, entity_name in enumerate(query_pair):
+                    # if entity_name == entity.get_name():
+                    # Todo self.entity() modification
+                    self.pdb.entity(entity_name).assign_fragments(fragments=fragments,
+                                                                  alignment_type=idx_to_alignment_type[query_idx])
+                    # for entity in self.entities:
+                    self.pdb.entity(entity_name).connect_fragment_database(location=self.frag_db)
 
         for entity in self.entities:
-            # must provide the list from des_dir.gather_fragment_metrics or InterfaceScoring.py then specify whether the
-            # Entity in question is from mapped or paired
-            # such as fragment_source = des_dir.fragment_observations
-            entity.connect_fragment_database(location=self.frag_db)
-            entity.add_profile(out_path=design_dir.sequences, pdb_numbering=True)  # fragment_source=design_dir.fragment_observations, frag_alignment_type=fragment_info_source,
-
+            entity.add_profile(evolution=evolution, out_path=design_dir.sequences, fragments=fragments)
+            # fragment_source=design_dir.fragment_observations, frag_alignment_type=fragment_info_source,
 
         # Extract PSSM for each protein and combine into single PSSM
         # set pose.pssm
         self.combine_pssm([entity.pssm for entity in self.entities])
         logger.debug('Position Specific Scoring Matrix: %s' % str(self.pssm))
-        self.pssm_file = self.make_pssm_file(self.pssm, PUtils.msa_pssm, outpath=design_dir.path)  # staticmethod
+        self.pssm_file = self.make_pssm_file(self.pssm, PUtils.msa_pssm, out_path=design_dir.data)  # staticmethod
 
         # set pose.fragment_profile
         self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
         logger.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
-        # Todo, remove missing fragment entries here or add where they are loaded keep_extras = False  # =False added for pickling 6/14/20
-        # interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_profile, out_path=des_dir.data)
-        interface_data_file = SDUtils.pickle_object(self.fragment_profile, self.frag_db + PUtils.frag_profile, out_path=design_dir.data)
+        interface_data_file = pickle_object(self.fragment_profile, self.frag_db + PUtils.frag_profile, out_path=design_dir.data)
 
         self.combine_dssm([entity.dssm for entity in self.asu])  # sets pose.pssm
         logger.debug('Design Specific Scoring Matrix: %s' % str(self.dssm))
-        self.dssm_file = self.make_pssm_file(self.dssm, PUtils.dssm, outpath=design_dir.path)  # static
+        self.dssm_file = self.make_pssm_file(self.dssm, PUtils.dssm, out_path=design_dir.data)  # static
 
-        self.solve_consensus()
+        self.solve_consensus()  # Todo
 
-        # Update DesignDirectory with design information
+        # Update DesignDirectory with design information # Todo where to save this/include in pose initialization?
         design_dir.info['pssm'] = self.pssm_file
         design_dir.info['issm'] = interface_data_file
         design_dir.info['dssm'] = self.dssm_file
         design_dir.info['db'] = self.frag_db
-        design_dir.info['des_residues'] = [j for name in names for j in int_res_numbers[name]]
+        design_dir.info['design_residues'] = self.design_residues
         # TODO add oligomer data to .info
-        info_pickle = SDUtils.pickle_object(design_dir.info, 'info', out_path=design_dir.data)
+        info_pickle = pickle_object(design_dir.info, 'info', out_path=design_dir.data)
 
 
 def subdirectory(name):  # TODO PDBdb
