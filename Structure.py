@@ -49,7 +49,7 @@ class Structure:  # (Coords):
     def coords(self):
         """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
         belonging to the specific Structure instance"""
-        return self._coords.get_indicies(self.atom_indecies)
+        return self._coords.get_indices(self.atom_indices)
 
     @coords.setter
     def coords(self, coords):
@@ -64,16 +64,16 @@ class Structure:  # (Coords):
                                  'view')
 
     @property
-    def atom_indecies(self):  # Todo has relevance to Residue
+    def atom_indices(self):  # Todo has relevance to Residue
         try:
-            return self._atom_indecies
+            return self._atom_indices
         except AttributeError:
-            self.atom_indecies = [atom.index for atom in self.atoms]
-            return self._atom_indecies
+            self.atom_indices = [atom.index for atom in self.atoms]
+            return self._atom_indices
 
-    @atom_indecies.setter
-    def atom_indecies(self, indecies):
-        self._atom_indecies = np.array(indecies)
+    @atom_indices.setter
+    def atom_indices(self, indices):
+        self._atom_indices = np.array(indices)
 
     def get_coords(self):
         """Return the numpy array of Coords from the Structure"""
@@ -146,8 +146,18 @@ class Structure:  # (Coords):
         # self.create_residues()
         self.set_length()
 
-    def get_atom_indices(self):
-        return [atom.index for atom in self.get_atoms()]
+    def get_atom_indices(self, numbers=None):
+        """Retrieve Atom indices for Atoms in the Structure. Returns all by default. If atom numbers are provided
+         the selected Atoms are returned"""
+        # if numbers and isinstance(numbers, Iterable):
+        return [atom.index for atom in self.get_atoms(numbers=numbers)]
+        # else:
+        #     return [atom.index for atom in self.get_atoms()]
+
+    def get_residue_indices(self, numbers=None):
+        """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
+         the selected Residues are returned"""
+        return [atom.index for atom in self.get_residue_atoms(numbers=numbers)]
 
     def get_backbone_indices(self):
         return [atom.index for atom in self.get_atoms() if atom.is_backbone()]
@@ -255,11 +265,15 @@ class Structure:  # (Coords):
                 return residue
         return None
 
-    def get_residue_atoms(self, residue_numbers):
+    def get_residue_atoms(self, numbers=None):
         """Return the Atoms contained in the Residue objects matching a set of residue numbers"""
-        return [residue.get_atoms() for residue in self.get_residues(numbers=residue_numbers)]
+        atoms = []
+        for residue in self.get_residues(numbers=numbers):
+            atoms.extend(residue.get_atoms())
+        return atoms
+        # return [residue.get_atoms() for residue in self.get_residues(numbers=residue_numbers)]
 
-    def residue_from_pdb(self, residue_number):
+    def residue_from_pdb_numbering(self, residue_number):
         """Returns the Residue object from the Structure according to PDB residue number"""
         for residue in self.residues:
             if residue.number_pdb == residue_number:
@@ -327,7 +341,7 @@ class Structure:  # (Coords):
 
     def find_center_of_mass(self):
         """Retrieve the center of mass for the specified Structure"""
-        divisor = 1 / len(self.atom_indecies)
+        divisor = 1 / len(self.atom_indices)
         self.center_of_mass = np.matmul(np.full((1, 3), divisor), np.transpose(self.coords))
 
     def get_structure_sequence(self):
@@ -823,7 +837,7 @@ class Coords:
             self.coords = coords
         else:
             self.coords = []
-        # self.indecies = None
+        # self.indices = None
 
     @property
     def coords(self):  # , transformation_operator=None):
@@ -831,13 +845,13 @@ class Coords:
         # if transformation_operator:
         #     return np.matmul([self.x, self.y, self.z], transformation_operator)
         # else:
-        return self._coords  # [self.indecies]  # [self.x, self.y, self.z]
+        return self._coords  # [self.indices]  # [self.x, self.y, self.z]
 
     @coords.setter
     def coords(self, coords):
         self._coords = np.array(coords)
 
-    def get_indicies(self, indicies=None):
+    def get_indices(self, indicies=None):
         if indicies.any():
             return self._coords[indicies]
         else:

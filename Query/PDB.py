@@ -1,16 +1,31 @@
 import argparse
 import os
 import sys
+
+import requests
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from copy import deepcopy
 from json import dumps, loads
 
-import requests
 from SymDesignUtils import start_log, io_save, unpickle, pickle_object
 
+
 # Globals
+# General Formatting
+format_string = '\t%s\t\t%s'
+numbered_format_string = format_string % ('%d - %s', '%s')
+input_string = '\nInput:'
+invalid_string = 'Invalid choice, please try again.'
+confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you can re-input.%s' % input_string
+bool_d = {'y': True, 'n': False}
+user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
+additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
+instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
+
+# Websites
 pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
 # v TODO use inspect webpage to pull the entire dictionary of possibilities
 pdb_advanced_search_url = 'http://www.rcsb.org/search/advanced'
@@ -18,121 +33,12 @@ pdb_rest_url = 'http://data.rcsb.org/rest/v1/core/'  # uniprot/  # 1AB3/1'
 attribute_url = 'https://search.rcsb.org/search-attributes.html'
 attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v1/metadata/schema'
 
-
-def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True, force_update=False):
-    """Parse the rcsb metadata schema for useful information from the format
-         {"properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
-                                             "description" : "Identifies the version of the feature assignment.",
-                                             "rcsb_description" : [
-                                              {"text" : "Identifies the version of the feature assignment.",
-                                               "context" : "dictionary"},
-                                              {"text" : "Feature Version", "context" : "brief"} ]
-                                            },
-                          ...
-                          "symmetry_type" : {"type" : "string",     <-- provide data type
-               provide options     -->       "enum" : [ "2D CRYSTAL", "3D CRYSTAL", "HELICAL", "POINT" ],
-               provide description -->       "description" : "The type of symmetry applied to the reconstruction",
-               provide operators   -->       "rcsb_search_context" : [ "exact-match" ],
-                                             "rcsb_full_text_priority" : 10,
-                                             "rcsb_description" : [
-                                                {"text" : "The type of symmetry applied to the reconstruction",
-                                                 "context" : "dictionary"},
-                                                {"text" : "Symmetry Type (Em 3d Reconstruction)", "context" : "brief"} ]
-                                            },
-                          ... },
-          "title" : "Core Metadata", "additionalProperties" : false, "$comment" : "Schema version: 1.14.0"
-          "required" : ["rcsb_id", "rcsb_entry_container_identifiers", "rcsb_entry_info",
-                        "rcsb_pubmed_container_identifiers", "rcsb_polymer_entity_container_identifiers",
-                        "rcsb_assembly_container_identifiers", "rcsb_uniprot_container_identifiers" ],
-          "$schema" : "http://json-schema.org/draft-07/schema#",
-          "description" : "Collective JSON schema that includes definitions for all indexed cores with RCSB metadata extensions.",
-         }
-    Returns:
-        (dict): {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals'}, 'choices': []}, ...}
-    """
-    schema_pairs = {'dtype': 'type', 'description': 'description', 'operators': 'rcsb_search_context',
-                    'choices': 'enum'}
-    operator_d = {'full-text': 'contains_words, contains_phrase, exists', 'exact-match': 'in, exact_match, exists',
-                  'default-match': 'equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, '
-                                   'exists', 'suggest': None}
-    # Types of rcsb_search_context: (can be multiple)
-    # full-text - contains_words, contains_phrase, exists
-    # exact-match - in, exact-match, exists
-    # default-match - equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, exists
-    # suggests - provides an example to the user in the GUI
-    data_types = ['string', 'integer', 'number']
-
-    def recurse_metadata(metadata_d, stack=tuple()):  # this puts the yield inside a local iter so we don't return
-        for attribute in metadata_d:
-            if metadata_d[attribute]['type'] == 'array':  # 'items' must be a keyword in dictionary
-                # stack += (attribute, 'a')
-                if metadata_d[attribute]['items']['type'] in data_types:  # array is the final attribute of the branch
-                    yield stack + (attribute, 'a')
-                elif metadata_d[attribute]['items']['type'] == 'object':  # type must be object, therefore contain 'properties' key and then have more attributes as leafs
-                    yield from recurse_metadata(metadata_d[attribute]['items']['properties'], stack=stack + ((attribute, 'a', 'o',)))
-                else:
-                    print('Array with type %s found in %s' % (metadata_d[attribute], stack))
-            elif metadata_d[attribute]['type'] == 'object':  # This should never be reachable?
-                # print('%s object found %s' % (attribute, stack))
-                if 'properties' in metadata_d[attribute]:  # check may be unnecessary
-                    yield from recurse_metadata(metadata_d[attribute]['properties'], stack=stack + (attribute, 'o',))
-                else:
-                    print('Object with no properties found %s in %s' % (metadata_d[attribute], stack))
-                    # yield stack + ('o', attribute,)
-            elif metadata_d[attribute]['type'] in data_types:
-                yield stack + (attribute,)  # + ('o', attribute,) add 'o' as the parent had properties from the object type
-            else:
-                print('other type = %s' % metadata_d[attribute]['type'])
-
-    if not os.path.exists(file) or force_update:  # Todo and date.datetime - date.current is not greater than a month...
-        print('Gathering the most current PDB metadata. This may take a couple minutes...')
-        metadata_json = requests.get(attribute_metadata_schema_json).json()
-        metadata_properties_d = metadata_json['properties']
-        gen_schema = recurse_metadata(metadata_properties_d)
-        schema_header_tuples = [yield_schema for yield_schema in gen_schema]
-
-        schema_dictionary_strings_d = {'a': '[\'items\']', 'o': '[\'properties\']'}  # 'a': '[\'items\'][\'properties\']'
-        schema_d = {}
-        for i, attribute_tuple in enumerate(schema_header_tuples):
-            attribute_full = '.'.join(attribute for attribute in attribute_tuple if attribute not in schema_dictionary_strings_d)
-            if i < 5:
-                print(attribute_full)
-            schema_d[attribute_full] = {}
-            d_search_string = ''.join('[\'%s\']' % attribute if attribute not in schema_dictionary_strings_d
-                                      else schema_dictionary_strings_d[attribute] for attribute in attribute_tuple)
-            evaluation_d = eval('%s%s' % (metadata_properties_d, d_search_string))
-            for key, value in schema_pairs.items():
-                if value in evaluation_d:
-                    schema_d[attribute_full][key] = evaluation_d[value]
-                else:
-                    schema_d[attribute_full][key] = None
-
-            if 'format' in evaluation_d:
-                schema_d[attribute_full]['dtype'] = 'date'
-
-            if schema_d[attribute_full]['description']:  # convert the description to a simplified descriptor
-                schema_d[attribute_full]['description'] = schema_d[attribute_full]['description'].split('\n')[0]
-
-            if schema_d[attribute_full]['operators']:  # convert the rcsb_search_context to valid operator(s)
-                schema_d[attribute_full]['operators'] = set(', '.join(
-                    operator_d[search_context] for search_context in schema_d[attribute_full]['operators']
-                    if operator_d[search_context]).split(', '))
-            else:
-                if search_only:  # remove entries that don't have a corresponding operator as these aren't searchable
-                    schema_d.pop(attribute_full)
-
-        pickled_schema_file = pickle_object(schema_d, file, out_path='')
-    else:
-        return unpickle(file)
-
-    return schema_d
-
-
-# uniprot_url = 'http://www.uniprot.org/uniprot/{}.xml'
+# PDB Query formatting
 attribute_prefix = 'rcsb_'
+# uniprot_url = 'http://www.uniprot.org/uniprot/{}.xml'
+request_types = {'group': 'Results must satisfy a group of requirements', 'terminal': 'A specific requirement'}
 
 # Query formatting requirements
-request_types = {'group': 'Results must satisfy a group of requirements', 'terminal': 'A specific requirement'}
 request_type_examples = {'group': '"type": "group", "logical_operator": "and", "nodes": [%s]',
                          'terminal': '"type": "terminal", "service": "text", "parameters":{%s}'}
 # replacing the group %s with a request_type_examples['terminal'], or the terminal %s with a parameter_query
@@ -161,8 +67,8 @@ attributes = {'symmetry': 'rcsb_struct_symmetry.symbol', 'experimental_method': 
               'accession_db': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.'
                               'database_name',
               'organism': 'rcsb_entity_source_organism.taxonomy_lineage.name'}
-
 search_term = 'ELECTRON MICROSCOPY'  # For example. of 'C2'
+
 parameter_query = {'attribute': attributes, 'operator': operators, 'value': search_term}
 query = {"query": {"type": "terminal", "service": "text", 'parameters': parameter_query}, "return_type": "entry"}
 # Example Query in JSON format:
@@ -209,14 +115,6 @@ def query_pdb(query):
 
 
 def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force_schema_update=False):
-    format_string = '\t%s\t\t%s'
-    input_string = '\nInput:'
-    invalid_string = 'Invalid choice, please try again.'
-    confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you can re-input.%s' % input_string
-    bool_d = {'y': True, 'n': False}
-    user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
-    additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
-    instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
     # {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals',}, 'choices': []}, ...}
 
     def search_schema(term):
@@ -263,12 +161,8 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                                  '\n'.join(query_display_string % (query_num, service.upper(), attribute,
                                                                    'NOT ' if negate else '', operator.upper(), value)
                                            for query_num, (service, attribute, operator, negate, value)
-                                           in enumerate(terminal_queries, 1))  # , terminal_query in enumerate(terminal_group_queries))
+                                           in enumerate(terminal_queries, 1))
 
-        # available_grouping_string = 'Your available groups are:\n%s\n\n' % \
-        #                             '\n'.join('\tGroup Group #%d%s' %
-        #                                       (i, format_string % group) for i, group in enumerate(work_on_group, 1))
-        #  %s % available_query_string)
         if recursive_depth == 0:
             intro_string = group_introduction
             available_entity_string = available_query_string
@@ -380,8 +274,6 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                                              (user_input_format % '\n'.join(format_string % (value, key)
                                                                             for key, value in attributes.items()),
                                               attribute_url, input_string)
-            # query_builder_operator_string = '\nWhat operator would you like to use?\n' \
-            #                                 'Common operators include:\n\t%s%s' % (', '.join(operators), input_string)
             query_builder_operator_string = '\nWhat operator would you like to use?\n' \
                                             'Possible operators include:\n\t%s\nIf you would like to negate the ' \
                                             'operator, on input type \'not\' after your selection. Ex: equals not%s' %\
@@ -721,6 +613,115 @@ def query_entity_id(entity_id):
 def get_sequence_by_entity_id(entity_id):
     entity_json = query_entity_id(entity_id)
     return entity_json['entity_poly']['pdbx_seq_one_letter_code']
+
+
+def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True, force_update=False):
+    """Parse the rcsb metadata schema for useful information from the format
+         {"properties" : {"assignment_version" : {"type" : "string", "examples" : [ "V4_0_2" ],
+                                             "description" : "Identifies the version of the feature assignment.",
+                                             "rcsb_description" : [
+                                              {"text" : "Identifies the version of the feature assignment.",
+                                               "context" : "dictionary"},
+                                              {"text" : "Feature Version", "context" : "brief"} ]
+                                            },
+                          ...
+                          "symmetry_type" : {"type" : "string",     <-- provide data type
+               provide options     -->       "enum" : [ "2D CRYSTAL", "3D CRYSTAL", "HELICAL", "POINT" ],
+               provide description -->       "description" : "The type of symmetry applied to the reconstruction",
+               provide operators   -->       "rcsb_search_context" : [ "exact-match" ],
+                                             "rcsb_full_text_priority" : 10,
+                                             "rcsb_description" : [
+                                                {"text" : "The type of symmetry applied to the reconstruction",
+                                                 "context" : "dictionary"},
+                                                {"text" : "Symmetry Type (Em 3d Reconstruction)", "context" : "brief"} ]
+                                            },
+                          ... },
+          "title" : "Core Metadata", "additionalProperties" : false, "$comment" : "Schema version: 1.14.0"
+          "required" : ["rcsb_id", "rcsb_entry_container_identifiers", "rcsb_entry_info",
+                        "rcsb_pubmed_container_identifiers", "rcsb_polymer_entity_container_identifiers",
+                        "rcsb_assembly_container_identifiers", "rcsb_uniprot_container_identifiers" ],
+          "$schema" : "http://json-schema.org/draft-07/schema#",
+          "description" : "Collective JSON schema that includes definitions for all indexed cores with RCSB metadata extensions.",
+         }
+    Returns:
+        (dict): {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals'}, 'choices': []}, ...}
+    """
+    schema_pairs = {'dtype': 'type', 'description': 'description', 'operators': 'rcsb_search_context',
+                    'choices': 'enum'}
+    operator_d = {'full-text': 'contains_words, contains_phrase, exists', 'exact-match': 'in, exact_match, exists',
+                  'default-match': 'equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, '
+                                   'exists', 'suggest': None}
+    # Types of rcsb_search_context: (can be multiple)
+    # full-text - contains_words, contains_phrase, exists
+    # exact-match - in, exact-match, exists
+    # default-match - equals, greater, less, greater_or_equal, less_or_equal, range, range_closed, exists
+    # suggests - provides an example to the user in the GUI
+    data_types = ['string', 'integer', 'number']
+
+    def recurse_metadata(metadata_d, stack=tuple()):  # this puts the yield inside a local iter so we don't return
+        for attribute in metadata_d:
+            if metadata_d[attribute]['type'] == 'array':  # 'items' must be a keyword in dictionary
+                # stack += (attribute, 'a')
+                if metadata_d[attribute]['items']['type'] in data_types:  # array is the final attribute of the branch
+                    yield stack + (attribute, 'a')
+                elif metadata_d[attribute]['items']['type'] == 'object':  # type must be object, therefore contain 'properties' key and then have more attributes as leafs
+                    yield from recurse_metadata(metadata_d[attribute]['items']['properties'], stack=stack + ((attribute, 'a', 'o',)))
+                else:
+                    print('Array with type %s found in %s' % (metadata_d[attribute], stack))
+            elif metadata_d[attribute]['type'] == 'object':  # This should never be reachable?
+                # print('%s object found %s' % (attribute, stack))
+                if 'properties' in metadata_d[attribute]:  # check may be unnecessary
+                    yield from recurse_metadata(metadata_d[attribute]['properties'], stack=stack + (attribute, 'o',))
+                else:
+                    print('Object with no properties found %s in %s' % (metadata_d[attribute], stack))
+                    # yield stack + ('o', attribute,)
+            elif metadata_d[attribute]['type'] in data_types:
+                yield stack + (attribute,)  # + ('o', attribute,) add 'o' as the parent had properties from the object type
+            else:
+                print('other type = %s' % metadata_d[attribute]['type'])
+
+    if not os.path.exists(file) or force_update:  # Todo and date.datetime - date.current is not greater than a month...
+        print('Gathering the most current PDB metadata. This may take a couple minutes...')
+        metadata_json = requests.get(attribute_metadata_schema_json).json()
+        metadata_properties_d = metadata_json['properties']
+        gen_schema = recurse_metadata(metadata_properties_d)
+        schema_header_tuples = [yield_schema for yield_schema in gen_schema]
+
+        schema_dictionary_strings_d = {'a': '[\'items\']', 'o': '[\'properties\']'}  # 'a': '[\'items\'][\'properties\']'
+        schema_d = {}
+        for i, attribute_tuple in enumerate(schema_header_tuples):
+            attribute_full = '.'.join(attribute for attribute in attribute_tuple if attribute not in schema_dictionary_strings_d)
+            if i < 5:
+                print(attribute_full)
+            schema_d[attribute_full] = {}
+            d_search_string = ''.join('[\'%s\']' % attribute if attribute not in schema_dictionary_strings_d
+                                      else schema_dictionary_strings_d[attribute] for attribute in attribute_tuple)
+            evaluation_d = eval('%s%s' % (metadata_properties_d, d_search_string))
+            for key, value in schema_pairs.items():
+                if value in evaluation_d:
+                    schema_d[attribute_full][key] = evaluation_d[value]
+                else:
+                    schema_d[attribute_full][key] = None
+
+            if 'format' in evaluation_d:
+                schema_d[attribute_full]['dtype'] = 'date'
+
+            if schema_d[attribute_full]['description']:  # convert the description to a simplified descriptor
+                schema_d[attribute_full]['description'] = schema_d[attribute_full]['description'].split('\n')[0]
+
+            if schema_d[attribute_full]['operators']:  # convert the rcsb_search_context to valid operator(s)
+                schema_d[attribute_full]['operators'] = set(', '.join(
+                    operator_d[search_context] for search_context in schema_d[attribute_full]['operators']
+                    if operator_d[search_context]).split(', '))
+            else:
+                if search_only:  # remove entries that don't have a corresponding operator as these aren't searchable
+                    schema_d.pop(attribute_full)
+
+        pickled_schema_file = pickle_object(schema_d, file, out_path='')
+    else:
+        return unpickle(file)
+
+    return schema_d
 
 
 if __name__ == '__main__':
