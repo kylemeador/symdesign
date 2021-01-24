@@ -58,6 +58,7 @@ pdb_source = 'db'  # 'download_pdb'  # TODO set up
 # command = 'SymDesign.py -h'
 source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
 command = os.path.join(source, 'SymDesignControl')
+program_command = 'python $SymDesign'
 filter_designs = os.path.join(source, 'AnalyzeOutput.py')
 cmd_dist = os.path.join(source, 'CommandDistributer.py')
 dependency_dir = os.path.join(source, 'dependencies')
