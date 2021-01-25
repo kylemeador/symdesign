@@ -1,11 +1,11 @@
-C COMPILE CMD: gfortran -o orient_oligomer_rmsd orient_oligomer_rmsd.f
-C	orient_oligomer_rmsd.f - (special request by Dan) A general program for taking a PDB file containing
+C COMPILE CMD: gfortran -o orient_oligomer orient_oligomer.f
+C	orient_oligomer.f - (special request by Dan) A general program for taking a PDB file containing
 C		an oligomer with known point group symmetry and orienting that oligomer in some
 C		canonical orientation, for example centered at the origin and with symmetry axes along
 C		principle directions.
 C
 C	Limitations:
-C		Will not work in any of the inifinite situations where a PDB file is fucked up,
+C		Will not work in any of the inifinite situations where a PDB file is f***ed up,
 C		in ways such as but not limited to:
 C		equivalent residues in different chains don't have the same numbering; different subunits
 C		are all listed with the same chain ID (e.g. with incremental residue numbering) instead
@@ -72,16 +72,14 @@ C
 C
 C	T. O. Yeates - July 2014
 
-C	modified to report rmsd overlap deviations - June 2020
-
 C
 	implicit none
 
 	integer*4  i, j, k, nat, nch, ok(2000,60), comb(2000)
 	real*4  xyz(3, 2000, 60), cm(3), rfinal(3,3), txfinal(3)
-	integer*4  mode, nsymm, nres, nreslast
+	integer*4  mode, nsymm, nres
 	real*4  symm_ang(3), outvec(3,2), allrot(3,3,60,60)
-	real*4  allang(60,60), xyztmp(3), xyztmpout(3), rmsd_max
+	real*4  allang(60,60), xyztmp(3), xyztmpout(3)
 	character  junk*22
 
 
@@ -92,8 +90,7 @@ C
 
 	call sub_center_of_mass (nch, xyz, comb, cm)
 
-	call get_pairwise_rot_rmsd (nch,xyz,comb,allrot,allang,rmsd_max)
-	write (6,*) 'Worst rmsd between pairs: ', rmsd_max
+	call get_pairwise_rot (nch, xyz, comb, allrot, allang)
 
 	if (mode .eq. 1) then
 	  call subunit_mapping_m1
@@ -144,7 +141,6 @@ C ===========================================================
 	implicit none
 
 	integer*4  i, j, k, nat, nch, ok(2000,60), comb(2000), nres
-	integer*4  nreslast
 	real*4  xyz(3, 2000, 60), cm(3), rfinal(3,3), txfinal(3)
 	real*4  xyztmp(3)
 	character  junk*22, prevchain*1
@@ -162,21 +158,14 @@ C ===========================================================
 	nat=0
 	nch=0
 	prevchain='*'
-	nreslast=-999
 	do while (.true.)
  10	  read (1,901,err=10,end=20) junk, nres, xyztmp
-	  if ((junk(1:4) .eq. 'ATOM' .or. (junk(1:4) .eq. 'HETA' .and.
-     %	       junk(18:20) .eq. 'MSE')) .and. junk(14:15) .eq. 'CA') then
+	  if (junk(1:4) .eq. 'ATOM' .and. junk(14:15) .eq. 'CA') then
 	   if (nres .ge. 1 .and. nres .le. 2000) then
-	
-	    if (junk(22:22) .ne. prevchain .or. nres .lt. nreslast) then
-	
+	    if (junk(22:22) .ne. prevchain) then
 	      nch=nch+1
 	      prevchain=junk(22:22)
 	    end if
-
-	    nreslast=nres
-
 	    do i=1,3
 	      xyz(i,nres,nch)=xyztmp(i)
 	    end do
@@ -254,12 +243,11 @@ C ===========================================================
 	integer*4  i, j, k
 	integer*4  mode, nsymm
 	real*4  symm_ang(3), outvec(3,2)
-	character*60  fname
+	character*128  fname
 
-C	write (6,*) 'Input name of symmetry file'
-C	read (5,901) fname
-C	open (3,file=fname, status='old')
-	open (3,file='symm.txt', status='old')
+	write (6,*) 'Input name of symmetry file'
+	read (5,901) fname
+	open (3,file=fname, status='old')
 
 	read (3,*) nsymm
 	read (3,*) mode
@@ -272,15 +260,14 @@ C	open (3,file=fname, status='old')
 	  read (3,*) symm_ang
 	  read (3,*) ((outvec(i,j),i=1,3), j=1,2)
 	end if
- 901	format (a60)
+ 901	format (a128)
 
 	return
 	end
 
 C ===========================================================
 
-	subroutine get_pairwise_rot_rmsd
-     %			(nch, xyz, comb, allrot, allang, rmsd_max)
+	subroutine get_pairwise_rot (nch, xyz, comb, allrot, allang)
 
 	integer*4  i, j, k, nat, nch, ok(2000,60), comb(2000), m
 	real*4  xyz(3, 2000, 60), cm(3), rfinal(3,3), txfinal(3)
@@ -291,7 +278,6 @@ C ===========================================================
 
 
 	nsymm=nch
-	rmsd_max=0.
 
 	do m=1,nsymm
   	  n=0
@@ -316,15 +302,6 @@ C ===========================================================
 	  end do
 	
 	  call rigid(n, xtmp, ytmp, rotated, rot, tx)
-
-	  var=0.
-	  do i=1,n
-	    do j=1,3
-	      var = var + (ytmp(j,i)-rotated(j,i))**2
-	    end do
-	  end do
-	  rmsd=sqrt(var/n)
-
 	  tr=0.
 	  do i=1,3
 	    tr=tr+rot(i,i)
@@ -332,8 +309,7 @@ C ===========================================================
 	  if (tr .ge. 3.) tr=3.
 	  if (tr .le. -1.) tr=-1.
 	  angle=180./3.1415926 * acos((tr-1.)/2.)
-	  write (6,*) 'transformation: ', m, k, angle, tx, rmsd
-	  if (rmsd .gt. rmsd_max) rmsd_max=rmsd
+	  write (6,*) 'transformation: ', m, k, angle, tx
 	  do i=1,3
 	    do j=1,3
 	      allrot(i,j,m,k)=rot(i,j)
