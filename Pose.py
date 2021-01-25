@@ -654,7 +654,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         self.design_residues = []
         self.fragment_observations = []
 
-        self.initialize_symmetry()
+        self.initialize_symmetry(symmetry=symmetry)
 
         # super().__init__()  # structure=self)  # SequenceProfile init
         # self.pdb = None  # the pose specific pdb  # Model
@@ -688,20 +688,20 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # self.number_of_models = None
 
     @classmethod
-    def from_pdb(cls, pdb):
-        return cls(pdb=pdb)
+    def from_pdb(cls, pdb, symmetry=None):
+        return cls(pdb=pdb, symmetry=symmetry)
 
     @classmethod
-    def pdb_from_file(cls, pdb_file):
-        return cls(pdb_file=pdb_file)
+    def from_pdb_file(cls, pdb_file, symmetry=None):
+        return cls(pdb_file=pdb_file, symmetry=symmetry)
 
     @classmethod
-    def from_asu(cls, asu):
-        return cls(asu=asu)
+    def from_asu(cls, asu, symmetry=None):
+        return cls(asu=asu, symmetry=symmetry)
 
     @classmethod
-    def asu_from_file(cls, asu_file):
-        return cls(asu_file=asu_file)
+    def from_asu_file(cls, asu_file, symmetry=None):
+        return cls(asu_file=asu_file, symmetry=symmetry)
 
     # @classmethod  # In PDB class
     # def from_file(cls, file):
@@ -722,6 +722,14 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
     # @pdb.setter
     # def pdb(self, pdb):
     #     self._pdb = pdb
+
+    @property
+    def name(self):
+        return self.pdb.name
+
+    @name.setter
+    def name(self, name):
+        self.pdb.name = name
 
     @property
     def entities(self):
@@ -754,7 +762,9 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         entity_chain = pdb.entities[entity]['representative']
         self.asu.add_atoms(entity.get_atoms())
 
-    def initialize_symmetry(self):
+    def initialize_symmetry(self, symmetry=None):
+        if symmetry:
+            self.set_symmetry(symmetry=symmetry)
         if self.pdb.space_group and self.pdb.uc_dimensions:
             self.set_symmetry(symmetry=self.pdb.space_group, uc_dimensions=self.pdb.uc_dimensions)
         elif self.pdb.cryst_record:
@@ -792,7 +802,8 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         return entity1_tree.query_radius(entity2_coords, distance)
 
     def find_interface_pairs(self, entity1=None, entity2=None, distance=8, include_glycine=True):
-        """Get pairs of residue numbers that have CB atoms within a certain distance (in contact) between two Entities.
+        """Get pairs of residue numbers that have CB atoms within a certain distance (in contact) between two named
+        Entities.
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
         Design mask aware
 
@@ -802,7 +813,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
             distance=8 (int): The distance to query the interface in Angstroms
             include_glycine=True (bool): Whether glycine CA should be included in the tree
         Returns:
-            interface_pairs (list(tuple): A list of interface residue numbers across the interface
+            list[tuple]: A list of interface residue numbers across the interface
         """
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
 
@@ -859,15 +870,15 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
 
     def find_interface_residues(self, entity1=None, entity2=None, distance=8, include_glycine=True):
-        """Get unique residues from each pdb across an interface
+        """Get unique residues from each pdb across an interface provide two Entity names
 
-            Keyword Args:
-                entity1=None (str): First entity name to measure interface between
-                entity2=None (str): Second entity name to measure interface between
-                distance=8 (int): The distance to query the interface in Angstroms
-                include_glycine=True (bool): Whether glycine CA should be included in the tree
-            Returns:
-                (tuple(set): A tuple of interface residue sets across an interface
+        Keyword Args:
+            entity1=None (str): First entity name to measure interface between
+            entity2=None (str): Second entity name to measure interface between
+            distance=8 (int): The distance to query the interface in Angstroms
+            include_glycine=True (bool): Whether glycine CA should be included in the tree
+        Returns:
+            tuple[set]: A tuple of interface residue sets across an interface
         """
         return split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, distance=distance,
                                                                include_glycine=include_glycine))
@@ -904,8 +915,8 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         interface_metrics_d = {}
         for query, fragment_matches in self.fragment_queries.items():
             res_level_sum_score, center_level_sum_score, number_residues_with_fragments, \
-            number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, \
-            percent_interface_covered, fragment_content_d = get_fragment_metrics(fragment_matches)
+                number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, \
+                percent_interface_covered, fragment_content_d = get_fragment_metrics(fragment_matches)
 
             interface_metrics_d[query] = {'nanohedra_score': res_level_sum_score,
                                           'nanohedra_score_central': center_level_sum_score,
@@ -926,6 +937,10 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
 
         return interface_metrics_d
 
+    def score_interface(self, entity1=None, entity2=None):
+        self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
+        return self.return_interface_metrics()
+
     def initialize_pose(self, design_dir=None, symmetry=None, mask=None, evolution=True,
                         fragments=True, query_fragments=False, existing_fragments=None, frag_db='biological_interfaces',
                         ):
@@ -934,15 +949,17 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         This process identifies the ASU (if one is not explicitly provided, enables Pose symmetry,
         """
         # Todo ensure ASU
-        if mask:
-            self.design_mask = set(self.asu.get_residue_indices(numbers=mask))
-
         if symmetry and isinstance(symmetry, dict):  # otherwise done on __init__()
             self.set_symmetry(**symmetry)
 
         if design_dir.info:  # pose has already been initialized for design
+            # Todo Load Pose info
+            return None
 
-        elif fragments:
+        if mask:
+            self.design_mask = set(self.asu.get_residue_indices(numbers=mask))
+
+        if fragments:
             if query_fragments:  # search for new fragment information
                 self.connect_fragment_database(location=frag_db)
                 for entity_pair in combinations(self.entities, 2):

@@ -1282,12 +1282,12 @@ class PDB(Structure):
 
     def create_entities(self, entity_names=None, pdb_code=None):
         """Create all Entities in the PDB object searching for the required information if it was not found during
-        parsing
+        parsing. First search the PDB API if a PDB entry_id is attached to instance, next from Atoms in instance
 
         Keyword Args:
-            entity_names=None (list): The list of names for each Entity is names are provided, otherwise, PDB.name will
-            be used to take PDB compatible form PDB EntryID_EntityID
-            pdb_code=None (str): The four character code specifing the entry ID from the PDB
+            entity_names=None (list): The list of names for each Entity is names are provided, otherwise, Entity names
+            will increment from order identified in ATOM records
+            pdb_code=None (str): The four character code specifying the entry ID from the PDB
         """
         if not self.entity_d:
             self.update_entities(pdb_code=pdb_code)
@@ -1307,7 +1307,7 @@ class PDB(Structure):
 
     def update_entities(self, pdb_code=None):
         """Add Entity information to the PDB object using the PDB API if pdb_code is specified or .pdb filename is a
-        four letter code. If not gather Entitiy information from the ATOM records"""
+        four letter code. If not, gather Entitiy information from the ATOM records"""
         if pdb_code or self.name:
             self.get_entity_info_from_api(pdb_code=pdb_code)
         else:
