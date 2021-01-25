@@ -11,7 +11,8 @@ from requests import get
 from PDB import PDB
 from PathUtils import pisa_db
 from SymDesignUtils import pickle_object, logger, to_iterable, remove_duplicates, io_save
-from interface_analysis.InterfaceSorting import logger, pdb
+
+# from interface_analysis.InterfaceSorting import logger
 
 # Globals
 # pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}
@@ -334,11 +335,11 @@ def retrieve_pisa_file_path(pdb_code, directory=pisa_db, pisa_data_type='pisa'):
                 else:  # try to download required files, they were not found
                     logger.info('Attempting to download PISA files')
                     for pisa_data_type in pisa_ref_d:
-                        download_pisa(pdb, pisa_data_type, out_path=directory)
+                        download_pisa(pdb_code, pisa_data_type, out_path=directory)
                     if extract_pisa_files_and_pickle(root_path, pdb_code):  # return True if requisite files found
                         return os.path.join(root_path, specific_file)
             else:
-                download_pisa(pdb, pisa_data_type, out_path=directory)
+                download_pisa(pdb_code, pisa_data_type, out_path=directory)
 
     return None  # if Download failed, or the files are not found
 
@@ -468,8 +469,8 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
         return False
 
 
-def extract_xtal_interfaces(pdb):
-    source_pdb = PDB.from_file(pdb)
+def extract_xtal_interfaces(pdb_path):
+    source_pdb = PDB.from_file(pdb_path)
     interface_data = parse_pisa_interfaces_xml(pdb)
     for interface in interface_data:
         interface_pdb = PDB()
@@ -487,7 +488,7 @@ def extract_xtal_interfaces(pdb):
             chain_pdb.read_atom_list(interface_atoms)
             chain_pdb.apply(rot, trans)
             interface_pdb.read_atom_list(chain_pdb.all_atoms)
-        interface_pdb.write(pdb + interface + '.pdb')
+        interface_pdb.write(pdb_path + interface + '.pdb')
 
 
 def parse_pisas(pdb_code, out_path=pisa_db):  #  download=False,
