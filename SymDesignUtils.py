@@ -28,9 +28,6 @@ layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2':
                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
 viable = {'p6', 'p4', 'p3', 'p312', 'p4121', 'p622'}
-pisa_ref_d = {'multimers': {'ext': 'multimers.xml', 'source': 'pisa', 'mod': ''},
-              'interfaces': {'ext': 'interfaces.xml', 'source': 'pisa', 'mod': ''},
-              'multimer': {'ext': 'bioassembly.pdb', 'source': 'pdb', 'mod': ':1,1'}, 'pisa': '.pkl'}
 point_group_d = {8: 'I32', 14: 'I52', 56: 'I53', 4: 'T32', 52: 'T33'}
 # layer_group_d = {8: 'I23'}
 
@@ -432,115 +429,6 @@ def superimpose(atoms):  # , rmsd_thresh):
 ###################
 # PDB Handling # TODO PDB.py
 ###################
-
-
-def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
-    """Downloads PISA .xml files from http://www.ebi.ac.uk/pdbe/pisa/cgi-bin/
-    Args:
-        pdb (str,list): Either a single pdb code, a list of pdb codes, or a file with pdb codes, comma or newline delimited
-        pisa_type (str): Either 'multimers', 'interfaces', or 'multimer' to designate the PISA File Source
-    Keyword Args:
-        out_path=os.getcwd() (str): Path to download PISA files
-        force_singles=False (bool): Whether to force downloading of one file at a time
-    Returns:
-        None
-    """
-    import xml.etree.ElementTree as ETree
-
-    def retrieve_pisa(pdb_code, _type, filename):
-        p = subprocess.Popen(['wget', '-q', '-O', filename, 'https://www.ebi.ac.uk/pdbe/pisa/cgi-bin/%s.%s?%s' %
-                              (_type, pisa_ref_d[_type]['source'], pdb_code)])
-        if p.returncode != 0:  # Todo if p.returncode
-            return False
-        else:
-            return True
-
-    def separate_entries(tree, ext, out_path=os.getcwd()):
-        for pdb_entry in tree.findall('pdb_entry'):
-            if pdb_entry.find('status').text.lower() != 'ok':
-                failures.extend(modified_pdb_code.split(','))
-            else:
-                # PDB code is uppercase when returned from PISA interfaces, but lowercase when returned from PISA Multimers
-                filename = os.path.join(out_path, '%s_%s' % (pdb_entry.find('pdb_code').text.upper(), ext))
-                add_root = ETree.Element('pisa_%s' % pisa_type)
-                add_root.append(pdb_entry)
-                new_xml = ETree.ElementTree(add_root)
-                new_xml.write(open(filename, 'w'), encoding='unicode')  # , pretty_print=True)
-                successful_downloads.append(pdb_entry.find('pdb_code').text.upper())
-
-    def process_download(pdb_code, file):
-        # nonlocal fail
-        nonlocal failures
-        if retrieve_pisa(pdb_code, pisa_type, file):  # download was successful
-            # Check to see if <status>Ok</status> for the download
-            etree = ETree.parse(file)
-            if force_singles:
-                if etree.find('status').text.lower() == 'ok':
-                    successful_downloads.append(pdb_code)
-                    # successful_downloads.extend(modified_pdb_code.split(','))
-                else:
-                    failures.extend(modified_pdb_code.split(','))
-            else:
-                separate_entries(etree, pisa_ref_d[pisa_type]['ext'])
-        else:  # download failed
-            failures.extend(modified_pdb_code.split(','))
-
-    if pisa_type not in pisa_ref_d:
-        logger.error('%s is not a valid PISA file type' % pisa_type)
-        sys.exit()
-    if pisa_type == 'multimer':
-        force_singles = True
-
-    file = None
-    clean_list = to_iterable(pdb)
-    count, total_count = 0, 0
-    multiple_mod_code, successful_downloads, failures = [], [], []
-    for pdb in clean_list:
-        pdb_code = pdb[0:4].lower()
-        file = os.path.join(out_path, '%s_%s' % (pdb_code.upper(), pisa_ref_d[pisa_type]['ext']))
-        if file not in os.listdir(out_path):
-            if not force_singles:  # concatenate retrieval
-                count += 1
-                multiple_mod_code.append(pdb_code)
-                if count == 50:
-                    count = 0
-                    total_count += count
-                    logger.info('Iterations: %d' % total_count)
-                    modified_pdb_code = ','.join(multiple_mod_code)
-                else:
-                    continue
-            else:
-                modified_pdb_code = '%s%s' % (pdb_code, pisa_ref_d[pisa_type]['mod'])
-                logger.info('Fetching: %s' % pdb_code)
-
-            process_download(modified_pdb_code, file)
-            multiple_mod_code = []
-
-    # Handle remaining codes in concatenation instances where the number remaining is < 50
-    if count > 0 and multiple_mod_code != list():
-        modified_pdb_code = ','.join(multiple_mod_code)
-        process_download(modified_pdb_code, file)
-
-    # Remove successfully downloaded files from the input
-    # duplicates = []
-    for pdb_code in successful_downloads:
-        if pdb_code in clean_list:
-            # try:
-            clean_list.remove(pdb_code)
-        # except ValueError:
-        #     duplicates.append(pdb_code)
-    # if duplicates:
-    #     logger.info('These files may be duplicates:', ', '.join(duplicates))
-
-    if not clean_list:
-        return True
-    else:
-        failures.extend(clean_list)  # should just match clean list ?!
-        failures = remove_duplicates(failures)
-        logger.warning('Download PISA Failures:\n[%s]' % failures)
-        io_save(failures)
-
-        return False
 
 
 def residue_interaction_graph(pdb, distance=8, gly_ca=True):  # Todo PDB.py
@@ -1075,7 +963,15 @@ def get_all_base_root_paths(directory):
     return [os.path.abspath(root) for root, dirs, files in os.walk(directory) if not dirs]
 
 
-def get_all_pdb_file_paths(pdb_dir):
+def get_all_file_paths(pdb_dir, extension=None):
+    if extension:
+        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files
+                if extension in file]
+    else:
+        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files]
+
+
+def get_all_pdb_file_paths(pdb_dir):  # Todo DEPRECIATE
     return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files
             if '.pdb' in file]
 
