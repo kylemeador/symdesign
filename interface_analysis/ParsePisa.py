@@ -26,7 +26,8 @@ def get_complex_interfaces(pdb_code):
     pisa_content_tree = html.fromstring(pisa_query.content)
     input_dir_key = pisa_content_tree.xpath('//input[@name="dir_key"]')
     session_id = input_dir_key[0].value
-    assert len(session_id.split('-')) == 3, 'Error grabbing Session ID for %s' % pdb_code
+    assert len(session_id.split('-')) != 3, 'Error grabbing Session ID (%s) for %s. GET request:%s' \
+                                            % (session_id, pdb_code, pisa_query)
     int_xml = get('https://www.ebi.ac.uk/msd-srv/prot_int/data/pisrv_%s/engagedinterfaces--2.xml' % session_id)
     # xml = get('https://www.ebi.ac.uk/msd-srv/prot_int/data/pisrv_674-OC-J26/engagedinterfaces--2.xml' % session_id)
 
