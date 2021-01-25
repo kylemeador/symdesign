@@ -13,8 +13,8 @@ from Bio.Align import MultipleSeqAlignment
 #     from Bio.Alphabet import generic_protein  # , IUPAC
 # except ImportError:
 # generic_protein = None
+# from Bio.Alphabet import IUPAC
 from Bio.Align import substitution_matrices
-from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
@@ -2071,7 +2071,8 @@ def create_bio_msa(sequence_dict):
         new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
                                                SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
     """
-    sequences = [SeqRecord(Seq(sequence_dict[name], IUPAC.protein), id=name) for name in sequence_dict]
+    sequences = [SeqRecord(Seq(sequence_dict[name], annotations={'molecule_type': 'Protein'}), id=name)
+                 for name in sequence_dict]
     # sequences = [SeqIO.SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
     new_alignment = MultipleSeqAlignment(sequences)
 
