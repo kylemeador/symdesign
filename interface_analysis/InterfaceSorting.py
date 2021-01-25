@@ -160,7 +160,7 @@ def verify_pisa(pisa_d, pdb_code):
                 else:  # add to the BA dict
                     bio_ass[biological_assembly] = {set_complex}
 
-        if not bio_ass:  # PISA couldn't identify the assembly from crystal data, must be deposited biological assembly?
+        if not bio_ass or (0, 0) in pisa_multimer:  # PISA couldn't identify the assembly from crystal data, must be deposited biological assembly?
             print('No bioassembly found for %s' % pdb_code)
             # link the interfaces in the deposited BA complex with the PISA interface number
             pisa_multimer[(0, 0)] = get_complex_interfaces(pdb_code.lower())
