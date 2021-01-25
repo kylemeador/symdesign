@@ -27,6 +27,7 @@ from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_
 import DesignDirectory
 # from DesignDirectory import
 from Query.PDB import get_sequence_by_entity_id
+from mysql.MysqlPython import Mysql
 
 # Globals
 index_offset = 1
@@ -1106,9 +1107,10 @@ class FragmentDatabase:
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
         self.fragment_range = None
         self.cluster_dict = {}
+        self.fragdb = None
 
         if self.source == 'DB':
-            # initialize as DB TODO
+            self.start_mysql_connection()
             self.db = True
         elif self.source == 'directory':
             # initialize as local direcotry
@@ -1233,6 +1235,9 @@ class FragmentDatabase:
             logger.critical('%d is an even integer which is not symmetric about a single residue. '
                             'Ensure this is what you want' % length)
             self.fragment_range = (0 - _range, 0 + _range)
+
+    def start_mysql_connection(self):
+        self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
 
 
 def get_db_statistics(database):
