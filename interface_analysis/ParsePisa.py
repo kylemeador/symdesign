@@ -6,7 +6,7 @@ import sys
 from collections import defaultdict
 
 from lxml import etree, html
-from requests import get
+from requests import get, post
 
 from PDB import PDB
 from PathUtils import pisa_db
@@ -22,29 +22,33 @@ pisa_ref_d = {'multimers': {'ext': 'multimers.xml', 'source': 'pisa', 'mod': ''}
 
 
 def get_complex_interfaces(pdb_code):
-    pisa_query = get('https://www.ebi.ac.uk/pdbe/pisa/cgi-bin/piserver?qa=%s' % pdb_code)
+    header = {'User-Agent': 'Mozilla/5.0 (X11; CrOS x86_64 13505.100.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.142 Safari/537.36'}
+    pisa_query = get('https://www.ebi.ac.uk/pdbe/pisa/cgi-bin/piserver?qa=%s' % pdb_code, headers=header)
+    # print(pisa_query.content)
     pisa_content_tree = html.fromstring(pisa_query.content)
     input_dir_key = pisa_content_tree.xpath('//input[@name="dir_key"]')
     session_id = input_dir_key[0].value
-    assert len(session_id.split('-')) != 3, 'Error grabbing Session ID (%s) for %s. GET request:%s' \
+    assert len(session_id.split('-')) == 3, 'Error grabbing Session ID (%s) for %s. GET request:%s' \
                                             % (session_id, pdb_code, pisa_query)
+
+    url = 'https://www.ebi.ac.uk/msd-srv/prot_int/cgi-bin/piserver'
+    data = {'page_key': 'assembly_list_page', 'action_key': 'act_go_to_asmpage_p', 'dir_key': session_id,
+            'session_point': '8', 'action_no': '-2_0'}  # This is for the complex page!
+    pisa_query = post(url, data=data)
+
     int_xml = get('https://www.ebi.ac.uk/msd-srv/prot_int/data/pisrv_%s/engagedinterfaces--2.xml' % session_id)
     # xml = get('https://www.ebi.ac.uk/msd-srv/prot_int/data/pisrv_674-OC-J26/engagedinterfaces--2.xml' % session_id)
-
-    # url = 'https://www.ebi.ac.uk/msd-srv/prot_int/cgi-bin/piserver'
-    # data = {'page_key': 'assembly_list_page', 'action_key': 'act_go_to_asmpage_p', 'dir_key': session_id,
-    #         'session_point': '8', 'action_no': '-2_0'} This is for the complex page!
-    # pisa_query = post(url, data=data)
+    # print(int_xml.content)
 
     interface_tree = etree.fromstring(int_xml.content)
-    interface_root = interface_tree.getroot()
+    # interface_root = interface_tree.getroot()
     interface_d, interface_chains = {}, {}
-    for interface in interface_root.findall('ENGAGEDINTERFACE'):
+    for interface in interface_tree.findall('ENGAGEDINTERFACE'):
         if len(interface) > 1:
             # type = interface.find('INTERFACETYPE').text  # May be missing int()
             chains = interface.find('INTERFACESTRUCTURES').text
             chains = chains.split('+')
-            number = interface.find('INTERFACENO').text  # int() same as interface id below in interfaces
+            number = int(interface.find('INTERFACENO').text) + 1  # offset to make same as interfaceID in interfaces.xml
             interface_chains[int(number)] = chains
             if int(number) in interface_d:
                 interface_d[int(number)]['nocc'] += 1
@@ -56,43 +60,41 @@ def get_complex_interfaces(pdb_code):
     # this is required because the summary is malformed. Might change in the future, in which case its still compatible
     summary_tree = etree.fromstring(bytes(sum_xml.text[:sum_xml.text.find('\n<ASSEMBLYTYPE')]
                                           + sum_xml.text[sum_xml.text.rfind(bad_attr) + len(bad_attr):], 'utf-8'))
-    summary_root = summary_tree.getroot()
+    # summary_root = summary_tree.getroot()
     # surface_area = int(summary_root.find('SURFACEAREA').text)
     # symmetry_number = int(summary_root.find('SYMMETRYNUMBER').text)
     # entropy_diss = float(summary_root.find('ENTROPYDISS').text)
     # complex_id = summary_root.find('MULTIMERICSTATE').text
-    complex_composition = summary_root.find('COMPOSITION').text
+    complex_composition = summary_tree.find('COMPOSITION').text
     chains = defaultdict(int)
     for chain in complex_composition:
         chains[chain] += 1
 
-    d_g_diss = float(summary_root.find('DELTAGDISSOCIATION').text)
-    d_g_int = float(summary_root.find('DELTAGFORMATION').text)
+    d_g_diss = float(summary_tree.find('DELTAGDISSOCIATION').text)
+    d_g_int = float(summary_tree.find('DELTAGFORMATION').text)
     if d_g_diss >= 0:
         stable = True
     else:
         stable = False
-    pdb_biomol = 1  # Todo is this always true?
-    # REMARK 350 from PDB indicating biological assembly. If R350 = 0, no assigned BA for set complex
-    # pdb_biomol = int(summary_root.find('BIOMOLECULER350').text)
 
-    diss_pattern = float(summary_root.find('DISSOCIATIONPATTERN').text)
+    # REMARK 350 from PDB indicating biological assembly. If R350 = 0, no assigned BA for set complex
+    pdb_biomol = 1  # I believe this is always true
+    # pdb_biomol = int(summary_root.find('BIOMOLECULER350').text)
+    diss_pattern = summary_tree.find('DISSOCIATIONPATTERN').text
     diss_list = diss_pattern.split('+')
-    # map(str.strip, diss_list)
     for group in diss_list:
-        group = group[:group.find('[')].strip()  # :group.rfind(']')
-        if len(group) == 1:  # any interface with this chain is dissociated
+        group = group[:group.find('[') if group.find('[') != -1 else None].strip()  # remove ligands from chains
+        if len(group) <= 1:  # any interface with this chain is dissociated
             for interface_number, chains in interface_chains.items():
-                # for chain in chains:
-                #     if chain not in group:
                 if group in chains:
                     interface_d[interface_number]['diss'] = 1
         else:  # only interfaces with both chains in group are not dissociated
             for interface_number, chains in interface_chains.items():
-                if chain[0] not in group or chain[1] not in group:
+                if chains[0] not in group or chains[1] not in group:
+                    print('Group: %s\tChains:%s' % (group, chains))
                     interface_d[interface_number]['diss'] = 1
 
-    return {'id': 1, 'composition': complex_composition.strip(), 'chains': chains, 'ligands': {},  # Todo ligands
+    return {'id': -2, 'composition': complex_composition.strip(), 'chains': chains, 'ligands': {},  # Todo ligands
             'stable': stable, 'dg_diss': d_g_diss, 'dg_int': d_g_int, 'pdb_BA': pdb_biomol, 'interfaces': interface_d}
 
 
@@ -180,7 +182,7 @@ def parse_pisa_multimers_xml(xml_file_path):  # , download_structures=False, out
                     d_g_int = float(assembly.find('int_energy').text)
                     # REMARK 350 from PDB indicating biological assembly. If R350 = 0, no assigned BA for set complex
                     pdb_biomol = int(assembly.find('R350').text)
-                    if d_g_diss >= 0:
+                    if d_g_diss >= 0:  # Todo, I think this logic is flipped
                         stable = True
                     else:
                         stable = False
