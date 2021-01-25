@@ -56,8 +56,11 @@ def get_complex_interfaces(pdb_code):
     int_xml = get('https://www.ebi.ac.uk/msd-srv/prot_int/data/pisrv_%s/engagedinterfaces--2.xml' % session_id)
     # xml = get('https://www.ebi.ac.uk/msd-srv/prot_int/data/pisrv_674-OC-J26/engagedinterfaces--2.xml' % session_id)
     # print(int_xml.content)
-
-    interface_tree = etree.fromstring(int_xml.content)
+    try:
+        interface_tree = etree.fromstring(int_xml.content)
+    except etree.XMLSyntaxError:  # there is no engagedinterfaces--2.xml document, return null result. See 1Z0H for ex
+        return {'id': -2, 'composition': None, 'chains': {}, 'ligands': {}, 'stable': None, 'dg_diss': 0., 'dg_int': 0.,
+                'pdb_BA': pdb_biomol, 'interfaces': {}}
     # interface_root = interface_tree.getroot()
     interface_d, interface_chains = {}, {}
     for interface in interface_tree.findall('ENGAGEDINTERFACE'):
@@ -117,7 +120,6 @@ def get_complex_interfaces(pdb_code):
     # pdb_biomol = int(summary_root.find('BIOMOLECULER350').text)
     diss_pattern = summary_tree.find('DISSOCIATIONPATTERN').text
     diss_list = diss_pattern.split('+')
-    print(diss_list)
     for group in diss_list:
         if len(group) <= 1:  # any interface with a single chain is dissociated
             for interface_number, chain_pair in interface_chains.items():
