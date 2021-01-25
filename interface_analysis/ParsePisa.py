@@ -1,9 +1,9 @@
 #!/home/kmeador/miniconda3/bin/python
-import itertools
 import os
 import subprocess
 import sys
 from collections import defaultdict
+from itertools import repeat
 
 from lxml import etree, html
 from requests import get, post
@@ -22,9 +22,19 @@ pisa_ref_d = {'multimers': {'ext': 'multimers.xml', 'source': 'pisa', 'mod': ''}
 
 
 def get_complex_interfaces(pdb_code):
+    """Retrieve the coordinate only assembly analysis from PISA if a biological assembly on the PDB was not found in
+    the multimers analysis.
+
+    Caution this function has errors around ligands and dissociation patterns. Due to the incomplete data access of
+    PISA this parsing is the best available for the ligand system. Multiple ligands are denoted with numbers and the
+    dissociation pattern lacks these numbers, so the dissociation of interfaces may be inaccurate with regards to the
+    exact PISA interface id that is dissociating when a ligand with more than one copy is involved
+    """
+    pdb_biomol = 1  # I believe this is always true
     header = {'User-Agent': 'Mozilla/5.0 (X11; CrOS x86_64 13505.100.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.142 Safari/537.36'}
     pisa_query = get('https://www.ebi.ac.uk/pdbe/pisa/cgi-bin/piserver?qa=%s' % pdb_code, headers=header)
     # print(pisa_query.content)
+    # print('\n' * 10)
     pisa_content_tree = html.fromstring(pisa_query.content)
     input_dir_key = pisa_content_tree.xpath('//input[@name="dir_key"]')
     session_id = input_dir_key[0].value
@@ -34,7 +44,14 @@ def get_complex_interfaces(pdb_code):
     url = 'https://www.ebi.ac.uk/msd-srv/prot_int/cgi-bin/piserver'
     data = {'page_key': 'assembly_list_page', 'action_key': 'act_go_to_asmpage_p', 'dir_key': session_id,
             'session_point': '8', 'action_no': '-2_0'}  # This is for the complex page!
-    pisa_query = post(url, data=data)
+    assembly_query = post(url, data=data)
+    pisa_content_tree = html.fromstring(assembly_query.content)
+    complex_found = pisa_content_tree.xpath('//form/small')
+    # print(pisa_query.content)
+    # print('\n' * 10)
+    if not complex_found:  # ensure that the complex has an assembly, it may be a monomer if we have reached this point
+        return {'id': -2, 'composition': None, 'chains': {}, 'ligands': {}, 'stable': None, 'dg_diss': 0., 'dg_int': 0.,
+                'pdb_BA': pdb_biomol, 'interfaces': {}}
 
     int_xml = get('https://www.ebi.ac.uk/msd-srv/prot_int/data/pisrv_%s/engagedinterfaces--2.xml' % session_id)
     # xml = get('https://www.ebi.ac.uk/msd-srv/prot_int/data/pisrv_674-OC-J26/engagedinterfaces--2.xml' % session_id)
@@ -45,7 +62,7 @@ def get_complex_interfaces(pdb_code):
     interface_d, interface_chains = {}, {}
     for interface in interface_tree.findall('ENGAGEDINTERFACE'):
         if len(interface) > 1:
-            # type = interface.find('INTERFACETYPE').text  # May be missing int()
+            # type = int(interface.find('INTERFACETYPE').text)
             chains = interface.find('INTERFACESTRUCTURES').text
             chains = chains.split('+')
             number = int(interface.find('INTERFACENO').text) + 1  # offset to make same as interfaceID in interfaces.xml
@@ -66,9 +83,28 @@ def get_complex_interfaces(pdb_code):
     # entropy_diss = float(summary_root.find('ENTROPYDISS').text)
     # complex_id = summary_root.find('MULTIMERICSTATE').text
     complex_composition = summary_tree.find('COMPOSITION').text
-    chains = defaultdict(int)
-    for chain in complex_composition:
-        chains[chain] += 1
+    chains, ligands = defaultdict(int), defaultdict(int)
+    new_part, multi_id_part, last_part = '', False, None
+    for idx, part_id in enumerate(complex_composition):
+        if multi_id_part:
+            if part_id == ']':  # the multipart is ending (please watch your step, thank you)
+                multi_id_part = False  # stop collecting the parts
+                if new_part.isdigit():  # check if it is a coefficient
+                    if last_part in chains:  # check if coefficient applies to chains # if last_part: <-- not required?
+                        chains[last_part] += int(new_part) - 1  # offset as we already added it once
+                    else:  # it must apply to a ligand
+                        ligands[last_part] += int(new_part) - 1  # offset as we already added it once
+                else:  # it must be a ligand
+                    ligands[new_part] += 1
+                    last_part = new_part
+                new_part = ''
+            else:
+                new_part += part_id  # add the multipart to a new part
+        elif part_id == '[':  # we need the last part found
+            multi_id_part = True
+        else:
+            chains[part_id] += 1
+            last_part = part_id
 
     d_g_diss = float(summary_tree.find('DELTAGDISSOCIATION').text)
     d_g_int = float(summary_tree.find('DELTAGFORMATION').text)
@@ -78,23 +114,37 @@ def get_complex_interfaces(pdb_code):
         stable = False
 
     # REMARK 350 from PDB indicating biological assembly. If R350 = 0, no assigned BA for set complex
-    pdb_biomol = 1  # I believe this is always true
     # pdb_biomol = int(summary_root.find('BIOMOLECULER350').text)
     diss_pattern = summary_tree.find('DISSOCIATIONPATTERN').text
     diss_list = diss_pattern.split('+')
+    print(diss_list)
     for group in diss_list:
-        group = group[:group.find('[') if group.find('[') != -1 else None].strip()  # remove ligands from chains
-        if len(group) <= 1:  # any interface with this chain is dissociated
-            for interface_number, chains in interface_chains.items():
-                if group in chains:
+        if len(group) <= 1:  # any interface with a single chain is dissociated
+            for interface_number, chain_pair in interface_chains.items():
+                if group in chain_pair:
+                    print('Group: %s\tChain Pair: %s' % (group, chain_pair))
                     interface_d[interface_number]['diss'] = 1
         else:  # only interfaces with both chains in group are not dissociated
-            for interface_number, chains in interface_chains.items():
-                if chains[0] not in group or chains[1] not in group:
-                    print('Group: %s\tChains:%s' % (group, chains))
-                    interface_d[interface_number]['diss'] = 1
+            group = group.strip()
+            if group.find('[') != -1:
+                # group_item = group[group.find('['): group.find(']')]
+                group = group.split('[')  # : group.find(']')]
+                group = list(map(str.rstrip, group, repeat(']')))
+                remove = []
+                for idx, element in enumerate(group):
+                    if element.isdigit():
+                        group.append(group[idx - 1])
+                        remove.append(element)
+                for element in remove:
+                    group.remove(element)
+            for group_part in group:
+                for interface_number, chain_pair in interface_chains.items():
+                    if group_part in chain_pair:
+                        if chain_pair[0] not in group or chain_pair[1] not in group:
+                            # print('Group Pair: %s\tChain Pair: %s' % (group, chain_pair))
+                            interface_d[interface_number]['diss'] = 1
 
-    return {'id': -2, 'composition': complex_composition.strip(), 'chains': chains, 'ligands': {},  # Todo ligands
+    return {'id': -2, 'composition': complex_composition.strip(), 'chains': chains, 'ligands': ligands,
             'stable': stable, 'dg_diss': d_g_diss, 'dg_int': d_g_int, 'pdb_BA': pdb_biomol, 'interfaces': interface_d}
 
 
@@ -182,7 +232,7 @@ def parse_pisa_multimers_xml(xml_file_path):  # , download_structures=False, out
                     d_g_int = float(assembly.find('int_energy').text)
                     # REMARK 350 from PDB indicating biological assembly. If R350 = 0, no assigned BA for set complex
                     pdb_biomol = int(assembly.find('R350').text)
-                    if d_g_diss >= 0:  # Todo, I think this logic is flipped
+                    if d_g_diss >= 0:
                         stable = True
                     else:
                         stable = False
@@ -474,7 +524,7 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
 
 def extract_xtal_interfaces(pdb_path):
     source_pdb = PDB.from_file(pdb_path)
-    interface_data = parse_pisa_interfaces_xml(pdb)
+    interface_data = parse_pisa_interfaces_xml(pdb_path)
     for interface in interface_data:
         interface_pdb = PDB()
         for chain in interface['chain_data']:
@@ -487,10 +537,10 @@ def extract_xtal_interfaces(pdb_path):
             for n in resi:
                 resi_atoms = source_pdb.getResidueAtoms(chain, n)
                 all_resi_atoms.append(resi_atoms)
-            interface_atoms = list(itertools.chain.from_iterable(all_resi_atoms))
+            interface_atoms = list(chain.from_iterable(all_resi_atoms))
             chain_pdb.read_atom_list(interface_atoms)
             chain_pdb.apply(rot, trans)
-            interface_pdb.read_atom_list(chain_pdb.all_atoms)
+            interface_pdb.read_atom_list(chain_pdb.get_atoms())
         interface_pdb.write(pdb_path + interface + '.pdb')
 
 
