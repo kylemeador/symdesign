@@ -1,15 +1,14 @@
 import argparse
 import os
+from itertools import repeat
 
 import pandas as pd
 
-from PDB import PDB
-from Pose import calculate_interface_score
-from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, mp_map
+from Pose import Pose, calculate_interface_score
+from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, to_iterable, mp_starmap
 # from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
 from classes import EulerLookup
 from classes.Fragment import FragmentDB
-from interface_analysis.InterfaceSorting import return_pdb_interface
 
 # Globals
 # Nanohedra.py Path
@@ -47,6 +46,7 @@ if __name__ == '__main__':
                                                        'pairs', required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
+    parser.add_argument('-t', '--threads', type=int, help='How many threads should be utilized?\nDefault=1', default=1)
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
 
     args, additional_flags = parser.parse_known_args()
@@ -84,40 +84,59 @@ if __name__ == '__main__':
         else:
             interface_filepaths = get_all_pdb_file_paths(args.directory)
 
-        missing_index = [i for i, file_path in enumerate(interface_filepaths)
-                         if os.path.splitext(os.path.basename(file_path))[0] not in bio_reference_l]
+        # # Used for all biological interface scoring
+        # missing_index = [i for i, file_path in enumerate(interface_filepaths)
+        #                  if os.path.splitext(os.path.basename(file_path))[0] not in bio_reference_l]
+        #
+        # for i in reversed(missing_index):
+        #     del interface_filepaths[i]
+        #
+        # # for interface_path in interface_filepaths:
+        # #     pdb = PDB(file=interface_path)
+        # #     # pdb = read_pdb(interface_path)
+        # #     pdb.name = os.path.splitext(os.path.basename(interface_path))[0]
 
-        for i in reversed(missing_index):
-            del interface_filepaths[i]
-
-        for interface_path in interface_filepaths:
-            pdb = PDB(file=interface_path)
-            # pdb = read_pdb(interface_path)
-            pdb.name = os.path.splitext(os.path.basename(interface_path))[0]
+        # Viable for the design recap test where files are I32-01.pdb
+        interface_poses = [Pose.from_asu_file(interface_path, symmetry=os.path.basename(interface_path[0]))
+                           for interface_path in interface_filepaths]
 
     elif args.file:
-        # pdb_codes = to_iterable(args.file)
-        pdb_interface_d = unpickle(args.file)
-        # for pdb_code in pdb_codes:
-        #     for interface_id in pdb_codes[pdb_code]:
-        interface_pdbs = [return_pdb_interface(pdb_code, interface_id) for pdb_code in pdb_interface_d
-                          for interface_id in pdb_interface_d[pdb_code]]
-        if args.output:
-            out_path = args.output_dir
-            pdb_code_id_tuples = [(pdb_code, interface_id) for pdb_code in pdb_interface_d
-                                  for interface_id in pdb_interface_d[pdb_code]]
-            for interface_pdb, pdb_code_id_tuple in zip(interface_pdbs, pdb_code_id_tuples):
-                interface_pdb.write(os.path.join(args.output_dir, '%s-%d.pdb' % pdb_code_id_tuple))
-    # else:
+        # # Used to write all pdb interfaces to an output location
+        # # pdb_codes = to_iterable(args.file)
+        # pdb_interface_d = unpickle(args.file)
+        # # for pdb_code in pdb_codes:
+        # #     for interface_id in pdb_codes[pdb_code]:
+        # interface_pdbs = [return_pdb_interface(pdb_code, interface_id) for pdb_code in pdb_interface_d
+        #                   for interface_id in pdb_interface_d[pdb_code]]
+        # if args.output:
+        #     out_path = args.output_dir
+        #     pdb_code_id_tuples = [(pdb_code, interface_id) for pdb_code in pdb_interface_d
+        #                           for interface_id in pdb_interface_d[pdb_code]]
+        #     for interface_pdb, pdb_code_id_tuple in zip(interface_pdbs, pdb_code_id_tuples):
+        #         interface_pdb.write(os.path.join(args.output_dir, '%s-%d.pdb' % pdb_code_id_tuple))
+
+        interface_filepaths = to_iterable(args.file)
+        interface_poses = [Pose.from_asu_file(interface_path, symmetry=os.path.basename(interface_path[0]))
+                           for interface_path in interface_filepaths]
+    else:
+        interface_poses = False
     #     logger.critical('Either --file or --directory must be specified')
     #     exit()
 
     if args.multi_processing:
-        results = mp_map(calculate_interface_score, interface_pdbs, threads=int(sys.argv[3]))
-        interface_d = {result for result in results}
-        # interface_d = {key: result[key] for result in results for key in result}
+        # # used without Pose
+        # results = mp_map(calculate_interface_score, interface_pdbs, threads=args.threads)
+        # interface_d = {result for result in results}
+        # # interface_d = {key: result[key] for result in results for key in result}
+
+        zipped_args = zip(interface_poses, repeat(1), repeat(2))
+        # score_interface(entity1=None, entity2=None)
+        results = mp_starmap(Pose.score_interface, zipped_args, threads=args.threads)
+        interface_d = {pose.name: result.values() for pose, result in zip(interface_poses, results)}
     else:
         interface_d = {calculate_interface_score(interface_pdb) for interface_pdb in interface_pdbs}
 
     interface_df = pd.DataFrame(interface_d)
-    interface_df.to_csv('BiologicalInterfaceNanohedraScores.csv')
+    # dataframe_name = 'BiologicalInterfaceNanohedraScores.csv'
+    dataframe_name = 'DesignedCagesInterfaceNanohedraScores.csv'
+    interface_df.to_csv(dataframe_name)
