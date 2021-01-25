@@ -88,7 +88,24 @@ pdb_uniprot_map = os.path.join(data_dir, 'pdb_uniprot_map')  # TODO
 affinity_tags = os.path.join(data_dir, 'modified-affinity-tags.csv')
 qsbio = os.path.join(data_dir, 'QSbio_Assemblies')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
 database = os.path.join(data_dir, 'databases')
-pdb_db = os.path.join(database, 'PDB.db')  # TODO pointer to pdb database or to pdb website?
+pdb_db = os.path.join(database, 'pdbDB')  # pointer to pdb database
+pisa_db = os.path.join(database, 'pisaDB')  # pointer to pisa database
+qs_bio = os.path.join(data, 'QSbio_GreaterThanHigh_Assemblies.pkl')
+qs_bio_monomers = os.path.join(data, 'QSbio_Monomers.csv')
+
+# TODO script this file creation ?
+#  qsbio_data_url = 'https://www.weizmann.ac.il/sb/faculty_pages/ELevy/downloads/QSbio.xlsx'
+#  response = requests.get(qsbio_data_url)
+#  with open(qsbio_file, 'wb') as output
+#      output.write(response.content)
+#  qsbio_df = pd.DataFrame(qsbio_file)
+#  or
+#  qsbio_df = pd.DataFrame(response.content)
+#  qsbio_df.groupby('QSBio Confidence', inplace=True)
+#  greater_than_high_df = qsbio_df[qsbio_df['QSBio Confidence'] in ['Very high', 'High']
+#
+#  for pdb_code in qs_bio:
+#      qs_bio[pdb_code] = set(int(ass_id) for ass_id in qs_bio[pdb_code])
 
 # Fragment Database
 fragment_db = os.path.join(database, 'fragment_db')
