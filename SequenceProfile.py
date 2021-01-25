@@ -12,22 +12,21 @@ from Bio.Align import MultipleSeqAlignment
 #     from Bio.SubsMat import MatrixInfo as matlist
 #     from Bio.Alphabet import generic_protein  # , IUPAC
 # except ImportError:
+# generic_protein = None
 from Bio.Align import substitution_matrices
 from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 
-generic_protein = None
-
 import CmdUtils as CUtils
+import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths
-import DesignDirectory
 # from DesignDirectory import
 from Query.PDB import get_sequence_by_entity_id
-from mysql.MysqlPython import Mysql
+from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths
+from utils.MysqlPython import Mysql
 
 # Globals
 index_offset = 1
