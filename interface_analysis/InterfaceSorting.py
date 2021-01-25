@@ -355,7 +355,7 @@ if __name__ == '__main__':
             print(i)
             # if pisa_path:
             pisa_d = unpickle(pisa_path)
-            pdb_code = pisa_path[:4]
+            pdb_code = os.path.basename(pisa_path)[:4]
             pisa_d = verify_pisa(pisa_d, pdb_code)
             if pisa_d:  # we modified the pisa_d and should re-pickle
                 pickle_object(pisa_d, pisa_path, out_path='')
