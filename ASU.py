@@ -437,7 +437,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--command_only', action='store_true', help='Whether to only write commands, not run '
                                                                           'them')
     parser.add_argument('-d', '--directory', type=str, help='Directory where \'.pdb\' files to set up ASU extraction'
-                                                            'are located.\nDefault=CWD', default=os.getcwd())
+                                                            'are located.\n')
     parser.add_argument('-f', '--file', type=str, help='File with list of pdb files of interest\nDefault=None',
                         default=None)
     # parser.add_argument('-c', '--chain', type=str, help='What chain would you like to leave?\nDefault=A', default='A')

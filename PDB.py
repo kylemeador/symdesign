@@ -1226,11 +1226,11 @@ class PDB(Structure):
         #    for j in range(3):
         #         coord_moved[j] += tx[j]
         #    moved.append(coord_moved)
-        if rot:
+        if rot is not None:
             moved = np.matmul(np.array(rot), self.coords)
         else:
             moved = self.coords
-        if tx:
+        if tx is not None:
             moved = moved + np.array(tx)
 
         self.coords = Coords(moved)
