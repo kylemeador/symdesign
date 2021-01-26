@@ -14,7 +14,7 @@ from SequenceProfile import SequenceProfile
 from Structure import Coords
 # Globals
 from SymDesignUtils import to_iterable, logger, pickle_object
-from classes.Fragment import MonoFragment
+from classes.Fragment import MonoFragment, FragmentDB
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from utils.SymmUtils import valid_subunit_number
 
@@ -25,13 +25,11 @@ monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepres
 ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
 intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
 
-# # Create fragment database for all ijk cluster representatives
-# ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
-#                          intfrag_cluster_info_dirpath)
-# # Get complete IJK fragment representatives database dictionaries
-# ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-# ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-# ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+
+def create_fragment_db():
+    # Create fragment database for all ijk cluster representatives
+    return FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath)
+
 #
 # # Initialize Euler Lookup Class
 # eul_lookup = EulerLookup()
@@ -62,7 +60,7 @@ class Model:  # (PDB)
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
         self.pdb = None
-        self.models = None
+        self.models = []
 
     def set_models(self, models):
         self.models = models
@@ -124,7 +122,8 @@ class SymmetricModel:  # (Model)
         self.expand_matrices = None  # Todo make expand_matrices numpy
         self.number_of_models = None
 
-    def set_symmetry(self, cryst1=None, uc_dimensions=None, symmetry=None, generate_assembly=True):
+    def set_symmetry(self, cryst1=None, uc_dimensions=None, symmetry=None, generate_assembly=True,
+                     generate_symmetry_mates=False):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required"""
@@ -151,7 +150,7 @@ class SymmetricModel:  # (Model)
             # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
 
         if generate_assembly:
-            self.generate_symmetric_assembly()
+            self.generate_symmetric_assembly(generate_symmetry_mates=generate_symmetry_mates)
 
     def generate_symmetric_assembly(self, return_side_chains=True, surrounding_uc=False, generate_symmetry_mates=False):
         """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
@@ -243,12 +242,14 @@ class SymmetricModel:  # (Model)
             get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         self.coords = get_pdb_coords(self.asu)
+        print('coords length at coord expansion: %d' % len(self.coords))
         self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
+        print('model coords length at coord expansion: %d' % len(self.model_coords))
         # self.model_coords[:len(self.coords)] = self.coords
         for idx, rot in enumerate(self.expand_matrices):  # Todo numpy incomming expand_matrices
             r_mat = np.transpose(np.array(rot))
             r_asu_coords = np.matmul(self.coords, r_mat)
-            self.model_coords[idx * len(self.coords): (idx * len(self.coords)) + len(self.coords)] = r_asu_coords
+            self.model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = r_asu_coords
         # self.model_coords = np.array(self.model_coords)
 
     def get_unit_cell_coords(self, return_side_chains=True):
@@ -274,7 +275,7 @@ class SymmetricModel:  # (Model)
 
             r_asu_frac_coords = np.matmul(asu_frac_coords, r_mat)
             rt_asu_frac_coords = r_asu_frac_coords + t_vec
-            self.model_coords[idx * len(self.coords): (idx * len(self.coords)) + len(self.coords)] = \
+            self.model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = \
                 self.frac_to_cart(rt_asu_frac_coords)
 
             # self.model_coords.extend(self.frac_to_cart(rt_asu_frac_coords).tolist())
@@ -315,14 +316,23 @@ class SymmetricModel:  # (Model)
 
         # self.models.append(copy.copy(self.asu))
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
+        print('Models: %d' % self.number_of_models)
         for model_idx in range(self.number_of_models):  # range(1,
-            symmetry_mate_pdb = copy.copy(self.asu)
+            symmetry_mate_pdb = copy.deepcopy(self.asu)
+            # print(len(self.model_coords[(model_idx * self.asu.number_of_atoms):
+            #                             ((model_idx + 1) * self.asu.number_of_atoms)]))
+            # print('Asu ATOM number: %d' % self.asu.number_of_atoms)
             symmetry_mate_pdb.coords = Coords(self.model_coords[(model_idx * self.asu.number_of_atoms):
                                                                 ((model_idx + 1) * self.asu.number_of_atoms)])
             # symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
             #                                                          (model_idx * self.asu.number_of_atoms)
             #                                                          + self.asu.number_of_atoms])
+            print('Coords copy of length %d: %s' % (symmetry_mate_pdb.coords.shape[0], symmetry_mate_pdb.coords))
+            print('Atom 1 coordinates: %s' % symmetry_mate_pdb.get_atoms()[0].x)
+            print('Atom 1: %s' % str(symmetry_mate_pdb.get_atoms()[0]))
             self.models.append(symmetry_mate_pdb)
+        for model_idx in range(len(self.models)):
+            print('Atom 1: %s' % str(self.models[model_idx].get_atoms()[0]))
 
     def find_asu_equivalent_symmetry_mate(self, residue_query_number=1):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
@@ -567,18 +577,18 @@ class SymmetricModel:  # (Model)
     #             self.models.extend(uc_sym_mate_pdb)
     #         # self.models.extend(one_surrounding_unit_cell)
 
-    def write(self, name, location=os.getcwd(), cryst1=None):  # Todo write model, write symmetry
-        out_path = os.path.join(location, '%s.pdb' % name)
+    def write(self, out_path=os.getcwd()):  #, cryst1=None):  # Todo write model, write symmetry.    name, location
+        # out_path = os.path.join(location, '%s.pdb' % name)
         with open(out_path, 'w') as f:
-            if cryst1 and isinstance(cryst1, str) and cryst1.startswith('CRYST1'):
-                f.write('%s\n' % cryst1)
+            # if cryst1 and isinstance(cryst1, str) and cryst1.startswith('CRYST1'):
+            #     f.write('%s\n' % cryst1)
             for i, model in enumerate(self.models, 1):
                 f.write('{:9s}{:>4d}\n'.format('MODEL', i))
-                for _chain in model.chain_id_list:
-                    chain_atoms = model.get_chain_atoms(_chain)
+                for chain in model.chains:
+                    chain_atoms = chain.get_atoms()
                     f.write(''.join(str(atom) for atom in chain_atoms))
                     f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_atoms[-1].number + 1,
-                                                                          chain_atoms[-1].residue_type, _chain,
+                                                                          chain_atoms[-1].residue_type, chain.name,
                                                                           chain_atoms[-1].residue_number))
                 # f.write(''.join(str(atom) for atom in model.atoms))
                 # f.write('\n'.join(str(atom) for atom in model.atoms))
@@ -586,7 +596,7 @@ class SymmetricModel:  # (Model)
 
     @staticmethod
     def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
-        expand_matrix_filepath = os.path.join(expand_matrix_dir, sym_type)
+        expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
         with open(expand_matrix_filepath, "r") as expand_matrix_f:
             expand_matrix_lines = expand_matrix_f.readlines()
 
@@ -658,7 +668,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
 
         # super().__init__()  # structure=self)  # SequenceProfile init
         # self.pdb = None  # the pose specific pdb  # Model
-        # self.models = []  # from Model or SymmetricModel
+        # self.models = []  # from Model MRO priority or SymmetricModel
         self.pdbs = []  # the member pdbs which make up the pose
         # self.entities = []  # from PDB
         self.pdbs_d = {}
@@ -765,7 +775,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
     def initialize_symmetry(self, symmetry=None):
         if symmetry:
             self.set_symmetry(symmetry=symmetry)
-        if self.pdb.space_group and self.pdb.uc_dimensions:
+        elif self.pdb.space_group and self.pdb.uc_dimensions:  # Todo from ASU has the old symmetry indicators attached!
             self.set_symmetry(symmetry=self.pdb.space_group, uc_dimensions=self.pdb.uc_dimensions)
         elif self.pdb.cryst_record:
             self.set_symmetry(cryst1=self.pdb.cryst_record)
