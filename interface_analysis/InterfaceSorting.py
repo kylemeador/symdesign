@@ -9,7 +9,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
-from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers
+from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
 from SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, get_all_file_paths, to_iterable
 from PDB import PDB
 from Pose import retrieve_pdb_file_path
@@ -233,7 +233,7 @@ def sort_pdb_interfaces_by_contact_type(pisa_d, interface_number_set, assembly_c
     else:  # we have a monomer and all interface are xtal
         final_xtal_int = interface_number_set
 
-    return {'bio': final_bio_int, 'xtal': final_xtal_int, 'unknown_bio': final_unknown_bio_int}
+    return {'homo': final_bio_int, 'xtal': final_xtal_int, 'unknown_bio': final_unknown_bio_int}  # 'bio'
 
 
 def sort_pdbs_to_uniprot_d(pdbs, pdb_uniprot_d, master_dictionary=None):
@@ -246,45 +246,40 @@ def sort_pdbs_to_uniprot_d(pdbs, pdb_uniprot_d, master_dictionary=None):
     for pdb in pdbs:
         for chain in pdb_uniprot_d[pdb]['dbref']:
             if pdb_uniprot_d[pdb]['dbref'][chain]['db'] == 'UNP':  # only add the pdb and chain if dbref is UniProtID
+                if 'space' in pdb_uniprot_d[pdb]['struct']:
+                    space_group = pdb_uniprot_d[pdb]['struct']['space']
+                else:  # Todo NMR, EM? they wouldn't have xtal contacts...
+                    space_group = None
+
                 unpid = pdb_uniprot_d[pdb]['dbref'][chain]['accession']
                 if unpid in unp_master:
                     unp_master[unpid]['all'].add('%s.%s' % (pdb, chain))
                     unp_master[unpid]['unique_pdb'].add(pdb)
-                    space_group = pdb_uniprot_d[pdb]['cryst']['space']  # Todo ensure can be none
-                    if not space_group:
-                        pass
-                    else:
+                    if space_group:
                         if space_group not in unp_master[unpid]['space_groups']:
-                            unp_master[unpid]['space_groups'][space_group] = {'all': {pdb}, 'top': None}
+                            unp_master[unpid]['space_groups'][space_group] = {'all': {pdb}}  # , 'top': None}
                         else:
                             unp_master[unpid]['space_groups'][space_group]['all'].add(pdb)
                 else:
-                    unp_master[unpid] = {'all': {'%s.%s' % (pdb, chain)}, 'unique_pdb': {pdb}, 'top': None,
-                                         'bio': set(), 'partners': {}, 'space_groups': {
-                            pdb_uniprot_d[pdb]['cryst']['space']: {'all': {pdb}, 'top': None}}}
+                    if space_group:
+                        entry = {space_group: {'all': set(pdb)}}  # , 'top': None}}
+                    else:
+                        entry = {}
+                    unp_master[unpid] = {'all': {'%s.%s' % (pdb, chain)}, 'unique_pdb': {pdb}, 'space_groups': entry}
+                    # , 'top': None, 'hetero': set(), 'partners': {},
             else:
                 no_unpid.add('%s.%s' % (pdb, chain))
 
     return unp_master, no_unpid
 
 
-def process_uniprot_entry(uniprot_id, unp_d, pdb_uniprot_info, min_resolution_threshold=3.0):
-    """Filter a UniProt ID/PDB dictionary for PDB entries with unique interfacial contacts including biological,
-        crystalline, and hetero partners. Finds the highest resolution structure for each category.
-    """
-
-    min_res = copy(min_resolution_threshold)
-    top_pdb = None
+def add_partners_to_uniprot_entry(uniprot_id, unp_d, pdb_uniprot_info):
+    unp_d['partners'] = {}
+    # Check for pdbs which comprise Self and other Uniprot IDs. These represent distinct heteromeric interfaces
     for pdb in unp_d['unique_pdb']:
-        # Find Uniprot ID with top Resolution
-        if pdb_uniprot_info[pdb]['res'] <= min_res:  # structural resolution is less than threshold
-            top_pdb = pdb
-            min_res = pdb_uniprot_info[pdb]['res']
-
-        # Check for pdbs which comprise Self and other Uniprot IDs. These represent distinct heteromeric interfaces
         if len(pdb_uniprot_info[pdb]['dbref']) > 1:  # Check if there is more than one chain in the pdb
             for chain in pdb_uniprot_info[pdb]['dbref']:
-                if pdb_uniprot_info[pdb]['ref'][chain]['db'] == 'UNP':  # only add if there is corresponding UniProtID
+                if pdb_uniprot_info[pdb]['dbref'][chain]['db'] == 'UNP':  # only add if there is corresponding UniProtID
                     partner_unpid = pdb_uniprot_info[pdb]['dbref'][chain]['accession']
                     if partner_unpid != uniprot_id:  # only get other Uniprot IDs
                         if partner_unpid in unp_d['partners']:
@@ -292,32 +287,45 @@ def process_uniprot_entry(uniprot_id, unp_d, pdb_uniprot_info, min_resolution_th
                         else:
                             unp_d['partners'][partner_unpid] = {'all': ['%s.%s' % (pdb, chain)], 'top': None}
 
-    # Save highest Resolution PDB Code ### add to Biological Assembly list
-    if top_pdb:  # isn't necessary if filtered by min_resolution_threshold due to iterator
-        unp_d['top'] = top_pdb
+
+def find_representative_pdbs_for_uniprot_entry(unp_d, pdb_uniprot_info, min_resolution_threshold=3.0):
+    """Filter a UniProt ID/PDB dictionary for PDB entries with unique interfacial contacts including biological,
+        crystalline, and hetero partners. Finds the highest resolution structure for each category.
+    """
+    # Find Uniprot ID with top Resolution and save highest Resolution PDB Code
+    min_res = copy(min_resolution_threshold)
+    top_pdb = None
+    for pdb_code in unp_d['unique_pdb']:
+        if pdb_uniprot_info[pdb_code]['res'] <= min_res:  # structural resolution is less than threshold
+            top_pdb = pdb_code
+            min_res = pdb_uniprot_info[pdb_code]['res']
+
+    unp_d['top'] = top_pdb
+    # Add to Biological Assembly list
     # unp_master[unpid]['bio'].add(top_pdb)  # Todo why? Could be a monomer
 
-    # Add the highest resolution UniProt Partners to the Biological Assemblies set. These are heteromeric bio assemblies
+    # Add the highest resolution UniProt Partners to the Hetero Biological Assemblies
+    unp_d['hetero'] = set()
     for partner in unp_d['partners']:
         min_partner_res = copy(min_resolution_threshold)
         top_partner = None
         for pdb_chain in unp_d['partners'][partner]['all']:
             partner_res = pdb_uniprot_info[pdb_chain.split('.')[0]]['res']
-            if partner_res <= min_partner_res:  # always puts last pdb.chain from [partners][all] if > 1 chain in pdb
+            if partner_res <= min_partner_res:  # always puts last pdb chain from [partners][all] if > 1 chain in pdb
                 top_partner = pdb_chain
                 min_partner_res = partner_res
         if top_partner:  # isn't necessary if filtered by min_resolution_threshold due to iterator
             unp_d['partners'][partner]['top'] = top_partner
-            unp_d['bio'].add(top_partner.split('.')[0])
+            unp_d['hetero'].add(top_partner.split('.')[0])
 
     # Save highest Resolution PDB Codes for each Space Group
     for cryst in unp_d['space_groups']:
         min_xtal_res = copy(min_resolution_threshold)
         top_xtal_pdb = None
-        for pdb in unp_d['space_groups'][cryst]['all']:
-            if pdb_uniprot_info[pdb]['res'] <= min_xtal_res:
-                top_xtal_pdb = pdb
-                min_xtal_res = pdb_uniprot_info[pdb]['res']
+        for pdb_code in unp_d['space_groups'][cryst]['all']:
+            if pdb_uniprot_info[pdb_code]['res'] <= min_xtal_res:
+                top_xtal_pdb = pdb_code
+                min_xtal_res = pdb_uniprot_info[pdb_code]['res']
         if top_xtal_pdb:  # isn't necessary if filtered by min_resolution_threshold due to iterator
             unp_d['space_groups'][cryst]['top'] = top_xtal_pdb
 
@@ -382,13 +390,27 @@ if __name__ == '__main__':
     # qsbio_file_name = qs_bio
     # qsbio_file = os.path.join(current_interface_file_path, qsbio_file_name)
     # qsbio_confirmed_d = unpickle(qsbio_file)
-    qsbio_confirmed_d = unpickle(qs_bio)
-    qsbio_monomers = to_iterable(qs_bio_monomers)
-    print('The number of monomers found in %s: %d' % (qs_bio_monomers, len(set(qsbio_monomers))))
-
     # qsbio_monomers_file_name = 'QSbio_Monomers.csv'
     # qsbio_monomers_file = os.path.join(current_interface_file_path, qsbio_monomers_file_name)
     # qsbio_monomers = to_iterable(qsbio_monomers_file)
+    qsbio_confirmed_d = unpickle(qs_bio)  # Todo make each list of interface ids a set()
+    qsbio_monomers = to_iterable(qs_bio_monomers_file)  # Todo remove monomers from confirmed assemblies in source
+    qsbio_monomers_d = {}
+    for pdb_ass in qsbio_monomers:
+        pdb_ass = pdb_ass.split('_')
+        if pdb_ass[0] in qsbio_monomers_d:
+            qsbio_monomers_d[pdb_ass[0]].add(pdb_ass[1])
+        else:
+            qsbio_monomers_d[pdb_ass[0]] = set(pdb_ass[1])
+
+    print('The number of monomers found in %s: %d' % (qs_bio_monomers_file, len(qsbio_monomers_d)))
+    for pdb, assemblies in qsbio_monomers_d.items():
+        for assembly in assemblies:
+            if pdb in qsbio_confirmed_d:
+                if assembly in qsbio_confirmed_d[pdb]:
+                    qsbio_confirmed_d[pdb].remove(assembly)
+        if not qsbio_confirmed_d[pdb]:  # if the list is now empty, remove it from the dictionary
+            qsbio_confirmed_d.pop(pdb)
 
     # Current, DEPRECIATE!
     interfaces_dir = '/yeates1/kmeador/fragment_database/all_interfaces'
@@ -431,8 +453,7 @@ if __name__ == '__main__':
                     if pdb_code in qsbio_confirmed_d:
                         assembly = qsbio_confirmed_d[pdb_code]
                     interface_sort_d[pdb_code] = sort_pdb_interfaces_by_contact_type(pisa_d, polymer_interface_ids,
-                                                                                     assembly_confirmed=assembly,
-                                                                                     pdb_code=pdb_code)
+                                                                                     assembly_confirmed=assembly)
                 else:
                     missing_pisa.add(pdb_code)
         # Save the objects
@@ -504,12 +525,14 @@ if __name__ == '__main__':
     #  easily identified based on their assembly. Write load PDB from MySQL function. Also ensure I have a standard
     #  query format to grab different table schemas depending on the step of the fragment processing.
 
-    # Next, find all those with biological interfaces according to PISA and QSBio, as well as monomers
-    all_biological = {pdb for pdb in interface_sort_d if interface_sort_d[pdb]['bio'] != set()}
-    all_missing_biological = set(interface_sort_d) - all_biological
-    proposed_qsbio_monomer_set = {pdb for pdb in all_missing_biological if pdb in qsbio_confirmed_d}
-    assert len(proposed_qsbio_monomer_set - qsbio_monomers) == 0, 'The set of proposed monomers has PDB\'s that are ' \
-                                                                  'not monomers!'
+    # Next, find all those with homomeric biological interfaces according to PISA and QSBio, as well as monomers
+    # # all_biological = {pdb for pdb in interface_sort_d if interface_sort_d[pdb]['homo'] != set()}
+    # all_missing_biological = set(interface_sort_d) - \
+    #                          {pdb for pdb in interface_sort_d if interface_sort_d[pdb]['homo'] != set()}  # all_biological
+    # proposed_qsbio_monomer_set = list(qsbio_monomers_d.keys())
+    # {pdb for pdb in all_missing_biological if pdb in qsbio_confirmed_d}
+    # assert len(proposed_qsbio_monomer_set - qsbio_monomers) == 0, 'The set of proposed monomers has PDB\'s that are '\
+    #                                                               'not monomers!'
 
     # NEXT Sorting the interfaces by UniProtID
     # Gather all UniProtIDs from the pdbs_of_interest
@@ -525,30 +548,32 @@ if __name__ == '__main__':
                                                          master_dictionary=uniprot_master)
     logger.info('Total UniProtID\'s added: %d\nTotal without UniProtID: %s' % (len(uniprot_sorted), len(no_unp_code)))
     # sort all interfaces by UniProt ID to account for duplicated PDB Structures, i.e. 1ABC and 2XYZ are protein P012345
-    uniprot_master = {uniprot_id: process_uniprot_entry(uniprot_id, uniprot_sorted[uniprot_id], pdb_uniprot_info,
-                                                        min_resolution_threshold=pdb_resolution_threshold)
-                      for uniprot_id in uniprot_sorted}
+    uniprot_partners = {uniprot_id: add_partners_to_uniprot_entry(uniprot_id, uniprot_entry, pdb_uniprot_info)
+                        for uniprot_id, uniprot_entry in uniprot_sorted.items()}
+
+    uniprot_master = {uniprot_id:
+                      find_representative_pdbs_for_uniprot_entry(uniprot_entry, pdb_uniprot_info,
+                                                                 min_resolution_threshold=pdb_resolution_threshold)
+                      for uniprot_id, uniprot_entry in uniprot_partners.items()}
 
     sorted_interfaces_file = pickle_object(uniprot_master, uniprot_master_file, out_path='')
 
     # Next, search for specific types of interfaces from the Master UniProt sorted dictionary
     # Find unique UniProtIDs which are representative of the homo-oligomer and unknown PDB interfaces
-    all_unknown_bio_interfaces, all_homo_bio_interfaces = {}, {}
-    for pdb in interface_sort_d:
-        if interface_sort_d[pdb]['unknown_bio']:  # check there is not an empty set()
-            all_unknown_bio_interfaces[pdb] = interface_sort_d[pdb]['unknown_bio']
-        if interface_sort_d[pdb]['bio']:  # check there is not an empty set()
-            all_homo_bio_interfaces[pdb] = interface_sort_d[pdb]['bio']
-        # if EM or NMR structures are added we won't have xtal contacts. TODO need other source than PISA for interfaces
-        # if interface_sort_d[pdb]['xtal']:  # check is there is an empty set()
-        #     all_homo_bio_interfaces[pdb] = interface_sort_d[pdb]['bio']
+    unknown_bio_interfaces = {pdb: interface_sort_d[pdb]['unknown_bio'] for pdb in interface_sort_d
+                              if interface_sort_d[pdb]['unknown_bio']}
+    homo_bio_interfaces = {pdb: interface_sort_d[pdb]['bio'] for pdb in interface_sort_d
+                           if interface_sort_d[pdb]['bio']}
+    # if EM or NMR structures are added we won't have xtal contacts. TODO need other source than PISA for interfaces
+    # if interface_sort_d[pdb]['xtal']:  # check is there is an empty set()
+    #     homo_bio_interfaces[pdb] = interface_sort_d[pdb]['bio']
 
-    # all_homo_uniprot_ids, all_unk_uniprot_ids = set(), set()
-    all_homo_uniprot_ids, all_unk_uniprot_ids = {}, {}
+    # homo_uniprot_ids, unknown_uniprot_ids = set(), set()
+    homo_uniprot_ids, unknown_uniprot_ids = {}, {}
     uniprot_hetero_bio_interfaces, uniprot_filtered_xtal_interfaces, unique_pdb_chains = {}, {}, {}
     for uniprot_id in uniprot_master:
         # Get the highest resolution heteromeric biological interfaces
-        for pdb in uniprot_master[uniprot_id]['bio']:
+        for pdb in uniprot_master[uniprot_id]['hetero']:
             uniprot_hetero_bio_interfaces[pdb] = interface_sort_d[pdb]['unknown_bio']
             # uniprot_hetero_bio_interfaces[pdb] = interface_sort_d[pdb]['bio']  # This has no heteromers in it
         # Get the highest resolution pdb for each space group along with the interfaces.
@@ -565,44 +590,44 @@ if __name__ == '__main__':
                 break
         # From all unique_pdbs, see if they are in set of homo_ or unknown_bio interfaces
         for pdb in uniprot_master[uniprot_id]['unique_pdb']:
-            if pdb in all_homo_bio_interfaces:
-                if uniprot_id in all_homo_uniprot_ids:
-                    all_homo_uniprot_ids[uniprot_id].add(pdb)
+            if pdb in homo_bio_interfaces:
+                if uniprot_id in homo_uniprot_ids:
+                    homo_uniprot_ids[uniprot_id].add(pdb)
                 else:
-                    all_homo_uniprot_ids[uniprot_id] = {pdb}
-            if pdb in all_unknown_bio_interfaces:
-                if uniprot_id in all_unk_uniprot_ids:
-                    all_unk_uniprot_ids[uniprot_id].add(pdb)
+                    homo_uniprot_ids[uniprot_id] = set(pdb)
+            if pdb in unknown_bio_interfaces:
+                if uniprot_id in unknown_uniprot_ids:
+                    unknown_uniprot_ids[uniprot_id].add(pdb)
                 else:
-                    all_unk_uniprot_ids[uniprot_id] = {pdb}
+                    unknown_uniprot_ids[uniprot_id] = set(pdb)
 
     # Sort the set of UniProt ID's to find the top representative PDB for each homo_oligomer and unknown_oligomer
     uniprot_unknown_bio_interfaces, uniprot_homo_bio_interfaces = {}, {}
-    for uniprot_id in all_homo_uniprot_ids:
+    for uniprot_id in homo_uniprot_ids:
         top_pdb = uniprot_master[uniprot_id]['top']
-        if top_pdb in all_homo_uniprot_ids[uniprot_id]:
-            uniprot_homo_bio_interfaces[top_pdb] = all_homo_bio_interfaces[top_pdb]
+        if top_pdb in homo_uniprot_ids[uniprot_id]:
+            uniprot_homo_bio_interfaces[top_pdb] = homo_bio_interfaces[top_pdb]
         else:
             highest_res = copy(pdb_resolution_threshold)
             highest_res_pdb = None
-            for pdb in all_homo_uniprot_ids[uniprot_id]:
+            for pdb in homo_uniprot_ids[uniprot_id]:
                 if pdb_uniprot_info[pdb]['res'] < highest_res:
                     highest_res = pdb_uniprot_info[pdb]['res']
                     highest_res_pdb = pdb
-            uniprot_homo_bio_interfaces[highest_res_pdb] = all_homo_bio_interfaces[highest_res_pdb]
+            uniprot_homo_bio_interfaces[highest_res_pdb] = homo_bio_interfaces[highest_res_pdb]
 
-    for uniprot_id in all_unk_uniprot_ids:
+    for uniprot_id in unknown_uniprot_ids:
         top_pdb = uniprot_master[uniprot_id]['top']
-        if top_pdb in all_unk_uniprot_ids[uniprot_id]:
-            uniprot_unknown_bio_interfaces[top_pdb] = all_unknown_bio_interfaces[top_pdb]
+        if top_pdb in unknown_uniprot_ids[uniprot_id]:
+            uniprot_unknown_bio_interfaces[top_pdb] = unknown_bio_interfaces[top_pdb]
         else:
             highest_res = copy(pdb_resolution_threshold)
             highest_res_pdb = None
-            for pdb in all_unk_uniprot_ids[uniprot_id]:
+            for pdb in unknown_uniprot_ids[uniprot_id]:
                 if pdb_uniprot_info[pdb]['res'] < highest_res:
                     highest_res = pdb_uniprot_info[pdb]['res']
                     highest_res_pdb = pdb
-            uniprot_unknown_bio_interfaces[highest_res_pdb] = all_unknown_bio_interfaces[highest_res_pdb]
+            uniprot_unknown_bio_interfaces[highest_res_pdb] = unknown_bio_interfaces[highest_res_pdb]
 
     logger.info('Found a total of:\nHeteromeric interfaces = %d\nHomomeric interfaces = %d\nUnknown interfaces = %d\n'
                 'Crystalline interfaces = %d\nUnique PDB Chains = %d' %
