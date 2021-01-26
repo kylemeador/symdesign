@@ -554,38 +554,41 @@ def get_pdb_info_by_entry(entry):
             chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', 'C']
             entity_chain_d[i] = chains  # <- now a list instead of set(chains)
             try:
-                uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
-                database = 'UNP'
-                db_d = {'db': database, 'accession': uniprot_id}
-            except KeyError:
-                # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
-                # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
-                identifiers = [[ident['database_accession'], ident['database_name']]
-                               for ident in entity_json[
-                                   'rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
+                try:
+                    uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
+                    database = 'UNP'
+                    db_d = {'db': database, 'accession': uniprot_id}
+                except KeyError:  # if no uniprot_id
+                    # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
+                    # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
+                    identifiers = [[ident['database_accession'], ident['database_name']]
+                                   for ident in entity_json[
+                                       'rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
 
-                if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
-                    whatever_else = None
-                    priority_l = [None for i in range(len(identifiers))]
-                    for i, tup in enumerate(identifiers, 1):
-                        if tup[1] == 'UniProt':
-                            priority_l[0] = i
-                            identifiers[i - 1][1] = 'UNP'
-                        elif tup[1] == 'GenBank':
-                            priority_l[1] = i  # two elements are required from above len check, never IndexError
-                            identifiers[i - 1][1] = 'GB'
-                        elif not whatever_else:
-                            whatever_else = i
-                    for idx in priority_l:
-                        if idx:  # we have found a database from the priority list, choose the corresponding identifier idx
-                            db_d = {'accession': identifiers[idx - 1][0], 'db': identifiers[idx - 1][1]}
-                            break
-                        else:
-                            db_d = {'accession': identifiers[whatever_else - 1][0], 'db': identifiers[whatever_else - 1][1]}
-                else:
-                    db_d = {'accession': identifiers[0], 'db': identifiers[1]}
+                    if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
+                        whatever_else = None
+                        priority_l = [None for i in range(len(identifiers))]
+                        for i, tup in enumerate(identifiers, 1):
+                            if tup[1] == 'UniProt':
+                                priority_l[0] = i
+                                identifiers[i - 1][1] = 'UNP'
+                            elif tup[1] == 'GenBank':
+                                priority_l[1] = i  # two elements are required from above len check, never IndexError
+                                identifiers[i - 1][1] = 'GB'
+                            elif not whatever_else:
+                                whatever_else = i
+                        for idx in priority_l:
+                            if idx:  # we have found a database from the priority list, choose the corresponding identifier idx
+                                db_d = {'accession': identifiers[idx - 1][0], 'db': identifiers[idx - 1][1]}
+                                break
+                            else:
+                                db_d = {'accession': identifiers[whatever_else - 1][0], 'db': identifiers[whatever_else - 1][1]}
+                    else:
+                        db_d = {'accession': identifiers[0], 'db': identifiers[1]}
 
-            ref_d = {chain: db_d for chain in chains}
+                ref_d = {chain: db_d for chain in chains}
+            except KeyError:  # there are no know identifiers found
+                ref_d = {chain: None for chain in chains}
         else:
             print('%s not found in the PDB!' % entity_id)
             return None

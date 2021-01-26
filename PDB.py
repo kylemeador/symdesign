@@ -1315,6 +1315,7 @@ class PDB(Structure):
 
         # self.update_entity_d()
         self.update_entity_representatives()
+        self.update_entity_sequences()
         self.update_entity_accession_id()
 
     def update_entity_d(self):  # Unused
@@ -1349,7 +1350,6 @@ class PDB(Structure):
         if self.retrieve_pdb_info_from_api(pdb_code=pdb_code):
             self.entity_d = {entity: {'chains': self.api_entry['entity'][entity]} for entity in
                              self.api_entry['entity']}
-            self.update_entity_sequences()
         else:
             self.get_entity_info_from_atoms()
             print('Entities were generated from ATOM records.')
