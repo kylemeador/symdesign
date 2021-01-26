@@ -15,7 +15,7 @@ def get_interface_fragments(pdb, chain_res_info, fragment_length=5):
         frag_atoms = []
         frag_res_nums = [res_num + i for i in range(-2, 3)]
         ca_count = 0
-        # for atom in pdb.get_chain_atoms(chain):
+        # for atom in pdb.get_chain_atoms(chain):  # TODO
         for atom in pdb.chain(chain):
             if atom.residue_number in frag_res_nums:
                 frag_atoms.append(atom)
@@ -31,12 +31,13 @@ def get_interface_fragments(pdb, chain_res_info, fragment_length=5):
 
 def get_surface_fragments(pdb):  # Todo to PDB.py
     surface_frags = []
-    surf_res_info = pdb.get_surface_resdiue_info()
+    surf_res_info = pdb.get_surface_residue_info()
 
     for (chain, res_num) in surf_res_info:
         frag_atoms = []
         frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
         ca_count = 0
+        # for atom in pdb.chain(chain).get_atoms():  # TODO
         # for atom in pdb.get_chain_atoms(chain):
         for atom in pdb.chain(chain):
             if atom.residue_number in frag_res_nums:
@@ -53,7 +54,7 @@ def get_surface_fragments(pdb):  # Todo to PDB.py
 
 def get_surface_fragments_chain(pdb, chain_id):  # DEPRECIATE
     surface_frags = []
-    surf_res_info = pdb.get_surface_resdiue_info()
+    surf_res_info = pdb.get_surface_residue_info()
 
     for (chain, res_num) in surf_res_info:
         if chain == chain_id:
@@ -100,7 +101,15 @@ class GhostFragment:
             self.guide_coords = guide_coords
             self.pdb_coords = pdb_coords
 
+    def get_ijk(self):
+        return self.i_frag_type, self.j_frag_type, self.k_frag_type
+
     def get_central_res_tup(self):
+        """Get the representative chain and residue information from the underlysing observation
+
+        Returns:
+            (tuple): Chost Frament Mapped Chain ID, Central Residue Number, Partner Chain ID, Central Residue Number
+        """
         return self.central_res_tup
 
     def get_aligned_surf_frag_central_res_tup(self):
@@ -163,10 +172,13 @@ class MonoFragment:
             self.central_res_num = central_res_num
             self.central_res_chain_id = central_res_chain_id
 
+        # elif monofrag_cluster_rep_dict is not None and pdb is not None:  # TODO
         elif monofrag_cluster_rep_dict is not None and type is None and guide_coords is None and central_res_num is None and central_res_chain_id is None and pdb_coords is None:
             self.pdb = pdb
             self.pdb_coords = self.pdb.extract_all_coords()
             frag_ca_atoms = self.pdb.get_CA_atoms()
+            # self.pdb_coords = self.pdb.extract_coords()  # TODO
+            # frag_ca_atoms = self.pdb.get_ca_atoms()  # TODO
             self.central_res_num = frag_ca_atoms[2].residue_number
             self.central_res_chain_id = self.pdb.chain_id_list[0]
 
@@ -180,6 +192,7 @@ class MonoFragment:
             for cluster_type in monofrag_cluster_rep_dict:
                 cluster_rep = monofrag_cluster_rep_dict[cluster_type]
                 cluster_rep_ca_atoms = cluster_rep.get_CA_atoms()
+                # cluster_rep_ca_atoms = cluster_rep.get_ca_atoms()  # TODO
 
                 rmsd, rot, tx = biopdb_superimposer(frag_ca_atoms, cluster_rep_ca_atoms)
 
@@ -197,6 +210,8 @@ class MonoFragment:
                 self.type = min_rmsd_cluster_rep_type
                 self.guide_atoms = guide_atoms_pdb.all_atoms
                 self.guide_coords = guide_atoms_pdb.extract_all_coords()
+                # self.guide_atoms = guide_atoms_pdb.get_atoms()  # TODO
+                # self.guide_coords = guide_atoms_pdb.extract_coords()  # TODO
 
     def get_central_res_tup(self):
         return self.central_res_chain_id, self.central_res_num
@@ -228,6 +243,7 @@ class MonoFragment:
     def set_pdb(self, pdb):
         self.pdb = pdb
         self.pdb_coords = pdb.extract_all_coords()
+        # self.pdb_coords = pdb.extract_coords()  # TODO
 
     def set_guide_atoms(self, guide_coords):
         self.guide_coords = guide_coords

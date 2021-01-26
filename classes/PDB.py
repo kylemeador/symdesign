@@ -9,6 +9,7 @@ import numpy
 from PathUtils import free_sasa_exe_path, orient_dir, orient_exe_path, orient_log_file
 from classes.Atom import Atom
 from classes.Stride import Stride
+from utils.SymmUtils import valid_subunit_number
 
 
 class PDB:
@@ -152,6 +153,7 @@ class PDB:
                 selected_atoms.append(atom)
         return selected_atoms
 
+    # def extract_coords(self):  # TODO
     def extract_all_coords(self):
         coords = []
         for atom in self.all_atoms:
@@ -175,6 +177,7 @@ class PDB:
                 coords.append([x, y, z])
         return coords
 
+    # def get_ca_atoms(self):  # TODO
     def get_CA_atoms(self):
         ca_atoms = []
         for atom in self.all_atoms:
@@ -342,6 +345,7 @@ class PDB:
         rotated_coords = []
         return_atoms = []
         return_pdb = PDB()
+        # for coord in self.extract_coords():  # TODO
         for coord in self.extract_all_coords():
             coord_copy = copy.deepcopy(coord)
             coord_rotated = self.mat_vec_mul3(rot, coord_copy)
@@ -413,8 +417,6 @@ class PDB:
     def orient(self, sym=None, out_dir=None):
         """Orient a symmetric PDB at the origin with it's symmetry axis cannonically set on axis defined by symmetry
         file"""
-        valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10,
-                                "D6": 12, "I": 60, "O": 24, "T": 12}
         orient_log = os.path.join(out_dir, orient_log_file)
 
         pdb_file_name = os.path.basename(self.filepath)
@@ -478,6 +480,7 @@ class PDB:
     #         return None
 
     def center_of_mass(self):
+        # coords = self.extract_coords()  # TODO
         coords = self.extract_all_coords()
         n = len(coords)
         if n != 0:
@@ -616,6 +619,7 @@ class PDB:
             else:
                 return None
 
+        # pdb_coords = self.extract_coords()  # TODO
         pdb_coords = self.extract_all_coords()
         rot_matrices = get_rot_matrices(rot_step_deg, axis, rot_range_deg)
         tx_matrices = get_tx_matrices(tx_step, axis, start_tx_range, end_tx_range)
@@ -631,13 +635,6 @@ class PDB:
                 return sampled_coords_np.tolist()
         else:
             return None
-
-    def get_bb_indices(self):
-        bb_indices = []
-        for i in range(len(self.all_atoms)):
-            if self.all_atoms[i].is_backbone():
-                bb_indices.append(i)
-        return bb_indices
 
     def get_cb_indices(self, InclGlyCA=False):
         cb_indices = []
@@ -680,13 +677,10 @@ class PDB:
                     surface_atoms.append(atom)
             return surface_atoms
 
-    def get_surface_resdiue_info(self, free_sasa_exe_path=free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
+    def get_surface_residue_info(self, free_sasa_exe_path=free_sasa_exe_path, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
         proc = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath],
                                 stdout=subprocess.PIPE)
-        # proc = subprocess.Popen('%s --format=seq --probe-radius %s %s' % (free_sasa_exe_path, str(probe_radius),
-        #                                                                   self.filepath), stdout=subprocess.PIPE,
-        #                         shell=True)
         (out, err) = proc.communicate()
         out_lines = out.decode('utf-8').split("\n")
         sasa_out = []

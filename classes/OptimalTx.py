@@ -136,13 +136,14 @@ class OptimalTx:
         return c
 
     # @staticmethod
-    def set_coords(self,mat, coords):
+    def set_coords(self, mat, coords):
         """Apply a matrix to a set of 3 sets of x, y, z coordinates"""
-        # return np.matmul(mat, coords)
+        # return np.matmul(mat, coords)  # Doesn't work because no transpose!
+        # return np.matmul(coords, np.transpose(mat))  # Todo, check. This should work!
         return [self.mat_vec_mul3(mat, [coord[0], coord[1], coord[2]]) for coord in coords]
 
     def apply(self, coords1=None, coords2=None, coords_rmsd_reference=None):
-        """Apply Setting Matrix to provided Guide Atoms and solve for the translational shifts to overlap them"""
+        """Apply Setting Matrix to provided Coords and solve for the translational shifts to overlap them"""
         coords1_set = self.set_coords(self.setting1, coords1)
         coords2_set = self.set_coords(self.setting2, coords2)
 
