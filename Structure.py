@@ -61,7 +61,7 @@ class Structure:  # (Coords):
                 atom.coords = coords
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view')
+                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     @property
     def atom_indices(self):  # Todo has relevance to Residue
@@ -341,8 +341,8 @@ class Structure:  # (Coords):
 
     def find_center_of_mass(self):
         """Retrieve the center of mass for the specified Structure"""
-        divisor = 1 / len(self.atom_indices)
-        self.center_of_mass = np.matmul(np.full((1, 3), divisor), np.transpose(self.coords))
+        divisor = 1 / self.number_of_atoms
+        self.center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
@@ -842,7 +842,7 @@ class Atom:  # (Coords):
 
 class Coords:
     def __init__(self, coords=None):
-        if coords:
+        if coords is not None:
             self.coords = coords
         else:
             self.coords = []
