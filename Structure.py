@@ -451,13 +451,22 @@ class Structure:  # (Coords):
         else:
             self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
 
-    def write(self, out_path=None, file_handle=None):
+    def write(self, out_path=None, header=None, file_handle=None):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle"""
+        def write_header(location):
+            if header and isinstance(header, Iterable):
+                if isinstance(header, str):
+                    location.write(header)
+                else:
+                    location.write('\n'.join(line for line in header))
+
         if file_handle:
+            write_header(file_handle)
             file_handle.write('\n'.join(str(atom) for atom in self.get_atoms()))
 
         if out_path:
             with open(out_path, 'w') as outfile:
+                write_header(outfile)
                 outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
 
     def get_fragments(self, residue_numbers, fragment_length=5):
