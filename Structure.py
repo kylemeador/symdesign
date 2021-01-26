@@ -83,23 +83,27 @@ class Structure:  # (Coords):
     def get_backbone_coords(self):
         """Return a view of the numpy array of Coords from the Structure with only backbone atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone()]
-        return self.coords[index_mask]
+        return self._coords[index_mask]
+        # return self.coords[index_mask]
 
     def get_backbone_and_cb_coords(self):
         """Return a view of the numpy array of Coords from the Structure with backbone and CB atom coordinates
         inherently gets all glycine CA's"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
-        return self.coords[index_mask]
+        return self._coords[index_mask]
+        # return self.coords[index_mask]
 
     def get_ca_coords(self):
         """Return a view of the numpy array of Coords from the Structure with CA atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CA()]
-        return self.coords[index_mask]
+        return self._coords[index_mask]
+        # return self.coords[index_mask]
 
     def get_cb_coords(self, InclGlyCA=True):
         """Return a view of the numpy array of Coords from the Structure with CB atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
-        return self.coords[index_mask]
+        return self._coords[index_mask]
+        # return self.coords[index_mask]
 
     def extract_coords(self):
         """Grab all the coordinates from the Structure's Coords, returns a list with views of the Coords array"""
