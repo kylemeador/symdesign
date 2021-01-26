@@ -15,6 +15,7 @@ def biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
     biopdb_atom_fixed = []
     biopdb_atom_moving = []
 
+    # for atom in pdb_fixed.get_ca_atoms():  # TODO
     for atom in pdb_fixed.get_CA_atoms():
         if atom.chain == chain_id_fixed:
             biopdb_atom_fixed.append(
@@ -23,6 +24,7 @@ def biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
 
     pdb_moving_coords = []
     for atom in pdb_moving.get_atoms():
+        # pdb_moving_coords.append([atom.coords()])  # TODO
         pdb_moving_coords.append([atom.get_x(), atom.get_y(), atom.get_z()])
         if atom.is_CA():
             if atom.chain == chain_id_moving:

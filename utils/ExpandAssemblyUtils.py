@@ -16,8 +16,16 @@ sg_cryst1_fmt_dict = {'F222': 'F 2 2 2', 'P6222': 'P 62 2 2', 'I4132': 'I 41 3 2
                       'I432': 'I 4 3 2', 'P4222': 'P 42 2 2', 'F23': 'F 2 3', 'P23': 'P 2 3', 'P213': 'P 21 3',
                       'F432': 'F 4 3 2', 'P622': 'P 6 2 2', 'P4232': 'P 42 3 2', 'F4132': 'F 41 3 2',
                       'P4132': 'P 41 3 2', 'P422': 'P 4 2 2', 'P312': 'P 3 1 2', 'R32': 'R 3 2'}
+sg_cryst1_to_hm_notation = {'F 2 2 2': 'F222', 'P 62 2 2': 'P6222', 'I 41 3 2': 'I4132', 'P 4 3 2': 'P432',
+                            'P 63 2 2': 'P6322', 'I 41 2 2': 'I4122', 'I 21 3': 'I213', 'I 4 2 2': 'I422',
+                            'I 4 3 2': 'I432', 'P 42 2 2': 'P4222', 'F 2 3': 'F23', 'P 2 3': 'P23', 'P 21 3': 'P213',
+                            'F 4 3 2': 'F432', 'P 6 2 2': 'P622', 'P 42 3 2': 'P4232', 'F 41 3 2': 'F4132',
+                            'P 41 3 2': 'P4132', 'P 4 2 2': 'P422', 'P 3 1 2': 'P312', 'R 3 2': 'R32'}
 pg_cryst1_fmt_dict = {'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': 'P 4', 'p222': 'P 2 2 2',
                       'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
+pg_cryst1_to_hm_notation = {'P 3': 'p3', 'P 3 2 1': 'p321', 'P 6 2 2': 'p622', 'P 4': 'p4', 'P 2 2 2': 'p222',
+                            'P 4 2 2': 'p422', 'P 4 21 2': 'p4212', 'P 6': 'p6', 'P 3 1 2': 'p312', 'C 2 2 2': 'c222'}
+
 zvalue_dict = {'P 2 3': 12, 'P 42 2 2': 8, 'P 3 2 1': 6, 'P 63 2 2': 12, 'P 3 1 2': 12, 'P 6 2 2': 12, 'F 2 3': 48,
                'F 2 2 2': 16, 'P 62 2 2': 12, 'I 4 2 2': 16, 'I 21 3': 24, 'R 3 2': 6, 'P 4 21 2': 8, 'I 4 3 2': 48,
                'P 41 3 2': 24, 'I 41 3 2': 48, 'P 3': 3, 'P 6': 6, 'I 41 2 2': 16, 'P 4': 4, 'C 2 2 2': 8,
@@ -74,6 +82,7 @@ def get_expanded_ptgrp_pdbs(pdb1_asu, pdb2_asu, expand_matrices):
 def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
     """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
     asu_symm_mates = []
+    # asu_coords = pdb_asu.extract_coords()  # TODO
     asu_coords = pdb_asu.extract_all_coords()
     for r in expand_matrices:
         r_mat = np.transpose(np.array(r))
@@ -127,7 +136,7 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
     cb_clash_count = kdtree_central_asu_bb.two_point_correlation(symm_mates_wo_asu_bb_coords, [clash_distance])
 
     ### CLASH TEST ###
-    # asu_bb_indices = asu.get_bb_indices()
+    # asu_bb_indices = asu.get_backbone_indices()
     # query_list = kdtree_central_asu_bb.query_radius(symm_mates_wo_asu_bb_coords, clash_distance)
     # for symm_mates_wo_asu_bb_coords_index in range(len(query_list)):
     #     for kdtree_central_asu_bb_index in query_list[symm_mates_wo_asu_bb_coords_index]:
@@ -213,6 +222,7 @@ def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
     pdb_asu = PDB()
     pdb_asu.read_atom_list(pdb1.get_atoms() + pdb2.get_atoms())
 
+    # pdb_asu_coords_cart = pdb_asu.extract_coords()  # TODO
     pdb_asu_coords_cart = pdb_asu.extract_all_coords()
 
     asu_com_cart = center_of_mass_3d(pdb_asu_coords_cart)
@@ -249,6 +259,7 @@ def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
 
             xyz_min_shifted_asu_pdb = copy.deepcopy(pdb_asu)
             xyz_min_shifted_asu_pdb.replace_coords(xyz_min_shifted_pdb_asu_coords_cart)
+            # xyz_min_shifted_asu_pdb.set_atom_coordinates(xyz_min_shifted_pdb_asu_coords_cart)
 
             return xyz_min_shifted_asu_pdb
 
@@ -260,6 +271,7 @@ def get_central_asu_pdb_3d(pdb1, pdb2, uc_dimensions):
     pdb_asu = PDB()
     pdb_asu.read_atom_list(pdb1.get_atoms() + pdb2.get_atoms())
 
+    # pdb_asu_coords_cart = pdb_asu.extract_coords()  # TODO
     pdb_asu_coords_cart = pdb_asu.extract_all_coords()
 
     asu_com_cart = center_of_mass_3d(pdb_asu_coords_cart)
@@ -305,6 +317,7 @@ def get_central_asu_pdb_3d(pdb1, pdb2, uc_dimensions):
 
             xyz_min_shifted_asu_pdb = copy.deepcopy(pdb_asu)
             xyz_min_shifted_asu_pdb.replace_coords(xyz_min_shifted_pdb_asu_coords_cart)
+            # xyz_min_shifted_asu_pdb.set_atom_coordinates(xyz_min_shifted_pdb_asu_coords_cart)
 
             return xyz_min_shifted_asu_pdb
 
@@ -316,6 +329,7 @@ def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
     """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
     unit_cell_sym_mates = [pdb_asu]
 
+    # asu_cart_coords = pdb_asu.extract_coords()  # TODO
     asu_cart_coords = pdb_asu.extract_all_coords()
     asu_frac_coords = cart_to_frac(asu_cart_coords, uc_dimensions)
 
@@ -362,7 +376,7 @@ def get_surrounding_unit_cells(unit_cell_sym_mates, uc_dimensions, dimension=Non
 
     if return_side_chains:  # get different function calls depending on the return type
         extract_pdb_atoms = getattr(PDB, 'get_atoms')
-        extract_pdb_coords = getattr(PDB, '.extract_all_coords')
+        extract_pdb_coords = getattr(PDB, '.extract_coords')
     else:
         extract_pdb_atoms = getattr(PDB, 'get_backbone_atoms')
         extract_pdb_coords = getattr(PDB, 'extract_backbone_coords')
@@ -606,9 +620,9 @@ def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):
         expand_matrices = get_ptgrp_sym_op(symmetry.upper())
         return get_expanded_ptgrp_pdb(asu, expand_matrices)
     else:
-        if symmetry in pg_cryst1_fmt_dict:
+        if symmetry in pg_cryst1_fmt_dict.values():
             dimension = 2
-        elif symmetry in sg_cryst1_fmt_dict:
+        elif symmetry in sg_cryst1_fmt_dict.values():
             dimension = 3
         else:
             return None
