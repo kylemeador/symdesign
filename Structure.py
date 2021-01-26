@@ -50,7 +50,8 @@ class Structure:  # (Coords):
     def coords(self):
         """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
         belonging to the specific Structure instance"""
-        return self._coords.get_indices(self.atom_indices)
+        return self._coords.coords  # [self.atom_indices]
+        # return self._coords.get_indices(self.atom_indices)
 
     @coords.setter
     def coords(self, coords):
@@ -78,32 +79,32 @@ class Structure:  # (Coords):
 
     def get_coords(self):
         """Return the numpy array of Coords from the Structure"""
-        return self.coords
+        return self.coords[self.atom_indices]
 
     def get_backbone_coords(self):
         """Return a view of the numpy array of Coords from the Structure with only backbone atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone()]
-        return self._coords[index_mask]
-        # return self.coords[index_mask]
+        # return self._coords[index_mask]
+        return self.coords[index_mask]
 
     def get_backbone_and_cb_coords(self):
         """Return a view of the numpy array of Coords from the Structure with backbone and CB atom coordinates
         inherently gets all glycine CA's"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
-        return self._coords[index_mask]
-        # return self.coords[index_mask]
+        # return self._coords[index_mask]
+        return self.coords[index_mask]
 
     def get_ca_coords(self):
         """Return a view of the numpy array of Coords from the Structure with CA atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CA()]
-        return self._coords[index_mask]
-        # return self.coords[index_mask]
+        # return self._coords[index_mask]
+        return self.coords[index_mask]
 
     def get_cb_coords(self, InclGlyCA=True):
         """Return a view of the numpy array of Coords from the Structure with CB atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
-        return self._coords[index_mask]
-        # return self.coords[index_mask]
+        # return self._coords[index_mask]
+        return self.coords[index_mask]
 
     def extract_coords(self):
         """Grab all the coordinates from the Structure's Coords, returns a list with views of the Coords array"""
@@ -695,16 +696,16 @@ class Atom:  # (Coords):
         self.pdb_residue_number = residue_number
         self.residue_number = residue_number
         self.code_for_insertion = code_for_insertion
-        # super().__init__(coords=coords)  # init from Coords class
-        self.coords = coords
-        # self.x = x
-        # self.y = y
-        # self.z = z
-        # self.coordinates =
         self.occ = occ
         self.temp_fact = temp_fact
         self.element_symbol = element_symbol
         self.atom_charge = atom_charge
+        if coords:
+            self.coords = coords
+            # super().__init__(coords=coords)  # init from Coords class
+        # self.x = x
+        # self.y = y
+        # self.z = z
 
     @classmethod
     def from_info(cls, *args):  # number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, occ, temp_fact, element_symbol, atom_charge
@@ -755,11 +756,15 @@ class Atom:  # (Coords):
         # if transformation_operator:
         #     return np.matmul([self.x, self.y, self.z], transformation_operator)
         # else:
-        return self._coords[self.index]  # [self.x, self.y, self.z]
+        return self._coords.coords[self.index]  # [self.x, self.y, self.z]
 
     @coords.setter
     def coords(self, coords):
-        self._coords = coords
+        if isinstance(coords, Coords):
+            self._coords = coords
+        else:
+            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     def get_index(self):
         return self.index
