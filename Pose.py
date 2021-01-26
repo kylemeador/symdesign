@@ -1033,7 +1033,7 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
 
     Args:
         pdb (str, list): PDB's of interest. If asu=False, code_# is format for biological assembly specific pdb.
-            Ex: 1bkh_2 fetches biological assembly 2
+            Ex: 1bkh_2 fetches 1BKH biological assembly 2
     Keyword Args:
         asu=False (bool): Whether or not to download the asymmetric unit file
     Returns:
@@ -1060,14 +1060,14 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
         # if clean_pdb not in current_files:
         if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
             # TODO subprocess.POPEN()
-            status = os.system('wget -q -O %s http://files.rcsb.org/download/%s' % (file_name, clean_pdb))
+            status = os.system('wget -O %s http://files.rcsb.org/download/%s' % (file_name, clean_pdb))
             if status != 0:
                 failures.append(pdb)
 
     if failures:
         logger.error('PDB download ran into the following failures:\n%s' % ', '.join(failures))
 
-    return file_name  # if list then will only return the last file
+    return file_name  # Todo if list then will only return the last file
 
 
 def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
