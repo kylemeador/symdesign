@@ -1025,7 +1025,7 @@ def get_docked_dirs_from_base(base):
     # gives 2.4859059400041588 versus 13.074574943981133
 
 
-def collect_directories(directory, file=None, dir_type='design'):
+def collect_directories(directory, file=None, dir_type=None):
     """Grab all poses from an input source
 
     Args:
@@ -1051,6 +1051,8 @@ def collect_directories(directory, file=None, dir_type='design'):
         elif dir_type == 'design':
             base_directories = get_base_nanohedra_dirs(directory)
             all_directories = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
+        else:
+            all_directories = get_all_file_paths(directory, extension='.pdb')
         location = directory
 
     return sorted(set(all_directories)), location

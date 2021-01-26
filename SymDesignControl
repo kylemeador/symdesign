@@ -536,7 +536,7 @@ if __name__ == '__main__':
         pass
     elif args.mode == 'design':
         if args.directory or args.file:
-            all_docked_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
+            all_docked_poses, location = SDUtils.collect_directories(args.directory, file=args.file, dir_type=args.mode)
             assert all_docked_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure '
                                                                'correct location' % (PUtils.nano.title(), location))
             design_directories = DesignDirectory.set_up_directory_objects(all_docked_poses, mode=args.mode,

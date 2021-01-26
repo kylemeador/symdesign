@@ -91,7 +91,7 @@ database = os.path.join(data_dir, 'databases')
 pdb_db = os.path.join(database, 'pdbDB')  # pointer to pdb database
 pisa_db = os.path.join(database, 'pisaDB')  # pointer to pisa database
 qs_bio = os.path.join(data, 'QSbio_GreaterThanHigh_Assemblies.pkl')
-qs_bio_monomers = os.path.join(data, 'QSbio_Monomers.csv')
+qs_bio_monomers_file = os.path.join(data, 'QSbio_Monomers.csv')
 
 # TODO script this file creation ?
 #  qsbio_data_url = 'https://www.weizmann.ac.il/sb/faculty_pages/ELevy/downloads/QSbio.xlsx'
