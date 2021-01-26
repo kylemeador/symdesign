@@ -774,13 +774,13 @@ class PDB(Structure):
     #     """Return the Residues included in a particular chain"""
     #     return [residue for residue in self.residues if residue.chain == chain_id]
 
-    def write(self, out_path, cryst1=None):  # Todo Depreciate
-        if not cryst1:
-            cryst1 = self.cryst_record
-        with open(out_path, "w") as outfile:
-            if cryst1 and isinstance(cryst1, str) and cryst1.startswith("CRYST1"):
-                outfile.write(str(cryst1) + "\n")
-            outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
+    # def write(self, out_path=None, cryst1=None):  # Todo Depreciate
+    #     if not cryst1:
+    #         cryst1 = self.cryst_record
+    #     with open(out_path, "w") as outfile:
+    #         if cryst1 and isinstance(cryst1, str) and cryst1.startswith("CRYST1"):
+    #             outfile.write(str(cryst1) + "\n")
+    #         outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
 
     def get_chain_sequences(self):  # Todo Depreciate
         self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_id_list}
@@ -1218,7 +1218,7 @@ class PDB(Structure):
         for atom in atoms:
             self.atoms.remove(atom)
 
-    def apply(self, rot=None, tx=None):
+    def apply(self, rot=None, tx=None):  # Todo move to Structure?
         """Apply a transformation to the PDB object"""
         # moved = []
         # for coord in self.extract_coords():
@@ -1424,7 +1424,7 @@ class PDB(Structure):
                 if other_seq == self.entity_d[entity]['seq']:
                     return self.entity_d[entity]['representative'][0]
 
-    def chain_interface_contacts(self, chain_id, distance=8, gly_ca=False):
+    def chain_interface_contacts(self, chain_id, distance=8, gly_ca=False):  # Todo very similar to Pose with entities
         """Create a atom tree using CB atoms from one chain and all other atoms
 
         Args:
@@ -1436,16 +1436,18 @@ class PDB(Structure):
             chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
         """
         # Get all CB Atom & chain CB Atom Coordinates into a numpy array [[x, y, z], ...]
-        all_coords = np.array(self.extract_CB_coords(InclGlyCA=gly_ca))
-        chain_coords = np.array(self.extract_CB_coords_chain(chain_id, InclGlyCA=gly_ca))
+        all_coords = self.get_cb_coods(InclGlyCA=gly_ca)
+        # all_coords = np.array(self.extract_CB_coords(InclGlyCA=gly_ca))
+        chain_coords = self.chain(chain_id).get_cb_coords(InclGlyCA=gly_ca)
+        # chain_coords = np.array(self.extract_CB_coords_chain(chain_id, InclGlyCA=gly_ca))
 
         # Construct CB Tree for the chain
         chain_tree = BallTree(chain_coords)
 
-        # Get CB Atom indices for the chain CB and atoms CB
+        # Get CB Atom indices for the atoms CB and chain CB
+        all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
         chain_cb_indices = self.chain(chain_id).get_cb_indices(chain_id, InclGlyCA=gly_ca)
         # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
-        all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
         chain_coord_indices, contact_cb_indices = [], []
         # Find the contacting CB indices and chain specific indices
         for i, idx in enumerate(all_cb_indices):
@@ -1474,8 +1476,8 @@ class PDB(Structure):
         """Return the atoms involved in the ASU with the provided chain
 
         Keyword Args:
-            chain=None (str): The identity of the target asu
-            extra=False (bool): Whether to search for additional contacts outside the ASU. but contact ASU
+            chain=None (str): The identity of the target ASU. By default the first Chain is chosen
+            extra=False (bool): If True, search for additional contacts outside the ASU, but in contact ASU
         Returns:
             (list): List of atoms involved in the identified asu
         """
@@ -1486,7 +1488,7 @@ class PDB(Structure):
         def get_unique_contacts(chain, entity=0, iteration=0, extra=False, partner_entity=None):
             unique_chains_entity = {}
             # unique_chains_entity, chain_entity, iteration = {}, None, 0
-            while unique_chains_entity == dict():
+            while unique_chains_entity == dict():  # Todo remove dict()
                 # print(iteration, chain_entity)
                 if iteration != 0:  # search through the chains found in an entity
                     chain = self.entity_d[entity]['chains'][iteration]
@@ -1585,9 +1587,9 @@ class PDB(Structure):
 
         unique_chains = get_unique_contacts(chain, entity=self.find_entity_by_chain(chain), extra=extra)
 
-        asu = self.get_chain_atoms(chain)
-        for atoms in [self.get_chain_atoms(partner_chain) for partner_chain in unique_chains]:
-            asu += atoms
+        asu = self.chain(chain).get_atoms()
+        for atoms in [self.chain(partner_chain).get_atoms() for partner_chain in unique_chains]:
+            asu.extend(atoms)
 
         return asu
 
