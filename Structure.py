@@ -106,6 +106,9 @@ class Structure:  # (Coords):
         # return self._coords[index_mask]
         return self.coords[index_mask]
 
+    def extract_all_coords(self):  # compatibility
+        return self.extract_coords()
+
     def extract_coords(self):
         """Grab all the coordinates from the Structure's Coords, returns a list with views of the Coords array"""
         return [atom.coords for atom in self.get_atoms()]
@@ -187,6 +190,9 @@ class Structure:  # (Coords):
                 h_cb_indices.append(residue.get_cb())
 
         return h_cb_indices
+
+    def get_CA_atoms(self):  # compatibility
+        return self.get_ca_atoms()
 
     def get_ca_atoms(self):
         return [atom for atom in self.get_atoms() if atom.is_CA()]
