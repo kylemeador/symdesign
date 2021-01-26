@@ -574,7 +574,7 @@ def to_iterable(_obj):
     try:
         with open(_obj, 'r') as f:
             _list = f.readlines()
-    except FileNotFoundError:
+    except (FileNotFoundError, TypeError):
         if isinstance(_obj, list):
             _list = _obj
         else:  # assumes obj is a string
