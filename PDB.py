@@ -1446,7 +1446,7 @@ class PDB(Structure):
 
         # Get CB Atom indices for the atoms CB and chain CB
         all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
-        chain_cb_indices = self.chain(chain_id).get_cb_indices(chain_id, InclGlyCA=gly_ca)
+        chain_cb_indices = self.chain(chain_id).get_cb_indices(InclGlyCA=gly_ca)
         # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
         chain_coord_indices, contact_cb_indices = [], []
         # Find the contacting CB indices and chain specific indices
