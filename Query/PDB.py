@@ -465,7 +465,7 @@ def get_pdb_info_by_entry(entry):
 
     Returns:
         (dict): {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-            'cryst': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
+            'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
     """
     # Ex. entry = '4atz'
     # ex. assembly = 1
@@ -520,14 +520,14 @@ def get_pdb_info_by_entry(entry):
     if 'experimental_method' in entry_json['rcsb_entry_info']:
         # exptl_method = entry_json['exptl'][0]['method']
         exptl_method = entry_json['rcsb_entry_info']['experimental_method'].lower()
-        if 'ray' in exptl_method and 'cell' in entry_json and 'symmetry' in entry_json:
+        if 'ray' in exptl_method and 'cell' in entry_json and 'symmetry' in entry_json:  # Todo make ray, diffraction
             ang_a, ang_b, ang_c = entry_json['cell']['angle_alpha'], entry_json['cell']['angle_beta'], entry_json['cell']['angle_gamma']
             a, b, c = entry_json['cell']['length_a'], entry_json['cell']['length_b'], entry_json['cell']['length_c']
             space_group = entry_json['symmetry']['space_group_name_hm']
-            cryst_d = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+            struct_d = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
             resolution = entry_json['rcsb_entry_info']['resolution_combined'][0]
-        else:
-            cryst_d = {}
+        else:  # Todo NMR and EM
+            struct_d = {}
             resolution = None
     else:
         print('Entry has no \'experimental_method\' keyword')
@@ -593,7 +593,7 @@ def get_pdb_info_by_entry(entry):
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-    return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d, 'cryst': cryst_d, 'method': exptl_method}
+    return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d, 'struct': struct_d, 'method': exptl_method}
 
 
 def query_entity_id(entity_id):

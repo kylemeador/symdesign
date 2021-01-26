@@ -93,12 +93,16 @@ def main():
             if frag1_ca_count == 5 and frag2_ca_count == 5:
                 if ch1_center_res not in ch1_central_res_num_used:
                     int_frag_out_ch1.read_atom_list(int_frag_out_atom_list_ch1)
-                    int_frag_out_ch1.write(os.path.join(frag_out_dir, pdb_id + '_' + pdb_ch1_id + pdb_ch2_id + '_frag_' + str(ch1_center_res) + '_' + pdb_ch1_id + '.pdb'))
+                    int_frag_out_ch1.write(os.path.join(frag_out_dir,
+                                                        pdb_id + '_' + pdb_ch1_id + pdb_ch2_id + '_frag_' + str(
+                                                            ch1_center_res) + '_' + pdb_ch1_id + '.pdb'))
                     ch1_central_res_num_used.append(ch1_center_res)
 
                 if ch2_center_res not in ch2_central_res_num_used:
                     int_frag_out_ch2.read_atom_list(int_frag_out_atom_list_ch2)
-                    int_frag_out_ch2.write(os.path.join(frag_out_dir, pdb_id + '_' + pdb_ch1_id + pdb_ch2_id + '_frag_' + str(ch2_center_res) + '_' + pdb_ch2_id + '.pdb'))
+                    int_frag_out_ch2.write(os.path.join(frag_out_dir,
+                                                        pdb_id + '_' + pdb_ch1_id + pdb_ch2_id + '_frag_' + str(
+                                                            ch2_center_res) + '_' + pdb_ch2_id + '.pdb'))
                     ch2_central_res_num_used.append(ch2_center_res)
     print(module, 'Finished')
 

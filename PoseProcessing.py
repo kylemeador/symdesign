@@ -343,7 +343,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         logger.warning('%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
                        ' %s' % (des_dir.path, num_chains, template_pdb.chain_id_list))
         # Save the renamed chain PDB to central_asu.pdb
-        template_pdb.write(des_dir.source)
+        template_pdb.write(out_path=des_dir.source)
 
     assert len(pdb_codes) == num_chains, 'Number of chains \'%d\' in ASU doesn\'t match number of building blocks ' \
                                          '\'%d\'' % (num_chains, len(pdb_codes))
@@ -477,7 +477,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.info('Total number of residues is %d' % len(template_residues))
 
     # Save renumbered PDB to clean_asu.pdb
-    template_pdb.write(des_dir.asu)
+    template_pdb.write(out_path=des_dir.asu)
     # Mutate all design positions to Ala
     mutated_pdb = copy.deepcopy(template_pdb)
     logger.debug('Cleaned PDB: \'%s\'' % des_dir.asu)
@@ -513,7 +513,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #                                                    for n in int_res_numbers[name]))
     logger.info('Interface Residues: %s' % ', '.join(str(n) + names[name](c) for c, name in enumerate(names)
                                                      for n in int_res_numbers[name]))
-    mutated_pdb.write(des_dir.refine_pdb)
+    mutated_pdb.write(out_path=des_dir.refine_pdb)
     # mutated_pdb.write(ala_mut_pdb)
     # mutated_pdb.write(ala_mut_pdb, cryst1=cryst)
     logger.debug('Cleaned PDB for Refine: \'%s\'' % des_dir.refine_pdb)
@@ -751,7 +751,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     for n, name in enumerate(names):
         for residue in int_res_numbers[name]:  # one-indexed
             mutated_pdb.mutate_to(names[name](n), residue, res_id=IUPACData.protein_letters_1to3[consensus[residue]].upper())
-    mutated_pdb.write(des_dir.consensus_pdb)
+    mutated_pdb.write(out_path=des_dir.consensus_pdb)
     # mutated_pdb.write(consensus_pdb)
     # mutated_pdb.write(consensus_pdb, cryst1=cryst)
 
