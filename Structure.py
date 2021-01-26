@@ -191,6 +191,9 @@ class Structure:  # (Coords):
 
         return h_cb_indices
 
+    def get_CA_atoms(self):  # compatibility
+        return self.get_ca_atoms()
+
     def get_ca_atoms(self):
         return [atom for atom in self.get_atoms() if atom.is_CA()]
 
