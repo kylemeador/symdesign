@@ -31,8 +31,8 @@ class Structure:  # (Coords):
             self.coords = coords
 
     @classmethod
-    def from_atoms(cls, atoms):
-        return cls(atoms=atoms)
+    def from_atoms(cls, atoms, **kwargs):
+        return cls(atoms=atoms, **kwargs)
 
     @classmethod
     def from_residues(cls, residues):
@@ -134,6 +134,8 @@ class Structure:  # (Coords):
     def set_atoms(self, atom_list):
         """Set the Structure atoms to Atoms in atom_list"""
         self.atoms = atom_list
+        self.renumber_atoms()
+        self.reindex_atoms()
         self.create_residues()
         # self.update_structure(atom_list)
         self.set_length()
@@ -141,11 +143,13 @@ class Structure:  # (Coords):
     def add_atoms(self, atom_list):
         """Add Atoms in atom_list to the structure instance"""
         self.atoms.extend(atom_list)
+        self.renumber_atoms()
+        self.reindex_atoms()
         self.create_residues()
         # self.update_structure(atom_list)
         self.set_length()
 
-    def update_structure(self, atom_list):
+    def update_structure(self, atom_list):  # UNUSED
         # self.reindex_atoms()
         # self.coords = np.append(self.coords, [atom.coords for atom in atom_list])
         # self.set_atom_coordinates(self.coords)
@@ -458,7 +462,8 @@ class Structure:  # (Coords):
             self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
 
     def write(self, out_path=None, header=None, file_handle=None):
-        """Write Structure Atoms to a file specified by out_path or with a passed file_handle"""
+        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
+        one was written"""
         def write_header(location):
             if header and isinstance(header, Iterable):
                 if isinstance(header, str):
@@ -475,19 +480,20 @@ class Structure:  # (Coords):
                 write_header(outfile)
                 outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
 
+            return out_path
+
     def get_fragments(self, residue_numbers, fragment_length=5):
         interface_frags = []
         for residue_number in residue_numbers:
             frag_residue_numbers = [residue_number + i for i in range(-2, 3)]  # Todo parameterize
-            # frag_atoms, ca_present = [], []
             ca_count = 0
-            for residue in self.residue(frag_residue_numbers):
+            for residue in self.get_residues(frag_residue_numbers):
                 # frag_atoms.extend(residue.get_atoms())
                 if residue.get_ca():
                     ca_count += 1
 
             if ca_count == 5:
-                interface_frags.append(Structure.from_residues(self.residue(frag_residue_numbers)))
+                interface_frags.append(Structure.from_residues(self.get_residues(frag_residue_numbers)))
 
         for structure in interface_frags:
             structure.chain_id_list = [structure.get_residues()[0].chain]  # Todo test if I can add attribute
@@ -581,11 +587,20 @@ class Residue:
         self.atom_list = atom_list
         self.ca = self.get_ca()
         self.cb = self.get_cb()
-        self.number = self.ca.residue_number  # get_number()  # Todo test accessors, maybe make property
+        # self.number = self.ca.residue_number  # get_number()  # Todo test accessors, maybe make property
         self.number_pdb = self.ca.pdb_residue_number  # get_pdb_residue_number()
         self.type = self.ca.residue_type  # get_type()
         self.chain = self.ca.chain  # get_chain()
         self.secondary_structure = None
+
+    @property
+    def number(self):
+        return self.ca.get_residue_number()
+        # return self._number
+
+    # @number.setter  # Todo
+    # def number(self, number):
+    #     self._number = number
 
     def coords(self):
         return [atom.coords for atom in self.atom_list]
@@ -757,6 +772,7 @@ class Atom:  # (Coords):
         #     return np.matmul([self.x, self.y, self.z], transformation_operator)
         # else:
         return self._coords.coords[self.index]  # [self.x, self.y, self.z]
+        # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
 
     @coords.setter
     def coords(self, coords):
