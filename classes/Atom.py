@@ -73,7 +73,8 @@ class Atom:
         return [self.x, self.y, self.z]
 
     def __eq__(self, other):
-        return self.number == other.number and self.chain == other.chain and self.type == other.type and self.residue_type == other.residue_type
+        return self.number == other.number and self.chain == other.chain and self.type == other.type and \
+               self.residue_type == other.residue_type
 
     def get_number(self):
         return self.number
