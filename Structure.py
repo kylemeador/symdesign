@@ -26,7 +26,8 @@ class Structure:  # (Coords):
             self.set_atoms(atoms)
         if residues:
             self.set_residues(residues)
-        if isinstance(coords, np.ndarray) and coords.any():
+        # if isinstance(coords, np.ndarray) and coords.any():
+        if coords:  # isinstance(coords, Coords):
             self.coords = coords
 
     @classmethod
