@@ -67,7 +67,7 @@ def get_complex_interfaces(pdb_code):
         if len(interface) > 1:
             # type = int(interface.find('INTERFACETYPE').text)
             chains = interface.find('INTERFACESTRUCTURES').text
-            chains = chains.split('+')
+            chains = chains.split('+')  # Todo handle <INTERFACESTRUCTURES><sup>7</sup>B+A</INTERFACESTRUCTURES>
             number = int(interface.find('INTERFACENO').text) + 1  # offset to make same as interfaceID in interfaces.xml
             interface_chains[int(number)] = chains
             if int(number) in interface_d:
