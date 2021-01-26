@@ -17,4 +17,3 @@ pdb.readfile(pdb_filepath)
 
 flipped_pdb = rot_txint_set_txext_pdb(pdb, rot_mat=rot_mat1)
 flipped_pdb.write(flipped_pdb_out_path)
-
