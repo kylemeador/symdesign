@@ -26,7 +26,10 @@ pickle_prot = 2
 def make_asu(pdb_file, chain=None, out_path=os.getcwd, center=True):
     pdb = PDB.from_file(pdb_file)
     if center:
+        print(pdb.center_of_mass)
         pdb.apply(tx=-pdb.center_of_mass)
+        pdb.find_center_of_mass()
+        print(pdb.center_of_mass)
     asu = PDB.from_atoms(pdb.get_asu(chain))  # no chain needed, just use the default
     asu.write(out_path=os.path.join(out_path, os.path.basename(pdb.filepath)), header=None)  # Todo make symmetry for point groups
 
