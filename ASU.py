@@ -21,17 +21,30 @@ from Pose import Pose
 pickle_prot = 2
 # else:
 #     pickle_prot = pickle.HIGHEST_PROTOCOL
+sym_dict = {'4NWN': 'T', '4NWO': 'T', '4NWP': 'T', '4ZK7': 'T', '5CY5': 'T', '5IM4': 'I', '5IM5': 'I', '5IM6': 'I',
+            '6P6F': 'I', '6VFH': 'T', '6VFI': 'O', '6VFJ': 'I', '6VL6': 'T'}
 
 
 def make_asu(pdb_file, chain=None, out_path=os.getcwd, center=True):
+    if '4NWR' in pdb_file:
+        return None
     pdb = PDB.from_file(pdb_file)
     if center:
         print(pdb.center_of_mass)
         pdb.apply(tx=-pdb.center_of_mass)
         pdb.find_center_of_mass()
         print(pdb.center_of_mass)
-    asu = PDB.from_atoms(pdb.get_asu(chain))  # no chain needed, just use the default
-    asu.write(out_path=os.path.join(out_path, os.path.basename(pdb.filepath)), header=None)  # Todo make symmetry for point groups
+        pdb.write(out_path=os.path.join(out_path, 'expanded', 'centered' + os.path.basename(pdb.filepath)))
+    # asu = pdb.return_asu(chain)  # no chain needed, just use the default
+    # # asu = PDB.from_atoms(pdb.get_asu(chain))  # no chain needed, just use the default
+    # asu.write(out_path=os.path.join(out_path, os.path.basename(pdb.filepath)), header=None)  # Todo make symmetry for point groups
+    # print(sym_dict[pdb.name])
+    # pose = Pose.from_asu(asu, symmetry=sym_dict[pdb.name])
+    # print('Total Atoms: %d' % pose.asu.number_of_atoms)
+    # print('Coords of length %d: %s' % (pose.asu.coords.shape[0], pose.asu.coords))
+    # pose.get_assembly_symmetry_mates()
+    # # pose.set_symmetry(symmetry=sym_dict[pdb.name], generate_symmetry_mates=True)
+    # pose.write(out_path=os.path.join(out_path, 'expanded', os.path.basename(pdb.filepath)))
 
     return out_path
     # pose = Pose.from_asu()
