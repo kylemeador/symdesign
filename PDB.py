@@ -1436,7 +1436,7 @@ class PDB(Structure):
             chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
         """
         # Get all CB Atom & chain CB Atom Coordinates into a numpy array [[x, y, z], ...]
-        all_coords = self.get_cb_coods(InclGlyCA=gly_ca)
+        all_coords = self.get_cb_coords(InclGlyCA=gly_ca)
         # all_coords = np.array(self.extract_CB_coords(InclGlyCA=gly_ca))
         chain_coords = self.chain(chain_id).get_cb_coords(InclGlyCA=gly_ca)
         # chain_coords = np.array(self.extract_CB_coords_chain(chain_id, InclGlyCA=gly_ca))
