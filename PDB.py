@@ -55,6 +55,8 @@ class PDB(Structure):
         self.seqres = {}  # SEQRES entries. key is chainID, value is 'AGHKLAIDL'
         self.space_group = None
         self.uc_dimensions = []
+        self.max_symmetry = None
+        self.dihedral_chain = None
 
         if file:
             self.readfile(file)
@@ -308,8 +310,8 @@ class PDB(Structure):
 
         # if self.design:  # Todo maybe??
         #     self.process_symmetry()
-        # self.scout_symmetry()  # Todo worry about this later, for now use Nanohedra full symmetry from Pose
-        # chains = self.find_symmetrically_significant_chains()
+        # self.find_chain_symmetry()  # Todo worry about this later, for now use Nanohedra full project from Pose
+        # chains = self.find_max_chain_symmetry()
         # if len(chains) > 1:
         #     dihedral = True
         # the highest order symmetry operation chain in a pdb plus any dihedral related chains
@@ -1647,6 +1649,10 @@ class PDB(Structure):
         return len([0 for residue in self.residues])
 
     def scout_symmetry(self):
+        self.find_chain_symmetry()
+        self.find_max_chain_symmetry()
+
+    def find_chain_symmetry(self):
         """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
 
         Requirements - all chains are the same length
@@ -1672,7 +1678,7 @@ class PDB(Structure):
             axis = list(map(float, line.split(':')[2].strip().split()))  # emanating from origin
             self.rotation_d[chain] = {'sym': symmetry, 'axis': np.array(axis)}
 
-    def find_symmetrically_significant_chains(self):
+    def find_max_chain_symmetry(self):
         """From a dictionary specifying the rotation axis and the symmetry order, find the unique set of significant chains
         """
         # find the highest order symmetry in the pdb
@@ -1682,17 +1688,27 @@ class PDB(Structure):
                 max_sym = self.rotation_d[chain]['sym']
                 max_chain = chain
 
-        # Check for dihedral symmetry, ensuring selected chain is orthogonal to max symmetry axis
-        if len(self.chain_id_list) / max_sym == 2:
+        self.max_symmetry = max_chain
+
+    def is_dihedral(self):
+        if not self.max_symmetry:
+            self.scout_symmetry()
+        # Check if PDB is dihedral, ensuring selected chain is orthogonal to maximum symmetry axis
+        if len(self.chain_id_list) / self.rotation_d[self.max_symmetry]['sym'] == 2:
             for chain in self.rotation_d:
                 if self.rotation_d[chain]['sym'] == 2:
-                    if np.dot(self.rotation_d[max_chain]['axis'], self.rotation_d[chain]['axis']) < 0.01:
-                        max_chain += ' ' + chain
-                        break
+                    if np.dot(self.rotation_d[self.max_symmetry]['axis'], self.rotation_d[chain]['axis']) < 0.01:
+                        self.dihedral_chain = chain
+                        return True
+        elif 1 < len(self.chain_id_list) / self.rotation_d[self.max_symmetry]['sym'] < 2:
+            logger.critical('The symmetry of PDB %s is malformed! Highest symmetry (%d) is less than 2x greater than '
+                            'the number of chains (%d)!'
+                            % (self.name, self.rotation_d[self.max_symmetry]['sym'], len(self.chain_id_list)))
+            return False
+        else:
+            return False
 
-        return max_chain
-
-    def make_sdf(self, modify_sym_energy=False, energy=2):
+    def make_sdf(self, out_path=os.getcwd(), **kwargs):  # modify_sym_energy=False, energy=2):
         """Use the make_symmdef_file.pl script from Rosetta on an input structure
 
         perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb -i B -q
@@ -1703,25 +1719,28 @@ class PDB(Structure):
         Returns:
             (str): Symmetry definition filename
         """
-        chains = self.find_symmetrically_significant_chains(self.scout_symmetry())
+        self.scout_symmetry()
+        if self.is_dihedral():
+            chains = '%s %s' % (self.max_symmetry, self.dihedral_chain)
+            kwargs['dihedral'] = True
+        else:
+            chains = self.max_symmetry
+
         sdf_cmd = ['perl', make_symmdef, '-p', self.filepath, '-a', self.chain_id_list[0], '-i', chains, '-q']
         logger.info(subprocess.list2cmdline(sdf_cmd))
-        sdf_file_name = os.path.join(os.path.dirname(self.filepath), self.name + '.sdf')
-        with open(sdf_file_name, 'w') as file:
+        with open(out_path, 'w') as file:
             p = subprocess.Popen(sdf_cmd, stdout=file, stderr=subprocess.DEVNULL)
             p.communicate()
-
         assert p.returncode == 0, logger.error('%s: Symmetry Definition File generation failed' % self.filepath)
-        if len(chains) > 1:
-            self.format_sdf(dihedral=True, modify_sym_energy=False, energy=2)
-        else:
-            self.format_sdf(modify_sym_energy=False, energy=2)
 
-    def format_sdf(self, dihedral=False, modify_sym_energy=False, energy=2):
+        self.format_sdf(out_path=out_path, **kwargs)  # modify_sym_energy=False, energy=2)
+
+        return out_path
+
+    def format_sdf(self, out_path=None, dihedral=False, modify_sym_energy=False, energy=2):
         """Ensure proper sdf formatting before proceeding"""
         subunits, virtuals, jumps_com, jumps_subunit, trunk = [], [], [], [], []
-        sdf_file_name = os.path.join(os.path.dirname(self.filepath), self.name + '.sdf')
-        with open(sdf_file_name, 'r+') as file:
+        with open(out_path, 'r+') as file:
             lines = file.readlines()
             for i in range(len(lines)):
                 if lines[i].startswith('xyz'):
@@ -1788,8 +1807,6 @@ class PDB(Structure):
             if count != 0:
                 logger.warning('%s: Symmetry Definition File for %s missing %d lines, fix was attempted. Modelling may be '
                                'affected for pose' % (os.path.dirname(self.filepath), os.path.basename(self.filepath), count))
-
-        return sdf_file_name
 
     @staticmethod
     def parse_cryst_record(cryst1_string):
