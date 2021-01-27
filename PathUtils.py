@@ -32,19 +32,22 @@ master_log = 'nanohedra_master_logfile.txt'  # v1
 asu = 'asu.pdb'
 # asu = 'central_asu.pdb'
 clean = 'clean_asu.pdb'
-msa_pssm = 'asu_pose.pssm'
+pssm = 'pose.pssm'  # was 'asu_pose.pssm' 1/25/21
 dssm = 'pose.dssm'
 frag_dir = 'matching_fragment_representatives'
 frag_text_file = 'frag_match_info_file.txt'
 frag_file = os.path.join(frag_dir, frag_text_file)
 pose_file = 'docked_pose_info_file.txt'
 frag_profile = '_fragment_profile'
+sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
+design_directory = 'DesignDirectory'
+
 data = 'data'
-sequence_info = 'Sequence_Info'
-pdbs_outdir = 'rosetta_pdbs/'
-# pdbs_outdir = 'designs/' # v1.5
+symmetry_def_file_dir = 'sdf'
+pdbs_outdir = 'designs/'  # was rosetta_pdbs/ 1/25/21
 scores_outdir = 'scores/'
-scores_file = 'all_scores.sc'
+scores_file = 'design_scores.sc'  # was all_scores.sc 1/25/21
+pose_metrics_file = 'pose_scores.sc'
 analysis_file = 'AllDesignPoseMetrics.csv'
 directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\nEx:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
                       '\nIn design directory \'tx_c/\', output is located in \'%s\' and \'%s\'.' \

@@ -959,6 +959,38 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         This process identifies the ASU (if one is not explicitly provided, enables Pose symmetry,
         """
         # Todo ensure ASU
+        # template_pdb = PDB(file=des_dir.source)
+
+        if design_dir.nano:
+            # TODO this problem is confounded now by entities. Need to rework the below code to reflect them
+            num_chains = len(self.pdb.chain_id_list)
+            if num_chains != len(design_dir.oligomers):
+                # oligomer_file = glob(os.path.join(des_dir.path, pdb_codes[0] + '_tx_*.pdb'))
+                # assert len(oligomer_file) == 1, 'More than one matching file found with %s' % pdb_codes[0] + '_tx_*.pdb'
+                # # assert len(oligomer_file) == 1, '%s: More than one matching file found with %s' % \
+                # #                                 (des_dir.path, pdb_codes[0] + '_tx_*.pdb')
+                # first_oligomer = PDB(file=oligomer_file[0])
+                # # first_oligomer = SDUtils.read_pdb(oligomer_file[0])
+                # # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
+                # for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
+                for atom_idx in range(len(design_dir.oligomers.chain(self.pdb.entity(1)))):
+                    self.pdb.atoms[atom_idx].chain = self.pdb.chain_id_list[0].lower()
+                self.pdb.chain_id_list = [self.pdb.chain_id_list[0].lower(), self.pdb.chain_id_list[0]]
+                num_chains = len(self.pdb.chain_id_list)
+                logger.warning(
+                    '%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
+                    ' %s' % (design_dir.path, num_chains, self.pdb.chain_id_list))
+                # Save the renamed chain PDB to central_asu.pdb
+                self.pdb.write(out_path=design_dir.source)
+
+            assert len(design_dir.oligomers) == num_chains, \
+                'Number of chains \'%d\' in ASU doesn\'t match number of building blocks \'%d\'' \
+                % (num_chains, len(design_dir.oligomers))
+        else:
+            pass  # Todo might I need these for other designs?
+            # sdf_file_name = os.path.join(os.path.dirname(oligomer[name].filepath), '%s.sdf' % oligomer[name].name)
+            # sym_definition_files[name] = oligomer[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
+
         if symmetry and isinstance(symmetry, dict):  # otherwise done on __init__()
             self.set_symmetry(**symmetry)
 
@@ -1003,6 +1035,51 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
                     # for entity in self.entities:
                     self.pdb.entity(entity_name).connect_fragment_database(location=self.frag_db)
 
+        # ------------------------------------------------------------------------------------------------------------
+        # Todo logging and minor command work
+        jump = template_pdb.getTermCAAtom('C', template_pdb.chain_id_list[0]).residue_number
+        template_residues = template_pdb.get_residues()
+        logger.info('Last residue of first oligomer %s, chain %s is %d' %
+                    (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
+        logger.info('Total number of residues is %d' % len(template_residues))
+        # Save renumbered PDB to clean_asu.pdb
+        template_pdb.write(out_path=des_dir.asu)
+        # Mutate all design positions to Ala
+        mutated_pdb = copy.deepcopy(template_pdb)
+        logger.debug('Cleaned PDB: \'%s\'' % des_dir.asu)
+
+        # Set Up Interface Residues after renumber, remove Side Chain Atoms to Ala NECESSARY for all chains to ASU chain map
+        total_int_residue_objects = []
+        int_res_numbers = {}
+        for c, name in enumerate(names):  # int_residue_objects):
+            int_res_numbers[name] = []
+            for residue_obj in int_residue_objects[name]:
+                total_int_residue_objects.append(residue_obj)
+                int_res_numbers[name].append(
+                    residue_obj.number)  # Todo ensure .number is accessor to residue.ca Atom obj
+                mutated_pdb.mutate_to(names[name](c), residue_obj.number)
+                # Todo no mutation from GLY to ALA
+
+        logger.info('Interface Residues: %s' % ', '.join(str(n) + names[name](c) for c, name in enumerate(names)
+                                                         for n in int_res_numbers[name]))
+        mutated_pdb.write(out_path=des_dir.refine_pdb)
+        # mutated_pdb.write(ala_mut_pdb)
+        # mutated_pdb.write(ala_mut_pdb, cryst1=cryst)
+        logger.debug('Cleaned PDB for Refine: \'%s\'' % des_dir.refine_pdb)
+        # Get ASU distance parameters
+        asu_oligomer_com_dist = []
+        for d, name in enumerate(names):
+            asu_oligomer_com_dist.append(np.linalg.norm(np.array(template_pdb.get_center_of_mass())
+                                                        - np.array(oligomer[name].get_center_of_mass())))
+        max_com_dist = 0
+        for com_dist in asu_oligomer_com_dist:
+            if com_dist > max_com_dist:
+                max_com_dist = com_dist
+        dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
+        logger.info('Expanding ASU by %f Angstroms' % dist)
+        # ------------------------------------------------------------------------------------------------------------
+
+        # TODO Insert loops identified by comparison of SEQRES and ATOM
         for entity in self.entities:
             entity.add_profile(evolution=evolution, out_path=design_dir.sequences, fragments=fragments)
             # fragment_source=design_dir.fragment_observations, frag_alignment_type=fragment_info_source,
@@ -1011,7 +1088,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # set pose.pssm
         self.combine_pssm([entity.pssm for entity in self.entities])
         logger.debug('Position Specific Scoring Matrix: %s' % str(self.pssm))
-        self.pssm_file = self.make_pssm_file(self.pssm, PUtils.msa_pssm, out_path=design_dir.data)  # staticmethod
+        self.pssm_file = self.make_pssm_file(self.pssm, PUtils.pssm, out_path=design_dir.data)  # staticmethod
 
         # set pose.fragment_profile
         self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
@@ -1022,7 +1099,9 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         logger.debug('Design Specific Scoring Matrix: %s' % str(self.dssm))
         self.dssm_file = self.make_pssm_file(self.dssm, PUtils.dssm, out_path=design_dir.data)  # static
 
+        # -------------------------------------------------------------------------
         self.solve_consensus()  # Todo
+        # -------------------------------------------------------------------------
 
         # Update DesignDirectory with design information # Todo where to save this/include in pose initialization?
         design_dir.info['pssm'] = self.pssm_file
@@ -1032,6 +1111,131 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         design_dir.info['design_residues'] = self.design_residues
         # TODO add oligomer data to .info
         info_pickle = pickle_object(design_dir.info, 'info', out_path=design_dir.data)
+
+    def prepare_rosetta_commands(self):
+        # Set up protocol project
+        # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = des_dir.symmetry_parameters()
+        # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
+        protocol = PUtils.protocol[des_dir.design_dim]
+        if des_dir.design_dim > 0:  # layer or space
+            sym_def_file = SDUtils.sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
+            main_cmd += ['-symmetry_definition', 'CRYST1']
+        else:  # point
+            sym_def_file = SDUtils.sdf_lookup(des_dir.sym_entry_number)
+            main_cmd += ['-symmetry_definition', sym_def_file]
+
+        # logger.info('Symmetry Information: %s' % cryst)
+        logger.info('Symmetry Option: %s' % protocol)
+        logger.info('Input PDBs: %s' % ', '.join(name for name in names))
+        logger.info('Pulling fragment info from clusters: %s' % ', '.join(cluster_residue_d))
+        for j, pdb_id in enumerate(names):
+            logger.info('Fragments identified: Oligomer %s, residues: %s' %
+                        (pdb_id, ', '.join(str(cluster_residue_d[cluster][k][j]) for cluster in cluster_residue_d
+                                           for k, pair in enumerate(cluster_residue_d[cluster]))))
+
+            # Rosetta Execution formatting
+            # RELAX: Prepare command and flags file
+            refine_variables = [('pdb_reference', des_dir.asu), ('scripts', PUtils.rosetta_scripts),
+                                ('sym_score_patch', PUtils.sym_weights), ('project', protocol), ('sdf', sym_def_file),
+                                ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
+            for k, name in enumerate(names):
+                refine_variables.append(('interface' + names[name](k), ','.join(str(j) + names[name](k)
+                                                                                for j in int_res_numbers[name])))
+            # Old method using residue index. Keep until all backwards compatibility is cleared TODO remove
+            # for k, name in enumerate(int_res_numbers, 1):
+            #     refine_variables.append(('interface' + str(k), ','.join(str(j) for j in int_res_numbers[name])))
+
+            flags_refine = SDUtils.prepare_rosetta_flags(refine_variables, PUtils.stage[1], outpath=des_dir.path)
+            relax_cmd = main_cmd + \
+                        ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile',
+                         os.path.join(des_dir.scores, PUtils.scores_file),
+                         '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
+            refine_cmd = relax_cmd + ['-in:file:s', des_dir.refine_pdb, '-parser:script_vars',
+                                      'switch=%s' % PUtils.stage[1]]
+            consensus_cmd = relax_cmd + ['-in:file:s', des_dir.consensus_pdb, '-parser:script_vars',
+                                         'switch=%s' % PUtils.stage[5]]
+
+            # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
+            if script:
+                SDUtils.write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
+                                           outpath=des_dir.path,
+                                           additional=[subprocess.list2cmdline(consensus_cmd)])
+                SDUtils.write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5],
+                                           outpath=des_dir.path)
+            else:
+                if not suspend:
+                    logger.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
+                    refine_process = subprocess.Popen(relax_cmd)
+                    # Wait for Rosetta Refine command to complete
+                    refine_process.communicate()
+                    logger.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
+                    consensus_process = subprocess.Popen(consensus_cmd)
+                    # Wait for Rosetta Consensus command to complete
+                    consensus_process.communicate()
+
+            # DESIGN: Prepare command and flags file
+            design_variables = copy.deepcopy(refine_variables)
+            design_variables.append(('pssm_file', dssm_file))  # TODO change name to dssm_file after P432
+            flags_design = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[2], outpath=des_dir.path)
+            # TODO back out nstruct label to command distribution
+            design_cmd = main_cmd + \
+                         ['-in:file:s', des_dir.refined_pdb, '-in:file:native', des_dir.asu, '-nstruct',
+                          str(PUtils.nstruct),
+                          '@' + os.path.join(des_dir.path, flags_design), '-in:file:pssm', pssm_file,
+                          '-parser:protocol',
+                          os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
+                          '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file)]
+
+            # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
+            # TODO if nstruct is backed out, create pdb_list for metrics distribution
+            pdb_list_file = SDUtils.pdb_list_file(des_dir.refined_pdb, total_pdbs=PUtils.nstruct,
+                                                  suffix='_' + PUtils.stage[2],
+                                                  loc=des_dir.designs, additional=[des_dir.consensus_design_pdb, ])
+            design_variables += [('sdfA', sym_definition_files[pdb_codes[0]]),
+                                 ('sdfB', sym_definition_files[pdb_codes[1]])]
+
+            flags_metric = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[3], outpath=des_dir.path)
+            metric_cmd = main_cmd + \
+                         ['-in:file:l', pdb_list_file, '-in:file:native', des_dir.refined_pdb,
+                          '@' + os.path.join(des_dir.path, flags_metric),
+                          '-out:file:score_only', os.path.join(des_dir.scores, PUtils.scores_file),
+                          '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
+
+            if mpi:
+                design_cmd = CUtils.run_cmds[PUtils.rosetta_extras] + design_cmd
+                metric_cmd = CUtils.run_cmds[PUtils.rosetta_extras] + metric_cmd
+            metric_cmds = {name: metric_cmd + ['-parser:script_vars', 'chain=%s' % names[name](n)]
+                           for n, name in enumerate(names)}
+            # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
+            if script:
+                SDUtils.write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2],
+                                           outpath=des_dir.path)
+                SDUtils.write_shell_script(subprocess.list2cmdline(metric_cmds[pdb_codes[0]]), name=PUtils.stage[3],
+                                           outpath=des_dir.path, additional=[subprocess.list2cmdline(metric_cmds[name])
+                                                                             for n, name in enumerate(names) if n > 0])
+            else:
+                if not suspend:
+                    logger.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
+                    design_process = subprocess.Popen(design_cmd)
+                    # Wait for Rosetta Design command to complete
+                    design_process.communicate()
+                    for name in metric_cmds:
+                        logger.info('Metrics Command: %s' % subprocess.list2cmdline(metric_cmds[name]))
+                        metrics_process = subprocess.Popen(metric_cmds[name])
+                        metrics_process.communicate()
+
+            # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+            if script:
+                analysis_cmd = 'python %s -d %s' % (PUtils.filter_designs, des_dir.path)
+                SDUtils.write_shell_script(analysis_cmd, name=PUtils.stage[4], outpath=des_dir.path)
+            else:
+                if not suspend:
+                    pose_s = analyze_output(des_dir)
+                    outpath = os.path.join(des_dir.all_scores, PUtils.analysis_file)
+                    _header = False
+                    if not os.path.exists(outpath):
+                        _header = True
+                    pose_s.to_csv(outpath, mode='a', header=_header)
 
 
 def subdirectory(name):  # TODO PDBdb
