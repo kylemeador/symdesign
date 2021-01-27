@@ -62,7 +62,7 @@
 	<MOVERS>
 		# sample all rotamers to find minimum
 		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/> # Unused in P432
-		<SymMinMover name="min" scorefxn="2015_nano" jump="0" movemap_factory="design_map"/> # bb="0" chi="1"
+		<SymMinMover name="min" scorefxn="2015_nano" movemap_factory="design_map"/> # bb="0" chi="1"
 		# process mertics that are defined in the SimpleMetrics header above
 		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_oligomer" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%chain%%_oligomer" override="false"/> # %%chain%%
 		<RunSimpleMetrics name="run_metrics_polar_sasa_oligomer" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%chain%%_oligomer" override="false"/> # %%chain%%
