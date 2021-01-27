@@ -34,7 +34,8 @@
 		<OperateOnResidueSubset name="int_no_repack" selector="tot_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		# restrict all non-interface residues to repacking only, no design
 		<OperateOnResidueSubset name="non_int_rtr" selector="not_interface"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
-		# only use residues included in a %%pssm_file%%. options specify how to treat the pssm and which rotamers to include for design
+		# only use residues included in a %%pssm_file%%. options specify how to treat the pssm and which rotamers to include for
+		# here the pssm_file is loaded from the script initialization %%msa_file%%
 		<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%msa_pssm%%"
 		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
 		<DesignAround name="des_around_total" design_shell="0.1" resnums="%%interface1%%,%%interface2%%" repack_shell="8.0"/>
