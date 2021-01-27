@@ -866,10 +866,10 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # # used to be found from strings, now associated with the des_dir
     # pssm = SDUtils.parse_pssm(des_dir.info['pssm'])
-    # # if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):
-    # #     pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
+    # # if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
+    # #     pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, PUtils.pssm))
     # # else:
-    # #     pssm = SDUtils.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
+    # #     pssm = SDUtils.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.pssm))
 
     # # frag_pickle = glob(os.path.join(des_dir.data, '*%s*' % PUtils.frag_profile))
     # # assert len(frag_pickle) == 1, 'Couldn\'t match file *%s*' % PUtils.frag_profile
@@ -900,7 +900,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     wild_type_file = SequenceProfile.get_wildtype_file(des_dir)
     wt_sequence = AnalyzeMutatedSequences.get_pdb_sequences(wild_type_file)
     all_design_files = des_dir.get_designs()
-    # all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.design_pdbs)
+    # all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.designs)
     # logger.debug('Design Files: %s' % ', '.join(all_design_files))
     sequence_mutations = AnalyzeMutatedSequences.generate_all_design_mutations(all_design_files, wild_type_file)
     # logger.debug('Design Files: %s' % ', '.join(sequence_mutations))

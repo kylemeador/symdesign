@@ -120,8 +120,8 @@ def merge_design_pair(pair):
             f1.write('\n')  # first a new line at the end of the combined file
 
     def merge_designs():
-        for pdb in os.listdir(pair[0].design_pdbs):
-            shutil.copy(os.path.join(pair[0].design_pdbs, pdb), os.path.join(pair[1].design_pdbs, pdb))
+        for pdb in os.listdir(pair[0].designs):
+            shutil.copy(os.path.join(pair[0].designs, pdb), os.path.join(pair[1].designs, pdb))
     merge_scores()
     merge_designs()
 
@@ -130,7 +130,7 @@ def rsync_dir(des_dir):
     """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
     a single DEGEEN_1_2 directory making hard links for every file in a DEGEN_1_2 and higher directory to DEGEN_1_1"""
 
-    for s, sym_dir in enumerate(des_dir.symmetry):
+    for s, sym_dir in enumerate(des_dir.project):
         if '_flipped_180y' in sym_dir:
             for bb_dir in des_dir.building_blocks[s]:
                 building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
@@ -178,7 +178,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
         rmsd, all_to_all, clustering_files = [], [], []
         for des_dir in all_design_directories:
             rmsd_file, all_to_all_file, final_clustering_file = None, None, None
-            rmsd_dir = _rmsd_dir(des_dir.symmetry[0])
+            rmsd_dir = _rmsd_dir(des_dir.project[0])
             try:
                 rmsd_file = glob(os.path.join(rmsd_dir, 'crystal_vs_docked_irmsd.txt'))[0]
                 # ensure that RMSD files were created for the most recent set of results using 'start'
@@ -206,7 +206,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     running.append(os.path.join(_rmsd_dir(design_directories[k].symmetry[0]), outcome_strings_d[r]))
                     break
             if _status:
-                complete.append(glob(os.path.join(_rmsd_dir(all_design_directories[k].symmetry[0]), '*_clustered.txt'))[0])
+                complete.append(glob(os.path.join(_rmsd_dir(all_design_directories[k].project[0]), '*_clustered.txt'))[0])
 
     elif _stage == 'nanohedra':
         from classes import get_last_sampling_state
@@ -218,12 +218,12 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
             #     observed_building_blocks.append(os.path.basename(des_dir.building_blocks))
             # f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
             # degens, rotations = \
-            # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.symmetry))
+            # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.project))
             #
             # dock_dir = DesignDirectory(path, auto_structure=False)
-            # dock_dir.symmetry = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
-            # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.symmetry]
-            # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.symmetry]  # TODO change to PUtils
+            # dock_dir.project = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
+            # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.project]
+            # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.project]
             # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.building_blocks
             #                                 for bb_dir in sym] # TODO change to PUtils
 
@@ -255,18 +255,18 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     print('Expected:', degen1, degen2, last_rot1, last_rot2)
                     print('From log: %s' % log_file)
                     if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
-                        complete.append(os.path.join(des_dir.symmetry[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
+                        complete.append(os.path.join(des_dir.project[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
                         # complete.append(des_dir)
-                        # complete.append(des_dir.symmetry)
+                        # complete.append(des_dir.project)
                     else:
                         if active:
                             if int(time.time()) - int(os.path.getmtime(log_file)) < inactive_time:
-                                running.append(os.path.join(des_dir.symmetry[sym_idx],
+                                running.append(os.path.join(des_dir.project[sym_idx],
                                                             des_dir.building_blocks[sym_idx][bb_idx]))
-                        incomplete.append(os.path.join(des_dir.symmetry[sym_idx],
+                        incomplete.append(os.path.join(des_dir.project[sym_idx],
                                                        des_dir.building_blocks[sym_idx][bb_idx]))
                         # incomplete.append(des_dir)
-                        # incomplete.append(des_dir.symmetry)
+                        # incomplete.append(des_dir.project)
         complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
         running = list(map(os.path.dirname, running))  # can remove if building_block name is removed
         incomplete = map(os.path.dirname, incomplete)  # can remove if building_block name is removed
@@ -998,10 +998,10 @@ if __name__ == '__main__':
         for pose in results:
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
-                file = glob('%s*%s*' % (pose_des_dir.design_pdbs, design[i]))
+                file = glob('%s*%s*' % (pose_des_dir.designs, design[i]))
                 if file == list():  # If no file found, skip and add to exceptions
                     exceptions.append((pose_des_dir.path, 'No file found for %s*%s*' %
-                                       (pose_des_dir.design_pdbs, design[i])))
+                                       (pose_des_dir.designs, design[i])))
                     continue
                 try:
                     os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
@@ -1017,7 +1017,7 @@ if __name__ == '__main__':
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
                 # coming in as (chain: seq}
-                design_pose = PDB(file=glob('%s*%s*' % (pose_des_dir.design_pdbs, design[i]))[0])
+                design_pose = PDB(file=glob('%s*%s*' % (pose_des_dir.designs, design[i]))[0])
                 # v {chain: sequence, ...}
                 design_sequences = AnalyzeMutatedSequences.get_pdb_sequences(design_pose)
                 pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
