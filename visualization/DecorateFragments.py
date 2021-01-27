@@ -55,10 +55,14 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
             complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list)
 
     for fragment in ghost_frag_list:
-        fragment.pdb.write(out_path=os.path.join(out_path, init_dir, 'frag%s_%s.pdb' % fragment.central_res_tup))
+        fragment.pdb.write(out_path=os.path.join(out_path, init_dir, 'frag%s_chain%s_res%s.pdb'
+                                                 % ('%s_%s_%s' % fragment.get_ijk(),
+                                                    *fragment.get_aligned_surf_frag_central_res_tup())))
 
     for fragment in complete_ghost_frag_list:
-        fragment.pdb.write(out_path=os.path.join(out_path, complete_dir, 'frag%s_%s.pdb' % fragment.central_res_tup))
+        fragment.pdb.write(out_path=os.path.join(out_path, complete_dir, 'frag%s_chain%s_res%s.pdb'
+                                                 % ('%s_%s_%s' % fragment.get_ijk(),
+                                                    *fragment.get_aligned_surf_frag_central_res_tup())))
 
 
 if __name__ == '__main__':
@@ -95,7 +99,6 @@ if __name__ == '__main__':
     ijk_frag_db = create_fragment_db()
     # Get complete IJK fragment representatives database dictionaries
     ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-    print(ijk_monofrag_cluster_rep_pdb_dict.keys())
     ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
     ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
 
