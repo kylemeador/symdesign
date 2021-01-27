@@ -60,10 +60,14 @@
 	</MOVE_MAP_FACTORIES>
 
 	<MOVERS>
+		# generates symmetry for the system in question using %%sdf%% or %%dist%%
+		<SetupForSymmetry name="make_point_groupA" definition="%%sdfA%%" set_global_symmetry_at_parsetime="0"/>
+		<SetupForSymmetry name="make_point_groupB" definition="%%sdfB%%" set_global_symmetry_at_parsetime="0"/>
+		<SetupForSymmetry name="make_point_groupC" definition="%%sdfC%%" set_global_symmetry_at_parsetime="0"/>
 		# sample all rotamers to find minimum
 		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/> # Unused in P432
 		<SymMinMover name="min" scorefxn="2015_nano" movemap_factory="design_map"/> # bb="0" chi="1"
-		# process mertics that are defined in the SimpleMetrics header above
+		# process metrics that are defined in the SimpleMetrics header above
 		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_oligomer" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%chain%%_oligomer" override="false"/> # %%chain%%
 		<RunSimpleMetrics name="run_metrics_polar_sasa_oligomer" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%chain%%_oligomer" override="false"/> # %%chain%%
 		<RunSimpleMetrics name="run_metrics_sasa_oligomer" metrics="M_sasa_total_per_res" prefix="" suffix="_total_%%chain%%_oligomer" override="false"/> # %%chain%%
@@ -95,6 +99,7 @@
 	</FILTERS>
 
 	<PROTOCOLS>
+		<Add mover_name="make_point_group%%chain%%"/>
 		<Add mover_name="repack_loop"/> # Unused in P432 for minimization of the unbound state
 		<Add filter_name="R_int_connectivity_%%chain%%"/>
 		<Add filter_name="R_full_stability_%%chain%%_oligomer"/>

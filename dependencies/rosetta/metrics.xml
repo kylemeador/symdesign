@@ -1,50 +1,19 @@
 <ROSETTASCRIPTS>
 
-	<SCOREFXNS>
-		<ScoreFunction name="2015" weights="ref2015">
-			<Reweight scoretype="coordinate_constraint" weight="%%cst_value%%"/>
-		</ScoreFunction>
-	</SCOREFXNS>
+<!--	<SCOREFXNS>-->
+<!--		<ScoreFunction name="2015" weights="ref2015">-->
+<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value%%"/>-->
+<!--		</ScoreFunction>-->
+<!--	</SCOREFXNS>-->
 
 	<RESIDUE_SELECTORS>
-		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
-		<Index name="A_interface" resnums="%%interfaceA%%" error_on_out_of_bounds_index="1" reverse="0"/> # %%interfaceA%%
-		# same, but for residues from chain "B"
-		<Index name="B_interface" resnums="%%interfaceB%%" error_on_out_of_bounds_index="1" reverse="0"/> # can't use pose numbering with chain deletion. need to use residue numbering. %%interfaceB%%
-		# combined group of all identified interface residues
-		<Or name="tot_interface" selectors="A_interface,B_interface"/>
-		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
-		<!-- <HBond name="hbond_residues" residue_selector="B_interface" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/> -->
-		# all residues
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 
-	<SIMPLE_METRICS>
-		# gather the residues involved in a residue selector
-		<!-- <SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues"/> -->
-		# gather the per residue SASA of a residue selection
-		<!-- <PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="B_interface" mode="hydrophobic_sasa"/> -->
-		<!-- <PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="B_interface" mode="polar_sasa"/> -->
-		<!-- <PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="B_interface" mode="all_sasa"/> -->
-		# find the per residue energy of residues in a residue_selector 
-		<!-- <PerResidueEnergyMetric name="M_int_energy_oligomer_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="B_interface" use_native="false" scoretype="total_score" scorefxn="2015"/> -->
-			<!-- <PerResidueEnergyMetric name="M_int_energy_unbound_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="tot_interface" use_native="false" scoretype="total_score" scorefxn="2015"/> -->
-		# summarize the energy metrics from above
-		<!-- <ResidueSummaryMetric name="M_int_energy_total_asu" custom_type="int_energy" metric="M_int_energy_oligomer_per_res" action="sum"/> -->
-			<!-- <ResidueSummaryMetric name="M_int_energy_total_unbound" custom_type="int_energy" metric="M_int_energy_unbound_per_res" action="sum"/> -->
-		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-		<!-- <InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="B_interface" residue_selector2="full_pose" scorefxn="2015"/> #used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip=""" -->
-	</SIMPLE_METRICS>
-
 	<MOVERS>
-		# generates symmetry for the system in question using %%sdf%% or %%dist%%
-		<SetupForSymmetry name="make_point_groupA" definition="%%sdfA%%" set_global_symmetry_at_parsetime="0"/>
-		<SetupForSymmetry name="make_point_groupB" definition="%%sdfB%%" set_global_symmetry_at_parsetime="0"/>
-		<NullMover name="none"/>
-		<DeleteChainsMover name="chainA" chains="BCDEF" detect_bonds="false" detect_pseudobonds="false"/> # psuedobonds are virtuals
-		<DeleteChainsMover name="remove_chainA" chains="A" detect_bonds="false" detect_pseudobonds="false"/> # psuedobonds are virtuals
-		<DeleteChainsMover name="remove_chainB" chains="B" detect_bonds="false" detect_pseudobonds="false"/>
-		<!-- <SwitchChainOrder name="move_chain_order" chain_order="21" invert_chains="false" residue_numbers_setter="B_interface" scorefxn="2015"/> # chain_num="" chain_name=""  -->
+		<DeleteChainsMover name="chainA" chains="%%all_but_A%%" detect_bonds="false" detect_pseudobonds="false"/> # psuedobonds are virtuals
+		<DeleteChainsMover name="chainB" chains="%%all_but_B%%" detect_bonds="false" detect_pseudobonds="false"/> # psuedobonds are virtuals
+		<DeleteChainsMover name="chainC" chains="%%all_but_C%%" detect_bonds="false" detect_pseudobonds="false"/> # psuedobonds are virtuals
 		# saves a intermediate pdb to disk in the directory where Rosetta was initiated
 		<!-- <DumpPdb name="dump_pdb_single" fname="single.pdb" scorefxn="2015" tag_time="0"/> -->
 		<!-- <DumpPdb name="dump_pdb" fname="sym.pdb" scorefxn="2015" tag_time="0"/> -->
@@ -53,34 +22,23 @@
 		</AddConstraints>
 		# Pull subroutines in from other files
 		<Subroutine name="metrics_oligomer" xml_fname="%%scripts%%/metrics_scripts/metrics_oligomer.xml"/>
+		<Subroutine name="metrics_asu" xml_fname="%%scripts%%/metrics_scripts/metrics_asu.xml"/>
 		# Switch reporting to identify which design type or symmetry was selected
-<!--		<ParsedProtocol name="chainA">-->
-<!--			<Add mover_name="remove_chainB"/>-->
-	<!--			<Add mover_name="make_point_groupA"/>-->
-<!--		</ParsedProtocol>-->
-		<ParsedProtocol name="chainB">
-			<Add mover_name="remove_chainA"/>
-<!--			<Add mover_name="make_point_groupB"/>-->
+		<ParsedProtocol name="oligomer">
+			<Add mover_name="metrics_oligomer"/>
 		</ParsedProtocol>
-		<ParsedProtocol name="make_point_group">
-			<Add mover_name="make_point_group%%chain%%"/>
+		<ParsedProtocol name="no_symmetry">
+			<Add mover_name="metrics_asu"/>
 		</ParsedProtocol>
-<!--		<ParsedProtocol name="symmetryA">-->
-<!--			<Add mover_name="make_point_groupA"/>-->
-<!--		</ParsedProtocol>-->
-<!--		<ParsedProtocol name="symmetryB">-->
-<!--			<Add mover_name="make_point_groupB"/>-->
-<!--		</ParsedProtocol>-->
-		<SwitchMover name="chain_switch" movers="chainA,chainB" selected="chain%%chain%%"/>
-		<SwitchMover name="symmetry_switch" movers="make_point_group,none" selected="%%symmetry%%"/>
+		<SwitchMover name="chain_switch" movers="chainA,chainB,chainC" selected="chain%%chain%%"/>
+		<SwitchMover name="metrics_symmetry" movers="oligomer,no_symmetry" selected="%%metrics_symmetry%%"/>
 	</MOVERS>
 
 	<PROTOCOLS>
 		<Add mover_name="add_csts"/>
 		<Add mover_name="chain_switch"/>
-		<Add mover_name="symmetry_switch"/>
+		<Add mover_name="metrics_symmetry"/>
 		<!-- <Add mover_name="dump_pdb"/> -->
-		<Add mover_name="metrics_oligomer"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
