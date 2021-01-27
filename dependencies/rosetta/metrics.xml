@@ -19,6 +19,11 @@
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 
+	<TASKOPERATIONS>
+		# standard task operation to pull in commandline options
+		<InitializeFromCommandline name="init"/>
+	</TASKOPERATIONS>
+
 	<SIMPLE_METRICS>
 		# gather the residues involved in a residue selector
 		<!-- <SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues"/> -->
@@ -40,6 +45,8 @@
 		# generates symmetry for the system in question using %%sdf%% or %%dist%%
 		<SetupForSymmetry name="make_point_groupA" definition="%%sdfA%%" set_global_symmetry_at_parsetime="0"/>
 		<SetupForSymmetry name="make_point_groupB" definition="%%sdfB%%" set_global_symmetry_at_parsetime="0"/>
+		<NullMover name="none"/>
+		<DeleteChainsMover name="chainA" chains="BCDEF" detect_bonds="false" detect_pseudobonds="false"/> # psuedobonds are virtuals
 		<DeleteChainsMover name="remove_chainA" chains="A" detect_bonds="false" detect_pseudobonds="false"/> # psuedobonds are virtuals
 		<DeleteChainsMover name="remove_chainB" chains="B" detect_bonds="false" detect_pseudobonds="false"/>
 		<!-- <SwitchChainOrder name="move_chain_order" chain_order="21" invert_chains="false" residue_numbers_setter="B_interface" scorefxn="2015"/> # chain_num="" chain_name=""  -->
@@ -52,20 +59,31 @@
 		# Pull subroutines in from other files
 		<Subroutine name="metrics_oligomer" xml_fname="%%scripts%%/metrics_scripts/metrics_oligomer.xml"/>
 		# Switch reporting to identify which design type or symmetry was selected
-		<ParsedProtocol name="oligomerA">
-			<Add mover_name="remove_chainB"/>
-			<Add mover_name="make_point_groupA"/>
-		</ParsedProtocol>
-		<ParsedProtocol name="oligomerB">
+<!--		<ParsedProtocol name="chainA">-->
+<!--			<Add mover_name="remove_chainB"/>-->
+	<!--			<Add mover_name="make_point_groupA"/>-->
+<!--		</ParsedProtocol>-->
+		<ParsedProtocol name="chainB">
 			<Add mover_name="remove_chainA"/>
-			<Add mover_name="make_point_groupB"/>
+<!--			<Add mover_name="make_point_groupB"/>-->
 		</ParsedProtocol>
-		<SwitchMover name="oligomer_switch" movers="oligomerA,oligomerB" selected="oligomer%%chain%%"/>
+		<ParsedProtocol name="make_point_group">
+			<Add mover_name="make_point_group%%chain%%"/>
+		</ParsedProtocol>
+<!--		<ParsedProtocol name="symmetryA">-->
+<!--			<Add mover_name="make_point_groupA"/>-->
+<!--		</ParsedProtocol>-->
+<!--		<ParsedProtocol name="symmetryB">-->
+<!--			<Add mover_name="make_point_groupB"/>-->
+<!--		</ParsedProtocol>-->
+		<SwitchMover name="chain_switch" movers="chainA,chainB" selected="chain%%chain%%"/>
+		<SwitchMover name="symmetry_switch" movers="make_point_group,none" selected="%%symmetry%%"/>
 	</MOVERS>
 
 	<PROTOCOLS>
 		<Add mover_name="add_csts"/>
-		<Add mover_name="oligomer_switch"/>
+		<Add mover_name="chain_switch"/>
+		<Add mover_name="symmetry_switch"/>
 		<!-- <Add mover_name="dump_pdb"/> -->
 		<Add mover_name="metrics_oligomer"/>
 	</PROTOCOLS>
