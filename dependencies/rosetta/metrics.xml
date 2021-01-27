@@ -19,11 +19,6 @@
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 
-	<TASKOPERATIONS>
-		# standard task operation to pull in commandline options
-		<InitializeFromCommandline name="init"/>
-	</TASKOPERATIONS>
-
 	<SIMPLE_METRICS>
 		# gather the residues involved in a residue selector
 		<!-- <SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues"/> -->

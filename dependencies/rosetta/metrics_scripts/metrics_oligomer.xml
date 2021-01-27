@@ -25,6 +25,10 @@
 	</RESIDUE_SELECTORS>
 
 	<TASKOPERATIONS>
+		# standard task operation to pull in commandline options
+		<InitializeFromCommandline name="init"/>
+		# standard operation to restrict all residues to repacking
+		<RestrictToRepacking name="rtr"/>
 		<DesignAround name="des_aroundA" design_shell="0.1" resnums="%%interfaceA%%" repack_shell="8.0"/> # %%interfaceA%%
 		<DesignAround name="des_aroundB" design_shell="0.1" resnums="%%interfaceB%%" repack_shell="8.0"/>
 	</TASKOPERATIONS>
