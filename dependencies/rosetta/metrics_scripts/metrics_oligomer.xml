@@ -4,20 +4,22 @@
 		<ScoreFunction name="2015" weights="ref2015">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value%%"/>
 		</ScoreFunction>
-		<ScoreFunction name="2015_oligomer" weights="ref2015" patch="%%sym_score_patch%%">
+		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
 		</ScoreFunction>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
-		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
+		# used for selecting residues on one side of the interface from chain "A".
+		# When using pose numbering all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
+		# when using residue numbering all resnums are listed 23A,54A,64A,90A,etc... in the %%interfaceA%% variable
 		<Index name="A_interface" resnums="%%interfaceA%%" error_on_out_of_bounds_index="1" reverse="0"/> # %%interfaceA%%
 		# same, but for residues from chain "B"
 		<Index name="B_interface" resnums="%%interfaceB%%" error_on_out_of_bounds_index="1" reverse="0"/> # can't use pose numbering with chain deletion. need to use residue numbering. %%interfaceB%%
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="A_interface,B_interface"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
-		<HBond name="hbond_residues" residue_selector="%%chain%%_interface" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_oligomer"/>
+		<HBond name="hbond_residues" residue_selector="%%chain%%_interface" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano"/>
 		# all residues
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
@@ -35,7 +37,7 @@
 		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="%%chain%%_interface" mode="polar_sasa"/>
 		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="%%chain%%_interface" mode="all_sasa"/>
 		# find the per residue energy of residues in a residue_selector 
-		<PerResidueEnergyMetric name="M_int_energy_oligomer_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="%%chain%%_interface" use_native="false" scoretype="total_score" scorefxn="2015_oligomer"/>
+		<PerResidueEnergyMetric name="M_int_energy_oligomer_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="%%chain%%_interface" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		<!-- <PerResidueEnergyMetric name="M_int_energy_unbound_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="tot_interface" use_native="false" scoretype="total_score" scorefxn="2015"/> -->
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="M_int_energy_total_oligomer" custom_type="int_energy" metric="M_int_energy_oligomer_per_res" action="sum"/>
@@ -47,9 +49,16 @@
 		<!-- <InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="%%chain%%_interface" residue_selector2="full_pose" scorefxn="2015"/> #used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip=""" -->
 	</SIMPLE_METRICS>
 
+	<MOVE_MAP_FACTORIES>
+		<MoveMapFactory name="design_map" bb="0" chi="1">
+			<Backbone residue_selector="%%chain%%_interface" enable="true"/>
+		</MoveMapFactory>
+	</MOVE_MAP_FACTORIES>
+
 	<MOVERS>
 		# sample all rotamers to find minimum
-		<SymRotamerTrialsMinMover name="RTmin" scorefxn="2015_nano" task_operations="init,rtr"/> # Min unused in P432
+		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/> # Unused in P432
+		<SymMinMover name="min" scorefxn="2015_nano" bb="0" chi="1" jump="0" movemap_factory="design_map"/>
 		# process mertics that are defined in the SimpleMetrics header above
 		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_oligomer" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%chain%%_oligomer" override="false"/> # %%chain%%
 		<RunSimpleMetrics name="run_metrics_polar_sasa_oligomer" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%chain%%_oligomer" override="false"/> # %%chain%%
@@ -63,13 +72,18 @@
 			<!-- <RunSimpleMetrics name="run_metrics_polar_sasa_unbound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_unbound" override="false"/>  -->
 			<!-- <RunSimpleMetrics name="run_metrics_sasa_unbound" metrics="M_sasa_per_res" prefix="" suffix="_total_unbound" override="false"/>  -->
 			<!-- <RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_unbound_per_res,M_int_energy_total_unbound,M_interaction_energy,M_int_hbonds_res_selector" prefix="" suffix="_unbound" override="false"/> -->
+		<ParsedProtocol name="rotamer_trials_min_mover">
+			<Add mover_name="RT"/> # Unused in P432 for minimization of the unbound state
+			<Add mover_name="min"/>
+		</ParsedProtocol>
+		<LoopOver name="repack_loop" iterations="4" mover_name="rotamer_trials_min_mover"/>
 	</MOVERS>
 
 	<FILTERS>
-		<ScoreType name="full_stability_%%chain%%_oligomer" scorefxn="2015_oligomer" score_type="total_score" threshold="20000" confidence="1.0"/>
+		<ScoreType name="full_stability_%%chain%%_oligomer" scorefxn="2015_nano" score_type="total_score" threshold="20000" confidence="1.0"/>
 		# find the average degree of connectivity to residues surrounding specified residues
 		<AverageDegree name="int_connectivity_%%chain%%" threshold="0" distance_threshold="10.0" task_operations="des_around%%chain%%"/>
-		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_%%chain%%_oligomer" in_context="1" residue_selector="%%chain%%_interface" scorefxn="2015_oligomer" confidence="1.0"/>
+		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_%%chain%%_oligomer" in_context="1" residue_selector="%%chain%%_interface" scorefxn="2015_nano" confidence="1.0"/>
 		<Report name="R_full_stability_%%chain%%_oligomer" 			filter="full_stability_%%chain%%_oligomer"/>
 		<Report name="R_int_connectivity_%%chain%%" 				filter="int_connectivity_%%chain%%"/>
 		<Report name="R_int_energy_context_%%chain%%_oligomer" 		filter="int_energy_context_%%chain%%_oligomer"/>
@@ -77,10 +91,7 @@
 	</FILTERS>
 
 	<PROTOCOLS>
-		<Add mover_name="RTmin"/> # Unused in P432
-		<Add mover_name="RTmin"/>
-		<Add mover_name="RTmin"/>
-		<Add mover_name="RTmin"/>
+		<Add mover_name="repack_loop"/> # Unused in P432 for minimization of the unbound state
 		<Add filter_name="R_int_connectivity_%%chain%%"/>
 		<Add filter_name="R_full_stability_%%chain%%_oligomer"/>
 		<Add filter_name="R_int_energy_context_%%chain%%_oligomer"/>
