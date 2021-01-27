@@ -53,12 +53,15 @@
 		</AddConstraints>
 		<FastDesign name="int_design" scorefxn="2015_nano" disable_design="false" task_operations="init,vrt,include_current,pssm_cutoff,des_around_total" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 		# sample all rotamers to find minimum
-		<SymRotamerTrialsMinMover name="RTmin" scorefxn="2015_nano" task_operations="init,rtr"/> # Min unused in P432
+		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/>
 		# the main protocol to loop over for interface design
+		<ParsedProtocol name="rotamer_trials_min_mover">
+			<Add mover_name="RT"/>
+			<Add mover_name="min"/> # Min unused in P432
+		</ParsedProtocol>
 		<ParsedProtocol name="design_block">
 			<Add mover_name="int_design"/>
-			<Add mover_name="RTmin"/>
-			<Add mover_name="RTmin"/>
+			<Add mover_name="rotamer_trials_min_mover"/>
 		</ParsedProtocol>
 		<LoopOver name="design_loop" iterations="4" mover_name="design_block"/>
 	</MOVERS>
