@@ -140,7 +140,7 @@ def check_for_errors(des_dir, debug):
 #         for name in names:
 #             pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
 #         full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
-#         pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
+#         pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.pssm, outpath=des_dir.building_blocks)
 #     else:
 #         time.sleep(1)
 #         des_logger.info('Waiting for profile generation...')
@@ -150,7 +150,7 @@ def check_for_errors(des_dir, debug):
 #                 continue
 #             break
 #
-#         pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
+#         pssm_file = os.path.join(des_dir.building_blocks, PUtils.pssm)
 #         full_pssm = SequenceProfile.parse_pssm(pssm_file)
 #
 #     # Check length for equality before proceeding

@@ -298,11 +298,11 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # TODO no mut if glycine...
     # ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'
     # consensus_pdb = os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb'
-    # consensus_design_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
-    # refined_pdb = os.path.join(des_dir.design_pdbs, os.path.basename(des_dir.refine_pdb))
-    # refined_pdb = os.path.join(des_dir.design_pdbs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '.pdb')
+    # consensus_design_pdb = os.path.join(des_dir.designs, os.path.splitext(des_dir.asu)[0] + '_for_consensus.pdb')
+    # refined_pdb = os.path.join(des_dir.designs, os.path.basename(des_dir.refine_pdb))
+    # refined_pdb = os.path.join(des_dir.designs, os.path.splitext(os.path.basename(ala_mut_pdb))[0] + '.pdb')
     # '_%s.pdb' % PUtils.stage[1]) TODO clean this stupid mechanism only for P432
-    # if out:file:o works, could use, os.path.join(des_dir.design_pdbs, PUtils.stage[1] + '.pdb') but it won't register
+    # if out:file:o works, could use, os.path.join(des_dir.designs, PUtils.stage[1] + '.pdb') but it won't register
 
     # Extract information from SymDock Output
     des_dir.gather_docking_metrics()
@@ -369,7 +369,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         # oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
         oligomer[name].set_name(name)
         # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
-        sym_definition_files[name] = oligomer[name].make_sdf(modify_sym_energy=True)
+        sdf_file_name = os.path.join(os.path.dirname(oligomer[name].filepath), '%s.sdf' % oligomer[name].name)
+        sym_definition_files[name] = oligomer[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
         oligomer[name].reorder_chains()
     logger.debug('%s: %d matching oligomers found' % (des_dir.path, len(oligomer)))
 
@@ -467,7 +468,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #
     #             if residue not in loops_file[loop]:
     #             template_pdb.insert_residue(chain, residue, gapped_residues_d[chain][residue]['from'])
-
 
     template_pdb.renumber_residues()
     jump = template_pdb.getTermCAAtom('C', template_pdb.chain_id_list[0]).residue_number
@@ -598,17 +598,17 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         # Extract PSSM for each protein and combine into single PSSM
         pssm_dict = {name: SequenceProfile.parse_hhblits_pssm(pssm_files[name]) for name in names}
         full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])  # requires python3.6 or greater
-        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.building_blocks)
+        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.pssm, outpath=des_dir.building_blocks)
     else:
         time.sleep(1)
         while os.path.exists(temp_file):
             logger.info('Waiting for profile generation...')
             time.sleep(20)
         # Check to see if specific profile has been made for the pose.
-        if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):
-            pssm_file = os.path.join(des_dir.path, PUtils.msa_pssm)
+        if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
+            pssm_file = os.path.join(des_dir.path, PUtils.pssm)
         else:
-            pssm_file = os.path.join(des_dir.building_blocks, PUtils.msa_pssm)
+            pssm_file = os.path.join(des_dir.building_blocks, PUtils.pssm)
         full_pssm = SequenceProfile.parse_pssm(pssm_file)
 
     # Check Pose and Profile for equality before proceeding
@@ -814,7 +814,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
     # TODO if nstruct is backed out, create pdb_list for metrics distribution
     pdb_list_file = SDUtils.pdb_list_file(des_dir.refined_pdb, total_pdbs=PUtils.nstruct, suffix='_' + PUtils.stage[2],
-                                          loc=des_dir.design_pdbs, additional=[des_dir.consensus_design_pdb, ])
+                                          loc=des_dir.designs, additional=[des_dir.consensus_design_pdb, ])
     design_variables += [('sdfA', sym_definition_files[pdb_codes[0]]), ('sdfB', sym_definition_files[pdb_codes[1]])]
 
     flags_metric = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[3], outpath=des_dir.path)
@@ -1000,7 +1000,7 @@ def gather_profile_info(pdb, des_dir, names):
     for name in names:
         pssm_dict[name] = SequenceProfile.parse_hhblits_pssm(pssm_files[name])
     full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])
-    pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.msa_pssm, outpath=des_dir.path)
+    pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.pssm, outpath=des_dir.path)
 
     return pssm_file, full_pssm
 

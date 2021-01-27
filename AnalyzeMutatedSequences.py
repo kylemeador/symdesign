@@ -121,10 +121,10 @@ index_offset = SDUtils.index_offset
 #     interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
 #     interface_divergence = SDUtils.compute_jsd(mutation_frequencies, interface_bkgd)
 #
-#     if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):  # TODO Wrap into DesignDirectory object
-#         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
+#     if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
+#         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.pssm))
 #     else:
-#         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
+#         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.pssm))
 #     evolution_divergence = pos_specific_jsd(mutation_frequencies, pssm)
 #
 #     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_frequencies, evolution_divergence,
@@ -380,7 +380,7 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
                 % '\n'.join('\t%d\t%s' % (neighbors, os.path.join(des_dir.design_pdbs, des))
                             for des, neighbors in final_designs.items()))
 
-    # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.design_pdbs, seq))
+    # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.designs, seq))
     #                                                         for i, seq in enumerate(final_designs, 1)))
 
     # Compute the highest density cluster using DBSCAN algorithm
@@ -424,10 +424,10 @@ def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unuse
     interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
     interface_divergence_values = compute_jsd(mutation_probabilities, interface_bkgd)
 
-    if os.path.exists(os.path.join(des_dir.path, PUtils.msa_pssm)):  # TODO Wrap into DesignDirectory object
-        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.msa_pssm))
+    if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
+        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.pssm))
     else:
-        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.msa_pssm))
+        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.pssm))
     evolution_divergence_values = pos_specific_jsd(mutation_probabilities, pssm)
 
     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_probabilities, evolution_divergence_values,
