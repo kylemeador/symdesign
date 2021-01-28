@@ -9,6 +9,7 @@ from Bio.SeqUtils import IUPACData
 import DesignDirectory
 import PathUtils as PUtils
 import SequenceProfile
+import SymDesignUtils
 import SymDesignUtils as SDUtils
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -49,7 +50,7 @@ def check_for_errors(des_dir, debug):
         pose_correct = check_pssm_v_pose(des_dir, pose_pssm, template_residues)
         return pose_correct
     else:
-        raise DesignDirectory.DesignError('Directory missing crucial files')
+        raise SymDesignUtils.DesignError('Directory missing crucial files')
 
 
 # def generate_profile(pdb, des_dir, debug):  # DEPRECIATED

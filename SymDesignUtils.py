@@ -1034,3 +1034,10 @@ def collect_directories(directory, file=None, dir_type=None):
 #     # return sorted(set(all_directories))
 #
 #     return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
+class DesignError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        self.args = message
+
+    def __eq__(self, other):
+        return self.__str__() == other

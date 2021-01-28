@@ -22,13 +22,13 @@ from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 
 import CmdUtils as CUtils
-from DesignDirectory import DesignError
 import PathUtils as PUtils
+import SymDesignUtils
 import SymDesignUtils as SDUtils
 # from DesignDirectory import
 from PDB import PDB
 from Query.PDB import get_sequence_by_entity_id
-from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths
+from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths, DesignError
 from utils.MysqlPython import Mysql
 
 # Globals
@@ -165,7 +165,7 @@ class SequenceProfile:
             if rerun:
                 if second:
                     logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                    raise DesignDirectory.DesignError('Profile Generation got stuck, design aborted')
+                    raise SymDesignUtils.DesignError('Profile Generation got stuck, design aborted')
                     # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
                     break  # break ^While loop
                 self.add_profile()
@@ -2187,13 +2187,13 @@ def write_fasta_file(sequence, name, outpath=os.getcwd()):
             elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
                 outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
             else:
-                raise DesignDirectory.DesignError('Cannot parse data to make fasta')
+                raise SymDesignUtils.DesignError('Cannot parse data to make fasta')
         elif isinstance(sequence, dict):
             outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
         elif isinstance(sequence, str):
             outfile.write('>%s\n%s\n' % (name, sequence))
         else:
-            raise DesignDirectory.DesignError('Cannot parse data to make fasta')
+            raise SymDesignUtils.DesignError('Cannot parse data to make fasta')
 
     return file_name
 

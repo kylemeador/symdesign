@@ -21,6 +21,7 @@ from sklearn.preprocessing import StandardScaler
 import DesignDirectory
 import PathUtils as PUtils
 import SequenceProfile
+import SymDesignUtils
 import SymDesignUtils as SDUtils
 from PDB import PDB
 from PoseProcessing import extract_aa_seq
@@ -249,7 +250,7 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
     return design_list
 
 
-@SDUtils.handle_design_errors(errors=(DesignDirectory.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
 def select_sequences_s(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
     return select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
 
@@ -258,7 +259,7 @@ def select_sequences_mp(des_dir, weights=None, filter_file=PUtils.filter_and_sor
     try:
         pose = select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
         return pose, None
-    except (DesignDirectory.DesignError, AssertionError) as e:
+    except (SymDesignUtils.DesignError, AssertionError) as e:
         return None, (des_dir.path, e)
 
 
@@ -397,7 +398,7 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
         try:
             energy_s = pd.Series(energy_s)
         except ValueError:
-            raise DesignDirectory.DesignError('no dataframe')
+            raise SymDesignUtils.DesignError('no dataframe')
         energy_s.sort_values(inplace=True)
         final_seqs = zip(repeat(des_dir), energy_s.iloc[:number].index.to_list())  # , :].index.to_list()) - index_offset
     else:
@@ -1012,4 +1013,4 @@ def multi_chain_alignment(mutated_sequences):
         return AnalyzeMutatedSequences.process_alignment(total_alignment)
     else:
         logger.error('%s - No sequences were found!' % multi_chain_alignment.__name__)
-        raise DesignDirectory.DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
+        raise SymDesignUtils.DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)

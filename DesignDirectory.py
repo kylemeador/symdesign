@@ -4,11 +4,9 @@ import os
 import subprocess
 from glob import glob
 
-import numpy
 import numpy as np
 
 import CmdUtils as CUtils
-import PathUtils
 from AnalyzeOutput import analyze_output
 from CmdUtils import reference_average_residue_weight, script_cmd, run_cmds
 
@@ -16,7 +14,8 @@ from PDB import PDB
 import PathUtils as PUtils
 from Pose import Pose
 from Query.Flags import load_flags
-from SymDesignUtils import logger, unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file
+from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file, \
+    DesignError
 
 # Globals
 design_direcotry_modes = ['design', 'dock']
@@ -936,13 +935,3 @@ def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to loca
     return pseudo_dir
 
 
-class DesignError(Exception):  # TODO make error messages one line instead of string iteration
-    # SymDesignUtils.DesignError: ('I', 'n', 'v', 'a', 'l', 'i', 'd', ' ', 'P', 'D', 'B', ' ', 'i', 'n', 'p', 'u', 't',
-    # ',', ' ', 'n', 'o', ' ', 'S', 'E', 'Q', 'R', 'E', 'S', ' ', 'r', 'e', 'c', 'o', 'r', 'd', ' ', 'f', 'o', 'u', 'n',
-    # 'd')
-
-    def __init__(self, message):
-        self.args = message
-
-    def __eq__(self, other):
-        return self.__str__() == other
