@@ -13,7 +13,7 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile, get_fragment_metrics
 from Structure import Coords
 # Globals
-from SymDesignUtils import to_iterable, logger, pickle_object
+from SymDesignUtils import to_iterable, logger, pickle_object, DesignError
 
 from classes.Fragment import MonoFragment
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
@@ -364,6 +364,8 @@ class SymmetricModel:  # (Model)
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
 
         model_coords must be from all atoms which by default is True
+        Returns:
+            (int): The index of the number of models where the ASU can be found
         """
         if not self.symmetry:
             return None
@@ -376,6 +378,19 @@ class SymmetricModel:  # (Model)
                 return model_number
 
         print('%s is FAILING' % self.find_asu_equivalent_symmetry_mate.__name__)
+
+    def find_asu_equivalent_symmetry_mate_indices(self):
+        """Find the asu equivalent model in the SymmetricModel. Zero-indexed
+
+        model_coords must be from all atoms which by default is True
+        Returns:
+            (list): The index of the number of models where the ASU can be found
+        """
+        model_number = self.find_asu_equivalent_symmetry_mate()
+        start_idx = self.pdb.number_of_atoms * model_number
+        end_idx = self.pdb.number_of_atoms * (model_number + 1)
+        # Todo test logic, we offset the index by 1 from the end_idx values (0 to 100 -> 0:99 or 100 to 200 -> 100:199)
+        return [idx for idx in range(start_idx, end_idx)]
 
     def return_symmetry_mates(self, pdb, **kwargs):  # return_side_chains=False, surrounding_uc=False):
         """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
@@ -501,6 +516,19 @@ class SymmetricModel:  # (Model)
                                                                 zvalue_dict[self.symmetry])
 
         return asu_symm_mates
+
+    def symmetric_assembly_is_clash(self, clash_distance=2.2):
+        asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
+        asu_coord_kdtree = BallTree(self.model_coords[asu_indices])
+        model_indices_without_asu = [idx for idx in range(len(self.model_coords))
+                                     if asu_indices[0] > idx > asu_indices[-1]]
+        cb_clash_count = asu_coord_kdtree.two_point_correlation(self.model_coords[model_indices_without_asu],
+                                                                [clash_distance])
+
+        if cb_clash_count[0] > 0:
+            return True  # clash
+        else:
+            return False  # no clash
 
     # def get_point_group_symmetry_mates(self, return_side_chains=False):  # For getting PDB copies
     #     """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
@@ -916,11 +944,8 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
                                         for model_number in range(self.number_of_models) for idx in entity2_indices])
             # Todo mask=[residue_numbers?] default parameter
             if entity2 == entity1:  # the entity is the same however, we don't want interactions with the same sym mate
-                model_number = self.find_asu_equivalent_symmetry_mate()
-                start_idx = self.pdb.number_of_atoms * model_number
-                end_idx = self.pdb.number_of_atoms * (model_number + 1)
-                # Todo test logic, have to offset the index by 1 from the start and end_idx values
-                entity2_indices = [idx for idx in entity2_indices if idx >= end_idx or idx < start_idx]
+                asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
+                entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx > asu_indices[-1]]
             entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             entity2_coords = self.model_coords[entity2_indices]  # only get the coordinate indices we want!
         else:
@@ -1074,6 +1099,9 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
 
         if symmetry and isinstance(symmetry, dict):  # otherwise done on __init__()
             self.set_symmetry(**symmetry)
+            if self.symmetric_assembly_is_clash():
+                raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
+                                  % str(design_dir))
 
         if design_dir.info:  # pose has already been initialized for design
             # Todo Load Pose info
