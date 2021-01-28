@@ -1,36 +1,31 @@
-import os
-from copy import copy
-from json import dumps, loads
+from json import dumps, load
 
-from Bio.Alphabet import IUPAC
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
-
-from PDB import PDB
 from PathUtils import program_command, nano
 from Query.PDB import user_input_format, input_string, format_string, numbered_format_string, confirmation_string, \
     bool_d, invalid_string
-from SequenceProfile import write_fasta, read_fasta_file
 
 
 def query_user_for_flags(mode='design'):
     flags = \
         {'design':
-         {'symmetry': '(str) The symmetry to use for the Design. Won\'t be assigned if missing unless targets are %s'
-                      % nano,
+         {'symmetry': '(str) The symmetry to use for the Design. Symmetry won\'t be assigned if not provided unless '
+                      'Design targets are %s.py outputs' % nano,
           'nanohedra_output': '(bool) Whether the design targets are a %s output' % nano,
           'fragments_exist': '(str) If fragment data has been generated for the design, where is it located?',
           'generate_fragments': '(bool) Whether fragments should be generated fresh for each Pose',
-          'design_with_fragments': '(bool) Whether to design with fragment amino acid frequency info',
-          'design_with_evolution': '(bool) Whether to design with evolutionary amino acid frequency info',
-          'output_assembly': '(bool) If symmetric, whether the expanded assembly should be output. 2- and 3-D materials'
-                             ' will be output with a single unit cell.',
-          'mask_design_using_sequence': '(bool) Whether design should be masked at certain residues provided in a '
-                                        '.fasta file.run \'%s mask -s path/to/your.pdb\' to set this up.'
+          'design_with_fragments': '(bool) Default True. Whether to design with fragment amino acid frequency info',
+          'design_with_evolution': '(bool) Default True. Whether to design with evolutionary amino acid frequency info',
+          'output_assembly': '(bool) Default False. If symmetric, whether the expanded assembly should be output. '
+                             '2- and 3-D materials will be output with a single unit cell.',
+          'mask_design_using_sequence': '(str) If a design should be masked at certain residues provide a .fasta file '
+                                        'containing the mask. Run \'%s mask -s path/to/your.pdb\' to set this up.'
                                         % program_command,
-          'input_location': '(str) Specify a file with a list of input files or a directory where input files are '
-                            'located. If the input is a %s output, specifying the master output directory is sufficient'
-                            % nano
+          'mask_design_using_chain': '(str) If a design should be masked at certain chains provide the chain IDs as a '
+                                     'comma separated string. Ex: \'A, C, D\''
+
+          # 'input_location': '(str) Specify a file with a list of input files or a directory where input files are '
+          #                   'located. If the input is a %s.py output, specifying the master output directory is '
+          #                   'sufficient' % nano
           },
          'filter':
          {  # TODO
@@ -67,30 +62,6 @@ def query_user_for_flags(mode='design'):
 
 def load_flags(file):
     with open(file, 'r') as f:
-        flags = loads(f.readlines())
+        flags = load(f)
 
     return flags
-
-
-def generate_sequence_mask(fasta_file):
-    """From a sequence with a corresponding mask, grab the indices that should be masked in the target structural
-    calculation"""
-    sequence_and_mask = read_fasta_file(fasta_file)
-    sequence = sequence_and_mask[0]
-    mask = sequence_and_mask[1]
-    if not len(sequence) == len(mask):
-        exit('The sequence and mask are different lengths! please correct the alignment and lengths before proceeding.')
-
-    return [idx for idx, aa in enumerate(mask, 1) if aa == '-']
-
-
-def generate_mask_template(pdb_file):
-    pdb = PDB.from_file(pdb_file)
-    sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), IUPAC.protein), id=pdb.filepath)
-    sequence_mask = copy(sequence)
-    sequence_mask.id = 'mask'
-    sequences = [sequence, sequence_mask]
-    fasta_file = write_fasta(sequences, file_name='%s_sequence_for_mask' % os.path.splitext(pdb.filepath)[0])
-    print('The mask template was written to %s. Please edit this file so that the mask can be generated for protein '
-          'design. Mask should be formatted so a \'-\' replaces all sequence of interest to be overlooked during design'
-          '. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>mask\nMAGH----LV\n' % fasta_file)

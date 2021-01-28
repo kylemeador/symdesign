@@ -2,6 +2,7 @@ import copy  # copy
 import math
 import os
 import subprocess
+from copy import copy
 from glob import glob, iglob
 from itertools import chain
 
@@ -15,15 +16,17 @@ from Bio.Align import MultipleSeqAlignment
 # generic_protein = None
 # from Bio.Alphabet import IUPAC
 from Bio.Align import substitution_matrices
+from Bio.Alphabet import IUPAC
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 
 import CmdUtils as CUtils
-import DesignDirectory
+from DesignDirectory import DesignError
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 # from DesignDirectory import
+from PDB import PDB
 from Query.PDB import get_sequence_by_entity_id
 from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths
 from utils.MysqlPython import Mysql
@@ -425,6 +428,62 @@ class SequenceProfile:
 
         return fragments
 
+    def return_entity_interface_metrics(self):
+        """NOT YET ACCURATE TODO split the fragment info before the interface metric calculation...
+        From the calculated fragment queries, return the interface metrics attributed to each entity"""
+        metrics_by_query = self.return_interface_metrics()
+
+        # prepopulate the dictionary with all queried entities
+        entity_metrics_d = {query_pair[0]: {} for query_pair in metrics_by_query}
+        entity_metrics_d.update({query_pair[1]: {} for query_pair in metrics_by_query})
+        # separate the metrics from a query to an entity
+        for query_pair, metrics in metrics_by_query.items():
+            for entity in query_pair:
+                if entity_metrics_d[entity]:
+                    for key in entity_metrics_d[entity]:
+                        entity_metrics_d[entity][key] += metrics[key]
+                else:
+                    entity_metrics_d[entity] = metrics
+
+        return entity_metrics_d
+
+    def return_interface_metrics(self):
+        """From the calculated fragment queries, return the interface metrics for each pair"""
+        interface_metrics_d = {}
+        for query, fragment_matches in self.fragment_queries.items():
+            res_level_sum_score, center_level_sum_score, number_residues_with_fragments, \
+                number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, \
+                percent_interface_covered, fragment_content_d = get_fragment_metrics(fragment_matches)
+
+            interface_metrics_d[query] = {'nanohedra_score': res_level_sum_score,
+                                          'nanohedra_score_central': center_level_sum_score,
+                                          # 'fragments': fragment_matches,
+                                          'fragment_cluster_ids': ', '.join(fragment['cluster']
+                                                                            for fragment in fragment_matches),
+                                          # 'interface_area': interface_buried_sa,
+                                          'multiple_fragment_ratio': multiple_frag_ratio,
+                                          'number_fragment_residues_all': number_residues_with_fragments,
+                                          'number_fragment_residues_central': number_fragment_central_residues,
+                                          'total_interface_residues': total_residues,
+                                          'number_fragments': len(fragment_matches),
+                                          'percent_residues_fragment_all': percent_interface_covered,
+                                          'percent_residues_fragment_center': percent_interface_matched,
+                                          'percent_fragment_helix': fragment_content_d['1'],
+                                          'percent_fragment_strand': fragment_content_d['2'],
+                                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4'] +
+                                          fragment_content_d['5']}
+
+        return interface_metrics_d
+
+    # def return_fragment_info(self):
+    #     clusters, residue_numbers, match_scores = [], [], []
+    #     for query_pair, fragments in self.fragment_queries.items():
+    #         for query_idx, entity_name in enumerate(query_pair):
+    #             clusters.extend([fragment['cluster'] for fragment in fragments])
+    #             clusters.extend([fragment['cluster'] for fragment in fragments])
+    #             clusters.extend([fragment['cluster'] for fragment in fragments])
+    #             clusters.extend([fragment['cluster'] for fragment in fragments])
+
     def add_fragment_query(self, entity1=None, entity2=None, query=None, pdb_numbering=False):
         if pdb_numbering:  # Renumber self.fragment_map and self.fragment_profile to Pose residue numbering
             query = self.renumber_fragments_to_pose(query)
@@ -435,9 +494,9 @@ class SequenceProfile:
         if entity1 and entity2 and query:
             self.fragment_queries[(entity1, entity2)] = query
 
+    # fragments
+    # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
     def add_fragment_profile(self):  # , fragment_source=None, alignment_type=None):
-        # fragment_source
-        # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
         # now done at the pose_level
         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
         if self.fragment_map:
@@ -2451,3 +2510,124 @@ def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_
     # for residue in missing_keys:
 
     return weaved_dict
+
+
+def get_fragment_metrics(fragment_matches):
+    # fragment_matches = [{'mapped': entity1_surffrag_resnum, 'match_score': score_term,
+    #                          'paired': entity2_surffrag_resnum, 'culster': cluster_id}, ...]
+    fragment_i_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
+    fragment_j_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
+    entity1_match_scores, entity2_match_scores = {}, {}
+    interface_residues_with_fragment_overlap = {'mapped': set(), 'paired': set()}
+    for fragment in fragment_matches:
+
+        interface_residues_with_fragment_overlap['mapped'].add(fragment['mapped'])
+        interface_residues_with_fragment_overlap['paired'].add(fragment['paired'])
+        covered_residues_pdb1 = [(fragment['mapped'] + j) for j in range(-2, 3)]
+        covered_residues_pdb2 = [(fragment['paired'] + j) for j in range(-2, 3)]
+        for k in range(5):
+            resnum1 = covered_residues_pdb1[k]
+            resnum2 = covered_residues_pdb2[k]
+            if resnum1 not in entity1_match_scores:
+                entity1_match_scores[resnum1] = [fragment['match_score']]
+            else:
+                entity1_match_scores[resnum1].append(fragment['match_score'])
+
+            if resnum2 not in entity2_match_scores:
+                entity2_match_scores[resnum2] = [fragment['match_score']]
+            else:
+                entity2_match_scores[resnum2].append(fragment['match_score'])
+
+        fragment_i_index_count_d[fragment['cluster'].split('_')[0]] += 1
+        fragment_j_index_count_d[fragment['cluster'].split('_')[0]] += 1
+
+    # Generate Nanohedra score for center and all residues
+    all_residue_score, center_residue_score = 0, 0
+    for residue_number, res_scores in entity1_match_scores.items():
+        n = 1
+        res_scores_sorted = sorted(res_scores, reverse=True)
+        if residue_number in interface_residues_with_fragment_overlap['mapped']:  # interface_residue_numbers: <- may be at termini
+            for central_score in res_scores_sorted:
+                center_residue_score += central_score * (1 / float(n))
+                n *= 2
+        else:
+            for peripheral_score in res_scores_sorted:
+                all_residue_score += peripheral_score * (1 / float(n))
+                n *= 2
+
+    # doing this twice seems unnecessary as there is no new fragment information, but residue observations are
+    # weighted by n, number of observations which differs between entities across the interface
+    for residue_number, res_scores in entity2_match_scores.items():
+        n = 1
+        res_scores_sorted = sorted(res_scores, reverse=True)
+        if residue_number in interface_residues_with_fragment_overlap['paired']:  # interface_residue_numbers: <- may be at termini
+            for central_score in res_scores_sorted:
+                center_residue_score += central_score * (1 / float(n))
+                n *= 2
+        else:
+            for peripheral_score in res_scores_sorted:
+                all_residue_score += peripheral_score * (1 / float(n))
+                n *= 2
+
+    all_residue_score += center_residue_score
+
+    # Get the number of central residues with overlapping fragments identified given z_value criteria
+    number_unique_residues_with_fragment_obs = len(interface_residues_with_fragment_overlap['mapped']) + \
+        len(interface_residues_with_fragment_overlap['paired'])
+
+    # Get the number of residues with fragments overlapping given z_value criteria
+    number_residues_in_fragments = len(entity1_match_scores) + len(entity2_match_scores)
+
+    if number_unique_residues_with_fragment_obs > 0:
+        multiple_frag_ratio = (len(fragment_matches) * 2) / number_unique_residues_with_fragment_obs  # paired fragment
+    else:
+        multiple_frag_ratio = 0
+
+    interface_residue_count = len(interface_residues_with_fragment_overlap['mapped']) + len(interface_residues_with_fragment_overlap['paired'])
+    if interface_residue_count > 0:
+        percent_interface_matched = number_unique_residues_with_fragment_obs / float(interface_residue_count)
+        percent_interface_covered = number_residues_in_fragments / float(interface_residue_count)
+    else:
+        percent_interface_matched, percent_interface_covered = 0, 0
+
+    # Sum the total contribution from each fragment type on both sides of the interface
+    fragment_content_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
+    for index in fragment_i_index_count_d:
+        fragment_content_d[index] += fragment_i_index_count_d[index]
+        fragment_content_d[index] += fragment_j_index_count_d[index]
+
+    if len(fragment_matches) > 0:
+        for index in fragment_content_d:
+            fragment_content_d[index] = fragment_content_d[index] / (len(fragment_matches) * 2)  # paired fragment
+
+    return all_residue_score, center_residue_score, number_residues_in_fragments, \
+        number_unique_residues_with_fragment_obs, multiple_frag_ratio, interface_residue_count, \
+        percent_interface_matched, percent_interface_covered, fragment_content_d
+
+
+def generate_sequence_mask(fasta_file):
+    """From a sequence with a corresponding mask, grab the residue indices that should be masked in the target
+    structural calculation
+
+    Returns:
+        (list): The residue numbers (in pose format) that should be ignored in design
+    """
+    sequence_and_mask = read_fasta_file(fasta_file)
+    sequence = sequence_and_mask[0]
+    mask = sequence_and_mask[1]
+    if not len(sequence) == len(mask):
+        raise DesignError('The sequence and mask are different lengths! Please correct the alignment and lengths before proceeding.')
+
+    return [idx for idx, aa in enumerate(mask, 1) if aa == '-']
+
+
+def generate_mask_template(pdb_file):
+    pdb = PDB.from_file(pdb_file)
+    sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), IUPAC.protein), id=pdb.filepath)
+    sequence_mask = copy(sequence)
+    sequence_mask.id = 'mask'
+    sequences = [sequence, sequence_mask]
+    fasta_file = write_fasta(sequences, file_name='%s_sequence_for_mask' % os.path.splitext(pdb.filepath)[0])
+    print('The mask template was written to %s. Please edit this file so that the mask can be generated for protein '
+          'design. Mask should be formatted so a \'-\' replaces all sequence of interest to be overlooked during design'
+          '. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>mask\nMAGH----LV\n' % fasta_file)
