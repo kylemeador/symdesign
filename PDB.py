@@ -299,7 +299,7 @@ class PDB(Structure):
         """Process all Atoms in PDB to Residue, Chain, and Entity objects"""
         # self.renumber_residues()
         self.coords = Coords(coords)
-        self.find_center_of_mass()
+        # self.find_center_of_mass()
         # self.create_residues()
         self.create_chains()
         self.get_chain_sequences()
@@ -738,19 +738,19 @@ class PDB(Structure):
         axes = [z_axis_a, z_axis_b, z_axis_c, y_axis_a, y_axis_b, y_axis_c, x_axis_a, x_axis_b, x_axis_c]
         self.atoms.extend(axes)
 
-    def getTermCAAtom(self, term, chain_id):
-        if term == "N":
-            for atom in self.get_chain_atoms(chain_id):
-                if atom.type == "CA":
-                    return atom
-        elif term == "C":
-            for atom in self.get_chain_atoms(chain_id)[::-1]:
-                if atom.type == "CA":
-                    return atom
-        else:
-            print('Select N or C Term')
-            return None
-
+    # def get_terminal_residue(self, termini='c'):
+    #     if termini == "N":
+    #         for atom in self.get_chain_atoms(chain_id):
+    #             if atom.type == "CA":
+    #                 return atom
+    #     elif termini == "C":
+    #         for atom in self.get_chain_atoms(chain_id)[::-1]:
+    #             if atom.type == "CA":
+    #                 return atom
+    #     else:
+    #         print('Select N or C Term')
+    #         return None
+    #
     # def get_residue_atoms(self, chain_id, residue_numbers):
     #     if not isinstance(residue_numbers, list):
     #         residue_numbers = list(residue_numbers)
@@ -1159,30 +1159,30 @@ class PDB(Structure):
 
         return total_sasa
 
-    def mutate_to(self, chain_id, residue_number, res_id='ALA'):  # KM added 12/31/19 to mutate pdb Residue objects to alanine
-        """Mutate specific chain and residue to a new residue type. Type can be 1 or 3 letter format"""
-        # if using residue number, then residue_atom_list[i] is necessary
-        # else using Residue object, residue.atom_list[i] is necessary
-        if res_id in IUPACData.protein_letters_1to3:
-            res_id = IUPACData.protein_letters_1to3[res_id]
-
-        residue_atom_list = self.chain(chain_id).residue(residue_number).get_atoms()
-        # residue_atom_list = self.get_residue_atoms(chain, residue)  # residue.atom_list
-        delete = []
-        for i, atom in enumerate(residue_atom_list):
-            if atom.is_backbone() or atom.is_CB():
-                residue_atom_list[i].residue_type = res_id.upper()
-            else:
-                delete.append(i)
-        # TODO using AA reference lib, align the backbone + CB atoms of the residue then insert all side chain atoms
-        if delete:
-            # delete = sorted(delete, reverse=True)
-            # for j in delete:
-            for j in reversed(delete):
-                i = residue_atom_list[j]
-                self.atoms.remove(i)
-            # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
-            self.renumber_atoms()
+    # def mutate_to(self, chain_id, residue_number, res_id='ALA'):  # KM added 12/31/19 to mutate pdb Residue objects to alanine
+    #     """Mutate specific chain and residue to a new residue type. Type can be 1 or 3 letter format"""
+    #     # if using residue number, then residue_atom_list[i] is necessary
+    #     # else using Residue object, residue.atom_list[i] is necessary
+    #     if res_id in IUPACData.protein_letters_1to3:
+    #         res_id = IUPACData.protein_letters_1to3[res_id]
+    #
+    #     residue_atom_list = self.chain(chain_id).residue(residue_number).get_atoms()
+    #     # residue_atom_list = self.get_residue_atoms(chain, residue)  # residue.atom_list
+    #     delete = []
+    #     for i, atom in enumerate(residue_atom_list):
+    #         if atom.is_backbone() or atom.is_CB():
+    #             residue_atom_list[i].residue_type = res_id.upper()
+    #         else:
+    #             delete.append(i)
+    #     # TODO using AA reference lib, align the backbone + CB atoms of the residue then insert all side chain atoms
+    #     if delete:
+    #         # delete = sorted(delete, reverse=True)
+    #         # for j in delete:
+    #         for j in reversed(delete):
+    #             i = residue_atom_list[j]
+    #             self.atoms.remove(i)
+    #         # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
+    #         self.renumber_atoms()
 
     def insert_residue(self, chain_id, residue_number, residue_type):  # Todo Chain compatible
         """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
@@ -1249,6 +1249,8 @@ class PDB(Structure):
 
     def delete_atoms(self, atoms):
         # Need to call self.renumber_atoms() after every call to delete_atoms()
+        # Todo find every Structure container with Atom and remove the Atom references from it. Chain, Entity, Residue,
+        #  PDB. Atom may hold on in memory because of refernce to Coords.
         for atom in atoms:
             self.atoms.remove(atom)
 
