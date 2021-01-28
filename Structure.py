@@ -109,21 +109,21 @@ class Structure:  # (Coords):
     def extract_all_coords(self):  # compatibility
         return self.extract_coords()
 
-    def extract_coords(self):
+    def extract_coords(self):  # compatibility
         """Grab all the coordinates from the Structure's Coords, returns a list with views of the Coords array"""
         return [atom.coords for atom in self.get_atoms()]
 
-    def extract_backbone_coords(self):
+    def extract_backbone_coords(self):  # compatibility
         return [atom.coords for atom in self.get_atoms() if atom.is_backbone()]
 
-    def extract_backbone_and_cb_coords(self):
+    def extract_backbone_and_cb_coords(self):  # compatibility
         # inherently gets all glycine CA's
         return [atom.coords for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
 
-    def extract_CA_coords(self):
+    def extract_CA_coords(self):  # compatibility
         return [atom.coords for atom in self.get_atoms() if atom.is_CA()]
 
-    def extract_CB_coords(self, InclGlyCA=False):
+    def extract_CB_coords(self, InclGlyCA=False):  # compatibility
         return [atom.coords for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     # @property Todo
@@ -281,6 +281,15 @@ class Structure:  # (Coords):
                 return residue
         return None
 
+    def get_terminal_residue(self, termini='c'):
+        if termini.lower() == 'n':
+            return self.get_residues()[0]
+        elif termini.lower() == 'c':
+            return self.get_residues()[-1]
+        else:
+            print('N or C are only allowed inputs!')
+            return None
+
     def get_residue_atoms(self, numbers=None):
         """Return the Atoms contained in the Residue objects matching a set of residue numbers"""
         atoms = []
@@ -294,6 +303,20 @@ class Structure:  # (Coords):
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue
+        return None
+
+    def residue_number_from_pdb(self, residue_number):
+        """Returns the pose residue number from the queried .pdb number"""
+        for residue in self.residues:
+            if residue.number_pdb == residue_number:
+                return residue.number
+        return None
+
+    def residue_number_to_pdb(self, residue_number):
+        """Returns the .pdb residue number from the queried pose number"""
+        for residue in self.residues:
+            if residue.number == residue_number:
+                return residue.number_pdb
         return None
 
     def renumber_residues(self):
@@ -310,19 +333,32 @@ class Structure:  # (Coords):
                     break
         # self.renumber_atoms()  # should be unnecessary
 
-    def residue_number_from_pdb(self, residue_number):
-        """Returns the pose residue number from the queried .pdb number"""
-        for residue in self.residues:
-            if residue.number_pdb == residue_number:
-                return residue.number
-        return None
+    def mutate_to(self, residue_number, res_id='ALA'):
+        """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format"""
+        # if using residue number, then residue_atom_list[i] is necessary
+        # else using Residue object, residue.atom_list[i] is necessary
+        if res_id in IUPACData.protein_letters_1to3:
+            res_id = IUPACData.protein_letters_1to3[res_id]
 
-    def residue_number_to_pdb(self, residue_number):
-        """Returns the .pdb residue number from the queried pose number"""
-        for residue in self.residues:
-            if residue.number == residue_number:
-                return residue.number_pdb
-        return None
+        residue_atom_list = self.residue(residue_number).get_atoms()
+        # residue_atom_list = self.get_residue_atoms(chain, residue)  # residue.atom_list
+        delete = []
+        for i, atom in enumerate(residue_atom_list):
+            if atom.is_backbone() or atom.is_CB():
+                residue_atom_list[i].residue_type = res_id.upper()
+                # atom.residue_type = res_id.upper()  # should be fine? Atom is an Atom object reference by others
+            else:  # TODO using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms
+                delete.append(i)
+                # delete.append(atom)
+
+        if delete:
+            # delete = sorted(delete, reverse=True)
+            # for j in delete:
+            for j in reversed(delete):
+                i = residue_atom_list[j]
+                self.atoms.remove(i)
+            # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
+            self.renumber_atoms()
 
     def set_length(self):
         self.number_of_atoms = len(self.get_atoms())
@@ -352,13 +388,18 @@ class Structure:  # (Coords):
     def number_of_residues(self, length):
         self._number_of_residues = length
 
-    def get_center_of_mass(self):
-        return self.center_of_mass
+    @property
+    def center_of_mass(self):
+        try:
+            return self._center_of_mass
+        except AttributeError:
+            self.find_center_of_mass()
+            return self._center_of_mass
 
     def find_center_of_mass(self):
         """Retrieve the center of mass for the specified Structure"""
         divisor = 1 / self.number_of_atoms
-        self.center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
+        self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
@@ -521,7 +562,10 @@ class Entity(SequenceProfile, Structure):  # Chain
         uniprot_id=None (str): The unique UniProtID for the Entity
     """
     def __init__(self, representative=None, chains=None, name=None, uniprot_id=None, coords=None):
+        assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
+                                                  'Chain object as the representative!'
         self.chains = chains  # [Chain objs]
+        self.chain_name = representative.name
         # self.representative_chain = representative_chain
         # use the self.structure __init__ from SequenceProfile for the structure identifier
         # Chain init
@@ -553,26 +597,7 @@ class Entity(SequenceProfile, Structure):  # Chain
                 return chain
         return None
 
-    # Todo set up captain chain and mate chains dependence
-
-    # FROM CHAIN super().__init__()
-    #
-    # def set_id(self, _id):
-    #     self.id = _id
-    #
-    # def get_atoms(self):
-    #     atoms = []
-    #     for residue in self.get_residues():
-    #         atoms.extend(residue.get_atoms())
-    #     return atoms
-    #
-    # def get_residues(self):
-    #     return self.residues
-    #
-    # def residue(self, residue_number):
-    #     for residue in self.residues:
-    #         if residue.number == residue_number:
-    #             return residue
+    # Todo set up captain chain and mate chain dependency
 
 
 class Chain(Structure):
@@ -698,8 +723,8 @@ class Residue:
             return_string += str(atom)
         return return_string
 
-    def __hash__(self):  # Todo current key is mutable so this hash is invalid
-        return hash(self.__key())
+    # def __hash__(self):  # Todo current key is mutable so this hash is invalid
+    #     return hash(self.__key())
 
 
 class Atom:  # (Coords):
