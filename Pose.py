@@ -10,27 +10,16 @@ from sklearn.neighbors import BallTree
 import PathUtils as PUtils
 from FragDock import filter_euler_lookup_by_zvalue, calculate_overlap
 from PDB import PDB
-from SequenceProfile import SequenceProfile
+from SequenceProfile import SequenceProfile, get_fragment_metrics
 from Structure import Coords
 # Globals
 from SymDesignUtils import to_iterable, logger, pickle_object
-from classes.Fragment import MonoFragment, FragmentDB
+
+from classes.Fragment import MonoFragment
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from utils.SymmUtils import valid_subunit_number
 
-# Fragment Database Directory Paths
-# frag_db = os.path.join(main_script_path, 'data', 'databases', 'fragment_db', 'biological_interfaces')
-frag_db = PUtils.frag_directory['biological_interfaces']
-monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
-ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
-intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
 
-
-def create_fragment_db():
-    # Create fragment database for all ijk cluster representatives
-    return FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath)
-
-#
 # # Initialize Euler Lookup Class
 # eul_lookup = EulerLookup()
 
@@ -114,13 +103,47 @@ class SymmetricModel:  # (Model)
         self.pdb = None  # Model
         self.models = []  # Model
         self.asu = None  # the pose specific asu
-        self.coords = []
-        self.model_coords = []
+        # self.coords = []
+        # self.model_coords = []
         self.symmetry = None  # symmetry  # also defined in PDB as self.space_group
         self.dimension = None
         self.uc_dimensions = None  # also defined in PDB
         self.expand_matrices = None  # Todo make expand_matrices numpy
         self.number_of_models = None
+
+    @property
+    def coords(self):
+        """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
+        belonging to the specific Structure instance"""
+        return self._coords.coords  # [self.atom_indices]
+        # return self._coords.get_indices(self.atom_indices)
+
+    @coords.setter
+    def coords(self, coords):
+        # assert len(self.atoms) == coords.shape[0], '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
+        #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
+        if isinstance(coords, Coords):
+            self._coords = coords
+        else:
+            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+
+    @property
+    def model_coords(self):
+        """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
+        belonging to the specific Structure instance"""
+        return self._coords.coords  # [self.atom_indices]
+        # return self._coords.get_indices(self.atom_indices)
+
+    @model_coords.setter
+    def model_coords(self, coords):
+        # assert len(self.atoms) == coords.shape[0], '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
+        #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
+        if isinstance(coords, Coords):
+            self._coords = coords
+        else:
+            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     def set_symmetry(self, cryst1=None, uc_dimensions=None, symmetry=None, generate_assembly=True,
                      generate_symmetry_mates=False):
@@ -241,16 +264,17 @@ class SymmetricModel:  # (Model)
         else:
             get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
-        self.coords = get_pdb_coords(self.asu)
+        self.coords = Coords(get_pdb_coords(self.asu))
         print('coords length at coord expansion: %d' % len(self.coords))
-        self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
-        print('model coords length at coord expansion: %d' % len(self.model_coords))
+        # self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
+        model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
+        print('model coords length at coord expansion: %d' % len(model_coords))
         # self.model_coords[:len(self.coords)] = self.coords
         for idx, rot in enumerate(self.expand_matrices):  # Todo numpy incomming expand_matrices
             r_mat = np.transpose(np.array(rot))
             r_asu_coords = np.matmul(self.coords, r_mat)
-            self.model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = r_asu_coords
-        # self.model_coords = np.array(self.model_coords)
+            model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = r_asu_coords
+        self.model_coords = Coords(model_coords)
 
     def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
@@ -266,7 +290,8 @@ class SymmetricModel:  # (Model)
         # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
         # asu_frac_coords = self.cart_to_frac(np.array(asu_cart_coords))
         asu_frac_coords = self.cart_to_frac(self.coords)
-        self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
+        # self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
+        model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
         for idx, (rot, tx) in enumerate(self.expand_matrices):
             t_vec = np.array(tx)  # Todo numpy incomming expand_matrices
             # t_vec = t
@@ -275,11 +300,10 @@ class SymmetricModel:  # (Model)
 
             r_asu_frac_coords = np.matmul(asu_frac_coords, r_mat)
             rt_asu_frac_coords = r_asu_frac_coords + t_vec
-            self.model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = \
-                self.frac_to_cart(rt_asu_frac_coords)
+            model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = self.frac_to_cart(rt_asu_frac_coords)
 
             # self.model_coords.extend(self.frac_to_cart(rt_asu_frac_coords).tolist())
-        # self.model_coords = np.array(self.model_coords)
+        self.model_coords = Coords(model_coords)
 
     def get_surrounding_unit_cell_coords(self):
         """Generates a grid of unit cell coordinates for a symmetry group. Modifies model_coords from a unit cell
@@ -292,17 +316,19 @@ class SymmetricModel:  # (Model)
             return None
 
         central_uc_frac_coords = self.cart_to_frac(self.model_coords)
-        uc_coord_length = self.model_coords.shape[0]
-        self.model_coords = np.empty((uc_coord_length * uc_number, 3), dtype=float)
+        # uc_coord_length = self.model_coords.shape[0]
+        uc_coord_length = len(self.model_coords)
+        # self.model_coords = np.empty((uc_coord_length * uc_number, 3), dtype=float)
+        model_coords = np.empty((uc_coord_length * uc_number, 3), dtype=float)
         idx = 0
         for x_shift in [-1, 0, 1]:
             for y_shift in [-1, 0, 1]:
                 for z_shift in z_shifts:
                     # add central uc_coords to the model coords after applying the correct tx of frac coords & convert
-                    self.model_coords[(idx * uc_coord_length): (idx * uc_coord_length) + uc_coord_length] = \
+                    model_coords[idx * uc_coord_length: (idx + 1) * uc_coord_length] = \
                         self.frac_to_cart(central_uc_frac_coords + [x_shift, y_shift, z_shift])
                     idx += 1
-
+        self.model_coords = Coords(model_coords)
         self.number_of_models = zvalue_dict[self.symmetry] * uc_number
 
     def get_assembly_symmetry_mates(self, return_side_chains=True):  # For getting PDB copies
@@ -327,7 +353,7 @@ class SymmetricModel:  # (Model)
             # symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
             #                                                          (model_idx * self.asu.number_of_atoms)
             #                                                          + self.asu.number_of_atoms])
-            print('Coords copy of length %d: %s' % (symmetry_mate_pdb.coords.shape[0], symmetry_mate_pdb.coords))
+            print('Coords copy of length %d: %s' % (len(symmetry_mate_pdb.coords), symmetry_mate_pdb.coords))
             print('Atom 1 coordinates: %s' % symmetry_mate_pdb.get_atoms()[0].x)
             print('Atom 1: %s' % str(symmetry_mate_pdb.get_atoms()[0]))
             self.models.append(symmetry_mate_pdb)
@@ -661,7 +687,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
             # self.initialize_symmetry()
 
         self.design_mask = set()
-        self.design_residues = []
+        self.interface_residues = {}
         self.fragment_observations = []
 
         self.initialize_symmetry(symmetry=symmetry)
@@ -689,9 +715,9 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # SymmetricModel
         # self.asu = None  # the pose specific asu
         self.symmetric_assembly = Model()  # the symmetry expanded attribute of self.asu
-        # self.coords = []
-        # self.model_coords = []
-        # self.symmetry = symmetry  # also in PDB as self.space_group
+        # self.coords = Coords()
+        # self.model_coords = Coords()
+        # self.symmetry = None  # also in PDB as self.space_group
         # self.dimension = None
         # self.uc_dimensions = None
         # self.expand_matrices = None
@@ -749,7 +775,52 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
     def entities(self, entities):
         self.pdb.entities = entities
 
-    def add_pdb(self, pdb):
+    def set_length(self):
+        self.number_of_atoms = len(self.pdb.get_atoms())
+        self.number_of_residues = len(self.pdb.get_residues())
+
+    @property
+    def number_of_atoms(self):
+        try:
+            return self._number_of_atoms
+        except AttributeError:
+            self.set_length()
+            return self._number_of_atoms
+
+    @number_of_atoms.setter
+    def number_of_atoms(self, length):
+        self._number_of_atoms = length
+
+    @property
+    def number_of_residues(self):
+        try:
+            return self._number_of_residues
+        except AttributeError:
+            self.set_length()
+            return self._number_of_residues
+
+    @number_of_residues.setter
+    def number_of_residues(self, length):
+        self._number_of_residues = length
+
+    @property
+    def center_of_mass(self):
+        try:
+            return self._center_of_mass
+        except AttributeError:
+            self.find_center_of_mass()
+            return self._center_of_mass
+
+    def find_center_of_mass(self):
+        """Retrieve the center of mass for the specified Structure"""
+        if self.symmetry:
+            divisor = 1 / len(self.model_coords)
+            self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.model_coords)
+        else:
+            divisor = 1 / len(self.coords)  # must use coords as we may have a reduced view of the full coords, i.e. BB & CB
+            self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
+
+    def add_pdb(self, pdb):  # Todo
         """Add a PDB to the PosePDB as well as the member PDB list"""
         self.pdbs.append(pdb)
         self.pdbs_d[pdb.name] = pdb
@@ -828,26 +899,26 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        entity1_atoms = self.asu.entity(entity1).get_atoms()  # if passing by name
+        entity1_atoms = self.pdb.entity(entity1).get_atoms()  # if passing by name
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure object
-        entity1_indices = np.array(self.asu.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
+        entity1_indices = np.array(self.pdb.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
         entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want!
 
-        entity2_atoms = self.asu.entity(entity2).get_atoms()  # if passing by name
+        entity2_atoms = self.pdb.entity(entity2).get_atoms()  # if passing by name
         # entity2_atoms = entity2.get_atoms()  # if passing by Structure object
-        entity2_indices = np.array(self.asu.entity(entity2).get_cb_indices(InclGlyCA=include_glycine))
+        entity2_indices = np.array(self.pdb.entity(entity2).get_cb_indices(InclGlyCA=include_glycine))
         if self.design_mask:  # subtract the masked atom indices from the entity indices
             entity1_indices = np.array(set(entity1_indices) - self.design_mask)
             entity2_indices = np.array(set(entity2_indices) - self.design_mask)
         if self.symmetry:  # self.model_coords:
             # get all symmetric indices if the pose is symmetric
-            entity2_indices = np.array([idx + (self.asu.number_of_atoms * model_number)
-                                         for model_number in range(self.number_of_models) for idx in entity2_indices])
+            entity2_indices = np.array([idx + (self.pdb.number_of_atoms * model_number)
+                                        for model_number in range(self.number_of_models) for idx in entity2_indices])
             # Todo mask=[residue_numbers?] default parameter
             if entity2 == entity1:  # the entity is the same however, we don't want interactions with the same sym mate
                 model_number = self.find_asu_equivalent_symmetry_mate()
-                start_idx = self.asu.number_of_atoms * model_number
-                end_idx = self.asu.number_of_atoms * (model_number + 1)
+                start_idx = self.pdb.number_of_atoms * model_number
+                end_idx = self.pdb.number_of_atoms * (model_number + 1)
                 # Todo test logic, have to offset the index by 1 from the start and end_idx values
                 entity2_indices = [idx for idx in entity2_indices if idx >= end_idx or idx < start_idx]
             entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
@@ -879,7 +950,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         residues1, residues2 = zip(*interface_pairs)
         return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
 
-    def find_interface_residues(self, entity1=None, entity2=None, distance=8, include_glycine=True):
+    def find_interface_residues(self, **kwargs):  # entity1=None, entity2=None, distance=8, include_glycine=True):
         """Get unique residues from each pdb across an interface provide two Entity names
 
         Keyword Args:
@@ -890,14 +961,24 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         Returns:
             tuple[set]: A tuple of interface residue sets across an interface
         """
-        return split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, distance=distance,
-                                                               include_glycine=include_glycine))
+        return split_interface_pairs(self.find_interface_pairs(**kwargs))
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
         # interface_name = self.asu
         entity1_residue_numbers, entity2_residue_numbers = self.find_interface_residues(entity1=entity1,
                                                                                         entity2=entity2)
-        self.design_residues.extend(entity1_residue_numbers + entity2_residue_numbers)
+        entity1_pdb = self.pdb.entity(entity1)
+        if entity1_pdb in self.interface_residues:
+            self.interface_residues[entity1_pdb] = entity1_residue_numbers
+        else:
+            self.interface_residues[entity1_pdb].extend(entity1_residue_numbers)
+
+        entity2_pdb = self.pdb.entity(entity2)
+        if entity2_pdb in self.interface_residues:
+            self.interface_residues[entity2_pdb] = entity2_residue_numbers
+        else:
+            self.interface_residues[entity2_pdb].extend(entity2_residue_numbers)
+
         # pdb1_interface_sa = pdb1.get_surface_area_residues(entity1_residue_numbers)
         # pdb2_interface_sa = pdb2.get_surface_area_residues(entity2_residue_numbers)
         # interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
@@ -920,32 +1001,32 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         fragment_matches = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
 
-    def return_interface_metrics(self):
-        """From the reported fragment queries, find the interface scores"""
-        interface_metrics_d = {}
-        for query, fragment_matches in self.fragment_queries.items():
-            res_level_sum_score, center_level_sum_score, number_residues_with_fragments, \
-                number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, \
-                percent_interface_covered, fragment_content_d = get_fragment_metrics(fragment_matches)
-
-            interface_metrics_d[query] = {'nanohedra_score': res_level_sum_score,
-                                          'nanohedra_score_central': center_level_sum_score,
-                                          'fragments': fragment_matches,
-                                          # 'fragment_cluster_ids': ','.join(fragment_indices),
-                                          # 'interface_area': interface_buried_sa,
-                                          'multiple_fragment_ratio': multiple_frag_ratio,
-                                          'number_fragment_residues_all': number_residues_with_fragments,
-                                          'number_fragment_residues_central': number_fragment_central_residues,
-                                          'total_interface_residues': total_residues,
-                                          'number_fragments': len(fragment_matches),
-                                          'percent_residues_fragment_all': percent_interface_covered,
-                                          'percent_residues_fragment_center': percent_interface_matched,
-                                          'percent_fragment_helix': fragment_content_d['1'],
-                                          'percent_fragment_strand': fragment_content_d['2'],
-                                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4'] +
-                                          fragment_content_d['5']}
-
-        return interface_metrics_d
+    # def return_interface_metrics(self):
+    #     """From the reported fragment queries, find the interface scores"""
+    #     interface_metrics_d = {}
+    #     for query, fragment_matches in self.fragment_queries.items():
+    #         res_level_sum_score, center_level_sum_score, number_residues_with_fragments, \
+    #             number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, \
+    #             percent_interface_covered, fragment_content_d = get_fragment_metrics(fragment_matches)
+    #
+    #         interface_metrics_d[query] = {'nanohedra_score': res_level_sum_score,
+    #                                       'nanohedra_score_central': center_level_sum_score,
+    #                                       'fragments': fragment_matches,
+    #                                       # 'fragment_cluster_ids': ','.join(fragment_indices),
+    #                                       # 'interface_area': interface_buried_sa,
+    #                                       'multiple_fragment_ratio': multiple_frag_ratio,
+    #                                       'number_fragment_residues_all': number_residues_with_fragments,
+    #                                       'number_fragment_residues_central': number_fragment_central_residues,
+    #                                       'total_interface_residues': total_residues,
+    #                                       'number_fragments': len(fragment_matches),
+    #                                       'percent_residues_fragment_all': percent_interface_covered,
+    #                                       'percent_residues_fragment_center': percent_interface_matched,
+    #                                       'percent_fragment_helix': fragment_content_d['1'],
+    #                                       'percent_fragment_strand': fragment_content_d['2'],
+    #                                       'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4'] +
+    #                                       fragment_content_d['5']}
+    #
+    #     return interface_metrics_d
 
     def score_interface(self, entity1=None, entity2=None):
         self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
@@ -1035,51 +1116,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
                     # for entity in self.entities:
                     self.pdb.entity(entity_name).connect_fragment_database(location=self.frag_db)
 
-        # ------------------------------------------------------------------------------------------------------------
-        # Todo logging and minor command work
-        jump = template_pdb.getTermCAAtom('C', template_pdb.chain_id_list[0]).residue_number
-        template_residues = template_pdb.get_residues()
-        logger.info('Last residue of first oligomer %s, chain %s is %d' %
-                    (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
-        logger.info('Total number of residues is %d' % len(template_residues))
-        # Save renumbered PDB to clean_asu.pdb
-        template_pdb.write(out_path=des_dir.asu)
-        # Mutate all design positions to Ala
-        mutated_pdb = copy.deepcopy(template_pdb)
-        logger.debug('Cleaned PDB: \'%s\'' % des_dir.asu)
-
-        # Set Up Interface Residues after renumber, remove Side Chain Atoms to Ala NECESSARY for all chains to ASU chain map
-        total_int_residue_objects = []
-        int_res_numbers = {}
-        for c, name in enumerate(names):  # int_residue_objects):
-            int_res_numbers[name] = []
-            for residue_obj in int_residue_objects[name]:
-                total_int_residue_objects.append(residue_obj)
-                int_res_numbers[name].append(
-                    residue_obj.number)  # Todo ensure .number is accessor to residue.ca Atom obj
-                mutated_pdb.mutate_to(names[name](c), residue_obj.number)
-                # Todo no mutation from GLY to ALA
-
-        logger.info('Interface Residues: %s' % ', '.join(str(n) + names[name](c) for c, name in enumerate(names)
-                                                         for n in int_res_numbers[name]))
-        mutated_pdb.write(out_path=des_dir.refine_pdb)
-        # mutated_pdb.write(ala_mut_pdb)
-        # mutated_pdb.write(ala_mut_pdb, cryst1=cryst)
-        logger.debug('Cleaned PDB for Refine: \'%s\'' % des_dir.refine_pdb)
-        # Get ASU distance parameters
-        asu_oligomer_com_dist = []
-        for d, name in enumerate(names):
-            asu_oligomer_com_dist.append(np.linalg.norm(np.array(template_pdb.get_center_of_mass())
-                                                        - np.array(oligomer[name].get_center_of_mass())))
-        max_com_dist = 0
-        for com_dist in asu_oligomer_com_dist:
-            if com_dist > max_com_dist:
-                max_com_dist = com_dist
-        dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
-        logger.info('Expanding ASU by %f Angstroms' % dist)
-        # ------------------------------------------------------------------------------------------------------------
-
-        # TODO Insert loops identified by comparison of SEQRES and ATOM
+        # TODO Insert loops identifying residues in comparison of SEQRES and ATOM
         for entity in self.entities:
             entity.add_profile(evolution=evolution, out_path=design_dir.sequences, fragments=fragments)
             # fragment_source=design_dir.fragment_observations, frag_alignment_type=fragment_info_source,
@@ -1100,7 +1137,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         self.dssm_file = self.make_pssm_file(self.dssm, PUtils.dssm, out_path=design_dir.data)  # static
 
         # -------------------------------------------------------------------------
-        self.solve_consensus()  # Todo
+        # self.solve_consensus()  # Todo
         # -------------------------------------------------------------------------
 
         # Update DesignDirectory with design information # Todo where to save this/include in pose initialization?
@@ -1108,134 +1145,10 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         design_dir.info['issm'] = interface_data_file
         design_dir.info['dssm'] = self.dssm_file
         design_dir.info['db'] = self.frag_db
-        design_dir.info['design_residues'] = self.design_residues
+        # This info is pulled out in AnalyzeOutput from Rosetta currently
+        design_dir.info['design_residues'] = self.interface_residues
         # TODO add oligomer data to .info
         info_pickle = pickle_object(design_dir.info, 'info', out_path=design_dir.data)
-
-    def prepare_rosetta_commands(self):
-        # Set up protocol project
-        # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = des_dir.symmetry_parameters()
-        # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
-        protocol = PUtils.protocol[des_dir.design_dim]
-        if des_dir.design_dim > 0:  # layer or space
-            sym_def_file = SDUtils.sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
-            main_cmd += ['-symmetry_definition', 'CRYST1']
-        else:  # point
-            sym_def_file = SDUtils.sdf_lookup(des_dir.sym_entry_number)
-            main_cmd += ['-symmetry_definition', sym_def_file]
-
-        # logger.info('Symmetry Information: %s' % cryst)
-        logger.info('Symmetry Option: %s' % protocol)
-        logger.info('Input PDBs: %s' % ', '.join(name for name in names))
-        logger.info('Pulling fragment info from clusters: %s' % ', '.join(cluster_residue_d))
-        for j, pdb_id in enumerate(names):
-            logger.info('Fragments identified: Oligomer %s, residues: %s' %
-                        (pdb_id, ', '.join(str(cluster_residue_d[cluster][k][j]) for cluster in cluster_residue_d
-                                           for k, pair in enumerate(cluster_residue_d[cluster]))))
-
-            # Rosetta Execution formatting
-            # RELAX: Prepare command and flags file
-            refine_variables = [('pdb_reference', des_dir.asu), ('scripts', PUtils.rosetta_scripts),
-                                ('sym_score_patch', PUtils.sym_weights), ('project', protocol), ('sdf', sym_def_file),
-                                ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
-            for k, name in enumerate(names):
-                refine_variables.append(('interface' + names[name](k), ','.join(str(j) + names[name](k)
-                                                                                for j in int_res_numbers[name])))
-            # Old method using residue index. Keep until all backwards compatibility is cleared TODO remove
-            # for k, name in enumerate(int_res_numbers, 1):
-            #     refine_variables.append(('interface' + str(k), ','.join(str(j) for j in int_res_numbers[name])))
-
-            flags_refine = SDUtils.prepare_rosetta_flags(refine_variables, PUtils.stage[1], outpath=des_dir.path)
-            relax_cmd = main_cmd + \
-                        ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile',
-                         os.path.join(des_dir.scores, PUtils.scores_file),
-                         '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
-            refine_cmd = relax_cmd + ['-in:file:s', des_dir.refine_pdb, '-parser:script_vars',
-                                      'switch=%s' % PUtils.stage[1]]
-            consensus_cmd = relax_cmd + ['-in:file:s', des_dir.consensus_pdb, '-parser:script_vars',
-                                         'switch=%s' % PUtils.stage[5]]
-
-            # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
-            if script:
-                SDUtils.write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
-                                           outpath=des_dir.path,
-                                           additional=[subprocess.list2cmdline(consensus_cmd)])
-                SDUtils.write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5],
-                                           outpath=des_dir.path)
-            else:
-                if not suspend:
-                    logger.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
-                    refine_process = subprocess.Popen(relax_cmd)
-                    # Wait for Rosetta Refine command to complete
-                    refine_process.communicate()
-                    logger.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
-                    consensus_process = subprocess.Popen(consensus_cmd)
-                    # Wait for Rosetta Consensus command to complete
-                    consensus_process.communicate()
-
-            # DESIGN: Prepare command and flags file
-            design_variables = copy.deepcopy(refine_variables)
-            design_variables.append(('pssm_file', dssm_file))  # TODO change name to dssm_file after P432
-            flags_design = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[2], outpath=des_dir.path)
-            # TODO back out nstruct label to command distribution
-            design_cmd = main_cmd + \
-                         ['-in:file:s', des_dir.refined_pdb, '-in:file:native', des_dir.asu, '-nstruct',
-                          str(PUtils.nstruct),
-                          '@' + os.path.join(des_dir.path, flags_design), '-in:file:pssm', pssm_file,
-                          '-parser:protocol',
-                          os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
-                          '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file)]
-
-            # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
-            # TODO if nstruct is backed out, create pdb_list for metrics distribution
-            pdb_list_file = SDUtils.pdb_list_file(des_dir.refined_pdb, total_pdbs=PUtils.nstruct,
-                                                  suffix='_' + PUtils.stage[2],
-                                                  loc=des_dir.designs, additional=[des_dir.consensus_design_pdb, ])
-            design_variables += [('sdfA', sym_definition_files[pdb_codes[0]]),
-                                 ('sdfB', sym_definition_files[pdb_codes[1]])]
-
-            flags_metric = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[3], outpath=des_dir.path)
-            metric_cmd = main_cmd + \
-                         ['-in:file:l', pdb_list_file, '-in:file:native', des_dir.refined_pdb,
-                          '@' + os.path.join(des_dir.path, flags_metric),
-                          '-out:file:score_only', os.path.join(des_dir.scores, PUtils.scores_file),
-                          '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
-
-            if mpi:
-                design_cmd = CUtils.run_cmds[PUtils.rosetta_extras] + design_cmd
-                metric_cmd = CUtils.run_cmds[PUtils.rosetta_extras] + metric_cmd
-            metric_cmds = {name: metric_cmd + ['-parser:script_vars', 'chain=%s' % names[name](n)]
-                           for n, name in enumerate(names)}
-            # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
-            if script:
-                SDUtils.write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2],
-                                           outpath=des_dir.path)
-                SDUtils.write_shell_script(subprocess.list2cmdline(metric_cmds[pdb_codes[0]]), name=PUtils.stage[3],
-                                           outpath=des_dir.path, additional=[subprocess.list2cmdline(metric_cmds[name])
-                                                                             for n, name in enumerate(names) if n > 0])
-            else:
-                if not suspend:
-                    logger.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
-                    design_process = subprocess.Popen(design_cmd)
-                    # Wait for Rosetta Design command to complete
-                    design_process.communicate()
-                    for name in metric_cmds:
-                        logger.info('Metrics Command: %s' % subprocess.list2cmdline(metric_cmds[name]))
-                        metrics_process = subprocess.Popen(metric_cmds[name])
-                        metrics_process.communicate()
-
-            # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-            if script:
-                analysis_cmd = 'python %s -d %s' % (PUtils.filter_designs, des_dir.path)
-                SDUtils.write_shell_script(analysis_cmd, name=PUtils.stage[4], outpath=des_dir.path)
-            else:
-                if not suspend:
-                    pose_s = analyze_output(des_dir)
-                    outpath = os.path.join(des_dir.all_scores, PUtils.analysis_file)
-                    _header = False
-                    if not os.path.exists(outpath):
-                        _header = True
-                    pose_s.to_csv(outpath, mode='a', header=_header)
 
 
 def subdirectory(name):  # TODO PDBdb
@@ -1486,99 +1399,6 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
                                  'paired': entity2_surffrag_resnum, 'culster': cluster_id})
 
     return fragment_matches
-
-
-def get_fragment_metrics(fragment_matches):
-    # fragment_matches = [{'mapped': entity1_surffrag_resnum, 'match_score': score_term,
-    #                          'paired': entity2_surffrag_resnum, 'culster': cluster_id}, ...]
-    fragment_i_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
-    fragment_j_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
-    entity1_match_scores, entity2_match_scores = {}, {}
-    interface_residues_with_fragment_overlap = {'mapped': set(), 'paired': set()}
-    for fragment in fragment_matches:
-
-        interface_residues_with_fragment_overlap['mapped'].add(fragment['mapped'])
-        interface_residues_with_fragment_overlap['paired'].add(fragment['paired'])
-        covered_residues_pdb1 = [(fragment['mapped'] + j) for j in range(-2, 3)]
-        covered_residues_pdb2 = [(fragment['paired'] + j) for j in range(-2, 3)]
-        for k in range(5):
-            resnum1 = covered_residues_pdb1[k]
-            resnum2 = covered_residues_pdb2[k]
-            if resnum1 not in entity1_match_scores:
-                entity1_match_scores[resnum1] = [fragment['match_score']]
-            else:
-                entity1_match_scores[resnum1].append(fragment['match_score'])
-
-            if resnum2 not in entity2_match_scores:
-                entity2_match_scores[resnum2] = [fragment['match_score']]
-            else:
-                entity2_match_scores[resnum2].append(fragment['match_score'])
-
-        fragment_i_index_count_d[fragment['cluster'].split('_')[0]] += 1
-        fragment_j_index_count_d[fragment['cluster'].split('_')[0]] += 1
-
-    # Generate Nanohedra score for center and all residues
-    all_residue_score, center_residue_score = 0, 0
-    for residue_number, res_scores in entity1_match_scores.items():
-        n = 1
-        res_scores_sorted = sorted(res_scores, reverse=True)
-        if residue_number in interface_residues_with_fragment_overlap['mapped']:  # interface_residue_numbers: <- may be at termini
-            for central_score in res_scores_sorted:
-                center_residue_score += central_score * (1 / float(n))
-                n *= 2
-        else:
-            for peripheral_score in res_scores_sorted:
-                all_residue_score += peripheral_score * (1 / float(n))
-                n *= 2
-
-    # doing this twice seems unnecessary as there is no new fragment information, but residue observations are
-    # weighted by n, number of observations which differs between entities across the interface
-    for residue_number, res_scores in entity2_match_scores.items():
-        n = 1
-        res_scores_sorted = sorted(res_scores, reverse=True)
-        if residue_number in interface_residues_with_fragment_overlap['paired']:  # interface_residue_numbers: <- may be at termini
-            for central_score in res_scores_sorted:
-                center_residue_score += central_score * (1 / float(n))
-                n *= 2
-        else:
-            for peripheral_score in res_scores_sorted:
-                all_residue_score += peripheral_score * (1 / float(n))
-                n *= 2
-
-    all_residue_score += center_residue_score
-
-    # Get the number of central residues with overlapping fragments identified given z_value criteria
-    number_unique_residues_with_fragment_obs = len(interface_residues_with_fragment_overlap['mapped']) + \
-        len(interface_residues_with_fragment_overlap['paired'])
-
-    # Get the number of residues with fragments overlapping given z_value criteria
-    number_residues_in_fragments = len(entity1_match_scores) + len(entity2_match_scores)
-
-    if number_unique_residues_with_fragment_obs > 0:
-        multiple_frag_ratio = (len(fragment_matches) * 2) / number_unique_residues_with_fragment_obs  # paired fragment
-    else:
-        multiple_frag_ratio = 0
-
-    interface_residue_count = len(interface_residues_with_fragment_overlap['mapped']) + len(interface_residues_with_fragment_overlap['paired'])
-    if interface_residue_count > 0:
-        percent_interface_matched = number_unique_residues_with_fragment_obs / float(interface_residue_count)
-        percent_interface_covered = number_residues_in_fragments / float(interface_residue_count)
-    else:
-        percent_interface_matched, percent_interface_covered = 0, 0
-
-    # Sum the total contribution from each fragment type on both sides of the interface
-    fragment_content_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
-    for index in fragment_i_index_count_d:
-        fragment_content_d[index] += fragment_i_index_count_d[index]
-        fragment_content_d[index] += fragment_j_index_count_d[index]
-
-    if len(fragment_matches) > 0:
-        for index in fragment_content_d:
-            fragment_content_d[index] = fragment_content_d[index] / (len(fragment_matches) * 2)  # paired fragment
-
-    return all_residue_score, center_residue_score, number_residues_in_fragments, \
-        number_unique_residues_with_fragment_obs, multiple_frag_ratio, interface_residue_count, \
-        percent_interface_matched, percent_interface_covered, fragment_content_d
 
 
 def calculate_interface_score(interface_pdb):
