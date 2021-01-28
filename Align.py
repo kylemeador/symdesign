@@ -1619,7 +1619,7 @@ def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2
         pdb2 = PDB(file=pdb2_path)
 
         if extend_helix:
-            n_terminus = pdb1.getTermCAAtom('N', chain_1).residue_number
+            n_terminus = pdb1.chain(chain_1).get_terminal_residue('n').number
             if n_terminus in range(start_1, end_1) or n_terminus < start_1:
                 term = 'N'
             else:

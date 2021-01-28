@@ -44,8 +44,9 @@ design_directory = 'DesignDirectory'
 
 data = 'data'
 symmetry_def_file_dir = 'sdf'
-pdbs_outdir = 'designs/'  # was rosetta_pdbs/ 1/25/21
-scores_outdir = 'scores/'
+pdbs_outdir = 'designs'  # was rosetta_pdbs/ 1/25/21
+scores_outdir = 'scores'
+scripts = 'scripts'
 scores_file = 'design_scores.sc'  # was all_scores.sc 1/25/21
 pose_metrics_file = 'pose_scores.sc'
 analysis_file = 'AllDesignPoseMetrics.csv'
@@ -123,9 +124,9 @@ full_fragmentDB = os.path.join(fragment_db, 'bio+xtal')
 frag_directory = {'biological_interfaces': biological_fragmentDB, 'bio': bio_fragmentDB, 'xtal': xtal_fragmentDB,
                   'bio+xtal': full_fragmentDB}
 # Nanohedra Specific
-frag_db = fragment_db
+frag_db = frag_directory['biological_interfaces']  # was fragment_db on 1/25/21
 monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
-ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
+intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
 intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
 
 # frag_directory = {'biological_interfaces': biological_frag_db, 'bio': bio_frag_db, 'xtal': xtal_frag_db,

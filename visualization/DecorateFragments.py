@@ -9,8 +9,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 from SymDesignUtils import start_log, collect_directories
-from Pose import create_fragment_db
-from classes.Fragment import MonoFragment
+from classes.Fragment import MonoFragment, FragmentDB
 from PDB import PDB
 
 
@@ -96,7 +95,7 @@ if __name__ == '__main__':
         exit('Specify either a file or a directory to locate the files!')
 
     logger.info('Getting Fragment Information')
-    ijk_frag_db = create_fragment_db()
+    ijk_frag_db = FragmentDB()
     # Get complete IJK fragment representatives database dictionaries
     ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
     ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()

@@ -9,6 +9,7 @@ from json import loads
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from PDB import PDB
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import pdist
 from sklearn.decomposition import PCA
@@ -205,7 +206,7 @@ columns_to_rename = {'int_sc': 'shape_complementarity', 'int_sc_int_area': 'int_
                      'favor_profile_switch': groups, 'consensus_design_switch': groups}
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
-columns_to_remove = ['decoy', 'symmetry_switch', 'oligomer_switch', 'total_score',
+columns_to_remove = ['decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unbound']
 
@@ -515,7 +516,7 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
             r_type = metadata[2]  # energy or sasa
             pose_state = metadata[-2]  # oligomer or complex or cst (constraint) or fsp (favor_sequence_profile)
             if pose_state == 'oligomer' and offset:
-                res += offset[metadata[-3]]  # get oligomer chain length offset
+                res += offset[metadata[-3]]  # get oligomer chain name length offset
             if res not in residue_dict:
                 residue_dict[res] = copy.deepcopy(dict_template)
             if r_type == 'sasa':
@@ -810,7 +811,7 @@ def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
 
 # @handle_errors(error_type=(SDUtils.DesignError, AssertionError))
 # TODO multiprocessing compliant (picklable) error decorator
-@SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(DesignDirectory.DesignError, AssertionError))
 def analyze_output_s(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
                      figures=True):
     return analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
@@ -1050,7 +1051,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # Interface B Factor TODO ensure clean_asu.pdb has B-factors
     wt_pdb = PDB(file=wild_type_file)
-    chain_sep = wt_pdb.getTermCAAtom('C', wt_pdb.chain_id_list[0]).residue_number  # this only works with 2 chains TODO
+    chain_sep = wt_pdb.chain(wt_pdb.chain_id_list[0]).get_terminal_residue('c').number  # this only works with 2 chains TODO
     int_b_factor = 0
     for residue in int_residues:
         if residue <= chain_sep:

@@ -1,9 +1,7 @@
 import time
 
-import numpy as np
 import sklearn.neighbors
 
-import PathUtils as PUtils
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import *
 from classes.OptimalTx import *
@@ -738,11 +736,7 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
               main_log=False):
 
     # Fragment Database Directory Paths
-    frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamic at startup or use all fragDB
-    # frag_db = os.path.join(main_script_dir, "fragment_database")
-    monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
-    ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
-    intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
+    # frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamic at startup or use all fragDB
 
     # SymEntry Parameters
     sym_entry = SymEntry(sym_entry_number)
@@ -879,8 +873,9 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
                                       "Representatives\n\n")
 
     # Create fragment database for all ijk cluster representatives
-    ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
-                             intfrag_cluster_info_dirpath)
+    ijk_frag_db = FragmentDB()
+    #                       monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath)
+
     # Get complete IJK fragment representatives database dictionaries
     ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
     ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()

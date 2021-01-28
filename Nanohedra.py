@@ -55,11 +55,11 @@ def main():
             # orient_executable_dir = os.path.dirname(orient_executable_path)
 
             # Fragment Database Directory Paths
-            frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamic at startup or use all fragDB
+            # frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamic at startup or use all fragDB
             # frag_db = os.path.join(main_script_dir, "fragment_database")
-            monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
-            ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
-            intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
+            # monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
+            # ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
+            # intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
 
             # SymEntry Parameters
             sym_entry = SymEntry(sym_entry_number)
@@ -364,8 +364,8 @@ def main():
 
                 master_log_file.write("Retrieving Database of Complete Interface Fragment Cluster Representatives\n")
                 # Create fragment database for all ijk cluster representatives
-                ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
-                                         intfrag_cluster_info_dirpath)
+                ijk_frag_db = FragmentDB()
+                #           monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath)
                 # Get complete IJK fragment representatives database dictionaries
                 ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
                 ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()

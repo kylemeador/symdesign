@@ -12,7 +12,7 @@ pickle_prot = 2
 
 
 # TODO multiprocessing compliant (picklable) error decorator
-@SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(DesignDirectory.DesignError, AssertionError))
 def nanohedra_recap_s(dock_dir, string):
     return nanohedra_design_recap(dock_dir, suffix=string)
 
@@ -95,7 +95,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
 
 # TODO multiprocessing compliant (picklable) error decorator
-@SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(DesignDirectory.DesignError, AssertionError))
 def nanohedra_command_s(entry, path1, path2, out_dir, flags, suffix, initial):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
@@ -169,4 +169,4 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
     if initial:
         _cmd.extend(['-initial'])
 
-    return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name=name, outpath=script_out_dir)
+    return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name=name, out_path=script_out_dir)

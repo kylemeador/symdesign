@@ -258,7 +258,7 @@ def cluster_poses(pose_map):
     return pose_cluster_map
 
 
-@SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(DesignDirectory.DesignError, AssertionError))
 def initialization_s(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
     return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
 
@@ -470,7 +470,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             template_pdb.insert_residue(chain, residue, gapped_residues_d[chain][residue]['from'])
 
     template_pdb.renumber_residues()
-    jump = template_pdb.getTermCAAtom('C', template_pdb.chain_id_list[0]).residue_number
+    jump = template_pdb.chain(template_pdb.chain_id_list[0]).get_terminal_residue('c').number
     template_residues = template_pdb.get_residues()
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
@@ -777,7 +777,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # for k, name in enumerate(int_res_numbers, 1):
     #     refine_variables.append(('interface' + str(k), ','.join(str(j) for j in int_res_numbers[name])))
 
-    flags_refine = SDUtils.prepare_rosetta_flags(refine_variables, PUtils.stage[1], outpath=des_dir.path)
+    flags_refine = DesignDirectory.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=des_dir.path)
     relax_cmd = main_cmd + \
         ['@' + os.path.join(des_dir.path, flags_refine), '-scorefile', os.path.join(des_dir.scores, PUtils.scores_file),
          '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
@@ -786,9 +786,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
     if script:
-        SDUtils.write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1], outpath=des_dir.path,
+        SDUtils.write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1], out_path=des_dir.path,
                                    additional=[subprocess.list2cmdline(consensus_cmd)])
-        SDUtils.write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5], outpath=des_dir.path)
+        SDUtils.write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5], out_path=des_dir.path)
     else:
         if not suspend:
             logger.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
@@ -803,7 +803,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # DESIGN: Prepare command and flags file
     design_variables = copy.deepcopy(refine_variables)
     design_variables.append(('pssm_file', dssm_file))  # TODO change name to dssm_file after P432
-    flags_design = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[2], outpath=des_dir.path)
+    flags_design = DesignDirectory.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=des_dir.path)
     # TODO back out nstruct label to command distribution
     design_cmd = main_cmd + \
         ['-in:file:s', des_dir.refined_pdb, '-in:file:native', des_dir.asu, '-nstruct', str(PUtils.nstruct),
@@ -813,13 +813,13 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
     # TODO if nstruct is backed out, create pdb_list for metrics distribution
-    pdb_list_file = SDUtils.pdb_list_file(des_dir.refined_pdb, total_pdbs=PUtils.nstruct, suffix='_' + PUtils.stage[2],
-                                          loc=des_dir.designs, additional=[des_dir.consensus_design_pdb, ])
+    pdb_list = SDUtils.pdb_list_file(des_dir.refined_pdb, total_pdbs=PUtils.nstruct, suffix='_' + PUtils.stage[2],
+                                     out_path=des_dir.designs, additional=[des_dir.consensus_design_pdb, ])
     design_variables += [('sdfA', sym_definition_files[pdb_codes[0]]), ('sdfB', sym_definition_files[pdb_codes[1]])]
 
-    flags_metric = SDUtils.prepare_rosetta_flags(design_variables, PUtils.stage[3], outpath=des_dir.path)
+    flags_metric = DesignDirectory.prepare_rosetta_flags(design_variables, PUtils.stage[3], out_path=des_dir.path)
     metric_cmd = main_cmd + \
-        ['-in:file:l', pdb_list_file, '-in:file:native', des_dir.refined_pdb, '@' + os.path.join(des_dir.path, flags_metric),
+        ['-in:file:l', pdb_list, '-in:file:native', des_dir.refined_pdb, '@' + os.path.join(des_dir.path, flags_metric),
          '-out:file:score_only', os.path.join(des_dir.scores, PUtils.scores_file),
          '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
 
@@ -830,10 +830,10 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                    for n, name in enumerate(names)}
     # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
     if script:
-        SDUtils.write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2], outpath=des_dir.path)
+        SDUtils.write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2], out_path=des_dir.path)
         SDUtils.write_shell_script(subprocess.list2cmdline(metric_cmds[pdb_codes[0]]), name=PUtils.stage[3],
-                                   outpath=des_dir.path, additional=[subprocess.list2cmdline(metric_cmds[name])
-                                                                     for n, name in enumerate(names) if n > 0])
+                                   out_path=des_dir.path, additional=[subprocess.list2cmdline(metric_cmds[name])
+                                                                      for n, name in enumerate(names) if n > 0])
     else:
         if not suspend:
             logger.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
@@ -848,7 +848,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
     if script:
         analysis_cmd = 'python %s -d %s' % (PUtils.filter_designs, des_dir.path)
-        SDUtils.write_shell_script(analysis_cmd, name=PUtils.stage[4], outpath=des_dir.path)
+        SDUtils.write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=des_dir.path)
     else:
         if not suspend:
             pose_s = analyze_output(des_dir)

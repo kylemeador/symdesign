@@ -7,25 +7,18 @@ import pandas as pd
 from Pose import Pose, calculate_interface_score
 from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, to_iterable, mp_starmap
 # from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
-from classes import EulerLookup
+from classes.EulerLookup import EulerLookup
 from classes.Fragment import FragmentDB
 
 # Globals
 # Nanohedra.py Path
 main_script_path = os.path.dirname(os.path.realpath(__file__))
 
-# Fragment Database Directory Paths
-frag_db = os.path.join(main_script_path, 'data', 'databases', 'fragment_db', 'biological_interfaces')
-monofrag_cluster_rep_dirpath = os.path.join(frag_db, "Top5MonoFragClustersRepresentativeCentered")
-ijk_intfrag_cluster_rep_dirpath = os.path.join(frag_db, "Top75percent_IJK_ClusterRepresentatives_1A")
-intfrag_cluster_info_dirpath = os.path.join(frag_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
-
 # Free SASA Executable Path
 free_sasa_exe_path = os.path.join(main_script_path, 'nanohedra', "sasa", "freesasa-2.0", "src", "freesasa")
 
 # Create fragment database for all ijk cluster representatives
-ijk_frag_db = FragmentDB(monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath,
-                         intfrag_cluster_info_dirpath)
+ijk_frag_db = FragmentDB()
 # Get complete IJK fragment representatives database dictionaries
 ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
 ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()

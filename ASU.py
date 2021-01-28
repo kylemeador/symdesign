@@ -305,8 +305,9 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
                         design_map[design]['pdb1'], design_map[design]['pdb2'], design_map[design]['nanohedra_output'],
                         outdir]
             if command_only:
-                rmsd_commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd),
-                                                                name='rmsd_calculation', outpath=outdir))
+                rmsd_commands.append(
+                    SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='rmsd_calculation',
+                                               out_path=outdir))
             else:
                 p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
@@ -343,8 +344,8 @@ def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
             _cmd = ['python', '/home/kmeador/symdesign/design_recap_scripts/top_n_all_to_all_docked_poses_irmsd.py',
                     design_map[design]['nanohedra_output'], os.path.join(outdir, 'crystal_vs_docked_irmsd.txt')]
             if command_only:
-                all_to_all_commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='all_to_all',
-                                                                      outpath=outdir))
+                all_to_all_commands.append(
+                    SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='all_to_all', out_path=outdir))
             else:
                 p = subprocess.Popen(_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
@@ -378,8 +379,8 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
                     os.path.join(outdir, 'top2000_all_to_all_docked_poses_irmsd.txt'),
                     os.path.join(outdir, 'crystal_vs_docked_irmsd.txt'), design]
             if command_only:
-                cluster_commands.append(SDUtils.write_shell_script(subprocess.list2cmdline(_cmd),
-                                                                   name='rmsd_clustering', outpath=outdir))
+                cluster_commands.append(
+                    SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='rmsd_clustering', out_path=outdir))
             else:
                 p = subprocess.Popen(_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
@@ -563,9 +564,10 @@ if __name__ == '__main__':
                 commands2 = run_cluster_calc(design_d_names, args.design_map, args.command_only)
                 modified_commands1 = map(subprocess.list2cmdline, zip(repeat('bash'), commands1))
                 modified_commands2 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands2)))
-                all_commands = [SDUtils.write_shell_script(cmd1, name='all_to_cluster', additional=[modified_commands2[l]],
-                                                           outpath=os.path.dirname(commands1[l]))
-                                for l, cmd1 in enumerate(modified_commands1)]
+                all_commands = [
+                    SDUtils.write_shell_script(cmd1, name='all_to_cluster', out_path=os.path.dirname(commands1[l]),
+                                               additional=[modified_commands2[l]])
+                    for l, cmd1 in enumerate(modified_commands1)]
             elif args.mode == 'all_rmsd':
                 commands1 = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
                 commands2 = run_all_to_all_calc(design_d_names, args.design_map, args.command_only)
@@ -573,10 +575,10 @@ if __name__ == '__main__':
                 modified_commands1 = map(subprocess.list2cmdline, zip(repeat('bash'), commands1))
                 modified_commands2 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands2)))
                 modified_commands3 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands3)))
-                all_commands = [SDUtils.write_shell_script(cmd1, name='rmsd_to_cluster',
-                                                           additional=[modified_commands2[l], modified_commands3[l]],
-                                                           outpath=os.path.dirname(commands1[l]))
-                                for l, cmd1 in enumerate(modified_commands1)]
+                all_commands = [
+                    SDUtils.write_shell_script(cmd1, name='rmsd_to_cluster', out_path=os.path.dirname(commands1[l]),
+                                               additional=[modified_commands2[l], modified_commands3[l]])
+                    for l, cmd1 in enumerate(modified_commands1)]
             else:
                 exit('Invalid Input: \'-mode\' must be specified if using design_map!')
 

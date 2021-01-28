@@ -2,10 +2,12 @@ import os
 
 import numpy as np
 
+import PathUtils as PUtils
 from classes.Atom import Atom
 from classes.PDB import PDB
 from utils.BioPDBUtils import biopdb_aligned_chain
 from utils.BioPDBUtils import biopdb_superimposer
+from PathUtils import intfrag_cluster_rep_dirpath, monofrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath
 
 
 def get_interface_fragments(pdb, chain_res_info, fragment_length=5):
@@ -350,7 +352,7 @@ class ClusterInfoFile:
 
 
 class FragmentDB:
-    def __init__(self, monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath):
+    def __init__(self):  # , monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath):
         self.monofrag_cluster_rep_dirpath = monofrag_cluster_rep_dirpath
         self.intfrag_cluster_rep_dirpath = intfrag_cluster_rep_dirpath
         self.intfrag_cluster_info_dirpath = intfrag_cluster_info_dirpath

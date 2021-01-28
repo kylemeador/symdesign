@@ -249,7 +249,7 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
     return design_list
 
 
-@SDUtils.handle_errors(errors=(DesignDirectory.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(DesignDirectory.DesignError, AssertionError))
 def select_sequences_s(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
     return select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
 

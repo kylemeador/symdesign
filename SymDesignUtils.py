@@ -1,5 +1,4 @@
 # import pickle5 as pickle  # python 3.8 pickling protocol compatible
-import copy
 import logging
 import math
 import multiprocessing as mp
@@ -55,7 +54,7 @@ def handle_errors_f(errors=(Exception, )):
     return wrapper
 
 
-def handle_errors(errors=(Exception, )):  # TODO refactor handle_errors to handle_errors_DesDir
+def handle_design_errors(errors=(Exception,)):  # TODO refactor handle_errors to handle_errors_DesDir
     """Decorator to wrap a function with try: ... except errors: finally:
 
     Keyword Args:
@@ -595,7 +594,7 @@ def remove_duplicates(_iter):
     return [x for x in _iter if not (x in seen or seen_add(x))]
 
 
-def write_shell_script(command, name='script', outpath=os.getcwd(), additional=None, shell='bash'):
+def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash'):
     """Take a list with command flags formatted for subprocess and write to a name.sh script
 
     Args:
@@ -608,7 +607,7 @@ def write_shell_script(command, name='script', outpath=os.getcwd(), additional=N
     Returns:
         (str): The name of the file
     """
-    file_name = os.path.join(outpath, name + '.sh')
+    file_name = os.path.join(out_path, name + '.sh')
     with open(file_name, 'w') as f:
         f.write('#!/bin/%s\n\n%s\n' % (shell, command))
         if additional:
@@ -637,8 +636,8 @@ def write_list_to_file(_list, name=None, location=os.getcwd()):
     return file_name
 
 
-def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', loc=os.getcwd(), additional=None):
-    file_name = os.path.join(loc, 'pdb_file_list.txt')
+def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', out_path=os.getcwd(), additional=None):
+    file_name = os.path.join(out_path, 'pdb_file_list.txt')
     with open(file_name, 'w') as f:
         f.write(refined_pdb + '\n')  # run second round of metrics on input as well
         for i in range(index_offset, total_pdbs + index_offset):
@@ -649,42 +648,6 @@ def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', loc=os.getcwd(), additio
                 f.write(pdb + '\n')
 
     return file_name
-
-
-def prepare_rosetta_flags(flag_variables, stage, outpath=os.getcwd()):
-    """Prepare a protocol specific Rosetta flags file with program specific variables
-
-    Args:
-        flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
-        stage (str): The protocol stage or flag suffix to name the specific flags file
-    Keyword Args:
-        outpath=cwd (str): Disk location to write the flags file
-    Returns:
-        flag_file (str): Disk location of the written flags file
-    """
-    output_flags = ['-out:path:pdb ' + os.path.join(outpath, PUtils.pdbs_outdir),
-                    '-out:path:score ' + os.path.join(outpath, PUtils.scores_outdir)]
-
-    def make_flags_file(flag_list):
-        with open(os.path.join(outpath, 'flags_' + stage), 'w') as f:
-            for flag in flag_list:
-                f.write(flag + '\n')
-
-        return 'flags_' + stage
-
-    _flags = copy.deepcopy(CUtils.flags)
-    _flags += output_flags
-    _options = CUtils.flag_options[stage]
-    for variable in _options:
-        _flags.append(variable)
-
-    variables_for_flag_file = '-parser:script_vars'
-    for variable, value in flag_variables:
-        variables_for_flag_file += ' ' + str(variable) + '=' + str(value)
-
-    _flags.append(variables_for_flag_file)
-
-    return make_flags_file(_flags)
 
 
 @handle_errors_f(errors=(FileNotFoundError, ))
@@ -854,7 +817,7 @@ def mp_map(function, arg, threads=1):
     """Maps input argument to a function using multiprocessing Pool
 
     Args:
-        function (function): Which function should be executed
+        function (Callable): Which function should be executed
         arg (var): Argument to be unpacked in the defined function
         threads (int): How many workers/threads should be spawned to handle function(arguments)?
     Returns:
@@ -1041,14 +1004,14 @@ def collect_directories(directory, file=None, dir_type=None):
             _file = os.path.join(os.getcwd(), file)
             if not os.path.exists(_file):
                 logger.critical('No %s file found in \'%s\'! Please ensure correct location/name!' % (file, directory))
-                sys.exit(1)
+                exit()
         with open(_file, 'r') as f:
             all_directories = [location.strip() for location in f.readlines()]
         location = file
     else:
         if dir_type == 'dock':
             all_directories = get_docked_directories(directory)
-        elif dir_type == 'design':
+        elif dir_type == PUtils.nano:  # 'design':
             base_directories = get_base_nanohedra_dirs(directory)
             all_directories = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
         else:
