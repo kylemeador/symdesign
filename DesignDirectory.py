@@ -1,91 +1,130 @@
+import copy
+import math
 import os
+import subprocess
 from glob import glob
 
+import numpy
 import numpy as np
+
+import CmdUtils as CUtils
+import PathUtils
+from AnalyzeOutput import analyze_output
+from CmdUtils import reference_average_residue_weight, script_cmd, run_cmds
 
 from PDB import PDB
 import PathUtils as PUtils
-from SymDesignUtils import logger, unpickle, start_log, handle_errors_f
+from Pose import Pose
+from Query.Flags import load_flags
+from SymDesignUtils import logger, unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file
 
 # Globals
 design_direcotry_modes = ['design', 'dock']
 
 
-class DesignDirectory:  # Todo remove all PDB specific information and add to Pose. only use to handle Pose paths
+class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, mode='design', auto_structure=True, symmetry=None):
-        self.mode = mode
+    def __init__(self, design_path, nano=False, mode='design', symmetry=None, project=None, pose_id=None, **kwargs):
         self.name = os.path.splitext(os.path.basename(design_path))[0]
-        # design_symmetry_pg/path
-        # or if nano
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
-        self.project = None
-        # design_symmetry_pg (P432)
+        self.nano = nano
+        self.mode = mode
+
         self.all_designs = None
-        self.protein_data = None  # TODO
-        # design_symmetry_pg/protein_data (P432/Protein_Data)
-        self.pdbs = None  # TODO
-        # design_symmetry_pg/protein_data/pdbs (P432/Protein_Data/PDBs)
+        self.protein_data = None
+        # design_symmetry/protein_data (P432/Protein_Data)
+        self.pdbs = None
+        # design_symmetry/protein_data/pdbs (P432/Protein_Data/PDBs)
         self.sequences = None
-        # design_symmetry_pg/sequences (P432/Sequence_Info)
-        # design_symmetry_pg/protein_data/sequences (P432/Protein_Data/Sequence_Info)  # TODO
+        # design_symmetry/sequences (P432/Sequence_Info)
+        # design_symmetry/protein_data/sequences (P432/Protein_Data/Sequence_Info)
         self.all_scores = None
-        # design_symmetry_pg/all_scores (P432/All_Scores)
+        # design_symmetry/all_scores (P432/All_Scores)
         self.trajectories = None
-        # design_symmetry_pg/all_scores/str(self)_Trajectories.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Trajectories.csv)
+        # design_symmetry/all_scores/str(self)_Trajectories.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Trajectories.csv)
         self.residues = None
-        # design_symmetry_pg/all_scores/str(self)_Residues.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Residues.csv)
+        # design_symmetry/all_scores/str(self)_Residues.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Residues.csv)
         self.design_sequences = None
-        # design_symmetry_pg/all_scores/str(self)_Residues.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Sequences.pkl)
+        # design_symmetry/all_scores/str(self)_Residues.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Sequences.pkl)
 
         self.scores = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scores (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scores)
-        self.designs = None  # TODO .designs?
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/rosetta_pdbs
-        #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/rosetta_pdbs)
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scores (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scores)
+        self.designs = None
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/designs (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/designs)
+        self.scripts = None
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scripts (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scripts)
         self.frags = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/matching_fragment_representatives
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/matching_fragment_representatives
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
+        self.frag_file = None
+        self.pose_file = None
         self.data = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/data)
         self.info = {}
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
 
+        self.pose = None  # contains the design's Pose object
         self.source = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/central_asu.pdb
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/asu.pdb (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/asu.pdb)
         self.asu = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu.pdb
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu.pdb
         self.refine_pdb = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
         self.refined_pdb = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/rosetta_pdbs/clean_asu_for_refine.pdb
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/rosetta_pdbs/clean_asu_for_refine.pdb
+        self.consensus = None  # Whether to run consensus or not
         self.consensus_pdb = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_consensus.pdb
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_consensus.pdb
         self.consensus_design_pdb = None
-        # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/rosetta_pdbs/clean_asu_for_consensus.pdb
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/rosetta_pdbs/clean_asu_for_consensus.pdb
 
         self.sdf = None
         # path/to/directory/sdf/
+        self.sdfs = {}
+        self.oligomer_names = []
+        self.oligomers = {}
 
-        if nano:
-            self.path = design_path
+        self.sym_entry_number = None
+        self.design_symmetry = None
+        self.design_dim = None
+        self.fragment_cluster_residue_d = {}
+        self.fragment_observations = []
 
-            self.building_blocks = None
-            # design_symmetry_pg/building_blocks (P432/4ftd_5tch)
-            self.log = None
-            # v ^ both used in dock_dir set up
-            self.building_block_logs = None
+        # Design flags
+        self.mask = None
+        self.evolution = True
+        self.fragment = True
+        self.query_fragments = True
+        self.fragment_file = None
+        self.fragment_type = 'biological_interfaces'  # default for now
+        self.script = True
+        self.mpi = False
+        self.output_assembly = False
+
+        if self.nano:
+            if project:
+                self.project = project.rstrip(os.sep)
+                if pose_id:  # Todo may not be compatible P432
+                    self.directory_string_to_path(pose_id)
+                else:
+                    self.path = os.path.join(project, design_path)
+            else:
+                self.path = design_path
+                # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
+
+            if not os.path.exists(self.path):
+                raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.path)
+
+            self.start_log()
+            # v used in dock_dir set up
             self.building_block_logs = []
-            self.oligomer_names = []
-            self.oligomers = {}
-            self.sdfs = {}
-            # design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu.pdb
+            self.building_block_dirs = []
 
+            self.cannonical_pdb1 = None  # cannonical pdb orientation
+            self.cannonical_pdb2 = None
             self.pdb_dir1_path = None
             self.pdb_dir2_path = None
-            self.master_outdir = None
-            self.sym_entry_number = None
+            self.master_outdir = None  # same as self.project
             self.oligomer_symmetry_1 = None
             self.oligomer_symmetry_2 = None
             self.design_symmetry_pg = None
@@ -101,74 +140,114 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
             self.ref_frame_tx_dof2 = None
             self.set_mat1 = None
             self.set_mat2 = None
-            self.design_symmetry = None
-            self.design_dim = None
             self.uc_spec_string = None
             self.degen1 = None
             self.degen2 = None
+            self.cryst_record = None
+            self.pose_id = None
 
-            self.fragment_cluster_residue_d = {}
-            self.fragment_observations = []
             self.fragment_cluster_freq_d = {}
             self.transform_d = {}
-            self.z_value_dict = {}
-            self.nanohedra_score = None
-            self.ave_z = None
-            self.num_fragments = None
 
-            self.pose_id = None
-            self.high_quallity_int_residues_matched = None
-            self.int_residues_matched = None
-            self.int_residues_total = None
-            self.percent_fragment = None
-            self.cryst_record = None
-            self.cannonical_pdb1 = None  # cannonical pdb orientation
-            self.cannonical_pdb2 = None
+            self.nanohedra_score = None  # TODO MOVE Metrics
+            self.ave_z = None  # TODO MOVE Metrics
+            self.num_fragments = None  # TODO MOVE Metrics
+            self.high_quality_int_residues_matched = None  # TODO MOVE Metrics
+            self.int_residues_matched = None  # TODO MOVE Metrics
+            self.int_residues_total = None  # TODO MOVE Metrics
+            self.percent_fragment = None  # TODO MOVE Metrics
 
-            if auto_structure:
-                if symmetry:  # Todo What?
-                    if len(self.path.split(os.sep)) == 1:
-                        self.directory_string_to_path()
-                if self.mode == 'design':
-                    self.nanohedra_design_directory(symmetry=symmetry)
-                elif self.mode == 'dock':
-                    self.nanohedra_docking_structure(symmetry=symmetry)
-                else:
-                    exit('%s: %s is not an available mode. Choose from %s...\n' % (DesignDirectory.__name__, self.mode,
-                                                                                   ','.join(design_direcotry_modes)))
+            if self.mode == 'design':
+                self.project = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
+                # design_symmetry (P432)
+                self.nano_master_log = os.path.join(self.project, PUtils.master_log)
+                self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
+                # design_symmetry/building_blocks (P432/4ftd_5tch)
+                self.source = os.path.join(self.path, PUtils.asu)
+                self.set_up_design_directory()
+
+                self.gather_pose_metrics()
+                self.gather_fragment_info()
+            elif self.mode == 'dock':
+                # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
+                # using typical directory structuring
+
+                # self.project = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation?
+                self.project = self.path  # Assuming that the output directory (^ or v) of Nanohedra passed as the path
+                # v for design_recap
+                # self.project = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(project or '')))
+
+                self.nano_master_log = os.path.join(self.project, PUtils.master_log)
+                # self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.project]
+                # for k, _sym in enumerate(self.project):
+                # for k, _sym in enumerate(next(os.walk(self.project))):
+                # self.building_blocks.append(list())
+                # self.building_block_logs.append(list())
+                # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
+                # for bb_dir in next(os.walk(_sym))[1]:
+                for bb_dir in next(os.walk(self.project))[1]:  # grab directories from os.walk, yielding only top level
+                    if os.path.exists(os.path.join(self.project, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
+                        self.building_block_dirs.append(bb_dir)
+                        # self.building_block_dirs[k].append(bb_dir)
+                        self.building_block_logs.append(os.path.join(self.project, bb_dir, '%s_log.txt' % bb_dir))
+                        # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
+            else:
+                raise DesignError('%s: %s is not an available mode. Choose from %s...\n'
+                                  % (DesignDirectory.__name__, self.mode, ','.join(design_direcotry_modes)))
+
+            if not os.path.exists(self.nano_master_log):
+                raise DesignError('%s: No %s found for this directory! Cannot perform material design without it.\n'
+                                  'Ensure you have the file \'%s\' located properly before trying this Design!'
+                                  % (self.__str__(), PUtils.master_log, self.nano_master_log))
+            self.gather_docking_metrics()
         else:
             self.source = design_path
-            self.design_directory(symmetry=symmetry)
+            self.project = os.path.join(os.getcwd(), PUtils.program_name)  # symmetry.rstrip(os.sep)
+            self.all_designs = os.path.join(self.project, PUtils.design_directory)
+            self.path = os.path.join(self.all_designs, self.name)
+            # design_symmetry/path
+
+            if not os.path.exists(self.all_designs):
+                os.makedirs(self.all_designs)
+            if not os.path.exists(self.path):
+                os.makedirs(self.path)
+
+            self.set_up_design_directory()
+            self.start_log()
+            # self.design_from_file(symmetry=symmetry)
+        self.set_flags(**kwargs)
 
     @classmethod
-    def from_nanohedra(cls, design_path, mode=None, symmetry=None):
-        return cls(design_path, nano=True, mode=mode, symmetry=symmetry)\
+    def from_nanohedra(cls, design_path, mode=None, project=None, **kwargs):
+        return cls(design_path, nano=True, mode=mode, project=project, **kwargs)
 
     @classmethod
-    def from_file(cls, design_path, mode=None, symmetry=None):
-        return cls(design_path, mode=mode, symmetry=symmetry)
+    def from_file(cls, design_path, project=None, **kwargs):  # mode=None
+        return cls(design_path, project=project, **kwargs)
 
     def __str__(self):
         if self.project:
-            return self.path.replace(self.project + os.sep, '').replace(os.sep, '-')  # TODO how integrate with designDB?
+            return self.path.replace(self.project + os.sep, '').replace(os.sep, '-')  # TODO integrate with designDB?
         else:
             # When is this relevant?
             return self.path.replace(os.sep, '-')[1:]
 
-    def directory_string_to_path(self):  # string, project
-        self.path = self.path.replace('-', os.sep)
+    def start_log(self, name=None, level=2):
+        if not name:
+            name = self.name
 
-    def design_directory(self, symmetry=None):
-        # if symmetry:
-        self.project = os.path.join(os.getcwd(), PUtils.program_name)  # symmetry.rstrip(os.sep)
-        # else:
-        #     self.project = os.path.dirname(self.path)
+        self.log = start_log(name=name, handler=2, level=level, location=os.path.join(self.path, name))
+        #                                                                              os.path.basename(self.path)))
 
-        # self.log = os.path.join(self.project, PUtils.master_log)
-        # if not os.path.exists(self.log):
-        #     logger.critical('%s: No %s found in this directory! Cannot perform material design without it.'
-        #                     % (self.__str__(), PUtils.master_log))
-        #     exit()
+    def directory_string_to_path(self, pose_id):
+        assert self.project, 'No project attribute set! Cannot create a path from a pose_id without a project!'
+        self.path = os.path.join(self.project, pose_id.replace('-', os.sep))
+
+    def set_up_design_directory(self):
+        """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
+        if not os.path.exists(self.path):
+            raise DesignError('Path does not exist!\n%s' % self.path)
+            # self.log.warning('%s: Path does not exist!' % self.path)
         self.protein_data = os.path.join(self.project, 'Protein_Data')
         self.pdbs = os.path.join(self.protein_data, 'PDBs')
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
@@ -178,23 +257,25 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
         self.design_sequences = os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
 
-        # self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
-        self.all_designs = os.path.join(self.project, PUtils.design_directory)
-        self.path = os.path.join(self.all_designs, self.name)
-        self.sdf = os.path.join(self.all_designs, PUtils.symmetry_def_file_dir)
+        self.sdf = os.path.join(self.path, PUtils.symmetry_def_file_dir)
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
+        self.scripts = os.path.join(self.path, PUtils.scripts)
         self.frags = os.path.join(self.path, PUtils.frag_dir)
+        self.pose_file = os.path.join(self.path, PUtils.pose_file)
+        self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
         self.data = os.path.join(self.path, PUtils.data)
-
         self.asu = os.path.join(self.path, PUtils.clean)
         self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(PUtils.clean)[0])
-        self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean)[0])
+        self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
 
-        # Ensure these are only created when Pose is initialized
+        # Ensure directories are only created once Pose Processing is called
         if os.path.exists(os.path.join(self.data, 'info.pkl')):
+            # raise DesignError('%s: No information found for pose. Have you initialized it?\n'
+            #                   'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
+            #                   (self.path, PUtils.program_name))
             self.info = unpickle(os.path.join(self.data, 'info.pkl'))
         else:
             if not os.path.exists(self.protein_data):
@@ -205,10 +286,7 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
                 os.makedirs(self.sequences)
             if not os.path.exists(self.all_scores):
                 os.makedirs(self.all_scores)
-            if not os.path.exists(self.all_designs):
-                os.makedirs(self.all_designs)
-            if not os.path.exists(self.path):
-                os.makedirs(self.path)
+
             if not os.path.exists(self.scores):
                 os.makedirs(self.scores)
             if not os.path.exists(self.designs):
@@ -218,95 +296,101 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
             if not os.path.exists(self.sdf):
                 os.makedirs(self.sdf)
 
-        self.start_log()
+    # def design_from_file(self, symmetry=None):
+        # self.project = os.path.join(os.getcwd(), PUtils.program_name)  # symmetry.rstrip(os.sep)
+        # self.all_designs = os.path.join(self.project, PUtils.design_directory)
+        # self.path = os.path.join(self.all_designs, self.name)
+        #
+        # if not os.path.exists(self.all_designs):
+        #     os.makedirs(self.all_designs)
+        # if not os.path.exists(self.path):
+        #     os.makedirs(self.path)
+        #
+        # self.set_up_design_directory()
+        # self.start_log()
 
-    def nanohedra_design_directory(self, symmetry=None):
-        # Prepare Output Directory/Files. path always has format:
-        if symmetry:
-            self.project = symmetry.rstrip(os.sep)
-            self.path = os.path.join(symmetry, self.path)
-        else:
-            self.project = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
+    # def design_from_nanohedra(self, symmetry=None):
+        # if symmetry:
+        #     self.project = symmetry.rstrip(os.sep)
+        #     self.path = os.path.join(symmetry, self.path)
+        # else:
+        #     self.project = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
+        #
+        # self.start_log()
+        # self.nano_master_log = os.path.join(self.project, PUtils.master_log)
+        # if not os.path.exists(self.nano_master_log):
+        #     self.log.critical('%s: No %s found in this directory! Cannot perform material design without it.'
+        #                       % (self.__str__(), PUtils.master_log))
+        #     exit()
+        #
+        # self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
+        # self.source = os.path.join(self.path, PUtils.asu)
+        # self.set_up_design_directory()
+        # self.gather_docking_metrics()
+        # self.gather_pose_metrics()
+        # self.gather_fragment_info()
 
-        self.start_log()
-        self.log = os.path.join(self.project, PUtils.master_log)
-        if not os.path.exists(self.log):
-            logger.critical('%s: No %s found in this directory! Cannot perform material design without it.'
-                            % (self.__str__(), PUtils.master_log))
-            exit()
-        self.protein_data = os.path.join(self.project, 'Protein_Data')
-        self.pdbs = os.path.join(self.protein_data, 'PDBs')
-        self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
-        self.all_scores = os.path.join(self.project, 'All_' + PUtils.scores_outdir.title())  # TODO db integration
-        self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
-        self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
-        self.design_sequences = os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
-        self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
-        self.sdf = os.path.join(self.path, PUtils.symmetry_def_file_dir)
-        self.scores = os.path.join(self.path, PUtils.scores_outdir)
-        self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
-        self.frags = os.path.join(self.path, PUtils.frag_dir)
-        self.data = os.path.join(self.path, PUtils.data)
+        # self.sdf = os.path.join(self.path, PUtils.symmetry_def_file_dir)
+        # self.scores = os.path.join(self.path, PUtils.scores_outdir)
+        # self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
+        # self.scripts = os.path.join(self.path, PUtils.scripts)
+        # self.frags = os.path.join(self.path, PUtils.frag_dir)
+        # self.data = os.path.join(self.path, PUtils.data)
+        # self.asu = os.path.join(self.path, PUtils.clean)
+        # self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(PUtils.clean)[0])
+        # self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
+        # self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean)[0])
+        # self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
 
-        self.source = os.path.join(self.path, PUtils.asu)
-        self.asu = os.path.join(self.path, PUtils.clean)
-        self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(self.asu)[0])
-        self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
-        self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(self.asu)[0])
-        self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
+        # if not os.path.exists(self.path):
+        #     # raise DesignError('Path does not exist!\n%s' % self.path)
+        #     self.log.warning('%s: Path does not exist!' % self.path)
+        # else:
+        #     # Ensure these are only created when Pose Processing is called
+        #     if os.path.exists(os.path.join(self.data, 'info.pkl')):
+        #         # raise DesignError('%s: No information found for pose. Have you initialized it?\n'
+        #         #                   'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
+        #         #                   (self.path, PUtils.program_name))
+        #         self.info = unpickle(os.path.join(self.data, 'info.pkl'))
+        #     else:
+        #         if not os.path.exists(self.protein_data):
+        #             os.makedirs(self.protein_data)
+        #         if not os.path.exists(self.pdbs):
+        #             os.makedirs(self.pdbs)
+        #         if not os.path.exists(self.sequences):
+        #             os.makedirs(self.sequences)
+        #         if not os.path.exists(self.all_scores):
+        #             os.makedirs(self.all_scores)
+        #         if not os.path.exists(self.scores):
+        #             os.makedirs(self.scores)
+        #         if not os.path.exists(self.designs):
+        #             os.makedirs(self.designs)
+        #         if not os.path.exists(self.data):
+        #             os.makedirs(self.data)
+        #         if not os.path.exists(self.sdf):
+        #             os.makedirs(self.sdf)
 
-        if not os.path.exists(self.path):
-            # raise DesignError('Path does not exist!\n%s' % self.path)
-            logger.warning('%s: Path does not exist!' % self.path)
-        else:
-            # Ensure these are only created when Pose Processing is called
-            if os.path.exists(os.path.join(self.data, 'info.pkl')):
-                # raise DesignError('%s: No information found for pose. Have you initialized it?\n'
-                #                   'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
-                #                   (self.path, PUtils.program_name))
-                self.info = unpickle(os.path.join(self.data, 'info.pkl'))
-            else:
-                if not os.path.exists(self.protein_data):
-                    os.makedirs(self.protein_data)
-                if not os.path.exists(self.pdbs):
-                    os.makedirs(self.pdbs)
-                if not os.path.exists(self.sequences):
-                    os.makedirs(self.sequences)
-                if not os.path.exists(self.all_scores):
-                    os.makedirs(self.all_scores)
-                if not os.path.exists(self.scores):
-                    os.makedirs(self.scores)
-                if not os.path.exists(self.designs):
-                    os.makedirs(self.designs)
-                if not os.path.exists(self.data):
-                    os.makedirs(self.data)
-                if not os.path.exists(self.sdf):
-                    os.makedirs(self.sdf)
-                self.gather_docking_metrics()
-                self.gather_pose_metrics()
-                self.gather_fragment_info()
-
-    def nanohedra_docking_structure(self):  # , project=None):
-        """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
-        typical directory structuring"""
-        self.start_log()
-        # self.project = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation?
-        self.project = self.path  # Assuming that the output directory (^ or v) of Nanohedra is passed as the path
-        # self.project = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(project or '')))  # for design_recap
-        self.log = os.path.join(self.project, PUtils.master_log)
-        # self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.project]
-        # for k, _sym in enumerate(self.project):
-        # for k, _sym in enumerate(next(os.walk(self.project))):
-        # self.building_blocks.append(list())
-        # self.building_block_logs.append(list())
-        # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-        # for bb_dir in next(os.walk(_sym))[1]:  # grabs the directories from os.walk, yielding just top level results
-        for bb_dir in next(os.walk(self.project))[1]:  # grab directories from os.walk, yielding just top level results
-            if os.path.exists(os.path.join(self.project, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
-                self.building_blocks.append(bb_dir)
-                # self.building_blocks[k].append(bb_dir)
-                self.building_block_logs.append(os.path.join(self.project, bb_dir, '%s_log.txt' % bb_dir))
-                # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
+    # def nanohedra_docking_structure(self):  # , project=None):
+    #     """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
+    #     typical directory structuring"""
+    #     self.start_log()
+    #     # self.project = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation?
+    #     self.project = self.path  # Assuming that the output directory (^ or v) of Nanohedra is passed as the path
+    #     # self.project = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(project or '')))  # for design_recap
+    #     self.nano_master_log = os.path.join(self.project, PUtils.master_log)
+    #     # self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.project]
+    #     # for k, _sym in enumerate(self.project):
+    #     # for k, _sym in enumerate(next(os.walk(self.project))):
+    #     # self.building_blocks.append(list())
+    #     # self.building_block_logs.append(list())
+    #     # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
+    #     # for bb_dir in next(os.walk(_sym))[1]:  # grabs the directories from os.walk, yielding just top level results
+    #     for bb_dir in next(os.walk(self.project))[1]:  # grab directories from os.walk, yielding just top level results
+    #         if os.path.exists(os.path.join(self.project, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
+    #             self.building_blocks.append(bb_dir)
+    #             # self.building_blocks[k].append(bb_dir)
+    #             self.building_block_logs.append(os.path.join(self.project, bb_dir, '%s_log.txt' % bb_dir))
+    #             # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
 
     def get_oligomers(self):
         if self.mode == 'design':
@@ -321,7 +405,7 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
                 sdf_file_name = os.path.join(os.path.dirname(self.oligomers[name].filepath), self.sdf, '%s.sdf' % name)
                 self.sdfs[name] = self.oligomers[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
                 self.oligomers[name].reorder_chains()
-            logger.debug('%s: %d matching oligomers found' % (self.path, len(self.oligomers)))
+            self.log.debug('%s: %d matching oligomers found' % (self.path, len(self.oligomers)))
 
     def get_designs(self, design_type='design'):
         """Return the paths of all design files in a DesignDirectory"""
@@ -331,8 +415,8 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
     def get_building_block_dir(self, building_block):
         for sym_idx, symm in enumerate(self.project):
             try:
-                bb_idx = self.building_blocks[sym_idx].index(building_block)
-                return os.path.join(self.project[sym_idx], self.building_blocks[sym_idx][bb_idx])
+                bb_idx = self.building_block_dirs[sym_idx].index(building_block)
+                return os.path.join(self.project[sym_idx], self.building_block_dirs[sym_idx][bb_idx])
             except ValueError:
                 continue
         return None
@@ -346,17 +430,9 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
     # def return_unique_pose_stats(self):  # Depreciated
     #     return len(bb for symm in self.building_blocks for bb in symm)
 
-    def start_log(self, name=None, level=2):
-        if name:
-            _name = name
-        else:
-            _name = self.name
-        self.log = start_log(name=_name, handler=2, level=level, location=os.path.join(self.path, _name))
-        #                                                                              os.path.basename(self.path)))
-
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_docking_metrics(self):
-        with open(self.log, 'r') as master_log:  # os.path.join(base_directory, 'master_log.txt')
+        with open(self.nano_master_log, 'r') as master_log:  # os.path.join(base_directory, 'master_log.txt')
             parameters = master_log.readlines()
             for line in parameters:
                 if "PDB 1 Directory Path: " or 'Oligomer 1 Input Directory: ' in line:
@@ -439,7 +515,7 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
         """Gather fragment metrics from Nanohedra output"""
-        with open(os.path.join(self.path, PUtils.frag_file), 'r') as f:
+        with open(self.frag_file, 'r') as f:
             frag_match_info_file = f.readlines()
             for line in frag_match_info_file:
                 if line[:6] == 'z-val:':
@@ -474,13 +550,13 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_pose_metrics(self):
         """Gather docking metrics from Nanohedra output"""
-        with open(os.path.join(self.path, PUtils.pose_file), 'r') as f:
+        with open(self.pose_file, 'r') as f:
             pose_info_file_lines = f.readlines()
             for line in pose_info_file_lines:
                 if line[:15] == 'DOCKED POSE ID:':
                     self.pose_id = line[15:].strip()
                 elif line[:38] == 'Unique Mono Fragments Matched (z<=1): ':
-                    self.high_quallity_int_residues_matched = int(line[38:].strip())
+                    self.high_quality_int_residues_matched = int(line[38:].strip())
                 elif line[:31] == 'Unique Mono Fragments Matched: ':
                     self.int_residues_matched = int(line[31:].strip())
                 elif line[:36] == 'Unique Mono Fragments at Interface: ':
@@ -547,6 +623,238 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
 
         return int(number_steps1), int(number_steps2)
 
+    def add_flags(self, flags_file):
+        self.set_flags(**load_flags(flags_file))
+
+    def set_flags(self, symmetry=None, design_with_evolution=True,
+                  design_with_fragments=True, fragments_exist=None, generate_fragments=True,
+                  output_assembly=False, design_mask=None, script=True, mpi=False):  # nanohedra_output,
+        self.design_symmetry = symmetry
+        # self.nano = nanohedra_output
+        self.mask = design_mask
+        self.evolution = design_with_evolution
+        self.fragment = design_with_fragments
+        self.fragment_file = fragments_exist
+        self.query_fragments = generate_fragments
+        self.output_assembly = output_assembly
+        self.script = script
+        self.mpi = mpi
+        # self.fragment_type
+
+    def prepare_rosetta_commands(self):  # , script=False, mpi=False):
+        cst_value = round(0.2 * reference_average_residue_weight, 2)
+        # Set up protocol project
+        main_cmd = copy.deepcopy(script_cmd)
+        # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = des_dir.symmetry_parameters()
+        # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
+        protocol = PUtils.protocol[self.design_dim]
+        if self.design_dim > 0:  # layer or space
+            sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
+            main_cmd += ['-symmetry_definition', 'CRYST1']
+        else:  # point
+            sym_def_file = sdf_lookup(self.sym_entry_number)  # Todo in flags
+            main_cmd += ['-symmetry_definition', sym_def_file]
+
+        # logger.info('Symmetry Information: %s' % cryst)
+        self.log.info('Symmetry Option: %s' % protocol)
+        if self.nano:
+            self.log.info('Input Oligomers: %s' % ', '.join(name for name in self.oligomers))
+
+        self.log.info('Found the following chain breaks in the ASU:\n%s'
+                      % ('\n'.join(['\tEntity %s, Chain %s Residue %d'
+                                    % (entity.name, entity.chain, entity.get_terminal_residue('c').number)
+                                    for entity in self.pose.entities])))
+        self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
+        self.log.debug('Cleaned PDB: \'%s\'' % self.asu)
+        self.log.info('Interface Residues: %s'
+                      % ', '.join('%s%s' % (residue.number, entity.chain_name)
+                                  for entity, residues in self.pose.interface_residues.values()
+                                  for residue in residues))
+
+        # Mutate all design positions to Ala
+        mutated_pdb = copy.deepcopy(self.pose.pdb)
+        # Remove Side Chain Atoms to Ala NECESSARY for all chains to ASU chain map
+        # mutated_pdb.mutate_residues(self.interface_residues, 'ALA')  # No, because need GLY check
+        for residues in self.pose.interface_residues.values():
+            for residue in residues:
+                if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+                    mutated_pdb.mutate_to(residue.number)
+
+        mutated_pdb.write(out_path=self.refine_pdb)
+        self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
+
+        # need to assign the designable residues for each entity to a interfaceA or interfaceB variable
+        interface_metrics = self.pose.return_interface_metrics()
+        self.log.info('Pulling fragment info from clusters: %s' % ', '.join(metrics['fragment_cluster_ids']
+                                                                            for metrics in interface_metrics.values()))
+
+        # Get ASU distance parameters
+        if self.nano:  # Todo adapt to self.design_dim and not nanohedra input
+            max_com_dist = 0
+            for oligomer in self.oligomers.values():
+                # asu_oligomer_com_dist.append(np.linalg.norm(np.array(template_pdb.get_center_of_mass())
+                com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
+                # need to use self.pose.pdb.center+of_mass as we want ASU COM not Sym Mates COM (self.pose.center_of_mass)
+                if com_dist > max_com_dist:
+                    max_com_dist = com_dist
+
+            dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
+            self.log.info('Expanding ASU by %f Angstroms' % dist)
+        else:
+            dist = 0
+
+        # ------------------------------------------------------------------------------------------------------------
+        # Rosetta Execution formatting
+        # Save renumbered PDB to clean_asu.pdb
+        self.pose.pdb.write(out_path=self.asu)
+        # RELAX: Prepare command and flags file
+        refine_variables = [('pdb_reference', self.asu), ('scripts', PUtils.rosetta_scripts),
+                            ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),
+                            ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
+
+        # Assumes all entity chains are renamed from A to Z for entities (1 to n)
+        all_chains = [entity.chain_name for entity in self.pose.entities]  # pose.interface_residues}  # ['A', 'B', 'C']
+        interface_residue_d = {'interface%s' % chain: '' for chain in all_chains}
+        for i, (entity, residues) in enumerate(self.pose.interface_residues.items(), 1):
+            interface_residue_d['interface%s' % entity.chain_name] = ','.join('%d%s'
+                                                                              % (residue.number, entity.chain_name)
+                                                                              for residue in residues)
+
+        refine_variables.extend(interface_residue_d.items())
+
+        flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
+        relax_cmd = main_cmd + \
+            ['@%s' % os.path.join(self.path, flags_refine), '-scorefile', os.path.join(self.scores, PUtils.scores_file),
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
+        refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
+        if self.consensus:
+            consensus_cmd = relax_cmd + ['-in:file:s', self.consensus_pdb, '-parser:script_vars',
+                                         'switch=%s' % PUtils.stage[5]]
+            if self.script:
+                write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5], out_path=self.scripts)
+                # additional_cmd = [subprocess.list2cmdline(consensus_cmd)]
+            else:
+                self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
+                consensus_process = subprocess.Popen(consensus_cmd)
+                # Wait for Rosetta Consensus command to complete
+                consensus_process.communicate()
+        # else:
+        #     additional_cmd = []
+
+        # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
+        if self.script:
+            write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1], out_path=self.scripts)
+            #                    additional=additional_cmd)
+        else:
+            self.log.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
+            refine_process = subprocess.Popen(relax_cmd)
+            # Wait for Rosetta Refine command to complete
+            refine_process.communicate()
+
+        # DESIGN: Prepare command and flags file
+        design_variables = copy.deepcopy(refine_variables)
+        design_variables.append(('dssm_file', self.info['dssm']))  # TODO change name to dssm_file after P432
+        flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
+        # TODO back out nstruct label to command distribution
+        design_cmd = main_cmd + \
+            ['-in:file:s', self.refined_pdb, '-in:file:native', self.asu, '-nstruct', str(PUtils.nstruct),
+             '@%s' % os.path.join(self.path, flags_design), '-in:file:pssm', self.info['pssm'],
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
+             '-scorefile', os.path.join(self.scores, PUtils.scores_file)]
+
+        # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
+        # TODO if nstruct is backed out, create pdb_list for metrics distribution
+        pdb_list = pdb_list_file(self.refined_pdb, total_pdbs=PUtils.nstruct, suffix='_' + PUtils.stage[2],
+                                 out_path=self.designs, additional=[self.consensus_design_pdb, ])
+
+        # add symmetry definition files and set metrics up for oligomeric symmetry
+        if self.nano:
+            design_variables.extend([('sdf%s' % chain, self.sdfs[name])
+                                     for chain, name in zip(all_chains, list(self.sdfs.keys()))])  # REQUIRES py3.6 dict
+            design_variables.extend(('metrics_symmetry', 'oligomer'))
+        else:  # This may not always work if the input has lower symmetry
+            design_variables.extend(('metrics_symmetry', 'no_symmetry'))
+
+        design_variables.extend([('all_but_%s' % chain, set(all_chains) - set(chain)) for chain in all_chains])
+
+        flags_metric = self.prepare_rosetta_flags(design_variables, PUtils.stage[3], out_path=self.scripts)
+        metric_cmd = main_cmd + \
+            ['-in:file:l', pdb_list, '-in:file:native', self.refined_pdb, '@%s' % os.path.join(self.path, flags_metric),
+             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file),
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
+
+        if self.mpi:
+            design_cmd = run_cmds[PUtils.rosetta_extras] + design_cmd
+            metric_cmd = run_cmds[PUtils.rosetta_extras] + metric_cmd
+            self.script = True
+
+        metric_cmds = {entity.chain_name: metric_cmd + ['-parser:script_vars', 'chain=%s' % entity.chain_name]
+                       for entity in self.pose.entities}
+
+        # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
+        if self.script:
+            write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2], out_path=self.scripts)
+            write_shell_script(subprocess.list2cmdline(metric_cmds[all_chains[0]]), name=PUtils.stage[3],
+                               out_path=self.scripts, additional=[subprocess.list2cmdline(command)
+                                                                  for n, command in enumerate(metric_cmds.values())
+                                                                  if
+                                                                  n > 0])  # we already submitted 0 as the command arg
+        else:
+            self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
+            design_process = subprocess.Popen(design_cmd)
+            # Wait for Rosetta Design command to complete
+            design_process.communicate()
+            for command in metric_cmds.values():
+                self.log.info('Metrics Command: %s' % subprocess.list2cmdline(command))
+                metrics_process = subprocess.Popen(command)
+                metrics_process.communicate()
+
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if self.script:
+            analysis_cmd = 'python %s -d %s' % (PUtils.filter_designs, self.path)
+            write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=self.scripts)
+        else:
+            pose_s = analyze_output(self)
+            outpath = os.path.join(self.all_scores, PUtils.analysis_file)
+            _header = False
+            if not os.path.exists(outpath):
+                _header = True
+            pose_s.to_csv(outpath, mode='a', header=_header)
+
+    def prepare_rosetta_flags(self, flag_variables, stage, out_path=os.getcwd()):
+        """Prepare a protocol specific Rosetta flags file with program specific variables
+
+        Args:
+            flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
+            stage (str): The protocol stage or flag suffix to name the specific flags file
+        Keyword Args:
+            out_path=cwd (str): Disk location to write the flags file
+        Returns:
+            (str): Disk location of the written flags file
+        """
+        flags = copy.deepcopy(CUtils.flags)
+        flags.extend(CUtils.flag_options[stage])
+        flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores])
+        variables_for_flag_file = '-parser:script_vars ' + ' '.join('%s=%s' % (variable, str(value))
+                                                                    for variable, value in flag_variables)
+
+        flags.append(variables_for_flag_file)
+
+        out_file = os.path.join(out_path, 'flags_%s' % stage)
+        with open(out_file, 'w') as f:
+            f.write('\n'.join(flags))
+
+        return out_file  # 'flags_' + stage
+
+    # @handle_design_errors(errors=(DesignError, AssertionError))
+    def interface_redesign(self):
+        self.pose = Pose.from_asu_file(self.source)
+        self.pose.initialize_pose(design_dir=self, symmetry=self.design_symmetry, mask=self.mask,
+                                  evolution=self.evolution,
+                                  fragments=self.fragment, query_fragments=self.query_fragments,
+                                  existing_fragments=self.fragment_file, frag_db=self.fragment_type)
+        self.prepare_rosetta_commands()
+
     # @handle_errors_f(errors=(FileNotFoundError, ))
     # def gather_fragment_infov0(self):  # DEPRECIATED v0
     #     """Gather fragment metrics from Nanohedra output"""
@@ -611,14 +919,14 @@ class DesignDirectory:  # Todo remove all PDB specific information and add to Po
     #     #     self.fragment_cluster_residue_d[cluster]['pair'] = list(set(residue_cluster_d[cluster]['pair']))
 
 
-def set_up_directory_objects(design_list, mode='design', symmetry=None):
+def set_up_directory_objects(design_list, mode='design', symmetry=None, project=None):
     """Create DesignDirectory objects from a directory iterable. Add project if using DesignDirectory strings"""
-    return [DesignDirectory.from_nanohedra(design_path, nano=True, mode=mode, symmetry=symmetry)
+    return [DesignDirectory.from_nanohedra(design_path, nano=True, mode=mode, project=project)
             for design_path in design_list]
 
 
 def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
-    pseudo_dir = DesignDirectory(path, auto_structure=False)
+    pseudo_dir = DesignDirectory(path, nano=False)
     # pseudo_dir.path = os.path.dirname(wildtype)
     pseudo_dir.building_blocks = os.path.dirname(path)
     pseudo_dir.designs = directory
