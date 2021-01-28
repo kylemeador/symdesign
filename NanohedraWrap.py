@@ -6,13 +6,14 @@ import subprocess
 
 import DesignDirectory
 import PathUtils as PUtils
+import SymDesignUtils
 import SymDesignUtils as SDUtils
 
 pickle_prot = 2
 
 
 # TODO multiprocessing compliant (picklable) error decorator
-@SDUtils.handle_design_errors(errors=(DesignDirectory.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
 def nanohedra_recap_s(dock_dir, string):
     return nanohedra_design_recap(dock_dir, suffix=string)
 
@@ -21,7 +22,7 @@ def nanohedra_recap_mp(dock_dir, string):
     try:
         file = nanohedra_design_recap(dock_dir, suffix=string)
         return file, None
-    except (DesignDirectory.DesignError, AssertionError) as e:
+    except (SymDesignUtils.DesignError, AssertionError) as e:
         return None, (dock_dir, e)
 
 
@@ -46,12 +47,12 @@ def nanohedra_design_recap(dock_dir, suffix=None):
         # Used with the flipped_180y pdb's
         if sym.split('_')[0] == '1':  # The higher symmetry
             if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-                raise DesignDirectory.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
+                raise SymDesignUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
             else:
                 path2 = os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())
         else:
             if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-                raise DesignDirectory.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
+                raise SymDesignUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
             else:
                 path1 = os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())
 
@@ -62,7 +63,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
         # check if .pdb exists
         if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-            raise DesignDirectory.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
+            raise SymDesignUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
 
         # This protocol should be obsolete with ASU.py fixed symmetry order TODO, remove when old pickles are unnecessary
         new_symmetry_rank = sym_hierarchy[_sym]
@@ -95,7 +96,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
 
 # TODO multiprocessing compliant (picklable) error decorator
-@SDUtils.handle_design_errors(errors=(DesignDirectory.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
 def nanohedra_command_s(entry, path1, path2, out_dir, flags, suffix, initial):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
@@ -114,7 +115,7 @@ def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix, initial):
     try:
         file = nanohedra_command(entry, path1, path2, out_dir=out_dir, flags=flags, suffix=suffix, initial=initial)
         return file, None
-    except (DesignDirectory.DesignError, AssertionError) as e:
+    except (SymDesignUtils.DesignError, AssertionError) as e:
         return None, ((path1, path2), e)
 
 
