@@ -14,8 +14,9 @@ from PDB import PDB
 import PathUtils as PUtils
 from Pose import Pose
 from Query.Flags import load_flags
+from SequenceProfile import get_fragment_metrics, FragmentDatabase
 from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file, \
-    DesignError
+    DesignError, match_score_from_z_value, handle_design_errors, pickle_object
 
 # Globals
 design_direcotry_modes = ['design', 'dock']
@@ -58,9 +59,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pose_file = None
         self.data = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/data)
-        self.info = {}
+        self.info_pickle = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
+        self.info = {}
 
         self.pose = None  # contains the design's Pose object
         self.source = None
@@ -86,16 +88,30 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sym_entry_number = None
         self.design_symmetry = None
         self.design_dim = None
-        self.fragment_cluster_residue_d = {}
+
+        # self.fragment_cluster_residue_d = {}
         self.fragment_observations = []
+        self.all_residue_score = None  # TODO MOVE Metrics
+        self.center_residue_score = None  # TODO MOVE Metrics
+        self.high_quality_int_residues_matched = None  # TODO MOVE Metrics
+        self.central_residues_with_fragment_overlap = None  # TODO MOVE Metrics
+        self.fragment_residues_total = None  # TODO MOVE Metrics
+        self.percent_overlapping_fragment = None  # TODO MOVE Metrics
+        self.multiple_frag_ratio = None  # TODO MOVE Metrics
+        self.fragment_content_d = None  # TODO MOVE Metrics
+        self.ave_z = None  # TODO MOVE Metrics
 
         # Design flags
         self.mask = None
         self.evolution = True
         self.fragment = True
         self.query_fragments = True
+        self.write_frags = True
         self.fragment_file = None
-        self.fragment_type = 'biological_interfaces'  # default for now
+        # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
+        self.frag_db = None
+        self.design_db = None
+        self.score_db = None
         self.script = True
         self.mpi = False
         self.output_assembly = False
@@ -146,15 +162,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose_id = None
 
             self.fragment_cluster_freq_d = {}
-            self.transform_d = {}
-
-            self.nanohedra_score = None  # TODO MOVE Metrics
-            self.ave_z = None  # TODO MOVE Metrics
-            self.num_fragments = None  # TODO MOVE Metrics
-            self.high_quality_int_residues_matched = None  # TODO MOVE Metrics
-            self.int_residues_matched = None  # TODO MOVE Metrics
-            self.int_residues_total = None  # TODO MOVE Metrics
-            self.percent_fragment = None  # TODO MOVE Metrics
+            self.transform_d = {}  # dict[pdb# (1, 2)] = {'transform_type': matrix/vector}
 
             if self.mode == 'design':
                 self.project = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
@@ -224,6 +232,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def from_file(cls, design_path, project=None, **kwargs):  # mode=None
         return cls(design_path, project=project, **kwargs)
 
+    @property
+    def score(self):
+        if self.center_residue_score and self.central_residues_with_fragment_overlap:
+            return self.center_residue_score / self.central_residues_with_fragment_overlap
+        else:
+            self.get_fragment_metrics()
+            try:
+                return self.center_residue_score / self.central_residues_with_fragment_overlap
+            except AttributeError:
+                raise DesignError('There are no fragment observations associated with this Design! Have you scored it '
+                                  'yet? See \'Scoring Interfaces\' in the %s' % PUtils.guide_string)
+
+    @property
+    def number_of_fragments(self):
+        return len(self.fragment_observations)
+
     def __str__(self):
         if self.project:
             return self.path.replace(self.project + os.sep, '').replace(os.sep, '-')  # TODO integrate with designDB?
@@ -237,6 +261,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.log = start_log(name=name, handler=2, level=level, location=os.path.join(self.path, name))
         #                                                                              os.path.basename(self.path)))
+
+    def connect_db(self, frag_db=None, design_db=None, score_db=None):
+        if frag_db and isinstance(frag_db, FragmentDatabase):
+            self.frag_db = frag_db
+
+        if design_db and isinstance(design_db, FragmentDatabase):
+            self.design_db = design_db
+
+        if score_db and isinstance(score_db, FragmentDatabase):
+            self.score_db = score_db
 
     def directory_string_to_path(self, pose_id):
         assert self.project, 'No project attribute set! Cannot create a path from a pose_id without a project!'
@@ -269,13 +303,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean)[0])
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
-
+        self.info_pickle = os.path.join(self.data, 'info.pkl')
         # Ensure directories are only created once Pose Processing is called
-        if os.path.exists(os.path.join(self.data, 'info.pkl')):
+        if os.path.exists(self.info_pickle):
             # raise DesignError('%s: No information found for pose. Have you initialized it?\n'
             #                   'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
             #                   (self.path, PUtils.program_name))
-            self.info = unpickle(os.path.join(self.data, 'info.pkl'))
+            self.info = unpickle(self.info_pickle)
         else:
             if not os.path.exists(self.protein_data):
                 os.makedirs(self.protein_data)
@@ -493,23 +527,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def pose_score(self):
         """Returns: (dict): """
-        return self.nanohedra_score
+        return self.all_residue_score
 
     def pose_metrics(self):
         """Returns: (dict): {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': }
         """
-        return {'nanohedra_score': self.nanohedra_score, 'average_fragment_z_score': self.ave_z,
-                'unique_fragments': self.num_fragments}
+        return {'nanohedra_score': self.all_residue_score, 'average_fragment_z_score': self.ave_z,
+                'unique_fragments': self.num_fragments}  # Todo expand with AnalyzeOutput
 
     def pose_fragments(self):
         """Returns: (dict): {'1_2_24': [(78, 87, ...), ...], ...}
         """
-        return self.fragment_cluster_residue_d
+        return self.fragment_observations
 
     def pose_transformation(self):
         """Returns: (dict): {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
         """
-        return self.transform_d
+        return self.transform_d  # Todo enable with pdbDB
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
@@ -517,34 +551,35 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         with open(self.frag_file, 'r') as f:
             frag_match_info_file = f.readlines()
             for line in frag_match_info_file:
+                # overlap_rmsd_divded_by_cluster_rmsd
                 if line[:6] == 'z-val:':
-                    overlap_rmsd_divded_by_cluster_rmsd = float(line[6:].strip())
-                    match_score = 1 / float(1 + (overlap_rmsd_divded_by_cluster_rmsd ** 2))  # bounds between 0 and 1
+                    match_score = match_score_from_z_value(float(line[6:].strip()))
                 elif line[:21] == 'oligomer1 ch, resnum:':
                     oligomer1_info = line[21:].strip().split(',')
-                    chain1 = oligomer1_info[0]  # doesn't matter as all subunits are symmetric
+                    chain1 = oligomer1_info[0]  # doesn't matter when all subunits are symmetric
                     residue_number1 = oligomer1_info[1]
                 elif line[:21] == 'oligomer2 ch, resnum:':
                     oligomer2_info = line[21:].strip().split(',')
-                    chain2 = oligomer2_info[0]  # doesn't matter as all subunits are symmetric
+                    chain2 = oligomer2_info[0]  # doesn't matter when all subunits are symmetric
                     residue_number2 = oligomer2_info[1]
                 elif line[:3] == 'id:':
                     cluster_id = line[3:].strip()
                     # use with self.oligomer_names to get mapped and paired oligomer id
                     self.fragment_observations.append({'mapped': residue_number1, 'paired': residue_number2,
                                                        'cluster': cluster_id, 'match': match_score})
-                    if cluster_id in self.fragment_cluster_residue_d:
-                        self.fragment_cluster_residue_d[cluster_id].add((residue_number1, residue_number2))
-                        # self.fragment_cluster_residue_d[cluster_id]['pair'].add((residue_number1, residue_number2))
-                    else:
-                        self.fragment_cluster_residue_d[cluster_id] = {(residue_number1, residue_number2)}
-                        # self.fragment_cluster_residue_d[cluster_id] = {'pair': {(residue_number1, residue_number2)}}
                 # "mean rmsd: %s\n" % str(cluster_rmsd))
                 # "aligned rep: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
                 elif line[:23] == 'central res pair freqs:':
                     pair_freq = list(eval(line[23:].strip()))
                     self.fragment_cluster_freq_d[cluster_id] = pair_freq
                     # self.fragment_cluster_residue_d[cluster_id]['freq'] = pair_freq
+
+    def get_fragment_metrics(self):
+        self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
+            self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d = \
+            get_fragment_metrics(self.fragment_observations)
+        # Need to grab the total residue number from these to calculate correctly
+        # elf.interface_residue_count, self.percent_interface_matched, self.percent_interface_covered,
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_pose_metrics(self):
@@ -556,44 +591,34 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     self.pose_id = line[15:].strip()
                 elif line[:38] == 'Unique Mono Fragments Matched (z<=1): ':
                     self.high_quality_int_residues_matched = int(line[38:].strip())
+                # number of interface residues with fragment overlap potential from other oligomer
                 elif line[:31] == 'Unique Mono Fragments Matched: ':
-                    self.int_residues_matched = int(line[31:].strip())
+                    self.central_residues_with_fragment_overlap = int(line[31:].strip())
+                # number of interface residues with 2 residues on either side of central residue
                 elif line[:36] == 'Unique Mono Fragments at Interface: ':
-                    self.int_residues_total = int(line[36:].strip())
-                elif line[:25] == 'Interface Matched (%): ':  #  % '%':
-                    self.percent_fragment = float(line[25:].strip())
+                    self.fragment_residues_total = int(line[36:].strip())
+                elif line[:25] == 'Interface Matched (%): ':  #  matched / at interface * 100
+                    self.percent_overlapping_fragment = float(line[25:].strip()) / 100
                 elif line[:20] == 'ROT/DEGEN MATRIX PDB':
                     data = eval(line[22:].strip())
-                    self.transform_d[int(line[20:21])] = {'rot/deg': np.array(data)}  # dict[pdb# (1, 2)] = {'transform_type': matrix}
-                elif line[:15] == 'INTERNAL Tx PDB':  # without PDB1 or PDB2
+                    self.transform_d[int(line[20:21])] = {'rot/deg': np.array(data)}
+                elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
                     data = eval(line[17:].strip())
-                    if data == 'None':
-                        self.transform_d[int(line[22:23])]['tx_ref'] = np.array([0, 0, 0])
+                    if data:  # == 'None'
+                        self.transform_d[int(line[15:16])]['tx_int'] = np.array([0, 0, 0])
                     else:
                         self.transform_d[int(line[15:16])]['tx_int'] = np.array(data)
-
-                elif line[:18] == 'SETTING MATRIX PDB':  # 'SETTING MATRIX PDB1: '
+                elif line[:18] == 'SETTING MATRIX PDB':
                     data = eval(line[20:].strip())
                     self.transform_d[int(line[18:19])]['setting'] = np.array(data)
-                # elif line[:19] == 'SETTING MATRIX PDB2':
-                #     data = eval(line[20:].strip())
-                #     self.transform_d[int(line[22:23])]['setting'] = np.array(data)
-
                 elif line[:22] == 'REFERENCE FRAME Tx PDB':
                     data = eval(line[24:].strip())
-                    if data == 'None':
+                    if data:
                         self.transform_d[int(line[22:23])]['tx_ref'] = np.array([0, 0, 0])
                     else:
                         self.transform_d[int(line[22:23])]['tx_ref'] = np.array(data)
-                # elif line[:23] == 'REFERENCE FRAME Tx PDB2':
-                #     data = eval(line[24:].strip())
-                #     if data != 'None':
-                #         self.transform_d[int(line[22:23].strip())]['tx_ref2'] = np.array(data)
-                #     else:
-                #         self.transform_d[int(line[22:23].strip())]['tx_ref2'] = np.array([0, 0, 0])
-
                 elif 'Nanohedra Score:' in line:  # res_lev_sum_score
-                    self.nanohedra_score = float(line[16:].rstrip())
+                    self.all_residue_score = float(line[16:].rstrip())
                 elif 'CRYST1 RECORD:' in line:
                     self.cryst_record = line[15:].strip()
                 elif line[:31] == 'Canonical Orientation PDB1 Path':
@@ -626,8 +651,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.set_flags(**load_flags(flags_file))
 
     def set_flags(self, symmetry=None, design_with_evolution=True,
-                  design_with_fragments=True, fragments_exist=None, generate_fragments=True,
-                  output_assembly=False, design_mask=None, script=True, mpi=False):  # nanohedra_output,
+                  design_with_fragments=True, fragments_exist=None, generate_fragments=True, write_fragments=True,
+                  output_assembly=False, design_mask=None, script=True, mpi=False, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         # self.nano = nanohedra_output
         self.mask = design_mask
@@ -635,6 +660,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.fragment = design_with_fragments
         self.fragment_file = fragments_exist
         self.query_fragments = generate_fragments
+        self.write_frags = write_fragments
         self.output_assembly = output_assembly
         self.script = script
         self.mpi = mpi
@@ -752,7 +778,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # DESIGN: Prepare command and flags file
         design_variables = copy.deepcopy(refine_variables)
-        design_variables.append(('dssm_file', self.info['dssm']))  # TODO change name to dssm_file after P432
+        design_variables.append(('dssm_file', self.info['dssm']))
         flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
         # TODO back out nstruct label to command distribution
         design_cmd = main_cmd + \
@@ -845,13 +871,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file  # 'flags_' + stage
 
-    # @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_redesign(self):
-        self.pose = Pose.from_asu_file(self.source)
-        self.pose.initialize_pose(design_dir=self, symmetry=self.design_symmetry, mask=self.mask,
-                                  evolution=self.evolution,
-                                  fragments=self.fragment, query_fragments=self.query_fragments,
-                                  existing_fragments=self.fragment_file, frag_db=self.fragment_type)
+        self.pose = Pose.from_asu_file(self.source, log=self.log)
+        self.pose.interface_design(design_dir=self, symmetry=self.design_symmetry, output_assembly=self.output_assembly,
+                                   mask=self.mask, evolution=self.evolution,
+                                   fragments=self.fragment, write_fragments=self.write_frags,
+                                   query_fragments=self.query_fragments, existing_fragments=self.fragment_file,
+                                   frag_db=self.frag_db)
+        self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
         self.prepare_rosetta_commands()
 
     # @handle_errors_f(errors=(FileNotFoundError, ))
@@ -933,5 +961,3 @@ def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to loca
     pseudo_dir.all_scores = os.getcwd()
 
     return pseudo_dir
-
-
