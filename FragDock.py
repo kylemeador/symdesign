@@ -2,6 +2,7 @@ import time
 
 import sklearn.neighbors
 
+from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import *
 from classes.OptimalTx import *
@@ -10,7 +11,6 @@ from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.CmdLineArgParseUtils import *
 # from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
 from utils.ExpandAssemblyUtils import *
-from utils.GeneralUtils import *
 from utils.PDBUtils import *
 # from utils.SamplingUtils import get_degeneracy_matrices
 from utils.SamplingUtils import *
@@ -46,24 +46,22 @@ def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match
     out_info_file_path = os.path.join(outdir_path, PUtils.frag_text_file)
     out_info_file = open(out_info_file_path, "a+")
 
-    aligned_central_res_info = ghost_frag.get_aligned_central_res_info()
-    surf_frag_oligomer2_central_res_tup = surf_frag.get_central_res_tup()
+    # aligned_central_res_info = ghost_frag.get_aligned_central_res_info()
+    # surf_frag_oligomer2_central_res_tup = surf_frag.get_central_res_tup()
 
     if is_initial_match:
         out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
         out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
 
-    out_info_file.write("MATCH %s\n" % str(match_count))
-    out_info_file.write("z-val: %s\n" % str(z_value))
+    out_info_file.write("MATCH %d\n" % match_count)
+    out_info_file.write("z-val: %f\n" % z_value)
     out_info_file.write("CENTRAL RESIDUES\n")
-    out_info_file.write("oligomer1 ch, resnum: %s, %s\n" %
-                        (str(aligned_central_res_info[4]), str(aligned_central_res_info[5])))
-    out_info_file.write("oligomer2 ch, resnum: %s, %s\n" %
-                        (str(surf_frag_oligomer2_central_res_tup[0]), str(surf_frag_oligomer2_central_res_tup[1])))
+    out_info_file.write("oligomer1 ch, resnum: %s, %d\n" % ghost_frag.get_aligned_surf_frag_central_res_tup())
+    out_info_file.write("oligomer2 ch, resnum: %s, %d\n" % surf_frag.get_central_res_tup())
     out_info_file.write("FRAGMENT CLUSTER\n")
-    out_info_file.write("id: %s\n" % cluster_id)
-    out_info_file.write("mean rmsd: %s\n" % str(cluster_rmsd))
-    out_info_file.write("aligned rep: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
+    out_info_file.write("id: i%s_j%s_k%s\n" % ghost_frag.get_ijk())
+    out_info_file.write("mean rmsd: %d\n" % ghost_frag.get_rmsd())
+    out_info_file.write("aligned rep: int_frag_%s_%d.pdb\n" % ('i%s_j%s_k%s' % ghost_frag.get_ijk(), match_count))
     out_info_file.write("central res pair freqs:\n%s\n\n" % str(res_freq_list))
 
     if is_initial_match:
@@ -577,6 +575,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 initial_ghost_frag_i = init_match_ghost_frag.get_i_frag_type()
                                 initial_ghost_frag_j = init_match_ghost_frag.get_j_frag_type()
                                 initial_ghost_frag_k = init_match_ghost_frag.get_k_frag_type()
+                                # initial_ghost_frag_cluster_res_freqs = frag_db.info(init_match_ghost_frag.get_ijk()).get_central_residue_pair_freqs()  # TOSO
                                 initial_ghost_frag_cluster_res_freqs = \
                                     ijk_intfrag_cluster_info_dict[initial_ghost_frag_i][initial_ghost_frag_j][
                                         initial_ghost_frag_k].get_central_residue_pair_freqs()
@@ -585,7 +584,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 # if write_frags:
                                 init_match_ghost_frag_pdb_copy.write(
                                     os.path.join(init_match_outdir_path, 'int_frag_%s_%d.pdb'
-                                                 % (init_match_cluster_id, match_number)))
+                                                 % ('i%s_j%s_k%s' % init_match_ghost_frag.get_ijk(), match_number)))
                                 init_match_ghost_frag_cluster_rmsd = init_match_ghost_frag.get_rmsd()
                                 init_match_surf_frag = ghostfrag_surffrag_pair[1]
                                 write_frag_match_info_file(init_match_ghost_frag, init_match_surf_frag,
@@ -686,47 +685,6 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
             with open(log_filepath, "a+") as log_file:
                 log_file.write("\tReference Frame Shift Parameter(s) is/are Negative: e: %s, f: %s, g: %s\n\n"
                                % (efg_tx_params_str[0], efg_tx_params_str[1], efg_tx_params_str[2]))
-
-
-def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None):
-    e1 = euclidean_squared_3d(coords1[0], coords2[0])
-    e2 = euclidean_squared_3d(coords1[1], coords2[1])
-    e3 = euclidean_squared_3d(coords1[2], coords2[2])
-    s = e1 + e2 + e3
-    mean = s / float(3)
-    rmsd = math.sqrt(mean)
-
-    # Calculate Guide Atom Overlap Z-Value
-    # and Calculate Score Term for Nanohedra Residue Level Summation Score
-    z_val = rmsd / float(max(coords_rmsd_reference, 0.01))
-
-    match_score = 1 / float(1 + (z_val ** 2))
-
-    return match_score, z_val
-
-
-def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_frags, coords_l2, z_value_func=None,
-                                  max_z_value=2):
-    optimal_shifts = []
-    for index_pair in index_pairs:
-        ghost_frag = ghost_frags[index_pair[0]]
-        coords1 = coords_l1[index_pair[0]]
-        # or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
-        # coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
-        surf_frag = surface_frags[index_pair[1]]
-        coords2 = coords_l2[index_pair[1]]
-        # surf_frag.get_guide_coords()
-        if surf_frag.get_type() == ghost_frag.get_j_frag_type():  # could move this as mask outside
-            result, z_value = z_value_func(coords1=coords1, coords2=coords2,
-                                           coords_rmsd_reference=ghost_frag.get_rmsd())
-            if z_value <= max_z_value:
-                optimal_shifts.append((result, z_value))
-            else:
-                optimal_shifts.append(False)
-        else:
-            optimal_shifts.append(False)
-
-    return optimal_shifts
 
 
 # KM TODO ijk_intfrag_cluster_info_dict contains all info in init_intfrag_cluster_info_dict. init info could be deleted,
