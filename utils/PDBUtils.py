@@ -176,6 +176,16 @@ def get_interface_fragments(pdb1, pdb2, cb_distance=9.0):
 def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_frag_list, rot_mat1, rot_mat2,
                                    internal_tx_vec1, internal_tx_vec2, set_mat1, set_mat2, ext_tx_vec1, ext_tx_vec2,
                                    cb_distance=9.0):
+    """Calculate all the residues within a cb_distance between two oligomers, identify associated ghost and surface
+    fragments on each, by the chain name and residue number, translated the selected fragments to the oligomers using
+    symmetry specific rotation matrix, internal translation vector, setting matrix, and external translation vector then
+    return copies of these translated fragments
+
+    Returns:
+        (tuple): transformed ghost fragments, transformed surface fragments, transformed ghost guide corrdinates,
+        transformed surface guide coordinates, number of interface residues on pdb1 where fragments are possible, number
+        on pdb2 where fragments are possible
+    """
     # print "Length of Complete PDB1 Ghost Frag List: " + str(len(pdb1_ghost_frag_list)) + "\n"
     # print "Length of Complete PDB2 Surf Frag List: " + str(len(pdb2_surf_frag_list)) + "\n"
 

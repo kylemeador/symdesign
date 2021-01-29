@@ -19,6 +19,7 @@ import pandas as pd
 import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
+import PDB
 from DesignDirectory import DesignDirectory, set_up_directory_objects
 import PathUtils as PUtils
 import Pose
@@ -31,7 +32,7 @@ from PDB import PDB
 from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
-from Query.Flags import load_flags
+from Query.Flags import load_flags, query_user_for_flags
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
 
@@ -382,7 +383,8 @@ def terminate(all_exceptions):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='\nControl all input/output of %s including:\n1. Pose initialization\n'
+    parser = argparse.ArgumentParser(fromfile_prefix_chars='@',
+                                     description='\nControl all input/output of %s including:\n1. Pose initialization\n'
                                                  '2. Command distribution to computational nodes\n'
                                                  '3. Analysis of designs' % PUtils.program_name)
     # ---------------------------------------------------
@@ -392,6 +394,7 @@ if __name__ == '__main__':
                         help='Master directory where %s design poses are located. This may be the output directory '
                              'from %s.py, or a directory with poses requiring interface design'
                              % (PUtils.program_name, PUtils.nano.title()))
+    # parser.add_argument('-@', '--design_flags', type=str)
     parser.add_argument('-f', '--file', type=os.path.abspath,
                         help='File with location(s) of %s design poses' % PUtils.program_name, default=None)
     parser.add_argument('-m', '--mode', type=str, choices=['design', 'dock'], help='Which mode to operate in?') \
@@ -419,17 +422,17 @@ if __name__ == '__main__':
                              help='Disk location where the second oligomers are located\nDefault=None', default=None)
     parser_dock.add_argument('-e', '--entry', type=int, help='The entry number of %s.py docking combinations to use' %
                                                              PUtils.nano.title(), default=None)
-    parser_dock.add_argument('-f', '--additional_flags', nargs='*', default=None,
-                             help='Any additional flags to pass to %s.py. Should be passed WITHOUT leading \'-\'!'
-                                  % PUtils.nano.title())
+    # parser_dock.add_argument('-f', '--additional_flags', nargs='*', default=None,
+    #                          help='Any additional flags to pass to %s.py. Should be passed WITHOUT leading \'-\'!'
+    #                               % PUtils.nano.title())
     parser_dock.add_argument('-o', '--outdir', type=str, default=None,
                              help='Where should the output from commands be written?\n'
                                   'Default=CWD/NanohedraEntry(entry)DockedPoses')
     # ---------------------------------------------------
     parser_pose = subparsers.add_parser('design', help='Gather output from %s.py and format for input into Rosetta. '
-                                                     'Sets up interface design constrained evolutionary profiles '
-                                                     'of homologous sequences and by fragment profiles extracted '
-                                                     'from the PDB' % PUtils.nano.title())
+                                                       'Sets up interface design constrained evolutionary profiles '
+                                                       'of homologous sequences and by fragment profiles extracted '
+                                                       'from the PDB' % PUtils.nano.title())
     parser_pose.add_argument('-i', '--fragment_database', type=str,
                              help='Database to match fragments for interface specific scoring matrices. One of %s'
                                   '\nDefault=%s' %
@@ -463,7 +466,7 @@ if __name__ == '__main__':
     sequence_required.add_argument('-d', '--dataframe', type=os.path.abspath,
                                    help='Dataframe.csv from analysis containing pose info.')
     sequence_required.add_argument('-p', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
-                                                                            ' sequence selector')
+                                                                              ' sequence selector')
     parser_sequence.add_argument('-c', '--consensus', action='store_true', help='Whether to grab the consensus sequence'
                                                                                 '\nDefault=False')
     # parser_sequence.add_argument('-d', '--dataframe', type=os.path.abspath, required=True,
@@ -516,44 +519,87 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
     # ---------------------------------------------------
+    parser_flag = subparsers.add_parser('flags', help='Generate a flags file for %s' % PUtils.program_name)
+    parser_flag.add_argument('-t', '--template', action='store_true',
+                             help='Generate a flags template to edit on your own.')
+    # ---------------------------------------------------
+    parser_mask = subparsers.add_parser('mask', help='Generate a residue mask for %s' % PUtils.program_name)
+    # ---------------------------------------------------
+    parser_guide = subparsers.add_parser('guide', help='Access the %s guide! Start here if your a first time user'
+                                                       % PUtils.program_name)
+    # ---------------------------------------------------
     parser_query = subparsers.add_parser('query', help='Query %s.py docking entries' % PUtils.nano.title())
 
-    # -----------------------------------------------------------------------------------------------------------------
-    # Start SymDesign Logging
-    # -----------------------------------------------------------------------------------------------------------------
-
     args, additional_flags = parser.parse_known_args()
-    # Start logging output
+    # -----------------------------------------------------------------------------------------------------------------
+    # Start Logging
+    # -----------------------------------------------------------------------------------------------------------------
     if args.debug:
         logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
         logger.debug('Debug mode. Verbose output')
     else:
         logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
 
-    if args.sub_module != 'query':
+    if args.sub_module not in ['query', 'guide', 'flags', 'mask']:
         logger.info('Starting %s with options:\n\t%s' %
                     (os.path.basename(__file__),
                      '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
+    # -----------------------------------------------------------------------------------------------------------------
+    # Process additional flags
+    # -----------------------------------------------------------------------------------------------------------------
+    if additional_flags:  # args.additional_flags
+        logger.debug('Additional: %s' % additional_flags)
 
+        def format_flags(flags):
+            formatted_flags = []
+            for flag in flags:
+                if flag[0] == '-' and flag[1] != '-':
+                    formatted_flags.append(flag)
+                elif flag[0] == '-' and flag[1] == '-':
+                    formatted_flags.append(flag[1:])
+                elif flag[0] != '-':
+                    formatted_flags.append('-%s' % flag)
+
+            return formatted_flags
+
+        extra_flags = format_flags(additional_flags)
+        # extra_flags.extend(format_flags(args.additional_flags))
+
+        # design_flags = {flag.split()[0].lstrip('-'): flag.split()[1] for flag in extra_flags if ' ' in flag}
+        # design_flags = {flag: eval(variable) for flag, variable in design_flags}
+        # parses ['-nanohedra_output True', ...]
+        design_flags = {}
+        for flag_arg in extra_flags:
+            if ' ' in flag_arg:
+                flag = flag_arg.split()[0].lstrip('-')
+                design_flags[flag] = flag_arg.split()[1]
+                if design_flags[flag].title() in ['None', 'True', 'False']:
+                    design_flags[flag] = eval(design_flags[flag].title())
+            else:
+                design_flags[flag_arg[1:0]] = None
+
+    else:
+        extra_flags = None  # Todo
+        design_flags = None
     # -----------------------------------------------------------------------------------------------------------------
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
     # Grab all Designs (DesignDirectory) to be processed from either directory name or file
     initial_iter = None
     # -----------------------------------------------------------------------------------------------------------------
-    if args.sub_module in ['distribute', 'query', 'flags', 'mask']:
+    if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'mask']:
         pass
-    elif args.sub_module == 'design' or args.mode == 'design':  # Todo depreciate args.mode here
+    elif args.sub_module in ['design', 'filter'] or args.mode == 'design':  # Todo depreciate args.mode here
         mode = 'design'
         if args.directory or args.file:
             # Pull nanohedra_output and mask_design_using_sequence out of flags
-            design_flags = load_flags(args.design_flags)
+            # design_flags = load_flags(args.design_flags)
             if 'mask_design_using_sequence' in design_flags and design_flags['mask_design_using_sequence']:
                 residue_mask = SequenceProfile.generate_sequence_mask(design_flags['mask_design_using_sequence'])
                 design_flags.update({'mask': residue_mask})
             if 'mask_design_using_chain' in design_flags and design_flags['mask_design_using_chain']:
                 # residue_mask = SequenceProfile.generate_chain_mask(design_flags['mask_design_using_chain'])
                 # design_flags.update({'mask': chain_mask})
-                exit('mask_design_using_chain flag is Not set up yet!')
+                exit('mask_design_using_chain flag is NOT set up yet!')
             # Add additional program flags to design_flags
             if args.mpi:
                 # extras = ' mpi %d' % CUtils.mpi
@@ -581,6 +627,12 @@ if __name__ == '__main__':
                                                                  % (PUtils.nano.title(), location))
             logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
                         % design_directories[0].log)
+            if 'generate_fragments' in design_flags and design_flags['generate_fragments']:
+                interface_type = 'biological_interfaces'  # Todo parameterize
+                logger.info('Initializing FragmentDatabase from %s\n\t' % interface_type)
+                fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type)
+                for design in design_directories:
+                    design.connect_db(frag_db=fragment_db)
 
             if not args.file or inputs_moved:
                 # Make single file with names of each directory where all_docked_poses can be found
@@ -679,16 +731,6 @@ if __name__ == '__main__':
     results, exceptions = [], []
     # -----------------------------------------------------------------------------------------------------------------
     if args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir, -f additional_flags
-        # Process additional flags
-        if args.additional_flags or additional_flags:
-            def make_flag(flags):
-                return [] + [flag for flag in flags if flag[0] == '-' and flag[1] != '-'] + \
-                       [flag[1:] for flag in flags if flag[0] == '-' and flag[1] == '-'] + \
-                       ['-%s' % flag for flag in flags if flag[0] != '-']
-            extra_flags = make_flag(additional_flags)
-            extra_flags += make_flag(args.additional_flags)
-        else:
-            extra_flags = None
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -1079,7 +1121,7 @@ if __name__ == '__main__':
                                                      for k, chain in enumerate(source_pose.chain_id_list)}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
-                source_seqres = {chain: oligomers[k].seqres[oligomers[k].chain_id_list[0]]
+                source_seqres = {chain: oligomers[k].reference_sequence[oligomers[k].chain_id_list[0]]
                                  for k, chain in enumerate(chains[:len(oligomers)])}
 
                 # seqres_pose = PDB.PDB()
@@ -1187,15 +1229,15 @@ if __name__ == '__main__':
                         # tag_sequences[pdb_code] = None
                         seq = pretag_sequences[chains[j]]
 
-                # tag_sequences = {pdb: find_all_matching_pdb_expression_tags(pdb,
-                #                                                             oligomer_chain_database_chain_map[chain])
-                #                  for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
+                    # tag_sequences = {pdb: find_all_matching_pdb_expression_tags(pdb,
+                    #                                                             oligomer_chain_database_chain_map[chain])
+                    #                  for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
 
-                # for j, pdb_code in enumerate(tag_sequences):
-                #     if tag_sequences[pdb_code]:
-                #         seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chains[j]])
-                #     else:
-                #         seq = pretag_sequences[chains[j]]
+                    # for j, pdb_code in enumerate(tag_sequences):
+                    #     if tag_sequences[pdb_code]:
+                    #         seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chains[j]])
+                    #     else:
+                    #         seq = pretag_sequences[chains[j]]
                     # If no MET start site, include one
                     if seq[0] != 'M':
                         seq = 'M%s' % seq
@@ -1235,6 +1277,36 @@ if __name__ == '__main__':
         seq_comparison_file = SequenceProfile.write_fasta_file(inserted_sequences,
                                                                '%sSelected_Sequences_Expression_Additions' %
                                                                args.selection_string, outpath=outdir)
+    # ---------------------------------------------------
+    elif args.sub_module == 'flags':
+        if args.template:
+            query_user_for_flags(template=True)
+        elif args.mode:
+            query_user_for_flags(mode=args.mode)
+        else:
+            query_user_for_flags()
+    # ---------------------------------------------------
+    elif args.sub_module == 'mask':
+        fasta_file = PDB.generate_mask_template(args.additional_flags[0])
+        logger.info('The mask template was written to %s. Please edit this file so that the mask can be generated for '
+                    'protein design. Mask should be formatted so a \'-\' replaces all sequence of interest to be '
+                    'overlooked during design. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>mask\nMAGH----LV\n'
+                    % fasta_file)
+    # ---------------------------------------------------
+    elif args.sub_module == 'guide':
+        with open(PUtils.readme, 'r') as f:
+            print(f.read(), end='')
+    # ---------------------------------------------------
+    elif args.sub_module == 'filter':
+        if args.metric == 'score':
+            designpath_metric_tup_list = [(des_dir.asu, des_dir.score) for des_dir in design_directories]
+        elif args.metric == 'matched':  # Todo ensure that the design_dir has these attributes
+            designpath_metric_tup_list = [(des_dir.asu, des_dir.number_of_fragments) for des_dir in design_directories]
+
+        print('Sorting')
+        designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0),
+                                                   reverse=True)
+    # ---------------------------------------------------
     elif args.sub_module == 'query':
         query_flags = [__file__, '-query'] + additional_flags
         print(query_flags)

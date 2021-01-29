@@ -31,17 +31,16 @@ from sklearn.cluster import DBSCAN
 
 import CmdUtils as CUtils
 import DesignDirectory
-import PDB
 import PathUtils as PUtils
-import Pose
 import SequenceProfile
 import SymDesignUtils
 import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output
 from PDB import PDB
-from Pose import Model
+from Structure import Residue
+from Pose import Model, find_interface_residues
 from SequenceProfile import write_fasta_file, SequenceProfile
-from SymDesignUtils import logger
+from SymDesignUtils import logger, DesignError
 from utils.ExpandAssemblyUtils import expand_asu
 
 
@@ -324,7 +323,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #     oligomers[name].rotate_translate(transformation_dict[i]['setting'], transformation_dict[i]['tx_ref'])
     #     # {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
 
-    template_pdb = PDB(file=des_dir.source)
+    template_pdb = PDB.from_file(des_dir.source)
     num_chains = len(template_pdb.chain_id_list)
 
     # TODO JOSH Get rid of same chain ID problem....
@@ -334,7 +333,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         assert len(oligomer_file) == 1, 'More than one matching file found with %s' % pdb_codes[0] + '_tx_*.pdb'
         # assert len(oligomer_file) == 1, '%s: More than one matching file found with %s' % \
         #                                 (des_dir.path, pdb_codes[0] + '_tx_*.pdb')
-        first_oligomer = PDB(file=oligomer_file[0])
+        first_oligomer = PDB.from_file(oligomer_file[0])
         # first_oligomer = SDUtils.read_pdb(oligomer_file[0])
         # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
         for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
@@ -366,7 +365,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
         # assert len(name_pdb_file) == 1, '%s: More than one matching file found with %s' % \
         #                                 (des_dir.path, name + '_tx_*.pdb')
-        oligomer[name] = PDB(file=name_pdb_file[0])
+        oligomer[name] = PDB.from_file(name_pdb_file[0])
         # oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
         oligomer[name].set_name(name)
         # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
@@ -414,7 +413,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                                        for k, pair in enumerate(cluster_residue_d[cluster]))))
 
     # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
-    frag_residue_object_d = SequenceProfile.residue_number_to_object(template_pdb, cluster_residue_d)
+    frag_residue_object_d = residue_number_to_object(template_pdb, cluster_residue_d)
     logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
     int_residues = Pose.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
@@ -496,7 +495,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Construct CB Tree for full interface atoms to map residue residue contacts
     # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
-    interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atom_list])
+    interface = PDB.from_atoms([atom for residue in total_int_residue_objects for atom in residue.atoms])
     interface_tree = SDUtils.residue_interaction_graph(interface)
     interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
 
@@ -964,10 +963,9 @@ def gather_profile_info(pdb, des_dir, names):
         pdb (PDB): PDB to generate a profile from. Sequence is taken from the ATOM record
         des_dir (DesignDirectory): Location of which to write output files in the design tree
         names (dict): The pdb names and corresponding chain of each protomer in the pdb object
-        log_stream (logging): Which log to pass logging directives to
     Returns:
-        pssm_file (str): Location of the combined pssm file written to disk
-        full_pssm (dict): A combined pssm with all chains concatenated in the same order as pdb sequence
+        (str): Location of the combined pssm file written to disk
+        (dict): A combined pssm with all chains concatenated in the same order as pdb sequence
     """
     pssm_files, pdb_seq, errors, pdb_seq_file, pssm_process = {}, {}, {}, {}, {}
     logger.debug('Fetching PSSM Files')
@@ -1046,7 +1044,7 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
                 break
             else:
                 if not fail:
-                    temp_pdb = PDB.PDB(file=pdb.filepath)
+                    temp_pdb = PDB.from_file(file=pdb.filepath)
                     fail = True
                 else:
                     raise SymDesignUtils.DesignError('Invalid PDB input, no SEQRES record found')
@@ -1067,3 +1065,26 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
         raise SymDesignUtils.DesignError('Invalid sequence input')
 
     return final_sequence, failures
+
+
+def residue_number_to_object(pdb, residue_dict):  # TODO supplement with names info and pull out by names
+    """Convert sets of residue numbers to sets of PDB.Residue objects
+
+    Args:
+        pdb (PDB): PDB object to extract residues from. Chain order matches residue order in residue_dict
+        residue_dict (dict): {'key1': [(78, 87, ...),], ...} - Entry mapped to residue sets
+    Returns:
+        residue_dict - {'key1': [(residue1_ca_atom, residue2_ca_atom, ...), ...] ...}
+    """
+    for entry in residue_dict:
+        pairs = []
+        for _set in range(len(residue_dict[entry])):
+            residue_obj_set = []
+            for i, residue in enumerate(residue_dict[entry][_set]):
+                resi_object = Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
+                assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
+                residue_obj_set.append(resi_object)
+            pairs.append(tuple(residue_obj_set))
+        residue_dict[entry] = pairs
+
+    return residue_dict

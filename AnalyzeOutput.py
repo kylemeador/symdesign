@@ -106,8 +106,7 @@ metric_master = {'average_fragment_z_score': 'The average z-score per fragment u
                  'solvation_energy': 'Energy required to hydrate the unbound components.',
                  'support': 'The number of support residues as classified by E. Levy 2010',
                  'symmetry': 'The specific symmetry type used design (point, layer, lattice)',
-                 'nanohedra_score': 'Sum of the inverse of each fragments Z-score capped at 3 = 1 / Z-score (maximum3)', # DEPRECIATED
-                 # 'nanohedra_score': 'Sum of the inverse of each fragments Z-score capped at 3 = 1 / Z-score (maximum3)',
+                 'nanohedra_score': 'Sum of all residue match scores (1 / 1 + Z-score^2) weighted by overlap ',
                  'fragment_z_score_total': 'The sum of all fragments Z-Scores',
                  'unique_fragments': 'The number of unique fragments placed on the pose',
                  'total_interface_residues': 'The number of interface residues found in the pose',
