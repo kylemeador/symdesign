@@ -2,34 +2,25 @@ import copy  # copy
 import math
 import os
 import subprocess
+import time
 from copy import copy
 from glob import glob, iglob
 from itertools import chain
 
 from Bio import SeqIO  # import write, parse
 from Bio import pairwise2
-from Bio.Align import MultipleSeqAlignment
-# try:
-#     from Bio.SubsMat import MatrixInfo as matlist
-#     from Bio.Alphabet import generic_protein  # , IUPAC
-# except ImportError:
-# generic_protein = None
-# from Bio.Alphabet import IUPAC
-from Bio.Align import substitution_matrices
-from Bio.Alphabet import IUPAC
+from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-import SymDesignUtils
-import SymDesignUtils as SDUtils
-# from DesignDirectory import
-from PDB import PDB
-from Query.PDB import get_sequence_by_entity_id
-from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths, DesignError
+from classes.Fragment import FragmentDB
 from utils.MysqlPython import Mysql
+from Query.PDB import get_sequence_by_entity_id
+from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log, \
+    residue_interaction_graph
 
 # Globals
 index_offset = 1
@@ -42,17 +33,22 @@ add_fragment_profile_instructions = 'To add fragment information, call PDB.score
 
 
 class SequenceProfile:
-    def __init__(self, structure=None, **kwargs):
-        super().__init__(**kwargs)
-        self.sequence = None
+    def __init__(self, structure=None, log=None, **kwargs):
+        super().__init__(log=log, **kwargs)
+        if log:
+            self.log = log
+        else:
+            self.log = start_log()
+
+        # self.sequence = None
         self.sequence_source = None
         self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
         self.structure_sequence = None
         self.sequence_file = None
         self.pssm_file = None
-        self.pssm = {}  # position specific scoring matrix
+        self.evolutionary_profile = {}  # position specific scoring matrix
         self.dssm_file = None
-        self.dssm = {}  # design specific scoring matrix
+        self.profile = {}  # design specific scoring matrix
         self.frag_db = None
         self.fragment_queries = {}
         self.fragment_map = {}
@@ -67,23 +63,41 @@ class SequenceProfile:
     def from_structure(cls, structure=None):
         return cls(structure=structure)
 
-    def get_name(self):
-        # Todo mirrors Chain method, set up SequenceProfile id integration to Entity. MRO gives this lower precidence
-        # return self.id
+    @property
+    def name(self):
         return self.structure.get_name()
 
-    def set_sequence(self, sequence=None):
-        self.sequence = sequence
+    # def retrieve_sequence_from_api(self, entity_id=None):  # Unused
+    #     self.sequence = get_sequence_by_entity_id(entity_id)
+    #     self.sequence_source = 'seqres'
 
-    def retrieve_sequence_from_PDB(self, entity_id=None):
-        self.sequence = get_sequence_by_entity_id(entity_id)
-        self.sequence_source = 'seqres'
-
-    def get_sequence(self):
-        return self.sequence
+    # def get_reference_sequence(self):
+    #
+    # def get_structure_sequence(self):
+    #     self.sequence = self.structure.get_structure_sequence()
+    #     self.sequence_source = 'atom'
+    #
+    # def find_sequence(self):
+    #     # if self.sequence_source:
+    #     #     if self.sequence_source == 'seqres':
+    #     self.get_reference_sequence()
+    #     #     else:
+    #     self.get_structure_sequence()
+    #
+    # @property
+    # def sequence(self):
+    #     try:
+    #         return self._sequence
+    #     except AttributeError:
+    #         self.find_sequence()
+    #         return self._sequence
+    #
+    # @sequence.setter
+    # def sequence(self, sequence):
+    #     self._sequence = sequence
 
     def add_profile(self, evolution=True, out_path=os.getcwd(),
-                    fragments=True, fragment_observations=None, entities=None, pdb_numbering=True):
+                    fragments=True, fragment_observations=None, entities=None, pdb_numbering=True, **kwargs):
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Keyword Args:
@@ -117,7 +131,10 @@ class SequenceProfile:
         if evolution:  # add evolutionary information to the SequenceProfile
             # DesignDirectory.path could be removed as the input oligomers should be perfectly symmetric so the tx won't
             # matter for each entity. right? Todo check this assumption...
-            self.add_evolutionary_profile(out_path=out_path)
+            self.add_evolutionary_profile(out_path=out_path, **kwargs)
+            # TODO currently using self.structure.reference_sequence which could be ATOM, could be SEQRES.
+            #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequnce
+            #  processing
             self.combine_ssm(boltzmann=True)
 
     def set_profile_length(self):
@@ -125,102 +142,128 @@ class SequenceProfile:
 
     @property
     def profile_length(self):
-        return self._profile_length
+        try:
+            return self._profile_length
+        except AttributeError:
+            self.set_profile_length()
+            return self._profile_length
 
     @profile_length.setter
     def profile_length(self, length):
         self._profile_length = length
 
-    def atom_profile(self):
-        """Make the atom profile from the structure.sequence and the profile"""
-        atom_profile = []
-        return atom_profile
+    # def atom_profile(self):  # Todo resolve
+    #     """Make the atom profile from the structure.sequence and the profile"""
+    #     atom_profile = []
+    #     return atom_profile
 
-    def verify_profile(self):
+    def verify_profile(self):  # Todo
         """Check Pose and Profile for equality before proceeding"""
-        second, rerun = False, False
-        while True:
-            # Todo must set profile length before this function
+        rerun, second, failed = False, False, False
+        while not failed:
             if self.profile_length != self.structure.number_of_residues:  # ():
-                logger.warning('%s: Profile and Pose sequences are different lengths!\nProfile=%d, Pose=%d. Generating '
-                               'new profile' % (self.structure.file_path, len(self.profile),
-                                                self.structure.number_of_residues))  # ()
+                self.log.warning('%s: Profile and Pose are different lengths!\nProfile=%d, Pose=%d. '
+                                 'Generating a new profile' % (self.structure.file_path, self.profile_length,
+                                                               self.structure.number_of_residues))
                 rerun = True
 
             # if not rerun:
             else:
-                # Check sequence from Pose and PSSM to compare identity before proceeding
-                pssm_res, pose_res = {}, {}
+                # Check sequence from Pose and self.profile to compare identity before proceeding
+                # pssm_res, pose_res = {}, {}
                 for idx, residue in enumerate(self.structure.get_residues(), 1):
-                    pssm_res[residue.number] = self.profile[idx]['type']
-                    pose_res[residue.number] = IUPACData.protein_letters_3to1[residue.type.title()]
-                    if pssm_res[residue.number] != pose_res[residue.number]:
-                        logger.warning(
-                            '%s: Profile and Pose sequences are different!\nResidue %d: Profile=%s, Pose=%s. '
-                            'Generating new profile' % (self.structure.file_path, residue.number, pssm_res[residue.number],
-                                                        pose_res[residue.number]))
+                    profile_residue_type = self.profile[idx]['type']
+                    # pssm_res[residue.number] = self.profile[idx]['type']
+                    pose_residue_type = IUPACData.protein_letters_3to1[residue.type.title()]
+                    # pose_res[residue.number] = IUPACData.protein_letters_3to1[residue.type.title()]
+                    if profile_residue_type != pose_residue_type:
+                        self.log.warning(
+                            '%s: Profile and Pose sequences mismatched!\nResidue %d: Profile=%s, Pose=%s. Generating a'
+                            ' new profile' % (self.structure.file_path, residue.number, profile_residue_type,
+                                              pose_residue_type))
                         rerun = True
                         break
 
             if rerun:
                 if second:
-                    logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                    raise SymDesignUtils.DesignError('Profile Generation got stuck, design aborted')
-                    # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                    break  # break ^While loop
-                self.add_profile()
+                    # self.log.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
+                    raise DesignError('Profile Generation got stuck, design aborted')
+                    # raise DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
+                self.add_profile(force=True)
                 second = True
 
-    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits'):
-        """Add the evolutionary profile to the entity. Profile is generated through a position specific evolutionary
-        search
+    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', force=False):
+        """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
+        homologous protein sequences (evolutionary)
 
         Keyword Args:
             out_path=os.getcwd() (str): Location where sequence files should be written
             profile_source='hhblits' (str): One of 'hhblits' or 'psiblast'
-
+        Sets:
+            self.evolutionary_profile
         """
         if profile_source not in ['hhblits', 'psiblast']:
-            return None
+            raise DesignError('%s: Profile generation only possible from hhblits or psiblast'
+                              % self.add_evolutionary_profile.__name__)
 
-        # Check to see if the files of interest already exist
-        structure_name = self.structure.get_name()
-        for seq_file in iglob(os.path.join(out_path, '%s.*' % structure_name)):
-            if seq_file == '%s.hmm' % structure_name:
-                self.pssm_file = os.path.join(out_path, seq_file)
-                logger.debug('%s PSSM Files=%s' % (structure_name, self.pssm_file))
-                break
-            elif seq_file == '%s.fasta' % structure_name:
-                self.sequence_file = seq_file
-
-            logger.debug('%s PSSM File not yet created' % structure_name)
+        if force:
+            self.sequence_file = None
+            self.pssm_file = None
+        else:
+            # Check to see if the files of interest already exist
+            temp_file = os.path.join(out_path, '%s.hold' % self.name)
+            out_put_file_search = glob(os.path.join(out_path, '%s.*' % self.name))
+            if not out_put_file_search:
+                with open(temp_file, 'w') as f:
+                    self.log.info('Fetching \'%s\' sequence data.\n' % self.name)
+            else:
+                for seq_file in out_put_file_search:
+                    if seq_file == '%s.hold' % self.name:
+                        self.log.info('Waiting for \'%s\' profile generation...' % self.name)
+                        while not os.path.exists(os.path.join(out_path, '%s.hmm' % self.name)):
+                            time.sleep(20)
+                            if int(time.time()) - int(os.path.getmtime(temp_file)) > 600:  # > 10 minutes have passed
+                                os.remove(temp_file)
+                                raise DesignError('%s: Generation of the profile for %s took longer than the time '
+                                                  'limit. Job killed!'
+                                                  % (self.add_evolutionary_profile.__name__, self.name))
+                    elif seq_file == '%s.hmm' % self.name:
+                        self.pssm_file = os.path.join(out_path, seq_file)
+                        self.log.debug('%s PSSM Files=%s' % (self.name, self.pssm_file))
+                        break
+                    elif seq_file == '%s.fasta' % self.name:
+                        self.sequence_file = seq_file
+                        self.log.debug('%s PSSM File not yet created' % self.name)
+                    else:
+                        self.log.error('Found the file \'%s\' which was not expected in %s' % (seq_file, out_path))
+                        #     with open(temp_file, 'w') as f:
+                        #         f.write('Started fetching data. Process will resume once data is gathered\n')
 
         if not self.sequence_file:
-            # Extract/Format Sequence Information. Use structure sequence if atom sequence is missing
-            if not self.sequence:
-                self.sequence = self.structure.get_structure_sequence()
-                self.sequence_source = 'atom'
-            logger.debug('%s Sequence=%s' % (structure_name, self.sequence))
+            # Extract/Format Sequence Information
+            # if not self.sequence:  # Use structure sequence if atom sequence is missing
+            #     self.sequence = self.get_structure_sequence()
+            #     self.sequence = self.structure.get_structure_sequence()
+            #     self.sequence_source = 'atom'
+            self.log.debug('%s Sequence=%s' % (self.name, self.structure.reference_sequence))
 
             # make self.sequence_file
-            self.write_fasta_file(name='%s' % structure_name, out_path=out_path)
-            logger.debug('%s fasta file: %s' % (structure_name, self.sequence_file))
+            self.write_fasta_file(self.structure.reference_sequence, name='%s' % self.name, out_path=out_path)
+            self.log.debug('%s fasta file: %s' % (self.name, self.sequence_file))
 
         if not self.pssm_file:
             # Make PSSM of sequence
-            logger.info('Generating PSSM file for %s' % structure_name)
+            self.log.info('Generating PSSM file for %s' % self.name)
             if profile_source == 'psiblast':
-                self.pssm_file = self.psiblast(out_path=out_path)
-                self.pssm = self.parse_psiblast_pssm()
+                self.psiblast(out_path=out_path)
+                self.evolutionary_profile = self.parse_psiblast_pssm()
             else:
-                self.pssm_file = self.hhblits(out_path=out_path)
-                self.pssm = self.parse_hhblits_pssm()
+                self.hhblits(out_path=out_path)
+                self.evolutionary_profile = self.parse_hhblits_pssm()
 
-    def psiblast(self, query, out_path=None, remote=False):  # TODO clean up like below hhblits
+    def psiblast(self, out_path=None, remote=False):
         """Generate an position specific scoring matrix using PSI-BLAST subprocess
 
-        Args:
-            query (str): Basename of the sequence to use as a query, intended for use as pdb
         Keyword Args:
             outpath=None (str): Disk location where generated file should be written
             remote=False (bool): Whether to perform the serach locally (need blast installed locally) or perform search through web
@@ -228,21 +271,22 @@ class SequenceProfile:
             outfile_name (str): Name of the file generated by psiblast
             p (subprocess): Process object for monitoring progress of psiblast command
         """
-        # I would like the background to come from Uniref90 instead of BLOSUM62 #TODO
-        if out_path is not None:
-            outfile_name = os.path.join(out_path, query + '.pssm')
-            direct = out_path
-        else:
-            outfile_name = query + '.hmm'
-            direct = os.getcwd()
-        if query + '.pssm' in os.listdir(direct):
-            cmd = ['echo', 'PSSM: ' + query + '.pssm already exists']
-            p = subprocess.Popen(cmd)
+        # # I would like the background to come from Uniref90 instead of BLOSUM62 #TODO
+        # if out_path is not None:
+        #     outfile_name = os.path.join(out_path, query + '.pssm')
+        #     direct = out_path
+        # else:
+        #     outfile_name = query + '.hmm'
+        #     direct = os.getcwd()
+        # if query + '.pssm' in os.listdir(direct):
+        #     cmd = ['echo', 'PSSM: ' + query + '.pssm already exists']
+        #     p = subprocess.Popen(cmd)
+        #
+        #     return outfile_name, p
+        self.pssm_file = os.path.join(out_path, os.path.splitext(os.path.basename(self.name))[0] + '.hmm')
 
-            return outfile_name, p
-
-        cmd = ['psiblast', '-db', PUtils.alignmentdb, '-query', query + '.fasta', '-out_ascii_pssm', outfile_name,
-               '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']
+        cmd = ['psiblast', '-db', PUtils.alignmentdb, '-query', self.sequence_file + '.fasta', '-out_ascii_pssm',
+               self.pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo ^ iters
         if remote:
             cmd.append('-remote')
         else:
@@ -250,8 +294,7 @@ class SequenceProfile:
             cmd.append('8')
 
         p = subprocess.Popen(cmd)
-
-        return outfile_name, p
+        p.communicate()
 
     @handle_errors_f(errors=(FileNotFoundError,))
     def parse_psiblast_pssm(self):
@@ -269,16 +312,16 @@ class SequenceProfile:
             line_data = line.strip().split()
             if len(line_data) == 44:
                 residue_number = int(line_data[0])
-                self.pssm[residue_number] = copy.deepcopy(aa_counts_dict)
+                self.evolutionary_profile[residue_number] = copy.deepcopy(aa_counts_dict)
                 for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[residue_number], 22):
                     # Get normalized counts for pose_dict
-                    self.pssm[residue_number][aa] = (int(line_data[i]) / 100.0)
-                self.pssm[residue_number]['lod'] = {}
+                    self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
+                self.evolutionary_profile[residue_number]['lod'] = {}
                 for i, aa in enumerate(alph_3_aa_list, 2):
-                    self.pssm[residue_number]['lod'][aa] = line_data[i]
-                self.pssm[residue_number]['type'] = line_data[1]
-                self.pssm[residue_number]['info'] = float(line_data[42])
-                self.pssm[residue_number]['weight'] = float(line_data[43])
+                    self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
+                self.evolutionary_profile[residue_number]['type'] = line_data[1]
+                self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
+                self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
 
     def hhblits(self, threads=CUtils.hhblits_threads, out_path=os.getcwd()):
         """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
@@ -291,15 +334,13 @@ class SequenceProfile:
             p (subprocess): Process object for monitoring progress of hhblits command
         """
 
-        self.pssm_file = os.path.join(out_path, os.path.splitext(os.path.basename(self.get_name()))[0] + '.hmm')
+        self.pssm_file = os.path.join(out_path, os.path.splitext(os.path.basename(self.name))[0] + '.hmm')
 
         cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', self.sequence_file, '-ohhm', self.pssm_file, '-v', '1',
                '-cpu', str(threads)]
-        logger.info('%s Profile Command: %s' % (self.get_name(), subprocess.list2cmdline(cmd)))
+        self.log.info('%s Profile Command: %s' % (self.name, subprocess.list2cmdline(cmd)))
         p = subprocess.Popen(cmd)
         p.communicate()
-
-        return self.pssm_file
 
     @handle_errors_f(errors=(FileNotFoundError,))
     def parse_hhblits_pssm(self, null_background=True):
@@ -345,27 +386,27 @@ class SequenceProfile:
                 if len(line.split()) == 23:
                     items = line.strip().split()
                     residue_number = int(items[1])
-                    self.pssm[residue_number] = {}
+                    self.evolutionary_profile[residue_number] = {}
                     for i, aa in enumerate(IUPACData.protein_letters, 2):
-                        self.pssm[residue_number][aa] = to_freq(items[i])
-                    self.pssm[residue_number]['lod'] = get_lod(self.pssm[residue_number], null_bg)
-                    self.pssm[residue_number]['type'] = items[0]
-                    self.pssm[residue_number]['info'] = dummy
-                    self.pssm[residue_number]['weight'] = dummy
+                        self.evolutionary_profile[residue_number][aa] = to_freq(items[i])
+                    self.evolutionary_profile[residue_number]['lod'] = get_lod(self.evolutionary_profile[residue_number], null_bg)
+                    self.evolutionary_profile[residue_number]['type'] = items[0]
+                    self.evolutionary_profile[residue_number]['info'] = dummy
+                    self.evolutionary_profile[residue_number]['weight'] = dummy
 
     def combine_pssm(self, pssms):
         """Combine a list of PSSMs incrementing the residue number in each additional PSSM
 
         Args:
-            pssms (list(dict)): List of PSSMs to concatentate
+            pssms (list(dict)): List of PSSMs to concatenate
         Sets
-            self.pssm (dict): Using the list of input PSSMs, make a concatentated PSSM
+            self.evolutionary_profile (dict): Using the list of input PSSMs, make a concatenated PSSM
         """
         # combined_pssm = {}
         new_key = 1
         for i in range(len(pssms)):
             for old_key in sorted(pssms[i].keys()):
-                self.pssm[new_key] = pssms[i][old_key]
+                self.evolutionary_profile[new_key] = pssms[i][old_key]
                 new_key += 1
         # return combined_pssm
 
@@ -383,21 +424,21 @@ class SequenceProfile:
                 self.fragment_profile[new_key] = fragment_profiles[i][old_key]
                 new_key += 1
 
-    def combine_dssm(self, dssms):
+    def combine_profile(self, profiles):
         """Combine a list of DSSMs incrementing the residue number in each additional DSSM
 
         Args:
-            dssms (list(dict)): List of DSSMs to concatentate
+            profiles (list(dict)): List of DSSMs to concatentate
         Sets
-            self.dssm (dict): Using the list of input DSSMs, make a concatentated DSSM
+            self.profile (dict): Using the list of input DSSMs, make a concatentated DSSM
         """
         new_key = 1
-        for i in range(len(dssms)):
-            for old_key in sorted(dssms[i].keys()):
-                self.dssm[new_key] = dssms[i][old_key]
+        for i in range(len(profiles)):
+            for old_key in sorted(profiles[i].keys()):
+                self.profile[new_key] = profiles[i][old_key]
                 new_key += 1
 
-    def write_fasta_file(self, name=None, out_path=os.getcwd()):
+    def write_fasta_file(self, sequence, name=None, out_path=os.getcwd()):
         """Write a fasta file from sequence(s)
 
         Keyword Args:
@@ -407,10 +448,10 @@ class SequenceProfile:
             (str): The name of the output file
         """
         if not name:
-            name = self.get_name()
+            name = self.name
         self.sequence_file = os.path.join(out_path, '%s.fasta' % name)
         with open(self.sequence_file, 'w') as outfile:
-            outfile.write('>%s\n%s\n' % (name, self.sequence))
+            outfile.write('>%s\n%s\n' % (name, sequence))
             # outfile.write('>%s\n%s\n' % (name, self.structure_sequence))
 
         return self.sequence_file
@@ -448,30 +489,36 @@ class SequenceProfile:
         return entity_metrics_d
 
     def return_interface_metrics(self):
-        """From the calculated fragment queries, return the interface metrics for each pair"""
+        """From the calculated fragment queries, return the interface metrics for each pair
+        Todo Expand to other metrics after design?
+        Return the various metrics calculated by overlapping fragments at the interface of two proteins
+
+        Returns:
+            (dict): {query1: {all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap,
+            central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d}, ... }
+        """
         interface_metrics_d = {}
         for query, fragment_matches in self.fragment_queries.items():
-            res_level_sum_score, center_level_sum_score, number_residues_with_fragments, \
-                number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, \
-                percent_interface_covered, fragment_content_d = get_fragment_metrics(fragment_matches)
+            all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
+                central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
+                get_fragment_metrics(fragment_matches)
+            # total_residues, percent_interface_matched, percent_interface_covered,
 
-            interface_metrics_d[query] = {'nanohedra_score': res_level_sum_score,
-                                          'nanohedra_score_central': center_level_sum_score,
-                                          # 'fragments': fragment_matches,
-                                          'fragment_cluster_ids': ', '.join(fragment['cluster']
-                                                                            for fragment in fragment_matches),
-                                          # 'interface_area': interface_buried_sa,
-                                          'multiple_fragment_ratio': multiple_frag_ratio,
-                                          'number_fragment_residues_all': number_residues_with_fragments,
-                                          'number_fragment_residues_central': number_fragment_central_residues,
-                                          'total_interface_residues': total_residues,
-                                          'number_fragments': len(fragment_matches),
-                                          'percent_residues_fragment_all': percent_interface_covered,
-                                          'percent_residues_fragment_center': percent_interface_matched,
-                                          'percent_fragment_helix': fragment_content_d['1'],
-                                          'percent_fragment_strand': fragment_content_d['2'],
-                                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4'] +
-                                          fragment_content_d['5']}
+            interface_metrics_d[query]  = {'nanohedra_score': all_residue_score,
+                                           'nanohedra_score_central': center_residue_score,
+                                           'fragments': fragment_matches,
+                                           # 'fragment_cluster_ids': ','.join(fragment_indices),
+                                           'multiple_fragment_ratio': multiple_frag_ratio,
+                                           'number_fragment_residues_all': total_residues_with_fragment_overlap,
+                                           'number_fragment_residues_central': central_residues_with_fragment_overlap,
+                                           # 'total_interface_residues': total_residues,
+                                           'number_fragments': len(fragment_matches),
+                                           # 'percent_residues_fragment_all': percent_interface_covered,
+                                           # 'percent_residues_fragment_center': percent_interface_matched,
+                                           'percent_fragment_helix': fragment_content_d['1'],
+                                           'percent_fragment_strand': fragment_content_d['2'],
+                                           'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
+                                           + fragment_content_d['5']}
 
         return interface_metrics_d
 
@@ -497,7 +544,7 @@ class SequenceProfile:
     # fragments
     # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
     def add_fragment_profile(self):  # , fragment_source=None, alignment_type=None):
-        # now done at the pose_level
+        # v now done at the pose_level
         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
         if self.fragment_map:
             self.generate_fragment_profile()
@@ -507,13 +554,12 @@ class SequenceProfile:
             if self.fragment_queries:
                 for query_pair, fragments in self.fragment_queries.items():
                     for query_idx, entity_name in enumerate(query_pair):
-                        if entity_name == self.structure.get_name():
+                        if entity_name == self.structure.name:
                             # add to fragment map
                             self.assign_fragments(fragments=fragments, alignment_type=idx_to_alignment_type[query_idx])
             else:
                 print('No fragment information associated with the Entity %s yet! You must add to the profile otherwise'
-                      ' only evolutionary values will be used.\n%s'
-                      % (self.structure.get_name(), add_fragment_profile_instructions))
+                      ' only evolutionary values will be used.\n%s' % (self.name, add_fragment_profile_instructions))
                 return None
 
     def find_alpha(self, alpha=0.5):
@@ -533,8 +579,7 @@ class SequenceProfile:
         Keyword Args:
             alpha=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
         """
-        assert 0 <= alpha <= 1, logger.critical('%s: Alpha parameter must be between 0 and 1' %
-                                                self.combine_ssm.__name__)
+        assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.combine_ssm.__name__
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
@@ -584,8 +629,12 @@ class SequenceProfile:
             else:
                 self.alpha[entry] = alpha * match_modifier
 
-    def connect_fragment_database(self, source='directory', location='biological_interfaces', length=5):
-        self.frag_db = FragmentDatabase(source=source, location=location, length=length)
+    def connect_fragment_database(self, db=None, **kwargs):
+        #                         source='directory', location='biological_interfaces', length=5, init_db=True):
+        if db:
+            self.frag_db = db
+        else:
+            self.frag_db = FragmentDatabase(**kwargs)  # source=source, location=location, init_db=init_db)
 
     def assign_fragments(self, fragments=None, alignment_type=None):
         """Distribute fragment information to self.fragment_map. One-indexed residue dictionary
@@ -619,11 +668,11 @@ class SequenceProfile:
         not_available = [residue_number for residue_number in self.fragment_map
                          if 0 < residue_number >= self.structure.number_of_residues]  # ()]
         for residue_number in not_available:
-            logger.debug('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
-                         'Fragment index will be deleted.' % (self.structure.get_name(), residue_number))
+            self.log.debug('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
+                           'Fragment index will be deleted.' % (self.name, residue_number))
             self.fragment_map.pop(residue_number)
 
-        logger.debug('Residue Cluster Map: %s' % str(self.fragment_map))
+        self.log.debug('Residue Cluster Map: %s' % str(self.fragment_map))
 
     def generate_fragment_profile(self):
         """Add frequency information to the fragment profile using parsed cluster information. Frequency information is
@@ -742,7 +791,7 @@ class SequenceProfile:
 
         All input must be zero indexed
 
-        Takes self.pssm
+        Takes self.evolutionary_profile
             (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                                    'weight': 0.00}, {...}}
                     PSIBLAST - {0: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
@@ -759,21 +808,20 @@ class SequenceProfile:
             All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
             alpha=0.5 (float): The maximum alpha value to use, bounded between 0 and 1
 
-        And outputs self.dssm
+        And outputs self.profile
             (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                          'weight': 0.00}, ...}} - combined PSSM dictionary
         """
-        assert 0 <= alpha <= 1, logger.critical('%s: Alpha parameter must be between 0 and 1' %
-                                                self.combine_ssm.__name__)
-        # copy the pssm to self.dssm (design specific scoring matrix)
-        self.dssm = copy.deepcopy(self.pssm)
+        assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.combine_ssm.__name__
+        # copy the evol profile to self.profile (design specific scoring matrix)
+        self.profile = copy.deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
         for entry in self.alpha:
             for aa in IUPACData.protein_letters:
-                self.dssm[entry][aa] = (self.alpha[entry] * self.fragment_profile[entry][aa]) + \
-                                       ((1 - self.alpha[entry]) * self.dssm[entry][aa])
-            logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
-                        % (entry + index_offset, alpha[entry] * 100))
+                self.profile[entry][aa] = (self.alpha[entry] * self.fragment_profile[entry][aa]) + \
+                                          ((1 - self.alpha[entry]) * self.profile[entry][aa])
+            self.log.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
+                          % (entry + index_offset, alpha[entry] * 100))
 
         if favor_fragments:
             # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
@@ -785,23 +833,23 @@ class SequenceProfile:
             null_residue = get_lod(database_background_aa_frequencies, database_background_aa_frequencies)
             null_residue = {aa: float(null_residue[aa]) for aa in null_residue}
 
-            for entry in self.dssm:
-                self.dssm[entry]['lod'] = null_residue  # Caution all reference same object
+            for entry in self.profile:
+                self.profile[entry]['lod'] = null_residue  # Caution all reference same object
             for entry in self.fragment_profile:
-                self.dssm[entry]['lod'] = get_lod(self.fragment_profile[entry],
-                                                  database_background_aa_frequencies, round_lod=False)
+                self.profile[entry]['lod'] = get_lod(self.fragment_profile[entry],
+                                                     database_background_aa_frequencies, round_lod=False)
                 # get the sum for the partition function
                 partition, max_lod = 0, 0.0
-                for aa in self.dssm[entry]['lod']:
+                for aa in self.profile[entry]['lod']:
                     if boltzmann:  # boltzmann probability distribution scaling, lod = z[i]/Z, Z = sum(exp(score[i]/kT))
-                        self.dssm[entry]['lod'][aa] = math.exp(self.dssm[entry]['lod'][aa] / boltzman_energy)
-                        partition += self.dssm[entry]['lod'][aa]
+                        self.profile[entry]['lod'][aa] = math.exp(self.profile[entry]['lod'][aa] / boltzman_energy)
+                        partition += self.profile[entry]['lod'][aa]
                     # linear scaling, remove any lod penalty
-                    elif self.dssm[entry]['lod'][aa] < 0:
-                        self.dssm[entry]['lod'][aa] = 0
+                    elif self.profile[entry]['lod'][aa] < 0:
+                        self.profile[entry]['lod'][aa] = 0
                     # find the maximum/residue (local) lod score
-                    if self.dssm[entry]['lod'][aa] > max_lod:
-                        max_lod = self.dssm[entry]['lod'][aa]
+                    if self.profile[entry]['lod'][aa] > max_lod:
+                        max_lod = self.profile[entry]['lod'][aa]
                 # takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
                 modified_entry_alpha = (self.alpha[entry] / alpha) * favor_seqprofile_score_modifier
                 if boltzmann:
@@ -811,11 +859,11 @@ class SequenceProfile:
                     modifier = max_lod
 
                 # weight the final lod score by the modifier and the scaling factor for the chosen method
-                for aa in self.pssm[entry]['lod']:
-                    self.dssm[entry]['lod'][aa] /= modifier  # get percent total (boltzman) or percent max (linear)
-                    self.dssm[entry]['lod'][aa] *= modified_entry_alpha  # scale by score modifier
-                logger.info('Residue %d Fragment lod ratio generated with alpha=%f'
-                            % (entry + index_offset, self.alpha[entry] / alpha))
+                for aa in self.evolutionary_profile[entry]['lod']:
+                    self.profile[entry]['lod'][aa] /= modifier  # get percent total (boltzman) or percent max (linear)
+                    self.profile[entry]['lod'][aa] *= modified_entry_alpha  # scale by score modifier
+                self.log.info('Residue %d Fragment lod ratio generated with alpha=%f'
+                              % (entry + index_offset, self.alpha[entry] / alpha))
 
     def solve_consensus(self, fragment_source=None, alignment_type=None):
         # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
@@ -843,7 +891,7 @@ class SequenceProfile:
         # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
         # # TODO all_frags
         cluster_residue_pose_d = residue_object_to_number(frag_residue_object_d)
-        # logger.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
+        # self.log.debug('Cluster residues pose number:\n%s' % cluster_residue_pose_d)
         # # ^{cluster: [(78, 87, ...), ...]...}
         residue_freq_map = {residue_set: cluster_freq_d[cluster] for cluster in cluster_freq_d
                             for residue_set in cluster_residue_pose_d[cluster]}  # blue
@@ -854,8 +902,8 @@ class SequenceProfile:
 
         # Construct CB Tree for full interface atoms to map residue residue contacts
         # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
-        # interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atom_list])
-        # interface_tree = SDUtils.residue_interaction_graph(interface)
+        # interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atoms])
+        # interface_tree = residue_interaction_graph(interface)
         # interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
 
         interface_residue_edges = {}
@@ -900,8 +948,8 @@ class SequenceProfile:
         frag_overlap = fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
 
         # consensus = SDUtils.consensus_sequence(dssm)
-        logger.debug('Consensus Residues only:\n%s' % consensus_residues)
-        logger.debug('Consensus:\n%s' % consensus)
+        self.log.debug('Consensus Residues only:\n%s' % consensus_residues)
+        self.log.debug('Consensus:\n%s' % consensus)
         for n, name in enumerate(names):
             for residue in int_res_numbers[name]:  # one-indexed
                 mutated_pdb.mutate_to(names[name](n), residue,
@@ -1156,10 +1204,20 @@ def overlap_consensus(issm, aa_set):
     return consensus
 
 
-class FragmentDatabase:
-    def __init__(self, source=None, location='biological_interfaces', length=5):
+class FragmentDatabase(FragmentDB):
+    def __init__(self, source='directory', location=None, length=5, init_db=True):
+        super().__init__()  # FragmentDB
+        # self.monofrag_cluster_rep_dirpath = monofrag_cluster_rep_dirpath
+        # self.intfrag_cluster_rep_dirpath = intfrag_cluster_rep_dirpath
+        # self.intfrag_cluster_info_dirpath = intfrag_cluster_info_dirpath
+        # self.reps = None
+        # self.paired_frags = None
+        # self.info = None
         self.source = source
-        self.location = PUtils.frag_directory[source]  # location
+        if location:
+            self.location = PUtils.frag_directory[location]  # location
+        else:
+            self.location = None
         self.statistics = {}
         # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
@@ -1171,8 +1229,12 @@ class FragmentDatabase:
             self.start_mysql_connection()
             self.db = True
         elif self.source == 'directory':
-            # initialize as local direcotry
+            # Todo initialize as local directory
             self.db = False
+            if init_db:
+                self.get_monofrag_cluster_rep_dict()
+                self.get_intfrag_cluster_rep_dict()
+                self.get_intfrag_cluster_info_dict()
         else:
             self.db = False
 
@@ -1190,7 +1252,7 @@ class FragmentDatabase:
                 ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
         """
         if self.db:
-            # Todo
+            print('No SQL DB connected yet!')  # Todo
             return None
         else:
             for file in os.listdir(self.location):
@@ -1237,7 +1299,7 @@ class FragmentDatabase:
              cluster_dict: {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}, ...}
         """
         if self.db:
-            print('No DB connected yet!')  # Todo logger
+            print('No SQL DB connected yet!')  # Todo
             return None
         else:
             if not ids:
@@ -1290,8 +1352,8 @@ class FragmentDatabase:
             self.fragment_range = (0 - _range, 0 + _range + index_offset)
             # return 0 - _range, 0 + _range + index_offset
         else:
-            logger.critical('%d is an even integer which is not symmetric about a single residue. '
-                            'Ensure this is what you want' % length)
+            self.log.critical('%d is an even integer which is not symmetric about a single residue. '
+                              'Ensure this is what you want' % length)
             self.fragment_range = (0 - _range, 0 + _range)
 
     def start_mysql_connection(self):
@@ -1465,34 +1527,10 @@ def offset_index(dictionary, to_zero=False):
         return {residue + index_offset: dictionary[residue] for residue in dictionary}
 
 
-def residue_number_to_object(pdb, residue_dict):  # TODO supplement with names info and pull out by names
-    """Convert sets of residue numbers to sets of PDB.Residue objects
-
-    Args:
-        pdb (PDB): PDB object to extract residues from. Chain order matches residue order in residue_dict
-        residue_dict (dict): {'key1': [(78, 87, ...),], ...} - Entry mapped to residue sets
-    Returns:
-        residue_dict - {'key1': [(residue1_ca_atom, residue2_ca_atom, ...), ...] ...}
-    """
-    for entry in residue_dict:
-        pairs = []
-        for _set in range(len(residue_dict[entry])):
-            residue_obj_set = []
-            for i, residue in enumerate(residue_dict[entry][_set]):
-                resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
-                assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
-                residue_obj_set.append(resi_object)
-            pairs.append(tuple(residue_obj_set))
-        residue_dict[entry] = pairs
-
-    return residue_dict
-
-
 def residue_object_to_number(residue_dict):  # TODO supplement with names info and pull out by names
     """Convert sets of PDB.Residue objects to residue numbers
 
     Args:
-        pdb (PDB): PDB object to extract residues from. Chain order matches residue order in residue_dict
         residue_dict (dict): {'key1': [(residue1_ca_atom, residue2_ca_atom, ...), ...] ...}
     Returns:
         residue_dict (dict): {'key1': [(78, 87, ...),], ...} - Entry mapped to residue sets
@@ -1867,9 +1905,9 @@ def combine_pssm(pssms):
     """To a first pssm, append subsequent pssms incrementing the residue number in each additional pssm
 
     Args:
-        pssms (list(dict)): List of pssm dictionaries to concatentate
+        pssms (list(dict)): List of pssm dictionaries to concatenate
     Returns:
-        combined_pssm (dict): Concatentated PSSM
+        (dict): Concatenated PSSM
     """
     combined_pssm = {}
     new_key = 0
@@ -2187,13 +2225,13 @@ def write_fasta_file(sequence, name, outpath=os.getcwd()):
             elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
                 outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
             else:
-                raise SymDesignUtils.DesignError('Cannot parse data to make fasta')
+                raise DesignError('Cannot parse data to make fasta')
         elif isinstance(sequence, dict):
             outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
         elif isinstance(sequence, str):
             outfile.write('>%s\n%s\n' % (name, sequence))
         else:
-            raise SymDesignUtils.DesignError('Cannot parse data to make fasta')
+            raise DesignError('Cannot parse data to make fasta')
 
     return file_name
 
@@ -2455,7 +2493,7 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
     """
     weaved_dict = {}
     for residue in sorted_freq:
-        final_resi = residue + SDUtils.index_offset
+        final_resi = residue + index_offset
         weaved_dict[final_resi] = {}
         for aa in sorted_freq[residue]:
             weaved_dict[final_resi][aa] = round(mut_prob[residue][aa], 3)
@@ -2513,6 +2551,12 @@ def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_
 
 
 def get_fragment_metrics(fragment_matches):
+    """Return the various metrics calculated by overlapping fragments at the interface of two proteins
+
+    Returns:
+        (tuple): all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap, \
+        central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d
+    """
     # fragment_matches = [{'mapped': entity1_surffrag_resnum, 'match_score': score_term,
     #                          'paired': entity2_surffrag_resnum, 'culster': cluster_id}, ...]
     fragment_i_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
@@ -2571,22 +2615,23 @@ def get_fragment_metrics(fragment_matches):
 
     all_residue_score += center_residue_score
 
-    # Get the number of central residues with overlapping fragments identified given z_value criteria
-    number_unique_residues_with_fragment_obs = len(interface_residues_with_fragment_overlap['mapped']) + \
+    # Get the number of CENTRAL residues with overlapping fragments given z_value criteria
+    central_residues_with_fragment_overlap = len(interface_residues_with_fragment_overlap['mapped']) + \
         len(interface_residues_with_fragment_overlap['paired'])
 
-    # Get the number of residues with fragments overlapping given z_value criteria
-    number_residues_in_fragments = len(entity1_match_scores) + len(entity2_match_scores)
+    # Get the number of TOTAL residues with overlapping fragments given z_value criteria
+    total_residues_with_fragment_overlap = len(entity1_match_scores) + len(entity2_match_scores)
 
-    if number_unique_residues_with_fragment_obs > 0:
-        multiple_frag_ratio = (len(fragment_matches) * 2) / number_unique_residues_with_fragment_obs  # paired fragment
+    if central_residues_with_fragment_overlap > 0:
+        multiple_frag_ratio = (len(fragment_matches) * 2) / central_residues_with_fragment_overlap  # paired fragment
     else:
         multiple_frag_ratio = 0
 
-    interface_residue_count = len(interface_residues_with_fragment_overlap['mapped']) + len(interface_residues_with_fragment_overlap['paired'])
+    interface_residue_count = len(interface_residues_with_fragment_overlap['mapped']) + \
+        len(interface_residues_with_fragment_overlap['paired'])
     if interface_residue_count > 0:
-        percent_interface_matched = number_unique_residues_with_fragment_obs / float(interface_residue_count)
-        percent_interface_covered = number_residues_in_fragments / float(interface_residue_count)
+        percent_interface_matched = central_residues_with_fragment_overlap / float(interface_residue_count)
+        percent_interface_covered = total_residues_with_fragment_overlap / float(interface_residue_count)
     else:
         percent_interface_matched, percent_interface_covered = 0, 0
 
@@ -2600,9 +2645,9 @@ def get_fragment_metrics(fragment_matches):
         for index in fragment_content_d:
             fragment_content_d[index] = fragment_content_d[index] / (len(fragment_matches) * 2)  # paired fragment
 
-    return all_residue_score, center_residue_score, number_residues_in_fragments, \
-        number_unique_residues_with_fragment_obs, multiple_frag_ratio, interface_residue_count, \
-        percent_interface_matched, percent_interface_covered, fragment_content_d
+    return all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
+        central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d
+        # interface_residue_count, percent_interface_matched, percent_interface_covered,
 
 
 def generate_sequence_mask(fasta_file):
@@ -2619,15 +2664,3 @@ def generate_sequence_mask(fasta_file):
         raise DesignError('The sequence and mask are different lengths! Please correct the alignment and lengths before proceeding.')
 
     return [idx for idx, aa in enumerate(mask, 1) if aa == '-']
-
-
-def generate_mask_template(pdb_file):
-    pdb = PDB.from_file(pdb_file)
-    sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), IUPAC.protein), id=pdb.filepath)
-    sequence_mask = copy(sequence)
-    sequence_mask.id = 'mask'
-    sequences = [sequence, sequence_mask]
-    fasta_file = write_fasta(sequences, file_name='%s_sequence_for_mask' % os.path.splitext(pdb.filepath)[0])
-    print('The mask template was written to %s. Please edit this file so that the mask can be generated for protein '
-          'design. Mask should be formatted so a \'-\' replaces all sequence of interest to be overlooked during design'
-          '. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>mask\nMAGH----LV\n' % fasta_file)
