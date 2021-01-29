@@ -8,13 +8,14 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from copy import deepcopy
-from json import dumps, loads
+from json import dumps, load
 
 from SymDesignUtils import start_log, io_save, unpickle, pickle_object
 
 
 # Globals
 # General Formatting
+header_string = '%s %s %s\n' % ('-' * 20, '%s', '-' * 20)
 format_string = '\t%s\t\t%s'
 numbered_format_string = format_string % ('%d - %s', '%s')
 input_string = '\nInput:'
@@ -142,14 +143,15 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         work_on_group = args[recursive_depth]
         all_grouping_indices = {i for i in range(1, len(work_on_group) + 1)}
 
-        group_introduction = '\n%s\nGROUPING INSTRUCTIONS:\n' \
+        group_introduction = '\n%s\n' \
                              'Because you have %d search queries, you need to combine these to a total search strategy'\
                              '. This is accomplished by grouping your search queries together using the operations %s.'\
                              ' You must eventually group all queries into a single logical operation. ' \
                              '\nIf you have multiple groups, you will need to group those groups, so on and so forth.' \
                              '\nIndicate your group selections with a space separated list! You will choose the group '\
                              'operation to combine this list afterwards.\nFollow prior prompts if you need a reminder '\
-                             'of how group#\'s relate to query#\'s' % ('*' * 40, len(terminal_queries), group_operators)
+                             'of how group#\'s relate to query#\'s' \
+                             % (header_string % 'Grouping Instructions', len(terminal_queries), group_operators)
         group_grouping_intro = '\nGroups remain, you must group groups as before.'
         group_inquiry_string = '\nWhich of these (identified by #) would you like to combine into a group?%s' % \
                                input_string
@@ -216,36 +218,43 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
 
     # Start the user input routine -------------------------------------------------------------------------------------
     schema = get_rcsb_metadata_schema(force_update=force_schema_update)
-    print('\n\nThis function will walk you through generating a PDB advanced search query and retrieving the matching '
-          'set of PDB ID\'s. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
+    print('\n%s\nThis query will walk you through generating an advanced search query and retrieving the matching'
+          ' set of entry ID\'s from the PDB. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
           'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
           'downstream use. If you require > 25,000 ID\'s, this will save you some headache. You can also use the GUI '
-          'and this tool in combination, as detailed below. Type \'JSON\' into the next prompt to do so. If you have '
-          'search already specified from previously, type \'previous\', otherwise hit \'Enter\'\n' %
-          pdb_advanced_search_url)
-    program_start = input(input_string).upper()
-    if program_start == 'JSON':
+          'and this tool in combination, as detailed below. Type \'json\' into the next prompt to do so. If you have a '
+          'search specified from a prior query that you want to process again, this option may be useful as well. '
+          'Otherwise hit \'Enter\'\n'
+          % (header_string % 'PDB API Advanced Query', pdb_advanced_search_url))
+    program_start = input(input_string)
+    if program_start.lower() == 'json':
         # TODO get a method for taking the pasted JSON and formatting accordingly. Pasting now is causing enter on input
-        json_input = input('DETAILS: If you want to use this function to save time formatting and/or pipeline '
-                           'interruption, a unique solution is to build your Query with the GUI on the PDB then bring '
-                           'the resulting JSON back here to submit. To do this, first build your full query, then hit '
-                           '\'Enter\' or the Search icon button (magnifying glass icon). A new section of the search '
-                           'page should appear above the Query builder. Clicking the JSON|->| button will open a new '
-                           'page with an automatically built JSON representation of your query. You can copy and paste '
-                           'this JSON object into the prompt to return your chosen ID\'s.\n\n'
-                           'Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
-                           '\'"return_type": "entry"\' and paste. Before hitting enter, add a closing \'}\'. This hack '
-                           'ensures ALL results are retrieved with no sorting or pagination applied\n\n%s' %
-                           input_string)
+        print('DETAILS: If you want to use this function to save time formatting and/or pipeline '
+              'interruption, a unique solution is to build your Query with the GUI on the PDB then bring '
+              'the resulting JSON back here to submit. To do this, first build your full query, then hit '
+              '\'Enter\' or the Search icon button (magnifying glass icon). A new section of the search '
+              'page should appear above the Query builder. Clicking the JSON|->| button will open a new '
+              'page with an automatically built JSON representation of your query. Download '
+              'this JSON object to a file to return your chosen ID\'s.\n\n')
+        # ('Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
+        #  '\'"return_type": "entry"\' and paste. Before hitting enter, add a closing \'}\'. This hack '
+        #  'ensures ALL results are retrieved with no sorting or pagination applied\n\n%s' %
+        #  input_string)
+        prior_query = input('Please specify the path where the JSON query file is located%s' % input_string)
+        if os.path.exists(prior_query):
+            with open(prior_query, 'r') as f:
+                json_input = load(f)
+        else:
+            print('The specified path \'%s\' doesn\'t exist! Please try again.' % prior_query)
         search_query = query_pdb(json_input)
-    elif program_start == 'PREVIOUS':
-        while True:
-            prior_query = input('Please specify the path where the search file is located%s' % input_string)
-            if os.path.exists(prior_query):
-                with open(prior_query, 'r') as f:
-                    search_query = loads(f.readlines())
-            else:
-                print('The specified path \'%s\' doesn\'t exist! Please try again.' % prior_query)
+    # elif program_start.lower() == 'previous':
+    #     while True:
+    #         prior_query = input('Please specify the path where the search file is located%s' % input_string)
+    #         if os.path.exists(prior_query):
+    #             with open(prior_query, 'r') as f:
+    #                 search_query = loads(f.readlines())
+    #         else:
+    #             print('The specified path \'%s\' doesn\'t exist! Please try again.' % prior_query)
     else:
         return_identifier_string = '\nFor each set of options, choose the option from the first column for the ' \
                                    'description in the second.\nWhat type of identifier do you want to search the PDB '\
