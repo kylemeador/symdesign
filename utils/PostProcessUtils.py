@@ -3,11 +3,11 @@ import shutil
 import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
-grandparent_dir = os.path.dirname(parent_dir)
-sys.path.extend([parent_dir, grandparent_dir])
-from DesignDirectory import set_up_directory_objects
-from SymDesignUtils import collect_directories
-from classes.PDB import PDB
+# grandparent_dir = os.path.dirname(parent_dir)
+sys.path.extend([parent_dir])
+# from DesignDirectory import set_up_directory_objects
+# from SymDesignUtils import collect_directories
+# from classes.PDB import PDB
 
 
 def frag_match_count_filter(master_design_dirpath, min_frag_match_count, master_design_outdir_path):

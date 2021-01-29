@@ -20,6 +20,7 @@ import PathUtils as PUtils
 # logging.getLogger().setLevel(logging.INFO)
 
 # Globals
+from utils.GeneralUtils import euclidean_squared_3d
 
 index_offset = 1
 rmsd_threshold = 1.0
@@ -54,7 +55,7 @@ def handle_errors_f(errors=(Exception, )):
     return wrapper
 
 
-def handle_design_errors(errors=(Exception,)):  # TODO refactor handle_errors to handle_errors_DesDir
+def handle_design_errors(errors=(Exception,)):
     """Decorator to wrap a function with try: ... except errors: finally:
 
     Keyword Args:
@@ -68,6 +69,7 @@ def handle_design_errors(errors=(Exception,)):  # TODO refactor handle_errors to
             try:
                 return func(*args, **kwargs), None
             except errors as e:
+                args[0].log.error(e)  # This might forgo termination exceptions reporting if args[0] is des_dir
                 return None, (args[0], e)  # requires a directory identifier as args[0]
                 # return None, (args[0].path, e)
             # finally:  TODO figure out how to run only when uncaught exception is found
@@ -120,7 +122,7 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
             .log is appended to file
         propagate=True (bool): Whether to pass messages to parent level loggers
     Returns:
-        _logger (Logger): Logger object to handle messages
+        (logging.Logger): Logger object to handle messages
     """
     # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
     log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
@@ -1041,3 +1043,59 @@ class DesignError(Exception):
 
     def __eq__(self, other):
         return self.__str__() == other
+
+
+def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None):
+    e1 = euclidean_squared_3d(coords1[0], coords2[0])
+    e2 = euclidean_squared_3d(coords1[1], coords2[1])
+    e3 = euclidean_squared_3d(coords1[2], coords2[2])
+    s = e1 + e2 + e3
+    mean = s / float(3)
+    rmsd = math.sqrt(mean)
+
+    # Calculate Guide Atom Overlap Z-Value
+    # and Calculate Score Term for Nanohedra Residue Level Summation Score
+    z_val = rmsd / float(max(coords_rmsd_reference, 0.01))
+
+    match_score = 1 / float(1 + (z_val ** 2))
+
+    return match_score, z_val
+
+
+def z_value_from_match_score(match_score):
+    return math.sqrt((1 / match_score) - 1)
+
+
+def match_score_from_z_value(z_value):
+    """Return the match score from a fragment z-value. Bounded between 0 and 1"""
+    return 1 / float(1 + (z_value ** 2))
+
+
+def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_frags, coords_l2, z_value_func=None,
+                                  max_z_value=2):
+    """Filter an EulerLookup by a specified z-value, where the z-value is calculated by a passed function which has
+    two sets of coordinates and and rmsd as args
+
+    Returns:
+        (list[tuple]): (Function overlap parameter, z-value of function)
+    """
+    overlap_results = []
+    for index_pair in index_pairs:
+        ghost_frag = ghost_frags[index_pair[0]]
+        coords1 = coords_l1[index_pair[0]]
+        # or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
+        # coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
+        surf_frag = surface_frags[index_pair[1]]
+        coords2 = coords_l2[index_pair[1]]
+        # surf_frag.get_guide_coords()
+        if surf_frag.get_type() == ghost_frag.get_j_frag_type():  # could move this as mask outside
+            result, z_value = z_value_func(coords1=coords1, coords2=coords2,
+                                           coords_rmsd_reference=ghost_frag.get_rmsd())
+            if z_value <= max_z_value:
+                overlap_results.append((result, z_value))
+            else:
+                overlap_results.append(False)
+        else:
+            overlap_results.append(False)
+
+    return overlap_results

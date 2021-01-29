@@ -213,7 +213,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             #     oriented_pdb.reindex_chain_residues(chain)
             oriented_pdb.renumber_residues_by_chain()
             # Get the updated sequences
-            asu.get_chain_sequences()
+            asu.get_chain_sequences()  # 1/29/21 KM updated this function which might affect this routine
             oriented_pdb.get_chain_sequences()
             oriented_pdb_seq_final = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
             final_mutations = SequenceProfile.generate_mutations(oriented_pdb_seq_final,

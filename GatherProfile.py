@@ -11,6 +11,7 @@ import PathUtils as PUtils
 import SequenceProfile
 import SymDesignUtils
 import SymDesignUtils as SDUtils
+from PDB import PDB
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -37,13 +38,13 @@ def check_pssm_v_pose(d_dir, pssm, template_residues):
     return True
 
 
-def check_for_errors(des_dir, debug):
+def check_for_errors(des_dir):
     pose_pssm, template_pdb = None, None
     for file in os.listdir(des_dir.path):
-        if file.endswith('pose.dssm'):
+        if file.endswith(PUtils.dssm):
             pose_pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, file))
         if file.endswith(PUtils.clean):
-            template_pdb = PDB(file=os.path.join(des_dir.path, file))
+            template_pdb = PDB.from_file(os.path.join(des_dir.path, file))
 
     if pose_pssm and template_pdb:
         template_residues = template_pdb.get_residues()
