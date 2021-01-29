@@ -6,6 +6,8 @@ import os
 
 # Project strings and file names
 program_name = 'SymDesign'
+program_command = 'python $SymDesign'
+guide_string = '%s guide. Enter \'%s guide\'' % (program_name, program_command)
 nano = 'nanohedra'  # v0 'Nanohedra'  # v1?
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
@@ -61,8 +63,8 @@ pdb_source = 'db'  # 'download_pdb'  # TODO set up
 # Project paths
 # command = 'SymDesign.py -h'
 source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
+readme = os.path.join(source, 'README.md')
 command = os.path.join(source, 'SymDesignControl')
-program_command = 'python $SymDesign'
 filter_designs = os.path.join(source, 'AnalyzeOutput.py')
 cmd_dist = os.path.join(source, 'CommandDistributer.py')
 dependency_dir = os.path.join(source, 'dependencies')
