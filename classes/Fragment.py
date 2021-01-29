@@ -86,7 +86,7 @@ class GhostFragment:
         self.k_frag_type = k_frag_type
         self.rmsd = ijk_rmsd
         self.central_res_tup = ghostfrag_central_res_tup
-        self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup
+        self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup  # (chain, residue_number)
 
         if [guide_atoms, guide_coords, pdb_coords] == [None, None, None]:
             self.guide_atoms = []
@@ -104,20 +104,34 @@ class GhostFragment:
             self.pdb_coords = pdb_coords
 
     def get_ijk(self):
+        """Return the fragments corresponding cluster index information
+
+        Returns:
+            (tuple): I cluster index, J cluster index, K cluster index
+        """
         return self.i_frag_type, self.j_frag_type, self.k_frag_type
 
     def get_central_res_tup(self):
-        """Get the representative chain and residue information from the underlysing observation
+        """Get the representative chain and residue information from the underlying observation
 
         Returns:
-            (tuple): Chost Frament Mapped Chain ID, Central Residue Number, Partner Chain ID, Central Residue Number
+            (tuple): Ghost Fragment Mapped Chain ID, Central Residue Number, Partner Chain ID, Central Residue Number
         """
         return self.central_res_tup
 
     def get_aligned_surf_frag_central_res_tup(self):
+        """Return the fragment information the GhostFragment instance is aligned to
+        Returns:
+            (tuple): aligned chain, aligned residue_number"""
         return self.aligned_surf_frag_central_res_tup
 
     def get_aligned_central_res_info(self):
+        """Return the cluster representative and aligned fragment information for the GhostFragment instance
+
+        Returns:
+            (tuple): mapped_chain, mapped_central_res_number, partner_chain, partner_central_residue_number,
+            chain, residue_number
+        """
         return self.central_res_tup + self.aligned_surf_frag_central_res_tup
 
     def get_i_frag_type(self):
@@ -159,7 +173,8 @@ class MonoFragment:
         self.central_res_num = None
         self.central_res_chain_id = None
 
-        if monofrag_cluster_rep_dict is None and type is not None and guide_coords is not None and central_res_num is not None and central_res_chain_id is not None and pdb_coords is not None:
+        if monofrag_cluster_rep_dict is None and type is not None and guide_coords is not None and \
+                central_res_num is not None and central_res_chain_id is not None and pdb_coords is not None:
             self.pdb = pdb
             self.pdb_coords = pdb_coords
             self.type = type
@@ -175,7 +190,8 @@ class MonoFragment:
             self.central_res_chain_id = central_res_chain_id
 
         # elif monofrag_cluster_rep_dict is not None and pdb is not None:  # TODO
-        elif monofrag_cluster_rep_dict is not None and type is None and guide_coords is None and central_res_num is None and central_res_chain_id is None and pdb_coords is None:
+        elif monofrag_cluster_rep_dict is not None and type is None and guide_coords is None and \
+                central_res_num is None and central_res_chain_id is None and pdb_coords is None:
             self.pdb = pdb
             self.pdb_coords = self.pdb.extract_all_coords()
             frag_ca_atoms = self.pdb.get_CA_atoms()
@@ -356,16 +372,20 @@ class FragmentDB:
         self.monofrag_cluster_rep_dirpath = monofrag_cluster_rep_dirpath
         self.intfrag_cluster_rep_dirpath = intfrag_cluster_rep_dirpath
         self.intfrag_cluster_info_dirpath = intfrag_cluster_info_dirpath
+        self.reps = None
+        self.paired_frags = None
+        self.info = None
 
     def get_monofrag_cluster_rep_dict(self):
         cluster_rep_pdb_dict = {}
         for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath):
             for filename in files:
-                if filename.endswith(".pdb"):
+                if ".pdb" in filename:  # Todo remove this check as all files are .pdb
                     pdb = PDB()
                     pdb.readfile(self.monofrag_cluster_rep_dirpath + "/" + filename, remove_alt_location=True)
                     cluster_rep_pdb_dict[os.path.splitext(filename)[0]] = pdb
 
+        self.reps = cluster_rep_pdb_dict
         return cluster_rep_pdb_dict
 
     def get_intfrag_cluster_rep_dict(self):
@@ -385,7 +405,7 @@ class FragmentDB:
 
                 for dirpath2, dirnames2, filenames2 in os.walk(dirpath1):
                     for filename in filenames2:
-                        if filename.endswith(".pdb"):
+                        if ".pdb" in filename:  # Todo remove this check as all files are .pdb
                             ijk_frag_cluster_rep_pdb = PDB()
                             ijk_frag_cluster_rep_pdb.readfile(dirpath1 + "/" + filename)
                             ijk_frag_cluster_rep_mapped_chain_id = filename[
@@ -418,6 +438,7 @@ class FragmentDB:
                             intfrag_mapped_chain_central_res_num, ijk_frag_cluster_rep_partner_chain_id,
                             intfrag_partner_chain_central_res_num)
 
+        self.paired_frags = i_j_k_intfrag_cluster_rep_dict
         return i_j_k_intfrag_cluster_rep_dict
 
     def get_intfrag_cluster_info_dict(self):
@@ -437,8 +458,9 @@ class FragmentDB:
 
                 for dirpath2, dirnames2, filenames2 in os.walk(dirpath1):
                     for filename in filenames2:
-                        if filename.endswith(".txt"):
+                        if ".txt" in filename:
                             intfrag_cluster_info_dict[i_cluster_type][j_cluster_type][k_cluster_type] = ClusterInfoFile(
                                 dirpath1 + "/" + filename)
 
+        self.info = intfrag_cluster_info_dict
         return intfrag_cluster_info_dict
