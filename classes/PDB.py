@@ -232,10 +232,10 @@ class PDB:
             self.all_atoms[i].x, self.all_atoms[i].y, self.all_atoms[i].z = new_cords[i][0], new_cords[i][1], \
                                                                             new_cords[i][2]
 
-    def mat_vec_mul3(self, a, b):
+    def mat_vec_mul3(self, a, b):  # rot_mat, tx_v
         c = [0. for i in range(3)]
         for i in range(3):
-            c[i] = 0.
+            # c[i] = 0.
             for j in range(3):
                 c[i] += a[i][j] * b[j]
         return c
