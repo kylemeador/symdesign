@@ -59,7 +59,8 @@ def query_user_for_flags(mode='design', template=False):
         flags_input = input('\nEnter the numbers corresponding to the flags your design requires. Ex: \'1 3 6\'\n%s'
                             % input_string)
         flag_numbers = flags_input.split()
-        chosen_flags = [list(flags[mode].keys())[flag] for flag in map(int, flag_numbers)]
+        chosen_flags = [list(flags[mode].keys())[flag - 1] for flag in map(int, flag_numbers)
+                        if len(flags[mode].keys()) >= flag > 0]
         value_array = []
         for idx, flag in enumerate(chosen_flags):
             valid = False

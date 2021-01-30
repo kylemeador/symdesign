@@ -367,7 +367,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         #                                 (des_dir.path, name + '_tx_*.pdb')
         oligomer[name] = PDB.from_file(name_pdb_file[0])
         # oligomer[name] = SDUtils.read_pdb(name_pdb_file[0])
-        oligomer[name].set_name(name)
+        oligomer[name].name = name
         # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
         sdf_file_name = os.path.join(os.path.dirname(oligomer[name].filepath), '%s.sdf' % oligomer[name].name)
         sym_definition_files[name] = oligomer[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)

@@ -108,7 +108,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         rot = chain_data_d[chain_id]['r_mat']
         trans = chain_data_d[chain_id]['t_vec']
         chain_pdb.apply(rot, trans)
-        chain_pdb.chain(chain).set_atoms_attribute(chain=temp_names[temp_name_idx])  # ensure that chain names are not the same
+        chain_pdb.chain(chain).set_atoms_attributes(chain=temp_names[temp_name_idx])  # ensure that chain names are not the same
         temp_chain_d[temp_names[temp_name_idx]] = str(chain_id)
         interface_chain_pdbs.append(chain_pdb)
         # interface_pdb.read_atom_list(chain_pdb.atoms)
@@ -116,7 +116,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
     interface_pdb = PDB(atoms=iter_chain.from_iterable([chain_pdb.get_atoms() for chain_pdb in interface_chain_pdbs]))
     if len(interface_pdb.chain_id_list) == 2:
         for temp_name in temp_chain_d:
-            interface_pdb.chain(temp_name).set_atoms_attribute(chain=temp_chain_d[temp_name])
+            interface_pdb.chain(temp_name).set_atoms_attributes(chain=temp_chain_d[temp_name])
 
     return interface_pdb
 
