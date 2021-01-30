@@ -865,27 +865,29 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
     @property
     def number_of_atoms(self):
-        try:
-            return self._number_of_atoms
-        except AttributeError:
-            self.set_length()
-            return self._number_of_atoms
-
-    @number_of_atoms.setter
-    def number_of_atoms(self, length):
-        self._number_of_atoms = length
+        return len(self.pdb.get_atoms())
+    #     try:
+    #         return self._number_of_atoms
+    #     except AttributeError:
+    #         self.set_length()
+    #         return self._number_of_atoms
+    #
+    # @number_of_atoms.setter
+    # def number_of_atoms(self, length):
+    #     self._number_of_atoms = length
 
     @property
     def number_of_residues(self):
-        try:
-            return self._number_of_residues
-        except AttributeError:
-            self.set_length()
-            return self._number_of_residues
-
-    @number_of_residues.setter
-    def number_of_residues(self, length):
-        self._number_of_residues = length
+        return len(self.pdb.get_residues())
+    #     try:
+    #         return self._number_of_residues
+    #     except AttributeError:
+    #         self.set_length()
+    #         return self._number_of_residues
+    #
+    # @number_of_residues.setter
+    # def number_of_residues(self, length):
+    #     self._number_of_residues = length
 
     @property
     def center_of_mass(self):
@@ -895,9 +897,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.find_center_of_mass()
             return self._center_of_mass
 
-    def set_length(self):
-        self.number_of_atoms = len(self.pdb.get_atoms())
-        self.number_of_residues = len(self.pdb.get_residues())
+    # def set_length(self):
+    #     self.number_of_atoms = len(self.pdb.get_atoms())
+    #     self.number_of_residues = len(self.pdb.get_residues())
 
     def find_center_of_mass(self):
         """Retrieve the center of mass for the specified Structure"""
