@@ -117,7 +117,7 @@ class Structure:  # (Coords):
     @property
     def center_of_mass(self):
         divisor = 1 / self.number_of_atoms
-        return np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
+        return np.matmul(np.full(self.number_of_atoms, divisor), self.get_coords())
         # try:
         #     return self._center_of_mass
         # except AttributeError:
