@@ -2,7 +2,7 @@ import copy
 import os
 import pickle
 from glob import glob
-from itertools import chain, combinations
+from itertools import chain, combinations, combinations_with_replacement
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -737,6 +737,10 @@ class SymmetricModel(Model):
 
     @staticmethod
     def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
+        """Get the symmetry operations for a specified point group oriented in the cannonical orientation
+        Returns:
+            (list[list])
+        """
         expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
         with open(expand_matrix_filepath, "r") as expand_matrix_f:
             expand_matrix_lines = expand_matrix_f.readlines()
@@ -802,9 +806,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.fragment_observations = []
 
         symmetry_kwargs = self.pdb.symmetry
-        print('Pose kwargs: %s' % kwargs)
+        # print('Pose kwargs: %s' % kwargs)
         symmetry_kwargs.update(kwargs)
-        print('Pose symmetry_kwargs: %s' % symmetry_kwargs)
+        self.log.debug('Pose symmetry_kwargs: %s' % symmetry_kwargs)
         self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if the ASU was passed
         # self.initialize_symmetry(symmetry=symmetry)
 
@@ -981,8 +985,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         Design mask aware
 
         Keyword Args:
-            entity1=None (str): First entity name to measure interface between
-            entity2=None (str): Second entity name to measure interface between
+            entity1=None (Entity): First entity to measure interface between
+            # entity1=None (str): First entity name to measure interface between
+            entity2=None (Entity): Second entity to measure interface between
+            # entity2=None (str): Second entity name to measure interface between
             distance=8 (int): The distance to query the interface in Angstroms
             include_glycine=True (bool): Whether glycine CA should be included in the tree
         Returns:
@@ -991,11 +997,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        entity1_atoms = self.pdb.entity(entity1).get_atoms()  # if passing by name
-        entity1_indices = np.array(self.pdb.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
+        entity1_atoms = entity1.get_atoms()  # if passing by Structure
+        entity1_indices = np.array(entity1.get_cb_indices(InclGlyCA=include_glycine))
+        # entity1_atoms = self.pdb.entity(entity1).get_atoms()  # if passing by name
+        # entity1_indices = np.array(self.pdb.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
 
-        entity2_atoms = self.pdb.entity(entity2).get_atoms()  # if passing by name
-        entity2_indices = self.pdb.entity(entity2).get_cb_indices(InclGlyCA=include_glycine)
+        entity2_atoms = entity2.get_atoms()  # if passing by Structure
+        entity2_indices = entity2.get_cb_indices(InclGlyCA=include_glycine)
+        # entity2_atoms = self.pdb.entity(entity2).get_atoms()  # if passing by name
+        # entity2_indices = self.pdb.entity(entity2).get_cb_indices(InclGlyCA=include_glycine)
 
         if self.design_mask:  # subtract the masked atom indices from the entity indices
             entity1_indices = set(entity1_indices).difference(self.design_mask)
@@ -1056,7 +1066,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # interface_name = self.asu
         entity1_residue_numbers, entity2_residue_numbers = self.find_interface_residues(entity1=entity1,
                                                                                         entity2=entity2)
-        entity1_structure = self.pdb.entity(entity1)
+        entity1_structure = entity1  # when passing reference structure
+        # entity1_structure = self.pdb.entity(entity1)
         if entity1_structure in self.interface_residues:
             self.interface_residues[entity1_structure] = entity1_structure.get_residues(numbers=entity1_residue_numbers)
             # self.interface_residues[entity1_structure] = entity1_residue_numbers
@@ -1064,7 +1075,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.interface_residues[entity1_structure].extend(entity1_structure.get_residues(numbers=entity1_residue_numbers))
             # self.interface_residues[entity1_structure].extend(entity1_residue_numbers)
 
-        entity2_structure = self.pdb.entity(entity2)
+        entity2_structure = entity2  # when passing reference structure
+        # entity2_structure = self.pdb.entity(entity2)
         if entity2_structure in self.interface_residues:
             self.interface_residues[entity2_structure] = entity2_structure.get_residues(numbers=entity2_residue_numbers)
             # self.interface_residues[entity2_structure] = entity2_residue_numbers
@@ -1174,7 +1186,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # else:
         #     # sdf_file_name = os.path.join(os.path.dirname(oligomer[name].filepath), '%s.sdf' % oligomer[name].name)
         #     # sym_definition_files[name] = oligomer[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
-
+        self.log.debug('Entities: %s' % str(self.entities))
         self.log.info('Symmetry is: %s' % symmetry)  # Todo resolve duplication with below self.symmetry
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
@@ -1198,7 +1210,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if fragments:
             if query_fragments:  # search for new fragment information
                 self.connect_fragment_database(db=design_dir.frag_db)
-                for entity_pair in combinations(self.entities, 2):
+                # for entity_pair in combinations(self.entities, 2):
+                for entity_pair in combinations_with_replacement(self.entities, 2):
+                    self.log.debug('Entity pair: %s' % str(tuple(entity.name for entity in entity_pair)))
                     self.query_interface_for_fragments(*entity_pair)
                 if write_fragments:
                     write_fragment_pairs(self.fragment_observations, out_path=design_dir.frags)
@@ -1248,36 +1262,43 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.combine_ssm()
             # fragment_source=design_dir.fragment_observations, frag_alignment_type=fragment_info_source,
 
-        # Extract PSSM for each protein and combine into single PSSM
-        # set pose.evolutionary_profile
-        self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
-        self.log.debug('Position Specific Scoring Matrix: %s' % str(self.evolutionary_profile))
-        self.pssm_file = self.make_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=design_dir.data)
+        if fragments:
+            # set pose.fragment_profile
+            self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
+            self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
+            self.interface_data_file = pickle_object(self.fragment_profile, frag_db + PUtils.frag_profile,
+                                                     out_path=design_dir.data)
 
-        # set pose.fragment_profile
-        self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
-        self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
-        interface_data_file = pickle_object(self.fragment_profile, frag_db + PUtils.frag_profile,
-                                            out_path=design_dir.data)
+        if evolution:
+            # Extract PSSM for each protein and combine into single PSSM
+            # set pose.evolutionary_profile
+            self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
+            self.log.debug('Position Specific Scoring Matrix: %s' % str(self.evolutionary_profile))
+            self.pssm_file = self.make_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=design_dir.data)
 
-        self.combine_profile([entity.profile for entity in self.asu])  # sets pose.profile
-        self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
-        self.dssm_file = self.make_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
+            self.combine_profile([entity.profile for entity in self.asu])  # sets pose.profile
+            self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
+            self.design_profile = self.make_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
 
         # -------------------------------------------------------------------------
         # self.solve_consensus()  # Todo
         # -------------------------------------------------------------------------
 
         # Update DesignDirectory with design information # Todo where to save this/include in pose initialization?
-        design_dir.info['pssm'] = self.pssm_file
-        design_dir.info['issm'] = interface_data_file
-        design_dir.info['dssm'] = self.dssm_file
+        design_dir.info['evolutionary_profile'] = self.pssm_file
+        design_dir.info['fragment_profile'] = self.interface_data_file
+        design_dir.info['design_profile'] = self.design_profile
         design_dir.info['db'] = frag_db
         # This info is pulled out in AnalyzeOutput from Rosetta currently
         design_dir.info['design_residues'] = self.interface_residues
         # TODO add symmetry or oligomer data to .info?
 
     def return_symmetry_parameters(self):
+        """Return the symmetry parameters from a SymmetricModel
+
+        Returns:
+            (dict): {symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
+        """
         temp_dict = self.__dict__
         temp_dict.pop('models')
         temp_dict.pop('pdb')
