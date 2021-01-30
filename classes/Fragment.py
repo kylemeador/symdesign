@@ -79,29 +79,29 @@ def get_surface_fragments_chain(pdb, chain_id):  # DEPRECIATE
 
 class GhostFragment:
     def __init__(self, pdb, i_frag_type, j_frag_type, k_frag_type, ijk_rmsd, ghostfrag_central_res_tup,
-                 aligned_surf_frag_central_res_tup, guide_atoms=None, guide_coords=None, pdb_coords=None):
+                 guide_coords=None, pdb_coords=None):  # aligned_surf_frag_central_res_tup, guide_atoms=None,
         self.pdb = pdb
         self.i_frag_type = i_frag_type
         self.j_frag_type = j_frag_type
         self.k_frag_type = k_frag_type
         self.rmsd = ijk_rmsd
         self.central_res_tup = ghostfrag_central_res_tup
-        self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup  # (chain, residue_number)
+        # self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup  # (chain, res_number, ch, res#)
 
-        if [guide_atoms, guide_coords, pdb_coords] == [None, None, None]:
-            self.guide_atoms = []
+        if not guide_coords:  # guide_atoms, , pdb_coords] == [None, None]
+            # self.guide_atoms = []
             self.guide_coords = []
-            self.pdb_coords = []
+            # self.pdb_coords = []
             for atom in self.pdb.all_atoms:
-                self.pdb_coords.append([atom.x, atom.y, atom.z])
+                # self.pdb_coords.append([atom.x, atom.y, atom.z])
                 if atom.chain == "9":
-                    self.guide_atoms.append(atom)
+                    # self.guide_atoms.append(atom)
                     self.guide_coords.append([atom.x, atom.y, atom.z])
 
         else:
-            self.guide_atoms = guide_atoms
+            # self.guide_atoms = guide_atoms
             self.guide_coords = guide_coords
-            self.pdb_coords = pdb_coords
+            # self.pdb_coords = pdb_coords
 
     def get_ijk(self):
         """Return the fragments corresponding cluster index information
@@ -119,11 +119,11 @@ class GhostFragment:
         """
         return self.central_res_tup
 
-    def get_aligned_surf_frag_central_res_tup(self):
-        """Return the fragment information the GhostFragment instance is aligned to
-        Returns:
-            (tuple): aligned chain, aligned residue_number"""
-        return self.aligned_surf_frag_central_res_tup
+    # def get_aligned_surf_frag_central_res_tup(self):
+    #     """Return the fragment information the GhostFragment instance is aligned to
+    #     Returns:
+    #         (tuple): aligned chain, aligned residue_number"""
+    #     return self.aligned_surf_frag_central_res_tup
 
     def get_aligned_central_res_info(self):
         """Return the cluster representative and aligned fragment information for the GhostFragment instance
@@ -132,7 +132,7 @@ class GhostFragment:
             (tuple): mapped_chain, mapped_central_res_number, partner_chain, partner_central_residue_number,
             chain, residue_number
         """
-        return self.central_res_tup + self.aligned_surf_frag_central_res_tup
+        return self.central_res_tup  # + self.aligned_surf_frag_central_res_tup
 
     def get_i_frag_type(self):
         return self.i_frag_type
@@ -149,11 +149,11 @@ class GhostFragment:
     def get_pdb(self):
         return self.pdb
 
-    def get_pdb_coords(self):
-        return self.pdb_coords
+    # def get_pdb_coords(self):
+    #     return self.pdb_coords
 
-    def get_guide_atoms(self):
-        return self.guide_atoms
+    # def get_guide_atoms(self):
+    #     return self.guide_atoms
 
     def get_guide_coords(self):
         return self.guide_coords
@@ -164,46 +164,45 @@ class GhostFragment:
 
 class MonoFragment:
     def __init__(self, pdb, monofrag_cluster_rep_dict=None, type=None, guide_coords=None, central_res_num=None,
-                 central_res_chain_id=None, pdb_coords=None, rmsd_thresh=0.75):
+                 central_res_chain_id=None, rmsd_thresh=0.75):  # pdb_coords=None,
         self.pdb = None
-        self.pdb_coords = None
+        # self.pdb_coords = None
         self.type = None
         self.guide_coords = None
-        self.guide_atoms = None
+        # self.guide_atoms = None
         self.central_res_num = None
         self.central_res_chain_id = None
 
         if monofrag_cluster_rep_dict is None and type is not None and guide_coords is not None and \
-                central_res_num is not None and central_res_chain_id is not None and pdb_coords is not None:
+                central_res_num is not None and central_res_chain_id is not None:  #  and pdb_coords is not None:
             self.pdb = pdb
-            self.pdb_coords = pdb_coords
+            # self.pdb_coords = pdb_coords
             self.type = type
             self.guide_coords = guide_coords
-            a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", guide_coords[0][0], guide_coords[0][1], guide_coords[0][2],
-                      1.00, 20.00, "C", "")
-            a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", guide_coords[1][0], guide_coords[1][1], guide_coords[1][2], 1.00,
-                      20.00, "N", "")
-            a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", guide_coords[2][0], guide_coords[2][1], guide_coords[2][2], 1.00,
-                      20.00, "O", "")
-            self.guide_atoms = [a1, a2, a3]
+            # a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", guide_coords[0][0], guide_coords[0][1], guide_coords[0][2],
+            #           1.00, 20.00, "C", "")
+            # a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", guide_coords[1][0], guide_coords[1][1], guide_coords[1][2], 1.00,
+            #           20.00, "N", "")
+            # a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", guide_coords[2][0], guide_coords[2][1], guide_coords[2][2], 1.00,
+            #           20.00, "O", "")
+            # self.guide_atoms = [a1, a2, a3]
             self.central_res_num = central_res_num
             self.central_res_chain_id = central_res_chain_id
 
         # elif monofrag_cluster_rep_dict is not None and pdb is not None:  # TODO
         elif monofrag_cluster_rep_dict is not None and type is None and guide_coords is None and \
-                central_res_num is None and central_res_chain_id is None and pdb_coords is None:
+                central_res_num is None and central_res_chain_id is None:  # and pdb_coords is None:
             self.pdb = pdb
-            self.pdb_coords = self.pdb.extract_all_coords()
+            # self.pdb_coords = self.pdb.extract_all_coords()
             frag_ca_atoms = self.pdb.get_CA_atoms()
-            # self.pdb_coords = self.pdb.extract_coords()  # TODO
             # frag_ca_atoms = self.pdb.get_ca_atoms()  # TODO
             self.central_res_num = frag_ca_atoms[2].residue_number
             self.central_res_chain_id = self.pdb.chain_id_list[0]
 
-            a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", 0.0, 0.0, 0.0, 1.00, 20.00, "C", "")
-            a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", 3.0, 0.0, 0.0, 1.00, 20.00, "N", "")
-            a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", 0.0, 3.0, 0.0, 1.00, 20.00, "O", "")
-
+            # a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", 0.0, 0.0, 0.0, 1.00, 20.00, "C", "")
+            # a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", 3.0, 0.0, 0.0, 1.00, 20.00, "N", "")
+            # a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", 0.0, 3.0, 0.0, 1.00, 20.00, "O", "")
+            guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
             min_rmsd = float('inf')
             min_rmsd_cluster_rep_rot_tx = None
             min_rmsd_cluster_rep_type = None
@@ -216,20 +215,26 @@ class MonoFragment:
 
                 if rmsd <= min_rmsd and rmsd <= rmsd_thresh:
                     min_rmsd = rmsd
-                    min_rmsd_cluster_rep_rot_tx = rot, tx
+                    min_rot, min_tx = rot, tx
                     min_rmsd_cluster_rep_type = cluster_type
 
             if min_rmsd_cluster_rep_rot_tx is not None:
-                guide_atoms_pdb = PDB()
-                guide_atoms_pdb.read_atom_list([a1, a2, a3])
-                guide_atoms_pdb.rotate_translate(min_rmsd_cluster_rep_rot_tx[0],
-                                                 min_rmsd_cluster_rep_rot_tx[1])  # *args
-
                 self.type = min_rmsd_cluster_rep_type
-                self.guide_atoms = guide_atoms_pdb.all_atoms
-                self.guide_coords = guide_atoms_pdb.extract_all_coords()
-                # self.guide_atoms = guide_atoms_pdb.get_atoms()  # TODO
-                # self.guide_coords = guide_atoms_pdb.extract_coords()  # TODO
+                # guide_atoms_pdb = PDB()
+                # guide_atoms_pdb.read_atom_list([a1, a2, a3])
+                # guide_atoms_pdb.rotate_translate(min_rmsd_cluster_rep_rot_tx[0],
+                #                                  min_rmsd_cluster_rep_rot_tx[1])  # *args
+                # # coord_rot = self.mat_vec_mul3(rot, coord)
+                # # coord_tr = coord_rot + tx
+                # self.guide_atoms = guide_atoms_pdb.all_atoms
+                # self.guide_coords = guide_atoms_pdb.extract_all_coords()
+
+                t_vec = np.array(min_tx)
+                r_mat = np.transpose(np.array(min_rot))
+
+                r_guide_coords = np.matmul(guide_coords, r_mat)
+                rt_guide_coords = r_guide_coords + t_vec
+                self.guide_coords = rt_guide_coords
 
     def get_central_res_tup(self):
         return self.central_res_chain_id, self.central_res_num
@@ -249,8 +254,8 @@ class MonoFragment:
     def get_pdb(self):
         return self.pdb
 
-    def get_pdb_coords(self):
-        return self.pdb_coords
+    # def get_pdb_coords(self):
+    #     return self.pdb_coords
 
     def get_central_res_num(self):
         return self.central_res_num
@@ -260,18 +265,18 @@ class MonoFragment:
 
     def set_pdb(self, pdb):
         self.pdb = pdb
-        self.pdb_coords = pdb.extract_all_coords()
+        # self.pdb_coords = pdb.extract_all_coords()
         # self.pdb_coords = pdb.extract_coords()  # TODO
 
-    def set_guide_atoms(self, guide_coords):
-        self.guide_coords = guide_coords
-        a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", guide_coords[0][0], guide_coords[0][1], guide_coords[0][2], 1.00,
-                  20.00, "C", "")
-        a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", guide_coords[1][0], guide_coords[1][1], guide_coords[1][2], 1.00,
-                  20.00, "N", "")
-        a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", guide_coords[2][0], guide_coords[2][1], guide_coords[2][2], 1.00,
-                  20.00, "O", "")
-        self.guide_atoms = [a1, a2, a3]
+    # def set_guide_atoms(self, guide_coords):
+    #     self.guide_coords = guide_coords
+    #     a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", guide_coords[0][0], guide_coords[0][1], guide_coords[0][2], 1.00,
+    #               20.00, "C", "")
+    #     a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", guide_coords[1][0], guide_coords[1][1], guide_coords[1][2], 1.00,
+    #               20.00, "N", "")
+    #     a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", guide_coords[2][0], guide_coords[2][1], guide_coords[2][2], 1.00,
+    #               20.00, "O", "")
+    #     self.guide_atoms = [a1, a2, a3]
 
     def get_ghost_fragments(self, intfrag_cluster_rep_dict, kdtree_oligomer_backbone, intfrag_cluster_info_dict,
                             clash_dist=2.2):
@@ -291,9 +296,9 @@ class MonoFragment:
                                                                   intfrag_mapped_chain_id)
 
                     # Ghost Fragment Mapped Chain ID, Central Residue Number and Partner Chain ID, Partner Central Residue Number
-                    ghostfrag_central_res_tup = (
-                        intfrag_mapped_chain_id, intfrag_mapped_chain_central_res_num, intfrag_partner_chain_id,
-                        intfrag_partner_chain_central_res_num)
+                    # ghostfrag_central_res_tup = (
+                    #     intfrag_mapped_chain_id, intfrag_mapped_chain_central_res_num, intfrag_partner_chain_id,
+                    #     intfrag_partner_chain_central_res_num)
 
                     # Only keep ghost fragments that don't clash with oligomer backbone
                     # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
@@ -307,7 +312,7 @@ class MonoFragment:
                     if cb_clash_count[0] == 0:
                         ghost_fragments.append(
                             GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, rmsd,
-                                          ghostfrag_central_res_tup, self.get_central_res_tup()))
+                                          self.get_central_res_tup()))  # ghostfrag_central_res_tup,
 
             return ghost_fragments
 
@@ -380,10 +385,10 @@ class FragmentDB:
         cluster_rep_pdb_dict = {}
         for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath):
             for filename in files:
-                if ".pdb" in filename:  # Todo remove this check as all files are .pdb
-                    pdb = PDB()
-                    pdb.readfile(self.monofrag_cluster_rep_dirpath + "/" + filename, remove_alt_location=True)
-                    cluster_rep_pdb_dict[os.path.splitext(filename)[0]] = pdb
+                # if ".pdb" in filename:  # Todo remove this check as all files are .pdb
+                pdb = PDB()
+                pdb.readfile(self.monofrag_cluster_rep_dirpath + "/" + filename, remove_alt_location=True)
+                cluster_rep_pdb_dict[os.path.splitext(filename)[0]] = pdb
 
         self.reps = cluster_rep_pdb_dict
         return cluster_rep_pdb_dict
@@ -405,38 +410,38 @@ class FragmentDB:
 
                 for dirpath2, dirnames2, filenames2 in os.walk(dirpath1):
                     for filename in filenames2:
-                        if ".pdb" in filename:  # Todo remove this check as all files are .pdb
-                            ijk_frag_cluster_rep_pdb = PDB()
-                            ijk_frag_cluster_rep_pdb.readfile(dirpath1 + "/" + filename)
-                            ijk_frag_cluster_rep_mapped_chain_id = filename[
-                                                                   filename.find("mappedchain") + 12:filename.find(
-                                                                       "mappedchain") + 13]
-                            ijk_frag_cluster_rep_partner_chain_id = filename[
-                                                                    filename.find("partnerchain") + 13:filename.find(
-                                                                        "partnerchain") + 14]
+                        # if ".pdb" in filename:  # Todo remove this check as all files are .pdb
+                        ijk_frag_cluster_rep_pdb = PDB()
+                        ijk_frag_cluster_rep_pdb.readfile(dirpath1 + "/" + filename)
+                        ijk_frag_cluster_rep_mapped_chain_id = filename[
+                                                               filename.find("mappedchain") + 12:filename.find(
+                                                                   "mappedchain") + 13]
+                        ijk_frag_cluster_rep_partner_chain_id = filename[
+                                                                filename.find("partnerchain") + 13:filename.find(
+                                                                    "partnerchain") + 14]
 
-                            # Get central residue number of mapped interface fragment chain
-                            intfrag_mapped_chain_central_res_num = None
-                            mapped_chain_res_count = 0
-                            for atom in ijk_frag_cluster_rep_pdb.chain(ijk_frag_cluster_rep_mapped_chain_id):
-                                if atom.is_CA():
-                                    mapped_chain_res_count += 1
-                                    if mapped_chain_res_count == 3:
-                                        intfrag_mapped_chain_central_res_num = atom.residue_number
+                        # Get central residue number of mapped interface fragment chain
+                        intfrag_mapped_chain_central_res_num = None
+                        mapped_chain_res_count = 0
+                        for atom in ijk_frag_cluster_rep_pdb.chain(ijk_frag_cluster_rep_mapped_chain_id):
+                            if atom.is_CA():
+                                mapped_chain_res_count += 1
+                                if mapped_chain_res_count == 3:
+                                    intfrag_mapped_chain_central_res_num = atom.residue_number
 
-                            # Get central residue number of partner interface fragment chain
-                            intfrag_partner_chain_central_res_num = None
-                            partner_chain_res_count = 0
-                            for atom in ijk_frag_cluster_rep_pdb.chain(ijk_frag_cluster_rep_partner_chain_id):
-                                if atom.is_CA():
-                                    partner_chain_res_count += 1
-                                    if partner_chain_res_count == 3:
-                                        intfrag_partner_chain_central_res_num = atom.residue_number
+                        # Get central residue number of partner interface fragment chain
+                        intfrag_partner_chain_central_res_num = None
+                        partner_chain_res_count = 0
+                        for atom in ijk_frag_cluster_rep_pdb.chain(ijk_frag_cluster_rep_partner_chain_id):
+                            if atom.is_CA():
+                                partner_chain_res_count += 1
+                                if partner_chain_res_count == 3:
+                                    intfrag_partner_chain_central_res_num = atom.residue_number
 
-                            i_j_k_intfrag_cluster_rep_dict[i_cluster_type][j_cluster_type][k_cluster_type] = (
-                            ijk_frag_cluster_rep_pdb, ijk_frag_cluster_rep_mapped_chain_id,
-                            intfrag_mapped_chain_central_res_num, ijk_frag_cluster_rep_partner_chain_id,
-                            intfrag_partner_chain_central_res_num)
+                        i_j_k_intfrag_cluster_rep_dict[i_cluster_type][j_cluster_type][k_cluster_type] = (
+                        ijk_frag_cluster_rep_pdb, ijk_frag_cluster_rep_mapped_chain_id,
+                        intfrag_mapped_chain_central_res_num, ijk_frag_cluster_rep_partner_chain_id,
+                        intfrag_partner_chain_central_res_num)
 
         self.paired_frags = i_j_k_intfrag_cluster_rep_dict
         return i_j_k_intfrag_cluster_rep_dict
@@ -458,9 +463,9 @@ class FragmentDB:
 
                 for dirpath2, dirnames2, filenames2 in os.walk(dirpath1):
                     for filename in filenames2:
-                        if ".txt" in filename:
-                            intfrag_cluster_info_dict[i_cluster_type][j_cluster_type][k_cluster_type] = ClusterInfoFile(
-                                dirpath1 + "/" + filename)
+                        # if ".txt" in filename:
+                        intfrag_cluster_info_dict[i_cluster_type][j_cluster_type][k_cluster_type] = ClusterInfoFile(
+                            dirpath1 + "/" + filename)
 
         self.info = intfrag_cluster_info_dict
         return intfrag_cluster_info_dict
