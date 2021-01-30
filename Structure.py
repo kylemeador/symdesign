@@ -197,7 +197,7 @@ class Structure:  # (Coords):
         self.reindex_atoms()
         self.create_residues()
         # self.update_structure(atom_list)
-        self.set_length()
+        # self.set_length()
 
     def add_atoms(self, atom_list):
         """Add Atoms in atom_list to the structure instance"""
@@ -206,7 +206,7 @@ class Structure:  # (Coords):
         self.reindex_atoms()
         self.create_residues()
         # self.update_structure(atom_list)
-        self.set_length()
+        # self.set_length()
 
     def set_residues_attributes(self, numbers=None, **kwargs):
         """Set attributes specified by key, value pairs for all Residues in the Structure"""
@@ -221,12 +221,12 @@ class Structure:  # (Coords):
             for atom in self.get_atoms(numbers=numbers):
                 setattr(atom, kwarg, value)
 
-    def update_structure(self, atom_list):  # UNUSED
-        # self.reindex_atoms()
-        # self.coords = np.append(self.coords, [atom.coords for atom in atom_list])
-        # self.set_atom_coordinates(self.coords)
-        # self.create_residues()
-        self.set_length()
+    # def update_structure(self, atom_list):  # UNUSED
+    #     # self.reindex_atoms()
+    #     # self.coords = np.append(self.coords, [atom.coords for atom in atom_list])
+    #     # self.set_atom_coordinates(self.coords)
+    #     # self.create_residues()
+    #     # self.set_length()
 
     def get_atom_indices(self, numbers=None):
         """Retrieve Atom indices for Atoms in the Structure. Returns all by default. If atom numbers are provided
@@ -321,7 +321,7 @@ class Structure:  # (Coords):
         atom_list = [atom for residue in residue_list for atom in residue.get_atoms()]
         self.atoms = atom_list
         # self.update_structure(atom_list)
-        self.set_length()
+        # self.set_length()
 
     def add_residues(self, residue_list):
         """Add Residue objects in a list to the Structure instance"""
@@ -329,7 +329,7 @@ class Structure:  # (Coords):
         atom_list = [atom for atom in residue_list.get_atoms()]
         self.atoms.extend(atom_list)
         # self.update_structure(atom_list)
-        self.set_length()
+        # self.set_length()
 
     # update_structure():
     #  self.reindex_atoms() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->
