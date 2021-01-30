@@ -1012,13 +1012,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             entity2_indices = set(entity2_indices).difference(self.design_mask)
 
         if self.symmetry:  # self.model_coords:
+            number_of_atoms = self.pdb.number_of_atoms
             # get all symmetric indices if the pose is symmetric
-            entity2_indices = [idx + (self.pdb.number_of_atoms * model_number)
-                               for model_number in range(self.number_of_models) for idx in entity2_indices]
+            entity2_indices = [idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
+                               for idx in entity2_indices]
             # Todo mask=[residue_numbers?] default parameter
             if entity2 == entity1:  # the entity is the same however, we don't want interactions with the same sym mate
                 asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
-                entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx > asu_indices[-1]]
+                entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
             entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             entity2_coords = self.model_coords[np.array(entity2_indices)]  # only get the coordinate indices we want!
         else:
