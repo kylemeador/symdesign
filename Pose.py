@@ -44,16 +44,23 @@ class Model:  # (PDB)
     """Keep track of different variations of the same PDB object whether they be mutated in sequence or have
     their coordinates perturbed
     """
-    def __init__(self, pdb=None, models=None, log=None):
+    def __init__(self, pdb=None, models=None, log=None, **kwargs):
+        super().__init__()  # **kwargs
         # if isinstance(pdb, list):
         # self.models = pdb  # list or dict of PDB objects
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
-        self.pdb = None
-        self.models = []
+        self.pdb = pdb
+        if models and isinstance(models, list):
+            self.models = models
+        else:
+            self.models = []
+
+        self.number_of_models = len(self.models)
         if log:
             self.log = log
         else:
+            print('Model starting log')
             self.log = start_log()
 
     def set_models(self, models):
@@ -101,35 +108,38 @@ class Model:  # (PDB)
         # return [pdb.set_atom_coordinates(new_cords[i]) for i, pdb in enumerate(self.models)]
 
 
-class SymmetricModel:  # (Model)
-    def __init__(self, asu=None, pdb=None, models=None, coords_type=None, symmetry=None, dimension=None,
-                 uc_dimensions=None, expand_matrices=None, number_of_models=None, log=None, **kwargs):
-        super().__init__(log=log, **kwargs)
-        # super().__init__()  # for Model Todo should I have this?
+class SymmetricModel(Model):
+    def __init__(self, asu=None, **kwargs):  # coords_type=None, symmetry=None, dimension=None,
+        #        uc_dimensions=None, expand_matrices=None, pdb=None, models=None, log=None, number_of_models=None,
+        super().__init__(**kwargs)  # log=log,
         self.asu = asu  # the pose specific asu
-        self.pdb = pdb
-        self.models = []
-        self.number_of_models = number_of_models
+        # self.pdb = pdb
+        # self.models = []
+        # self.number_of_models = number_of_models
         # self.coords = []
         # self.model_coords = []
-        self.coords_type = coords_type
-        self.symmetry = symmetry  # symmetry  # also defined in PDB as self.space_group
-        self.dimension = dimension
-        self.uc_dimensions = uc_dimensions  # also defined in PDB
-        self.expand_matrices = expand_matrices  # Todo make expand_matrices numpy
+        self.coords_type = None  # coords_type
+        self.symmetry = None  # symmetry  # also defined in PDB as self.space_group
+        self.dimension = None  # dimension
+        self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
+        self.expand_matrices = None  # expand_matrices  # Todo make expand_matrices numpy
 
-        if log:
-            self.log = log
-        else:
-            self.log = start_log()
+        # if log:
+        #     self.log = log
+        # else:
+        #     print('SymmetricModel starting log')
+        #     self.log = start_log()
 
-        if models:
-            self.models = models
-            self.number_of_models = len(models)
-            self.set_symmetry(symmetry)
+        # if models:
+        #     self.models = models
+        #     self.number_of_models = len(models)
+        #     self.set_symmetry(symmetry)
 
-        if symmetry:
-            self.set_symmetry(symmetry)
+        # if symmetry:
+        # if self.asu:
+        # kwargs.update({})
+        self.set_symmetry(**kwargs)
+        #    self.set_symmetry(symmetry)
 
     @classmethod
     def from_assembly(cls, assembly, symmetry=None):
@@ -172,7 +182,7 @@ class SymmetricModel:  # (Model)
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     def set_symmetry(self, symmetry=None, cryst1=None, uc_dimensions=None, generate_assembly=True,
-                     generate_symmetry_mates=False):
+                     generate_symmetry_mates=False, **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required"""
@@ -192,6 +202,8 @@ class SymmetricModel:  # (Model)
                                   ' tables and add to the pickled operators if this displeases you!' % symmetry)
             self.expand_matrices = self.get_sg_sym_op(''.join(symmetry.split()))
             # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
+        if not symmetry:
+            return None  # no symmetry was provided
         elif symmetry in ['T', 'O', 'I']:
             self.dimension = 0
             self.expand_matrices = self.get_ptgrp_sym_op(symmetry)  # Todo numpy expand_matrices
@@ -201,10 +213,10 @@ class SymmetricModel:  # (Model)
                               ' the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
 
         self.symmetry = symmetry
-        if generate_assembly:
+        if self.asu and generate_assembly:
             self.generate_symmetric_assembly()
-        if generate_symmetry_mates:
-            self.get_assembly_symmetry_mates()
+            if generate_symmetry_mates:
+                self.get_assembly_symmetry_mates()
 
     def generate_symmetric_assembly(self, return_side_chains=True, surrounding_uc=False, generate_symmetry_mates=False):
         """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
@@ -219,6 +231,7 @@ class SymmetricModel:  # (Model)
         else:
             self.expand_uc_coords(return_side_chains=return_side_chains, surrounding_uc=surrounding_uc)
 
+        self.log.info('Generated %d Symmetric Models' % self.number_of_models)
         if generate_symmetry_mates:
             self.get_assembly_symmetry_mates()
 
@@ -298,10 +311,10 @@ class SymmetricModel:  # (Model)
             self.coords_type = 'bb_cb'
 
         self.coords = Coords(get_pdb_coords(self.asu))
-        self.log.info('coords length at coord expansion: %d' % len(self.coords))
+        self.log.debug('coords length at coord expansion: %d' % len(self.coords))
         # self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
         model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
-        self.log.info('model coords length at coord expansion: %d' % len(model_coords))
+        self.log.debug('model coords length at coord expansion: %d' % len(model_coords))
         # self.model_coords[:len(self.coords)] = self.coords
         for idx, rot in enumerate(self.expand_matrices):  # Todo numpy incomming expand_matrices
             r_mat = np.transpose(np.array(rot))
@@ -366,6 +379,17 @@ class SymmetricModel:  # (Model)
         self.model_coords = Coords(model_coords)
         self.number_of_models = zvalue_dict[self.symmetry] * uc_number
 
+    def return_assembly_symmetry_mates(self):
+        count = 0
+        while len(self.models) != self.number_of_models:  # Todo clarify we haven't generated the mates yet
+            self.get_assembly_symmetry_mates()
+            if count == 1:
+                raise DesignError('%s: The assembly couldn\'t be returned'
+                                  % self.return_assembly_symmetry_mates.__name__)
+            count += 1
+
+        return self.models
+
     def get_assembly_symmetry_mates(self, return_side_chains=True):  # For getting PDB copies
         """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
         if return_side_chains:  # get different function calls depending on the return type
@@ -377,7 +401,6 @@ class SymmetricModel:  # (Model)
 
         # self.models.append(copy.copy(self.asu))
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
-        self.log.info('Models: %d' % self.number_of_models)
         for model_idx in range(self.number_of_models):  # range(1,
             symmetry_mate_pdb = copy.deepcopy(self.asu)
             # self.log.info(len(self.model_coords[(model_idx * self.asu.number_of_atoms):
@@ -388,14 +411,14 @@ class SymmetricModel:  # (Model)
             # symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
             #                                                          (model_idx * self.asu.number_of_atoms)
             #                                                          + self.asu.number_of_atoms])
-            self.log.info('Coords copy of length %d: %s' % (len(symmetry_mate_pdb.coords), symmetry_mate_pdb.coords))
-            self.log.info('Atom 1 coordinates: %s' % symmetry_mate_pdb.get_atoms()[0].x)
-            self.log.info('Atom 1: %s' % str(symmetry_mate_pdb.get_atoms()[0]))
+            # self.log.info('Coords copy of length %d: %s' % (len(symmetry_mate_pdb.coords), symmetry_mate_pdb.coords))
+            # self.log.info('Atom 1 coordinates: %s' % symmetry_mate_pdb.get_atoms()[0].x)
+            # self.log.info('Atom 1: %s' % str(symmetry_mate_pdb.get_atoms()[0]))
             self.models.append(symmetry_mate_pdb)
-        for model_idx in range(len(self.models)):
-            self.log.info('Atom 1: %s' % str(self.models[model_idx].get_atoms()[0]))
+        # for model_idx in range(len(self.models)):
+            # self.log.info('Atom 1: %s' % str(self.models[model_idx].get_atoms()[0]))
 
-    def find_asu_equivalent_symmetry_mate(self, residue_query_number=1):
+    def find_asu_equivalent_symmetry_model(self, residue_query_number=1):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
 
         Returns:
@@ -407,11 +430,11 @@ class SymmetricModel:  # (Model)
         template_atom_coords = self.asu.residue(residue_query_number).ca.coords
         template_atom_index = self.asu.residue(residue_query_number).ca.index
         for model_number in range(self.number_of_models):
-            if template_atom_coords == self.model_coords[(model_number * len(self.coords)) + template_atom_index]:
-                #                      self.pdb.number_of_atoms
+            if (template_atom_coords ==
+                    self.model_coords[(model_number * len(self.coords)) + template_atom_index]).all():
                 return model_number
 
-        self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_mate.__name__)
+        self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_model.__name__)
 
     def find_asu_equivalent_symmetry_mate_indices(self):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
@@ -420,7 +443,7 @@ class SymmetricModel:  # (Model)
         Returns:
             (list): The index of the number of models where the ASU can be found
         """
-        model_number = self.find_asu_equivalent_symmetry_mate()
+        model_number = self.find_asu_equivalent_symmetry_model()
         start_idx = self.pdb.number_of_atoms * model_number
         end_idx = self.pdb.number_of_atoms * (model_number + 1)
         # Todo test logic, we offset the index by 1 from the end_idx values (0 to 100 -> 0:99 or 100 to 200 -> 100:199)
@@ -444,9 +467,9 @@ class SymmetricModel:  # (Model)
         """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
         """
         if surrounding_uc:
-            self.return_surrounding_unit_cell_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains FOR Coord expansion
+            return self.return_surrounding_unit_cell_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains FOR Coord expansion
         else:
-            self.return_unit_cell_symmetry_mates(pdb, **kwargs)  # # return_side_chains=return_side_chains
+            return self.return_unit_cell_symmetry_mates(pdb, **kwargs)  # # return_side_chains=return_side_chains
 
     # @staticmethod
     def return_point_group_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
@@ -552,21 +575,44 @@ class SymmetricModel:  # (Model)
         return asu_symm_mates
 
     def symmetric_assembly_is_clash(self, clash_distance=2.2):  # Todo design mask
+        if not self.number_of_models:
+            raise DesignError('Cannot check if the assembly is clashing without first calling %s'
+                              % self.generate_symmetric_assembly.__name__)
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
+        print('ModelASUindices: %s' % model_asu_indices)
+        # print('Equivalent ModelASU: %d' % self.find_asu_equivalent_symmetry_model())
         if self.coords_type != 'bb_cb':
-            asu_indices = np.array(self.asu.get_cb_indices())
-            model_asu_indices = set(model_asu_indices).difference(asu_indices *
-                                                                  self.find_asu_equivalent_symmetry_mate())
+            asu_indices = self.asu.get_backbone_and_cb_indices()
+            model_indices_mask = np.array(asu_indices * self.number_of_models)
+            # print('BB/CB ASU Indices: %s' % asu_indices)
+            # Need to subtract all the coords that are not CB from the model coords.
+            # We have all the CB indices from ASU now need to multiply this by every integer in self.number_of_models
+            # to get all the CB coords.
+            # Finally we take out those indices that are inclusive of the model_asu_indices like below
+            model_indices_factor = np.array([model_number + 1 for model_number in range(self.number_of_models)
+                                           for idx in range(len(asu_indices))])
+            model_indices_mask *= model_indices_factor
+            # model_asu_indices = sorted(set(model_asu_indices).difference(model_asu_indices))
+            # print('Model ASUindices: %s' % model_asu_indices)
+            # model_indices_mask = [asu_indices * (model_number + 1) for model_number in range(self.number_of_models)]
+            # model_indices_mask = np.array(model_indices_mask).flatten()
+            # print('Model ASU indices[0] & [-1]: %d & %d' % (model_asu_indices[0], model_asu_indices[-1]))
         else:
+            model_indices_mask = np.array([idx for idx in range(len(self.model_coords))])
             asu_indices = None
 
         asu_coord_kdtree = BallTree(self.coords[asu_indices])
-        model_indices_without_asu = [idx for idx in range(len(self.model_coords))
-                                     if model_asu_indices[0] > idx > model_asu_indices[-1]]
+        without_asu_mask = np.logical_or(model_asu_indices[0] > model_indices_mask,
+                                         model_indices_mask > model_asu_indices[-1])
+        model_indices_without_asu = model_indices_mask[without_asu_mask]
+
+        print('Model Coord length: %d' % len(self.model_coords))
+        print('Model minus ASU indices: %s' % model_indices_without_asu)
         clash_count = asu_coord_kdtree.two_point_correlation(self.model_coords[model_indices_without_asu],
                                                              [clash_distance])
 
-        if clash_count[0] > 0:
+        if clash_count[0] > 0:  # Todo ensure I am calculating all above correctly
+            self.log.warning('Found %d clashing sites at: %s' % (clash_count[0], clash_count))
             return True  # clash
         else:
             return False  # no clash
@@ -720,13 +766,13 @@ class SymmetricModel:  # (Model)
         return sg_sym_op
 
 
-class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model? could be imported from SymmetricModel
+class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     """A Pose is made of multiple PDB objects all sharing a common feature such as symmetric copies or modifications to
     the PDB sequence
     """
-    def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, symmetry=None, log=None, **kwargs):
-        # super().__init__(**kwargs)
-        super().__init__(log=log)
+    def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, **kwargs):  # symmetry=None, log=None,
+        super().__init__(**kwargs)  # log=None,
+        # super().__init__(log=log)
         # if log:  # from Super SymmetricModel
         #     self.log = log
         # else:
@@ -735,86 +781,55 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         if pdb:
             self.pdb = pdb
             # self.set_pdb(pdb)
-            # self.initialize_symmetry()
 
         if pdb_file:
-            self.pdb = PDB.from_file(pdb_file, log=log)
+            self.pdb = PDB.from_file(pdb_file, log=self.log)
             # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
             # this would be:
             # coords, atoms, residues, chains, entities, design, (host of others read from file)
             # self.set_pdb(pdb)
-            # self.initialize_symmetry()
 
         if asu:  # Todo ensure a Structure/PDB object
             self.asu = asu
             self.pdb = self.asu
-            # self.initialize_symmetry()
 
         if asu_file:
-            self.asu = PDB.from_file(asu_file, log=log)
-            # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
-            # this would be:
-            # coords, atoms, residues, chains, entities, design, (host of others read from file)
-            # self.set_pdb(pdb)
+            self.asu = PDB.from_file(asu_file, log=self.log)
             self.pdb = self.asu
-            # self.initialize_symmetry()
 
         self.design_mask = set()
         self.interface_residues = {}
         self.fragment_observations = []
 
-        self.initialize_symmetry(symmetry=symmetry)
+        symmetry_kwargs = self.pdb.symmetry
+        print('Pose kwargs: %s' % kwargs)
+        symmetry_kwargs.update(kwargs)
+        print('Pose symmetry_kwargs: %s' % symmetry_kwargs)
+        self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if the ASU was passed
+        # self.initialize_symmetry(symmetry=symmetry)
 
         # super().__init__()  # structure=self)  # SequenceProfile init
         # self.pdb = None  # the pose specific pdb  # Model
         # self.models = []  # from Model MRO priority or SymmetricModel
         self.pdbs = []  # the member pdbs which make up the pose
-        # self.entities = []  # from PDB
         self.pdbs_d = {}
         self.pose_pdb_accession_map = {}
 
-        # self.uc_sym_mates = []
-        # self.surrounding_uc_sym_mates = []
-
-        # # Model
-        # super().__init__()  # Model init, PDB? init is handled above for all Super Classes
-        # # self.pdb = None  # Model
-        # # self.models = []  # Model
-
-        # super().__init__()  # SymmetricModel init is handled above
-        # if symmetry:
-        #     self.set_symmetry(symmetry=symmetry)
-        # self.generate_symmetric_assembly(return_side_chains=False, surrounding_uc=False)
-        # SymmetricModel
-        # self.asu = None  # the pose specific asu
-        # self.symmetric_assembly = Model()  # the symmetry expanded attribute of self.asu
-        # self.coords = Coords()
-        # self.model_coords = Coords()
-        # self.symmetry = None  # also in PDB as self.space_group
-        # self.dimension = None
-        # self.uc_dimensions = None
-        # self.expand_matrices = None
-        # self.number_of_models = None
+    @classmethod
+    def from_pdb(cls, pdb, **kwargs):  # symmetry=None,
+        return cls(pdb=pdb, **kwargs)  # symmetry=None,
 
     @classmethod
-    def from_pdb(cls, pdb, symmetry=None, **kwargs):
-        return cls(pdb=pdb, symmetry=symmetry, **kwargs)
+    def from_pdb_file(cls, pdb_file, **kwargs):  # symmetry=None,
+        return cls(pdb_file=pdb_file, **kwargs)  # symmetry=None,
 
     @classmethod
-    def from_pdb_file(cls, pdb_file, symmetry=None, **kwargs):
-        return cls(pdb_file=pdb_file, symmetry=symmetry, **kwargs)
+    def from_asu(cls, asu, **kwargs):  # symmetry=None,
+        return cls(asu=asu, **kwargs)  # symmetry=None,
 
     @classmethod
-    def from_asu(cls, asu, symmetry=None, **kwargs):
-        return cls(asu=asu, symmetry=symmetry, **kwargs)
-
-    @classmethod
-    def from_asu_file(cls, asu_file, symmetry=None, **kwargs):
-        return cls(asu_file=asu_file, symmetry=symmetry, **kwargs)
-
-    # @classmethod  # In PDB class
-    # def from_file(cls, file):
-    #     return cls(file=file)
+    def from_asu_file(cls, asu_file, **kwargs):  # symmetry=None,
+        return cls(asu_file=asu_file, **kwargs)  # symmetry=None,
 
     # @property
     # def asu(self):
@@ -848,10 +863,6 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
     def entities(self, entities):
         self.pdb.entities = entities
 
-    def set_length(self):
-        self.number_of_atoms = len(self.pdb.get_atoms())
-        self.number_of_residues = len(self.pdb.get_residues())
-
     @property
     def number_of_atoms(self):
         try:
@@ -884,6 +895,10 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
             self.find_center_of_mass()
             return self._center_of_mass
 
+    def set_length(self):
+        self.number_of_atoms = len(self.pdb.get_atoms())
+        self.number_of_residues = len(self.pdb.get_residues())
+
     def find_center_of_mass(self):
         """Retrieve the center of mass for the specified Structure"""
         if self.symmetry:
@@ -902,7 +917,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # Todo turn multiple PDB's into one structure representative
         # self.pdb.add_atoms(pdb.get_atoms())
 
-    def add_entities_to_pose(self, pdb):
+    def add_entities_to_pose(self, pdb):  # Unused Todo
         """Add each unique entity in a pdb to the pose, updating all metadata"""
         # self.pose_pdb_accession_map[pdb.name] = pdb.entity_accession_map
         self.pose_pdb_accession_map[pdb.name] = pdb.entity_d
@@ -910,13 +925,13 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         for idx, entity in enumerate(pdb.entities):
             self.add_entity(entity, name='%s_%d' % (pdb.name, idx))
 
-    def add_entity(self, entity, name=None):
+    def add_entity(self, entity, name=None):  # Unused
         # Todo Fix this garbage... Entity()
         self.entities = None
         entity_chain = pdb.entities[entity]['representative']
         self.asu.add_atoms(entity.get_atoms())
 
-    def initialize_symmetry(self, symmetry=None):
+    def initialize_symmetry(self, symmetry=None):  # Unused
         if symmetry:
             self.set_symmetry(symmetry=symmetry)
         elif self.pdb.space_group and self.pdb.uc_dimensions:  # Todo from ASU has the old symmetry indicators attached!
@@ -930,7 +945,7 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         """Create a atom tree using CB atoms from two PDB's
 
         Args:
-            entity11 (Structure): First PDB to query against
+            entity1 (Structure): First PDB to query against
             entity2 (Structure): Second PDB which will be tested against pdb1
         Keyword Args:
             distance=8 (int): The distance to query in Angstroms
@@ -1122,7 +1137,6 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         # Ensure ASU. This should be done on loading from PDB file with Pose.from_asu()/Pose.from_pdb()
         # save self.asu to design_dir.asu now that we have cleaned any chain issues and renumbered residues
         self.pdb.write(out_path=design_dir.asu)
-        # template_pdb = PDB(file=des_dir.source)
 
         # if design_dir.nano:
         #     # num_chains = len(self.pdb.chain_id_list)
@@ -1152,15 +1166,20 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
         #     # sdf_file_name = os.path.join(os.path.dirname(oligomer[name].filepath), '%s.sdf' % oligomer[name].name)
         #     # sym_definition_files[name] = oligomer[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
 
-        if symmetry and isinstance(symmetry, dict):  # otherwise done on __init__()
+        self.log.info('Symmetry is: %s' % symmetry)  # Todo resolve duplication with below self.symmetry
+        if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
-            if self.symmetric_assembly_is_clash():
-                raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
-                                  % str(design_dir))
-            if output_assembly:
-                assembly = SymmetricModel.from_assembly(self.get_assembly_symmetry_mates(),
-                                                        symmetry=self.return_symmetry_parameters())
-
+        if self.symmetry and self.symmetric_assembly_is_clash():
+            # raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
+            #                   % str(design_dir))
+            pass
+        if output_assembly:
+            self.get_assembly_symmetry_mates()
+            self.write(out_path=os.path.join(design_dir.path, 'assembly.pdb'))
+            # assembly = SymmetricModel.from_assembly(self.return_assembly_symmetry_mates(),
+            #                                         symmetry=self.return_symmetry_parameters())
+            # assembly.write(out_path=os.path.join(design_dir.path, 'assembly.pdb'))
+            raise DesignError(['Message'])
         if design_dir.info:
             return None  # pose has already been initialized for design
 
@@ -1175,8 +1194,9 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
                 if write_fragments:
                     write_fragment_pairs(self.fragment_observations, out_path=design_dir.frags)
                     for match_count, frag_obs in enumerate(self.fragment_observations):
-                        write_frag_match_info_file(frag_obs[0], frag_obs[1], z_value_from_match_score(frag_obs[2]), None,
-                                                   match_count, 'Not Provided', None, design_dir.frags, design_dir.name)
+                        write_frag_match_info_file(frag_obs[0], frag_obs[1], z_value_from_match_score(frag_obs[2]),
+                                                   None, match_count, 'Not Provided', None, design_dir.frags,
+                                                   design_dir.name)
                         # ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list,
                         # cluster_rmsd, outdir_path, pose_id, is_initial_match=False
             else:  # add existing fragment information to the pose
@@ -1192,8 +1212,13 @@ class Pose(Model, SymmetricModel, SequenceProfile):  # PDB Todo get rid of Model
                     fragment_source = design_dir.fragment_observations  # Todo
                 # self.fragment_queries[tuple(entity.name for entity in self.entities)] = fragment_source
                 entity_ids = tuple(entity.name for entity in self.entities)
-                self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
-                                        pdb_numbering=True)
+                self.log.debug('Entity ID\'s: %s' % str(entity_ids))
+                if fragment_source:
+                    self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
+                                            pdb_numbering=True)
+                else:
+                    raise DesignError('%s: Fragments were set for design but there were none found! Fix your input '
+                                      'flags if this is not what you expected.' % str(design_dir))
                 # for entity in self.entities:
                 #     entity.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                 #                               pdb_numbering=True)
@@ -1322,7 +1347,7 @@ def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
         pdb_file_name = get_pdb(code, location=des_dir.pdbs)
         assert len(pdb_file_name) == 1, 'More than one matching file found for pdb code %s' % code
         oligomers[code] = PDB(file=pdb_file_name[0])
-        oligomers[code].set_name(code)
+        oligomers[code].name = code
         oligomers[code].reorder_chains()
 
     return oligomers
