@@ -1,5 +1,6 @@
 from math import sqrt
 from collections.abc import Iterable
+from random import random
 
 import numpy as np
 from Bio.SeqUtils import IUPACData
@@ -75,16 +76,62 @@ class Structure:  # (Coords):
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     @property
-    def atom_indices(self):  # Todo has relevance to Residue
-        try:
-            return self._atom_indices
-        except AttributeError:
-            self.atom_indices = [atom.index for atom in self.atoms]
-            return self._atom_indices
+    def atom_indices(self):  # In Residue too
+        return [atom.index for atom in self.atoms]
+    #     try:
+    #         return self._atom_indices
+    #     except AttributeError:
+    #         self.atom_indices = [atom.index for atom in self.atoms]
+    #         return self._atom_indices
+    #
+    # @atom_indices.setter
+    # def atom_indices(self, indices):
+    #     self._atom_indices = np.array(indices)
 
-    @atom_indices.setter
-    def atom_indices(self, indices):
-        self._atom_indices = np.array(indices)
+    @property
+    def number_of_atoms(self):
+        return len(self.get_atoms())
+    #     try:
+    #         return self._number_of_atoms
+    #     except AttributeError:
+    #         self.set_length()
+    #         return self._number_of_atoms
+    #
+    # @number_of_atoms.setter
+    # def number_of_atoms(self, length):
+    #     self._number_of_atoms = length
+
+    @property
+    def number_of_residues(self):
+        return len(self.get_residues())
+    #     try:
+    #         return self._number_of_residues
+    #     except AttributeError:
+    #         self.set_length()
+    #         return self._number_of_residues
+    #
+    # @number_of_residues.setter
+    # def number_of_residues(self, length):
+    #     self._number_of_residues = length
+
+    @property
+    def center_of_mass(self):
+        divisor = 1 / self.number_of_atoms
+        return np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
+        # try:
+        #     return self._center_of_mass
+        # except AttributeError:
+        #     self.find_center_of_mass()
+        #     return self._center_of_mass
+
+    # def set_length(self):
+    #     self.number_of_atoms = len(self.get_atoms())
+    #     self.number_of_residues = len(self.get_residues())
+
+    # def find_center_of_mass(self):
+    #     """Retrieve the center of mass for the specified Structure"""
+    #     divisor = 1 / self.number_of_atoms
+    #     self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
     def get_coords(self):
         """Return the numpy array of Coords from the Structure"""
@@ -388,47 +435,6 @@ class Structure:  # (Coords):
             # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
             self.renumber_atoms()
 
-    def set_length(self):
-        self.number_of_atoms = len(self.get_atoms())
-        self.number_of_residues = len(self.get_residues())
-
-    @property
-    def number_of_atoms(self):
-        try:
-            return self._number_of_atoms
-        except AttributeError:
-            self.set_length()
-            return self._number_of_atoms
-
-    @number_of_atoms.setter
-    def number_of_atoms(self, length):
-        self._number_of_atoms = length
-
-    @property
-    def number_of_residues(self):
-        try:
-            return self._number_of_residues
-        except AttributeError:
-            self.set_length()
-            return self._number_of_residues
-
-    @number_of_residues.setter
-    def number_of_residues(self, length):
-        self._number_of_residues = length
-
-    @property
-    def center_of_mass(self):
-        try:
-            return self._center_of_mass
-        except AttributeError:
-            self.find_center_of_mass()
-            return self._center_of_mass
-
-    def find_center_of_mass(self):
-        """Retrieve the center of mass for the specified Structure"""
-        divisor = 1 / self.number_of_atoms
-        self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
-
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
         """
@@ -578,6 +584,20 @@ class Structure:  # (Coords):
     # @staticmethod
     # def index_to_mask(length, indices, index_masked=False):
     #     mask = [0 for i in range(length)]
+    def __key(self):
+        return self.name, self.center_of_mass  # , self.number_of_atoms
+
+    def __eq__(self, other):
+        # return self.ca == other_residue.ca
+        if isinstance(other, Structure):
+            return self.__key() == other.__key()
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __str__(self):
+        return ''.join(atom for atom in self.atoms)
 
 
 class Chain(Structure):
@@ -590,8 +610,6 @@ class Chain(Structure):
         # else:
         #     self.reference_sequence = self.sequence  # get_structure_sequence()
 
-    # def set_id(self, _id):
-    #     self.id = _id
     @property
     def sequence(self):
         try:
@@ -611,9 +629,6 @@ class Chain(Structure):
     # @reference_sequence.setter
     # def reference_sequence(self, sequence):
     #     self._ref_sequence = sequence
-
-    def __eq__(self, other):
-        return self.name == other
 
 
 class Entity(Chain, SequenceProfile):  # Structure):
@@ -637,7 +652,11 @@ class Entity(Chain, SequenceProfile):  # Structure):
             self.reference_sequence = sequence
         else:
             self.reference_sequence = self.get_structure_sequence()  # get_structure_sequence()
-        self.uniprot_id = uniprot_id
+
+        if uniprot_id:
+            self.uniprot_id = uniprot_id
+        else:
+            self.uniprot_id = '%s%d' % ('R', int(random() * 100000))  # Make a pseudo uniprot ID
         # self.representative_chain = representative_chain
         # use the self.structure __init__ from SequenceProfile for the structure identifier
         # Chain init
@@ -667,9 +686,6 @@ class Entity(Chain, SequenceProfile):  # Structure):
     def reference_sequence(self, sequence):
         self._ref_sequence = sequence
 
-    # def get_representative_chain(self):
-    #     return self.representative
-
     def chain(self, chain_id):  # Also in PDB
         for chain in self.chains:
             if chain.name == chain_id:
@@ -685,6 +701,19 @@ class Entity(Chain, SequenceProfile):  # Structure):
         # self.sequence_source = 'seqres'
 
     # Todo set up captain chain and mate chain dependency
+
+    def __key(self):
+        return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
+        # return self.uniprot_id
+
+    # def __eq__(self, other):
+    #     # return self.ca == other_residue.ca
+    #     if isinstance(other, Entity):
+    #         return self.__key() == other.__key()
+    #     return NotImplemented
+
+    # def __hash__(self):
+    #     return hash(self.__key())
 
 
 class Residue:
@@ -724,7 +753,7 @@ class Residue:
     def cb(self):
         return self.get_cb()
 
-    # This acts as the setter for all the above properties
+    # This is the setter for all the above properties
     def set_atoms_attributes(self, **kwargs):
         """Set attributes specified by key, value pairs for all atoms in the Residue"""
         for kwarg, value in kwargs.items():
@@ -749,17 +778,32 @@ class Residue:
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     @property
-    def atom_indices(self):
-        try:
-            return self._atom_indices
-        except AttributeError:
-            self.atom_indices = [atom.index for atom in self.atoms]
-            return self._atom_indices
+    def atom_indices(self):  # in structure too
+        return [atom.index for atom in self.atoms]
+    #     try:
+    #         return self._atom_indices
+    #     except AttributeError:
+    #         self.atom_indices = [atom.index for atom in self.atoms]
+    #         return self._atom_indices
+    #
+    # @atom_indices.setter
+    # def atom_indices(self, indices):
+    #     self._atom_indices = np.array(indices)
 
-    @atom_indices.setter
-    def atom_indices(self, indices):
-        self._atom_indices = np.array(indices)
+    @property
+    def number_of_atoms(self):
+        return len(self.get_atoms())
+    #     try:
+    #         return self._number_of_atoms
+    #     except AttributeError:
+    #         self.number_of_atoms = len(self.get_atoms())
+    #         return self._number_of_atoms
+    #
+    # @number_of_atoms.setter
+    # def number_of_atoms(self, length):
+    #     self._number_of_atoms = length
 
+    # @property  # todo
     def get_atoms(self):
         return self.atoms
 
@@ -812,28 +856,15 @@ class Residue:
                 return True
         return False
 
-    @property
-    def number_of_atoms(self):
-        try:
-            return self._number_of_atoms
-        except AttributeError:
-            self.number_of_atoms = len(self.get_atoms())
-            return self._number_of_atoms
-
-    @number_of_atoms.setter
-    def number_of_atoms(self, length):
-        self._number_of_atoms = length
-
     @staticmethod
     def get_residue(number, chain, residue_type, residuelist):
         for residue in residuelist:
             if residue.number == number and residue.chain == chain and residue.type == residue_type:
                 return residue
-        # print("NO RESIDUE FOUND")
         return None
 
     def __key(self):
-        return self.number, self.chain, self.type
+        return self.ca  # Uses CA atom. # self.number, self.chain, self.type
 
     def __eq__(self, other):
         # return self.ca == other_residue.ca
@@ -842,13 +873,10 @@ class Residue:
         return NotImplemented
 
     def __str__(self):
-        return_string = ""
-        for atom in self.atoms:
-            return_string += str(atom)
-        return return_string
+        return ''.join(atom for atom in self.atoms)
 
-    # def __hash__(self):  # Todo current key is mutable so this hash is invalid
-    #     return hash(self.__key())
+    def __hash__(self):
+        return hash(self.__key())
 
 
 class Atom:  # (Coords):
@@ -918,7 +946,7 @@ class Atom:  # (Coords):
 
     def distance(self, atom, intra=False):
         """returns distance (type float) between current instance of Atom and another instance of Atom"""
-        if self.chain == atom.chain and not intra:
+        if self.chain == atom.chain and not intra:  # todo depreciate
             # self.log.error('Atoms Are In The Same Chain')
             return None
         else:
