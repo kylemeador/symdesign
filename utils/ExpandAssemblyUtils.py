@@ -151,8 +151,12 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
 
 
 def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(sym_op_location, "SPACE_GROUP_SYMM_OPERATORS")):
-    sg_op_filepath = space_group_operator_dir + "/" + sym_type + ".pickle"
-    with open(sg_op_filepath, "rb") as sg_op_file:
+    """Get the symmetry operations for a specified space group oriented in the canonical orientation
+    Returns:
+        (list[tuple[list[list], list]])
+    """
+    sg_op_filepath = os.path.join(space_group_operator_dir, '%s.pickle' % sym_type)
+    with open(sg_op_filepath, 'rb') as sg_op_file:
         sg_sym_op = pickle.load(sg_op_file)
 
     return sg_sym_op

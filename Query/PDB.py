@@ -483,7 +483,7 @@ def get_pdb_info_by_entry(entry):
     # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
     entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
     if entry_request.status_code != 200:
-        print('%s not found in the PDB!' % entry)
+        # print('%s not found in the PDB!' % entry)
         return None
     else:
         entry_json = entry_request.json()
@@ -599,7 +599,7 @@ def get_pdb_info_by_entry(entry):
             except KeyError:  # there are no know identifiers found
                 ref_d = {chain: None for chain in chains}
         else:
-            print('%s not found in the PDB!' % entity_id)
+            # print('%s not found in the PDB!' % entity_id)
             return None
     # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}

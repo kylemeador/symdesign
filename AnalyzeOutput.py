@@ -888,9 +888,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[os.path.basename(des_dir.info['db'])])
     interface_bkgd = SequenceProfile.get_db_aa_frequencies(PUtils.frag_directory[des_dir.info['db']])
     # profile_dict = {'evolution': pssm, 'fragment': issm, 'combined': dssm}
-    profile_dict = {'evolution': SequenceProfile.parse_pssm(des_dir.info['pssm']),
-                    'fragment': SDUtils.unpickle(des_dir.info['issm']),
-                    'combined': SequenceProfile.parse_pssm(des_dir.info['dssm'])}
+    profile_dict = {'evolution': SequenceProfile.parse_pssm(des_dir.info['evolutionary_profile']),
+                    'fragment': SDUtils.unpickle(des_dir.info['fragment_profile']),
+                    'combined': SequenceProfile.parse_pssm(des_dir.info['design_profile'])}
     issm_residues = list(set(profile_dict['fragment'].keys()))
     assert len(issm_residues) > 0, 'issm has no fragment information'
 

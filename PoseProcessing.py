@@ -859,103 +859,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             pose_s.to_csv(outpath, mode='a', header=_header)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=PUtils.program_name +
-                                     '\nGather output from %s and format it for input into Rosetta for interface'
-                                     ' design. Design is constrained by fragment profiles extracted from the PDB and '
-                                     'evolutionary profiles of homologous sequences' % PUtils.nano)
-    parser.add_argument('-d', '--directory', type=str, help='Directory where %s output is located. Default=CWD'
-                                                            % PUtils.nano, default=os.getcwd())
-    parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s output.' % PUtils.nano,
-                        default=None)
-    # TODO, function for selecting the appropriate interface library given a viable input
-    parser.add_argument('-i', '--fragment_database', type=str, help='Database to match fragments for interface specific'
-                                                                    ' scoring matrices. Default=biological_interfaces',
-                        default='biological_interfaces')  # PUtils.biological_fragmentDB <- this is a path, need keyword
-    parser.add_argument('symmetry_group', type=int, help='What type of symmetry group does your design belong too? '
-                                                         'One of 0-Point Group, 2-Plane Group, or 3-Space Group')
-    parser.add_argument('-c', '--command_only', action='store_true', help='Should commands be written but not executed?'
-                                                                          '\nDefault=False')
-    parser.add_argument('-m', '--multi_processing', action='store_true', help='Should job be run with multiprocessing?'
-                                                                              '\nDefault=False')
-    parser.add_argument('-x', '--suspend', action='store_true', help='Should Rosetta design trajectory be suspended?\n'
-                                                                     'Default=False')
-    parser.add_argument('-p', '--mpi', action='store_true', help='Should job be set up for cluster submission?\n'
-                                                                 'Default=False')
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
-    args = parser.parse_args()
-    extras = ''
-
-    # Start logging output
-    if args.debug:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
-        logger.debug('Debug mode. Verbose output')
-    else:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
-
-    logger.info('Starting %s with options:\n%s' %
-                (os.path.basename(__file__),
-                 '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
-
-    assert args.symmetry_group in PUtils.protocol, logger.critical(
-        'Symmetry group \'%s\' is not available. Please choose from %s' %
-        (args.symmetry_group, ', '.join(sym for sym in PUtils.protocol)))
-
-    # Collect all designs to be processed
-    all_designs, location = SDUtils.collect_designs(args.directory, file=args.file)
-    assert all_designs != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct '
-                                                  'location.' % (PUtils.nano, location))
-    logger.info('%d Poses found in \'%s\'' % (len(all_designs), location))
-    all_design_dirs = DesignDirectory.set_up_directory_objects(all_designs)
-    logger.info('All pose specific logs are located in their corresponding directories.\nEx: \'%s\'' %
-                os.path.join(all_design_dirs[0].path, os.path.basename(all_design_dirs[0].path) + '.log'))
-
-    if args.mpi:
-        args.command_only = True
-        extras = ' mpi %d' % CUtils.mpi
-        logger.info('Setting job up for submission to MPI capable computer. Pose trajectories will run in parallel, '
-                    '%s at a time. This will speed up pose processing %f-fold.' %
-                    (CUtils.mpi - 1, PUtils.nstruct / CUtils.mpi - 1))
-    if args.command_only:
-        args.suspend = True
-        logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed')
-
-    # Start Pose processing and preparation for Rosetta
-    if args.multi_processing:
-        # Calculate the number of threads to use depending on computer resources
-        mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
-        logger.info('Starting multiprocessing %s threads' % str(mp_threads))
-        zipped_args = zip(all_design_dirs, repeat(args.fragment_database), repeat(args.symmetry_group),
-                          repeat(args.command_only), repeat(args.mpi), repeat(args.suspend),
-                          repeat(args.debug))  # repeat(args.prioritize_frags)
-        results, exceptions = SDUtils.mp_try_starmap(initialization_mp, zipped_args, mp_threads)
-        if exceptions:
-            logger.warning('\nThe following exceptions were thrown. Design for these directories is inaccurate.')
-            for exception in exceptions:
-                logger.warning(exception)
-    else:
-        logger.info('Starting processing. If single process is taking awhile, use -m during submission')
-        for des_directory in all_design_dirs:
-            initialization_s(des_directory, args.fragment_database, args.symmetry_group, script=args.command_only,
-                             mpi=args.mpi, suspend=args.suspend, debug=args.debug)
-
-    if args.command_only:
-        all_commands = [[] for s in PUtils.stage_f]
-        command_files = [[] for s in PUtils.stage_f]
-        for des_directory in all_design_dirs:
-            for i, stage in enumerate(PUtils.stage_f):
-                all_commands[i].append(os.path.join(des_directory.path, stage + '.sh'))
-        for i, stage in enumerate(PUtils.stage_f):
-            if i > 3:  # No consensus
-                break
-            command_files[i] = SDUtils.write_commands(all_commands[i], name=stage, loc=args.directory)
-            logger.info('All \'%s\' commands were written to \'%s\'' % (stage, command_files[i]))
-            logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s\n%s\n%s' %
-                        (args.directory, 'python ' + __file__ + ' distribute -s refine',
-                         'python ' + __file__ + ' distribute -s design',
-                         'python ' + __file__ + ' distribute -s metrics'))
-
-
 def gather_profile_info(pdb, des_dir, names):
     """For a given PDB, find the chain wise profile (pssm) then combine into one continuous pssm
 
@@ -1088,3 +991,100 @@ def residue_number_to_object(pdb, residue_dict):  # TODO supplement with names i
         residue_dict[entry] = pairs
 
     return residue_dict
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=PUtils.program_name +
+                                     '\nGather output from %s and format it for input into Rosetta for interface'
+                                     ' design. Design is constrained by fragment profiles extracted from the PDB and '
+                                     'evolutionary profiles of homologous sequences' % PUtils.nano)
+    parser.add_argument('-d', '--directory', type=str, help='Directory where %s output is located. Default=CWD'
+                                                            % PUtils.nano, default=os.getcwd())
+    parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s output.' % PUtils.nano,
+                        default=None)
+    # TODO, function for selecting the appropriate interface library given a viable input
+    parser.add_argument('-i', '--fragment_database', type=str, help='Database to match fragments for interface specific'
+                                                                    ' scoring matrices. Default=biological_interfaces',
+                        default='biological_interfaces')  # PUtils.biological_fragmentDB <- this is a path, need keyword
+    parser.add_argument('symmetry_group', type=int, help='What type of symmetry group does your design belong too? '
+                                                         'One of 0-Point Group, 2-Plane Group, or 3-Space Group')
+    parser.add_argument('-c', '--command_only', action='store_true', help='Should commands be written but not executed?'
+                                                                          '\nDefault=False')
+    parser.add_argument('-m', '--multi_processing', action='store_true', help='Should job be run with multiprocessing?'
+                                                                              '\nDefault=False')
+    parser.add_argument('-x', '--suspend', action='store_true', help='Should Rosetta design trajectory be suspended?\n'
+                                                                     'Default=False')
+    parser.add_argument('-p', '--mpi', action='store_true', help='Should job be set up for cluster submission?\n'
+                                                                 'Default=False')
+    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    args = parser.parse_args()
+    extras = ''
+
+    # Start logging output
+    if args.debug:
+        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
+        logger.debug('Debug mode. Verbose output')
+    else:
+        logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
+
+    logger.info('Starting %s with options:\n%s' %
+                (os.path.basename(__file__),
+                 '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
+
+    assert args.symmetry_group in PUtils.protocol, logger.critical(
+        'Symmetry group \'%s\' is not available. Please choose from %s' %
+        (args.symmetry_group, ', '.join(sym for sym in PUtils.protocol)))
+
+    # Collect all designs to be processed
+    all_designs, location = SDUtils.collect_designs(args.directory, file=args.file)
+    assert all_designs != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct '
+                                                  'location.' % (PUtils.nano, location))
+    logger.info('%d Poses found in \'%s\'' % (len(all_designs), location))
+    all_design_dirs = DesignDirectory.set_up_directory_objects(all_designs)
+    logger.info('All pose specific logs are located in their corresponding directories.\nEx: \'%s\'' %
+                os.path.join(all_design_dirs[0].path, os.path.basename(all_design_dirs[0].path) + '.log'))
+
+    if args.mpi:
+        args.command_only = True
+        extras = ' mpi %d' % CUtils.mpi
+        logger.info('Setting job up for submission to MPI capable computer. Pose trajectories will run in parallel, '
+                    '%s at a time. This will speed up pose processing %f-fold.' %
+                    (CUtils.mpi - 1, PUtils.nstruct / CUtils.mpi - 1))
+    if args.command_only:
+        args.suspend = True
+        logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed')
+
+    # Start Pose processing and preparation for Rosetta
+    if args.multi_processing:
+        # Calculate the number of threads to use depending on computer resources
+        mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
+        logger.info('Starting multiprocessing %s threads' % str(mp_threads))
+        zipped_args = zip(all_design_dirs, repeat(args.fragment_database), repeat(args.symmetry_group),
+                          repeat(args.command_only), repeat(args.mpi), repeat(args.suspend),
+                          repeat(args.debug))  # repeat(args.prioritize_frags)
+        results, exceptions = SDUtils.mp_try_starmap(initialization_mp, zipped_args, mp_threads)
+        if exceptions:
+            logger.warning('\nThe following exceptions were thrown. Design for these directories is inaccurate.')
+            for exception in exceptions:
+                logger.warning(exception)
+    else:
+        logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+        for des_directory in all_design_dirs:
+            initialization_s(des_directory, args.fragment_database, args.symmetry_group, script=args.command_only,
+                             mpi=args.mpi, suspend=args.suspend, debug=args.debug)
+
+    if args.command_only:
+        all_commands = [[] for s in PUtils.stage_f]
+        command_files = [[] for s in PUtils.stage_f]
+        for des_directory in all_design_dirs:
+            for i, stage in enumerate(PUtils.stage_f):
+                all_commands[i].append(os.path.join(des_directory.path, stage + '.sh'))
+        for i, stage in enumerate(PUtils.stage_f):
+            if i > 3:  # No consensus
+                break
+            command_files[i] = SDUtils.write_commands(all_commands[i], name=stage, loc=args.directory)
+            logger.info('All \'%s\' commands were written to \'%s\'' % (stage, command_files[i]))
+            logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s\n%s\n%s' %
+                        (args.directory, 'python ' + __file__ + ' distribute -s refine',
+                         'python ' + __file__ + ' distribute -s design',
+                         'python ' + __file__ + ' distribute -s metrics'))

@@ -48,12 +48,13 @@ class SequenceProfile:
         self.sequence_file = None
         self.pssm_file = None
         self.evolutionary_profile = {}  # position specific scoring matrix
-        self.dssm_file = None
+        self.design_profile = None
         self.profile = {}  # design specific scoring matrix
         self.frag_db = None
         self.fragment_queries = {}
         self.fragment_map = {}
         self.fragment_profile = {}
+        self.interface_data_file = None
         self.alpha = {}
 
         if structure:
@@ -288,7 +289,7 @@ class SequenceProfile:
         #     p = subprocess.Popen(cmd)
         #
         #     return outfile_name, p
-        self.pssm_file = os.path.join(out_path, os.path.splitext(os.path.basename(self.name))[0] + '.hmm')
+        self.pssm_file = os.path.join(out_path, '%s.pssm' % str(self.name))
 
         cmd = ['psiblast', '-db', PUtils.alignmentdb, '-query', self.sequence_file + '.fasta', '-out_ascii_pssm',
                self.pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo ^ iters
@@ -339,7 +340,7 @@ class SequenceProfile:
             p (subprocess): Process object for monitoring progress of hhblits command
         """
 
-        self.pssm_file = os.path.join(out_path, os.path.splitext(os.path.basename(self.name))[0] + '.hmm')
+        self.pssm_file = os.path.join(out_path, '%s.hmm' % str(self.name[0]))
 
         cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', self.sequence_file, '-ohhm', self.pssm_file, '-v', '1',
                '-cpu', str(threads)]
@@ -1121,6 +1122,9 @@ class SequenceProfile:
         Returns:
             (str): Disk location of newly created .pssm file
         """
+        if not pssm_dict:
+            return None
+
         lod_freq, counts_freq = False, False
         separation_string1, separation_string2 = 3, 3
         if type(pssm_dict[0]['lod']['A']) == float:
