@@ -9,6 +9,7 @@ from classes.Atom import Atom
 from classes.PDB import PDB
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
+# TODO DEPRECIATE THIS WHOLE MODULE
 
 
 def biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving):
