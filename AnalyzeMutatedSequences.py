@@ -495,7 +495,7 @@ def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=Fal
     pdb_dict = {'ref': PDB(file=wild_type_file)}
     for file_name in all_design_files:
         pdb = PDB(file=file_name)
-        pdb.set_name(os.path.splitext(os.path.basename(file_name))[0])
+        pdb.name = os.path.splitext(os.path.basename(file_name))[0]
         pdb_dict[pdb.name] = pdb
 
     return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)

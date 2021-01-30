@@ -561,12 +561,9 @@ if __name__ == '__main__':
                     formatted_flags.append('-%s' % flag)
 
             return formatted_flags
-
         extra_flags = format_flags(additional_flags)
         # extra_flags.extend(format_flags(args.additional_flags))
 
-        # design_flags = {flag.split()[0].lstrip('-'): flag.split()[1] for flag in extra_flags if ' ' in flag}
-        # design_flags = {flag: eval(variable) for flag, variable in design_flags}
         # parses ['-nanohedra_output True', ...]
         design_flags = {}
         for flag_arg in extra_flags:
@@ -581,6 +578,8 @@ if __name__ == '__main__':
     else:
         extra_flags = None  # Todo
         design_flags = None
+    design_flags.update(args.__dict__)
+    logger.debug('All flags: %s' % design_flags)
     # -----------------------------------------------------------------------------------------------------------------
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
     # Grab all Designs (DesignDirectory) to be processed from either directory name or file
@@ -625,8 +624,9 @@ if __name__ == '__main__':
             assert design_directories != list(), logger.critical('No %s.py directories found within \'%s\'! Please '
                                                                  'ensure correct location'
                                                                  % (PUtils.nano.title(), location))
-            logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
-                        % design_directories[0].log)
+            if not args.debug:
+                logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
+                            % design_directories[0].log.handlers[0].baseFilename)
             if 'generate_fragments' in design_flags and design_flags['generate_fragments']:
                 interface_type = 'biological_interfaces'  # Todo parameterize
                 logger.info('Initializing FragmentDatabase from %s\n\t' % interface_type)
@@ -640,7 +640,7 @@ if __name__ == '__main__':
                 with open(args.file, 'w') as design_f:
                     design_f.write('\n'.join(pose for pose in all_poses))
                 logger.critical('The file \'%s\' contains all the designs in your current project. Utilize this file to'
-                                'interact with %s designs in future commands for this project such as \'%s analysis\''
+                                ' interact with %s designs in future commands for this project such as \'%s analysis\''
                                 % (args.file, PUtils.program_name, PUtils.program_command))
         else:
             exit('No design directories/files were specified\nPlease specify --directory or --file.')
@@ -794,12 +794,12 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(threads))
-            results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.interface_redesign, design_directories, threads))
+            results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads))
             results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
             for design in design_directories:
-                design.interface_redesign()
+                design.interface_design()
 
         # # Start pose processing and preparation for Rosetta
         # if args.multi_processing:

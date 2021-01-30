@@ -41,8 +41,9 @@ frag_text_file = 'frag_match_info_file.txt'
 frag_file = os.path.join(frag_dir, frag_text_file)
 pose_file = 'docked_pose_info_file.txt'
 frag_profile = '_fragment_profile'
+protein_data = 'ProteinData'
 sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
-design_directory = 'DesignDirectory'
+design_directory = 'Designs'
 
 data = 'data'
 symmetry_def_file_dir = 'sdf'
