@@ -59,9 +59,9 @@
 		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%"/>
 		# random sub-protocol generator
 		<ParsedProtocol name="set_up_constraint_and_design" mode="single_random">
-			<Add mover_name="no_constraint_switch" 		apply_probability="0.20"/>
+			<Add mover_name="no_constraint_switch" 		apply_probability="0.50"/>
 			<!-- <Add mover_name="limit_to_profile_switch" 	apply_probability="0.40"/> --> # Reinstate after P432 patch
-			<Add mover_name="combo_profile_switch" 		apply_probability="0.80"/>
+			<Add mover_name="combo_profile_switch" 		apply_probability="0.50"/>
 			<!-- <Add mover_name="favor_profile_switch" 		apply_probability="0.60"/> --> # Reinstate after P432 patch
 			<!-- <Add mover_name="consensus_design_switch" apply_probability="0.00"/> -->
 		</ParsedProtocol>
