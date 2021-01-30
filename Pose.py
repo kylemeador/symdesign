@@ -1028,7 +1028,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         #                                     entity2_atoms[entity2_indices[entity2_idx]].residue_number))
         #             # interface_pairs.append((entity1_residue_number, entity2_residue_number))
         # return interface_pairs
-        return [(entity1_atoms[entity1_indices[entity1_idx]].residue_number,
+        return [(entity1_atoms[entity1_indices[entity1_idx]].residue_number,  # Todo return residue object from atom?
                  entity2_atoms[entity2_indices[entity2_idx]].residue_number)
                 for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
 
@@ -1054,39 +1054,46 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # interface_name = self.asu
         entity1_residue_numbers, entity2_residue_numbers = self.find_interface_residues(entity1=entity1,
                                                                                         entity2=entity2)
-        entity1_pdb = self.pdb.entity(entity1)
-        if entity1_pdb in self.interface_residues:
-            self.interface_residues[entity1_pdb] = entity1_residue_numbers
+        entity1_structure = self.pdb.entity(entity1)
+        if entity1_structure in self.interface_residues:
+            self.interface_residues[entity1_structure] = entity1_structure.get_residues(numbers=entity1_residue_numbers)
+            # self.interface_residues[entity1_structure] = entity1_residue_numbers
         else:
-            self.interface_residues[entity1_pdb].extend(entity1_residue_numbers)
+            self.interface_residues[entity1_structure].extend(entity1_structure.get_residues(numbers=entity1_residue_numbers))
+            # self.interface_residues[entity1_structure].extend(entity1_residue_numbers)
 
-        entity2_pdb = self.pdb.entity(entity2)
-        if entity2_pdb in self.interface_residues:
-            self.interface_residues[entity2_pdb] = entity2_residue_numbers
+        entity2_structure = self.pdb.entity(entity2)
+        if entity2_structure in self.interface_residues:
+            self.interface_residues[entity2_structure] = entity2_structure.get_residues(numbers=entity2_residue_numbers)
+            # self.interface_residues[entity2_structure] = entity2_residue_numbers
         else:
-            self.interface_residues[entity2_pdb].extend(entity2_residue_numbers)
+            self.interface_residues[entity2_structure].extend(entity2_structure.get_residues(numbers=entity2_residue_numbers))
+            # self.interface_residues[entity2_structure].extend(entity2_residue_numbers)
 
         # pdb1_interface_sa = pdb1.get_surface_area_residues(entity1_residue_numbers)
         # pdb2_interface_sa = pdb2.get_surface_area_residues(entity2_residue_numbers)
         # interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
 
-        entity1_pdb = self.asu.get_entity(entity1)
         # if self.symmetry:  # self.model_coords:  # find the interface using symmetry
         #     if entity2 == entity1:  # check to ensure we only measure the interchain contacts
         #         entity2_pdb =
         #     else:
         #         entity2_pdb = self.asu.get_entity(entity2)
         # else:
-        entity2_pdb = self.asu.get_entity(entity2)
-        surface_frags1 = entity1_pdb.get_fragments(entity1_residue_numbers)
-        surface_frags2 = entity2_pdb.get_fragments(entity2_residue_numbers)
+
+        surface_frags1 = entity1_structure.get_fragments(entity1_residue_numbers)
+        surface_frags2 = entity2_structure.get_fragments(entity2_residue_numbers)
+        self.log.debug('Entity 1 Fragment count: %d' % len(surface_frags1))
+        self.log.debug('Entity 2 Fragment count: %d' % len(surface_frags2))
         if self.symmetry:
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
             surface_frags2 = list(chain.from_iterable(surface_frags2_nested))
+            self.log.debug('Entity 2 Symmetry expanded fragment count: %d' % len(surface_frags2))
 
-        entity1_coords = entity1.extract_coords()
+        entity1_coords = entity1.get_backbone_and_cb_coords()  # for clashes, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, surface_frags1, surface_frags2,
                                                                          fragdb=self.frag_db)
+        self.log.debug('Found fragment pair count: %d' % len(ghostfrag_surfacefrag_pairs))
         self.fragment_observations.extend(ghostfrag_surfacefrag_pairs)
         fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
