@@ -29,8 +29,9 @@ class PDB(Structure):
     """The base object for PDB file manipulation"""
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, metadata=None, log=None):
-        super().__init__(log=log)
+    def __init__(self, file=None, atoms=None, metadata=None, **kwargs):  # , log=None):
+        super().__init__(**kwargs)  # log=log
+        self.log.debug('Initializing PDB')
         # if log:  # from Super Structure
         #     self.log = log
         # else:
@@ -90,13 +91,10 @@ class PDB(Structure):
     def number_of_chains(self):
         return len(self.chain_id_list)
 
-    # @classmethod  # Todo ensure that using this here is compatible with super class
-    # def from_atoms(cls, atoms):
-    #     return cls(atoms=atoms)
-    #
-    # @classmethod
-    # def from_residues(cls, residues):
-    #     return cls(residues=residues)
+    @property
+    def symmetry(self):
+        return {'symmetry': self.space_group, 'uc_dimensions': self.uc_dimensions, 'cryst_record': self.cryst_record,
+                'cryst': self.cryst, 'max_symmetry': self.max_symmetry}
 
     def set_chain_id_list(self, chain_id_list):
         self.chain_id_list = chain_id_list
@@ -260,6 +258,8 @@ class PDB(Structure):
                 #     ang_a, ang_b, ang_c = a, b, c
                 # space_group = line[55:66].strip()
 
+        self.coords = Coords(coords)
+        # todo set atom coords
         self.set_atoms([Atom.from_info(*info) for info in atom_info])
         # self.atoms = [Atom.from_info(*info) for info in atom_info]
         # self.renumber_atoms()
@@ -292,9 +292,12 @@ class PDB(Structure):
         return None
 
     def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False):
-        """Process all Atoms in PDB to Residue, Chain, and Entity objects"""
+        """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
+        if coords:
+            self.coords = Coords(coords)
+            # replace the Atom and Residue Coords
+            self.set_residues_attributes(coords=self._coords)
         # self.renumber_residues()
-        self.coords = Coords(coords)
         # self.find_center_of_mass()
         # self.create_residues()
 
@@ -773,25 +776,27 @@ class PDB(Structure):
         if solve_discrepancy:
             chain_idx = 0
             chain_id = PDB.available_letters[chain_idx]
-            chain_residues = {chain_id: []}
+            chain_residues = {chain_id: [self.residues[0]]}
             # previous_chain = self.residues[0].chain
             for idx, residue in enumerate(self.residues[1:], 1):  # start at the second index to avoid off by one
-                if residue.number_pdb < self.residues[idx - 1].number_pdb:
+                if residue.number_pdb < self.residues[idx - 1].number_pdb \
+                        or residue.chain != self.residues[idx - 1].chain:
                     # Decreased number should only happen with new chain therefore this SHOULD satisfy a malformed PDB
                     chain_idx += 1
                     # if residue.chain == previous_chain:  # residue[idx - 1].chain:
                     chain_id = PDB.available_letters[chain_idx]  # get a new chain id
                     # else:
                     #     chain = residue.chain
-                    chain_residues[chain_id] = []
+                    chain_residues[chain_id] = [residue]
                 else:
                     chain_residues[chain_id].append(residue)
 
-            for chain_id, residues in chain_residues.items():
-                for residue in residues:
-                    residue.set_atoms_attribute(chain=chain_id)
+            for idx, (chain_id, residues) in enumerate(chain_residues.items()):
+                # for residue in residues:
+                #     residue.set_atoms_attributes(chain=chain_id)
                 self.chains.append(Chain(name=chain_id, coords=self._coords, residues=residues, log=self.log))  # ,
                 #                        sequence=self.reference_sequence[chain_id]))
+                self.chains[idx].set_residues_attributes(chain=chain_id)
         else:
             for chain_id in self.chain_id_list:
                 self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log,
@@ -1266,7 +1271,7 @@ class PDB(Structure):
         self.renumber_pdb()
 
     def delete_residue(self, chain_id, residue_number):
-        # start = len(self.atoms)
+        start = len(self.atoms)
         self.log.debug(len(self.atoms))
         # residue = self.get_residue(chain, residue_number)
         chain = self.chain(chain_id)
@@ -1358,20 +1363,20 @@ class PDB(Structure):
         """
         if not self.entity_d:  # we didn't find information from the PDB file
             self.get_entity_info_from_api()  # pdb_code=pdb_code)
-            if not self.entity_d:
-                self.get_entity_info_from_atoms()
-            else:
-                for entity, info in self.entity_d.items():
-                    info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
-                    info['chains'] = filter(None, info['chains'])
-        self.update_entity_d()  # pdb_code=pdb_code)
+        if not self.entity_d:  # API didn't work either
+            self.get_entity_info_from_atoms()
+        else:
+            for entity, info in self.entity_d.items():
+                info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
+                info['chains'] = filter(None, info['chains'])
 
-        # just solve this upon chain loading...
-        # if len(self.entity_d) < self.number_of_chains:
+        # # solve this upon chain loading...?
+        # if len(self.entity_d) > self.number_of_chains:
         #     # the chain info is certainly messed up, flexibly solve chains using residue increment
-        #     logger.warning('%s: Incorrect chain (%d) and entity (%d) count. Chains probably have the same id! '
-        #                    'Attempting to correct' % (self.filepath, self.number_of_chains, len(self.entity_d)))
+        #     self.log.warning('%s: Incorrect chain (%d) and entity (%d) count. Chains probably have the same id! '
+        #                      'Attempting to correct' % (self.filepath, self.number_of_chains, len(self.entity_d)))
         #     self.create_chains(solve_discrepancy=True)
+        self.update_entity_d()  # pdb_code=pdb_code)
 
         for entity, info in self.entity_d.items():
             # chain_l = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
@@ -1384,7 +1389,7 @@ class PDB(Structure):
             #                                         chains=chain_l, entity_id=entity_name,
             #                                         uniprot_id=self.entity_accession_map[entity]))
             self.entities.append(Entity.from_representative(chains=info['chains'], name=entity, coords=self._coords,
-                                                            uniprot_id=info['accession'],
+                                                            uniprot_id=info['accession'], log=self.log,
                                                             representative=info['representative']))
 
     # def update_entities(self):  # , pdb_code=None):
@@ -1404,19 +1409,20 @@ class PDB(Structure):
         """Update a complete entity_d with the required information
         Todo choose the most symmetrically average chain if Entity is symmetric!
         For each Entity, gather the sequence of the chain representative"""
-        self.log.debug(self.entity_d)
+        self.log.debug('Entity Dictionary: %s' % self.entity_d)
         for entity, info in self.entity_d.items():
             info['representative'] = info['chains'][0]  # We may get an index error someday. If so, fix upstream logic
             info['seq'] = info['representative'].sequence
 
         self.update_entity_accession_id()
 
-    def get_entity_info_from_atoms(self):  # Todo modernize
+    def get_entity_info_from_atoms(self):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects"""
         entity_count = 1
         # for chain in self.atom_sequences:
         for chain in self.chains:
             new_entity = True  # assume all chains are unique entities
+            self.log.debug('Searching for matching Entities for Chain %s' % chain.name)
             for entity in self.entity_d:
                 # check if the sequence associated with the atom chain is in the entity dictionary
                 # if self.atom_sequences[chain] == self.entity_d[entity]['seq']:
@@ -1427,6 +1433,9 @@ class PDB(Structure):
                     # alignment = pairwise2.align.localxx(self.atom_sequences[chain], self.entity_d[entity]['seq'])
                     alignment = pairwise2.align.localxx(chain.sequence, self.entity_d[entity]['seq'])
                     score = alignment[0][2]  # first alignment from localxx, grab score value
+                self.log.debug('Chain %s has score of %d for Entity %d' % (chain.name, score, entity))
+                self.log.debug('Chain %s has match score of %f' % (chain.name,
+                                                                   score / len(self.entity_d[entity]['seq'])))
                 if score / len(self.entity_d[entity]['seq']) > 0.9:  # if score/length is > 90% similar, entity exists
                     # rmsd = Bio.Superimposer()
                     # if rmsd > 1:

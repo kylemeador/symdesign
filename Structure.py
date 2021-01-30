@@ -12,7 +12,6 @@ from SymDesignUtils import start_log
 
 class Structure:  # (Coords):
     def __init__(self, atoms=None, residues=None, name=None, coords=None, log=None, **kwargs):
-        super().__init__(**kwargs)
         # self.coords = coords
         # super().__init__(coords=coords)  # gets self.coords
         self.atoms = []  # atoms
@@ -26,6 +25,7 @@ class Structure:  # (Coords):
         if log:
             self.log = log
         else:
+            print('Structure starting log')
             self.log = start_log()
 
         if atoms:
@@ -36,6 +36,8 @@ class Structure:  # (Coords):
         if coords:  # isinstance(coords, Coords):
             self.coords = coords
 
+        super().__init__(**kwargs)
+
     @classmethod
     def from_atoms(cls, atoms, **kwargs):
         return cls(atoms=atoms, **kwargs)
@@ -44,13 +46,14 @@ class Structure:  # (Coords):
     def from_residues(cls, residues):
         return cls(residues=residues)
 
-    # @property Todo
-    def get_name(self):
+    @property
+    def name(self):
         # return self.id
-        return self.name
+        return self._name
 
-    def set_name(self, name):
-        self.name = name
+    @name.setter
+    def name(self, name):
+        self._name = name
 
     @property
     def coords(self):
@@ -158,7 +161,15 @@ class Structure:  # (Coords):
         # self.update_structure(atom_list)
         self.set_length()
 
-    def set_atoms_attribute(self, numbers=None, **kwargs):
+    def set_residues_attributes(self, numbers=None, **kwargs):
+        """Set attributes specified by key, value pairs for all Residues in the Structure"""
+        # for kwarg, value in kwargs.items():
+        for residue in self.get_residues(numbers=numbers):
+            # setattr(residue, kwarg, value)
+            residue.set_atoms_attributes(**kwargs)
+
+    def set_atoms_attributes(self, numbers=None, **kwargs):  # Same function as in Residue
+        """Set attributes specified by key, value pairs for all atoms in the Structure"""
         for kwarg, value in kwargs.items():
             for atom in self.get_atoms(numbers=numbers):
                 setattr(atom, kwarg, value)
@@ -184,9 +195,15 @@ class Structure:  # (Coords):
         return [atom.index for atom in self.get_residue_atoms(numbers=numbers)]
 
     def get_backbone_indices(self):
+        """Return backbone Atom indices from the Structure"""
         return [atom.index for atom in self.get_atoms() if atom.is_backbone()]
 
-    def get_cb_indices(self, InclGlyCA=False):
+    def get_backbone_and_cb_indices(self):
+        """Return backbone and CB Atom indices from the Structure inherently gets all glycine CA's"""
+        return [atom.index for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
+
+    def get_cb_indices(self, InclGlyCA=True):
+        """Return CB Atom indices from the Structure. By default, inherently gets all glycine CA's"""
         return [atom.index for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     def get_helix_cb_indices(self):
@@ -564,14 +581,14 @@ class Structure:  # (Coords):
 
 
 class Chain(Structure):
-    def __init__(self, name=None, residues=None, coords=None, sequence=None, log=None, **kwargs):
-        super().__init__(residues=residues, name=name, coords=coords, log=log, **kwargs)
+    def __init__(self, **kwargs):  # name=None, residues=None, coords=None, log=None, sequence=None,
+        super().__init__(**kwargs)  # residues=residues, name=name, coords=coords, log=log,
         # self.residues = residues
         # self.id = name
-        if sequence:
-            self.reference_sequence = sequence
-        else:
-            self.reference_sequence = self.sequence  # get_structure_sequence()
+        # if sequence:
+        #     self.reference_sequence = sequence
+        # else:
+        #     self.reference_sequence = self.sequence  # get_structure_sequence()
 
     # def set_id(self, _id):
     #     self.id = _id
@@ -587,19 +604,19 @@ class Chain(Structure):
     def sequence(self, sequence):
         self._sequence = sequence
 
-    @property
-    def reference_sequence(self):
-        return self._ref_sequence
-
-    @reference_sequence.setter
-    def reference_sequence(self, sequence):
-        self._ref_sequence = sequence
+    # @property
+    # def reference_sequence(self):
+    #     return self._ref_sequence
+    #
+    # @reference_sequence.setter
+    # def reference_sequence(self, sequence):
+    #     self._ref_sequence = sequence
 
     def __eq__(self, other):
         return self.name == other
 
 
-class Entity(SequenceProfile, Chain):  # Structure):
+class Entity(Chain, SequenceProfile):  # Structure):
     """Entity
     Initialize with Keyword Args:
         representative=None (Chain): The Chain that should represent the Entity
@@ -608,15 +625,23 @@ class Entity(SequenceProfile, Chain):  # Structure):
         PDB EntryID_EntityID
         uniprot_id=None (str): The unique UniProtID for the Entity
     """
-    def __init__(self, representative=None, chains=None, name=None, uniprot_id=None, coords=None, log=None):
+    def __init__(self, representative=None, chains=None, sequence=None, uniprot_id=None, **kwargs):
+        #        name=None, coords=None, log=None):
         assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
                                                   'Chain object as the representative!'
+        super().__init__(residues=representative.get_residues(), structure=self, **kwargs)  # name=name, coords=coords,
+        #                                                                                     log=log,
+        self.chain_id = representative.name
         self.chains = chains  # [Chain objs]
-        self.chain_name = representative.name
+        if sequence:
+            self.reference_sequence = sequence
+        else:
+            self.reference_sequence = self.get_structure_sequence()  # get_structure_sequence()
+        self.uniprot_id = uniprot_id
         # self.representative_chain = representative_chain
         # use the self.structure __init__ from SequenceProfile for the structure identifier
         # Chain init
-        super().__init__(name=name, residues=representative.get_residues(), coords=coords, log=log, structure=self)
+
         # super().__init__(chain_name=representative_chain.name, residues=representative_chain.get_residues(),
         #                  coords=representative_chain.coords)
         # super().__init__(chain_name=entity_id, residues=self.chain(representative_chain).get_residues(), coords=coords)
@@ -628,12 +653,19 @@ class Entity(SequenceProfile, Chain):  # Structure):
         # self.name = entity_id  # reflected above in super() call to Chain
 
         # self.entity_id = entity_id
-        self.uniprot_id = uniprot_id
 
     @classmethod
-    def from_representative(cls, representative=None, chains=None, name=None, uniprot_id=None, coords=None):
-        return cls(representative=representative, chains=chains, name=name,
-                   uniprot_id=uniprot_id, coords=coords)  # **kwargs
+    def from_representative(cls, representative=None, chains=None, name=None, uniprot_id=None, coords=None, log=None):
+        return cls(representative=representative, chains=chains, name=name, uniprot_id=uniprot_id, coords=coords,
+                   log=log)  # **kwargs
+
+    @property
+    def reference_sequence(self):
+        return self._ref_sequence
+
+    @reference_sequence.setter
+    def reference_sequence(self, sequence):
+        self._ref_sequence = sequence
 
     # def get_representative_chain(self):
     #     return self.representative
@@ -693,7 +725,8 @@ class Residue:
         return self.get_cb()
 
     # This acts as the setter for all the above properties
-    def set_atoms_attribute(self, **kwargs):
+    def set_atoms_attributes(self, **kwargs):
+        """Set attributes specified by key, value pairs for all atoms in the Residue"""
         for kwarg, value in kwargs.items():
             for atom in self.atoms:
                 setattr(atom, kwarg, value)

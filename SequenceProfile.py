@@ -34,11 +34,12 @@ add_fragment_profile_instructions = 'To add fragment information, call PDB.score
 
 class SequenceProfile:
     def __init__(self, structure=None, log=None, **kwargs):
-        super().__init__(log=log, **kwargs)
-        if log:
-            self.log = log
-        else:
-            self.log = start_log()
+        super().__init__(**kwargs)  # log=log,
+        # if log:
+        #     self.log = log
+        # else:
+        #     print('SequenceProfile starting log')
+        #     self.log = start_log()
 
         # self.sequence = None
         self.sequence_source = None
@@ -65,7 +66,11 @@ class SequenceProfile:
 
     @property
     def name(self):
-        return self.structure.get_name()
+        return self.structure.name
+
+    @name.setter
+    def name(self, name):
+        self.structure.name = name
 
     # def retrieve_sequence_from_api(self, entity_id=None):  # Unused
     #     self.sequence = get_sequence_by_entity_id(entity_id)
@@ -1050,7 +1055,7 @@ class SequenceProfile:
         # pdb_dict = {'ref': PDB(file=wild_type_file)}
         # for file_name in all_design_files:
         #     pdb = PDB(file=file_name)
-        #     pdb.set_name(os.path.splitext(os.path.basename(file_name))[0])
+        #     pdb.name = os.path.splitext(os.path.basename(file_name))[0])
         #     pdb_dict[pdb.name] = pdb
         #
         # return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
