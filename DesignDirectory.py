@@ -24,8 +24,9 @@ design_direcotry_modes = ['design', 'dock']
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, mode='design', symmetry=None, project=None, pose_id=None, **kwargs):
+    def __init__(self, design_path, nano=False, mode='design', project=None, pose_id=None, debug=False, **kwargs):
         self.name = os.path.splitext(os.path.basename(design_path))[0]
+        self.log = None
         self.nano = nano
         self.mode = mode
 
@@ -116,6 +117,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.mpi = False
         self.output_assembly = False
 
+        # Analysis flags
+        self.analysis = False
+
         if self.nano:
             if project:
                 self.project = project.rstrip(os.sep)
@@ -130,7 +134,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if not os.path.exists(self.path):
                 raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.path)
 
-            self.start_log()
+            self.start_log(debug=debug)
             # v used in dock_dir set up
             self.building_block_logs = []
             self.building_block_dirs = []
@@ -209,7 +213,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.gather_docking_metrics()
         else:
             self.source = design_path
-            self.project = os.path.join(os.getcwd(), PUtils.program_name)  # symmetry.rstrip(os.sep)
+            self.project = os.path.join(os.getcwd(), '%sOutput' % PUtils.program_name)  # symmetry.rstrip(os.sep)
             self.all_designs = os.path.join(self.project, PUtils.design_directory)
             self.path = os.path.join(self.all_designs, self.name)
             # design_symmetry/path
@@ -220,7 +224,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 os.makedirs(self.path)
 
             self.set_up_design_directory()
-            self.start_log()
+            self.start_log(debug=debug)
             # self.design_from_file(symmetry=symmetry)
         self.set_flags(**kwargs)
 
@@ -255,11 +259,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # When is this relevant?
             return self.path.replace(os.sep, '-')[1:]
 
-    def start_log(self, name=None, level=2):
+    def start_log(self, name=None, debug=False, level=2):
         if not name:
             name = self.name
+        if debug:
+            handler = 1
+            level = 1
+        else:
+            handler = 2
 
-        self.log = start_log(name=name, handler=2, level=level, location=os.path.join(self.path, name))
+        self.log = start_log(name=name, handler=handler, level=level, location=os.path.join(self.path, name))
         #                                                                              os.path.basename(self.path)))
 
     def connect_db(self, frag_db=None, design_db=None, score_db=None):
@@ -281,23 +290,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not os.path.exists(self.path):
             raise DesignError('Path does not exist!\n%s' % self.path)
             # self.log.warning('%s: Path does not exist!' % self.path)
-        self.protein_data = os.path.join(self.project, 'Protein_Data')
-        self.pdbs = os.path.join(self.protein_data, 'PDBs')
+        self.protein_data = os.path.join(self.project, PUtils.protein_data)
+        self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
 
-        self.all_scores = os.path.join(self.project, 'All_' + PUtils.scores_outdir.title())  # TODO db integration
+        self.all_scores = os.path.join(self.project, 'All' + PUtils.scores_outdir.title())  # TODO db integration
         self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
         self.design_sequences = os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
 
-        self.sdf = os.path.join(self.path, PUtils.symmetry_def_file_dir)
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
         self.scripts = os.path.join(self.path, PUtils.scripts)
         self.frags = os.path.join(self.path, PUtils.frag_dir)
+        self.data = os.path.join(self.path, PUtils.data)
+        self.sdf = os.path.join(self.path, PUtils.symmetry_def_file_dir)
         self.pose_file = os.path.join(self.path, PUtils.pose_file)
         self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
-        self.data = os.path.join(self.path, PUtils.data)
         self.asu = os.path.join(self.path, PUtils.clean)
         self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(PUtils.clean)[0])
         self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean)[0])
@@ -317,16 +326,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 os.makedirs(self.pdbs)
             if not os.path.exists(self.sequences):
                 os.makedirs(self.sequences)
-            if not os.path.exists(self.all_scores):
+            if not os.path.exists(self.all_scores) and self.analysis:
                 os.makedirs(self.all_scores)
 
-            if not os.path.exists(self.scores):
-                os.makedirs(self.scores)
-            if not os.path.exists(self.designs):
-                os.makedirs(self.designs)
+            # if not os.path.exists(self.scores):  # made by Rosetta
+            #     os.makedirs(self.scores)
+            # if not os.path.exists(self.designs):  # made by Rosetta
+            #     os.makedirs(self.designs)
+            if not os.path.exists(self.scripts):
+                os.makedirs(self.scripts)
+            if not os.path.exists(self.frags) and self.query_fragments:
+                os.makedirs(self.frags)
             if not os.path.exists(self.data):
                 os.makedirs(self.data)
-            if not os.path.exists(self.sdf):
+            if not os.path.exists(self.sdf) and self.nano:
                 os.makedirs(self.sdf)
 
     # def design_from_file(self, symmetry=None):
@@ -433,7 +446,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 assert len(name_pdb_file) == 1, 'Incorrect match [%d != 1] found using %s*_tx_*.pdb!\nCheck %s' % \
                                                 (len(name_pdb_file), name, self.__str__())
                 self.oligomers[name] = PDB.from_file(name_pdb_file[0])
-                self.oligomers[name].set_name(name)
+                self.oligomers[name].name = name
                 # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
                 sdf_file_name = os.path.join(os.path.dirname(self.oligomers[name].filepath), self.sdf, '%s.sdf' % name)
                 self.sdfs[name] = self.oligomers[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
@@ -692,7 +705,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
         self.log.debug('Cleaned PDB: \'%s\'' % self.asu)
         self.log.info('Interface Residues: %s'
-                      % ', '.join('%s%s' % (residue.number, entity.chain_name)
+                      % ', '.join('%s%s' % (residue.number, entity.chain_id)
                                   for entity, residues in self.pose.interface_residues.values()
                                   for residue in residues))
 
@@ -738,12 +751,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                             ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
 
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        all_chains = [entity.chain_name for entity in self.pose.entities]  # pose.interface_residues}  # ['A', 'B', 'C']
+        all_chains = [entity.chain_id for entity in self.pose.entities]  # pose.interface_residues}  # ['A', 'B', 'C']
         interface_residue_d = {'interface%s' % chain: '' for chain in all_chains}
         for i, (entity, residues) in enumerate(self.pose.interface_residues.items(), 1):
-            interface_residue_d['interface%s' % entity.chain_name] = ','.join('%d%s'
-                                                                              % (residue.number, entity.chain_name)
-                                                                              for residue in residues)
+            interface_residue_d['interface%s' % entity.chain_id] = ','.join('%d%s'
+                                                                            % (residue.number, entity.chain_id)
+                                                                            for residue in residues)
 
         refine_variables.extend(interface_residue_d.items())
 
@@ -813,7 +826,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             metric_cmd = run_cmds[PUtils.rosetta_extras] + metric_cmd
             self.script = True
 
-        metric_cmds = {entity.chain_name: metric_cmd + ['-parser:script_vars', 'chain=%s' % entity.chain_name]
+        metric_cmds = {entity.chain_id: metric_cmd + ['-parser:script_vars', 'chain=%s' % entity.chain_id]
                        for entity in self.pose.entities}
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
@@ -872,10 +885,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return out_file  # 'flags_' + stage
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def interface_redesign(self):
-        self.pose = Pose.from_asu_file(self.source, log=self.log)
-        self.pose.interface_design(design_dir=self, symmetry=self.design_symmetry, output_assembly=self.output_assembly,
-                                   mask=self.mask, evolution=self.evolution,
+    def interface_design(self):
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
+        self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
+                                   mask=self.mask, evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.fragment, write_fragments=self.write_frags,
                                    query_fragments=self.query_fragments, existing_fragments=self.fragment_file,
                                    frag_db=self.frag_db)
