@@ -89,6 +89,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sym_entry_number = None
         self.design_symmetry = None
         self.design_dim = None
+        self.uc_dimensions = None
+        self.expand_matrices = None
 
         # self.fragment_cluster_residue_d = {}
         self.fragment_observations = []
@@ -766,16 +768,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
         refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
         if self.consensus:
-            consensus_cmd = relax_cmd + ['-in:file:s', self.consensus_pdb, '-parser:script_vars',
-                                         'switch=%s' % PUtils.stage[5]]
-            if self.script:
-                write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5], out_path=self.scripts)
-                # additional_cmd = [subprocess.list2cmdline(consensus_cmd)]
+            if self.fragment:
+                consensus_cmd = relax_cmd + ['-in:file:s', self.consensus_pdb, '-parser:script_vars',
+                                             'switch=%s' % PUtils.stage[5]]
+                if self.script:
+                    write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5],
+                                       out_path=self.scripts)
+                    # additional_cmd = [subprocess.list2cmdline(consensus_cmd)]
+                else:
+                    self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
+                    consensus_process = subprocess.Popen(consensus_cmd)
+                    # Wait for Rosetta Consensus command to complete
+                    consensus_process.communicate()
             else:
-                self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
-                consensus_process = subprocess.Popen(consensus_cmd)
-                # Wait for Rosetta Consensus command to complete
-                consensus_process.communicate()
+                self.log.critical('Cannot run consensus design without fragment info. Did you mean to design with '
+                                  '-fragments_exist None & -generate_fragments False?')
         # else:
         #     additional_cmd = []
 
@@ -791,12 +798,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # DESIGN: Prepare command and flags file
         design_variables = copy.deepcopy(refine_variables)
-        design_variables.append(('dssm_file', self.info['dssm']))
+        design_variables.append(('design_profile', self.info['design_profile']))
+        constraint_percent, free_percent = 0, 1
+        if self.evolution:
+            constraint_percent = 0.5
+            free_percent -= constraint_percent
+        design_variables.append(('constrained_percent', constraint_percent))
+        design_variables.append(('free_percent', free_percent))
         flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
         # TODO back out nstruct label to command distribution
-        design_cmd = main_cmd + \
+        design_cmd = main_cmd + ['-in:file:pssm', self.info['evoltionary_profile']] if self.evolution else [] + \
             ['-in:file:s', self.refined_pdb, '-in:file:native', self.asu, '-nstruct', str(PUtils.nstruct),
-             '@%s' % os.path.join(self.path, flags_design), '-in:file:pssm', self.info['pssm'],
+             '@%s' % os.path.join(self.path, flags_design),
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
              '-scorefile', os.path.join(self.scores, PUtils.scores_file)]
 
@@ -884,6 +897,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file  # 'flags_' + stage
 
+    def set_symmetry(self, symmetry=None, design_dimension=None, uc_dimensions=None, expand_matrices=None):
+        """{symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
+
+        (str)
+        (int)
+        (list)
+        (list[tuple[list[list], list]])
+        """
+        self.design_symmetry = symmetry
+        self.design_dim = design_dimension
+        self.uc_dimensions = uc_dimensions
+        self.expand_matrices = expand_matrices
+
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
         self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
@@ -892,6 +918,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                    fragments=self.fragment, write_fragments=self.write_frags,
                                    query_fragments=self.query_fragments, existing_fragments=self.fragment_file,
                                    frag_db=self.frag_db)
+        self.set_symmetry(self.pose.return_symmetry_parameters())
         self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
         self.prepare_rosetta_commands()
 
