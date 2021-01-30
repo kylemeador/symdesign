@@ -577,7 +577,7 @@ if __name__ == '__main__':
 
     else:
         extra_flags = None  # Todo
-        design_flags = None
+        design_flags = {}
     design_flags.update(args.__dict__)
     logger.debug('All flags: %s' % design_flags)
     # -----------------------------------------------------------------------------------------------------------------
@@ -746,8 +746,9 @@ if __name__ == '__main__':
                     results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, threads))
                 results = list(results)
             else:  # TODO implementation where SymDesignControl calls Nanohedra.py
-                print('Can\'t run designs from here yet. Must pass python %s -c for execution' % __file__)
-                pass
+                logger.info('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
+                            % (PUtils.nano, __file__))
+                exit()
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
             if args.command_only:
@@ -763,8 +764,9 @@ if __name__ == '__main__':
                         results.append(result)
                         exceptions.append(error)
             else:  # TODO implementation where SymDesignControl calls Nanohedra.py
-                print('Can\'t run designs from here yet. Must pass python %s -c for execution' % __file__)
-                pass
+                logger.info('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
+                            % (PUtils.nano, __file__))
+                exit()
 
         # Make single file with names of each directory. Specific for docking due to no established directory
         args.file = os.path.join(args.directory, 'all_docked_directories.paths')  # Todo Parameterized
@@ -1303,13 +1305,13 @@ if __name__ == '__main__':
         elif args.metric == 'matched':  # Todo ensure that the design_dir has these attributes
             designpath_metric_tup_list = [(des_dir.asu, des_dir.number_of_fragments) for des_dir in design_directories]
 
-        print('Sorting')
+        logger.info('Sorting')
         designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0),
                                                    reverse=True)
     # ---------------------------------------------------
     elif args.sub_module == 'query':
         query_flags = [__file__, '-query'] + additional_flags
-        print(query_flags)
+        logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
         query_mode(query_flags)
 
     # Report any program exceptions

@@ -28,8 +28,11 @@ layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2':
                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
 viable = {'p6', 'p4', 'p3', 'p312', 'p4121', 'p622'}
-point_group_d = {8: 'I32', 14: 'I52', 56: 'I53', 4: 'T32', 52: 'T33'}
-# layer_group_d = {8: 'I23'}
+point_group_d = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33', 7: 'O32', 13: 'O42', 56: 'O43'}
+# , 7: 'O32', 13: 'O42', 56: 'O43'} Todo get SDF files
+layer_group_d = {2, 4, 10, 12, 17, 19, 20, 21, 23,
+                 27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
+                 71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
 
 ##########
 # ERRORS
@@ -86,7 +89,7 @@ def handle_design_errors(errors=(Exception,)):
 def handle_symmetry(symmetry_entry_number):
     # group = cryst1_record.split()[-1]/
     if symmetry_entry_number not in point_group_d.keys():
-        if symmetry_entry_number in layer_group_d.keys():
+        if symmetry_entry_number in layer_group_d:  # .keys():
             return 2
         else:
             return 3
