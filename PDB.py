@@ -150,7 +150,8 @@ class PDB(Structure):
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
         formatted_filename = os.path.splitext(os.path.basename(filepath))[0].rstrip('pdb').lstrip('pdb')
-        self.name = formatted_filename
+        underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != 1 else None
+        self.name = formatted_filename[:underscore_idx]
 
         with open(self.filepath, 'r') as f:
             pdb_lines = f.readlines()
@@ -1317,7 +1318,7 @@ class PDB(Structure):
 
         return round(temp / len(residue_atoms), 2)
 
-    def retrieve_pdb_info_from_api(self, pdb_code=None):
+    def retrieve_pdb_info_from_api(self, pdb_code=None):  # Todo doesn't really need pdb_code currently. When would it?
         if not pdb_code:
             # if self.name:
             pdb_code = self.name
@@ -1327,11 +1328,13 @@ class PDB(Structure):
         if len(pdb_code) == 4:
             if not self.api_entry:
                 self.api_entry = get_pdb_info_by_entry(pdb_code)
-                return True
+                if self.api_entry:
+                    return True
+                self.log.info('PDB code \'%s\' was not found with the PDB API.' % pdb_code)
         else:
             self.log.info('PDB code \'%s\' is not of the required format and will not be found with the PDB API.'
                           % pdb_code)
-            return False
+        return False
         # if not self.api_entry and self.name and len(self.name) == 4:
         #     self.api_entry = get_pdb_info_by_entry(self.name)
         # self.get_dbref_info_from_api()
@@ -1388,7 +1391,8 @@ class PDB(Structure):
             # self.entities.append(self.create_entity(representative_chain=self.entity_d[entity]['representative'],
             #                                         chains=chain_l, entity_id=entity_name,
             #                                         uniprot_id=self.entity_accession_map[entity]))
-            self.entities.append(Entity.from_representative(chains=info['chains'], name=entity, coords=self._coords,
+            self.entities.append(Entity.from_representative(chains=info['chains'], name='%s_%d' % (self.name, entity),
+                                                            coords=self._coords,
                                                             uniprot_id=info['accession'], log=self.log,
                                                             representative=info['representative']))
 
@@ -1879,6 +1883,10 @@ class PDB(Structure):
 
     @staticmethod
     def parse_cryst_record(cryst1_string):
+        """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
+        Returns:
+            (tuple[list, str])
+        """
         try:
             a = float(cryst1_string[6:15].strip())
             b = float(cryst1_string[15:24].strip())
