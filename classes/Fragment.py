@@ -78,14 +78,14 @@ def get_surface_fragments_chain(pdb, chain_id):  # DEPRECIATE
 
 
 class GhostFragment:
-    def __init__(self, pdb, i_frag_type, j_frag_type, k_frag_type, ijk_rmsd, ghostfrag_central_res_tup,
-                 guide_coords=None, pdb_coords=None):  # aligned_surf_frag_central_res_tup, guide_atoms=None,
+    def __init__(self, pdb, i_frag_type, j_frag_type, k_frag_type, ijk_rmsd, aligned_surf_frag_central_res_tup,
+                 guide_coords=None):  # aligned_surf_frag_central_res_tup, guide_atoms=None, pdb_coords=None
         self.pdb = pdb
         self.i_frag_type = i_frag_type
         self.j_frag_type = j_frag_type
         self.k_frag_type = k_frag_type
         self.rmsd = ijk_rmsd
-        self.central_res_tup = ghostfrag_central_res_tup
+        self.central_res_tup = aligned_surf_frag_central_res_tup
         # self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup  # (chain, res_number, ch, res#)
 
         if not guide_coords:  # guide_atoms, , pdb_coords] == [None, None]
