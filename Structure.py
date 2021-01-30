@@ -585,7 +585,7 @@ class Structure:  # (Coords):
     # def index_to_mask(length, indices, index_masked=False):
     #     mask = [0 for i in range(length)]
     def __key(self):
-        return self.name, self.center_of_mass  # , self.number_of_atoms
+        return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
 
     def __eq__(self, other):
         # return self.ca == other_residue.ca
