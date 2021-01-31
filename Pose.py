@@ -1258,20 +1258,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         if fragments:
             if query_fragments:  # search for new fragment information
-                self.connect_fragment_database(db=design_dir.frag_db)
-                # for entity_pair in combinations(self.entities, 2):
-                for entity_pair in combinations_with_replacement(self.entities, 2):
-                    self.log.debug('Querying Entity pair: %s, %s for interface fragments'
-                                   % tuple(entity.name for entity in entity_pair))
-                    self.query_interface_for_fragments(*entity_pair)
-                if write_fragments:
-                    write_fragment_pairs(self.fragment_observations, out_path=design_dir.frags)
-                    for match_count, frag_obs in enumerate(self.fragment_observations):
-                        write_frag_match_info_file(frag_obs[0], frag_obs[1], z_value_from_match_score(frag_obs[2]),
-                                                   None, match_count, 'Not Provided', None, design_dir.frags,
-                                                   design_dir.name)
-                        # ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list,
-                        # cluster_rmsd, outdir_path, pose_id, is_initial_match=False
+                self.generate_interface_fragments(db=design_dir.frag_db, out_path=design_dir.frags,
+                                                  write_fragments=write_fragments)
             else:  # add existing fragment information to the pose
                 # must provide des_dir.fragment_observations from des_dir.gather_fragment_metrics then specify whether
                 # the Entity in question is from mapped or paired (entity1 is mapped, entity2 is paired from Nanohedra)
@@ -1339,6 +1327,21 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # This info is pulled out in AnalyzeOutput from Rosetta currently
         design_dir.info['design_residues'] = self.interface_residues
         # TODO add symmetry or oligomer data to .info?
+
+    def generate_interface_fragments(self, db=None, out_path=None, write_fragments=True):
+        self.connect_fragment_database(db=db)
+        # for entity_pair in combinations(self.entities, 2):
+        for entity_pair in combinations_with_replacement(self.entities, 2):
+            self.log.debug('Querying Entity pair: %s, %s for interface fragments'
+                           % tuple(entity.name for entity in entity_pair))
+            self.query_interface_for_fragments(*entity_pair)
+        if write_fragments:
+            write_fragment_pairs(self.fragment_observations, out_path=out_path)
+            for match_count, frag_obs in enumerate(self.fragment_observations):
+                write_frag_match_info_file(frag_obs[0], frag_obs[1], z_value_from_match_score(frag_obs[2]),
+                                           None, match_count, 'Not Provided', None, out_path)
+            # ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list,
+            # cluster_rmsd, outdir_path, pose_id, is_initial_match=False
 
     def return_symmetry_parameters(self):
         """Return the symmetry parameters from a SymmetricModel
