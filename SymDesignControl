@@ -616,6 +616,19 @@ if __name__ == '__main__':
                                                                      **design_flags)
                                       for pose in all_poses]
             else:
+                if 'symmetry' in design_flags and design_flags['symmetry']:
+                    if design_flags['symmetry'] in SDUtils.possible_symmetries:
+                        sym_entry = SDUtils.parse_symmetry_to_nanohedra_entry(design_flags['symmetry'])
+                        design_flags['sym_entry_number'] = sym_entry
+                    elif design_flags['symmetry'].lower()[:5] == 'cryst':
+                        do_something = True
+                        # the symmetry information should be in the pdb headers
+                    else:
+                        raise SDUtils.DesignError('The symmetry %s is not supported! Supported symmetries include:\n%s'
+                                                  '\nCorrect your flags file and try again'
+                                                  % (design_flags['symmetry'],
+                                                     ', '.join(SDUtils.possible_symmetries.keys())))
+
                 all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
                 design_directories = [DesignDirectory.from_file(pose, project=args.design_string, **design_flags)
                                       for pose in all_poses]

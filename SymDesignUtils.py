@@ -2,10 +2,12 @@
 import logging
 import math
 import multiprocessing as mp
+import operator
 import os
 import pickle
 import subprocess
 import sys
+from functools import reduce
 from glob import glob
 from itertools import chain
 from json import loads, dumps
@@ -27,12 +29,54 @@ rmsd_threshold = 1.0
 layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
-viable = {'p6', 'p4', 'p3', 'p312', 'p4121', 'p622'}
-point_group_d = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33', 7: 'O32', 13: 'O42', 56: 'O43'}
-# , 7: 'O32', 13: 'O42', 56: 'O43'} Todo get SDF files
 layer_group_d = {2, 4, 10, 12, 17, 19, 20, 21, 23,
                  27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
                  71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
+
+# Todo get SDF files for all commented out
+possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T',  # 'O32': 'O', 'O42': 'O', 'O43': 'O'
+                       'I:{C2}{C3}': 'I', 'I:{C2}{C5}': 'I', 'I:{C3}{C5}': 'T', 'T:{C2}{C3}': 'T',
+                       'T:{C3}{C3}': 'T',  # 'O:{C2}{C3}': 'O', 'O:{C2}{C4}': 'O', 'O:{C3}{C4}': 'I',
+                       'I:{C3}{C2}': 'I', 'I:{C5}{C2}': 'I', 'I:{C5}{C3}': 'I', 'T:{C3}{C2}': 'T',
+                       'T:{C3}{C3}': 'T',  # 'O:{C3}{C2}': 'O', 'O:{C4}{C2}': 'O', 'O:{C4}{C3}': 'I'
+                       # 'T', 'O', 'I'
+                       # layer groups
+                       # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
+                       # space groups  # Todo
+                       }
+# Todo space and cryst
+all_sym_entry_dict = {'T': {'C2': {'C3': 54}, 'C3': {'C2': 54, 'C3': 7}},
+                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}},
+                      'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}}}
+
+point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33', 7: 'O32', 13: 'O42', 56: 'O43'}
+
+
+def parse_symmetry_to_nanohedra_entry(symmetry_string):
+    symmetry_string = symmetry_string.strip()
+    if len(symmetry_string) > 3:
+        symmetry_split = symmetry_string.split('{')
+        clean_split = [split.strip('}:') for split in symmetry_split]
+    elif len(symmetry_string) == 3:  # Rosetta Formatting
+        clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
+    else:  # C2, D6, I, T, O
+        raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
+
+    logger.debug(clean_split)
+    try:
+        sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
+    except KeyError:
+        # the prescribed symmetry was a plane or space group or point group that isn't recognized/ not in nanohedra
+        sym_entry = symmetry_string
+        raise ValueError('%s is not a supported symmetry!' % symmetry_string)
+
+    logger.debug(sym_entry)
+    return sym_entry
+
+
+def dictionary_lookup(dictionary, iterable):
+    return reduce(operator.getitem, iterable, dictionary)
+
 
 ##########
 # ERRORS
@@ -88,7 +132,7 @@ def handle_design_errors(errors=(Exception,)):
 
 def handle_symmetry(symmetry_entry_number):
     # group = cryst1_record.split()[-1]/
-    if symmetry_entry_number not in point_group_d.keys():
+    if symmetry_entry_number not in point_group_sdf_map.keys():
         if symmetry_entry_number in layer_group_d:  # .keys():
             return 2
         else:
@@ -101,7 +145,7 @@ def sdf_lookup(point_type, dummy=False):
     if dummy:
         return os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
     else:
-        symmetry_name = point_group_d[point_type]
+        symmetry_name = point_group_sdf_map[point_type]
 
     for root, dirs, files in os.walk(PUtils.symmetry_def_files):
         for file in files:

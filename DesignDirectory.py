@@ -897,7 +897,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file  # 'flags_' + stage
 
-    def set_symmetry(self, symmetry=None, design_dimension=None, uc_dimensions=None, expand_matrices=None):
+    def set_symmetry(self, symmetry=None, sym_entry_number=None, dimension=None, uc_dimensions=None,
+                     expand_matrices=None, **kwargs):
         """{symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
 
         (str)
@@ -905,20 +906,26 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         (list)
         (list[tuple[list[list], list]])
         """
+        # self.sym_entry_number = sym_entry_number
         self.design_symmetry = symmetry
-        self.design_dim = design_dimension
+        self.design_dim = dimension
         self.uc_dimensions = uc_dimensions
         self.expand_matrices = expand_matrices
 
+    def return_symmetry_parameters(self):
+        return dict(symmetry=self.design_symmetry, design_dimension=self.design_dim,
+                    uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
+
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.sym_entry_number, log=self.log)  # symmetry=self.design_symmetry,
         self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
                                    mask=self.mask, evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.fragment, write_fragments=self.write_frags,
                                    query_fragments=self.query_fragments, existing_fragments=self.fragment_file,
                                    frag_db=self.frag_db)
-        self.set_symmetry(self.pose.return_symmetry_parameters())
+        self.set_symmetry(**self.pose.return_symmetry_parameters())
+        self.log.debug('DesignDirectory Symmetry: %s' % self.return_symmetry_parameters())
         self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
         self.prepare_rosetta_commands()
 
