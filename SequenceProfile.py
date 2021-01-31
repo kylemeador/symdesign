@@ -1,9 +1,8 @@
-import copy  # copy
 import math
 import os
 import subprocess
 import time
-from copy import copy
+from copy import deepcopy  # copy,
 from glob import glob, iglob
 from itertools import chain
 
@@ -225,7 +224,7 @@ class SequenceProfile:
                     self.log.info('Fetching \'%s\' sequence data.\n' % self.name)
             else:
                 for seq_file in out_put_file_search:
-                    if seq_file == '%s.hold' % self.name:
+                    if seq_file == os.path.join(out_path, '%s.hold' % self.name):
                         self.log.info('Waiting for \'%s\' profile generation...' % self.name)
                         while not os.path.exists(os.path.join(out_path, '%s.hmm' % self.name)):
                             time.sleep(20)
@@ -234,11 +233,11 @@ class SequenceProfile:
                                 raise DesignError('%s: Generation of the profile for %s took longer than the time '
                                                   'limit. Job killed!'
                                                   % (self.add_evolutionary_profile.__name__, self.name))
-                    elif seq_file == '%s.hmm' % self.name:
+                    elif seq_file == os.path.join(out_path, '%s.hmm' % self.name):
                         self.pssm_file = os.path.join(out_path, seq_file)
                         self.log.debug('%s PSSM Files=%s' % (self.name, self.pssm_file))
                         break
-                    elif seq_file == '%s.fasta' % self.name:
+                    elif seq_file == os.path.join(out_path, '%s.fasta' % self.name):
                         self.sequence_file = seq_file
                         self.log.debug('%s PSSM File not yet created' % self.name)
                     else:
@@ -319,7 +318,7 @@ class SequenceProfile:
             line_data = line.strip().split()
             if len(line_data) == 44:
                 residue_number = int(line_data[0])
-                self.evolutionary_profile[residue_number] = copy.deepcopy(aa_counts_dict)
+                self.evolutionary_profile[residue_number] = deepcopy(aa_counts_dict)
                 for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[residue_number], 22):
                     # Get normalized counts for pose_dict
                     self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
@@ -341,7 +340,7 @@ class SequenceProfile:
             p (subprocess): Process object for monitoring progress of hhblits command
         """
 
-        self.pssm_file = os.path.join(out_path, '%s.hmm' % str(self.name[0]))
+        self.pssm_file = os.path.join(out_path, '%s.hmm' % str(self.name))
 
         cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', self.sequence_file, '-ohhm', self.pssm_file, '-v', '1',
                '-cpu', str(threads)]
@@ -555,7 +554,7 @@ class SequenceProfile:
         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
         if self.fragment_map:
             self.generate_fragment_profile()
-            self.simplify_fragment_profile(keep_extras=False)  # =False added for issm pickling and analyze_output
+            self.simplify_fragment_profile()  # =False added for issm pickling and analyze_output
         else:
             idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
             if self.fragment_queries:
@@ -699,23 +698,23 @@ class SequenceProfile:
 
         for residue_number, fragment_indices in self.fragment_map.items():
             self.fragment_profile[residue_number] = {}
-            for frag_index, fragments in fragment_indices.items():
-                self.fragment_profile[residue_number][frag_index] = {}
+            for frag_idx, fragments in fragment_indices.items():
+                self.fragment_profile[residue_number][frag_idx] = {}
                 # observation_d = {}
-                for obs_idx, fragment in enumerate(fragments):
+                for observation_idx, fragment in enumerate(fragments):
                     cluster_id = fragment['cluster']
                     freq_type = fragment['chain']
-                    aa_freq = self.frag_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_index)
+                    aa_freq = self.frag_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_idx)
                     # {1_1_54: {'mapped': {aa_freq}, 'paired': {aa_freq}}, ...}
                     #  mapped/paired aa_freq = {-2: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37]}, -1: {}, ...}
                     #  Where 'stats'[0] is total fragments in cluster, and 'stats'[1] is weight of fragment index
-                    self.fragment_profile[residue_number][frag_index][obs_idx] = aa_freq
-                    self.fragment_profile[residue_number][frag_index][obs_idx]['match'] = fragment['match']
+                    self.fragment_profile[residue_number][frag_idx][observation_idx] = aa_freq
+                    self.fragment_profile[residue_number][frag_idx][observation_idx]['match'] = fragment['match']
                     # observation_d[obs_idx] = aa_freq
                     # observation_d[obs_idx]['match'] = fragment['match']
                 # self.fragment_map[residue_number][frag_index] = observation_d
 
-    def simplify_fragment_profile(self, keep_extras=True):
+    def simplify_fragment_profile(self, keep_extras=False):
         """Take a multi-indexed, a multi-observation fragment frequency dictionary and flatten to single frequency for
         each amino acid. Weight the frequency of each observation by the fragment indexed, observation weight and the
         match between the fragment library and the observed fragment overlap
@@ -751,7 +750,7 @@ class SequenceProfile:
                     # Check if weights are associated with observations, if not side chain isn't significant!
                     if total_obs_weight > 0:
                         total_fragment_weight += total_obs_weight
-                        obs_aa_dict = copy.deepcopy(aa_weight_counts_dict)  # {'A': 0, 'C': 0, ..., 'stats': [0, 1]}
+                        obs_aa_dict = deepcopy(aa_weight_counts_dict)  # {'A': 0, 'C': 0, ..., 'stats': [0, 1]}
                         obs_aa_dict['stats'][1] = total_obs_weight
                         for obs in self.fragment_profile[residue][index]:
                             total_fragment_observations += 1
@@ -773,7 +772,7 @@ class SequenceProfile:
                         self.fragment_profile[residue][index] = {}
 
             if total_fragment_weight > 0:
-                res_aa_dict = copy.deepcopy(aa_weight_counts_dict)
+                res_aa_dict = deepcopy(aa_weight_counts_dict)
                 res_aa_dict['stats'][1] = total_fragment_weight  # this is over all indices and observations
                 res_aa_dict['stats'][0] = total_fragment_observations  # this is over all indices and observations
                 for index in self.fragment_profile[residue]:
@@ -824,7 +823,7 @@ class SequenceProfile:
         """
         assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.combine_ssm.__name__
         # copy the evol profile to self.profile (design specific scoring matrix)
-        self.profile = copy.deepcopy(self.evolutionary_profile)
+        self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
         for entry in self.alpha:
             for aa in IUPACData.protein_letters:
@@ -1235,7 +1234,7 @@ class FragmentDatabase(FragmentDB):
         # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
         self.fragment_range = None
-        self.cluster_dict = {}
+        self.cluster_info = {}
         self.fragdb = None
 
         if self.source == 'DB':
@@ -1281,35 +1280,40 @@ class FragmentDatabase(FragmentDB):
         return self.statistics['frequencies']
 
     def retrieve_cluster_info(self, cluster=None, source=None, index=None):
-        """Return information for each cluster from the information database with form
-            {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}
+        """Return information from the fragment information database by cluster_id, information source, and source index
+         cluster_info takes the form:
+            {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ...,
+                         'mapped': indexed_frequency_dict, 'paired': indexed_frequency_dict}
+                         indexed_frequency_dict = {-2: {'A': 0.1, 'C': 0., ..., 'info': (12, 0.41)},
+                                                   -1: {}, 0: {}, 1: {}, 2: {}}
+
         Keyword Args:
             cluster=None (str): A cluster_id to get information about
             source=None (str): The source of information to gather from: ['size', 'rmsd', 'rep', 'mapped', 'paired']
             index=None (int): The index to gather information from. Must be from 'mapped' or 'paired'
         Returns:
-            (dict):
+            (dict)
         """
         if cluster:
-            if cluster not in self.cluster_dict:
+            if cluster not in self.cluster_info:
                 self.get_cluster_info(ids=[cluster])
             if source:
                 if index and source in ['mapped', 'paired']:
-                    return self.cluster_dict[cluster][source][index]
+                    return self.cluster_info[cluster][source][index]
                 else:
-                    return self.cluster_dict[cluster][source]
+                    return self.cluster_info[cluster][source]
             else:
-                return self.cluster_dict[cluster]
+                return self.cluster_info[cluster]
         else:
-            return self.cluster_dict
+            return self.cluster_info
 
     def get_cluster_info(self, ids=None):
-        """Load cluster information from the fragment database source
-
+        """Load cluster information from the fragment database source into attribute cluster_info
+        # todo change ids to a tuple
         Keyword Args:
             id_list=None: [1_2_123, ...]
-        Returns:
-             cluster_dict: {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': ..., 'paired': ...}, ...}
+        Sets:
+            self.cluster_info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
         """
         if self.db:
             print('No SQL DB connected yet!')  # Todo
@@ -1327,10 +1331,10 @@ class FragmentDatabase(FragmentDB):
 
             for cluster_directory in directories:
                 cluster_id = os.path.basename(cluster_directory)
-                filename = os.path.join(cluster_directory, cluster_id + '.pkl')
-                self.cluster_dict[cluster_id] = unpickle(filename)
+                filename = os.path.join(cluster_directory, '%s.pkl' % cluster_id)
+                self.cluster_info[cluster_id] = unpickle(filename)
 
-            return self.cluster_dict
+            # return self.cluster_info
 
     @staticmethod
     def get_cluster_id(cluster_id, index=3):
@@ -1649,7 +1653,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
                     total_obs_weight += design_cluster_dict[res][index][obs]['stats'][1]
                 if total_obs_weight > 0:
                     total_residue_weight += total_obs_weight
-                    obs_aa_dict = copy.deepcopy(aa_weight_counts_dict)
+                    obs_aa_dict = deepcopy(aa_weight_counts_dict)
                     obs_aa_dict['stats'][1] = total_obs_weight
                     for obs in design_cluster_dict[res][index]:
                         num_frag_weights_observed += 1
@@ -1665,7 +1669,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
                     design_cluster_dict[res][index] = dict()
 
         if total_residue_weight > 0:
-            res_aa_dict = copy.deepcopy(aa_weight_counts_dict)
+            res_aa_dict = deepcopy(aa_weight_counts_dict)
             res_aa_dict['stats'][1] = total_residue_weight
             res_aa_dict['stats'][0] = num_frag_weights_observed
             for index in design_cluster_dict[res]:
@@ -1771,7 +1775,7 @@ def parse_pssm(file):
         line_data = line.strip().split()
         if len(line_data) == 44:
             resi = int(line_data[0]) - index_offset
-            pose_dict[resi] = copy.deepcopy(aa_counts_dict)
+            pose_dict[resi] = deepcopy(aa_counts_dict)
             for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[resi], 22):
                 # Get normalized counts for pose_dict
                 pose_dict[resi][aa] = (int(line_data[i]) / 100.0)
