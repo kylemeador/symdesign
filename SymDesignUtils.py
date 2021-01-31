@@ -84,7 +84,7 @@ def dictionary_lookup(dictionary, iterable):
 
 
 def handle_errors_f(errors=(Exception, )):
-    """Decorator to wrap a function with try: ... except errors: finally:
+    """Decorator to wrap a function with try: ... except errors: finally: Specifically for file reading functions
 
     Keyword Args:
         errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
@@ -657,7 +657,7 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
     Returns:
         (str): The name of the file
     """
-    file_name = os.path.join(out_path, name + '.sh')
+    file_name = os.path.join(out_path, '%s.sh' % name)
     with open(file_name, 'w') as f:
         f.write('#!/bin/%s\n\n%s\n' % (shell, command))
         if additional:
@@ -666,12 +666,12 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
     return file_name
 
 
-def write_commands(command_list, name='all_commands', loc=os.getcwd()):  # TODO loc, location, outpath. Standardize!!!
+def write_commands(command_list, name='all_commands', out_path=os.getcwd()):  # TODO loc, location, outpath. Standardize!!!
     if len(command_list) > 1:
         extension = '.cmds'
     else:
         extension = '.cmd'
-    file = os.path.join(loc, name + extension)
+    file = os.path.join(out_path, name + extension)
     with open(file, 'w') as f:
         f.write('\n'.join(command for command in command_list))
 

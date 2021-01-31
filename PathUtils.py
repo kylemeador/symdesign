@@ -5,8 +5,8 @@ import os
 
 
 # Project strings and file names
-program_name = 'SymDesign'
-program_command = 'python $SymDesign'
+program_name = 'SymDesign.py'
+program_command = 'python $SymDesign.py'
 guide_string = '%s guide. Enter \'%s guide\'' % (program_name, program_command)
 nano = 'nanohedra'  # v0 'Nanohedra'  # v1?
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
@@ -17,6 +17,7 @@ nstruct = 25  # back to 50?
 stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
          11: 'all_to_cluster'}
+interface_design_command = 'interface_design'
 stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
            stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
            stage[5]: {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
@@ -62,10 +63,9 @@ clustered_poses = 'ClusteredPoses'
 pdb_source = 'db'  # 'download_pdb'  # TODO set up
 
 # Project paths
-# command = 'SymDesign.py -h'
 source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
 readme = os.path.join(source, 'README.md')
-command = os.path.join(source, 'SymDesign')
+command = os.path.join(source, 'SymDesign.py')
 filter_designs = os.path.join(source, 'AnalyzeOutput.py')
 cmd_dist = os.path.join(source, 'CommandDistributer.py')
 dependency_dir = os.path.join(source, 'dependencies')
@@ -118,7 +118,7 @@ qs_bio_monomers_file = os.path.join(data, 'QSbio_Monomers.csv')
 # Fragment Database
 fragment_db = os.path.join(database, 'fragment_db')
 # fragment_db = os.path.join(database, 'fragment_DB')  # TODO when full MySQL DB is operational
-biological_fragmentDB = os.path.join(fragment_db, 'biological_interfaces')
+biological_fragmentDB = os.path.join(fragment_db, 'biological_interfaces', 'info')  # TODO change this directory style
 bio_fragmentDB = os.path.join(fragment_db, 'bio')
 # bio_frag_db = os.path.join(fragment_db, 'bio')  # TODO
 xtal_fragmentDB = os.path.join(fragment_db, 'xtal')
@@ -166,5 +166,5 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
 submodule_help = 'python %s %s -h' % (os.path.realpath(command), 'pose')
 
 
-def help(module):  # command is SymDesign
+def help(module):  # command is SymDesign.py
     return '\'%s %s -h\' for help' % (command, module)

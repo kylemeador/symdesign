@@ -104,7 +104,7 @@ def main():
     print('To design materials, navigate to your desired Nanohedra output directory and run the command %s for details'
           % PUtils.command)
 
-# TODO Set up SymDesign.sh and ProcessRosettaCommands.sh depending on status of PathUtils
+# TODO Set up SymDesign.py and ProcessRosettaCommands.sh depending on status of PathUtils
 
 
 if __name__ == '__main__':
