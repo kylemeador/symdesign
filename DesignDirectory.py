@@ -16,7 +16,7 @@ from Pose import Pose
 from Query.Flags import load_flags
 from SequenceProfile import get_fragment_metrics, FragmentDatabase
 from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file, \
-    DesignError, match_score_from_z_value, handle_design_errors, pickle_object
+    DesignError, match_score_from_z_value, handle_design_errors, pickle_object, write_commands
 
 # Globals
 design_direcotry_modes = ['design', 'dock']
@@ -315,13 +315,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
         self.info_pickle = os.path.join(self.data, 'info.pkl')
-        # Ensure directories are only created once Pose Processing is called
-        if os.path.exists(self.info_pickle):
-            # raise DesignError('%s: No information found for pose. Have you initialized it?\n'
-            #                   'Try \'python %s ... pose ...\' or inspect the directory for correct files' %
-            #                   (self.path, PUtils.program_name))
+
+        if os.path.exists(self.info_pickle):  # Pose has already been processed. We can assume files are available
             self.info = unpickle(self.info_pickle)
-        else:
+            self.gather_fragment_info()
+        else:  # Ensure directories are only created once Pose Processing is called
             if not os.path.exists(self.protein_data):
                 os.makedirs(self.protein_data)
             if not os.path.exists(self.pdbs):
@@ -746,7 +744,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             dist = 0
 
         # ------------------------------------------------------------------------------------------------------------
+
         # Rosetta Execution formatting
+        shell_scripts = []
+        # ------------------------------------------------------------------------------------------------------------
         # Save renumbered PDB to clean_asu.pdb
         self.pose.pdb.write(out_path=self.asu)
         # RELAX: Prepare command and flags file
@@ -774,8 +775,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 consensus_cmd = relax_cmd + ['-in:file:s', self.consensus_pdb, '-parser:script_vars',
                                              'switch=%s' % PUtils.stage[5]]
                 if self.script:
-                    write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5],
-                                       out_path=self.scripts)
+                    shell_scripts.append(write_shell_script(subprocess.list2cmdline(consensus_cmd),
+                                                            name=PUtils.stage[5], out_path=self.scripts))
                     # additional_cmd = [subprocess.list2cmdline(consensus_cmd)]
                 else:
                     self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
@@ -791,7 +792,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
         if self.script:
             self.log.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
-            write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1], out_path=self.scripts)
+            shell_scripts.append(write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
+                                                    out_path=self.scripts))
             #                    additional=additional_cmd)
         else:
             self.log.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
@@ -846,10 +848,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
         if self.script:
-            write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2], out_path=self.scripts)
-            write_shell_script(subprocess.list2cmdline(generate_files_cmd), name=PUtils.stage[3],
-                               out_path=self.scripts, additional=[subprocess.list2cmdline(command)
-                                                                  for n, command in enumerate(metric_cmds.values())])
+            shell_scripts.append(write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2],
+                                                    out_path=self.scripts))
+            shell_scripts.append(write_shell_script(subprocess.list2cmdline(generate_files_cmd), name=PUtils.stage[3],
+                                                    out_path=self.scripts,
+                                                    additional=[subprocess.list2cmdline(command)
+                                                                for n, command in enumerate(metric_cmds.values())]))
         else:
             self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
             design_process = subprocess.Popen(design_cmd)
@@ -862,8 +866,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if self.script:
-            analysis_cmd = '%s -d %s %s' % (PUtils.program_command, self.path, PUtils.stage[4])
-            write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=self.scripts)
+            pass
+            # analysis_cmd = '%s -d %s %s' % (PUtils.program_command, self.path, PUtils.stage[4])
+            # write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=self.scripts)
         else:
             pose_s = analyze_output(self)
             outpath = os.path.join(self.all_scores, PUtils.analysis_file)
@@ -871,6 +876,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if not os.path.exists(outpath):
                 _header = True
             pose_s.to_csv(outpath, mode='a', header=_header)
+
+        self.info['status'] = {shell_script: False for shell_script in shell_scripts}
+
+        write_commands(shell_scripts, name=PUtils.interface_design_command, out_path=self.scripts)
 
     def prepare_rosetta_flags(self, flag_variables, stage, out_path=os.getcwd()):
         """Prepare a protocol specific Rosetta flags file with program specific variables
@@ -917,8 +926,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    def generate_interface_fragments(self):
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
+        self.pose.generate_interface_fragments(db=self.frag_db, out_path=self.frags)
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)  # symmetry=self.design_symmetry,
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
         self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
                                    mask=self.mask, evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.fragment, write_fragments=self.write_frags,
