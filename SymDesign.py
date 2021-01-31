@@ -447,7 +447,7 @@ if __name__ == '__main__':
     parser_design = subparsers.add_parser('design', help='Gather poses of interest and format for design using sequence'
                                                          'constraints in Rosetta. Constrain using evolutionary profiles'
                                                          ' of homologous sequences and/or fragment profiles extracted '
-                                                         'from the PDB or neither.' % PUtils.nano.title())
+                                                         'from the PDB or neither.')
     parser_design.add_argument('-i', '--fragment_database', type=str,
                                help='Database to match fragments for interface specific scoring matrices. One of %s'
                                     '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
