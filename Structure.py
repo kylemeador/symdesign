@@ -26,15 +26,16 @@ class Structure:  # (Coords):
         if log:
             self.log = log
         else:
-            print('Structure starting log')
-            self.log = start_log()
+            # print('Structure starting log')  # Todo when Structure is base class?
+            # self.log = start_log()
+            dummy = True
 
         if atoms:
             self.set_atoms(atoms)
-        if residues:
+        if residues:  # Todo, the structure can not have Coords! if from_atoms or from_residues lacks them
             self.set_residues(residues)
         # if isinstance(coords, np.ndarray) and coords.any():
-        if coords:  # isinstance(coords, Coords):
+        if coords:  # and isinstance(coords, Coords):
             self.coords = coords
 
         super().__init__(**kwargs)
@@ -44,8 +45,8 @@ class Structure:  # (Coords):
         return cls(atoms=atoms, **kwargs)
 
     @classmethod
-    def from_residues(cls, residues):
-        return cls(residues=residues)
+    def from_residues(cls, residues, **kwargs):
+        return cls(residues=residues, **kwargs)
 
     @property
     def name(self):
@@ -60,6 +61,7 @@ class Structure:  # (Coords):
     def coords(self):
         """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
         belonging to the specific Structure instance"""
+        # print('We are here?')
         return self._coords.coords  # [self.atom_indices]
         # return self._coords.get_indices(self.atom_indices)
 
@@ -90,7 +92,7 @@ class Structure:  # (Coords):
 
     @property
     def number_of_atoms(self):
-        return len(self.get_atoms())
+        return len(self.atoms)
     #     try:
     #         return self._number_of_atoms
     #     except AttributeError:
@@ -103,7 +105,7 @@ class Structure:  # (Coords):
 
     @property
     def number_of_residues(self):
-        return len(self.get_residues())
+        return len(self.residues)
     #     try:
     #         return self._number_of_residues
     #     except AttributeError:
@@ -134,30 +136,30 @@ class Structure:  # (Coords):
     #     self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
     def get_coords(self):
-        """Return the numpy array of Coords from the Structure"""
+        """Return a view of the Coords from the Structure"""
         return self.coords[self.atom_indices]
 
     def get_backbone_coords(self):
-        """Return a view of the numpy array of Coords from the Structure with only backbone atom coordinates"""
+        """Return a view of the Coords from the Structure with only backbone atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone()]
         # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_backbone_and_cb_coords(self):
-        """Return a view of the numpy array of Coords from the Structure with backbone and CB atom coordinates
+        """Return a view of the Coords from the Structure with backbone and CB atom coordinates
         inherently gets all glycine CA's"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
         # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_ca_coords(self):
-        """Return a view of the numpy array of Coords from the Structure with CA atom coordinates"""
+        """Return a view of the Coords from the Structure with CA atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CA()]
         # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_cb_coords(self, InclGlyCA=True):
-        """Return a view of the numpy array of Coords from the Structure with CB atom coordinates"""
+        """Return a view of the Coords from the Structure with CB atom coordinates"""
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
         # return self._coords[index_mask]
         return self.coords[index_mask]
@@ -193,8 +195,8 @@ class Structure:  # (Coords):
     def set_atoms(self, atom_list):
         """Set the Structure atoms to Atoms in atom_list"""
         self.atoms = atom_list
-        self.renumber_atoms()
-        self.reindex_atoms()
+        # self.renumber_atoms()
+        # self.reindex_atoms()
         self.create_residues()
         # self.update_structure(atom_list)
         # self.set_length()
@@ -202,8 +204,8 @@ class Structure:  # (Coords):
     def add_atoms(self, atom_list):
         """Add Atoms in atom_list to the structure instance"""
         self.atoms.extend(atom_list)
-        self.renumber_atoms()
-        self.reindex_atoms()
+        # self.renumber_atoms()  # Todo this logic can't hold if the structure contains atoms in another structure!
+        # self.reindex_atoms()
         self.create_residues()
         # self.update_structure(atom_list)
         # self.set_length()
@@ -236,7 +238,7 @@ class Structure:  # (Coords):
         # else:
         #     return [atom.index for atom in self.get_atoms()]
 
-    def get_residue_indices(self, numbers=None):
+    def get_residue_atom_indices(self, numbers=None):
         """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
          the selected Residues are returned"""
         return [atom.index for atom in self.get_residue_atoms(numbers=numbers)]
@@ -293,7 +295,7 @@ class Structure:  # (Coords):
         for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
 
-    def reindex_atoms(self):
+    def reindex_atoms(self):  # Unused
         for idx, atom in enumerate(self.atoms):
             atom.index = idx
 
@@ -318,8 +320,7 @@ class Structure:  # (Coords):
     def set_residues(self, residue_list):
         """Set the Structure residues to Residue objects provided in a list"""
         self.residues = residue_list  # []
-        atom_list = [atom for residue in residue_list for atom in residue.get_atoms()]
-        self.atoms = atom_list
+        self.atoms = [atom for residue in residue_list for atom in residue.get_atoms()]
         # self.update_structure(atom_list)
         # self.set_length()
 
@@ -572,12 +573,12 @@ class Structure:  # (Coords):
                 # frag_atoms.extend(residue.get_atoms())
                 if residue.get_ca():
                     ca_count += 1
-
+            # todo reduce duplicate calculation
             if ca_count == 5:
                 interface_frags.append(Structure.from_residues(self.get_residues(frag_residue_numbers)))
 
         for structure in interface_frags:
-            structure.chain_id_list = [structure.get_residues()[0].chain]  # Todo test if I can add attribute
+            structure.chain_id_list = [structure.get_residues()[0].chain]
 
         return interface_frags
 
@@ -916,6 +917,8 @@ class Atom:  # (Coords):
         # if transformation_operator:
         #     return np.matmul([self.x, self.y, self.z], transformation_operator)
         # else:
+        # print(self.index, self.number, self.type, self.alt_location, self.residue_type, self.residue_number)
+        # print(len(self._coords.coords))
         return self._coords.coords[self.index]  # [self.x, self.y, self.z]
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
 
@@ -998,7 +1001,7 @@ class Atom:  # (Coords):
 
     @x.setter
     def x(self, x):
-        self._coords[self.index][0] = x
+        self._coords.coords[self.index][0] = x
         # self.coords[0] = x
 
     @property
@@ -1007,7 +1010,7 @@ class Atom:  # (Coords):
 
     @y.setter
     def y(self, y):
-        self._coords[self.index][1] = y
+        self._coords.coords[self.index][1] = y
         # self.coords[1] = y
 
     @property
@@ -1016,7 +1019,7 @@ class Atom:  # (Coords):
 
     @z.setter
     def z(self, z):
-        self._coords[self.index][2] = z
+        self._coords.coords[self.index][2] = z
         # self.coords[2] = z
 
     def get_occ(self):
