@@ -33,6 +33,7 @@ pdb_advanced_search_url = 'http://www.rcsb.org/search/advanced'
 pdb_rest_url = 'http://data.rcsb.org/rest/v1/core/'  # uniprot/  # 1AB3/1'
 attribute_url = 'https://search.rcsb.org/search-attributes.html'
 attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v1/metadata/schema'
+# additional resources for formatting the schema may be found here - https://data.rcsb.org/#data-schema
 
 # PDB Query formatting
 attribute_prefix = 'rcsb_'
@@ -471,7 +472,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
 
 def get_pdb_info_by_entry(entry):
     """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
-
+    # Todo change data retrieval to POST
     Returns:
         (dict): {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
             'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
@@ -610,7 +611,7 @@ def get_pdb_info_by_entry(entry):
 
 def query_entity_id(entity_id):
     """Returns the JSON object for the entity_id requested. where entity_id format is PDBentryID_entityID. If the query
-     fails, returns None"""
+     fails, returns None"""  # Todo change data retrieval to POST
     entity_id_split = entity_id.split('_')
     entry = entity_id_split[0]
     _id = entity_id_split[1]
