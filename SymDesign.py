@@ -29,10 +29,11 @@ from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from CommandDistributer import distribute
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
 from PDB import PDB
-from PoseProcessing import initialization_s, initialization_mp, pose_rmsd_s, pose_rmsd_mp, cluster_poses
+from PathUtils import interface_design_command
+from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
-from Query.Flags import load_flags, query_user_for_flags
+from Query.Flags import query_user_for_flags
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
 
@@ -412,6 +413,17 @@ if __name__ == '__main__':
                                             'SubModule help can be accessed in this way'  # Todo
                                             % PUtils.submodule_help)
     # ---------------------------------------------------
+    parser_guide = subparsers.add_parser('guide', help='Access the %s guide! Start here if your a first time user'
+                                                       % PUtils.program_name)
+    # ---------------------------------------------------
+    parser_query = subparsers.add_parser('query', help='Query %s.py docking entries' % PUtils.nano.title())
+    # ---------------------------------------------------
+    parser_flag = subparsers.add_parser('flags', help='Generate a flags file for %s' % PUtils.program_name)
+    parser_flag.add_argument('-t', '--template', action='store_true',
+                             help='Generate a flags template to edit on your own.')
+    # ---------------------------------------------------
+    parser_mask = subparsers.add_parser('mask', help='Generate a residue mask for %s' % PUtils.program_name)
+    # ---------------------------------------------------
     parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py\nIf a docking directory structure is set up,'
                                                      ' provide the overall directory location with program argument '
                                                      '-d/-f, otherwise, use the -d1 -d2 \'pose\' module arguments to '
@@ -429,22 +441,22 @@ if __name__ == '__main__':
                              help='Where should the output from commands be written?\n'
                                   'Default=CWD/NanohedraEntry(entry)DockedPoses')
     # ---------------------------------------------------
-    parser_pose = subparsers.add_parser('design', help='Gather output from %s.py and format for input into Rosetta. '
-                                                       'Sets up interface design constrained evolutionary profiles '
-                                                       'of homologous sequences and by fragment profiles extracted '
-                                                       'from the PDB' % PUtils.nano.title())
-    parser_pose.add_argument('-i', '--fragment_database', type=str,
-                             help='Database to match fragments for interface specific scoring matrices. One of %s'
-                                  '\nDefault=%s' %
-                                  (','.join(list(PUtils.frag_directory.keys())), list(PUtils.frag_directory.keys())[0]),
-                             default=list(PUtils.frag_directory.keys())[0])
-    # parser_pose.add_argument('symmetry_group', type=int,
-    #                          help='What type of symmetry group does your design belong too? One of 0-Point Group, '
-    #                               '2-Plane Group, or 3-Space Group')
-    parser_pose.add_argument('-x', '--suspend', action='store_true',
-                             help='Should Rosetta design trajectory be suspended?\nDefault=False')
-    parser_pose.add_argument('-p', '--mpi', action='store_true',
-                             help='Should job be set up for cluster submission?\nDefault=False')
+    parser_fragments = subparsers.add_parser('generate_fragments',
+                                             help='Generate fragment overlap for poses of interest.')
+    # ---------------------------------------------------
+    parser_design = subparsers.add_parser('design', help='Gather poses of interest and format for design using sequence'
+                                                         'constraints in Rosetta. Constrain using evolutionary profiles'
+                                                         ' of homologous sequences and/or fragment profiles extracted '
+                                                         'from the PDB or neither.' % PUtils.nano.title())
+    parser_design.add_argument('-i', '--fragment_database', type=str,
+                               help='Database to match fragments for interface specific scoring matrices. One of %s'
+                                    '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
+                                                      list(PUtils.frag_directory.keys())[0]),
+                               default=list(PUtils.frag_directory.keys())[0])
+    # parser_design.add_argument('-x', '--suspend', action='store_true',
+    #                            help='Should Rosetta design trajectory be suspended?\nDefault=False')
+    parser_design.add_argument('-p', '--mpi', action='store_true',
+                               help='Should job be set up for cluster submission?\nDefault=False')
     # ---------------------------------------------------
     parser_analysis = subparsers.add_parser('analysis', help='Run analysis on all poses specified and their designs.')
     parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
@@ -513,17 +525,6 @@ if __name__ == '__main__':
                                                              'consolidate_degen or pose_map')
     # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
-    # ---------------------------------------------------
-    parser_flag = subparsers.add_parser('flags', help='Generate a flags file for %s' % PUtils.program_name)
-    parser_flag.add_argument('-t', '--template', action='store_true',
-                             help='Generate a flags template to edit on your own.')
-    # ---------------------------------------------------
-    parser_mask = subparsers.add_parser('mask', help='Generate a residue mask for %s' % PUtils.program_name)
-    # ---------------------------------------------------
-    parser_guide = subparsers.add_parser('guide', help='Access the %s guide! Start here if your a first time user'
-                                                       % PUtils.program_name)
-    # ---------------------------------------------------
-    parser_query = subparsers.add_parser('query', help='Query %s.py docking entries' % PUtils.nano.title())
 
     args, additional_flags = parser.parse_known_args()
     # -----------------------------------------------------------------------------------------------------------------
@@ -582,7 +583,8 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'mask']:
         pass
-    elif args.sub_module in ['design', 'filter'] or args.mode == 'design':  # Todo depreciate args.mode here
+    # Todo depreciate args.mode here
+    elif args.sub_module in ['design', 'filter', 'generate_fragments'] or args.mode == 'design':
         mode = 'design'
         if args.directory or args.file:
             # Pull nanohedra_output and mask_design_using_sequence out of flags
@@ -721,14 +723,15 @@ if __name__ == '__main__':
             design_directories = [set_up_directory_objects(dock_dir, mode=args.mode, project=args.design_string)
                                   for dock_dir in all_dock_directories]
             if len(design_directories) == 0:
-                exit('No docking directories/files were found\nPlease specify --directory1, and/or --directory2 or '
-                     '--directory or --file. See %s' % PUtils.help(args.sub_module))
+                SDUtils.DesignError('No docking directories/files were found\nPlease specify --directory1, and/or '
+                                    '--directory2 or --directory or --file. See %s' % PUtils.help(args.sub_module))
 
         logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
                                                                                        location))
     else:
-        exit('Error: --mode flag must be passed since the module is %s!' % args.sub_module)
+        SDUtils.DesignError('Error: --mode flag must be passed since the module is %s!' % args.sub_module)
 
+    args.suspend = False
     if args.command_only:
         args.suspend = True
         logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed')
@@ -738,7 +741,43 @@ if __name__ == '__main__':
     # Parse SubModule specific commands
     results, exceptions = [], []
     # -----------------------------------------------------------------------------------------------------------------
-    if args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir, -f additional_flags
+    if args.sub_module == 'guide':
+        with open(PUtils.readme, 'r') as f:
+            print(f.read(), end='')
+    # ---------------------------------------------------
+    elif args.sub_module == 'query':
+        query_flags = [__file__, '-query'] + additional_flags
+        logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
+        query_mode(query_flags)
+    # ---------------------------------------------------
+    elif args.sub_module == 'flags':
+        if args.template:
+            query_user_for_flags(template=True)
+        elif args.mode:
+            query_user_for_flags(mode=args.mode)
+        else:
+            query_user_for_flags()
+    # ---------------------------------------------------
+    elif args.sub_module == 'mask':
+        fasta_file = PDB.generate_mask_template(args.additional_flags[0])
+        logger.info('The mask template was written to %s. Please edit this file so that the mask can be generated for '
+                    'protein design. Mask should be formatted so a \'-\' replaces all sequence of interest to be '
+                    'overlooked during design. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>mask\nMAGH----LV\n'
+                    % fasta_file)
+    # ---------------------------------------------------
+    elif args.sub_module == 'filter':
+        if args.metric == 'score':
+            designpath_metric_tup_list = [(des_dir.asu, des_dir.score) for des_dir in design_directories]
+        elif args.metric == 'matched':  # Todo ensure that the design_dir has these attributes
+            designpath_metric_tup_list = [(des_dir.asu, des_dir.number_of_fragments) for des_dir in design_directories]
+        else:
+            raise SDUtils.DesignError('The filter metric \'%s\' is not supported!' % args.metric)
+
+        logger.info('Sorting designs according to \'%s\'' % args.metric)
+        designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0),
+                                                   reverse=True)
+    # ---------------------------------------------------
+    elif args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir, -f additional_flags
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -784,7 +823,7 @@ if __name__ == '__main__':
 
         all_commands = [result for result in results if result]
         if len(all_commands) > 0:
-            command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, loc=args.directory)
+            command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, out_path=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
 
             args.success_file = None
@@ -797,6 +836,19 @@ if __name__ == '__main__':
         else:
             logger.error('No \'%s\' commands were written!' % PUtils.nano)
 
+    # ---------------------------------------------------
+    elif args.sub_module == 'generate_fragments':  # -c command_only, -i fragment_library, -p mpi, -x suspend
+        # Start pose processing and preparation for Rosetta
+        if args.multi_processing:
+            # Calculate the number of threads to use depending on computer resources
+            threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
+            logger.info('Starting multiprocessing using %s threads' % str(threads))
+            results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.fragment_decoration, design_directories, threads))
+            results = list(results)
+        else:
+            logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+            for design in design_directories:
+                design.interface_design()
     # ---------------------------------------------------
     elif args.sub_module == 'design':  # -c command_only, -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
@@ -830,24 +882,29 @@ if __name__ == '__main__':
         #         results.append(result)
         #         exceptions.append(error)
         #
-        # if args.command_only:
-        #     all_commands = [[] for s in PUtils.stage_f]
-        #     command_files = [[] for s in PUtils.stage_f]
-        #     for des_directory in design_directories:
-        #         for i, stage in enumerate(PUtils.stage_f):
-        #             all_commands[i].append(os.path.join(des_directory.path, stage + '.sh'))
-        #     for i, stage in enumerate(PUtils.stage_f):
-        #         if i > 3:  # No consensus
-        #             break
-        #         command_files[i] = SDUtils.write_commands(all_commands[i], name=stage, loc=args.directory)
-        #         logger.info('All \'%s\' commands were written to \'%s\'' % (stage, command_files[i]))
-        #     # Todo make automatic like for Docking
-        #     logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s' %
-        #                 (args.directory, '\n'.join(['python %s -f %s distribute -s %s' %
-        #                                             (__file__, command_files[i], stage)
-        #                                             for i, stage in enumerate(list(PUtils.stage_f.keys()))[:3]])))
-        #     #                                                                                        args.file,
-        #     # TODO make args.file equal to command_files[i] and change distribution to no stage prefix...
+        if args.command_only:
+            all_commands = []
+            # all_commands = [[] for s in PUtils.stage_f]
+            # command_files = [[] for s in PUtils.stage_f]
+            for des_directory in design_directories:
+                # for i, stage in enumerate(PUtils.stage_f):
+                all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % interface_design_command))
+            # for i, stage in enumerate(PUtils.stage_f):
+            #     if i > 1:  # 1/31/21 only have one option for commands now  # > 3:  # No consensus
+            #         break
+            command_file = SDUtils.write_commands(all_commands, name=interface_design_command, out_path=args.directory)
+            logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design_command, command_file))
+            args.success_file = None
+            args.failure_file = None
+            args.max_jobs = 80
+            distribute(logger, stage=PUtils.nano, directory=args.directory, file=command_file,
+                       success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
+            # logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s' %
+            #             (args.directory, '\n'.join(['python %s -f %s distribute -s %s' %
+            #                                         (__file__, command_files[i], stage)
+            #                                         for i, stage in enumerate(list(PUtils.stage_f.keys()))[:3]])))
+            #                                                                                        args.file,
+            # TODO make args.file equal to command_files[i] and change distribution to no stage prefix...
     # ---------------------------------------------------
     elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
         distribute(args, logger)
@@ -1287,40 +1344,6 @@ if __name__ == '__main__':
         seq_comparison_file = SequenceProfile.write_fasta_file(inserted_sequences,
                                                                '%sSelected_Sequences_Expression_Additions' %
                                                                args.selection_string, outpath=outdir)
-    # ---------------------------------------------------
-    elif args.sub_module == 'flags':
-        if args.template:
-            query_user_for_flags(template=True)
-        elif args.mode:
-            query_user_for_flags(mode=args.mode)
-        else:
-            query_user_for_flags()
-    # ---------------------------------------------------
-    elif args.sub_module == 'mask':
-        fasta_file = PDB.generate_mask_template(args.additional_flags[0])
-        logger.info('The mask template was written to %s. Please edit this file so that the mask can be generated for '
-                    'protein design. Mask should be formatted so a \'-\' replaces all sequence of interest to be '
-                    'overlooked during design. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>mask\nMAGH----LV\n'
-                    % fasta_file)
-    # ---------------------------------------------------
-    elif args.sub_module == 'guide':
-        with open(PUtils.readme, 'r') as f:
-            print(f.read(), end='')
-    # ---------------------------------------------------
-    elif args.sub_module == 'filter':
-        if args.metric == 'score':
-            designpath_metric_tup_list = [(des_dir.asu, des_dir.score) for des_dir in design_directories]
-        elif args.metric == 'matched':  # Todo ensure that the design_dir has these attributes
-            designpath_metric_tup_list = [(des_dir.asu, des_dir.number_of_fragments) for des_dir in design_directories]
-
-        logger.info('Sorting')
-        designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0),
-                                                   reverse=True)
-    # ---------------------------------------------------
-    elif args.sub_module == 'query':
-        query_flags = [__file__, '-query'] + additional_flags
-        logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
-        query_mode(query_flags)
-
+    # -----------------------------------------------------------------------------------------------------------------
     # Report any program exceptions
     terminate(exceptions)
