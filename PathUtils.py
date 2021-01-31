@@ -84,6 +84,7 @@ orient_exe_path = os.path.join(orient_dir, orient_exe)
 orient_log_file = 'orient_oligomer_log.txt'
 stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 binaries = os.path.join(dependency_dir, 'bin')
+list_pdb_files = os.path.join(binaries, 'list_files_in_directory.py')
 sbatch_templates = os.path.join(binaries, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
