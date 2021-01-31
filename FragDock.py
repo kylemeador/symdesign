@@ -60,7 +60,7 @@ def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match
     out_info_file.write("oligomer2 ch, resnum: %s, %d\n" % surf_frag.get_central_res_tup())
     out_info_file.write("FRAGMENT CLUSTER\n")
     out_info_file.write("id: i%s_j%s_k%s\n" % ghost_frag.get_ijk())
-    out_info_file.write("mean rmsd: %d\n" % ghost_frag.get_rmsd())
+    out_info_file.write("mean rmsd: %f\n" % ghost_frag.get_rmsd())
     out_info_file.write("aligned rep: int_frag_%s_%d.pdb\n" % ('i%s_j%s_k%s' % ghost_frag.get_ijk(), match_count))
     out_info_file.write("central res pair freqs:\n%s\n\n" % str(res_freq_list))
 
