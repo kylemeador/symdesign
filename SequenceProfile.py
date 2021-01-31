@@ -141,7 +141,7 @@ class SequenceProfile:
             # TODO currently using self.structure.reference_sequence which could be ATOM, could be SEQRES.
             #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequnce
             #  processing
-            self.combine_ssm(boltzmann=True)
+            self.combine_ssm(boltzmann=True, favor_fragments=fragments)
 
     def set_profile_length(self):
         self.profile_length = len(self.profile)
@@ -586,7 +586,7 @@ class SequenceProfile:
         Keyword Args:
             alpha=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
         """
-        assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.combine_ssm.__name__
+        assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.find_alpha.__name__
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
@@ -825,12 +825,12 @@ class SequenceProfile:
         # copy the evol profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
-        for entry in self.alpha:
+        for entry in self.alpha:  # will be 0 unless self.fragment_profile is not {}
             for aa in IUPACData.protein_letters:
                 self.profile[entry][aa] = (self.alpha[entry] * self.fragment_profile[entry][aa]) + \
                                           ((1 - self.alpha[entry]) * self.profile[entry][aa])
             self.log.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
-                          % (entry + index_offset, alpha[entry] * 100))
+                          % (entry + index_offset, self.alpha[entry] * 100))
 
         if favor_fragments:
             # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
