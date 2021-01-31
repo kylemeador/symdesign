@@ -446,14 +446,13 @@ if __name__ == '__main__':
     parser_pose.add_argument('-p', '--mpi', action='store_true',
                              help='Should job be set up for cluster submission?\nDefault=False')
     # ---------------------------------------------------
-    parser_analysis = subparsers.add_parser('analysis', help='Run analysis on all poses specified')
-    parser_analysis.add_argument('-o', '--output', type=str,
-                                 help='Name to output comma delimitted files.\nDefault=%s' % PUtils.analysis_file,
-                                 default=PUtils.analysis_file)
+    parser_analysis = subparsers.add_parser('analysis', help='Run analysis on all poses specified and their designs.')
+    parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
+                                 help='Name to output .csv files.\nDefault=%s' % PUtils.analysis_file)
     parser_analysis.add_argument('-n', '--no_save', action='store_true',
                                  help='Don\'t save trajectory information.\nDefault=False')
     parser_analysis.add_argument('-f', '--figures', action='store_true',
-                                 help='Create and save all pose figures?\nDefault=False')
+                                 help='Create and save figures for all poses?\nDefault=False')
     parser_analysis.add_argument('-j', '--join', action='store_true',
                                  help='Join Trajectory and Residue Dataframes?\nDefault=False')
     parser_analysis.add_argument('-g', '--delta_g', action='store_true',
@@ -463,20 +462,16 @@ if __name__ == '__main__':
                                                              'Either -d or -p is required. If both are provided, '
                                                              '-p will be prioritized')
     sequence_required = parser_sequence.add_mutually_exclusive_group(required=True)
-    sequence_required.add_argument('-d', '--dataframe', type=os.path.abspath,
+    sequence_required.add_argument('-d', '--dataframe', type=os.path.abspath,  # required=True,
                                    help='Dataframe.csv from analysis containing pose info.')
-    sequence_required.add_argument('-p', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
-                                                                              ' sequence selector')
+    sequence_required.add_argument('-p', '--pose_design_file', type=str,
+                                   help='Name of pose, design .csv file to serve as sequence selector')
     parser_sequence.add_argument('-c', '--consensus', action='store_true', help='Whether to grab the consensus sequence'
                                                                                 '\nDefault=False')
-    # parser_sequence.add_argument('-d', '--dataframe', type=os.path.abspath, required=True,
-    #                              help='Dataframe.csv from analysis containing pose info')
     parser_sequence.add_argument('-f', '--filters', action='store_true', help='Metrics with which to filter on\n'
                                                                               'Default=None', default=None)
     parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
                                  default=1)
-    # parser_sequence.add_argument('-p', '--pose_design_file', type=str, help='Name of pose, design .csv file to serve as'
-    #                                                                         ' sequence selector')
     parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
     parser_sequence.add_argument('-w', '--weights', type=str, help='Weights of various metrics to final poses\n'
                                                                    'Default=1/number of --filters')
@@ -857,7 +852,7 @@ if __name__ == '__main__':
     elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
         distribute(args, logger)
     # ---------------------------------------------------
-    elif args.sub_module == 'analysis':  # -f figures, -n no_save, -j join, -g delta_g
+    elif args.sub_module == 'analysis':  # -o output, -f figures, -n no_save, -j join, -g delta_g
         save = True
         if args.no_save:
             save = False
