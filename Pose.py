@@ -1302,9 +1302,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                     # if entity_name == entity.get_name():
                     # Todo self.entity() modification
                     # self.pdb.entity(entity_name).assign_fragments(fragments=fragments,
+                    entity.connect_fragment_database(db=self.frag_db)
                     entity.assign_fragments(fragments=fragments, alignment_type=idx_to_alignment_type[query_idx])
                     # for entity in self.entities:
-                    entity.connect_fragment_database(db=self.frag_db)
                     # self.pdb.entity(entity_name).connect_fragment_database(db=self.frag_db)
 
         for entity in self.entities:
