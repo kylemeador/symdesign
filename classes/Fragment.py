@@ -206,8 +206,8 @@ class MonoFragment:
             min_rmsd = float('inf')
             min_rmsd_cluster_rep_rot_tx = None
             min_rmsd_cluster_rep_type = None
-            for cluster_type in monofrag_cluster_rep_dict:
-                cluster_rep = monofrag_cluster_rep_dict[cluster_type]
+            for cluster_type, cluster_rep in monofrag_cluster_rep_dict.items():
+                # cluster_rep = monofrag_cluster_rep_dict[cluster_type]
                 cluster_rep_ca_atoms = cluster_rep.get_CA_atoms()
                 # cluster_rep_ca_atoms = cluster_rep.get_ca_atoms()  # TODO
 
@@ -218,7 +218,7 @@ class MonoFragment:
                     min_rot, min_tx = rot, tx
                     min_rmsd_cluster_rep_type = cluster_type
 
-            if min_rmsd_cluster_rep_rot_tx is not None:
+            if min_rmsd_cluster_rep_type is not None:
                 self.type = min_rmsd_cluster_rep_type
                 # guide_atoms_pdb = PDB()
                 # guide_atoms_pdb.read_atom_list([a1, a2, a3])

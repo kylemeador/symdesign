@@ -922,6 +922,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
     surf_frags_1 = get_surface_fragments(pdb1)
     ghost_frag_list = []
     ghost_frag_guide_coords_list = []
+    # print('Found %d surface frags for pdb1' % len(surf_frags_1))
     for frag1 in surf_frags_1:
         monofrag1 = MonoFragment(frag1, init_monofrag_cluster_rep_pdb_dict_1)
         monofrag_ghostfrag_list = monofrag1.get_ghost_fragments(init_intfrag_cluster_rep_dict,
@@ -931,8 +932,8 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
             ghost_frag_list.extend(monofrag_ghostfrag_list)
             ghost_frag_guide_coords_list.extend(list(map(GhostFragment.get_guide_coords, monofrag_ghostfrag_list)))
             for idx, ghostfrag in enumerate(monofrag_ghostfrag_list):  # Remove
-                if idx == 1:
-                    print(ghostfrag.get_guide_coords())
+                # if idx == 1:
+                #     print(ghostfrag.get_guide_coords())
                 # ghost_frag_list.append(ghostfrag)  # Remove
                 # ghost_frag_guide_coords_list.append(ghostfrag.get_guide_coords())  # Remove
     if not resume and keep_time:
