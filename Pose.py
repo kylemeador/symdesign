@@ -1578,7 +1578,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
     for frag2 in interface_frags2:
         complete_monofrag2 = MonoFragment(frag2, fragdb.reps)
         complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()
-        if complete_monofrag2_guide_coords:
+        if complete_monofrag2_guide_coords is not None:
             complete_int2_frag_l.append(complete_monofrag2)
             interface_surf_frag_guide_coords_list.append(complete_monofrag2_guide_coords)
 
