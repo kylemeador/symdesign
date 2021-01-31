@@ -79,14 +79,14 @@ def get_surface_fragments_chain(pdb, chain_id):  # DEPRECIATE
 
 class GhostFragment:
     def __init__(self, pdb, i_frag_type, j_frag_type, k_frag_type, ijk_rmsd, aligned_surf_frag_central_res_tup,
-                 guide_coords=None):  # aligned_surf_frag_central_res_tup, guide_atoms=None, pdb_coords=None
+                 guide_coords=None):  # ghostfrag_central_res_tup, guide_atoms=None, pdb_coords=None
         self.pdb = pdb
         self.i_frag_type = i_frag_type
         self.j_frag_type = j_frag_type
         self.k_frag_type = k_frag_type
         self.rmsd = ijk_rmsd
-        self.central_res_tup = aligned_surf_frag_central_res_tup
-        # self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup  # (chain, res_number, ch, res#)
+        # self.central_res_tup = ghostfrag_central_res_tup
+        self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup  # (chain, res_number, ch, res#)
 
         if not guide_coords:  # guide_atoms, , pdb_coords] == [None, None]
             # self.guide_atoms = []
@@ -111,28 +111,28 @@ class GhostFragment:
         """
         return self.i_frag_type, self.j_frag_type, self.k_frag_type
 
-    def get_central_res_tup(self):
-        """Get the representative chain and residue information from the underlying observation
-
-        Returns:
-            (tuple): Ghost Fragment Mapped Chain ID, Central Residue Number, Partner Chain ID, Central Residue Number
-        """
-        return self.central_res_tup
-
-    # def get_aligned_surf_frag_central_res_tup(self):
-    #     """Return the fragment information the GhostFragment instance is aligned to
+    # def get_central_res_tup(self):
+    #     """Get the representative chain and residue information from the underlying observation
+    #
     #     Returns:
-    #         (tuple): aligned chain, aligned residue_number"""
-    #     return self.aligned_surf_frag_central_res_tup
+    #         (tuple): Ghost Fragment Mapped Chain ID, Central Residue Number, Partner Chain ID, Central Residue Number
+    #     """
+    #     return self.central_res_tup
 
-    def get_aligned_central_res_info(self):
-        """Return the cluster representative and aligned fragment information for the GhostFragment instance
-
+    def get_aligned_surf_frag_central_res_tup(self):
+        """Return the fragment information the GhostFragment instance is aligned to
         Returns:
-            (tuple): mapped_chain, mapped_central_res_number, partner_chain, partner_central_residue_number,
-            chain, residue_number
-        """
-        return self.central_res_tup  # + self.aligned_surf_frag_central_res_tup
+            (tuple): aligned chain, aligned residue_number"""
+        return self.aligned_surf_frag_central_res_tup
+
+    # def get_aligned_central_res_info(self):
+    #     """Return the cluster representative and aligned fragment information for the GhostFragment instance
+    #
+    #     Returns:
+    #         (tuple): mapped_chain, mapped_central_res_number, partner_chain, partner_central_residue_number,
+    #         chain, residue_number
+    #     """
+    #     return self.central_res_tup  + self.aligned_surf_frag_central_res_tup
 
     def get_i_frag_type(self):
         return self.i_frag_type
