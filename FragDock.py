@@ -394,7 +394,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                     #
                     #     interface_mono_frag_guide_coords = interface_monofrag2_guide_coords_l[index_pair[1]]
                     #     interface_mono_frag = interface_monofrag2_l[index_pair[1]]
-                    #     interface_mono_frag_type = interface_mono_frag.get_type()
+                    #     interface_mono_frag_type = interface_mono_frag.get_i_type()
                     #
                     #     if (interface_mono_frag_type == ghost_frag_j_type) and (interface_ghost_frag_cluster_rmsd > 0):
                     #         # Calculate RMSD
@@ -996,7 +996,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
     for frag2 in surf_frags_2:
         complete_monofrag2 = MonoFragment(frag2,
                                           ijk_monofrag_cluster_rep_pdb_dict)  # KM this does a double calculation and storage by saving the initial fragments again. All caluclations with this group are doing more work than necessary
-        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()  # This is a precomputation with really no time savings, just program overhead
+        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()
         if complete_monofrag2_guide_coords is not None:
             complete_surf_frag_list.append(complete_monofrag2)
 
