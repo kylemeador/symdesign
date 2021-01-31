@@ -1110,8 +1110,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # interface_name = self.asu
         entity1_residue_numbers, entity2_residue_numbers = self.find_interface_residues(entity1=entity1,
                                                                                         entity2=entity2)
-        self.log.info('Entity1 residue numbers: %s' % entity1_residue_numbers)
-        self.log.info('Entity2 residue numbers: %s' % entity2_residue_numbers)
+        self.log.debug('Found Entity %s, interface residue numbers: %s' % (entity1.name, entity1_residue_numbers))
+        self.log.debug('Found Entity %s, interface residue numbers: %s' % (entity2.name, entity2_residue_numbers))
+        if not entity1_residue_numbers and not entity2_residue_numbers:
+            self.fragment_queries[(entity1, entity2)] = []
+            return None
+
         entity1_structure = entity1  # when passing reference structure
         # entity1_structure = self.pdb.entity(entity1)
         if entity1_structure not in self.interface_residues:
@@ -1143,8 +1147,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         surface_frags1 = entity1_structure.get_fragments(entity1_residue_numbers)
         surface_frags2 = entity2_structure.get_fragments(entity2_residue_numbers)
-        self.log.debug('Entity 1 Fragment count: %d' % len(surface_frags1))
-        self.log.debug('Entity 2 Fragment count: %d' % len(surface_frags2))
+        self.log.debug('Found %d Entity %s interface fragments' % (len(surface_frags1), entity1.name))
+        self.log.debug('Found %d Entity %s interface fragments' % (len(surface_frags2), entity2.name))
         if self.symmetry:
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary
@@ -1155,7 +1159,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         entity1_coords = entity1.get_backbone_and_cb_coords()  # for clashes, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, surface_frags1, surface_frags2,
                                                                          fragdb=self.frag_db)
-        self.log.debug('Found fragment pair count: %d' % len(ghostfrag_surfacefrag_pairs))
+        self.log.info('Found %d overlapping fragment pairs at the %s | %s interface'
+                      % (len(ghostfrag_surfacefrag_pairs), entity1.name, entity2.name))
         self.fragment_observations.extend(ghostfrag_surfacefrag_pairs)
         fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
@@ -1256,7 +1261,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 self.connect_fragment_database(db=design_dir.frag_db)
                 # for entity_pair in combinations(self.entities, 2):
                 for entity_pair in combinations_with_replacement(self.entities, 2):
-                    self.log.debug('Entity pair: %s, %s' % tuple(entity.name for entity in entity_pair))
+                    self.log.debug('Querying Entity pair: %s, %s for interface fragments'
+                                   % tuple(entity.name for entity in entity_pair))
                     self.query_interface_for_fragments(*entity_pair)
                 if write_fragments:
                     write_fragment_pairs(self.fragment_observations, out_path=design_dir.frags)
@@ -1292,13 +1298,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
             idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
             for query_pair, fragments in self.fragment_queries.items():
-                for query_idx, entity_name in enumerate(query_pair):
+                for query_idx, entity in enumerate(query_pair):
                     # if entity_name == entity.get_name():
                     # Todo self.entity() modification
-                    self.pdb.entity(entity_name).assign_fragments(fragments=fragments,
-                                                                  alignment_type=idx_to_alignment_type[query_idx])
+                    # self.pdb.entity(entity_name).assign_fragments(fragments=fragments,
+                    entity.assign_fragments(fragments=fragments, alignment_type=idx_to_alignment_type[query_idx])
                     # for entity in self.entities:
-                    self.pdb.entity(entity_name).connect_fragment_database(db=self.frag_db)
+                    entity.connect_fragment_database(db=self.frag_db)
+                    # self.pdb.entity(entity_name).connect_fragment_database(db=self.frag_db)
 
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
