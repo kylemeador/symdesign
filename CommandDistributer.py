@@ -100,32 +100,33 @@ def run(cmd, log_file, program='bash'):  # , log_file=None):
 
 
 def distribute(logger, stage=None, directory=None, file=None, success_file=None, failure_file=None, max_jobs=80):
+    # Todo back out logger
     if not stage:
-        logger.critial('No --stage specified. Required!!!')
-        exit()
-    if file or directory:
+        raise SDUtils.DesignError('No --stage specified. Required!!!')
+    if file:  # or directory: Todo
+        # here using collect directories get the commands from the provided file
         _commands, location = SDUtils.collect_directories(directory, file=file)
     else:
-        logger.error('Error: You must pass a file containing a list of commands to process. This is typically output to'
-                     ' a \'[stage].cmds\' file. Ensure that this file exists and resubmit with -f \'[stage].cmds\'\n')
+        raise SDUtils.DesignError('Error: You must pass a file containing a list of commands to process. This is '
+                                  'typically output to a \'[stage].cmds\' file. Ensure that this file exists and '
+                                  'resubmit with -f \'[stage].cmds\'\n')
         #             ', replacing stage with the desired stage.')
-        exit()
 
     # Automatically detect if the commands file has executable scripts or errors
+    script_present = None
     for idx, _command in enumerate(_commands):
         if not os.path.exists(_command):  # check for any missing commands and report
-            exit('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
-                 % (idx + 1, file, _command))
+            raise SDUtils.DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
+                                      % (idx + 1, file, _command))
         if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
             if idx != 0 and script_present:  # There was a change from script files to non-script files
-                exit('%s is malformed at line %d! All commands must either have a file extension or not. Cannot mix!\n'
-                     % (idx + 1, file))
-            script_present = None
+                raise SDUtils.DesignError('%s is malformed at line %d! All commands must either have a file extension '
+                                          'or not. Cannot mix!\n' % (idx + 1, file))
             # break
         else:  # the command string is a shell script
             if idx != 0 and not script_present:  # There was a change from non-script files to script files
-                exit('%s is malformed at line %d! All commands must either have a file extension or not. Cannot mix!\n'
-                     % (idx + 1, file))
+                raise SDUtils.DesignError('%s is malformed at line %d! All commands must either have a file extension '
+                                          'or not. Cannot mix!\n' % (idx + 1, file))
             script_present = '-c'
 
     # Create success and failures files
@@ -160,7 +161,7 @@ def distribute(logger, stage=None, directory=None, file=None, success_file=None,
                      (script_present or '')))
 
     logger.info('To distribute commands, ensure the sbatch script (%s) is correct, then enter the following:'
-                '\nsbatch %s' % (filename, os.path.basename(filename)))  # '\ncd' %s directory
+                '\nsbatch %s' % (filename, os.path.basename(filename)))
 
 
 if __name__ == '__main__':
