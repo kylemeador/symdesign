@@ -41,7 +41,7 @@ def get_last_sampling_state(log_file_path, zero=True):
 
 
 def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list,
-                               cluster_rmsd, outdir_path, pose_id, is_initial_match=False):
+                               cluster_rmsd, outdir_path, pose_id=None, is_initial_match=False):
 
     out_info_file_path = os.path.join(outdir_path, PUtils.frag_text_file)
     out_info_file = open(out_info_file_path, "a+")
