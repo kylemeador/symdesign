@@ -65,7 +65,7 @@ pdb_source = 'db'  # 'download_pdb'  # TODO set up
 # command = 'SymDesign.py -h'
 source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
 readme = os.path.join(source, 'README.md')
-command = os.path.join(source, 'SymDesignControl')
+command = os.path.join(source, 'SymDesign')
 filter_designs = os.path.join(source, 'AnalyzeOutput.py')
 cmd_dist = os.path.join(source, 'CommandDistributer.py')
 dependency_dir = os.path.join(source, 'dependencies')
@@ -166,5 +166,5 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
 submodule_help = 'python %s %s -h' % (os.path.realpath(command), 'pose')
 
 
-def help(module):  # command is SymDesignControl
+def help(module):  # command is SymDesign
     return '\'%s %s -h\' for help' % (command, module)
