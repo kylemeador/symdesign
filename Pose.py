@@ -206,8 +206,9 @@ class SymmetricModel(Model):
             return None  # no symmetry was provided
         elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
             # symmetry = point_group_sdf_map[symmetry][0]
+            symmetry = possible_symmetries[symmetry]
             self.dimension = 0
-            self.expand_matrices = self.get_ptgrp_sym_op(possible_symmetries[symmetry])  # Todo numpy expand_matrices
+            self.expand_matrices = self.get_ptgrp_sym_op(symmetry)  # Todo numpy expand_matrices
             # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
         else:
             raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add to'
@@ -1234,16 +1235,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
         if self.symmetry and self.symmetric_assembly_is_clash():
-            # raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
-            #                   % str(design_dir))
+            raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
+                              % str(design_dir))
             pass
         if output_assembly:
             self.get_assembly_symmetry_mates()
             self.write(out_path=os.path.join(design_dir.path, 'assembly.pdb'))
-            # assembly = SymmetricModel.from_assembly(self.return_assembly_symmetry_mates(),
-            #                                         symmetry=self.return_symmetry_parameters())
-            # assembly.write(out_path=os.path.join(design_dir.path, 'assembly.pdb'))
-            raise DesignError(['Message'])
         if design_dir.info:
             return None  # pose has already been initialized for design
 

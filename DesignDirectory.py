@@ -665,10 +665,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def add_flags(self, flags_file):
         self.set_flags(**load_flags(flags_file))
 
-    def set_flags(self, symmetry=None, design_with_evolution=True,
+    def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
                   design_with_fragments=True, fragments_exist=None, generate_fragments=True, write_fragments=True,
                   output_assembly=False, design_mask=None, script=True, mpi=False, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
+        self.sym_entry_number = sym_entry_number
         # self.nano = nanohedra_output
         self.mask = design_mask
         self.evolution = design_with_evolution
@@ -897,8 +898,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file  # 'flags_' + stage
 
-    def set_symmetry(self, symmetry=None, sym_entry_number=None, dimension=None, uc_dimensions=None,
-                     expand_matrices=None, **kwargs):
+    def set_symmetry(self, symmetry=None, dimension=None, uc_dimensions=None,
+                     expand_matrices=None, **kwargs):  # sym_entry_number=None,
         """{symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
 
         (str)
@@ -918,7 +919,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.sym_entry_number, log=self.log)  # symmetry=self.design_symmetry,
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)  # symmetry=self.design_symmetry,
         self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
                                    mask=self.mask, evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.fragment, write_fragments=self.write_frags,
