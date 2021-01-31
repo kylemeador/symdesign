@@ -298,10 +298,11 @@ class PDB(Structure):
             self.coords = Coords(coords)
             # replace the Atom and Residue Coords
             self.set_residues_attributes(coords=self._coords)
-        # self.renumber_residues()
+
+        self.renumber_atoms()
+        self.renumber_residues()
         # self.find_center_of_mass()
         # self.create_residues()
-
         if seqres:
             self.parse_seqres(seqres)
         else:  # elif reference_sequence:
