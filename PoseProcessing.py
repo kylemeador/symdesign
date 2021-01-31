@@ -1082,7 +1082,7 @@ if __name__ == '__main__':
         for i, stage in enumerate(PUtils.stage_f):
             if i > 3:  # No consensus
                 break
-            command_files[i] = SDUtils.write_commands(all_commands[i], name=stage, loc=args.directory)
+            command_files[i] = SDUtils.write_commands(all_commands[i], name=stage, out_path=args.directory)
             logger.info('All \'%s\' commands were written to \'%s\'' % (stage, command_files[i]))
             logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s\n%s\n%s' %
                         (args.directory, 'python ' + __file__ + ' distribute -s refine',

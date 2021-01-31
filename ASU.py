@@ -584,7 +584,7 @@ if __name__ == '__main__':
 
             if args.command_only:
                 all_command_locations = list(map(os.path.dirname, all_commands))  # TODO remove command distributer naming
-                SDUtils.write_commands(all_command_locations, name=args.mode, loc=args.directory)
+                SDUtils.write_commands(all_command_locations, name=args.mode, out_path=args.directory)
         else:
             design_recapitulation(args.file, args.out_path, pdb_dir=args.directory, oligomer=args.oligomer_asu)
     else:
