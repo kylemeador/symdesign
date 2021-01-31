@@ -579,39 +579,49 @@ class SymmetricModel(Model):
             raise DesignError('Cannot check if the assembly is clashing without first calling %s'
                               % self.generate_symmetric_assembly.__name__)
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
-        print('ModelASUindices: %s' % model_asu_indices)
+        print('ModelASU Indices: %s' % model_asu_indices)
         # print('Equivalent ModelASU: %d' % self.find_asu_equivalent_symmetry_model())
         if self.coords_type != 'bb_cb':
             asu_indices = self.asu.get_backbone_and_cb_indices()
-            model_indices_mask = np.array(asu_indices * self.number_of_models)
+            # model_indices_filter = np.array(asu_indices * self.number_of_models)
             # print('BB/CB ASU Indices: %s' % asu_indices)
             # Need to subtract all the coords that are not CB from the model coords.
             # We have all the CB indices from ASU now need to multiply this by every integer in self.number_of_models
             # to get all the CB coords.
             # Finally we take out those indices that are inclusive of the model_asu_indices like below
-            model_indices_factor = np.array([model_number + 1 for model_number in range(self.number_of_models)
-                                           for idx in range(len(asu_indices))])
-            model_indices_mask *= model_indices_factor
+            number_asu_atoms = self.asu.number_of_atoms
+            model_indices_filter = np.array([idx + (model_number * number_asu_atoms)
+                                             for model_number in range(self.number_of_models)
+                                             for idx in asu_indices])
+            # print('Model indices factor: %s' % model_indices_factor)
+            # model_indices_filter += model_indices_factor
             # model_asu_indices = sorted(set(model_asu_indices).difference(model_asu_indices))
-            # print('Model ASUindices: %s' % model_asu_indices)
-            # model_indices_mask = [asu_indices * (model_number + 1) for model_number in range(self.number_of_models)]
-            # model_indices_mask = np.array(model_indices_mask).flatten()
+            # model_indices_filter = [asu_indices * (model_number + 1) for model_number in range(self.number_of_models)]
+            # model_indices_filter = np.array(model_indices_filter).flatten()
             # print('Model ASU indices[0] & [-1]: %d & %d' % (model_asu_indices[0], model_asu_indices[-1]))
         else:
-            model_indices_mask = np.array([idx for idx in range(len(self.model_coords))])
+            model_indices_filter = np.array([idx for idx in range(len(self.model_coords))])
             asu_indices = None
 
+        # print('Model indices filter length: %d' % len(model_indices_filter))
+        # print('Model indices filter: %s' % model_indices_filter)
         asu_coord_kdtree = BallTree(self.coords[asu_indices])
-        without_asu_mask = np.logical_or(model_asu_indices[0] > model_indices_mask,
-                                         model_indices_mask > model_asu_indices[-1])
-        model_indices_without_asu = model_indices_mask[without_asu_mask]
+        without_asu_mask = np.logical_or(model_indices_filter < model_asu_indices[0],
+                                         model_indices_filter > model_asu_indices[-1])
+        # print('Model without asu mask length: %d' % len(without_asu_mask))
+        # print('Asu filter length: %d' % number_asu_indices)
+        # take the boolean mask and filter the model indices mask to leave only symmetry mate bb/cb indices, NOT asu
+        model_indices_without_asu = model_indices_filter[without_asu_mask]
 
-        print('Model Coord length: %d' % len(self.model_coords))
-        print('Model minus ASU indices: %s' % model_indices_without_asu)
+        # print('Model Coord length: %d' % len(self.model_coords))
+        # print('Model minus ASU indices: %s' % model_indices_without_asu)
+        # print('Model Coord filtered length: %d' % len(self.model_coords[model_indices_without_asu]))
+        # print('Model Coord filtered: %s' % self.model_coords[model_indices_without_asu])
+
         clash_count = asu_coord_kdtree.two_point_correlation(self.model_coords[model_indices_without_asu],
                                                              [clash_distance])
 
-        if clash_count[0] > 0:  # Todo ensure I am calculating all above correctly
+        if clash_count[0] > 0:
             self.log.warning('Found %d clashing sites at: %s' % (clash_count[0], clash_count))
             return True  # clash
         else:
@@ -1098,7 +1108,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                                                                                         entity2=entity2)
         entity1_structure = entity1  # when passing reference structure
         # entity1_structure = self.pdb.entity(entity1)
-        if entity1_structure in self.interface_residues:
+        if entity1_structure not in self.interface_residues:
             self.interface_residues[entity1_structure] = entity1_structure.get_residues(numbers=entity1_residue_numbers)
             # self.interface_residues[entity1_structure] = entity1_residue_numbers
         else:
@@ -1107,7 +1117,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         entity2_structure = entity2  # when passing reference structure
         # entity2_structure = self.pdb.entity(entity2)
-        if entity2_structure in self.interface_residues:
+        if entity2_structure not in self.interface_residues:
             self.interface_residues[entity2_structure] = entity2_structure.get_residues(numbers=entity2_residue_numbers)
             # self.interface_residues[entity2_structure] = entity2_residue_numbers
         else:
