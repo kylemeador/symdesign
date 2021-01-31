@@ -511,21 +511,21 @@ class SequenceProfile:
                 get_fragment_metrics(fragment_matches)
             # total_residues, percent_interface_matched, percent_interface_covered,
 
-            interface_metrics_d[query]  = {'nanohedra_score': all_residue_score,
-                                           'nanohedra_score_central': center_residue_score,
-                                           'fragments': fragment_matches,
-                                           # 'fragment_cluster_ids': ','.join(fragment_indices),
-                                           'multiple_fragment_ratio': multiple_frag_ratio,
-                                           'number_fragment_residues_all': total_residues_with_fragment_overlap,
-                                           'number_fragment_residues_central': central_residues_with_fragment_overlap,
-                                           # 'total_interface_residues': total_residues,
-                                           'number_fragments': len(fragment_matches),
-                                           # 'percent_residues_fragment_all': percent_interface_covered,
-                                           # 'percent_residues_fragment_center': percent_interface_matched,
-                                           'percent_fragment_helix': fragment_content_d['1'],
-                                           'percent_fragment_strand': fragment_content_d['2'],
-                                           'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
-                                           + fragment_content_d['5']}
+            interface_metrics_d[query] = {'nanohedra_score': all_residue_score,
+                                          'nanohedra_score_central': center_residue_score,
+                                          'fragments': fragment_matches,
+                                          # 'fragment_cluster_ids': ','.join(fragment_indices),
+                                          'multiple_fragment_ratio': multiple_frag_ratio,
+                                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
+                                          'number_fragment_residues_central': central_residues_with_fragment_overlap,
+                                          # 'total_interface_residues': total_residues,
+                                          'number_fragments': len(fragment_matches),
+                                          # 'percent_residues_fragment_all': percent_interface_covered,
+                                          # 'percent_residues_fragment_center': percent_interface_matched,
+                                          'percent_fragment_helix': fragment_content_d['1'],
+                                          'percent_fragment_strand': fragment_content_d['2'],
+                                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
+                                          + fragment_content_d['5']}
 
         return interface_metrics_d
 
@@ -745,7 +745,7 @@ class SequenceProfile:
                     for obs in self.fragment_profile[residue][index]:
                         total_obs_weight += self.fragment_profile[residue][index][obs]['stats'][1]
                         total_obs_x_match_weight += self.fragment_profile[residue][index][obs]['stats'][1] * \
-                                                    self.fragment_profile[residue][index][obs]['match']
+                            self.fragment_profile[residue][index][obs]['match']
                         # total_match_weight += self.fragment_profile[residue][index][obs]['match']
 
                     # Check if weights are associated with observations, if not side chain isn't significant!
@@ -756,7 +756,7 @@ class SequenceProfile:
                         for obs in self.fragment_profile[residue][index]:
                             total_fragment_observations += 1
                             obs_x_match_weight = self.fragment_profile[residue][index][obs]['stats'][1] * \
-                                                 self.fragment_profile[residue][index][obs]['match']
+                                self.fragment_profile[residue][index][obs]['match']
                             # match_weight = self.fragment_profile[residue][index][obs]['match']
                             # obs_weight = self.fragment_profile[residue][index][obs]['stats'][1]
                             for aa in self.fragment_profile[residue][index][obs]:
@@ -2570,7 +2570,7 @@ def get_fragment_metrics(fragment_matches):
         (tuple): all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap, \
         central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d
     """
-    # fragment_matches = [{'mapped': entity1_surffrag_resnum, 'match_score': score_term,
+    # fragment_matches = [{'mapped': entity1_surffrag_resnum, 'match': score_term,
     #                          'paired': entity2_surffrag_resnum, 'culster': cluster_id}, ...]
     fragment_i_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
     fragment_j_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
@@ -2586,14 +2586,14 @@ def get_fragment_metrics(fragment_matches):
             resnum1 = covered_residues_pdb1[k]
             resnum2 = covered_residues_pdb2[k]
             if resnum1 not in entity1_match_scores:
-                entity1_match_scores[resnum1] = [fragment['match_score']]
+                entity1_match_scores[resnum1] = [fragment['match']]
             else:
-                entity1_match_scores[resnum1].append(fragment['match_score'])
+                entity1_match_scores[resnum1].append(fragment['match'])
 
             if resnum2 not in entity2_match_scores:
-                entity2_match_scores[resnum2] = [fragment['match_score']]
+                entity2_match_scores[resnum2] = [fragment['match']]
             else:
-                entity2_match_scores[resnum2].append(fragment['match_score'])
+                entity2_match_scores[resnum2].append(fragment['match'])
 
         fragment_i_index_count_d[fragment['cluster'].split('_')[0]] += 1
         fragment_j_index_count_d[fragment['cluster'].split('_')[0]] += 1
