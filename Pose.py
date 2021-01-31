@@ -4,6 +4,8 @@ import pickle
 from glob import glob
 from itertools import chain, combinations, combinations_with_replacement
 
+import ipdb
+
 import numpy as np
 from sklearn.neighbors import BallTree
 
@@ -13,7 +15,7 @@ from SequenceProfile import SequenceProfile, get_fragment_metrics
 from Structure import Coords
 # Globals
 from SymDesignUtils import to_iterable, logger, pickle_object, DesignError, calculate_overlap, \
-    filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log
+    filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, point_group_sdf_map, possible_symmetries
 from FragDock import write_frag_match_info_file
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import MonoFragment, FragmentDB
@@ -149,8 +151,7 @@ class SymmetricModel(Model):
 
     @property
     def coords(self):
-        """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
-        belonging to the specific Structure instance"""
+        """Return a view of the Coords from the Model"""
         return self._coords.coords  # [self.atom_indices]
         # return self._coords.get_indices(self.atom_indices)
 
@@ -166,9 +167,8 @@ class SymmetricModel(Model):
 
     @property
     def model_coords(self):
-        """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
-        belonging to the specific Structure instance"""
-        return self._coords.coords  # [self.atom_indices]
+        """Return a view of the Coords from the Model"""
+        return self._model_coords.coords  # [self.atom_indices]
         # return self._coords.get_indices(self.atom_indices)
 
     @model_coords.setter
@@ -176,7 +176,7 @@ class SymmetricModel(Model):
         # assert len(self.atoms) == coords.shape[0], '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
         #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
         if isinstance(coords, Coords):
-            self._coords = coords
+            self._model_coords = coords
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
@@ -202,11 +202,12 @@ class SymmetricModel(Model):
                                   ' tables and add to the pickled operators if this displeases you!' % symmetry)
             self.expand_matrices = self.get_sg_sym_op(''.join(symmetry.split()))
             # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
-        if not symmetry:
+        elif not symmetry:
             return None  # no symmetry was provided
-        elif symmetry in ['T', 'O', 'I']:
+        elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
+            # symmetry = point_group_sdf_map[symmetry][0]
             self.dimension = 0
-            self.expand_matrices = self.get_ptgrp_sym_op(symmetry)  # Todo numpy expand_matrices
+            self.expand_matrices = self.get_ptgrp_sym_op(possible_symmetries[symmetry])  # Todo numpy expand_matrices
             # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
         else:
             raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add to'
@@ -480,13 +481,13 @@ class SymmetricModel(Model):
         else:
             extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
             extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-
+        # ipdb.set_trace()
         asu_symm_mates = []
-        pdb_coords = extract_pdb_coords(pdb)
+        pdb_coords = np.array(extract_pdb_coords(pdb))
         for rot in self.expand_matrices:
             r_mat = np.transpose(np.array(rot))  # Todo numpy incomming expand_matrices
             r_asu_coords = np.matmul(pdb_coords, r_mat)
-            symmetry_mate_pdb = copy.copy(pdb)
+            symmetry_mate_pdb = copy.deepcopy(pdb)
             symmetry_mate_pdb.coords = Coords(r_asu_coords)
             # symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
             asu_symm_mates.append(symmetry_mate_pdb)
@@ -1058,8 +1059,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # Return residue numbers of identified coordinates
         self.log.info('Number of PDB atoms: %s' % len(pdb_atoms))
         self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
-        interface_pairs = []
         self.log.info('Entity2 Query size: %d' % entity2_query.size)
+        # interface_pairs = []
         # self.log.info('Entity2 Query indices: %s' % str([idx for idx in entity2_query])
         # try:
         #     for entity2_idx in range(entity2_query.size):
@@ -1100,12 +1101,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         Returns:
             tuple[set]: A tuple of interface residue sets across an interface
         """
-        return split_interface_pairs(self.find_interface_pairs(**kwargs))
+        return self.split_interface_pairs(self.find_interface_pairs(**kwargs))
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
         # interface_name = self.asu
         entity1_residue_numbers, entity2_residue_numbers = self.find_interface_residues(entity1=entity1,
                                                                                         entity2=entity2)
+        self.log.info('Entity1 residue numbers: %s' % entity1_residue_numbers)
+        self.log.info('Entity2 residue numbers: %s' % entity2_residue_numbers)
         entity1_structure = entity1  # when passing reference structure
         # entity1_structure = self.pdb.entity(entity1)
         if entity1_structure not in self.interface_residues:
@@ -1245,7 +1248,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             return None  # pose has already been initialized for design
 
         if mask:
-            self.design_mask = set(self.asu.get_residue_indices(numbers=mask))
+            self.design_mask = set(self.asu.get_residue_atom_indices(numbers=mask))
 
         if fragments:
             if query_fragments:  # search for new fragment information
