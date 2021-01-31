@@ -141,17 +141,18 @@ def handle_symmetry(symmetry_entry_number):
         return 0
 
 
-def sdf_lookup(point_type, dummy=False):
+def sdf_lookup(symmetry_entry, dummy=False):
     if dummy:
         return os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
     else:
-        symmetry_name = point_group_sdf_map[point_type]
+        symmetry_name = point_group_sdf_map[symmetry_entry]
 
     for root, dirs, files in os.walk(PUtils.symmetry_def_files):
         for file in files:
             if symmetry_name in file:
                 return os.path.join(PUtils.symmetry_def_files, file)
 
+    return os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
 
 #####################
 # Runtime Utilities
@@ -686,15 +687,13 @@ def write_list_to_file(_list, name=None, location=os.getcwd()):
 
 
 def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', out_path=os.getcwd(), additional=None):
-    file_name = os.path.join(out_path, 'pdb_file_list.txt')
+    file_name = os.path.join(out_path, 'design_files.txt')
     with open(file_name, 'w') as f:
-        f.write(refined_pdb + '\n')  # run second round of metrics on input as well
-        for i in range(index_offset, total_pdbs + index_offset):
-            file_line = os.path.splitext(refined_pdb)[0] + suffix + '_' + str(i).zfill(4) + '.pdb\n'
-            f.write(file_line)
+        f.write('%s\n' % refined_pdb)  # run second round of metrics on input as well
+        f.write('\n'.join('%s%s_%s.pdb' % (os.path.splitext(refined_pdb)[0], suffix, str(idx).zfill(4))
+                          for idx in enumerate(total_pdbs, 1)))
         if additional:
-            for pdb in additional:
-                f.write(pdb + '\n')
+            f.write('\n'.join(pdb for pdb in additional))
 
     return file_name
 

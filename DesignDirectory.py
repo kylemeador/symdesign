@@ -693,7 +693,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
             main_cmd += ['-symmetry_definition', 'CRYST1']
         else:  # point
-            sym_def_file = sdf_lookup(self.sym_entry_number)  # Todo in flags
+            print(self.sym_entry_number)
+            sym_def_file = sdf_lookup(self.sym_entry_number)
             main_cmd += ['-symmetry_definition', sym_def_file]
 
         # logger.info('Symmetry Information: %s' % cryst)
@@ -765,8 +766,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
         relax_cmd = main_cmd + \
-            ['@%s' % os.path.join(self.path, flags_refine), '-scorefile', os.path.join(self.scores, PUtils.scores_file),
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[1] + '.xml')]
+            ['@%s' % flags_refine, '-scorefile', os.path.join(self.scores, PUtils.scores_file),
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
         refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
         if self.consensus:
             if self.fragment:
@@ -789,6 +790,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
         if self.script:
+            self.log.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
             write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1], out_path=self.scripts)
             #                    additional=additional_cmd)
         else:
@@ -815,21 +817,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
              '-scorefile', os.path.join(self.scores, PUtils.scores_file)]
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
-        # TODO if nstruct is backed out, create pdb_list for metrics distribution
-        pdb_list = pdb_list_file(self.refined_pdb, total_pdbs=PUtils.nstruct, suffix='_' + PUtils.stage[2],
-                                 out_path=self.designs, additional=[self.consensus_design_pdb, ])
-
         # add symmetry definition files and set metrics up for oligomeric symmetry
         if self.nano:
             design_variables.extend([('sdf%s' % chain, self.sdfs[name])
                                      for chain, name in zip(all_chains, list(self.sdfs.keys()))])  # REQUIRES py3.6 dict
-            design_variables.extend(('metrics_symmetry', 'oligomer'))
+            design_variables.append(('metrics_symmetry', 'oligomer'))
         else:  # This may not always work if the input has lower symmetry
-            design_variables.extend(('metrics_symmetry', 'no_symmetry'))
+            design_variables.append(('metrics_symmetry', 'no_symmetry'))
 
-        design_variables.extend([('all_but_%s' % chain, set(all_chains) - set(chain)) for chain in all_chains])
+        design_variables.extend([('all_but_%s' % chain, ''.join(set(all_chains) - set(chain))) for chain in all_chains])
 
         flags_metric = self.prepare_rosetta_flags(design_variables, PUtils.stage[3], out_path=self.scripts)
+
+        pdb_list = os.path.join(self.scripts, 'design_files.txt')
+        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         metric_cmd = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.refined_pdb, '@%s' % os.path.join(self.path, flags_metric),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file),
@@ -846,11 +847,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
         if self.script:
             write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2], out_path=self.scripts)
-            write_shell_script(subprocess.list2cmdline(metric_cmds[all_chains[0]]), name=PUtils.stage[3],
+            write_shell_script(subprocess.list2cmdline(generate_files_cmd), name=PUtils.stage[3],
                                out_path=self.scripts, additional=[subprocess.list2cmdline(command)
-                                                                  for n, command in enumerate(metric_cmds.values())
-                                                                  if
-                                                                  n > 0])  # we already submitted 0 as the command arg
+                                                                  for n, command in enumerate(metric_cmds.values())])
         else:
             self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
             design_process = subprocess.Popen(design_cmd)
@@ -863,7 +862,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if self.script:
-            analysis_cmd = 'python %s -d %s' % (PUtils.filter_designs, self.path)
+            analysis_cmd = '%s -d %s %s' % (PUtils.program_command, self.path, PUtils.stage[4])
             write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=self.scripts)
         else:
             pose_s = analyze_output(self)
@@ -898,8 +897,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file  # 'flags_' + stage
 
-    def set_symmetry(self, symmetry=None, dimension=None, uc_dimensions=None,
-                     expand_matrices=None, **kwargs):  # sym_entry_number=None,
+    def set_symmetry(self, symmetry=None, dimension=None, uc_dimensions=None, expand_matrices=None, **kwargs):
+        #            sym_entry_number=None,
         """{symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
 
         (str)
