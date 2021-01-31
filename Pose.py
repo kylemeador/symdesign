@@ -476,24 +476,26 @@ class SymmetricModel(Model):
     # @staticmethod
     def return_point_group_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
-        if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'extract_coords')
-        else:
-            extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+        # if return_side_chains:  # get different function calls depending on the return type
+        #     extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+        #     extract_pdb_coords = getattr(PDB, 'extract_coords')
+        # else:
+        #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+        #     extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
         # ipdb.set_trace()
-        asu_symm_mates = []
-        pdb_coords = np.array(extract_pdb_coords(pdb))
-        for rot in self.expand_matrices:
-            r_mat = np.transpose(np.array(rot))  # Todo numpy incomming expand_matrices
-            r_asu_coords = np.matmul(pdb_coords, r_mat)
-            symmetry_mate_pdb = copy.deepcopy(pdb)
-            symmetry_mate_pdb.coords = Coords(r_asu_coords)
-            # symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
-            asu_symm_mates.append(symmetry_mate_pdb)
-
-        return asu_symm_mates
+        return [pdb.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]  # Todo change below as well
+        # asu_symm_mates = []
+        # pdb_coords = np.array(extract_pdb_coords(pdb))
+        # for rot in self.expand_matrices:
+        #     r_mat = np.transpose(np.array(rot))
+        #     r_asu_coords = np.matmul(pdb_coords, r_mat)
+        #     symmetry_mate_pdb = pdb.return_transformed_copy(rotation=rot)
+        #     symmetry_mate_pdb = copy.deepcopy(pdb)
+        #     symmetry_mate_pdb.coords = Coords(r_asu_coords)
+        #     # symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
+        #     asu_symm_mates.append(symmetry_mate_pdb)
+        #
+        # return asu_symm_mates
 
     def return_unit_cell_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
@@ -581,7 +583,7 @@ class SymmetricModel(Model):
             raise DesignError('Cannot check if the assembly is clashing without first calling %s'
                               % self.generate_symmetric_assembly.__name__)
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
-        print('ModelASU Indices: %s' % model_asu_indices)
+        # print('ModelASU Indices: %s' % model_asu_indices)
         # print('Equivalent ModelASU: %d' % self.find_asu_equivalent_symmetry_model())
         if self.coords_type != 'bb_cb':
             asu_indices = self.asu.get_backbone_and_cb_indices()
@@ -1144,6 +1146,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.log.debug('Entity 1 Fragment count: %d' % len(surface_frags1))
         self.log.debug('Entity 2 Fragment count: %d' % len(surface_frags2))
         if self.symmetry:
+            # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
+            # asu frag subtraction is unnecessary
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
             surface_frags2 = list(chain.from_iterable(surface_frags2_nested))
             self.log.debug('Entity 2 Symmetry expanded fragment count: %d' % len(surface_frags2))
@@ -1339,7 +1343,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         Returns:
             (dict): {symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
         """
-        temp_dict = self.__dict__
+        temp_dict = copy.copy(self.__dict__)
         temp_dict.pop('models')
         temp_dict.pop('pdb')
         temp_dict.pop('asu')
@@ -1553,6 +1557,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
         fragdb.get_monofrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_info_dict()
+
     kdtree_oligomer1_backbone = BallTree(entity1_coords)
     # kdtree_oligomer1_backbone = BallTree(np.array(entity1.extract_backbone_coords()))
     complete_int1_ghost_frag_l, interface_ghostfrag_guide_coords_list = [], []
