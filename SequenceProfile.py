@@ -131,7 +131,7 @@ class SequenceProfile:
 
             elif self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
                 self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
-                                                   for fragment in idx_d.values()])
+                                                   for frag_obs in idx_d.values() for fragment in frag_obs])
             # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
 
