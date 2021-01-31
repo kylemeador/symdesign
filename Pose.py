@@ -1612,7 +1612,7 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
     for interface_ghost_frag, interface_mono_frag, match_score in ghostfrag_surffrag_pairs:
         entity1_surffrag_ch, entity1_surffrag_resnum = interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
         entity2_surffrag_ch, entity2_surffrag_resnum = interface_mono_frag.get_central_res_tup()
-        fragment_matches.append({'mapped': entity1_surffrag_resnum, 'match_score': match_score,
+        fragment_matches.append({'mapped': entity1_surffrag_resnum, 'match': match_score,
                                  'paired': entity2_surffrag_resnum, 'cluster': '%s_%s_%s'
                                                                                % interface_ghost_frag.get_ijk()})
 
