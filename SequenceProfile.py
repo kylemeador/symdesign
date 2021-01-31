@@ -658,7 +658,7 @@ class SequenceProfile:
         if not self.fragment_map:
             self.fragment_map = self.populate_design_dictionary(self.structure.number_of_residues,  # (),
                                                                 [j for j in range(*self.frag_db.fragment_range)],
-                                                                dtype=set)
+                                                                dtype=list)
         # fragments
         # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
         for fragment in fragments:
@@ -666,8 +666,8 @@ class SequenceProfile:
             for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
                 # if residue_number + j in self.fragment_map:  WITH EMPTY DESIGN DICT, THIS IS UNNECESSARY
                 #     if j in self.fragment_map[residue_number + j]:
-                self.fragment_map[residue_number + j][j].add({'chain': alignment_type, 'cluster': fragment['cluster'],
-                                                              'match': fragment['match']})
+                self.fragment_map[residue_number + j][j].append({'chain': alignment_type, 'cluster': fragment['cluster'],
+                                                                 'match': fragment['match']})
                 #     else:
                 #         self.fragment_map[residue_number + j][j] = [{'chain': source, 'cluster': fragment['cluster'],
                 #                                                   'match': fragment['match']}]
@@ -676,7 +676,7 @@ class SequenceProfile:
                 #                                                'match': fragment['match']}]}
         # remove entries which don't exist on protein because of fragment_index +- residues
         not_available = [residue_number for residue_number in self.fragment_map
-                         if 0 < residue_number >= self.structure.number_of_residues]  # ()]
+                         if residue_number <= 0 or residue_number > self.structure.number_of_residues]
         for residue_number in not_available:
             self.log.debug('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
                            'Fragment index will be deleted.' % (self.name, residue_number))
@@ -697,12 +697,12 @@ class SequenceProfile:
                      1: {}, ...}
         """
 
-        for residue_number in self.fragment_map:
+        for residue_number, fragment_indices in self.fragment_map.items():
             self.fragment_profile[residue_number] = {}
-            for frag_index in self.fragment_map[residue_number]:
+            for frag_index, fragments in fragment_indices.items():
                 self.fragment_profile[residue_number][frag_index] = {}
                 # observation_d = {}
-                for obs_idx, fragment in enumerate(self.fragment_map[residue_number][frag_index]):
+                for obs_idx, fragment in enumerate(fragments):
                     cluster_id = fragment['cluster']
                     freq_type = fragment['chain']
                     aa_freq = self.frag_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_index)
