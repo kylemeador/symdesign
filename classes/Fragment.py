@@ -107,7 +107,7 @@ class GhostFragment:
         """Return the fragments corresponding cluster index information
 
         Returns:
-            (tuple): I cluster index, J cluster index, K cluster index
+            (tuple[str, str, str]): I cluster index, J cluster index, K cluster index
         """
         return self.i_frag_type, self.j_frag_type, self.k_frag_type
 
