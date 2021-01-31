@@ -125,7 +125,8 @@ class SequenceProfile:
                     #         fragment_source[idx] = fragment
                     # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
                 else:
-                    print('Error: argument entities (tuple) is required with fragment_observations')
+                    self.log.error('%s: Argument \'entities\' (tuple) is required is fragment_observations are provided'
+                                   % self.add_profile.__name__)
                     return None
 
             elif self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
@@ -559,13 +560,14 @@ class SequenceProfile:
             idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
             if self.fragment_queries:
                 for query_pair, fragments in self.fragment_queries.items():
-                    for query_idx, entity_name in enumerate(query_pair):
-                        if entity_name == self.structure.name:
+                    for query_idx, entity in enumerate(query_pair):
+                        if entity.name == self.structure.name:
                             # add to fragment map
                             self.assign_fragments(fragments=fragments, alignment_type=idx_to_alignment_type[query_idx])
             else:
-                print('No fragment information associated with the Entity %s yet! You must add to the profile otherwise'
-                      ' only evolutionary values will be used.\n%s' % (self.name, add_fragment_profile_instructions))
+                self.log.error('No fragment information associated with the Entity %s yet! You must add to the profile '
+                               'otherwise only evolutionary values will be used.\n%s'
+                               % (self.name, add_fragment_profile_instructions))
                 return None
 
     def find_alpha(self, alpha=0.5):
@@ -649,6 +651,8 @@ class SequenceProfile:
             alignment_type=None (str): Either mapped or paired
         """
         if alignment_type not in ['mapped', 'paired']:
+            return None
+        if not fragments:
             return None
 
         if not self.fragment_map:
