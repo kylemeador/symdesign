@@ -1,3 +1,4 @@
+from copy import deepcopy
 from math import sqrt
 from collections.abc import Iterable
 from random import random
@@ -71,11 +72,32 @@ class Structure:  # (Coords):
         #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
         if isinstance(coords, Coords):
             self._coords = coords
-            for atom in self.atoms:
-                atom.coords = coords
+            self.set_atoms_attributes(coords=self._coords)
+            # for atom in self.atoms:
+            #     atom.coords = coords
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+
+    def return_transformed_copy(self, rotation=None, translation=None):
+        new_coords = np.array(self.extract_coords())
+        if rotation:
+            new_coords = np.matmul(new_coords, np.transpose(np.array(rotation)))
+        if translation:
+            new_coords += np.array(translation)
+
+        new_structure = deepcopy(self)
+        new_structure.replace_coords(Coords(new_coords))
+        return new_structure
+
+    def replace_coords(self, new_coords):
+        if not isinstance(new_coords, Coords):
+            new_coords = Coords(new_coords)
+        self.coords = new_coords
+        self.set_atoms_attributes(coords=self._coords)
+        self.reindex_atoms()
+        # self.set_residues_attributes(coords=self._coords)
+        # self.renumber_atoms()
 
     @property
     def atom_indices(self):  # In Residue too
