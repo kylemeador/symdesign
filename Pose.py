@@ -1297,13 +1297,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 #                               pdb_numbering=True)
 
             idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
-            for query_pair, fragments in self.fragment_queries.items():
+            for query_pair, fragment_info in self.fragment_queries.items():
                 for query_idx, entity in enumerate(query_pair):
                     # if entity_name == entity.get_name():
                     # Todo self.entity() modification
                     # self.pdb.entity(entity_name).assign_fragments(fragments=fragments,
                     entity.connect_fragment_database(db=self.frag_db)
-                    entity.assign_fragments(fragments=fragments, alignment_type=idx_to_alignment_type[query_idx])
+                    entity.assign_fragments(fragments=fragment_info, alignment_type=idx_to_alignment_type[query_idx])
                     # for entity in self.entities:
                     # self.pdb.entity(entity_name).connect_fragment_database(db=self.frag_db)
 
@@ -1613,7 +1613,8 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
         entity1_surffrag_ch, entity1_surffrag_resnum = interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
         entity2_surffrag_ch, entity2_surffrag_resnum = interface_mono_frag.get_central_res_tup()
         fragment_matches.append({'mapped': entity1_surffrag_resnum, 'match_score': match_score,
-                                 'paired': entity2_surffrag_resnum, 'culster': '%s_%s_%s' % interface_ghost_frag.get_ijk()})
+                                 'paired': entity2_surffrag_resnum, 'cluster': '%s_%s_%s'
+                                                                               % interface_ghost_frag.get_ijk()})
 
     return fragment_matches
 
