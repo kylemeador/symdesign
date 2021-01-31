@@ -1276,22 +1276,23 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 # must provide des_dir.fragment_observations from des_dir.gather_fragment_metrics then specify whether
                 # the Entity in question is from mapped or paired (entity1 is mapped, entity2 is paired from Nanohedra)
                 # Need to renumber fragments to Pose residue numbering when we add to the available queries
-                if existing_fragments:  # add provided fragment information to the pose
-                    # Todo DesignDirectory.gather_fragment_info(self)
-                    #   design_dir.fragment_observations?
-                    with open(existing_fragments, 'r') as f:
-                        fragment_source = f.readlines()
-                else:
-                    fragment_source = design_dir.fragment_observations  # Todo
+                # if existing_fragments:  # add provided fragment information to the pose
+                #     # Todo DesignDirectory.gather_fragment_info(self)
+                #     #   design_dir.fragment_observations?
+                #     with open(existing_fragments, 'r') as f:
+                #         fragment_source = f.readlines()
+                # else:
+                fragment_source = design_dir.fragment_observations
                 # self.fragment_queries[tuple(entity.name for entity in self.entities)] = fragment_source
-                entity_ids = tuple(entity.name for entity in self.entities)
-                self.log.debug('Entity ID\'s: %s' % str(entity_ids))
+                # entity_ids = tuple(entity.name for entity in self.entities)
+                # self.log.debug('Entity ID\'s: %s' % str(entity_ids))
                 if fragment_source:
                     self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                                             pdb_numbering=True)
                 else:
-                    raise DesignError('%s: Fragments were set for design but there were none found! Fix your input '
-                                      'flags if this is not what you expected.' % str(design_dir))
+                    raise DesignError('%s: Fragments were set for design but there were none found in the Design '
+                                      'Directory! Fix your input flags if this is not what you expected or generate '
+                                      'them with \'%s generate_frags\'' % (str(design_dir), PUtils.program_command))
                 # for entity in self.entities:
                 #     entity.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                 #                               pdb_numbering=True)
@@ -1299,19 +1300,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
             for query_pair, fragment_info in self.fragment_queries.items():
                 for query_idx, entity in enumerate(query_pair):
-                    # if entity_name == entity.get_name():
                     # Todo self.entity() modification
-                    # self.pdb.entity(entity_name).assign_fragments(fragments=fragments,
                     entity.connect_fragment_database(db=self.frag_db)
                     entity.assign_fragments(fragments=fragment_info, alignment_type=idx_to_alignment_type[query_idx])
-                    # for entity in self.entities:
-                    # self.pdb.entity(entity_name).connect_fragment_database(db=self.frag_db)
 
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
             entity.add_profile(evolution=evolution, out_path=design_dir.sequences, fragments=fragments)
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.combine_ssm()
-            # fragment_source=design_dir.fragment_observations, frag_alignment_type=fragment_info_source,
 
         if fragments:
             # set pose.fragment_profile
