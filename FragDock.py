@@ -931,7 +931,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
         if monofrag_ghostfrag_list is not None:
             ghost_frag_list.extend(monofrag_ghostfrag_list)
             ghost_frag_guide_coords_list.extend(list(map(GhostFragment.get_guide_coords, monofrag_ghostfrag_list)))
-            for idx, ghostfrag in enumerate(monofrag_ghostfrag_list):  # Remove
+            # for idx, ghostfrag in enumerate(monofrag_ghostfrag_list):  # Remove
                 # if idx == 1:
                 #     print(ghostfrag.get_guide_coords())
                 # ghost_frag_list.append(ghostfrag)  # Remove
