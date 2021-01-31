@@ -1256,7 +1256,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 self.connect_fragment_database(db=design_dir.frag_db)
                 # for entity_pair in combinations(self.entities, 2):
                 for entity_pair in combinations_with_replacement(self.entities, 2):
-                    self.log.debug('Entity pair: %s' % str(tuple(entity.name for entity in entity_pair)))
+                    self.log.debug('Entity pair: %s, %s' % tuple(entity.name for entity in entity_pair))
                     self.query_interface_for_fragments(*entity_pair)
                 if write_fragments:
                     write_fragment_pairs(self.fragment_observations, out_path=design_dir.frags)
@@ -1612,8 +1612,9 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
 
 
 def write_fragment_pairs(ghostfrag_surffrag_pairs, out_path=os.getcwd()):
-    for interface_ghost_frag, interface_mono_frag, match_score in ghostfrag_surffrag_pairs:
-        interface_ghost_frag.pdb.write(out_path=out_path)
+    for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs):
+        interface_ghost_frag.pdb.write(out_path=os.path.join(out_path, '%s_%s_%s_fragment_overlap_match_%d.pdb'
+                                                             % (*interface_ghost_frag.get_ijk(), idx)))
 
 
 def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
