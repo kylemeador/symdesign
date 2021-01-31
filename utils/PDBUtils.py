@@ -366,8 +366,8 @@ def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_f
         int_surf_frag_transformed = MonoFragment(int_surf_frag_pdb_transformed, type=int_surf_frag.get_type(),
                                                  guide_coords=int_surf_frag_guide_coords_transformed,
                                                  central_res_num=int_surf_frag.get_central_res_num(),
-                                                 central_res_chain_id=int_surf_frag.get_central_res_chain_id(),
-                                                 pdb_coords=int_surf_frag_transformed_pdb_coords)
+                                                 central_res_chain_id=int_surf_frag.get_central_res_chain_id())
+        #                                        ,pdb_coords=int_surf_frag_transformed_pdb_coords)
 
         interface_surf_frag_transformed_list.append(int_surf_frag_transformed)
     # surf_copy_time_end = time.time()
