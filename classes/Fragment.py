@@ -195,8 +195,8 @@ class MonoFragment:
 
                 if rmsd <= min_rmsd and rmsd <= rmsd_thresh:
                     min_rmsd = rmsd
-                    min_rot, min_tx = rot, tx
                     min_rmsd_cluster_rep_type = cluster_type
+                    min_rot, min_tx = rot, tx
 
             if min_rmsd_cluster_rep_type is not None:
                 self.type = min_rmsd_cluster_rep_type
@@ -254,16 +254,6 @@ class MonoFragment:
         # self.pdb_coords = pdb.extract_all_coords()
         # self.pdb_coords = pdb.extract_coords()  # TODO
 
-    # def set_guide_atoms(self, guide_coords):
-    #     self.guide_coords = guide_coords
-    #     a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", guide_coords[0][0], guide_coords[0][1], guide_coords[0][2], 1.00,
-    #               20.00, "C", "")
-    #     a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", guide_coords[1][0], guide_coords[1][1], guide_coords[1][2], 1.00,
-    #               20.00, "N", "")
-    #     a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", guide_coords[2][0], guide_coords[2][1], guide_coords[2][2], 1.00,
-    #               20.00, "O", "")
-    #     self.guide_atoms = [a1, a2, a3]
-
     def get_ghost_fragments(self, intfrag_cluster_rep_dict, kdtree_oligomer_backbone, intfrag_cluster_info_dict,
                             clash_dist=2.2):
         if self.type in intfrag_cluster_rep_dict:
@@ -271,7 +261,6 @@ class MonoFragment:
             for j_type in intfrag_cluster_rep_dict[self.type]:
                 for k_type in intfrag_cluster_rep_dict[self.type][j_type]:
                     intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
-                    rmsd = intfrag_cluster_info_dict[self.type][j_type][k_type].get_rmsd()
                     intfrag_pdb = intfrag[0]
                     intfrag_mapped_chain_id = intfrag[1]
                     intfrag_mapped_chain_central_res_num = intfrag[2]
@@ -296,6 +285,7 @@ class MonoFragment:
                     cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
 
                     if cb_clash_count[0] == 0:
+                        rmsd = intfrag_cluster_info_dict[self.type][j_type][k_type].get_rmsd()
                         ghost_fragments.append(
                             GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, rmsd,
                                           self.get_central_res_tup()))  # ghostfrag_central_res_tup,
