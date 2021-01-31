@@ -303,15 +303,15 @@ class SymmetricModel(Model):
     def get_point_group_coords(self, return_side_chains=True):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         self.number_of_models = valid_subunit_number[self.symmetry]
-        if return_side_chains:  # get different function calls depending on the return type
+        if return_side_chains:  # get different function calls depending on the return type # todo
             get_pdb_coords = getattr(PDB, 'get_coords')
             self.coords_type = 'all'
         else:
             get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
-        self.coords = Coords(get_pdb_coords(self.asu))
-        self.log.debug('coords length at coord expansion: %d' % len(self.coords))
+        # self.coords = Coords(get_pdb_coords(self.asu))
+        self.log.debug('Coords length at symmetry coordinate expansion: %d' % len(self.coords))
         # self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
         model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
         self.log.debug('model coords length at coord expansion: %d' % len(model_coords))
@@ -326,14 +326,14 @@ class SymmetricModel(Model):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
         # self.models = [self.asu]
         self.number_of_models = zvalue_dict[self.symmetry]
-        if return_side_chains:  # get different function calls depending on the return type
+        if return_side_chains:  # get different function calls depending on the return type  # todo
             get_pdb_coords = getattr(PDB, 'get_coords')
             self.coords_type = 'all'
         else:
             get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
-        self.coords = get_pdb_coords(self.asu)
+        # self.coords = Coords(get_pdb_coords(self.asu))
         # asu_cart_coords = get_pdb_coords(self.pdb)
         # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
         # asu_frac_coords = self.cart_to_frac(np.array(asu_cart_coords))
@@ -782,24 +782,25 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # else:
         #     self.log = start_log()
 
-        if pdb:
+        if asu:  # Todo ensure a Structure/PDB object
+            self.asu = asu
+            self.pdb = self.asu
+        elif asu_file:
+            self.asu = PDB.from_file(asu_file, log=self.log)
+            self.pdb = self.asu
+        elif pdb:
             self.pdb = pdb
             # self.set_pdb(pdb)
-
-        if pdb_file:
+        elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log)
             # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
             # this would be:
             # coords, atoms, residues, chains, entities, design, (host of others read from file)
             # self.set_pdb(pdb)
-
-        if asu:  # Todo ensure a Structure/PDB object
-            self.asu = asu
-            self.pdb = self.asu
-
-        if asu_file:
-            self.asu = PDB.from_file(asu_file, log=self.log)
-            self.pdb = self.asu
+        # else:
+        #     nothing = True
+        if self.pdb:
+            self.coords = Coords(self.pdb.get_coords())  # get_pdb_coords(self.asu))
 
         self.design_mask = set()
         self.interface_residues = {}
@@ -866,6 +867,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     @entities.setter
     def entities(self, entities):
         self.pdb.entities = entities
+
+    # @property
+    def entity(self, entity):
+        return self.pdb.entity(entity)
+
+    # @entities.setter
+    # def entity(self, entities):
+    #     self.pdb.entities = entities
 
     @property
     def number_of_atoms(self):
@@ -997,12 +1006,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        entity1_atoms = entity1.get_atoms()  # if passing by Structure
+        # entity1_atoms = entity1.get_atoms()  # if passing by Structure
         entity1_indices = np.array(entity1.get_cb_indices(InclGlyCA=include_glycine))
         # entity1_atoms = self.pdb.entity(entity1).get_atoms()  # if passing by name
         # entity1_indices = np.array(self.pdb.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
 
-        entity2_atoms = entity2.get_atoms()  # if passing by Structure
+        # entity2_atoms = entity2.get_atoms()  # if passing by Structure
+        pdb_atoms = self.pdb.get_atoms()
         entity2_indices = entity2.get_cb_indices(InclGlyCA=include_glycine)
         # entity2_atoms = self.pdb.entity(entity2).get_atoms()  # if passing by name
         # entity2_indices = self.pdb.entity(entity2).get_cb_indices(InclGlyCA=include_glycine)
@@ -1012,15 +1022,20 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             entity2_indices = set(entity2_indices).difference(self.design_mask)
 
         if self.symmetry:  # self.model_coords:
-            number_of_atoms = self.pdb.number_of_atoms
             # get all symmetric indices if the pose is symmetric
+            number_of_atoms = self.pdb.number_of_atoms
+            # number_of_atoms = entity2.number_of_atoms
             entity2_indices = [idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
                                for idx in entity2_indices]
+            pdb_atoms = [atom for model_number in range(self.number_of_models) for atom in pdb_atoms]
+            # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             # Todo mask=[residue_numbers?] default parameter
-            if entity2 == entity1:  # the entity is the same however, we don't want interactions with the same sym mate
+            if entity2 == entity1:
+                # the entity is the same however, we don't want interactions with the same sym mate
                 asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
                 entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
-            entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
+                # entity2_atoms = [atom for idx, atom in enumerate(entity2_atoms) if asu_indices[0] > idx or idx > asu_indices[-1]]
+                # self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
             entity2_coords = self.model_coords[np.array(entity2_indices)]  # only get the coordinate indices we want!
         else:
             entity2_coords = self.coords[np.array(entity2_indices)]  # only get the coordinate indices we want!
@@ -1031,24 +1046,38 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates
-        # interface_pairs = []
-        # for entity2_idx in range(entity2_query.size):
-        #     # if entity2_query[entity2_idx].size > 0:
-        #     #     entity2_residue_number = entity2_atoms[entity2_indices[entity2_idx]].residue_number
+        self.log.info('Number of PDB atoms: %s' % len(pdb_atoms))
+        self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
+        interface_pairs = []
+        self.log.info('Entity2 Query size: %d' % entity2_query.size)
+        # self.log.info('Entity2 Query indices: %s' % str([idx for idx in entity2_query])
+        # try:
+        #     for entity2_idx in range(entity2_query.size):
+        #         # if entity2_query[entity2_idx].size > 0:
+        #         #     entity2_residue_number = entity2_atoms[entity2_indices[entity2_idx]].residue_number
         #         for entity1_idx in entity2_query[entity2_idx]:
         #             # entity1_residue_number = entity1_atoms[entity1_indices[entity1_idx]].residue_number
-        #             interface_pairs.append((entity1_atoms[entity1_indices[entity1_idx]].residue_number,
-        #                                     entity2_atoms[entity2_indices[entity2_idx]].residue_number))
-        #             # interface_pairs.append((entity1_residue_number, entity2_residue_number))
+        #             interface_pairs.append((pdb_atoms[entity1_indices[entity1_idx]].residue_number,
+        #                                     pdb_atoms[entity2_indices[entity2_idx]].residue_number))
+        #             # interface_pairs.append((entity1_atoms[entity1_indices[entity1_idx]].residue_number,
+        #             #                         entity2_atoms[entity2_indices[entity2_idx]].residue_number))
+        # except IndexError:
+        #     print(entity1_idx, entity2_idx)
+        #     print('Next', entity2_indices[entity2_idx])
+        #     # print(entity2_atoms[])
+        #         # interface_pairs.append((entity1_residue_number, entity2_residue_number))
         # return interface_pairs
-        return [(entity1_atoms[entity1_indices[entity1_idx]].residue_number,  # Todo return residue object from atom?
-                 entity2_atoms[entity2_indices[entity2_idx]].residue_number)
+        return [(pdb_atoms[entity1_indices[entity1_idx]].residue_number,  # Todo return residue object from atom?
+                 pdb_atoms[entity2_indices[entity2_idx]].residue_number)
                 for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
 
     @staticmethod
     def split_interface_pairs(interface_pairs):
-        residues1, residues2 = zip(*interface_pairs)
-        return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
+        if interface_pairs:
+            residues1, residues2 = zip(*interface_pairs)
+            return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
+        else:
+            return [], []
 
     def find_interface_residues(self, **kwargs):  # entity1=None, entity2=None, distance=8, include_glycine=True):
         """Get unique residues from each pdb across an interface provide two Entity names
