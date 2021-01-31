@@ -149,8 +149,8 @@ class GhostFragment:
     def get_pdb(self):
         return self.pdb
 
-    # def get_pdb_coords(self):
-    #     return self.pdb_coords
+    def get_pdb_coords(self):
+        return self.pdb.get_coords()
 
     # def get_guide_atoms(self):
     #     return self.guide_atoms
@@ -204,7 +204,7 @@ class MonoFragment:
             # a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", 0.0, 3.0, 0.0, 1.00, 20.00, "O", "")
             guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
             min_rmsd = float('inf')
-            min_rmsd_cluster_rep_rot_tx = None
+            # min_rmsd_cluster_rep_rot_tx = None
             min_rmsd_cluster_rep_type = None
             for cluster_type, cluster_rep in monofrag_cluster_rep_dict.items():
                 # cluster_rep = monofrag_cluster_rep_dict[cluster_type]
@@ -254,8 +254,8 @@ class MonoFragment:
     def get_pdb(self):
         return self.pdb
 
-    # def get_pdb_coords(self):
-    #     return self.pdb_coords
+    def get_pdb_coords(self):
+        return self.pdb.get_coords()
 
     def get_central_res_num(self):
         return self.central_res_num

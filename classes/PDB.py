@@ -208,6 +208,9 @@ class PDB:
                 coords.append([x, y, z])
         return coords
 
+    def get_coords(self):
+        return [[atom.x, atom.y, atom.z] for atom in self.all_atoms]
+
     def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):
 
         coords = []
