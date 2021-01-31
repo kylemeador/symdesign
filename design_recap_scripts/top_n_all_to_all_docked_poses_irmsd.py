@@ -13,6 +13,7 @@ import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 # from classes.PDB import *
 from PDB import PDB
+from Structure import Atom
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 

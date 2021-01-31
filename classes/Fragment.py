@@ -163,51 +163,31 @@ class GhostFragment:
 
 
 class MonoFragment:
-    def __init__(self, pdb, monofrag_cluster_rep_dict=None, type=None, guide_coords=None, central_res_num=None,
-                 central_res_chain_id=None, rmsd_thresh=0.75):  # pdb_coords=None,
+    def __init__(self, pdb=None, monofrag_cluster_rep_dict=None, fragment_type=None, guide_coords=None,
+                 central_res_num=None, central_res_chain_id=None, rmsd_thresh=0.75):
         self.pdb = None
-        # self.pdb_coords = None
         self.type = None
         self.guide_coords = None
-        # self.guide_atoms = None
         self.central_res_num = None
         self.central_res_chain_id = None
 
-        if monofrag_cluster_rep_dict is None and type is not None and guide_coords is not None and \
-                central_res_num is not None and central_res_chain_id is not None:  #  and pdb_coords is not None:
+        if not monofrag_cluster_rep_dict:
             self.pdb = pdb
-            # self.pdb_coords = pdb_coords
-            self.type = type
+            self.type = fragment_type
             self.guide_coords = guide_coords
-            # a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", guide_coords[0][0], guide_coords[0][1], guide_coords[0][2],
-            #           1.00, 20.00, "C", "")
-            # a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", guide_coords[1][0], guide_coords[1][1], guide_coords[1][2], 1.00,
-            #           20.00, "N", "")
-            # a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", guide_coords[2][0], guide_coords[2][1], guide_coords[2][2], 1.00,
-            #           20.00, "O", "")
-            # self.guide_atoms = [a1, a2, a3]
             self.central_res_num = central_res_num
             self.central_res_chain_id = central_res_chain_id
 
-        # elif monofrag_cluster_rep_dict is not None and pdb is not None:  # TODO
-        elif monofrag_cluster_rep_dict is not None and type is None and guide_coords is None and \
-                central_res_num is None and central_res_chain_id is None:  # and pdb_coords is None:
+        elif pdb and monofrag_cluster_rep_dict:
             self.pdb = pdb
-            # self.pdb_coords = self.pdb.extract_all_coords()
             frag_ca_atoms = self.pdb.get_CA_atoms()
             # frag_ca_atoms = self.pdb.get_ca_atoms()  # TODO
             self.central_res_num = frag_ca_atoms[2].residue_number
             self.central_res_chain_id = self.pdb.chain_id_list[0]
-
-            # a1 = Atom(1, "CA", " ", "GLY", "9", 0, " ", 0.0, 0.0, 0.0, 1.00, 20.00, "C", "")
-            # a2 = Atom(2, "N", " ", "GLY", "9", 0, " ", 3.0, 0.0, 0.0, 1.00, 20.00, "N", "")
-            # a3 = Atom(3, "O", " ", "GLY", "9", 0, " ", 0.0, 3.0, 0.0, 1.00, 20.00, "O", "")
             guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
             min_rmsd = float('inf')
-            # min_rmsd_cluster_rep_rot_tx = None
             min_rmsd_cluster_rep_type = None
             for cluster_type, cluster_rep in monofrag_cluster_rep_dict.items():
-                # cluster_rep = monofrag_cluster_rep_dict[cluster_type]
                 cluster_rep_ca_atoms = cluster_rep.get_CA_atoms()
                 # cluster_rep_ca_atoms = cluster_rep.get_ca_atoms()  # TODO
 
@@ -220,14 +200,6 @@ class MonoFragment:
 
             if min_rmsd_cluster_rep_type is not None:
                 self.type = min_rmsd_cluster_rep_type
-                # guide_atoms_pdb = PDB()
-                # guide_atoms_pdb.read_atom_list([a1, a2, a3])
-                # guide_atoms_pdb.rotate_translate(min_rmsd_cluster_rep_rot_tx[0],
-                #                                  min_rmsd_cluster_rep_rot_tx[1])  # *args
-                # # coord_rot = self.mat_vec_mul3(rot, coord)
-                # # coord_tr = coord_rot + tx
-                # self.guide_atoms = guide_atoms_pdb.all_atoms
-                # self.guide_coords = guide_atoms_pdb.extract_all_coords()
 
                 t_vec = np.array(min_tx)
                 r_mat = np.transpose(np.array(min_rot))
@@ -235,6 +207,20 @@ class MonoFragment:
                 r_guide_coords = np.matmul(guide_coords, r_mat)
                 rt_guide_coords = r_guide_coords + t_vec
                 self.guide_coords = rt_guide_coords
+
+    @classmethod
+    def from_residue(cls):
+        return cls()
+
+    @classmethod
+    def from_database(cls, pdb, representative_dict):
+        return cls(pdb=pdb, monofrag_cluster_rep_dict=representative_dict)
+
+    @classmethod
+    def from_fragment(cls, pdb=None, fragment_type=None, guide_coords=None, central_res_num=None,
+                      central_res_chain_id=None):
+        return cls(pdb=pdb, fragment_type=fragment_type, guide_coords=guide_coords, central_res_num=central_res_num,
+                   central_res_chain_id=central_res_chain_id)
 
     def get_central_res_tup(self):
         return self.central_res_chain_id, self.central_res_num
@@ -248,7 +234,7 @@ class MonoFragment:
         else:
             return None
 
-    def get_type(self):
+    def get_i_type(self):
         return self.type
 
     def get_pdb(self):

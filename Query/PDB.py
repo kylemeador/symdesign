@@ -679,21 +679,21 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
                 elif metadata_d[attribute]['items']['type'] == 'object':  # type must be object, therefore contain 'properties' key and then have more attributes as leafs
                     yield from recurse_metadata(metadata_d[attribute]['items']['properties'], stack=stack + ((attribute, 'a', 'o',)))
                 else:
-                    print('Array with type %s found in %s' % (metadata_d[attribute], stack))
+                    logger.debug('Array with type %s found in %s' % (metadata_d[attribute], stack))
             elif metadata_d[attribute]['type'] == 'object':  # This should never be reachable?
                 # print('%s object found %s' % (attribute, stack))
                 if 'properties' in metadata_d[attribute]:  # check may be unnecessary
                     yield from recurse_metadata(metadata_d[attribute]['properties'], stack=stack + (attribute, 'o',))
                 else:
-                    print('Object with no properties found %s in %s' % (metadata_d[attribute], stack))
+                    logger.debug('Object with no properties found %s in %s' % (metadata_d[attribute], stack))
                     # yield stack + ('o', attribute,)
             elif metadata_d[attribute]['type'] in data_types:
                 yield stack + (attribute,)  # + ('o', attribute,) add 'o' as the parent had properties from the object type
             else:
-                print('other type = %s' % metadata_d[attribute]['type'])
+                logger.debug('other type = %s' % metadata_d[attribute]['type'])
 
     if not os.path.exists(file) or force_update:  # Todo and date.datetime - date.current is not greater than a month...
-        print('Gathering the most current PDB metadata. This may take a couple minutes...')
+        logger.info('Gathering the most current PDB metadata. This may take a couple minutes...')
         metadata_json = requests.get(attribute_metadata_schema_json).json()
         metadata_properties_d = metadata_json['properties']
         gen_schema = recurse_metadata(metadata_properties_d)
@@ -704,7 +704,7 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
         for i, attribute_tuple in enumerate(schema_header_tuples):
             attribute_full = '.'.join(attribute for attribute in attribute_tuple if attribute not in schema_dictionary_strings_d)
             if i < 5:
-                print(attribute_full)
+                logger.debug(attribute_full)
             schema_d[attribute_full] = {}
             d_search_string = ''.join('[\'%s\']' % attribute if attribute not in schema_dictionary_strings_d
                                       else schema_dictionary_strings_d[attribute] for attribute in attribute_tuple)
@@ -752,12 +752,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logger = start_log(name=os.path.basename(__file__), level=2)
-
-    # Input data/files
-    pdb_directory = '/databases/pdb'  # ends with .ent not sub_directoried
-    pisa_directory = '/home/kmeador/yeates/fragment_database/all/pisa_files'
-    current_interface_file_path = '/yeates1/kmeador/fragment_database/current_pdb_lists/'  # Todo parameterize
-    # pdb_directory = '/yeates1/kmeador/fragment_database/all_pdb'  # sub directoried
-    # pdb_directory = 'all_pdbs'
 
     retrieve_pdb_entries_by_advanced_query()

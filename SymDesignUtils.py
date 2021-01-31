@@ -1134,7 +1134,7 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
         surf_frag = surface_frags[index_pair[1]]
         coords2 = coords_l2[index_pair[1]]
         # surf_frag.get_guide_coords()
-        if surf_frag.get_type() == ghost_frag.get_j_frag_type():  # could move this as mask outside
+        if surf_frag.get_i_type() == ghost_frag.get_j_frag_type():  # could move this as mask outside
             result, z_value = z_value_func(coords1=coords1, coords2=coords2,
                                            coords_rmsd_reference=ghost_frag.get_rmsd())
             if z_value <= max_z_value:
