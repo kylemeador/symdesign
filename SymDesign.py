@@ -424,6 +424,13 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_mask = subparsers.add_parser('mask', help='Generate a residue mask for %s' % PUtils.program_name)
     # ---------------------------------------------------
+    parser_selection = subparsers.add_parser('design_selection',
+                                             help='Generate a residue selection for %s' % PUtils.program_name)
+    # ---------------------------------------------------
+    parser_filter = subparsers.add_parser('filter', help='Generate a residue mask for %s' % PUtils.program_name)
+    parser_filter.add_argument('-m', '--metric', type=str, help='What metric would you like to filter Designs by?',
+                               choices=['score', 'fragments_matched'], required=True)
+    # ---------------------------------------------------
     parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py\nIf a docking directory structure is set up,'
                                                      ' provide the overall directory location with program argument '
                                                      '-d/-f, otherwise, use the -d1 -d2 \'pose\' module arguments to '
@@ -784,7 +791,7 @@ if __name__ == '__main__':
     elif args.sub_module == 'filter':
         if args.metric == 'score':
             designpath_metric_tup_list = [(des_dir.asu, des_dir.score) for des_dir in design_directories]
-        elif args.metric == 'matched':  # Todo ensure that the design_dir has these attributes
+        elif args.metric == 'fragments_matched':
             designpath_metric_tup_list = [(des_dir.asu, des_dir.number_of_fragments) for des_dir in design_directories]
         else:
             raise SDUtils.DesignError('The filter metric \'%s\' is not supported!' % args.metric)
@@ -877,7 +884,9 @@ if __name__ == '__main__':
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
-                design.interface_design()
+                result, error = design.interface_design()
+                results.append(result)
+                exceptions.append(error)
 
         # # Start pose processing and preparation for Rosetta
         # if args.multi_processing:
