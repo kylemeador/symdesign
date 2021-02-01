@@ -654,9 +654,9 @@ if __name__ == '__main__':
             if 'generate_fragments' in design_flags and design_flags['generate_fragments']:
                 interface_type = 'biological_interfaces'  # Todo parameterize
                 logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
-                # fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type)
-                # for design in design_directories:
-                #     design.connect_db(frag_db=fragment_db)
+                fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type)
+                for design in design_directories:
+                    design.connect_db(frag_db=fragment_db)
 
             if not args.file or inputs_moved:
                 # Make single file with names of each directory where all_docked_poses can be found
@@ -813,7 +813,7 @@ if __name__ == '__main__':
                             % (PUtils.nano, __file__))
                 exit()
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             if args.command_only:
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     for initial, (path1, path2) in zip(initial_iter, pdb_pairs):
@@ -862,7 +862,7 @@ if __name__ == '__main__':
                                                       threads))
             results = list(results)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
                 design.generate_interface_fragments()
     # ---------------------------------------------------
@@ -875,7 +875,7 @@ if __name__ == '__main__':
             results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads))
             results = list(results)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
                 design.interface_design()
 
@@ -890,7 +890,7 @@ if __name__ == '__main__':
         #     results, exceptions = zip(*SDUtils.mp_starmap(initialization_mp, zipped_args, threads))
         #     results = list(results)
         # else:
-        #     logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+        #     logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
         #     for des_directory in design_directories:
         #         result, error = initialization_s(des_directory, args.fragment_database, args.symmetry_group,
         #                                          script=args.command_only, mpi=args.mpi, suspend=args.suspend,
@@ -940,7 +940,7 @@ if __name__ == '__main__':
             results, exceptions = zip(*SDUtils.mp_starmap(analyze_output_mp, zipped_args, threads))
             results = list(results)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for des_directory in design_directories:
                 result, error = analyze_output_s(des_directory, delta_refine=args.delta_g, merge_residue_data=args.join,
                                                  debug=args.debug, save_trajectories=save, figures=args.figures)
@@ -1003,7 +1003,7 @@ if __name__ == '__main__':
             results = SDUtils.mp_starmap(rename, zipped_args, threads)
             results2 = SDUtils.mp_map(merge_design_pair, directory_pairs, threads)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -m during submission')
+            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for des_directory in design_directories:
                 rename(des_directory, increment=args.increment)
             for directory_pair in directory_pairs:
