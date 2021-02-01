@@ -845,14 +845,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_design_errors(errors=(DesignError, AssertionError))
     def load_pose(self):
         self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
-                                       design_selection=self.design_selection)
+                                       design_selection=self.design_selection, frag_db=self.frag_db)
         # Save renumbered PDB to clean_asu.pdb
         self.pose.pdb.write(out_path=self.asu)
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)
         if self.pose.symmetry and self.pose.symmetric_assembly_is_clash():
             raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
                               % str(self))
-            pass
         if self.output_assembly:
             self.pose.get_assembly_symmetry_mates()
             self.pose.write(out_path=os.path.join(self.path, PUtils.assembly))
@@ -861,7 +860,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
         self.load_pose()
-        self.pose.generate_interface_fragments(db=self.frag_db, out_path=self.frags)
+        self.pose.generate_interface_fragments(out_path=self.frags)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
