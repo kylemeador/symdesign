@@ -595,7 +595,7 @@ if __name__ == '__main__':
             if 'mask_design_using_chain' in design_flags and design_flags['mask_design_using_chain']:
                 # residue_mask = SequenceProfile.generate_chain_mask(design_flags['mask_design_using_chain'])
                 # design_flags.update({'mask': chain_mask})
-                SDUtils.DesignError('mask_design_using_chain flag is NOT set up yet!')
+                raise SDUtils.DesignError('mask_design_using_chain flag is NOT set up yet!')
             # Add additional program flags to design_flags
             # if args.mpi:  # Todo
             #     # extras = ' mpi %d' % CUtils.mpi
@@ -653,7 +653,8 @@ if __name__ == '__main__':
                                 ' interact with %s designs in future commands for this project such as \'%s analysis\''
                                 % (args.file, PUtils.program_name, PUtils.program_command))
         else:
-            exit('No design directories/files were specified\nPlease specify --directory or --file.')
+            raise SDUtils.DesignError('No design directories/files were specified!\n'
+                                      'Please specify --directory or --file and run your command again')
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
 
     elif args.sub_module == 'dock' or args.mode == 'dock':  # Todo depreciate args.mode here
@@ -723,13 +724,14 @@ if __name__ == '__main__':
             design_directories = [set_up_directory_objects(dock_dir, mode=args.mode, project=args.design_string)
                                   for dock_dir in all_dock_directories]
             if len(design_directories) == 0:
-                SDUtils.DesignError('No docking directories/files were found\nPlease specify --directory1, and/or '
-                                    '--directory2 or --directory or --file. See %s' % PUtils.help(args.sub_module))
+                raise SDUtils.DesignError('No docking directories/files were found!\n'
+                                          'Please specify --directory1, and/or --directory2 or --directory or --file. '
+                                          'See %s' % PUtils.help(args.sub_module))
 
         logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
                                                                                        location))
     else:
-        SDUtils.DesignError('Error: --mode flag must be passed since the module is %s!' % args.sub_module)
+        raise SDUtils.DesignError('Error: --mode flag must be passed since the module is %s!' % args.sub_module)
 
     args.suspend = False
     if args.command_only:
@@ -835,7 +837,6 @@ if __name__ == '__main__':
             #             'python %s -f %s distribute -s %s' % (__file__, command_file, PUtils.nano))  # args.file,
         else:
             logger.error('No \'%s\' commands were written!' % PUtils.nano)
-
     # ---------------------------------------------------
     elif args.sub_module == 'generate_fragments':  # -c command_only, -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
