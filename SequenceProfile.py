@@ -209,8 +209,8 @@ class SequenceProfile:
             self.evolutionary_profile
         """
         if profile_source not in ['hhblits', 'psiblast']:
-            raise DesignError('%s: Profile generation only possible from hhblits or psiblast'
-                              % self.add_evolutionary_profile.__name__)
+            raise DesignError('%s: Profile generation only possible from \'hhblits\' or \'psiblast\', not %s'
+                              % (self.add_evolutionary_profile.__name__, profile_source))
 
         if force:
             self.sequence_file = None
@@ -219,7 +219,7 @@ class SequenceProfile:
             # Check to see if the files of interest already exist
             temp_file = os.path.join(out_path, '%s.hold' % self.name)
             out_put_file_search = glob(os.path.join(out_path, '%s.*' % self.name))
-            if not out_put_file_search:
+            if not out_put_file_search:  # found nothing -> []
                 with open(temp_file, 'w') as f:
                     self.log.info('Fetching \'%s\' sequence data.\n' % self.name)
             else:
