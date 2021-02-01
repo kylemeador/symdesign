@@ -843,7 +843,8 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)  # mpi=args.mpi, Todo
             logger.info('Starting multiprocessing using %s threads' % str(threads))
-            results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.fragment_decoration, design_directories, threads))
+            results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories,
+                                                      threads))
             results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
