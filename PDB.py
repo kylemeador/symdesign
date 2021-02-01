@@ -1491,10 +1491,11 @@ class PDB(Structure):
         # self.entity_accession_map = {entity: self.dbref[self.entity_d[entity]['representative']]['accession']
         #                              for entity in self.entity_d}
 
-    def find_entity_by_chain(self, chain_id):
+    def entity_by_chain(self, chain_id):
         """Return the entity associated with a particular chain"""
-        for entity, info in self.entity_d.items():
-            if chain_id in info['chains']:
+        # for entity, info in self.entity_d.items():
+        for entity in self.entities:
+            if chain_id == entity.chain_id:
                 return entity
         return None
 
@@ -1685,7 +1686,8 @@ class PDB(Structure):
                             #     & set(partner_entity_partner_chain_first_chain_d[entity][partner_chain]))
                     self.log.info('All original chain contacts: %s' % extra_first_entity_chains)
                     all_asu_chains = list(set(first_entity_chain_contacts)) + extra_first_entity_chains
-                    unique_chains_entity = {_chain: self.find_entity_by_chain(_chain) for _chain in all_asu_chains}
+                    # Todo entity_by_chain returns entity now
+                    unique_chains_entity = {_chain: self.entity_by_chain(_chain) for _chain in all_asu_chains}
                     # need to make sure that the partner entity chains are all contacting as well...
                     # for chain in found_chains:
                 self.log.info('partners: %s' % unique_chains_entity)
@@ -1694,7 +1696,8 @@ class PDB(Structure):
             # return list(set(first_entity_chain_contacts)) + extra_first_entity_chains
             # return unique_chains_entities
 
-        unique_chains = get_unique_contacts(chain, entity=self.find_entity_by_chain(chain), extra=extra)
+        # Todo entity_by_chain returns entity now
+        unique_chains = get_unique_contacts(chain, entity=self.entity_by_chain(chain), extra=extra)
 
         asu = self.chain(chain).get_atoms()
         for atoms in [self.chain(partner_chain).get_atoms() for partner_chain in unique_chains]:
@@ -1916,10 +1919,10 @@ class PDB(Structure):
     #                                       name=entity_name, uniprot_id=uniprot_id)
 
 
-def generate_mask_template(pdb_file):
+def generate_sequence_template(pdb_file):
     pdb = PDB.from_file(pdb_file)
     sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), 'Protein'), id=pdb.filepath)
     sequence_mask = copy(sequence)
-    sequence_mask.id = 'mask'
+    sequence_mask.id = 'design_selection'
     sequences = [sequence, sequence_mask]
     return write_fasta(sequences, file_name='%s_sequence_for_mask' % os.path.splitext(pdb.filepath)[0])

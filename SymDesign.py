@@ -19,7 +19,7 @@ import pandas as pd
 import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
-import PDB
+
 from DesignDirectory import DesignDirectory, set_up_directory_objects
 import PathUtils as PUtils
 import Pose
@@ -28,7 +28,7 @@ import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from CommandDistributer import distribute
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
-from PDB import PDB
+from PDB import PDB, generate_sequence_template
 from PathUtils import interface_design_command
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
@@ -536,7 +536,7 @@ if __name__ == '__main__':
     else:
         logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
 
-    if args.sub_module not in ['query', 'guide', 'flags', 'mask']:
+    if args.sub_module not in ['query', 'guide', 'flags', 'design_selection']:
         logger.info('Starting %s with options:\n\t%s' %
                     (os.path.basename(__file__),
                      '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
@@ -581,7 +581,7 @@ if __name__ == '__main__':
     # Grab all Designs (DesignDirectory) to be processed from either directory name or file
     initial_iter = None
     # -----------------------------------------------------------------------------------------------------------------
-    if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'mask']:
+    if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'design_selection']:
         pass
     # Todo depreciate args.mode here
     elif args.sub_module in ['design', 'filter', 'generate_fragments'] or args.mode == 'design':
@@ -590,20 +590,21 @@ if __name__ == '__main__':
             # Pull nanohedra_output and mask_design_using_sequence out of flags
             # design_flags = load_flags(args.design_flags)
             # Todo move to a verify flags function
-            pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, None, None
+            pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, set(), None
             if 'select_designable_residues_by_sequence' in design_flags \
                     and design_flags['select_designable_residues_by_sequence']:
-                residue_mask = \
-                    SequenceProfile.generate_sequence_mask(design_flags['select_designable_residues_by_sequence'])
+                residue_mask = residue_mask.union(
+                    SequenceProfile.generate_sequence_mask(design_flags['select_designable_residues_by_sequence']))
             if 'select_designable_residues_by_pose_number' in design_flags \
                     and design_flags['select_designable_residues_by_pose_number']:
-                chain_mask = \
-                    SequenceProfile.generate_residue_mask(design_flags['select_designable_residues_by_pose_number'])
+                residue_mask = residue_mask.union(
+                    SequenceProfile.generate_residue_mask(design_flags['select_designable_residues_by_pose_number']))
+
             if 'select_designable_chains' in design_flags and design_flags['select_designable_chains']:
                 chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
-                # design_flags.update({})
-            design_flags.update({'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
-                                          'residues': residue_mask, 'atoms': atom_mask}})
+
+            design_flags.update({'design_selection': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
+                                                      'residues': residue_mask, 'atoms': atom_mask}})
             logger.debug('Design flags after masking: %s' % design_flags)
 
             # Add additional program flags to design_flags
@@ -652,9 +653,9 @@ if __name__ == '__main__':
             if 'generate_fragments' in design_flags and design_flags['generate_fragments']:
                 interface_type = 'biological_interfaces'  # Todo parameterize
                 logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
-                fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type)
-                for design in design_directories:
-                    design.connect_db(frag_db=fragment_db)
+                # fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type)
+                # for design in design_directories:
+                #     design.connect_db(frag_db=fragment_db)
 
             if not args.file or inputs_moved:
                 # Make single file with names of each directory where all_docked_poses can be found
@@ -772,11 +773,11 @@ if __name__ == '__main__':
         else:
             query_user_for_flags()
     # ---------------------------------------------------
-    elif args.sub_module == 'mask':
-        fasta_file = PDB.generate_mask_template(args.additional_flags[0])
-        logger.info('The mask template was written to %s. Please edit this file so that the mask can be generated for '
+    elif args.sub_module == 'design_selection':
+        fasta_file = generate_sequence_template(args.additional_flags[0])
+        logger.info('The design_selection template was written to %s. Please edit this file so that the design_selection can be generated for '
                     'protein design. Mask should be formatted so a \'-\' replaces all sequence of interest to be '
-                    'overlooked during design. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>mask\nMAGH----LV\n'
+                    'overlooked during design. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>design_selection\nMAGH----LV\n'
                     % fasta_file)
     # ---------------------------------------------------
     elif args.sub_module == 'filter':
@@ -1186,17 +1187,17 @@ if __name__ == '__main__':
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
                 # coming in as (chain: seq}
-                design_pose = PDB(file=glob('%s*%s*' % (pose_des_dir.designs, design[i]))[0])
+                design_pose = PDB.from_file(glob('%s*%s*' % (pose_des_dir.designs, design[i]))[0])
                 # v {chain: sequence, ...}
                 design_sequences = AnalyzeMutatedSequences.get_pdb_sequences(design_pose)
                 pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
                 # need the original pose chain identity
                 # source_pose = PDB(file=pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
-                source_pose = PDB(file=pose_des_dir.source)  # Think this is the best, need to modify chains
+                source_pose = PDB.from_file(pose_des_dir.source)  # Think this is the best, need to modify chains
                 source_pose.reorder_chains()
                 source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
                 # if not source_pose.sequences:
-                oligomers = [PDB(file=Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
+                oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
                 # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
                 oligomer_chain_database_chain_map = {chain: oligomers[k].chain_id_list[0]
                                                      for k, chain in enumerate(source_pose.chain_id_list)}
