@@ -6,6 +6,8 @@ import os
 
 # Project strings and file names
 program_name = 'SymDesign'
+program_output = '%sOutput' % program_name
+projects = 'Projects'
 program_command = 'python $SymDesign.py'
 guide_string = '%s guide. Enter \'%s guide\'' % (program_name, program_command)
 nano = 'nanohedra'  # v0 'Nanohedra'  # v1?

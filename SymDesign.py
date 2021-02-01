@@ -133,7 +133,7 @@ def rsync_dir(des_dir):
     """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
     a single DEGEEN_1_2 directory making hard links for every file in a DEGEN_1_2 and higher directory to DEGEN_1_1"""
 
-    for s, sym_dir in enumerate(des_dir.project):
+    for s, sym_dir in enumerate(des_dir.program_root):
         if '_flipped_180y' in sym_dir:
             for bb_dir in des_dir.building_blocks[s]:
                 building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
@@ -181,7 +181,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
         rmsd, all_to_all, clustering_files = [], [], []
         for des_dir in all_design_directories:
             rmsd_file, all_to_all_file, final_clustering_file = None, None, None
-            rmsd_dir = _rmsd_dir(des_dir.project[0])
+            rmsd_dir = _rmsd_dir(des_dir.program_root[0])
             try:
                 rmsd_file = glob(os.path.join(rmsd_dir, 'crystal_vs_docked_irmsd.txt'))[0]
                 # ensure that RMSD files were created for the most recent set of results using 'start'
@@ -209,7 +209,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     running.append(os.path.join(_rmsd_dir(design_directories[k].symmetry[0]), outcome_strings_d[r]))
                     break
             if _status:
-                complete.append(glob(os.path.join(_rmsd_dir(all_design_directories[k].project[0]), '*_clustered.txt'))[0])
+                complete.append(glob(os.path.join(_rmsd_dir(all_design_directories[k].program_root[0]), '*_clustered.txt'))[0])
 
     elif _stage == 'nanohedra':
         from classes import get_last_sampling_state
@@ -221,12 +221,12 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
             #     observed_building_blocks.append(os.path.basename(des_dir.building_blocks))
             # f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
             # degens, rotations = \
-            # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.project))
+            # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.program_root))
             #
             # dock_dir = DesignDirectory(path, auto_structure=False)
-            # dock_dir.project = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
-            # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.project]
-            # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.project]
+            # dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
+            # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
+            # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.program_root]
             # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.building_blocks
             #                                 for bb_dir in sym] # TODO change to PUtils
 
@@ -258,18 +258,18 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     print('Expected:', degen1, degen2, last_rot1, last_rot2)
                     print('From log: %s' % log_file)
                     if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
-                        complete.append(os.path.join(des_dir.project[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
+                        complete.append(os.path.join(des_dir.program_root[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
                         # complete.append(des_dir)
-                        # complete.append(des_dir.project)
+                        # complete.append(des_dir.program_root)
                     else:
                         if active:
                             if int(time.time()) - int(os.path.getmtime(log_file)) < inactive_time:
-                                running.append(os.path.join(des_dir.project[sym_idx],
+                                running.append(os.path.join(des_dir.program_root[sym_idx],
                                                             des_dir.building_blocks[sym_idx][bb_idx]))
-                        incomplete.append(os.path.join(des_dir.project[sym_idx],
+                        incomplete.append(os.path.join(des_dir.program_root[sym_idx],
                                                        des_dir.building_blocks[sym_idx][bb_idx]))
                         # incomplete.append(des_dir)
-                        # incomplete.append(des_dir.project)
+                        # incomplete.append(des_dir.program_root)
         complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
         running = list(map(os.path.dirname, running))  # can remove if building_block name is removed
         incomplete = map(os.path.dirname, incomplete)  # can remove if building_block name is removed
@@ -616,7 +616,7 @@ if __name__ == '__main__':
             #         (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
             #     design_flags.update({'mpi': True, 'script': True})
 
-            # Set up DesignDirectories
+            # Set up DesignDirectories  # Todo args.design_String?!?
             inputs_moved = False
             if 'nanohedra_output' in design_flags and design_flags['nanohedra_output']:
                 all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, dir_type=PUtils.nano)
@@ -624,6 +624,7 @@ if __name__ == '__main__':
                                                                      **design_flags)
                                       for pose in all_poses]
             else:
+                # We have to ensure that if the user has provided it, the symmetry is correct
                 if 'symmetry' in design_flags and design_flags['symmetry']:
                     if design_flags['symmetry'] in SDUtils.possible_symmetries:
                         sym_entry = SDUtils.parse_symmetry_to_nanohedra_entry(design_flags['symmetry'])
