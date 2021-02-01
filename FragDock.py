@@ -2,7 +2,7 @@ import time
 
 import sklearn.neighbors
 
-from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue
+from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue, DesignError
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import *
 from classes.OptimalTx import *
@@ -40,34 +40,30 @@ def get_last_sampling_state(log_file_path, zero=True):
     return degen_1, degen_2, rot_1, rot_2
 
 
-def write_frag_match_info_file(ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list,
-                               cluster_rmsd, outdir_path, pose_id=None, is_initial_match=False):
+def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error=None, match_number=None,
+                               central_frequencies=None, out_path=os.getcwd(), pose_id=None, is_initial_match=False):
 
-    out_info_file_path = os.path.join(outdir_path, PUtils.frag_text_file)
-    out_info_file = open(out_info_file_path, "a+")
+    if not ghost_frag and not matched_frag and not overlap_error and not match_number:
+        raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
 
-    # aligned_central_res_info = ghost_frag.get_aligned_central_res_info()
-    # surf_frag_oligomer2_central_res_tup = surf_frag.get_central_res_tup()
+    with open(os.path.join(out_path, PUtils.frag_text_file), "a+") as out_info_file:
+        if is_initial_match:
+            out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
+            out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
 
-    if is_initial_match:
-        out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
-        out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
+        out_info_file.write("MATCH %d\n" % match_number)
+        out_info_file.write("z-val: %f\n" % overlap_error)
+        out_info_file.write("CENTRAL RESIDUES\n")
+        out_info_file.write("oligomer1 ch, resnum: %s, %d\n" % ghost_frag.get_aligned_surf_frag_central_res_tup())
+        out_info_file.write("oligomer2 ch, resnum: %s, %d\n" % matched_frag.get_central_res_tup())
+        out_info_file.write("FRAGMENT CLUSTER\n")
+        out_info_file.write("id: i%s_j%s_k%s\n" % ghost_frag.get_ijk())
+        out_info_file.write("mean rmsd: %f\n" % ghost_frag.get_rmsd())
+        out_info_file.write("aligned rep: int_frag_%s_%d.pdb\n" % ('i%s_j%s_k%s' % ghost_frag.get_ijk(), match_number))
+        out_info_file.write("central res pair freqs:\n%s\n\n" % str(central_frequencies))
 
-    out_info_file.write("MATCH %d\n" % match_count)
-    out_info_file.write("z-val: %f\n" % z_value)
-    out_info_file.write("CENTRAL RESIDUES\n")
-    out_info_file.write("oligomer1 ch, resnum: %s, %d\n" % ghost_frag.get_aligned_surf_frag_central_res_tup())
-    out_info_file.write("oligomer2 ch, resnum: %s, %d\n" % surf_frag.get_central_res_tup())
-    out_info_file.write("FRAGMENT CLUSTER\n")
-    out_info_file.write("id: i%s_j%s_k%s\n" % ghost_frag.get_ijk())
-    out_info_file.write("mean rmsd: %f\n" % ghost_frag.get_rmsd())
-    out_info_file.write("aligned rep: int_frag_%s_%d.pdb\n" % ('i%s_j%s_k%s' % ghost_frag.get_ijk(), match_count))
-    out_info_file.write("central res pair freqs:\n%s\n\n" % str(res_freq_list))
-
-    if is_initial_match:
-        out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
-
-    out_info_file.close()
+        if is_initial_match:
+            out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
 
 
 def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count,
@@ -587,12 +583,13 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                                  % ('i%s_j%s_k%s' % init_match_ghost_frag.get_ijk(), match_number)))
                                 init_match_ghost_frag_cluster_rmsd = init_match_ghost_frag.get_rmsd()
                                 init_match_surf_frag = ghostfrag_surffrag_pair[1]
-                                write_frag_match_info_file(init_match_ghost_frag, init_match_surf_frag,
-                                                           initial_overlap_z_val, init_match_cluster_id, match_number,
-                                                           initial_ghost_frag_cluster_res_freqs,
-                                                           init_match_ghost_frag_cluster_rmsd,
-                                                           matched_frag_reps_outdir_path, pose_id,
-                                                           is_initial_match=True)
+                                write_frag_match_info_file(ghost_frag=init_match_ghost_frag,
+                                                           matched_frag=init_match_surf_frag,
+                                                           overlap_error=initial_overlap_z_val,
+                                                           match_number=match_number,
+                                                           central_frequencies=initial_ghost_frag_cluster_res_freqs,
+                                                           out_path=matched_frag_reps_outdir_path,
+                                                           pose_id=pose_id, is_initial_match=True)
 
                                 # For all matched interface fragments
                                 # write out aligned cluster representative fragment
@@ -613,10 +610,11 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                     interface_ghost_frag.get_pdb().write(
                                         os.path.join(matched_frag_outdir_path, 'int_frag_%s_%d.pdb'
                                                      % (matched_frag[3], matched_frag[4])))
-                                    write_frag_match_info_file(matched_frag[0], matched_frag[1], matched_frag[2],
-                                                               matched_frag[3], matched_frag[4], matched_frag[5],
-                                                               matched_frag[6], matched_frag_reps_outdir_path,
-                                                               pose_id)
+                                    write_frag_match_info_file(ghost_frag=matched_frag[0], matched_frag=matched_frag[1],
+                                                               overlap_error=matched_frag[2],
+                                                               match_number=matched_frag[4],
+                                                               central_frequencies=matched_frag[5],
+                                                               out_path=matched_frag_reps_outdir_path, pose_id=pose_id)
 
                                     match_res_pair_freq_list = matched_frag[5]
                                     match_cnt_chid1, match_cnt_resnum1 = matched_frag[
