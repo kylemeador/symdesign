@@ -47,7 +47,7 @@ class SequenceProfile:
         self.sequence_file = None
         self.pssm_file = None
         self.evolutionary_profile = {}  # position specific scoring matrix
-        # self.design_profile = None
+        self.design_pssm_file = None
         self.profile = {}  # design specific scoring matrix
         self.frag_db = None
         self.fragment_queries = {}
@@ -2668,16 +2668,42 @@ def get_fragment_metrics(fragment_matches):
 
 
 def generate_sequence_mask(fasta_file):
-    """From a sequence with a corresponding mask, grab the residue indices that should be masked in the target
+    """From a sequence with a corresponding mask, grab the residue indices that should be designed in the target
     structural calculation
 
     Returns:
         (list): The residue numbers (in pose format) that should be ignored in design
     """
     sequence_and_mask = read_fasta_file(fasta_file)
-    sequence = sequence_and_mask[0]
-    mask = sequence_and_mask[1]
+    sequences = list(sequence_and_mask)
+    sequence = sequences[0]
+    mask = sequences[1]
     if not len(sequence) == len(mask):
-        raise DesignError('The sequence and mask are different lengths! Please correct the alignment and lengths before proceeding.')
+        raise DesignError('The sequence and mask are different lengths! Please correct the alignment and lengths '
+                          'before proceeding.')
 
-    return [idx for idx, aa in enumerate(mask, 1) if aa == '-']
+    return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
+
+
+def clean_comma_separated_string(string):
+    return list(map(str.strip, string.strip().split(',')))
+
+
+def generate_residue_mask(residue_string):
+    """From a sequence with a corresponding mask, grab the residue indices that should be designable in the target
+    structural calculation
+
+    Returns:
+        (list): The residue numbers (in pose format) that should be ignored in design
+    """
+    return list(map(int, clean_comma_separated_string(residue_string)))
+
+
+def generate_chain_mask(chain_string):
+    """From a sequence with a corresponding mask, grab the residue indices that should be designable in the target
+    structural calculation
+
+    Returns:
+        (list): The residue numbers (in pose format) that should be ignored in design
+    """
+    return clean_comma_separated_string(chain_string)
