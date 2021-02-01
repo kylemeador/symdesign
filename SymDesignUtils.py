@@ -74,8 +74,14 @@ def parse_symmetry_to_nanohedra_entry(symmetry_string):
     return sym_entry
 
 
-def dictionary_lookup(dictionary, iterable):
-    return reduce(operator.getitem, iterable, dictionary)
+def dictionary_lookup(dictionary, items):
+    """Return the values of a dictionary for the item pairs nested within"""
+    return reduce(operator.getitem, items, dictionary)
+
+
+def set_dictionary_by_path(root, items, value):
+    """Set a value in a nested object in root by item sequence."""
+    dictionary_lookup(root, items[:-1])[items[-1]] = value
 
 
 ##########
@@ -271,15 +277,8 @@ def clean_interior_keys(dictionary, keys, remove=True):
 
         return dictionary
     else:
-        new_dictionary = {entry: {key: dictionary[entry][key] for key in dictionary[entry] if key in keys}
-                          for entry in dictionary}
-        # for entry in dictionary:
-        #     new_dictionary[entry] = {}
-        #     for key in dictionary[entry]:
-        #         if key in keys:
-        #             new_dictionary[entry][key] = dictionary[entry][key]
-
-        return new_dictionary
+        return {entry: {key: dictionary[entry][key] for key in dictionary[entry] if key in keys}
+                for entry in dictionary}
 
 
 def index_intersection(indices):
@@ -295,151 +294,6 @@ def index_intersection(indices):
 
 
     return list(final_indices)
-
-
-# def reduce_pose_to_chains(pdb, chains):  # UNUSED
-#     new_pdb = PDB.PDB()
-#     new_pdb.read_atom_list(pdb.chains(chains))
-#
-#     return new_pdb
-#
-#
-# def combine_pdb(pdb_1, pdb_2, name):  # UNUSED
-#     """Take two pdb objects and write them to the same file
-#
-#     Args:
-#         pdb_1 (PDB): First PDB to concatentate
-#         pdb_2 (PDB): Second PDB
-#         name (str): Name of the output file
-#     """
-#     pdb_1.write(name)
-#     with open(name, 'a') as full_pdb:
-#         for atom in pdb_2.atoms:
-#             full_pdb.write(str(atom))  # .strip() + '\n')
-#
-#
-# def identify_interface_chains(pdb1, pdb2):  # UNUSED
-#     distance = 12  # Angstroms
-#     pdb1_chains = []
-#     pdb2_chains = []
-#     # Get Queried CB Tree for all PDB2 Atoms within 12A of PDB1 CB Atoms
-#     query, pdb1_cb_indices, pdb2_cb_indices = construct_cb_atom_tree(pdb1, pdb2, distance)
-#
-#     for pdb2_query_index in range(len(query)):
-#         if query[pdb2_query_index].tolist() != list():
-#             pdb2_chains.append(pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].chain)
-#             for pdb1_query_index in query[pdb2_query_index]:
-#                 pdb1_chains.append(pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].chain)
-#
-#     pdb1_chains = list(set(pdb1_chains))
-#     pdb2_chains = list(set(pdb2_chains))
-#
-#     return pdb1_chains, pdb2_chains
-#
-#
-# def rosetta_score(pdb):  # UNUSED
-#     # this will also format your output in rosetta numbering
-#     cmd = [PUtils.rosetta, 'score_jd2.default.linuxgccrelease', '-renumber_pdb', '-ignore_unrecognized_res', '-s', pdb,
-#            '-out:pdb']
-#     subprocess.Popen(cmd, start_new_session=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-#
-#     return pdb + '_0001.pdb'
-#
-#
-# def duplicate_ssm(pssm_dict, copies):  # UNUSED
-#     duplicated_ssm = {}
-#     duplication_start = len(pssm_dict)
-#     for i in range(int(copies)):
-#         if i == 0:
-#             offset = 0
-#         else:
-#             offset = duplication_start * i
-#         # j = 0
-#         for line in pssm_dict:
-#             duplicated_ssm[line + offset] = pssm_dict[line]
-#             # j += 1
-#
-#     return duplicated_ssm
-#
-#
-# def get_all_cluster(pdb, residue_cluster_id_list, db=PUtils.bio_fragmentDB):  # UNUSED DEPRECIATED
-#     # generate an interface specific scoring matrix from the fragment library
-#     # assuming residue_cluster_id_list has form [(1_2_24, [78, 87]), ...]
-#     cluster_list = []
-#     for cluster in residue_cluster_id_list:
-#         cluster_loc = cluster[0].split('_')
-#         res1 = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[0], cluster[1][0]))
-#         res2 = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[1], cluster[1][1]))
-#         filename = os.path.join(db, cluster_loc[0], cluster_loc[0] + '_' + cluster_loc[1], cluster_loc[0] +
-#                                 '_' + cluster_loc[1] + '_' + cluster_loc[2], cluster[0] + '.pkl')
-#         cluster_list.append([[res1.ca, res2.ca], unpickle(filename)])
-#
-#     # OUTPUT format: [[[residue1_ca_atom, residue2_ca_atom], {'IJKClusterDict - such as 1_2_45'}], ...]
-#     return cluster_list
-#
-#
-# def convert_to_frag_dict(interface_residue_list, cluster_dict):  #UNUSED
-#     # Make PDB/ATOM objects and dictionary into design dictionary
-#     # INPUT format: interface_residue_list = [[[Atom_ca.residue1, Atom_ca.residue2], '1_2_45'], ...]
-#     interface_residue_dict = {}
-#     for residue_dict_pair in interface_residue_list:
-#         residues = residue_dict_pair[0]
-#         for i in range(len(residues)):
-#             residues[i] = residues[i].residue_number
-#         hash_ = (residues[0], residues[1])
-#         interface_residue_dict[hash_] = cluster_dict[residue_dict_pair[1]]
-#     # OUTPUT format: interface_residue_dict = {(78, 256): {'IJKClusterDict - such as 1_2_45'}, (64, 256): {...}, ...}
-#     return interface_residue_dict
-#
-#
-# def convert_to_rosetta_num(pdb, pose, interface_residue_list):  # UNUSED
-#     # DEPRECIATED in favor of updating PDB/ATOM objects
-#     # INPUT format: interface_residue_list = [[[78, 87], {'IJKClusterDict - such as 1_2_45'}], [[64, 87], {...}], ...]
-#     component_chains = [pdb.chain_id_list[0], pdb.chain_id_list[-1]]
-#     interface_residue_dict = {}
-#     for residue_dict_pair in interface_residue_list:
-#         residues = residue_dict_pair[0]
-#         dict_ = residue_dict_pair[1]
-#         new_key = []
-#         pair_index = 0
-#         for chain in component_chains:
-#             new_key.append(pose.pdb_info().pdb2pose(chain, residues[pair_index]))
-#             pair_index = 1
-#         hash_ = (new_key[0], new_key[1])
-#
-#         interface_residue_dict[hash_] = dict_
-#     # OUTPUT format: interface_residue_dict = {(78, 256): {'IJKClusterDict - such as 1_2_45'}, (64, 256): {...}, ...}
-#     return interface_residue_dict
-#
-#
-# def get_residue_list_atom(pdb, residue_list, chain=None):  # UNUSED DEPRECIATED
-#     if chain is None:
-#         chain = pdb.chain_id_list[0]
-#     residues = []
-#     for residue in residue_list:
-#         res_atoms = PDB.Residue(pdb.getResidueAtoms(chain, residue))
-#         residues.append(res_atoms)
-#
-#     return residues
-#
-#
-# def get_residue_atom_list(pdb, residue_list, chain=None):  # UNUSED
-#     if chain is None:
-#         chain = pdb.chain_id_list[0]
-#     residues = []
-#     for residue in residue_list:
-#         residues.append(pdb.getResidueAtoms(chain, residue))
-#
-#     return residues
-#
-#
-# def make_issm(cluster_freq_dict, background):  # UNUSED
-#     for residue in cluster_freq_dict:
-#         for aa in cluster_freq_dict[residue]:
-#             cluster_freq_dict[residue][aa] = round(2 * (math.log2((cluster_freq_dict[residue][aa] / background[aa]))))
-#     issm = []
-#
-#     return issm
 
 
 ###################
@@ -501,14 +355,6 @@ def residue_interaction_graph(pdb, distance=8, gly_ca=True):  # Todo PDB.py
     query = pdb1_tree.query_radius(coords, distance)
 
     return query
-
-
-def print_atoms(atom_list):  # DEBUG
-    print(''.join(str(atom) for atom in atom_list))
-    # for atom in atom_list:
-    #     for atom in residue:
-    #     logger.info(str(atom))
-    #     print(str(atom))
 
 
 ######################
