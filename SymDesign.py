@@ -667,12 +667,14 @@ if __name__ == '__main__':
 
             if not args.file or inputs_moved:
                 # Make single file with names of each directory where all_docked_poses can be found
-                args.file = os.path.join(os.getcwd(), 'design_pose.paths')  # Todo Parametrize
+                project_string = design_directories[0].project_designs
+                args.file = os.path.join(os.getcwd(), '%s_pose.paths' % project_string)
                 with open(args.file, 'w') as design_f:
                     design_f.write('\n'.join(pose for pose in all_poses))
                 logger.critical('The file \'%s\' contains all the designs in your current project. Utilize this file to'
-                                ' interact with %s designs in future commands for this project such as \'%s analysis\''
-                                % (args.file, PUtils.program_name, PUtils.program_command))
+                                ' interact with %s designs in future commands for this project such as \'%s --file %s '
+                                'analysis\''
+                                % (args.file, PUtils.program_name, PUtils.program_command, args.file))
         else:
             raise SDUtils.DesignError('No design directories/files were specified!\n'
                                       'Please specify --directory or --file and run your command again')
