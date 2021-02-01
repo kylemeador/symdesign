@@ -604,9 +604,6 @@ class Structure:  # (Coords):
 
         return interface_frags
 
-    # @staticmethod
-    # def index_to_mask(length, indices, index_masked=False):
-    #     mask = [0 for i in range(length)]
     def __key(self):
         return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
 
