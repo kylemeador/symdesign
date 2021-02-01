@@ -117,16 +117,16 @@ def distribute(logger, stage=None, directory=None, file=None, success_file=None,
     for idx, _command in enumerate(_commands):
         if not os.path.exists(_command):  # check for any missing commands and report
             raise SDUtils.DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
-                                      % (idx + 1, file, _command))
+                                      % (file, idx + 1, _command))
         if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
             if idx != 0 and script_present:  # There was a change from script files to non-script files
                 raise SDUtils.DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                          'or not. Cannot mix!\n' % (idx + 1, file))
+                                          'or not. Cannot mix!\n' % (file, idx + 1))
             # break
         else:  # the command string is a shell script
             if idx != 0 and not script_present:  # There was a change from non-script files to script files
                 raise SDUtils.DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                          'or not. Cannot mix!\n' % (idx + 1, file))
+                                          'or not. Cannot mix!\n' % (file, idx + 1))
             script_present = '-c'
 
     # Create success and failures files
