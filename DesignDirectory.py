@@ -932,9 +932,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log, mask=self.mask)
         self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
-                                   mask=self.mask, evolution=self.evolution, symmetry=self.design_symmetry,
+                                   evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.fragment, write_fragments=self.write_frags,
                                    query_fragments=self.query_fragments, existing_fragments=self.fragment_file,
                                    frag_db=self.frag_db)
