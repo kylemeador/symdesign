@@ -1049,7 +1049,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure
-        entity1_indices = np.array(entity1.get_cb_indices(InclGlyCA=include_glycine))
+        entity1_indices = entity1.get_cb_indices(InclGlyCA=include_glycine)
         # entity1_atoms = self.pdb.entity(entity1).get_atoms()  # if passing by name
         # entity1_indices = np.array(self.pdb.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
 
@@ -1088,9 +1088,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             entity2_coords = self.model_coords[np.array(entity2_indices)]  # only get the coordinate indices we want!
         else:
             entity2_coords = self.coords[np.array(entity2_indices)]  # only get the coordinate indices we want!
-
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
-        entity1_coords = self.coords[np.array(entity1_indices)]  # only get the coordinate indices we want!
+        entity1_indices = np.array(entity1_indices)
+        entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want!
         entity1_tree = BallTree(entity1_coords)
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
