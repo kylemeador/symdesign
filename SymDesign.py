@@ -597,13 +597,13 @@ if __name__ == '__main__':
                 # design_flags.update({'mask': chain_mask})
                 exit('mask_design_using_chain flag is NOT set up yet!')
             # Add additional program flags to design_flags
-            if args.mpi:
-                # extras = ' mpi %d' % CUtils.mpi
-                logger.info(
-                    'Setting job up for submission to MPI capable computer. Pose trajectories will run in parallel,'
-                    ' %s at a time. This will speed up pose processing ~%f-fold.' %
-                    (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
-                design_flags.update({'mpi': True, 'script': True})
+            # if args.mpi:  # Todo
+            #     # extras = ' mpi %d' % CUtils.mpi
+            #     logger.info(
+            #         'Setting job up for submission to MPI capable computer. Pose trajectories will run in parallel,'
+            #         ' %s at a time. This will speed up pose processing ~%f-fold.' %
+            #         (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
+            #     design_flags.update({'mpi': True, 'script': True})
 
             # Set up DesignDirectories
             inputs_moved = False
