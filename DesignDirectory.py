@@ -105,7 +105,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.ave_z = None  # TODO MOVE Metrics
 
         # Design flags
-        self.mask = None
+        self.design_selection = None
         self.evolution = True
         self.fragment = True
         self.query_fragments = True
@@ -665,11 +665,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
                   design_with_fragments=True, fragments_exist=None, generate_fragments=True, write_fragments=True,
-                  output_assembly=False, design_mask=None, script=True, mpi=False, **kwargs):  # nanohedra_output,
+                  output_assembly=False, design_selection=None, script=True, mpi=False, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         self.sym_entry_number = sym_entry_number
         # self.nano = nanohedra_output
-        self.mask = design_mask
+        self.design_selection = design_selection
         self.evolution = design_with_evolution
         self.fragment = design_with_fragments
         self.fragment_file = fragments_exist
@@ -932,7 +932,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log, mask=self.mask)
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
+                                       design_selection=self.design_selection)
         self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
                                    evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.fragment, write_fragments=self.write_frags,

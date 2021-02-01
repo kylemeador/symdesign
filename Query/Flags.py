@@ -27,7 +27,8 @@ def query_user_for_flags(mode='design', template=False):
           'select_designable_residues_by_sequence':
               {'type': str, 'default': None,
                'description': 'If design should only occur at certain residues, specify the location of a .fasta file '
-                              'containing the mask. Run \'%s mask path/to/your.pdb\' to set this up.'
+                              'containing the design selection. Run \'%s design_selection path/to/your.pdb\' '
+                              'to set this up.'
                               % program_command},
           'select_designable_residues_by_pose_number':
               {'type': str, 'default': None,
