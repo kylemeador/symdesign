@@ -616,8 +616,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.info('Input Oligomers: %s' % ', '.join(name for name in self.oligomers))
 
         self.log.info('Found the following chain breaks in the ASU:\n%s'
-                      % ('\n'.join(['\tEntity %s, Chain %s Residue %d'  # Todo Chain <bound method Entity.chain of <Structure.
-                                    % (entity.name, entity.chain, entity.get_terminal_residue('c').number)
+                      % ('\n'.join(['\tEntity %s, Chain %s Residue %d'
+                                    % (entity.name, entity.chain_id, entity.get_terminal_residue('c').number)
                                     for entity in self.pose.entities])))
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
         self.log.info('Interface Residues: %s'  # Todo ensure interface is checked even if no fragment info!
