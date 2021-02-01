@@ -952,9 +952,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
             self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
-    def handle_flags(self, design_selection=None, **kwargs):
+    def handle_flags(self, design_selection=None, frag_db=None, **kwargs):
         if design_selection:
             self.create_design_selection_filter(**design_selection)
+        if frag_db:
+            self.connect_fragment_database(db=frag_db)
+            for entity in self.entities:
+                entity.connect_fragment_database(db=frag_db)
 
     def create_design_selection_filter(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
         entity_union = set()
@@ -1067,7 +1071,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
         pdb_atoms = self.pdb.get_atoms()
         number_of_atoms = self.pdb.number_of_atoms
-        self.log.debug('Number of atoms in PDB: %s versus ' % number_of_atoms)
+        self.log.debug('Number of atoms in PDB: %s' % number_of_atoms)
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure
@@ -1203,33 +1207,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
 
-    # def return_interface_metrics(self):
-    #     """From the reported fragment queries, find the interface scores"""
-    #     interface_metrics_d = {}
-    #     for query, fragment_matches in self.fragment_queries.items():
-    #         res_level_sum_score, center_level_sum_score, number_residues_with_fragments, \
-    #             number_fragment_central_residues, multiple_frag_ratio, total_residues, percent_interface_matched, \
-    #             percent_interface_covered, fragment_content_d = get_fragment_metrics(fragment_matches)
-    #
-    #         interface_metrics_d[query] = {'nanohedra_score': res_level_sum_score,
-    #                                       'nanohedra_score_central': center_level_sum_score,
-    #                                       'fragments': fragment_matches,
-    #                                       # 'fragment_cluster_ids': ','.join(fragment_indices),
-    #                                       # 'interface_area': interface_buried_sa,
-    #                                       'multiple_fragment_ratio': multiple_frag_ratio,
-    #                                       'number_fragment_residues_all': number_residues_with_fragments,
-    #                                       'number_fragment_residues_central': number_fragment_central_residues,
-    #                                       'total_interface_residues': total_residues,
-    #                                       'number_fragments': len(fragment_matches),
-    #                                       'percent_residues_fragment_all': percent_interface_covered,
-    #                                       'percent_residues_fragment_center': percent_interface_matched,
-    #                                       'percent_fragment_helix': fragment_content_d['1'],
-    #                                       'percent_fragment_strand': fragment_content_d['2'],
-    #                                       'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4'] +
-    #                                       fragment_content_d['5']}
-    #
-    #     return interface_metrics_d
-
     def score_interface(self, entity1=None, entity2=None):
         self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
         return self.return_interface_metrics()
@@ -1281,13 +1258,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.log.info('Symmetry is: %s' % symmetry)  # Todo resolve duplication with below self.symmetry
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
-        # if self.symmetry and self.symmetric_assembly_is_clash():
-        #     raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
-        #                       % str(design_dir))
-        #     pass
-        # if output_assembly:
-        #     self.get_assembly_symmetry_mates()
-        #     self.write(out_path=os.path.join(design_dir.path, PUtils.assembly))
 
         if fragments:
             if query_fragments:  # search for new fragment information
@@ -1362,20 +1332,23 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # TODO add symmetry or oligomer data to .info?
 
     def generate_interface_fragments(self, db=None, out_path=None, write_fragments=True):
-        # Todo can ensure that the db is connected before this
-        self.connect_fragment_database(db=db)
-        # for entity_pair in combinations(self.entities, 2):
+        if db:
+            self.connect_fragment_database(db=db)
+        elif not self.frag_db:
+            raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
+                              'initialized the Pose with a database!' % self.generate_interface_fragments.__name__)
+
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'
                            % tuple(entity.name for entity in entity_pair))
             self.query_interface_for_fragments(*entity_pair)
+
         if write_fragments:
             write_fragment_pairs(self.fragment_observations, out_path=out_path)
             for match_count, frag_obs in enumerate(self.fragment_observations):
-                write_frag_match_info_file(frag_obs[0], frag_obs[1], z_value_from_match_score(frag_obs[2]),
-                                           None, match_count, 'Not Provided', None, out_path)
-            # ghost_frag, surf_frag, z_value, cluster_id, match_count, res_freq_list,
-            # cluster_rmsd, outdir_path, pose_id, is_initial_match=False
+                write_frag_match_info_file(ghost_frag=frag_obs[0], matched_frag=frag_obs[1],
+                                           overlap_error=z_value_from_match_score(frag_obs[2]),
+                                           match_number=match_count, out_path=out_path)
 
     def return_symmetry_parameters(self):
         """Return the symmetry parameters from a SymmetricModel
