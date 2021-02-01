@@ -922,7 +922,7 @@ def collect_directories(directory, file=None, dir_type=None):
 
 def get_base_symdesign_dirs(directory):
     if PUtils.program_name in directory:   # directory1/SymDesignOutput/directory2/directory3
-        return [os.path.join(*directory.split(os.sep)[:idx]) for idx, dirname in enumerate(os.path.split(directory))
+        return [os.path.join(*directory.split(os.sep)[:idx]) for idx, dirname in enumerate(directory.split(os.sep))
                 if dirname == PUtils.program_output]
     elif PUtils.program_name in os.listdir(directory):  # directory_provided/SymDesignOutput
         return [os.path.join(directory, sub_directory) for sub_directory in os.listdir(directory)

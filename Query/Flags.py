@@ -3,54 +3,62 @@ from Query.PDB import user_input_format, input_string, format_string, numbered_f
     bool_d, invalid_string, header_string
 
 
+# Todo separate into types of options, aka fragments, residue selection, symmetry
+flags = \
+    {'design':
+     {'symmetry': {'type': str, 'default': None,
+                   'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned if not provided '
+                                  'unless Design targets are %s.py outputs' % nano},
+      'nanohedra_output': {'type': bool, 'default': True,
+                           'description': 'Whether the design targets are a %s output' % nano},
+      'fragments_exist': {'type': bool, 'default': True,
+                          'description': 'If fragment data has been generated for the design, where is it located?'},
+      'generate_fragments': {'type': bool, 'default': False,
+                             'description': 'Whether fragments should be generated fresh for each Pose'},
+      'design_with_fragments': {'type': bool, 'default': True,
+                                'description': 'Whether to design with fragment amino acid frequency info'},
+      'design_with_evolution': {'type': bool, 'default': True,
+                                'description': 'Whether to design with evolutionary amino acid frequency info'},
+      'output_assembly': {'type': bool, 'default': False,
+                          'description': 'If symmetric, whether the expanded assembly should be output. '
+                                         '2- and 3-D materials will be output with a single unit cell.'},
+      'select_designable_residues_by_sequence':
+          {'type': str, 'default': None,
+           'description': 'If design should only occur at certain residues, specify the location of a .fasta file '
+                          'containing the design selection. Run \'%s design_selection path/to/your.pdb\' '
+                          'to set this up.'
+                          % program_command},
+      'select_designable_residues_by_pose_number':
+          {'type': str, 'default': None,
+           'description': 'If design should only occur at certain residues, specify the residue POSE numbers '
+                          '(starting with 1) as a comma separated string. Ranges are allowed '
+                          'Ex: \'23,24,35,41,100-110,267,289-293\''},
+      'select_designable_chains':
+          {'type': str, 'default': None,
+           'description': 'If a design should be masked at certain chains, provide the chain ID\'s as a comma '
+                          'separated string. Ex: \'A,C,D\''}
+
+      # 'input_location': '(str) Specify a file with a list of input files or a directory where input files are '
+      #                   'located. If the input is a %s.py output, specifying the master output directory is '
+      #                   'sufficient' % nano
+      },
+     'filter':
+         {  # TODO
+
+         }}
+
+
+def return_default_flags(mode):
+    if mode in flags:
+        return dict(zip(flags[mode].keys(), [value_format['default'] for value_format in flags[mode].values()]))
+    else:
+        return dict()
+
+
 def query_user_for_flags(mode='design', template=False):
     flags_file = '%s.flags' % mode
-    # Todo separate into types of options, aka fragments, residue selection, symmetry
-    flags = \
-        {'design':
-         {'symmetry': {'type': str, 'default': None,
-                       'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned if not provided '
-                                      'unless Design targets are %s.py outputs' % nano},
-          'nanohedra_output': {'type': bool, 'default': True,
-                               'description': 'Whether the design targets are a %s output' % nano},
-          'fragments_exist': {'type': bool, 'default': True,
-                              'description': 'If fragment data has been generated for the design, where is it located?'},
-          'generate_fragments': {'type': bool, 'default': False,
-                                 'description': 'Whether fragments should be generated fresh for each Pose'},
-          'design_with_fragments': {'type': bool, 'default': True,
-                                    'description': 'Whether to design with fragment amino acid frequency info'},
-          'design_with_evolution': {'type': bool, 'default': True,
-                                    'description': 'Whether to design with evolutionary amino acid frequency info'},
-          'output_assembly': {'type': bool, 'default': False,
-                              'description': 'If symmetric, whether the expanded assembly should be output. '
-                                             '2- and 3-D materials will be output with a single unit cell.'},
-          'select_designable_residues_by_sequence':
-              {'type': str, 'default': None,
-               'description': 'If design should only occur at certain residues, specify the location of a .fasta file '
-                              'containing the design selection. Run \'%s design_selection path/to/your.pdb\' '
-                              'to set this up.'
-                              % program_command},
-          'select_designable_residues_by_pose_number':
-              {'type': str, 'default': None,
-               'description': 'If design should only occur at certain residues, specify the residue POSE numbers '
-                              '(starting with 1) as a comma separated string. Ranges are allowed '
-                              'Ex: \'23,24,35,41,100-110,267,289-293\''},
-          'select_designable_chains':
-              {'type': str, 'default': None,
-               'description': 'If a design should be masked at certain chains, provide the chain ID\'s as a comma '
-                              'separated string. Ex: \'A,C,D\''}
-
-          # 'input_location': '(str) Specify a file with a list of input files or a directory where input files are '
-          #                   'located. If the input is a %s.py output, specifying the master output directory is '
-          #                   'sufficient' % nano
-          },
-         'filter':
-             {  # TODO
-
-             }}
-
+    flag_output = return_default_flags(mode)
     write_file = False
-    flag_output = dict(zip(flags[mode].keys(), [value_format['default'] for value_format in flags[mode].values()]))
     print('\n%s' % header_string % 'Generate %s Flags' % program_name)
     if template:
         write_file = True
