@@ -578,7 +578,7 @@ class SymmetricModel(Model):
 
         return asu_symm_mates
 
-    def symmetric_assembly_is_clash(self, clash_distance=2.2):  # Todo design mask
+    def symmetric_assembly_is_clash(self, clash_distance=2.2):  # Todo design_selection
         if not self.number_of_models:
             raise DesignError('Cannot check if the assembly is clashing without first calling %s'
                               % self.generate_symmetric_assembly.__name__)
@@ -816,7 +816,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if self.pdb:
             self.coords = Coords(self.pdb.get_coords())  # get_pdb_coords(self.asu))
 
-        self.design_mask = set()
+        self.design_selection_indices = set()
         self.interface_residues = {}
         self.fragment_observations = []
 
@@ -879,13 +879,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     def entities(self, entities):
         self.pdb.entities = entities
 
-    # @property
+    @property
+    def chains(self):
+        return self.pdb.chains
+
+    # @chains.setter
+    # def chains(self, chains):
+    #     self.pdb.chains = chains
+
     def entity(self, entity):
         return self.pdb.entity(entity)
 
-    # @entities.setter
-    # def entity(self, entities):
-    #     self.pdb.entities = entities
+    def chain(self, _chain):  # no not mess with chain.from_iterable namespace
+        return self.pdb.entity_by_chain(_chain)
 
     @property
     def number_of_atoms(self):
@@ -934,29 +940,30 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
             self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
-    def handle_flags(self, mask=None, **kwargs):
-        if mask:
-            self.create_design_mask(**mask)
+    def handle_flags(self, design_selection=None, **kwargs):
+        if design_selection:
+            self.create_design_selection_filter(**design_selection)
 
-    def create_design_mask(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
+    def create_design_selection_filter(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
         atom_mask = set(self.pdb.atom_indices)
         if pdbs:
             # atom_mask = set(self.pdb.get_residue_atom_indices(numbers=residues))
             raise DesignError('Can\'t select residues by PDB yet!')
         if entities:
-            atom_mask.intersection(chain.from_iterable([self.entity(entity).atom_indices for entity in entities]))
+            atom_mask = atom_mask.intersection(chain.from_iterable([self.entity(entity).atom_indices
+                                                                    for entity in entities]))
         if chains:
             # vv This is for the intersectional model
-            atom_mask.intersection(chain.from_iterable([self.chain(chain_id).atom_indices for chain_id in chains]))
+            atom_mask = atom_mask.intersection(chain.from_iterable([self.chain(chain_id).atom_indices
+                                                                    for chain_id in chains]))
             # atom_mask.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
             #                                     for chain_id in chains))
             # ^^ This is for the additive model
         if residues:
-            atom_mask.intersection(self.pdb.get_residue_atom_indices(numbers=residues))
+            atom_mask = atom_mask.intersection(self.pdb.get_residue_atom_indices(numbers=residues))
         if atoms:
-            atom_mask.intersection(self.pdb.get_atom_indices(numbers=atoms))
-
-        self.design_mask = atom_mask
+            atom_mask = atom_mask.intersection(self.pdb.get_atom_indices(numbers=atoms))
+        self.design_selection_indices = atom_mask
 
     def add_pdb(self, pdb):  # Todo
         """Add a PDB to the PosePDB as well as the member PDB list"""
@@ -1026,7 +1033,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         Caution!: Pose must have Coords representing all atoms as residue pairs are found using CB indices from all atoms
 
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
-        Design mask aware
+        design_selection aware
 
         Keyword Args:
             entity1=None (Entity): First entity to measure interface between
@@ -1052,9 +1059,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # entity2_atoms = self.pdb.entity(entity2).get_atoms()  # if passing by name
         # entity2_indices = self.pdb.entity(entity2).get_cb_indices(InclGlyCA=include_glycine)
 
-        if self.design_mask:  # subtract the masked atom indices from the entity indices
-            entity1_indices = set(entity1_indices).difference(self.design_mask)
-            entity2_indices = set(entity2_indices).difference(self.design_mask)
+        if self.design_selection_indices:  # subtract the masked atom indices from the entity indices
+            before = len(entity1_indices) + len(entity2_indices)
+            entity1_indices = list(set(entity1_indices).intersection(self.design_selection_indices))
+            entity2_indices = list(set(entity2_indices).intersection(self.design_selection_indices))
+            after = len(entity1_indices) + len(entity2_indices)
+            self.log.debug('Applied the design selection to interface design. Number of indices before selection = %d. '
+                           'Number after = %d' % (before, after))
+
+        if not entity1_indices or not entity2_indices:
+            return None
 
         if self.symmetry:  # self.model_coords:
             # get all symmetric indices if the pose is symmetric
@@ -1064,7 +1078,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                                for idx in entity2_indices]
             pdb_atoms = [atom for model_number in range(self.number_of_models) for atom in pdb_atoms]
             # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
-            # Todo mask=[residue_numbers?] default parameter
+            # Todo design_selection=[residue_numbers?] default parameter
             if entity2 == entity1:
                 # the entity is the same however, we don't want interactions with the same sym mate
                 asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
