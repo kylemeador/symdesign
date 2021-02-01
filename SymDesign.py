@@ -639,7 +639,7 @@ if __name__ == '__main__':
                             % design_directories[0].log.handlers[0].baseFilename)
             if 'generate_fragments' in design_flags and design_flags['generate_fragments']:
                 interface_type = 'biological_interfaces'  # Todo parameterize
-                logger.info('Initializing FragmentDatabase from %s\n\t' % interface_type)
+                logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
                 fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type)
                 for design in design_directories:
                     design.connect_db(frag_db=fragment_db)
@@ -841,7 +841,7 @@ if __name__ == '__main__':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
+            threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)  # mpi=args.mpi, Todo
             logger.info('Starting multiprocessing using %s threads' % str(threads))
             results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.fragment_decoration, design_directories, threads))
             results = list(results)
@@ -854,7 +854,7 @@ if __name__ == '__main__':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
+            threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)  # mpi=args.mpi, Todo
             logger.info('Starting multiprocessing using %s threads' % str(threads))
             results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads))
             results = list(results)
