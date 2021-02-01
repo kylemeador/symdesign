@@ -589,13 +589,23 @@ if __name__ == '__main__':
         if args.directory or args.file:
             # Pull nanohedra_output and mask_design_using_sequence out of flags
             # design_flags = load_flags(args.design_flags)
-            if 'mask_design_using_sequence' in design_flags and design_flags['mask_design_using_sequence']:
-                residue_mask = SequenceProfile.generate_sequence_mask(design_flags['mask_design_using_sequence'])
-                design_flags.update({'mask': residue_mask})
-            if 'mask_design_using_chain' in design_flags and design_flags['mask_design_using_chain']:
-                # residue_mask = SequenceProfile.generate_chain_mask(design_flags['mask_design_using_chain'])
-                # design_flags.update({'mask': chain_mask})
-                raise SDUtils.DesignError('mask_design_using_chain flag is NOT set up yet!')
+            # Todo move to a verify flags function
+            pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, None, None
+            if 'select_designable_residues_by_sequence' in design_flags \
+                    and design_flags['select_designable_residues_by_sequence']:
+                residue_mask = \
+                    SequenceProfile.generate_sequence_mask(design_flags['select_designable_residues_by_sequence'])
+            if 'select_designable_residues_by_pose_number' in design_flags \
+                    and design_flags['select_designable_residues_by_pose_number']:
+                chain_mask = \
+                    SequenceProfile.generate_residue_mask(design_flags['select_designable_residues_by_pose_number'])
+            if 'select_designable_chains' in design_flags and design_flags['select_designable_chains']:
+                chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
+                # design_flags.update({})
+            design_flags.update({'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
+                                          'residues': residue_mask, 'atoms': atom_mask}})
+            logger.debug('Design flags after masking: %s' % design_flags)
+
             # Add additional program flags to design_flags
             # if args.mpi:  # Todo
             #     # extras = ' mpi %d' % CUtils.mpi
@@ -631,12 +641,14 @@ if __name__ == '__main__':
                                       for pose in all_poses]
                 all_poses = [design.asu for design in design_directories]
                 inputs_moved = True
-            assert design_directories != list(), logger.critical('No %s.py directories found within \'%s\'! Please '
-                                                                 'ensure correct location'
-                                                                 % (PUtils.nano.title(), location))
+            if not design_directories:
+                raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
+                                          'location. Are you sure you want to run with -%s %s'
+                                          % (location, 'nanohedra_output', design_flags['nanohedra_output']))
             if not args.debug:
                 logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
                             % design_directories[0].log.handlers[0].baseFilename)
+
             if 'generate_fragments' in design_flags and design_flags['generate_fragments']:
                 interface_type = 'biological_interfaces'  # Todo parameterize
                 logger.info('Initializing FragmentDatabase from %s\n' % interface_type)

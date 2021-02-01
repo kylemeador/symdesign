@@ -821,15 +821,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.fragment_observations = []
 
         symmetry_kwargs = self.pdb.symmetry
-        # print('Pose kwargs: %s' % kwargs)
         symmetry_kwargs.update(kwargs)
         self.log.debug('Pose symmetry_kwargs: %s' % symmetry_kwargs)
         self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if the ASU was passed
         # self.initialize_symmetry(symmetry=symmetry)
 
-        # super().__init__()  # structure=self)  # SequenceProfile init
-        # self.pdb = None  # the pose specific pdb  # Model
-        # self.models = []  # from Model MRO priority or SymmetricModel
+        self.handle_flags(**kwargs)
         self.pdbs = []  # the member pdbs which make up the pose
         self.pdbs_d = {}
         self.pose_pdb_accession_map = {}
@@ -936,6 +933,30 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         else:
             divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
             self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
+
+    def handle_flags(self, mask=None, **kwargs):
+        if mask:
+            self.create_design_mask(**mask)
+
+    def create_design_mask(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
+        atom_mask = set(self.pdb.atom_indices)
+        if pdbs:
+            # atom_mask = set(self.pdb.get_residue_atom_indices(numbers=residues))
+            raise DesignError('Can\'t select residues by PDB yet!')
+        if entities:
+            atom_mask.intersection(chain.from_iterable([self.entity(entity).atom_indices for entity in entities]))
+        if chains:
+            # vv This is for the intersectional model
+            atom_mask.intersection(chain.from_iterable([self.chain(chain_id).atom_indices for chain_id in chains]))
+            # atom_mask.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
+            #                                     for chain_id in chains))
+            # ^^ This is for the additive model
+        if residues:
+            atom_mask.intersection(self.pdb.get_residue_atom_indices(numbers=residues))
+        if atoms:
+            atom_mask.intersection(self.pdb.get_atom_indices(numbers=atoms))
+
+        self.design_mask = atom_mask
 
     def add_pdb(self, pdb):  # Todo
         """Add a PDB to the PosePDB as well as the member PDB list"""
@@ -1196,9 +1217,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
         return self.return_interface_metrics()
 
-    def interface_design(self, design_dir=None, symmetry=None, output_assembly=False, mask=None, evolution=True,
+    def interface_design(self, design_dir=None, symmetry=None, output_assembly=False, evolution=True,
                          fragments=True, query_fragments=False, existing_fragments=None, write_fragments=True,
-                         frag_db='biological_interfaces',
+                         frag_db='biological_interfaces', mask=None
                          ):  # Todo initialize without DesignDirectory
         """Take the provided PDB, and use the ASU to compute calculations relevant to interface design.
 
@@ -1249,12 +1270,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             pass
         if output_assembly:
             self.get_assembly_symmetry_mates()
-            self.write(out_path=os.path.join(design_dir.path, 'assembly.pdb'))
+            self.write(out_path=os.path.join(design_dir.path, PUtils.assembly))
         if design_dir.info:
             return None  # pose has already been initialized for design
-
-        if mask:
-            self.design_mask = set(self.asu.get_residue_atom_indices(numbers=mask))
 
         if fragments:
             if query_fragments:  # search for new fragment information
@@ -1313,7 +1331,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
             self.combine_profile([entity.profile for entity in self.asu])  # sets pose.profile
             self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
-            self.design_profile = self.make_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
+            self.design_pssm_file = self.make_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
 
         # -------------------------------------------------------------------------
         # self.solve_consensus()  # Todo
@@ -1322,7 +1340,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # Update DesignDirectory with design information # Todo where to save this/include in pose initialization?
         design_dir.info['evolutionary_profile'] = self.pssm_file
         design_dir.info['fragment_profile'] = self.interface_data_file
-        design_dir.info['design_profile'] = self.design_profile
+        design_dir.info['design_profile'] = self.design_pssm_file
         design_dir.info['db'] = frag_db
         # This info is pulled out in AnalyzeOutput from Rosetta currently
         design_dir.info['design_residues'] = self.interface_residues
