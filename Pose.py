@@ -816,6 +816,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if self.pdb:
             self.coords = Coords(self.pdb.get_coords())  # get_pdb_coords(self.asu))
 
+        self.entity_selection = set()
         self.design_selection_indices = set()
         self.interface_residues = {}
         self.fragment_observations = []
@@ -865,23 +866,34 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
     @property
     def name(self):
-        return self.pdb.name
+        try:
+            return self._name
+        except AttributeError:
+            return self.pdb.name
 
     @name.setter
     def name(self, name):
-        self.pdb.name = name
+        self._name = name
+
+    @property
+    def active_entities(self):
+        return [entity for entity in self.pdb.entities if entity in self.entity_selection]
 
     @property
     def entities(self):
         return self.pdb.entities
 
-    @entities.setter
-    def entities(self, entities):
-        self.pdb.entities = entities
+    # @entities.setter
+    # def entities(self, entities):
+    #     self.pdb.entities = entities
 
     @property
     def chains(self):
         return self.pdb.chains
+
+    @property
+    def active_chains(self):
+        return [_chain for entity in self.active_entities for _chain in entity.chains]
 
     # @chains.setter
     # def chains(self, chains):
@@ -945,48 +957,55 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.create_design_selection_filter(**design_selection)
 
     def create_design_selection_filter(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
-        atom_mask = set(self.pdb.atom_indices)
+        entity_union = set()
+        atom_selection = set(self.pdb.atom_indices)
         if pdbs:
-            # atom_mask = set(self.pdb.get_residue_atom_indices(numbers=residues))
+            # atom_selection = set(self.pdb.get_residue_atom_indices(numbers=residues))
             raise DesignError('Can\'t select residues by PDB yet!')
         if entities:
-            atom_mask = atom_mask.intersection(chain.from_iterable([self.entity(entity).atom_indices
-                                                                    for entity in entities]))
+            atom_selection = atom_selection.intersection(chain.from_iterable([self.entity(entity).atom_indices
+                                                                              for entity in entities]))
+            entity_union = entity_union.union([self.entity(entity) for entity in entities])
         if chains:
             # vv This is for the intersectional model
-            atom_mask = atom_mask.intersection(chain.from_iterable([self.chain(chain_id).atom_indices
-                                                                    for chain_id in chains]))
-            # atom_mask.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
+            atom_selection = atom_selection.intersection(chain.from_iterable([self.chain(chain_id).atom_indices
+                                                                              for chain_id in chains]))
+            # atom_selection.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
             #                                     for chain_id in chains))
             # ^^ This is for the additive model
+            entity_union = entity_union.union([self.chain(chain_id) for chain_id in chains])
         if residues:
-            atom_mask = atom_mask.intersection(self.pdb.get_residue_atom_indices(numbers=residues))
+            atom_selection = atom_selection.intersection(self.pdb.get_residue_atom_indices(numbers=residues))
         if atoms:
-            atom_mask = atom_mask.intersection(self.pdb.get_atom_indices(numbers=atoms))
-        self.design_selection_indices = atom_mask
+            atom_selection = atom_selection.intersection(self.pdb.get_atom_indices(numbers=atoms))
 
-    def add_pdb(self, pdb):  # Todo
-        """Add a PDB to the PosePDB as well as the member PDB list"""
-        self.pdbs.append(pdb)
-        self.pdbs_d[pdb.name] = pdb
-        # self.pdbs_d[id(pdb)] = pdb
-        self.add_entities_to_pose(self, pdb)
-        # Todo turn multiple PDB's into one structure representative
-        # self.pdb.add_atoms(pdb.get_atoms())
+        # self.entity_selection = set(self.entities)
+        # self.entity_selection = self.entity_selection.intersection(entity_union)
+        self.entity_selection = self.entity_selection.union(entity_union)
+        self.design_selection_indices = self.design_selection_indices.union(atom_selection)
 
-    def add_entities_to_pose(self, pdb):  # Unused Todo
-        """Add each unique entity in a pdb to the pose, updating all metadata"""
-        # self.pose_pdb_accession_map[pdb.name] = pdb.entity_accession_map
-        self.pose_pdb_accession_map[pdb.name] = pdb.entity_d
-        # for entity in pdb.accession_entity_map:
-        for idx, entity in enumerate(pdb.entities):
-            self.add_entity(entity, name='%s_%d' % (pdb.name, idx))
-
-    def add_entity(self, entity, name=None):  # Unused
-        # Todo Fix this garbage... Entity()
-        self.entities = None
-        entity_chain = pdb.entities[entity]['representative']
-        self.asu.add_atoms(entity.get_atoms())
+    # def add_pdb(self, pdb):  # Todo
+    #     """Add a PDB to the PosePDB as well as the member PDB list"""
+    #     self.pdbs.append(pdb)
+    #     self.pdbs_d[pdb.name] = pdb
+    #     # self.pdbs_d[id(pdb)] = pdb
+    #     self.add_entities_to_pose(self, pdb)
+    #     # Todo turn multiple PDB's into one structure representative
+    #     # self.pdb.add_atoms(pdb.get_atoms())
+    #
+    # def add_entities_to_pose(self, pdb):  # Unused Todo
+    #     """Add each unique entity in a pdb to the pose, updating all metadata"""
+    #     # self.pose_pdb_accession_map[pdb.name] = pdb.entity_accession_map
+    #     self.pose_pdb_accession_map[pdb.name] = pdb.entity_d
+    #     # for entity in pdb.accession_entity_map:
+    #     for idx, entity in enumerate(pdb.entities):
+    #         self.add_entity(entity, name='%s_%d' % (pdb.name, idx))
+    #
+    # def add_entity(self, entity, name=None):  # Unused
+    #     # Todo Fix this garbage... Entity()
+    #     self.entities = None
+    #     entity_chain = pdb.entities[entity]['representative']
+    #     self.asu.add_atoms(entity.get_atoms())
 
     def initialize_symmetry(self, symmetry=None):  # Unused
         if symmetry:
@@ -1046,6 +1065,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             list[tuple]: A list of interface residue numbers across the interface
         """
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
+        pdb_atoms = self.pdb.get_atoms()
+        number_of_atoms = self.pdb.number_of_atoms
+        self.log.debug('Number of atoms in PDB: %s versus ' % number_of_atoms)
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure
@@ -1054,7 +1076,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # entity1_indices = np.array(self.pdb.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
 
         # entity2_atoms = entity2.get_atoms()  # if passing by Structure
-        pdb_atoms = self.pdb.get_atoms()
         entity2_indices = entity2.get_cb_indices(InclGlyCA=include_glycine)
         # entity2_atoms = self.pdb.entity(entity2).get_atoms()  # if passing by name
         # entity2_indices = self.pdb.entity(entity2).get_cb_indices(InclGlyCA=include_glycine)
@@ -1064,58 +1085,40 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             entity1_indices = list(set(entity1_indices).intersection(self.design_selection_indices))
             entity2_indices = list(set(entity2_indices).intersection(self.design_selection_indices))
             after = len(entity1_indices) + len(entity2_indices)
-            self.log.debug('Applied the design selection to interface design. Number of indices before selection = %d. '
+            self.log.debug('Applied design selection to interface identification. Number of indices before '
+                           'selection = %d. '
                            'Number after = %d' % (before, after))
 
         if not entity1_indices or not entity2_indices:
             return None
 
-        if self.symmetry:  # self.model_coords:
+        if self.symmetry:
             # get all symmetric indices if the pose is symmetric
-            number_of_atoms = self.pdb.number_of_atoms
-            # number_of_atoms = entity2.number_of_atoms
             entity2_indices = [idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
                                for idx in entity2_indices]
             pdb_atoms = [atom for model_number in range(self.number_of_models) for atom in pdb_atoms]
+            self.log.debug('Number of atoms in expanded assembly PDB: %s' % len(pdb_atoms))
             # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
-            # Todo design_selection=[residue_numbers?] default parameter
             if entity2 == entity1:
-                # the entity is the same however, we don't want interactions with the same sym mate
+                # the queried entity is the same, however we don't want interactions with the same symmetry mate
                 asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
                 entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
-                # entity2_atoms = [atom for idx, atom in enumerate(entity2_atoms) if asu_indices[0] > idx or idx > asu_indices[-1]]
                 # self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
-            entity2_coords = self.model_coords[np.array(entity2_indices)]  # only get the coordinate indices we want!
+            entity2_coords = self.model_coords[np.array(entity2_indices)]  # only get the coordinate indices we want
         else:
-            entity2_coords = self.coords[np.array(entity2_indices)]  # only get the coordinate indices we want!
+            entity2_coords = self.coords[np.array(entity2_indices)]  # only get the coordinate indices we want
+
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         entity1_indices = np.array(entity1_indices)
-        entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want!
+        entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want
         entity1_tree = BallTree(entity1_coords)
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates
-        self.log.info('Number of PDB atoms: %s' % len(pdb_atoms))
-        self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
-        self.log.info('Entity2 Query size: %d' % entity2_query.size)
-        # interface_pairs = []
-        # self.log.info('Entity2 Query indices: %s' % str([idx for idx in entity2_query])
-        # try:
-        #     for entity2_idx in range(entity2_query.size):
-        #         # if entity2_query[entity2_idx].size > 0:
-        #         #     entity2_residue_number = entity2_atoms[entity2_indices[entity2_idx]].residue_number
-        #         for entity1_idx in entity2_query[entity2_idx]:
-        #             # entity1_residue_number = entity1_atoms[entity1_indices[entity1_idx]].residue_number
-        #             interface_pairs.append((pdb_atoms[entity1_indices[entity1_idx]].residue_number,
-        #                                     pdb_atoms[entity2_indices[entity2_idx]].residue_number))
-        #             # interface_pairs.append((entity1_atoms[entity1_indices[entity1_idx]].residue_number,
-        #             #                         entity2_atoms[entity2_indices[entity2_idx]].residue_number))
-        # except IndexError:
-        #     print(entity1_idx, entity2_idx)
-        #     print('Next', entity2_indices[entity2_idx])
-        #     # print(entity2_atoms[])
-        #         # interface_pairs.append((entity1_residue_number, entity2_residue_number))
-        # return interface_pairs
+        self.log.info('Querying %d Entity %s CB residues versus, %d Entity %s CB residues'
+                      % (len(entity1_indices), entity1.name, len(entity2_indices), entity2.name))
+        # self.log.debug('Entity2 Query size: %d' % entity2_query.size)
+
         return [(pdb_atoms[entity1_indices[entity1_idx]].residue_number,  # Todo return residue object from atom?
                  pdb_atoms[entity2_indices[entity2_idx]].residue_number)
                 for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
@@ -1191,7 +1194,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             surface_frags2 = list(chain.from_iterable(surface_frags2_nested))
             self.log.debug('Entity 2 Symmetry expanded fragment count: %d' % len(surface_frags2))
 
-        entity1_coords = entity1.get_backbone_and_cb_coords()  # for clashes, we only want the backbone and CB
+        entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, surface_frags1, surface_frags2,
                                                                          fragdb=self.frag_db)
         self.log.info('Found %d overlapping fragment pairs at the %s | %s interface'
@@ -1359,9 +1362,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # TODO add symmetry or oligomer data to .info?
 
     def generate_interface_fragments(self, db=None, out_path=None, write_fragments=True):
+        # Todo can ensure that the db is connected before this
         self.connect_fragment_database(db=db)
         # for entity_pair in combinations(self.entities, 2):
-        for entity_pair in combinations_with_replacement(self.entities, 2):
+        for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'
                            % tuple(entity.name for entity in entity_pair))
             self.query_interface_for_fragments(*entity_pair)
