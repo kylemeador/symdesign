@@ -33,7 +33,7 @@ from PathUtils import interface_design_command
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
-from Query.Flags import query_user_for_flags
+from Query.Flags import query_user_for_flags, return_default_flags
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
 
@@ -427,7 +427,7 @@ if __name__ == '__main__':
     parser_selection = subparsers.add_parser('design_selection',
                                              help='Generate a residue selection for %s' % PUtils.program_name)
     # ---------------------------------------------------
-    parser_filter = subparsers.add_parser('filter', help='Generate a residue mask for %s' % PUtils.program_name)
+    parser_filter = subparsers.add_parser('filter', help='Filter designs based on design specific metrics.')
     parser_filter.add_argument('-m', '--metric', type=str, help='What metric would you like to filter Designs by?',
                                choices=['score', 'fragments_matched'], required=True)
     # ---------------------------------------------------
@@ -579,8 +579,8 @@ if __name__ == '__main__':
                 design_flags[flag_arg[1:0]] = None
 
     else:
-        extra_flags = None  # Todo
-        design_flags = {}
+        design_flags = return_default_flags(args.sub_module)
+        extra_flags = None  # Todo remove
     design_flags.update(args.__dict__)
     logger.debug('All flags: %s' % design_flags)
     # -----------------------------------------------------------------------------------------------------------------
