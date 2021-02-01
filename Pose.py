@@ -1272,8 +1272,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 # else:
                 fragment_source = design_dir.fragment_observations
                 # self.fragment_queries[tuple(entity.name for entity in self.entities)] = fragment_source
-                # entity_ids = tuple(entity.name for entity in self.entities)
-                # self.log.debug('Entity ID\'s: %s' % str(entity_ids))
+                entity_ids = tuple(entity.name for entity in self.entities)  # Todo compatible with > 2 entities
+                self.log.debug('Entity ID\'s: %s' % str(entity_ids))
                 if fragment_source:
                     self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                                             pdb_numbering=True)
@@ -1294,7 +1294,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
-            entity.add_profile(evolution=evolution, out_path=design_dir.sequences, fragments=fragments)
+            entity.add_profile(evolution=evolution, fragments=fragments, out_path=design_dir.sequences)
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.combine_ssm()
 
         if fragments:

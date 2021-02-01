@@ -595,7 +595,7 @@ if __name__ == '__main__':
             if 'mask_design_using_chain' in design_flags and design_flags['mask_design_using_chain']:
                 # residue_mask = SequenceProfile.generate_chain_mask(design_flags['mask_design_using_chain'])
                 # design_flags.update({'mask': chain_mask})
-                exit('mask_design_using_chain flag is NOT set up yet!')
+                SDUtils.DesignError('mask_design_using_chain flag is NOT set up yet!')
             # Add additional program flags to design_flags
             # if args.mpi:  # Todo
             #     # extras = ' mpi %d' % CUtils.mpi
@@ -849,7 +849,7 @@ if __name__ == '__main__':
         else:
             logger.info('Starting processing. If single process is taking awhile, use -m during submission')
             for design in design_directories:
-                design.interface_design()
+                design.generate_interface_fragments()
     # ---------------------------------------------------
     elif args.sub_module == 'design':  # -c command_only, -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
