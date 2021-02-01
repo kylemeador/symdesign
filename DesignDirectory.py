@@ -616,12 +616,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.info('Input Oligomers: %s' % ', '.join(name for name in self.oligomers))
 
         self.log.info('Found the following chain breaks in the ASU:\n%s'
-                      % ('\n'.join(['\tEntity %s, Chain %s Residue %d'
+                      % ('\n'.join(['\tEntity %s, Chain %s Residue %d'  # Todo Chain <bound method Entity.chain of <Structure.
                                     % (entity.name, entity.chain, entity.get_terminal_residue('c').number)
                                     for entity in self.pose.entities])))
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
-        self.log.debug('Cleaned PDB: \'%s\'' % self.asu)
-        self.log.info('Interface Residues: %s'
+        self.log.info('Interface Residues: %s'  # Todo ensure interface is checked even if no fragment info!
                       % ', '.join('%s%s' % (residue.number, entity.chain_id)
                                   for entity, residues in self.pose.interface_residues.values()
                                   for residue in residues))
@@ -635,11 +634,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
                     mutated_pdb.mutate_to(residue.number)
 
+        # Todo move this write
         mutated_pdb.write(out_path=self.refine_pdb)
         self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
 
         # need to assign the designable residues for each entity to a interfaceA or interfaceB variable
         interface_metrics = self.pose.return_interface_metrics()
+        # Todo move this log
         self.log.info('Pulling fragment info from clusters: %s' % ', '.join(metrics['fragment_cluster_ids']
                                                                             for metrics in interface_metrics.values()))
 
@@ -663,8 +664,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Rosetta Execution formatting
         shell_scripts = []
         # ------------------------------------------------------------------------------------------------------------
-        # Save renumbered PDB to clean_asu.pdb
-        self.pose.pdb.write(out_path=self.asu)
         # RELAX: Prepare command and flags file
         refine_variables = [('pdb_reference', self.asu), ('scripts', PUtils.rosetta_scripts),
                             ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),
@@ -763,20 +762,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
         if self.script:
+            self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2],
                                                     out_path=self.scripts))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(generate_files_cmd), name=PUtils.stage[3],
                                                     out_path=self.scripts,
                                                     additional=[subprocess.list2cmdline(command)
                                                                 for n, command in enumerate(metric_cmds.values())]))
+            for idx, metric_cmd in enumerate(metric_cmds):
+                self.log.info('Metrics Command %d: %s' % (idx, subprocess.list2cmdline(metric_cmd)))
         else:
             self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
             design_process = subprocess.Popen(design_cmd)
             # Wait for Rosetta Design command to complete
             design_process.communicate()
-            for command in metric_cmds.values():
-                self.log.info('Metrics Command: %s' % subprocess.list2cmdline(command))
-                metrics_process = subprocess.Popen(command)
+            for idx, metric_cmd in enumerate(metric_cmds):
+                self.log.info('Metrics Command %d: %s' % (idx, subprocess.list2cmdline(metric_cmd)))
+                metrics_process = subprocess.Popen(metric_cmd)
                 metrics_process.communicate()
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
@@ -841,14 +843,31 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    def load_pose(self):
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
+                                       design_selection=self.design_selection)
+        # Save renumbered PDB to clean_asu.pdb
+        self.pose.pdb.write(out_path=self.asu)
+        self.log.info('Cleaned PDB: \'%s\'' % self.asu)
+        if self.pose.symmetry and self.pose.symmetric_assembly_is_clash():
+            raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
+                              % str(self))
+            pass
+        if self.output_assembly:
+            self.pose.get_assembly_symmetry_mates()
+            self.pose.write(out_path=os.path.join(self.path, PUtils.assembly))
+            self.log.info('Expanded Assembly PDB: \'%s\'' % os.path.join(self.path, PUtils.assembly))
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
+        self.load_pose()
         self.pose.generate_interface_fragments(db=self.frag_db, out_path=self.frags)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
-                                       design_selection=self.design_selection)
+        self.load_pose()
+        # if self.info:  # Todo
+        #     return None  # pose has already been initialized for design
         self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
                                    evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.design_with_fragments, write_fragments=self.write_frags,

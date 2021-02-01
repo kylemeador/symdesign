@@ -1245,7 +1245,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         # Ensure ASU. This should be done on loading from PDB file with Pose.from_asu()/Pose.from_pdb()
         # save self.asu to design_dir.asu now that we have cleaned any chain issues and renumbered residues
-        self.pdb.write(out_path=design_dir.asu)
+        # self.pdb.write(out_path=design_dir.asu)
 
         # if design_dir.nano:
         #     # num_chains = len(self.pdb.chain_id_list)
@@ -1278,15 +1278,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.log.info('Symmetry is: %s' % symmetry)  # Todo resolve duplication with below self.symmetry
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
-        if self.symmetry and self.symmetric_assembly_is_clash():
-            raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
-                              % str(design_dir))
-            pass
-        if output_assembly:
-            self.get_assembly_symmetry_mates()
-            self.write(out_path=os.path.join(design_dir.path, PUtils.assembly))
-        if design_dir.info:
-            return None  # pose has already been initialized for design
+        # if self.symmetry and self.symmetric_assembly_is_clash():
+        #     raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
+        #                       % str(design_dir))
+        #     pass
+        # if output_assembly:
+        #     self.get_assembly_symmetry_mates()
+        #     self.write(out_path=os.path.join(design_dir.path, PUtils.assembly))
 
         if fragments:
             if query_fragments:  # search for new fragment information
