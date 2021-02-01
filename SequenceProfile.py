@@ -2690,7 +2690,18 @@ def generate_residue_mask(residue_string):
     Returns:
         (list): The residue numbers (in pose format) that should be ignored in design
     """
-    return list(map(int, clean_comma_separated_string(residue_string)))
+    clean_residue_list = clean_comma_separated_string(residue_string)
+    # extract ranges
+    final_residues = []
+    for residue in clean_residue_list:
+        if '-' in residue:  # we have a range
+            for residue_idx in range(*tuple(map(int, residue.split('-')))):
+                final_residues.append(residue_idx)
+            final_residues.append(residue_idx + 1)
+        else:
+            final_residues.append(residue)
+
+    return list(map(int, final_residues))
 
 
 def generate_chain_mask(chain_string):
