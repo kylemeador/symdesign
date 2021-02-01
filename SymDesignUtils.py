@@ -791,12 +791,12 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
 #     typical directory structuring"""
 #     dock_dir = DesignDirectory(path, auto_structure=False)
 #     # try:
-#     # dock_dir.project = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))
-#     dock_dir.project = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
-#     dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.project]
+#     # dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))
+#     dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
+#     dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.program_root]
 #     # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
 #     dock_dir.building_blocks, dock_dir.building_block_logs = [], []
-#     for k, _sym in enumerate(dock_dir.project):
+#     for k, _sym in enumerate(dock_dir.program_root):
 #         dock_dir.building_blocks.append(list())
 #         dock_dir.building_block_logs.append(list())
 #         for bb_dir in next(os.walk(_sym))[1]:
@@ -804,10 +804,10 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
 #                 dock_dir.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
 #                 dock_dir.building_blocks[k].append(bb_dir)
 #
-#     # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.project]
+#     # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
 #     # dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
 #     #                                  for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
-#     #                                 for k, _sym in enumerate(dock_dir.project)]  # for each sym in symmetry
+#     #                                 for k, _sym in enumerate(dock_dir.program_root)]  # for each sym in symmetry
 #
 #     return dock_dir
 
@@ -900,20 +900,40 @@ def collect_directories(directory, file=None, dir_type=None):
                 logger.critical('No %s file found in \'%s\'! Please ensure correct location/name!' % (file, directory))
                 exit()
         with open(_file, 'r') as f:
-            all_directories = [location.strip() for location in f.readlines()]
+            all_paths = [location.strip() for location in f.readlines()]
         location = file
     else:
         if dir_type == 'dock':
-            all_directories = get_docked_directories(directory)
+            all_paths = get_docked_directories(directory)
         elif dir_type == PUtils.nano:  # 'design':
             base_directories = get_base_nanohedra_dirs(directory)
-            all_directories = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
+            all_paths = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
         else:
-            all_directories = get_all_file_paths(directory, extension='.pdb')
+            base_directories = get_base_symdesign_dirs(directory)
+            if base_directories:
+                # return all design directories within the base directory ->/base/projects/project/designs
+                all_paths = list(chain.from_iterable([get_symdesign_dirs_from_base(base) for base in base_directories]))
+            else:  # This is probably an uninitialized project and we should grab all .pdb files
+                all_paths = get_all_file_paths(directory, extension='.pdb')
         location = directory
 
-    return sorted(set(all_directories)), location
+    return sorted(set(all_paths)), location
 
+
+def get_base_symdesign_dirs(directory):
+    if PUtils.program_name in directory:   # directory1/SymDesignOutput/directory2/directory3
+        return [os.path.join(*directory.split(os.sep)[:idx]) for idx, dirname in enumerate(os.path.split(directory))
+                if dirname == PUtils.program_output]
+    elif PUtils.program_name in os.listdir(directory):  # directory_provided/SymDesignOutput
+        return [os.path.join(directory, sub_directory) for sub_directory in os.listdir(directory)
+                if sub_directory == PUtils.program_output]
+    else:
+        return False
+    # for root, dirs, files in os.walk(directory):
+
+
+def get_symdesign_dirs_from_base(base):
+    return sorted(set(map(os.path.dirname, glob('%s/*/*/*/' % base))))  # /base/projects/project/designs
 
 # # DEPRECIATED
 # def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # removed a .pkl 9/29/20 9/17/20 run used .pkl.pkl TODO remove vflip
