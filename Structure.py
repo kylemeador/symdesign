@@ -314,6 +314,7 @@ class Structure:  # (Coords):
 
     def renumber_atoms(self):
         """Renumber all atom entries one-indexed according to list order"""
+        self.log.debug('Atoms in %s were renumbered from 1 to %s' % (self.name, self.number_of_atoms))
         for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
 
