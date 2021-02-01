@@ -33,7 +33,8 @@ def query_user_for_flags(mode='design', template=False):
           'select_designable_residues_by_pose_number':
               {'type': str, 'default': None,
                'description': 'If design should only occur at certain residues, specify the residue POSE numbers '
-                              '(starting with 1) as a comma separated string. Ex: \'23,24,35,41,100,110,267,289,290\''},
+                              '(starting with 1) as a comma separated string. Ranges are allowed '
+                              'Ex: \'23,24,35,41,100-110,267,289-293\''},
           'select_designable_chains':
               {'type': str, 'default': None,
                'description': 'If a design should be masked at certain chains, provide the chain ID\'s as a comma '
