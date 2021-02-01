@@ -165,9 +165,9 @@ def distribute(logger, stage=None, directory=None, file=None, success_file=None,
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=os.path.basename(__file__)
-                                     + '\nGather commands set up by %s and distribute to computational nodes for '
-                                     'Rosetta processing.' % PUtils.program_name)
+    parser = argparse.ArgumentParser(description='%s\nGather commands set up by %s and distribute to computational '
+                                                 'nodes for Rosetta processing.'
+                                                 % (os.path.basename(__file__), PUtils.program_name))
     parser.add_argument('-s', '--stage', choices=tuple(CUtils.process_scale.keys()),  # Todo depreciate stage
                         help='The stage of design to be distributed. Each stage has optimal computing requirements to'
                              ' maximally utilize computers . One of %s' % ', '.join(list(CUtils.process_scale.keys())))

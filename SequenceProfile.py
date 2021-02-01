@@ -47,7 +47,7 @@ class SequenceProfile:
         self.sequence_file = None
         self.pssm_file = None
         self.evolutionary_profile = {}  # position specific scoring matrix
-        self.design_profile = None
+        # self.design_profile = None
         self.profile = {}  # design specific scoring matrix
         self.frag_db = None
         self.fragment_queries = {}
@@ -124,7 +124,7 @@ class SequenceProfile:
                     #         fragment_source[idx] = fragment
                     # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
                 else:
-                    self.log.error('%s: Argument \'entities\' (tuple) is required is fragment_observations are provided'
+                    self.log.error('%s: Argument \'entities\' (tuple) is required if fragment_observations are provided'
                                    % self.add_profile.__name__)
                     return None
 
