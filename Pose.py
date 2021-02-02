@@ -1156,7 +1156,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                                                                                         entity2=entity2)
         self.log.debug('Found Entity %s, interface residue numbers: %s' % (entity1.name, entity1_residue_numbers))
         self.log.debug('Found Entity %s, interface residue numbers: %s' % (entity2.name, entity2_residue_numbers))
-        if not entity1_residue_numbers and not entity2_residue_numbers:
+        if not entity1_residue_numbers or not entity2_residue_numbers:
+            self.log.info('Interface %s | %s, no interface found' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
             return None
 
