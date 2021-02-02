@@ -559,7 +559,7 @@ class SequenceProfile:
                 self.fragment_queries[(entity1, entity2)] = query
         else:
             entity_pairs = [(self.structure.entity_from_residue(fragment['mapped']),
-                             self.structure.entity_from_residue(fragment['paied'])) for fragment in query]
+                             self.structure.entity_from_residue(fragment['paired'])) for fragment in query]
             if all([all(pair) for pair in entity_pairs]):
                 for entity_pair, fragment in zip(entity_pairs, query):
                     if entity_pair in self.fragment_queries:
