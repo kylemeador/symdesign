@@ -414,8 +414,6 @@ class SequenceProfile:
                     self.evolutionary_profile[residue_number]['info'] = dummy
                     self.evolutionary_profile[residue_number]['weight'] = dummy
 
-        print('At parse_hhblits, evo profile: %s' % self.evolutionary_profile)
-
     def combine_pssm(self, pssms):
         """Combine a list of PSSMs incrementing the residue number in each additional PSSM
 
@@ -620,6 +618,9 @@ class SequenceProfile:
         Keyword Args:
             alpha=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
         """
+        if not self.frag_db:
+            raise DesignError('%s: No fragment database connected! Cannot caculate optimal fragment contribution '
+                              'without this.' % self.find_alpha.__name__)
         assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.find_alpha.__name__
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
@@ -871,7 +872,6 @@ class SequenceProfile:
         assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.combine_ssm.__name__
         # copy the evol profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
-        print(self.profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
         for entry in self.alpha:  # will be 0 unless self.fragment_profile is not {}
             for aa in IUPACData.protein_letters:
@@ -893,9 +893,6 @@ class SequenceProfile:
             for entry in self.profile:
                 self.profile[entry]['lod'] = null_residue  # Caution all reference same object
             for entry in self.fragment_profile:
-                print('Entry: %d' % entry)
-                if entry not in self.fragment_profile:
-                    print('Entry not found: %d' % entry)
                 self.profile[entry]['lod'] = get_lod(self.fragment_profile[entry],
                                                      database_background_aa_frequencies, round_lod=False)
                 # get the sum for the partition function
@@ -1179,12 +1176,13 @@ class SequenceProfile:
         if not pssm_dict:
             return None
 
+        # find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
         lod_freq, counts_freq = False, False
         separation_string1, separation_string2 = 3, 3
-        if type(pssm_dict[0]['lod']['A']) == float:
+        if type(pssm_dict[next(iter(pssm_dict.keys()))]['lod']['A']) == float:
             lod_freq = True
             separation_string1 = 4
-        if type(pssm_dict[0]['A']) == float:
+        if type(pssm_dict[next(iter(pssm_dict.keys()))]['A']) == float:
             counts_freq = True
 
         header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in alph_3_aa_list) \
@@ -1193,26 +1191,27 @@ class SequenceProfile:
         out_file = os.path.join(out_path, name)
         with open(out_file, 'w') as f:
             f.write(header)
-            for res in pssm_dict:
-                aa_type = pssm_dict[res]['type']
+            for residue_number in pssm_dict:
+                aa_type = pssm_dict[residue_number]['type']
                 lod_string = ''
                 if lod_freq:
                     for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                        lod_string += '{:>4.2f} '.format(pssm_dict[res]['lod'][aa])
+                        lod_string += '{:>4.2f} '.format(pssm_dict[residue_number]['lod'][aa])
                 else:
                     for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                        lod_string += '{:>3d} '.format(pssm_dict[res]['lod'][aa])
+                        lod_string += '{:>3d} '.format(pssm_dict[residue_number]['lod'][aa])
                 counts_string = ''
                 if counts_freq:
                     for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                        counts_string += '{:>3.0f} '.format(math.floor(pssm_dict[res][aa] * 100))
+                        counts_string += '{:>3.0f} '.format(math.floor(pssm_dict[residue_number][aa] * 100))
                 else:
                     for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                        counts_string += '{:>3d} '.format(pssm_dict[res][aa])
-                info = pssm_dict[res]['info']
-                weight = pssm_dict[res]['weight']
-                line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res, aa_type, lod_string,counts_string,
-                                                                                 round(info, 4), round(weight, 4))
+                        counts_string += '{:>3d} '.format(pssm_dict[residue_number][aa])
+                info = pssm_dict[residue_number]['info']
+                weight = pssm_dict[residue_number]['weight']
+                line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(residue_number, aa_type, lod_string,
+                                                                                 counts_string, round(info, 4),
+                                                                                 round(weight, 4))
                 f.write(line)
             f.write(footer)
 
