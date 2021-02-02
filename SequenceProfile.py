@@ -624,7 +624,7 @@ class SequenceProfile:
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
-        fragment_stats = self.frag_db.get_db_statistics()
+        fragment_stats = self.frag_db.statistics
         for entry in self.fragment_profile:
             # match score is bounded between 1 and 0.2
             # match_sum = sum([self.fragment_map[entry][index][obs]['match'] for index in self.fragment_map[entry]
