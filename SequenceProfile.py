@@ -760,6 +760,7 @@ class SequenceProfile:
         Keyword Args:
             keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
         """
+        self.log.debug(self.fragment_profile.items())
         no_design = []
         for residue, index_d in self.fragment_profile.items():
             total_fragment_weight = 0
