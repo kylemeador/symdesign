@@ -692,10 +692,15 @@ class SequenceProfile:
             self.fragment_map = self.populate_design_dictionary(self.structure.number_of_residues,
                                                                 [j for j in range(*self.frag_db.fragment_range)],
                                                                 dtype=list)
+            print('New fragment_map')
+        print(fragments)
+        print(self.name)
+        print(self.entity_offset)
         for fragment in fragments:
             residue_number = fragment[alignment_type] - self.entity_offset
             for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
-                self.fragment_map[residue_number + j][j].append({'chain': alignment_type, 'cluster': fragment['cluster'],
+                self.fragment_map[residue_number + j][j].append({'chain': alignment_type,
+                                                                 'cluster': fragment['cluster'],
                                                                  'match': fragment['match']})
         # remove entries which don't exist on protein because of fragment_index +- residues
         not_available = [residue_number for residue_number in self.fragment_map
