@@ -470,10 +470,11 @@ class SequenceProfile:
     def renumber_fragments_to_pose(self, fragments):
         for idx, fragment in enumerate(fragments):
             # if self.structure.residue_from_pdb_numbering():
+            # only assign the new fragment number info to the fragments if the residue is found
             map_pose_number = self.structure.residue_number_from_pdb(fragment['mapped'])
             fragment['mapped'] = map_pose_number if map_pose_number else fragment['mapped']
-            pair_pose_number = self.structure.residue_number_from_pdb(fragment['mapped'])
-            fragment['mapped'] = pair_pose_number if pair_pose_number else fragment['mapped']
+            pair_pose_number = self.structure.residue_number_from_pdb(fragment['paired'])
+            fragment['paired'] = pair_pose_number if pair_pose_number else fragment['paired']
             # fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
             # fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
             fragments[idx] = fragment
@@ -543,14 +544,30 @@ class SequenceProfile:
     #             clusters.extend([fragment['cluster'] for fragment in fragments])
 
     def add_fragment_query(self, entity1=None, entity2=None, query=None, pdb_numbering=False):
+        """This funcion has all sorts of logic pitfalls and may be more trouble than it alleviates. How easy would it
+        be to Todo refactor code to deal with the chain info from the frag match file?"""
         if pdb_numbering:  # Renumber self.fragment_map and self.fragment_profile to Pose residue numbering
             query = self.renumber_fragments_to_pose(query)
             # for idx, fragment in enumerate(fragment_source):
             #     fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
             #     fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
             #     fragment_source[idx] = fragment
-        if entity1 and entity2 and query:
-            self.fragment_queries[(entity1, entity2)] = query
+            if entity1 and entity2 and query:
+                self.fragment_queries[(entity1, entity2)] = query
+        else:
+            entity_pairs = [(self.structure.entity_from_residue(fragment['mapped']),
+                             self.structure.entity_from_residue(fragment['paied'])) for fragment in query]
+            if all([all(pair) for pair in entity_pairs]):
+                for entity_pair, fragment in zip(entity_pairs, query):
+                    if entity_pair in self.fragment_queries:
+                        self.fragment_queries[entity_pair].append(fragment)
+                    else:
+                        self.fragment_queries[entity_pair] = [fragment]
+            else:
+                raise DesignError('%s: Couldn\'t locate Pose Entities passed by residue number. Are the residues in '
+                                  'Pose Numbering? This may be occuring due to fragment queries performed on the PDB '
+                                  'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
+                                  ' modifications' % self.add_fragment_query.__name__)
 
     # fragments
     # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
@@ -729,20 +746,20 @@ class SequenceProfile:
             keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
         """
         no_design = []
-        for residue in self.fragment_profile:
+        for residue, index_d in self.fragment_profile.items():
             total_fragment_weight = 0
             total_fragment_observations = 0
-            for index in self.fragment_profile[residue]:
-                if self.fragment_profile[residue][index]:
+            for index, observation_d in index_d.items():
+                if observation_d:
                     # sum the weight for each fragment observation
                     total_obs_weight = 0.0
                     total_obs_x_match_weight = 0.0
                     # total_match_weight = 0.0
-                    for obs in self.fragment_profile[residue][index]:
-                        total_obs_weight += self.fragment_profile[residue][index][obs]['stats'][1]
-                        total_obs_x_match_weight += self.fragment_profile[residue][index][obs]['stats'][1] * \
-                            self.fragment_profile[residue][index][obs]['match']
-                        # total_match_weight += self.fragment_profile[residue][index][obs]['match']
+                    for observation, fragment_frequencies in observation_d.items():
+                        if fragment_frequencies:
+                            total_obs_weight += fragment_frequencies['stats'][1]
+                            total_obs_x_match_weight += fragment_frequencies['stats'][1] * fragment_frequencies['match']
+                            # total_match_weight += self.fragment_profile[residue][index][obs]['match']
 
                     # Check if weights are associated with observations, if not side chain isn't significant!
                     if total_obs_weight > 0:
