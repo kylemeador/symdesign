@@ -1402,11 +1402,11 @@ class FragmentDatabase(FragmentDB):
             cluster_id += '0'
 
         if len(cluster_id.split('_')) != 3:  # in case of 12123?
-            index = [cluster_id[:1], cluster_id[1:2], cluster_id[2:]]
+            id_l = [cluster_id[:1], cluster_id[1:2], cluster_id[2:]]
         else:
-            index = cluster_id.split('_')
+            id_l = cluster_id.split('_')
 
-        info = [index[i] for i in range(index)]
+        info = [id_l[i] for i in range(index)]
 
         while len(info) < 3:  # ensure the returned string has at least 3 indices
             info.append('0')
