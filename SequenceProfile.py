@@ -170,6 +170,7 @@ class SequenceProfile:
 
             # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
+            self.find_alpha()
 
         if evolution:  # add evolutionary information to the SequenceProfile
             # DesignDirectory.path could be removed as the input oligomers should be perfectly symmetric so the tx won't
@@ -599,7 +600,8 @@ class SequenceProfile:
                 return None
 
     def find_alpha(self, alpha=0.5):
-        """Find fragment contribution to design with cap at alpha
+        """Find fragment contribution to design with cap at alpha. Used subsequently to generating a fragment profile
+        before combining with evolutionary profile in combine_ssm
 
         Takes self.fragment_map
             (dict) {1: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
@@ -624,7 +626,7 @@ class SequenceProfile:
             # match score is bounded between 1 and 0.2
             # match_sum = sum([self.fragment_map[entry][index][obs]['match'] for index in self.fragment_map[entry]
             match_sum = sum(obs['match'] for index_values in self.fragment_map[entry].values() for obs in index_values)
-            contribution_total = sum(fragment_stats[self.get_cluster_id(obs['cluster'], index=2)][0]
+            contribution_total = sum(fragment_stats[self.frag_db.get_cluster_id(obs['cluster'], index=2)][0]
                                      [alignment_type_to_idx[obs['chain']]]
                                      for index_values in self.fragment_map[entry].values() for obs in index_values)
 
