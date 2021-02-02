@@ -826,7 +826,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         symmetry_kwargs = self.pdb.symmetry
         symmetry_kwargs.update(kwargs)
-        self.log.debug('Pose symmetry_kwargs: %s' % symmetry_kwargs)
+        # self.log.debug('Pose symmetry_kwargs: %s' % symmetry_kwargs)
         self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if the ASU was passed
         # self.initialize_symmetry(symmetry=symmetry)
 
@@ -959,9 +959,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if design_selection:
             self.create_design_selection_filter(**design_selection)
         if frag_db:
-            self.connect_fragment_database(db=frag_db)
+            # Attach an existing FragmentDB to the Pose
+            self.attach_fragment_database(db=frag_db)
             for entity in self.entities:
-                entity.connect_fragment_database(db=frag_db)
+                entity.attach_fragment_database(db=frag_db)
 
     def create_design_selection_filter(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
         entity_union = set()
@@ -1299,10 +1300,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             for query_pair, fragment_info in self.fragment_queries.items():
                 for query_idx, entity in enumerate(query_pair):
                     # Todo self.entity() modification
-                    entity.connect_fragment_database(db=self.frag_db)
                     entity.assign_fragments(fragments=fragment_info, alignment_type=idx_to_alignment_type[query_idx])
 
         for entity in self.entities:
+            # Attach an existing FragmentDB to the Pose
+            entity.connect_fragment_database(db=design_dir.frag_db)
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
             entity.add_profile(evolution=evolution, fragments=fragments, out_path=design_dir.sequences)
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.combine_ssm()
@@ -1339,11 +1341,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # TODO add symmetry or oligomer data to .info?
 
     def generate_interface_fragments(self, db=None, out_path=None, write_fragments=True):
-        if db:
-            self.connect_fragment_database(db=db)
-        elif not self.frag_db:
-            raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
-                              'initialized the Pose with a database!' % self.generate_interface_fragments.__name__)
+        """Using the attached fragment database, generate interface fragments between the Pose interfaces"""
+        # if db:
+        # This will connect to a new DB if db is none
+        self.attach_fragment_database(db=db)
+        # elif not self.frag_db:
+        #     raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
+        #                       'initialized the Pose with a database!' % self.generate_interface_fragments.__name__)
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'

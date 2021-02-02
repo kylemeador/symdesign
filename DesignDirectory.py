@@ -887,7 +887,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
         self.load_pose()
-        self.pose.generate_interface_fragments(out_path=self.frags)
+        self.pose.generate_interface_fragments(db=self.frag_db, out_path=self.frags)
         self.info['fragments'] = self.frag_file
         self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
 
