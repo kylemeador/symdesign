@@ -285,10 +285,13 @@ class SequenceProfile:
             self.log.info('Generating PSSM file for %s' % self.name)
             if profile_source == 'psiblast':
                 self.psiblast(out_path=out_path)
-                self.parse_psiblast_pssm()
             else:
                 self.hhblits(out_path=out_path)
-                self.parse_hhblits_pssm()
+
+        if profile_source == 'psiblast':
+            self.parse_psiblast_pssm()
+        else:
+            self.parse_hhblits_pssm()
 
     def psiblast(self, out_path=None, remote=False):
         """Generate an position specific scoring matrix using PSI-BLAST subprocess
