@@ -319,7 +319,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sdf = os.path.join(self.path, PUtils.symmetry_def_file_dir)
         self.pose_file = os.path.join(self.path, PUtils.pose_file)
         self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
-        self.asu = os.path.join(self.path, PUtils.clean)
+        self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean))
         self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(PUtils.clean)[0])
         self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean)[0])
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
