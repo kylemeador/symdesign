@@ -791,6 +791,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     the PDB sequence
     """
     def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, **kwargs):  # symmetry=None, log=None,
+        super().__init__(**kwargs)  # log=None,
         # super().__init__(log=log)
         # if log:  # from Super SymmetricModel
         #     self.log = log
@@ -814,9 +815,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             # self.set_pdb(pdb)
         # else:
         #     nothing = True
-        super().__init__(structure=self.pdb, **kwargs)  # log=None,
-
         if self.pdb:
+            self.set_structure(self.pdb)
             self.coords = Coords(self.pdb.get_coords())  # get_pdb_coords(self.asu))
 
         self.entity_selection = set()
