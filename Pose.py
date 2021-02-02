@@ -1306,6 +1306,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
+            entity.connect_fragment_database(db=design_dir.frag_db)
             entity.add_profile(evolution=evolution, fragments=fragments, out_path=design_dir.sequences)
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.combine_ssm()
 
