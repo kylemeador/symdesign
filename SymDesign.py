@@ -667,7 +667,7 @@ if __name__ == '__main__':
 
             if not args.file or inputs_moved:
                 # Make single file with names of each directory where all_docked_poses can be found
-                project_string = design_directories[0].project_designs
+                project_string = os.path.basename(design_directories[0].project_designs)
                 args.file = os.path.join(os.getcwd(), '%s_pose.paths' % project_string)
                 with open(args.file, 'w') as design_f:
                     design_f.write('\n'.join(pose for pose in all_poses))

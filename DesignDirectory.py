@@ -219,7 +219,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 self.project_designs = os.path.join(self.projects, '%s_%s' % (design_path.split(os.sep)[-2],
-                                                                                  PUtils.design_directory))
+                                                                              PUtils.design_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
                 if not os.path.exists(self.program_root):
@@ -232,9 +232,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     os.makedirs(self.path)
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
                 self.path = design_path
-                self.program_root = os.path.join(*self.path.split(os.sep)[-4])  # symmetry.rstrip(os.sep)
-                self.projects = os.path.join(*self.path.split(os.sep)[-3])
-                self.project_designs = os.path.join(*self.path.split(os.sep)[-2])
+                self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])  # symmetry.rstrip(os.sep)
+                self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
+                self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
 
             self.set_up_design_directory()
             self.start_log(debug=debug)
