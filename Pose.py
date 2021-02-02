@@ -791,7 +791,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     the PDB sequence
     """
     def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, **kwargs):  # symmetry=None, log=None,
-        super().__init__(**kwargs)  # log=None,
         # super().__init__(log=log)
         # if log:  # from Super SymmetricModel
         #     self.log = log
@@ -815,6 +814,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             # self.set_pdb(pdb)
         # else:
         #     nothing = True
+        super().__init__(structure=self.pdb, **kwargs)  # log=None,
+
         if self.pdb:
             self.coords = Coords(self.pdb.get_coords())  # get_pdb_coords(self.asu))
 
@@ -905,7 +906,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         return self.pdb.entity(entity)
 
     def chain(self, _chain):  # no not mess with chain.from_iterable namespace
-        return self.pdb.entity_by_chain(_chain)
+        return self.pdb.entity_from_chain(_chain)
 
     @property
     def number_of_atoms(self):
@@ -1277,16 +1278,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 #         fragment_source = f.readlines()
                 # else:
                 fragment_source = design_dir.fragment_observations
-                # self.fragment_queries[tuple(entity.name for entity in self.entities)] = fragment_source
-                entity_ids = tuple(entity.name for entity in self.entities)  # Todo compatible with > 2 entities
-                self.log.debug('Entity ID\'s: %s' % str(entity_ids))
-                if fragment_source:
-                    self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
-                                            pdb_numbering=True)
-                else:
+                if not fragment_source:
                     raise DesignError('%s: Fragments were set for design but there were none found in the Design '
                                       'Directory! Fix your input flags if this is not what you expected or generate '
                                       'them with \'%s generate_frags\'' % (str(design_dir), PUtils.program_command))
+
+                # self.fragment_queries[tuple(entity.name for entity in self.entities)] = fragment_source
+                if design_dir.nano:
+                    entity_ids = tuple(entity.name for entity in self.entities)  # Todo compatible with > 2 entities
+                    self.log.debug('Entity ID\'s: %s' % str(entity_ids))
+                    self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
+                                            pdb_numbering=True)
+                else:  # assuming the input is in Pose numbering
+                    self.add_fragment_query(query=fragment_source)
                 # for entity in self.entities:
                 #     entity.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                 #                               pdb_numbering=True)
