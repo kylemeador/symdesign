@@ -60,8 +60,7 @@ class SequenceProfile:
         self.alpha = {}
 
         if structure:
-            self.structure = structure
-            self.structure_sequence = self.structure.get_structure_sequence()
+            self.set_structure(structure)
 
     @classmethod
     def from_structure(cls, structure=None):
@@ -100,6 +99,10 @@ class SequenceProfile:
     @entity_offset.setter
     def entity_offset(self, offset):
         self._entity_offset = offset
+
+    def set_structure(self, structure):
+        self.structure = structure
+        self.structure_sequence = self.structure.get_structure_sequence()
 
     def set_profile_length(self):
         self.profile_length = len(self.profile)
