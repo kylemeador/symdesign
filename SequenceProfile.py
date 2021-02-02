@@ -661,9 +661,9 @@ class SequenceProfile:
             else:
                 self.alpha[entry] = alpha * match_modifier
 
-    def connect_fragment_database(self, init=False, **kwargs):
+    def connect_fragment_database(self, location=None, init=False, **kwargs):
         """Generate a new connection. Initialize the representative library by passing init=True"""
-        self.frag_db = FragmentDatabase(init_db=init)  # source=source, location=location, init_db=init_db)
+        self.frag_db = FragmentDatabase(location=location, init_db=init)  # source=source, location=location, init_db=init_db)
 
     def attach_fragment_database(self, db=None, **kwargs):
         """Attach an existing Fragment Database to the SequenceProfile or generate a new connection. Initialize the

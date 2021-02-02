@@ -1301,12 +1301,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             for query_pair, fragment_info in self.fragment_queries.items():
                 for query_idx, entity in enumerate(query_pair):
                     # Attach an existing FragmentDB to the Pose
-                    entity.connect_fragment_database(db=design_dir.frag_db)
+                    entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
                     entity.assign_fragments(fragments=fragment_info, alignment_type=idx_to_alignment_type[query_idx])
 
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
-            entity.connect_fragment_database(db=design_dir.frag_db)
+            entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
             entity.add_profile(evolution=evolution, fragments=fragments, out_path=design_dir.sequences)
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.combine_ssm()
 
