@@ -1328,7 +1328,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.log.debug('Position Specific Scoring Matrix: %s' % str(self.evolutionary_profile))
             self.pssm_file = self.make_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=design_dir.data)
 
-            self.combine_profile([entity.profile for entity in self.asu])  # sets pose.profile
+            self.combine_profile([entity.profile for entity in self.entities])  # sets pose.profile
             self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
             self.design_pssm_file = self.make_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
 
