@@ -1505,7 +1505,7 @@ class PDB(Structure):
     def entity_from_residue(self, residue_number):
         """Return the entity associated with a particular Residue number"""
         for entity in self.entities:
-            if entity.get_residues(numbers=residue_number):
+            if entity.get_residues(numbers=[residue_number]):
                 return entity
         return None
 
