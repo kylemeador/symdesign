@@ -410,6 +410,8 @@ class SequenceProfile:
                     self.evolutionary_profile[residue_number]['info'] = dummy
                     self.evolutionary_profile[residue_number]['weight'] = dummy
 
+        print('At parse_hhblits, evo profile: %s' % self.evolutionary_profile)
+
     def combine_pssm(self, pssms):
         """Combine a list of PSSMs incrementing the residue number in each additional PSSM
 
@@ -864,6 +866,7 @@ class SequenceProfile:
         assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.combine_ssm.__name__
         # copy the evol profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
+        print(self.profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
         for entry in self.alpha:  # will be 0 unless self.fragment_profile is not {}
             for aa in IUPACData.protein_letters:
