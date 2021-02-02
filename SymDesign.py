@@ -434,6 +434,10 @@ if __name__ == '__main__':
     parser_filter.add_argument('-m', '--metric', type=str, help='What metric would you like to filter Designs by?',
                                choices=['score', 'fragments_matched'], required=True)
     # ---------------------------------------------------
+    parser_expand = subparsers.add_parser('expand_asu', help='Filter designs based on design specific metrics.')
+    # parser_filter.add_argument('-m', '--metric', type=str, help='What metric would you like to filter Designs by?',
+    #                            choices=['score', 'fragments_matched'], required=True)
+    # ---------------------------------------------------
     parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py\nIf a docking directory structure is set up,'
                                                      ' provide the overall directory location with program argument '
                                                      '-d/-f, otherwise, use the -d1 -d2 \'pose\' module arguments to '
@@ -594,7 +598,7 @@ if __name__ == '__main__':
     if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'design_selection']:
         pass
     # Todo depreciate args.mode here
-    elif args.sub_module in ['design', 'filter', 'generate_fragments'] or args.mode == 'design':
+    elif args.sub_module in ['design', 'filter', 'generate_fragments', 'expand_asu'] or args.mode == 'design':
         mode = 'design'
         if args.directory or args.file:
             # Pull nanohedra_output and mask_design_using_sequence out of flags
@@ -792,6 +796,10 @@ if __name__ == '__main__':
                     'protein design. Mask should be formatted so a \'-\' replaces all sequence of interest to be '
                     'overlooked during design. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>design_selection\nMAGH----LV\n'
                     % fasta_file)
+    # ---------------------------------------------------
+    elif args.sub_module == 'expand_asu':
+        for design_dir in design_directories:
+            design_dir.expand_asu()
     # ---------------------------------------------------
     elif args.sub_module == 'filter':
         if args.metric == 'score':
