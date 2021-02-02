@@ -661,12 +661,19 @@ class SequenceProfile:
             else:
                 self.alpha[entry] = alpha * match_modifier
 
-    def connect_fragment_database(self, db=None, **kwargs):
+    def connect_fragment_database(self, init=False, **kwargs):
+        """Generate a new connection. Initialize the representative library by passing init=True"""
+        self.frag_db = FragmentDatabase(init_db=init)  # source=source, location=location, init_db=init_db)
+
+    def attach_fragment_database(self, db=None, **kwargs):
+        """Attach an existing Fragment Database to the SequenceProfile or generate a new connection. Initialize the
+        representative library by passing init=True"""
         #                         source='directory', location='biological_interfaces', length=5, init_db=True):
         if db:
             self.frag_db = db
         else:
-            self.frag_db = FragmentDatabase(**kwargs)  # source=source, location=location, init_db=init_db)
+            raise DesignError('%s: No fragment database connection was passed!'
+                              % self.attach_fragment_database.__name__)
 
     def assign_fragments(self, fragments=None, alignment_type=None):
         """Distribute fragment information to self.fragment_map. One-indexed residue dictionary
@@ -1234,7 +1241,7 @@ def overlap_consensus(issm, aa_set):
 
 
 class FragmentDatabase(FragmentDB):
-    def __init__(self, source='directory', location=None, length=5, init_db=True):
+    def __init__(self, source='directory', location=None, length=5, init_db=False):
         super().__init__()  # FragmentDB
         # self.monofrag_cluster_rep_dirpath = monofrag_cluster_rep_dirpath
         # self.intfrag_cluster_rep_dirpath = intfrag_cluster_rep_dirpath

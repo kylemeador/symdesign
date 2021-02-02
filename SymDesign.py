@@ -392,6 +392,8 @@ if __name__ == '__main__':
                                                  '2. Command distribution to computational nodes\n'
                                                  '3. Analysis of designs' % PUtils.program_name)
     # ---------------------------------------------------
+    parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
+                                                                  'include %s' % ', '.join(SDUtils.possible_symmetries))
     parser.add_argument('-c', '--command_only', action='store_true',
                         help='Should commands be written but not executed?\nDefault=False')
     parser.add_argument('-d', '--directory', type=os.path.abspath,
@@ -582,7 +584,7 @@ if __name__ == '__main__':
                 design_flags[flag] = flag_arg.split()[1]
                 if design_flags[flag].title() in ['None', 'True', 'False']:
                     design_flags[flag] = eval(design_flags[flag].title())
-            else:
+            else:  # remove - from the front and add to the dictionary
                 design_flags[flag_arg[1:0]] = None
 
     else:
