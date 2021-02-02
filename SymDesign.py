@@ -670,7 +670,8 @@ if __name__ == '__main__':
             if 'generate_fragments' in design_flags and design_flags['generate_fragments']:
                 interface_type = 'biological_interfaces'  # Todo parameterize
                 logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
-                fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type)
+                fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type,
+                                                               init_db=True)
                 for design in design_directories:
                     design.connect_db(frag_db=fragment_db)
 
