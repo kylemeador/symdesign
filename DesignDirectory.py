@@ -18,6 +18,9 @@ from SequenceProfile import get_fragment_metrics, FragmentDatabase
 from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file, \
     DesignError, match_score_from_z_value, handle_design_errors, pickle_object, write_commands
 
+
+logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+
 # Globals
 design_direcotry_modes = ['design', 'dock']
 
@@ -110,7 +113,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.design_with_fragments = True
         self.query_fragments = True
         self.write_frags = True
-        self.fragment_file = None
+        # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
         self.frag_db = None
         self.design_db = None
@@ -167,7 +170,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.cryst_record = None
             self.pose_id = None
 
-            self.fragment_cluster_freq_d = {}
+            # self.fragment_cluster_freq_d = {}
             self.transform_d = {}  # dict[pdb# (1, 2)] = {'transform_type': matrix/vector}
 
             if self.mode == 'design':
@@ -257,9 +260,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.get_fragment_metrics()
             try:
                 return self.center_residue_score / self.central_residues_with_fragment_overlap
-            except AttributeError:
-                raise DesignError('There are no fragment observations associated with this Design! Have you scored it '
-                                  'yet? See \'Scoring Interfaces\' in the %s' % PUtils.guide_string)
+            except (AttributeError, ZeroDivisionError):
+                self.log.warning('%s: There are no fragment observations associated with this Design! Have you scored '
+                                 'it yet? See \'Scoring Interfaces\' in the %s' % (self.path, PUtils.guide_string))
 
     @property
     def number_of_fragments(self):
@@ -280,7 +283,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             level = 1
         else:
             handler = 2
-
         self.log = start_log(name=name, handler=handler, level=level, location=os.path.join(self.path, name))
         #                                                                              os.path.basename(self.path)))
 
@@ -326,7 +328,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
         self.info_pickle = os.path.join(self.data, 'info.pkl')
-        self.gather_fragment_info()
+
         if os.path.exists(self.info_pickle):  # Pose has already been processed. We can assume files are available
             self.info = unpickle(self.info_pickle)
             if 'design' in self.info and self.info['design']:
@@ -358,6 +360,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if os.path.exists(self.frag_file):
             # if self.info['fragments']:
             self.gather_fragment_info()
+            self.get_fragment_metrics()
 
     def get_oligomers(self):
         if self.mode == 'design':
@@ -484,29 +487,31 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Gather fragment metrics from Nanohedra output"""
         fragment_observations = set()
         with open(self.frag_file, 'r') as f:
-            for line in f.readlines():
-                # overlap_rmsd_divded_by_cluster_rmsd
+            lines = f.readlines()
+            for line in lines:
                 if line[:6] == 'z-val:':
+                    # overlap_rmsd_divded_by_cluster_rmsd
                     match_score = match_score_from_z_value(float(line[6:].strip()))
                 elif line[:21] == 'oligomer1 ch, resnum:':
                     oligomer1_info = line[21:].strip().split(',')
                     chain1 = oligomer1_info[0]  # doesn't matter when all subunits are symmetric
-                    residue_number1 = oligomer1_info[1]
+                    residue_number1 = int(oligomer1_info[1])
                 elif line[:21] == 'oligomer2 ch, resnum:':
                     oligomer2_info = line[21:].strip().split(',')
                     chain2 = oligomer2_info[0]  # doesn't matter when all subunits are symmetric
-                    residue_number2 = oligomer2_info[1]
+                    residue_number2 = int(oligomer2_info[1])
                 elif line[:3] == 'id:':
-                    cluster_id = line[3:].strip()
+                    cluster_id = map(str.strip, line[3:].strip().split('_'), 'ijk')
                     # use with self.oligomer_names to get mapped and paired oligomer id
-                    fragment_observations.add((residue_number1, residue_number2, cluster_id, match_score))
+                    fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
                     # self.fragment_observations.append({'mapped': residue_number1, 'paired': residue_number2,
                     #                                    'cluster': cluster_id, 'match': match_score})
                 # "mean rmsd: %s\n" % str(cluster_rmsd))
                 # "aligned rep: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
                 elif line[:23] == 'central res pair freqs:':
-                    pair_freq = list(eval(line[23:].strip()))
-                    self.fragment_cluster_freq_d[cluster_id] = pair_freq
+                    # pair_freq = list(eval(line[22:].strip()))
+                    pair_freq = None
+                    # self.fragment_cluster_freq_d[cluster_id] = pair_freq
                     # self.fragment_cluster_residue_d[cluster_id]['freq'] = pair_freq
         self.fragment_observations = [{'mapped': frag_obs[0], 'paired': frag_obs[1], 'cluster': frag_obs[2],
                                        'match': frag_obs[3]} for frag_obs in fragment_observations]
@@ -592,7 +597,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.set_flags(**load_flags(flags_file))
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
-                  design_with_fragments=True, fragments_exist=None, generate_fragments=True, write_fragments=True,
+                  design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
                   output_assembly=False, design_selection=None, script=True, mpi=False, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         self.sym_entry_number = sym_entry_number
@@ -600,7 +605,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.design_selection = design_selection
         self.evolution = design_with_evolution
         self.design_with_fragments = design_with_fragments
-        self.fragment_file = fragments_exist
+        # self.fragment_file = fragments_exist
         self.query_fragments = generate_fragments
         self.write_frags = write_fragments
         self.output_assembly = output_assembly
@@ -885,7 +890,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
                                    evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.design_with_fragments, write_fragments=self.write_frags,
-                                   query_fragments=self.query_fragments, existing_fragments=self.fragment_file,
+                                   query_fragments=self.query_fragments,
                                    frag_db=self.frag_db)
         self.set_symmetry(**self.pose.return_symmetry_parameters())
         self.log.debug('DesignDirectory Symmetry: %s' % self.return_symmetry_parameters())
