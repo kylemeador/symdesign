@@ -329,10 +329,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.gather_fragment_info()
         if os.path.exists(self.info_pickle):  # Pose has already been processed. We can assume files are available
             self.info = unpickle(self.info_pickle)
-            if self.info['design']:
+            if 'design' in self.info and self.info['design']:
                 dummy = True
-            if self.info['fragments']:
-                self.gather_fragment_info()
+
         else:  # Ensure directories are only created once Pose Processing is called
             if not os.path.exists(self.protein_data):
                 os.makedirs(self.protein_data)
@@ -355,6 +354,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 os.makedirs(self.data)
             if not os.path.exists(self.sdf) and self.nano:
                 os.makedirs(self.sdf)
+
+        if os.path.exists(self.frag_file):
+            # if self.info['fragments']:
+            self.gather_fragment_info()
 
     def get_oligomers(self):
         if self.mode == 'design':
@@ -479,6 +482,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
         """Gather fragment metrics from Nanohedra output"""
+        fragment_observations = set()
         with open(self.frag_file, 'r') as f:
             for line in f.readlines():
                 # overlap_rmsd_divded_by_cluster_rmsd
@@ -495,14 +499,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 elif line[:3] == 'id:':
                     cluster_id = line[3:].strip()
                     # use with self.oligomer_names to get mapped and paired oligomer id
-                    self.fragment_observations.append({'mapped': residue_number1, 'paired': residue_number2,
-                                                       'cluster': cluster_id, 'match': match_score})
+                    fragment_observations.add((residue_number1, residue_number2, cluster_id, match_score))
+                    # self.fragment_observations.append({'mapped': residue_number1, 'paired': residue_number2,
+                    #                                    'cluster': cluster_id, 'match': match_score})
                 # "mean rmsd: %s\n" % str(cluster_rmsd))
                 # "aligned rep: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
                 elif line[:23] == 'central res pair freqs:':
                     pair_freq = list(eval(line[23:].strip()))
                     self.fragment_cluster_freq_d[cluster_id] = pair_freq
                     # self.fragment_cluster_residue_d[cluster_id]['freq'] = pair_freq
+        self.fragment_observations = [{'mapped': frag_obs[0], 'paired': frag_obs[1], 'cluster': frag_obs[2],
+                                       'match': frag_obs[3]} for frag_obs in fragment_observations]
+
+    # def return_fragment_metrics(self):
+    #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
+    #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
     def get_fragment_metrics(self):
         self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
@@ -863,7 +874,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def generate_interface_fragments(self):
         self.load_pose()
         self.pose.generate_interface_fragments(out_path=self.frags)
-        self.info['fragments'] = True
+        self.info['fragments'] = self.frag_file
         self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
