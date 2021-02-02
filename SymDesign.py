@@ -792,15 +792,18 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.sub_module == 'filter':
         if args.metric == 'score':
-            designpath_metric_tup_list = [(des_dir.asu, des_dir.score) for des_dir in design_directories]
+            designpath_metric_tup_list = [(des_dir.score, des_dir.path) for des_dir in design_directories]
         elif args.metric == 'fragments_matched':
-            designpath_metric_tup_list = [(des_dir.asu, des_dir.number_of_fragments) for des_dir in design_directories]
+            designpath_metric_tup_list = [(des_dir.number_of_fragments, des_dir.path) for des_dir in design_directories]
         else:
-            raise SDUtils.DesignError('The filter metric \'%s\' is not supported!' % args.metric)
+            raise SDUtils.DesignError('The metric \'%s\' is not supported!' % args.metric)
 
         logger.info('Sorting designs according to \'%s\'' % args.metric)
         designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0),
                                                    reverse=True)
+        logger.info('Ranked Designs according to %s:\n\t%s\tDesign\n\t%s'
+                    % (args.metric, args.metric.title(),
+                       '\n\t'.join('%.2f\t%s' % tup for tup in designpath_metric_tup_list_sorted)))
     # ---------------------------------------------------
     elif args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir, -f additional_flags
         # Initialize docking procedure
