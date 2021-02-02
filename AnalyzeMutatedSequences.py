@@ -27,10 +27,11 @@ from PDB import PDB
 from PoseProcessing import extract_aa_seq
 from SequenceProfile import remove_non_mutations, pos_specific_jsd, weave_mutation_dict, \
     generate_mutations, index_offset, make_mutations, populate_design_dict, create_bio_msa
-from SymDesignUtils import logger, index_offset
+from SymDesignUtils import index_offset  # logger,
 
 # Globals
 # logger = SDUtils.start_log(__name__)
+logger = SDUtils.start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 db = PUtils.biological_fragmentDB
 index_offset = SDUtils.index_offset
 
