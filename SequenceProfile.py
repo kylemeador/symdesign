@@ -692,10 +692,10 @@ class SequenceProfile:
             self.fragment_map = self.populate_design_dictionary(self.structure.number_of_residues,
                                                                 [j for j in range(*self.frag_db.fragment_range)],
                                                                 dtype=list)
-            print('New fragment_map')
-        print(fragments)
-        print(self.name)
-        print(self.entity_offset)
+        #     print('New fragment_map')
+        # print(fragments)
+        # print(self.name)
+        # print(self.entity_offset)
         for fragment in fragments:
             residue_number = fragment[alignment_type] - self.entity_offset
             for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
@@ -1293,11 +1293,11 @@ class FragmentDatabase(FragmentDB):
                 ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
         """
         if self.db:
-            print('No SQL DB connected yet!')  # Todo
-            return None
+            logger.warning('No SQL DB connected yet!')  # Todo
+            raise DesignError('Can\'t connect to MySQL database yet')
         else:
             for file in os.listdir(self.location):
-                if file.endswith('statistics.pkl'):
+                if 'statistics.pkl' in file:
                     self.statistics = unpickle(os.path.join(self.location, file))
 
     def get_db_aa_frequencies(self):
@@ -1345,8 +1345,8 @@ class FragmentDatabase(FragmentDB):
             self.cluster_info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
         """
         if self.db:
-            print('No SQL DB connected yet!')  # Todo
-            return None
+            logger.warning('No SQL DB connected yet!')  # Todo
+            raise DesignError('Can\'t connect to MySQL database yet')
         else:
             if not ids:
                 directories = get_all_base_root_paths(self.location)
@@ -2309,7 +2309,7 @@ def make_mutations(seq, mutations, find_orf=True):
             else:  # find correct offset, or mark mutation source as doomed
                 index_errors.append(key)
         except IndexError:
-            print(key - offset)
+            logger.error(key - offset)
     if index_errors:
         logger.warning('Index errors:\n%s' % str(index_errors))
 
