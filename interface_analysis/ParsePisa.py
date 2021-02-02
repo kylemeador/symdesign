@@ -10,9 +10,11 @@ from requests import get, post
 
 from PDB import PDB
 from PathUtils import pisa_db
-from SymDesignUtils import pickle_object, logger, to_iterable, remove_duplicates, io_save
+from SymDesignUtils import pickle_object, to_iterable, remove_duplicates, io_save, start_log # logger,
 
 # from interface_analysis.InterfaceSorting import logger
+
+logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 # Globals
 # pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}

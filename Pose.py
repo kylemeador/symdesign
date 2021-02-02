@@ -14,14 +14,16 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile, get_fragment_metrics
 from Structure import Coords
 # Globals
-from SymDesignUtils import to_iterable, logger, pickle_object, DesignError, calculate_overlap, \
-    filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, point_group_sdf_map, possible_symmetries
+from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap,  \
+    filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, point_group_sdf_map, possible_symmetries # logger,
 from FragDock import write_frag_match_info_file
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import MonoFragment, FragmentDB
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from utils.SymmUtils import valid_subunit_number
 
+
+logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 # # Initialize Euler Lookup Class
 # eul_lookup = EulerLookup()
@@ -1201,10 +1203,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, surface_frags1, surface_frags2,
                                                                          fragdb=self.frag_db)
-        self.log.info('Found %d overlapping fragment pairs at the %s | %s interface'
+        self.log.info('Found %d overlapping fragment pairs at the %s | %s interface.'
                       % (len(ghostfrag_surfacefrag_pairs), entity1.name, entity2.name))
         self.fragment_observations.extend(ghostfrag_surfacefrag_pairs)
-        fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
+        fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs, log=self.log)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
 
     def score_interface(self, entity1=None, entity2=None):
@@ -1212,7 +1214,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         return self.return_interface_metrics()
 
     def interface_design(self, design_dir=None, symmetry=None, output_assembly=False, evolution=True,
-                         fragments=True, query_fragments=False, existing_fragments=None, write_fragments=True,
+                         fragments=True, query_fragments=False, write_fragments=True,
                          frag_db='biological_interfaces', mask=None
                          ):  # Todo initialize without DesignDirectory
         """Take the provided PDB, and use the ASU to compute calculations relevant to interface design.
@@ -1613,7 +1615,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
     return ghostfrag_surffrag_pairs
 
 
-def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
+def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs, log=None):
     fragment_matches = []
     for interface_ghost_frag, interface_mono_frag, match_score in ghostfrag_surffrag_pairs:
         entity1_surffrag_ch, entity1_surffrag_resnum = interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
@@ -1621,6 +1623,9 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
         fragment_matches.append({'mapped': entity1_surffrag_resnum, 'match': match_score,
                                  'paired': entity2_surffrag_resnum, 'cluster': '%s_%s_%s'
                                                                                % interface_ghost_frag.get_ijk()})
+    if log:
+        log.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
+        log.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
 
     return fragment_matches
 

@@ -18,8 +18,11 @@ import PathUtils as PUtils
 from classes.Fragment import FragmentDB
 from utils.MysqlPython import Mysql
 from Query.PDB import get_sequence_by_entity_id
-from SymDesignUtils import logger, handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log, \
-    residue_interaction_graph
+from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log, \
+    residue_interaction_graph  # logger,
+
+
+logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 # Globals
 index_offset = 1

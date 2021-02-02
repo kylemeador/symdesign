@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import time
+import logging
 from csv import reader
 from glob import glob
 from itertools import repeat, product, combinations
@@ -36,6 +37,8 @@ from ProteinExpression import find_all_matching_pdb_expression_tags, add_express
 from Query.Flags import query_user_for_flags, return_default_flags
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
+
+# logging.getLogger()
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -163,7 +166,7 @@ def rsync_dir(des_dir):
                 # for m, process in enumerate(p2):
                 #     p2[m].communicate()
 
-                print('%s has been consolidated' % building_block_dir)
+                logger.info('%s has been consolidated' % building_block_dir)
 
     return des_dir.path
 
@@ -254,9 +257,9 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                         if f_rot2 == 0:
                             f_rot2 = last_rot2
                     # REMOVE
-                    print('Last State:', f_degen1, f_degen2, f_rot1, f_rot2)
-                    print('Expected:', degen1, degen2, last_rot1, last_rot2)
-                    print('From log: %s' % log_file)
+                    logger.info('Last State:', f_degen1, f_degen2, f_rot1, f_rot2)
+                    logger.info('Expected:', degen1, degen2, last_rot1, last_rot2)
+                    logger.info('From log: %s' % log_file)
                     if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
                         complete.append(os.path.join(des_dir.program_root[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
                         # complete.append(des_dir)
@@ -538,15 +541,15 @@ if __name__ == '__main__':
     # Start Logging
     # -----------------------------------------------------------------------------------------------------------------
     if args.debug:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
-        logger.debug('Debug mode. Verbose output')
+        logger = SDUtils.start_log(name=os.path.splitext(os.path.basename(__file__))[0], level=1)
     else:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
+        logger = SDUtils.start_log(name=os.path.splitext(os.path.basename(__file__))[0], level=2)
 
     if args.sub_module not in ['query', 'guide', 'flags', 'design_selection']:
         logger.info('Starting %s with options:\n\t%s' %
                     (os.path.basename(__file__),
                      '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
+    logger.debug('Debug mode. Verbose output')
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
@@ -798,8 +801,9 @@ if __name__ == '__main__':
         else:
             raise SDUtils.DesignError('The metric \'%s\' is not supported!' % args.metric)
 
-        logger.info('Sorting designs according to \'%s\'' % args.metric)
-        designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0),
+        # logger.info('Sorting designs according to \'%s\'' % args.metric)
+        designpath_metric_tup_list = [tup for tup in designpath_metric_tup_list if tup[0]]
+        designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[0] or 0),
                                                    reverse=True)
         logger.info('Ranked Designs according to %s:\n\t%s\tDesign\n\t%s'
                     % (args.metric, args.metric.title(),

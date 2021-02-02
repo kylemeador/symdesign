@@ -22,7 +22,10 @@ from Query.PDB import get_pdb_info_by_entry
 from SequenceProfile import write_fasta
 from Stride import Stride
 from Structure import Structure, Chain, Atom, Coords, Entity
-from SymDesignUtils import logger, remove_duplicates, start_log
+from SymDesignUtils import remove_duplicates, start_log  # logger
+
+
+logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 
 class PDB(Structure):
