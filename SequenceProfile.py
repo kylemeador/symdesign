@@ -165,7 +165,9 @@ class SequenceProfile:
 
             elif self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
                 self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
-                                                   for frag_obs in idx_d.values() for fragment in frag_obs])
+                                                   for fragments in idx_d.values() for fragment in fragments])
+            # else:  # eventual problem if not included here.
+
             # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
 
@@ -702,6 +704,7 @@ class SequenceProfile:
                 self.fragment_map[residue_number + j][j].append({'chain': alignment_type,
                                                                  'cluster': fragment['cluster'],
                                                                  'match': fragment['match']})
+        # should be unnecessary when fragments are generated internally
         # remove entries which don't exist on protein because of fragment_index +- residues
         not_available = [residue_number for residue_number in self.fragment_map
                          if residue_number <= 0 or residue_number > self.structure.number_of_residues]
@@ -724,7 +727,7 @@ class SequenceProfile:
             (dict): {0: {-2: {O: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, 1: {}}, -1: {}, ... },
                      1: {}, ...}
         """
-
+        self.log.debug('Generating Fragment Profile from Map')
         for residue_number, fragment_indices in self.fragment_map.items():
             self.fragment_profile[residue_number] = {}
             for frag_idx, fragments in fragment_indices.items():

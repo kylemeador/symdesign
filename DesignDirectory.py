@@ -897,7 +897,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.load_pose()
         # if self.info:  # Todo
         #     return None  # pose has already been initialized for design
-        self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
+        self.pose.interface_design(design_dir=self,  # output_assembly=self.output_assembly,
                                    evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.design_with_fragments, write_fragments=self.write_frags,
                                    query_fragments=self.query_fragments,)
