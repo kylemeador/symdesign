@@ -900,8 +900,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pose.interface_design(design_dir=self, output_assembly=self.output_assembly,
                                    evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.design_with_fragments, write_fragments=self.write_frags,
-                                   query_fragments=self.query_fragments,
-                                   frag_db=self.frag_db)
+                                   query_fragments=self.query_fragments,)
+                                   # frag_db=self.frag_db)  Todo clean up
         self.set_symmetry(**self.pose.return_symmetry_parameters())
         self.log.debug('DesignDirectory Symmetry: %s' % self.return_symmetry_parameters())
         self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
