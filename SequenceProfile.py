@@ -1338,7 +1338,7 @@ class FragmentDatabase(FragmentDB):
             if cluster not in self.cluster_info:
                 self.get_cluster_info(ids=[cluster])
             if source:
-                if index and source in ['mapped', 'paired']:
+                if index is not None and source in ['mapped', 'paired']:  # must check for not None. The index can be 0
                     return self.cluster_info[cluster][source][index]
                 else:
                     return self.cluster_info[cluster][source]
