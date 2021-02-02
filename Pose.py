@@ -396,6 +396,9 @@ class SymmetricModel(Model):
 
     def get_assembly_symmetry_mates(self, return_side_chains=True):  # For getting PDB copies
         """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
+        if not self.symmetry:
+            raise DesignError('%s: No symmetry set for %s! Cannot get symmetry mates'
+                              % (self.get_assembly_symmetry_mates.__name__, self.asu.name))
         if return_side_chains:  # get different function calls depending on the return type
             extract_pdb_atoms = getattr(PDB, 'get_atoms')
             # extract_pdb_coords = getattr(PDB, 'extract_coords')
@@ -1216,9 +1219,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
         return self.return_interface_metrics()
 
-    def interface_design(self, design_dir=None, symmetry=None, output_assembly=False, evolution=True,
+    def interface_design(self, design_dir=None, symmetry=None, evolution=True,
                          fragments=True, query_fragments=False, write_fragments=True,
-                         frag_db='biological_interfaces', mask=None
+                         frag_db='biological_interfaces',  # mask=None, output_assembly=False,
                          ):  # Todo initialize without DesignDirectory
         """Take the provided PDB, and use the ASU to compute calculations relevant to interface design.
 
@@ -1291,7 +1294,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                     self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                                             pdb_numbering=True)
                 else:  # assuming the input is in Pose numbering
-                    print(fragment_source)
+                    self.log.debug('Fragment data being pulled from file. Data:\n%s' % fragment_source)
                     self.add_fragment_query(query=fragment_source)
                 # for entity in self.entities:
                 #     entity.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
@@ -1299,6 +1302,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
             idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
             for query_pair, fragment_info in self.fragment_queries.items():
+                self.log.debug('Query Pair: %s, %s\nFragment Info: %s' % (query_pair[0].name, query_pair[1].name, fragment_info))
                 for query_idx, entity in enumerate(query_pair):
                     # Attach an existing FragmentDB to the Pose
                     entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
