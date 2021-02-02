@@ -1494,11 +1494,18 @@ class PDB(Structure):
         # self.entity_accession_map = {entity: self.dbref[self.entity_d[entity]['representative']]['accession']
         #                              for entity in self.entity_d}
 
-    def entity_by_chain(self, chain_id):
-        """Return the entity associated with a particular chain"""
+    def entity_from_chain(self, chain_id):
+        """Return the entity associated with a particular chain id"""
         # for entity, info in self.entity_d.items():
         for entity in self.entities:
             if chain_id == entity.chain_id:
+                return entity
+        return None
+
+    def entity_from_residue(self, residue_number):
+        """Return the entity associated with a particular Residue number"""
+        for entity in self.entities:
+            if entity.get_residues(numbers=residue_number):
                 return entity
         return None
 
@@ -1689,8 +1696,8 @@ class PDB(Structure):
                             #     & set(partner_entity_partner_chain_first_chain_d[entity][partner_chain]))
                     self.log.info('All original chain contacts: %s' % extra_first_entity_chains)
                     all_asu_chains = list(set(first_entity_chain_contacts)) + extra_first_entity_chains
-                    # Todo entity_by_chain returns entity now
-                    unique_chains_entity = {_chain: self.entity_by_chain(_chain) for _chain in all_asu_chains}
+                    # Todo entity_from_chain returns Entity now
+                    unique_chains_entity = {_chain: self.entity_from_chain(_chain) for _chain in all_asu_chains}
                     # need to make sure that the partner entity chains are all contacting as well...
                     # for chain in found_chains:
                 self.log.info('partners: %s' % unique_chains_entity)
@@ -1699,8 +1706,8 @@ class PDB(Structure):
             # return list(set(first_entity_chain_contacts)) + extra_first_entity_chains
             # return unique_chains_entities
 
-        # Todo entity_by_chain returns entity now
-        unique_chains = get_unique_contacts(chain, entity=self.entity_by_chain(chain), extra=extra)
+        # Todo entity_from_chain returns Entity now
+        unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
 
         asu = self.chain(chain).get_atoms()
         for atoms in [self.chain(partner_chain).get_atoms() for partner_chain in unique_chains]:
