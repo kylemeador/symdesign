@@ -730,10 +730,10 @@ class SequenceProfile:
         self.log.debug('Generating Fragment Profile from Map')
         for residue_number, fragment_indices in self.fragment_map.items():
             self.fragment_profile[residue_number] = {}
-            if residue_number == 12:
-                print('At 12, fragment_map: %s' % self.fragment_map)
-            if residue_number == 13:
-                print('At 12, fragment_map: %s' % self.fragment_profile[12].items())
+            # if residue_number == 12:
+            #     print('At 12, fragment_map: %s' % self.fragment_map)
+            # if residue_number == 13:
+            #     print('At 12, fragment_map: %s' % self.fragment_profile[12].items())
             for frag_idx, fragments in fragment_indices.items():
                 self.fragment_profile[residue_number][frag_idx] = {}
                 # observation_d = {}
@@ -747,8 +747,8 @@ class SequenceProfile:
                     self.fragment_profile[residue_number][frag_idx][observation_idx] = aa_freq
                     self.fragment_profile[residue_number][frag_idx][observation_idx]['match'] = fragment['match']
 
-                    if residue_number == 12:
-                        print('Observation_index %d\nAA_freq %s\nMatch %f' % (observation_idx, aa_freq, fragment['match']))
+                    # if residue_number == 12:
+                    #     print('Observation_index %d\nAA_freq %s\nMatch %f' % (observation_idx, aa_freq, fragment['match']))
                     # observation_d[obs_idx] = aa_freq
                     # observation_d[obs_idx]['match'] = fragment['match']
                 # self.fragment_map[residue_number][frag_index] = observation_d
@@ -885,6 +885,9 @@ class SequenceProfile:
             for entry in self.profile:
                 self.profile[entry]['lod'] = null_residue  # Caution all reference same object
             for entry in self.fragment_profile:
+                print('Entry: %d' % entry)
+                if entry not in self.fragment_profile:
+                    print('Entry not found: %d' % entry)
                 self.profile[entry]['lod'] = get_lod(self.fragment_profile[entry],
                                                      database_background_aa_frequencies, round_lod=False)
                 # get the sum for the partition function
