@@ -182,8 +182,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.source = os.path.join(self.path, PUtils.asu)
                 self.set_up_design_directory()
 
-                self.gather_pose_metrics()
-                self.gather_fragment_info()
+                # self.gather_pose_metrics()
+                # self.gather_fragment_info()
             elif self.mode == 'dock':
                 # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
                 # using typical directory structuring
@@ -235,12 +235,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     os.makedirs(self.path)
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
                 self.path = design_path
+                self.source = os.path.join(self.path, PUtils.clean)
                 self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])  # symmetry.rstrip(os.sep)
                 self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
                 self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
 
-            self.set_up_design_directory()
             self.start_log(debug=debug)
+            self.set_up_design_directory()
             # self.design_from_file(symmetry=symmetry)
         self.set_flags(**kwargs)
 
@@ -275,16 +276,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # When is this relevant?
             return self.path.replace(os.sep, '-')[1:]
 
-    def start_log(self, name=None, debug=False, level=2):
-        if not name:
-            name = self.name
+    def start_log(self, debug=False, level=2):
         if debug:
-            handler = 1
-            level = 1
+            handler, level = 1, 1
         else:
             handler = 2
-        self.log = start_log(name=name, handler=handler, level=level, location=os.path.join(self.path, name))
-        #                                                                              os.path.basename(self.path)))
+        self.log = start_log(name=self.name, handler=handler, level=level, location=os.path.join(self.path, self.name))
 
     def connect_db(self, frag_db=None, design_db=None, score_db=None):
         if frag_db and isinstance(frag_db, FragmentDatabase):
@@ -874,6 +871,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose.get_assembly_symmetry_mates()
             self.pose.write(out_path=os.path.join(self.path, PUtils.assembly))
             self.log.info('Expanded Assembly PDB: \'%s\'' % os.path.join(self.path, PUtils.assembly))
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
+    def expand_asu(self):
+        print(self.source)
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
+                                       design_selection=self.design_selection, frag_db=self.frag_db)
+        # Save renumbered PDB to clean_asu.pdb
+        self.pose.pdb.write(out_path=self.asu)
+        self.log.info('Cleaned PDB: \'%s\'' % self.asu)
+        self.pose.get_assembly_symmetry_mates()
+        self.pose.write(out_path=os.path.join(self.path, PUtils.assembly))
+        self.log.info('Expanded Assembly PDB: \'%s\'' % os.path.join(self.path, PUtils.assembly))
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
