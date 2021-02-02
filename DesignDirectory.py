@@ -326,10 +326,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
         self.info_pickle = os.path.join(self.data, 'info.pkl')
-
+        self.gather_fragment_info()
         if os.path.exists(self.info_pickle):  # Pose has already been processed. We can assume files are available
             self.info = unpickle(self.info_pickle)
-            self.gather_fragment_info()
+            if self.info['design']:
+                dummy = True
+            if self.info['fragments']:
+                self.gather_fragment_info()
         else:  # Ensure directories are only created once Pose Processing is called
             if not os.path.exists(self.protein_data):
                 os.makedirs(self.protein_data)
@@ -477,8 +480,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def gather_fragment_info(self):
         """Gather fragment metrics from Nanohedra output"""
         with open(self.frag_file, 'r') as f:
-            frag_match_info_file = f.readlines()
-            for line in frag_match_info_file:
+            for line in f.readlines():
                 # overlap_rmsd_divded_by_cluster_rmsd
                 if line[:6] == 'z-val:':
                     match_score = match_score_from_z_value(float(line[6:].strip()))
@@ -861,6 +863,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def generate_interface_fragments(self):
         self.load_pose()
         self.pose.generate_interface_fragments(out_path=self.frags)
+        self.info['fragments'] = True
+        self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
