@@ -2,7 +2,7 @@ import math
 import os
 import subprocess
 import time
-from copy import deepcopy  # copy,
+from copy import deepcopy, copy
 from glob import glob, iglob
 from itertools import chain
 
@@ -2732,8 +2732,10 @@ def calculate_match_metrics(fragment_matches):
     if not fragment_matches:
         return None
 
-    fragment_i_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
-    fragment_j_index_count_d = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
+    fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    fragment_j_index_count_d = copy(fragment_i_index_count_d)
+    total_fragment_content = copy(fragment_i_index_count_d)
+
     entity1_match_scores, entity2_match_scores = {}, {}
     separated_fragment_metrics = {'mapped': {'center': {'residues': set()}, 'total': {'residues': set()}},
                                   'paired': {'center': {'residues': set()}, 'total': {'residues': set()}},
@@ -2763,8 +2765,8 @@ def calculate_match_metrics(fragment_matches):
             else:
                 entity2_match_scores[resnum2].append(fragment['match'])
 
-        fragment_i_index_count_d[fragment['cluster'].split('_')[0]] += 1
-        fragment_j_index_count_d[fragment['cluster'].split('_')[1]] += 1
+        fragment_i_index_count_d[int(fragment['cluster'].split('_')[0])] += 1
+        fragment_j_index_count_d[int(fragment['cluster'].split('_')[1])] += 1
 
     separated_fragment_metrics['mapped']['match_scores'] = entity1_match_scores
     separated_fragment_metrics['paired']['match_scores'] = entity2_match_scores
@@ -2820,7 +2822,6 @@ def calculate_match_metrics(fragment_matches):
     multiple_frag_ratio = separated_fragment_metrics['total']['observations'] * 2 / central_residues_with_fragment_overlap
     # -------------------------------------------
     # turn individual index counts into paired counts # and percentages <- not accurate if summing later, need counts
-    total_fragment_content = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0}
     for index, count in separated_fragment_metrics['mapped']['index_count'].items():
         total_fragment_content[index] += count
         # separated_fragment_metrics['mapped']['index'][index_count] = count / separated_fragment_metrics['number']
