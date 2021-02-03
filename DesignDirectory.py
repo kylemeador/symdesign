@@ -14,7 +14,7 @@ from PDB import PDB
 import PathUtils as PUtils
 from Pose import Pose
 from Query.Flags import load_flags
-from SequenceProfile import get_fragment_metrics, FragmentDatabase
+from SequenceProfile import calculate_match_metrics, FragmentDatabase
 from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file, \
     DesignError, match_score_from_z_value, handle_design_errors, pickle_object, write_commands
 
@@ -104,7 +104,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.fragment_residues_total = None  # TODO MOVE Metrics
         self.percent_overlapping_fragment = None  # TODO MOVE Metrics
         self.multiple_frag_ratio = None  # TODO MOVE Metrics
-        self.fragment_content_d = None  # TODO MOVE Metrics
+        # self.fragment_content_d = None
+        self.helical_fragment_content = None  # TODO MOVE Metrics
+        self.strand_fragment_content = None  # TODO MOVE Metrics
+        self.coil_fragment_content = None  # TODO MOVE Metrics
         self.ave_z = None  # TODO MOVE Metrics
 
         # Design flags
@@ -519,11 +522,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
     def get_fragment_metrics(self):
-        self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
-            self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d = \
-            get_fragment_metrics(self.fragment_observations)
+        """Set the design fragment metrics for all fragment observations"""
+        total_design_metrics = self.pose.return_fragment_query_metrics(total=True)
+        self.all_residue_score = total_design_metrics['nanohedra_score']
+        self.center_residue_score = total_design_metrics['nanohedra_score_central']
+        self.fragment_residues_total = total_design_metrics['number_fragment_residues_total']
+        self.central_residues_with_fragment_overlap = total_design_metrics['number_fragment_residues_central']
+        self.multiple_frag_ratio = total_design_metrics['multiple_fragment_ratio']
+        self.helical_fragment_content = total_design_metrics['percent_fragment_helix']
+        self.strand_fragment_content = total_design_metrics['percent_fragment_strand']
+        self.coil_fragment_content = total_design_metrics['percent_fragment_coil']
+
+        # 'total_interface_residues': total_residues,
+        # 'percent_residues_fragment_all': percent_interface_covered,
+        # 'percent_residues_fragment_center': percent_interface_matched,
+        # 'fragment_cluster_ids': ','.join(clusters),  # Todo
         # Need to grab the total residue number from these to calculate correctly
-        # elf.interface_residue_count, self.percent_interface_matched, self.percent_interface_covered,
+        # self.interface_residue_count, self.percent_interface_matched, self.percent_interface_covered,
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_pose_metrics(self):
@@ -617,17 +632,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         main_cmd = copy.deepcopy(script_cmd)
         # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = des_dir.symmetry_parameters()
         # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
-        protocol = PUtils.protocol[self.design_dim]
-        if self.design_dim > 0:  # layer or space
-            sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
-            main_cmd += ['-symmetry_definition', 'CRYST1']
-        else:  # point
-            print(self.sym_entry_number)
-            sym_def_file = sdf_lookup(self.sym_entry_number)
-            main_cmd += ['-symmetry_definition', sym_def_file]
+        if self.design_dim:
+            protocol = PUtils.protocol[self.design_dim]
+            if self.design_dim > 0:  # layer or space
+                sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
+                main_cmd += ['-symmetry_definition', 'CRYST1']
+            else:  # point
+                self.log.debug(self.sym_entry_number)
+                sym_def_file = sdf_lookup(self.sym_entry_number)
+                main_cmd += ['-symmetry_definition', sym_def_file]
+            self.log.info('Symmetry Option: %s' % protocol)
+        else:
+            protocol = 'null'
+            self.log.critical('No symmetry invoked during design. Rosetta will design your PDB which, if is an ASU may'
+                              ' be missing crucial contacts. Is this what you want?')
 
-        # logger.info('Symmetry Information: %s' % cryst)
-        self.log.info('Symmetry Option: %s' % protocol)
         if self.nano:
             self.log.info('Input Oligomers: %s' % ', '.join(name for name in self.oligomers))
 
@@ -641,24 +660,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   for entity, residues in self.pose.interface_residues.values()
                                   for residue in residues))
 
-        # Mutate all design positions to Ala
-        mutated_pdb = copy.deepcopy(self.pose.pdb)
-        # Remove Side Chain Atoms to Ala NECESSARY for all chains to ASU chain map
-        # mutated_pdb.mutate_residues(self.interface_residues, 'ALA')  # No, because need GLY check
-        for residues in self.pose.interface_residues.values():
-            for residue in residues:
-                if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
-                    mutated_pdb.mutate_to(residue.number)
-
-        # Todo move this write
-        mutated_pdb.write(out_path=self.refine_pdb)
-        self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
-
-        # need to assign the designable residues for each entity to a interfaceA or interfaceB variable
-        interface_metrics = self.pose.return_interface_metrics()
-        # Todo move this log
-        self.log.info('Pulling fragment info from clusters: %s' % ', '.join(metrics['fragment_cluster_ids']
-                                                                            for metrics in interface_metrics.values()))
+        # # need to assign the designable residues for each entity to a interfaceA or interfaceB variable
+        # interface_metrics = self.pose.return_fragment_query_metrics()
+        #
+        # self.log.info('Pulling fragment info from clusters: %s' % ', '.join(metrics['fragment_cluster_ids']
+        #                                                                    for metrics in interface_metrics.values()))
 
         # Get ASU distance parameters
         if self.nano:  # Todo adapt to self.design_dim and not nanohedra input
@@ -716,15 +722,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             else:
                 self.log.critical('Cannot run consensus design without fragment info. Did you mean to design with '
                                   '-fragments_exist None & -generate_fragments False?')
-        # else:
-        #     additional_cmd = []
+
+        # Mutate all design positions to Ala before the Refinement
+        mutated_pdb = copy.deepcopy(self.pose.pdb)
+        for residues in self.pose.interface_residues.values():
+            for residue in residues:
+                if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+                    mutated_pdb.mutate_residue(residue.number, to='A')
+
+        mutated_pdb.write(out_path=self.refine_pdb)
+        self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
 
         # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
         if self.script:
             self.log.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
                                                     out_path=self.scripts))
-            #                    additional=additional_cmd)
         else:
             self.log.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
             refine_process = subprocess.Popen(relax_cmd)
