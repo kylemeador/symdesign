@@ -56,7 +56,7 @@
 		<SwitchMover name="combo_profile_switch" movers="combo_profile" selected="combo_profile"/>
 		<SwitchMover name="favor_profile_switch" movers="favor_profile" selected="favor_profile"/>
 		<SwitchMover name="consensus_design_switch" movers="consensus_design" selected="consensus_design"/>
-		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%"/>
+		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
 		# random sub-protocol generator
 		<ParsedProtocol name="set_up_constraint_and_design" mode="single_random">
 			<Add mover_name="no_constraint_switch" 		apply_probability="%%free_percent%%"/>  # default 0.5
