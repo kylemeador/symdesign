@@ -11,7 +11,7 @@ from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
 from PDB import PDB
-from SequenceProfile import SequenceProfile, get_fragment_metrics
+from SequenceProfile import SequenceProfile, calculate_match_metrics
 from Structure import Coords
 # Globals
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap,  \
@@ -1216,8 +1216,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.fragment_queries[(entity1, entity2)] = fragment_matches
 
     def score_interface(self, entity1=None, entity2=None):
-        self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
-        return self.return_interface_metrics()
+        if (entity1, entity2) not in self.fragment_queries and (entity2, entity1) not in self.fragment_queries:
+            self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
+            self.calculate_fragment_query_metrics()
+
+        return self.return_fragment_query_metrics(entity1=entity1, entity2=entity2, per_interface=True)
 
     def interface_design(self, design_dir=None, symmetry=None, evolution=True,
                          fragments=True, query_fragments=False, write_fragments=True,
@@ -1300,13 +1303,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 #     entity.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                 #                               pdb_numbering=True)
 
-            idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
             for query_pair, fragment_info in self.fragment_queries.items():
                 self.log.debug('Query Pair: %s, %s\nFragment Info: %s' % (query_pair[0].name, query_pair[1].name, fragment_info))
                 for query_idx, entity in enumerate(query_pair):
                     # Attach an existing FragmentDB to the Pose
                     entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
-                    entity.assign_fragments(fragments=fragment_info, alignment_type=idx_to_alignment_type[query_idx])
+                    entity.assign_fragments(fragments=fragment_info,
+                                            alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
 
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
@@ -1681,9 +1684,22 @@ def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
     if write:
         write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
 
-    all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
-        central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
-        get_fragment_metrics(fragment_matches)
+    # all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
+    #     central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
+    #     calculate_match_metrics(fragment_matches)
+
+    match_metrics = calculate_match_metrics(fragment_matches)
+    # Todo
+    #   'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
+    #                         'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
+    #                         'match_scores': {residue number(int): (list[score (float)]), ...},
+    #                         'index_count': {index (int): count (int), ...},
+    #                         'multiple_ratio': (float)}
+    #              'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
+    #              'total': {'center': {'score': , 'number': },
+    #                        'total': {'score': , 'number': },
+    #                        'index_count': , 'multiple_ratio': , 'observations': (int)}
+    #              }
 
     total_residues = {'A': set(), 'B': set()}
     for pair in interacting_residue_pairs:
