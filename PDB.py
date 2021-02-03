@@ -1200,31 +1200,6 @@ class PDB(Structure):
 
         return total_sasa
 
-    # def mutate_to(self, chain_id, residue_number, res_id='ALA'):  # KM added 12/31/19 to mutate pdb Residue objects to alanine
-    #     """Mutate specific chain and residue to a new residue type. Type can be 1 or 3 letter format"""
-    #     # if using residue number, then residue_atom_list[i] is necessary
-    #     # else using Residue object, residue.atoms[i] is necessary
-    #     if res_id in IUPACData.protein_letters_1to3:
-    #         res_id = IUPACData.protein_letters_1to3[res_id]
-    #
-    #     residue_atom_list = self.chain(chain_id).residue(residue_number).get_atoms()
-    #     # residue_atom_list = self.get_residue_atoms(chain, residue)
-    #     delete = []
-    #     for i, atom in enumerate(residue_atom_list):
-    #         if atom.is_backbone() or atom.is_CB():
-    #             residue_atom_list[i].residue_type = res_id.upper()
-    #         else:
-    #             delete.append(i)
-    #     # TODO using AA reference lib, align the backbone + CB atoms of the residue then insert all side chain atoms
-    #     if delete:
-    #         # delete = sorted(delete, reverse=True)
-    #         # for j in delete:
-    #         for j in reversed(delete):
-    #             i = residue_atom_list[j]
-    #             self.atoms.remove(i)
-    #         # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
-    #         self.renumber_atoms()
-
     def insert_residue(self, chain_id, residue_number, residue_type):  # Todo Chain compatible
         """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
         indexed"""
