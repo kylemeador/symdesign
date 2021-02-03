@@ -34,22 +34,23 @@ layer_group_d = {2, 4, 10, 12, 17, 19, 20, 21, 23,
                  71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
 
 # Todo get SDF files for all commented out
-possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T',  # 'O32': 'O', 'O42': 'O', 'O43': 'O'
+possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T', 'O32': 'O', 'O42': 'O', 'O43': 'O',
                        'I:{C2}{C3}': 'I', 'I:{C2}{C5}': 'I', 'I:{C3}{C5}': 'T', 'T:{C2}{C3}': 'T',
                        'T:{C3}{C3}': 'T',  # 'O:{C2}{C3}': 'O', 'O:{C2}{C4}': 'O', 'O:{C3}{C4}': 'I',
                        'I:{C3}{C2}': 'I', 'I:{C5}{C2}': 'I', 'I:{C5}{C3}': 'I', 'T:{C3}{C2}': 'T',
-                       'T:{C3}{C3}': 'T',  # 'O:{C3}{C2}': 'O', 'O:{C4}{C2}': 'O', 'O:{C4}{C3}': 'I'
-                       # 'T', 'O', 'I'
+                       # 'O:{C3}{C2}': 'O', 'O:{C4}{C2}': 'O', 'O:{C4}{C3}': 'I'
+                       'T': 'T', 'O': 'O', 'I': 'I',
                        # layer groups
                        # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
                        # space groups  # Todo
                        }
 # Todo space and cryst
-all_sym_entry_dict = {'T': {'C2': {'C3': 54}, 'C3': {'C2': 54, 'C3': 7}},
-                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}},
+all_sym_entry_dict = {'T': {'C2': {'C3': 54}, 'C3': {'C2': 54, 'C3': 7}, 'T': -1},
+                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': -2},
                       'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}}}
 
-point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33', 7: 'O32', 13: 'O42', 56: 'O43'}
+point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33', 7: 'O32', 13: 'O42', 56: 'O43',
+                       -1: 'T3', -2: 'O3'}
 
 
 def parse_symmetry_to_nanohedra_entry(symmetry_string):
@@ -59,10 +60,12 @@ def parse_symmetry_to_nanohedra_entry(symmetry_string):
         clean_split = [split.strip('}:') for split in symmetry_split]
     elif len(symmetry_string) == 3:  # Rosetta Formatting
         clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
-    else:  # C2, D6, I, T, O
+    elif symmetry_string in ['T', 'O']:  # , 'I']:
+        clean_split = [symmetry_string, symmetry_string]  # , symmetry_string]
+    else:  # C2, D6, C34
         raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
 
-    logger.debug(clean_split)
+    logger.debug('Symmetry parsing split: %s' % clean_split)
     try:
         sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
     except KeyError:
@@ -70,7 +73,7 @@ def parse_symmetry_to_nanohedra_entry(symmetry_string):
         sym_entry = symmetry_string
         raise ValueError('%s is not a supported symmetry!' % symmetry_string)
 
-    logger.debug(sym_entry)
+    logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
     return sym_entry
 
 

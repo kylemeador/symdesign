@@ -2,15 +2,13 @@ symmetry_name T33
 subunits 12
 number_of_interfaces 11
 E = 2*BA11+1*(BA11:BA12)+1*(BA11:BA13)+1*(BA11:BA21)+1*(BA11:BA22)+1*(BA11:BA23)+1*(BA11:BA31)+1*(BA11:BA32)+1*(BA11:BA33)+1*(BA11:BA41)+1*(BA11:BA42)+1*(BA11:BA43)
-
 anchor_residue COM
+#
 virtual_coordinates_start
-
 # foldtree root virtuals
 xyz ROOT +1,+0,+0 +0,+1,+0 0,0,0
 xyz RA   +1,+0,+0 +0,+1,+0 0,0,0
 xyz RB   +1,+0,+0 +0,+1,+0 0,0,0
-
 # trimer 1 virtuals
 xyz CA1  +1,+1,+1 +1,+1,-2 0,0,0
 xyz PA1  +1,+1,+1 +1,+1,-2 0,0,0
@@ -32,13 +30,12 @@ xyz PA4  +1,-1,-1 -2,-1,-1 0,0,0
 xyz BA41 +1,-1,-1 -2,-1,-1 0,0,0
 xyz BA42 +1,-1,-1 +1,-1,+2 0,0,0
 xyz BA43 +1,-1,-1 +1,+2,-1 0,0,0
-
 # trimer 2 virtuals
 xyz CB1  +1,+1,-1 +1,+1,+2 0,0,0
 xyz PB1  +1,+1,-1 +1,+1,+2 0,0,0
-xyz BB11 +1,+1,-1 +1,+1,+2 0,0,0
-xyz BB12 +1,+1,-1 +1,-2,-1 0,0,0
-xyz BB13 +1,+1,-1 -2,+1,-1 0,0,0
+xyz BB11 +1,+1,-1 +1,+1,+2 0,0,0  # just negated on Z from above partner
+xyz BB12 +1,+1,-1 +1,-2,-1 0,0,0  # just negated on Z from above partner
+xyz BB13 +1,+1,-1 -2,+1,-1 0,0,0  # just negated on Z from above partner
 xyz CB2  +1,-1,+1 +1,+2,+1 0,0,0
 xyz PB2  +1,-1,+1 +1,+2,+1 0,0,0
 xyz BB21 +1,-1,+1 +1,+2,+1 0,0,0
@@ -55,6 +52,7 @@ xyz BB41 -1,-1,-1 -1,-1,+2 0,0,0
 xyz BB42 -1,-1,-1 -1,+2,-1 0,0,0
 xyz BB43 -1,-1,-1 +2,-1,-1 0,0,0
 virtual_coordinates_stop
+#
 connect_virtual JRA   ROOT RA
 connect_virtual JRB   ROOT RB
 connect_virtual JAR1  RA   CA1
@@ -121,6 +119,7 @@ connect_virtual JBB33 BB33 SUBUNIT B COM
 connect_virtual JBB41 BB41 SUBUNIT B COM
 connect_virtual JBB42 BB42 SUBUNIT B COM
 connect_virtual JBB43 BB43 SUBUNIT B COM
+#
 set_dof JAC1 x angle_x
 set_dof JBC1 x angle_x
 set_jump_group GJAC JAC1 JAC2 JAC3 JAC4
