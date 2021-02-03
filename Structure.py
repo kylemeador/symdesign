@@ -432,19 +432,19 @@ class Structure:  # (Coords):
                     break
         # self.renumber_atoms()  # should be unnecessary
 
-    def mutate_to(self, residue_number, res_id='ALA'):
+    def mutate_residue(self, residue_number, to='ALA'):
         """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format"""
         # if using residue number, then residue_atom_list[i] is necessary
         # else using Residue object, residue.atoms[i] is necessary
-        if res_id in IUPACData.protein_letters_1to3:
-            res_id = IUPACData.protein_letters_1to3[res_id]
+        if to.upper() in IUPACData.protein_letters_1to3:
+            to = IUPACData.protein_letters_1to3[to.upper()]
 
         residue_atom_list = self.residue(residue_number).get_atoms()
         # residue_atom_list = self.get_residue_atoms(chain, residue)  # residue.atoms
         delete = []
         for i, atom in enumerate(residue_atom_list):
             if atom.is_backbone() or atom.is_CB():
-                residue_atom_list[i].residue_type = res_id.upper()
+                residue_atom_list[i].residue_type = to.upper()
                 # atom.residue_type = res_id.upper()  # should be fine? Atom is an Atom object reference by others
             else:  # TODO using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms
                 delete.append(i)
