@@ -2704,9 +2704,9 @@ def return_fragment_interface_metrics(metrics):
             'number_fragments': metrics['total']['observations'],
             'percent_fragment_helix': (metrics['total']['index_count'][1] /
                                        (metrics['total']['observations'] * 2)),
-            'percent_fragment_strand': (metrics['index_count'][2] / (metrics['total']['observations'] * 2)),
-            'percent_fragment_coil': ((metrics['index_count'][3] + metrics['index_count'][4]
-                                       + metrics['index_count'][5]) / (metrics['total']['observations'] * 2))}
+            'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
+            'percent_fragment_coil': ((metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
+                                       + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2))}
 
 
 def calculate_match_metrics(fragment_matches):
