@@ -1297,7 +1297,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                     self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                                             pdb_numbering=True)
                 else:  # assuming the input is in Pose numbering
-                    self.log.debug('Fragment data being pulled from file. Data:\n%s' % fragment_source)
+                    self.log.debug('Fragment data being pulled from file')  #. Data:\n%s' % fragment_source)
                     self.add_fragment_query(query=fragment_source)
                 # for entity in self.entities:
                 #     entity.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,

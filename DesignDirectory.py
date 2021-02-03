@@ -639,7 +639,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         main_cmd = copy.deepcopy(script_cmd)
         # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = des_dir.symmetry_parameters()
         # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
-        if self.design_dim:
+        if self.design_dim is not None:  # can be 0
             protocol = PUtils.protocol[self.design_dim]
             if self.design_dim > 0:  # layer or space
                 sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
@@ -650,9 +650,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 main_cmd += ['-symmetry_definition', sym_def_file]
             self.log.info('Symmetry Option: %s' % protocol)
         else:
-            protocol = 'null'
-            self.log.critical('No symmetry invoked during design. Rosetta will design your PDB which, if is an ASU may'
-                              ' be missing crucial contacts. Is this what you want?')
+            sym_def_file, protocol = 'null', 'null'
+            self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it is'
+                              'an ASU, may be missing crucial contacts. Is this what you want?')
 
         if self.nano:
             self.log.info('Input Oligomers: %s' % ', '.join(name for name in self.oligomers))
