@@ -14,7 +14,7 @@ from PDB import PDB
 import PathUtils as PUtils
 from Pose import Pose
 from Query.Flags import load_flags
-from SequenceProfile import calculate_match_metrics, FragmentDatabase
+from SequenceProfile import calculate_match_metrics, FragmentDatabase, return_fragment_interface_metrics
 from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file, \
     DesignError, match_score_from_z_value, handle_design_errors, pickle_object, write_commands
 
@@ -266,8 +266,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             try:
                 return self.center_residue_score / self.central_residues_with_fragment_overlap
             except (AttributeError, ZeroDivisionError):
-                self.log.warning('%s: There are no fragment observations associated with this Design! Have you scored '
-                                 'it yet? See \'Scoring Interfaces\' in the %s' % (self.path, PUtils.guide_string))
+                raise DesignError('No fragment information available! Design cannot be scored.')
 
     @property
     def number_of_fragments(self):
@@ -361,7 +360,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if os.path.exists(self.frag_file):
             # if self.info['fragments']:
             self.gather_fragment_info()
-            self.get_fragment_metrics()
+            self.get_fragment_metrics(from_file=True)
 
     def get_oligomers(self):
         if self.mode == 'design':
@@ -521,9 +520,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
-    def get_fragment_metrics(self):
+    def get_fragment_metrics(self, from_file=True, from_pose=False):
         """Set the design fragment metrics for all fragment observations"""
-        total_design_metrics = self.pose.return_fragment_query_metrics(total=True)
+        if from_file and self.fragment_observations:
+            total_design_metrics = return_fragment_interface_metrics(calculate_match_metrics(self.fragment_observations))
+        elif from_pose and self.pose:
+            total_design_metrics = self.pose.return_fragment_query_metrics(total=True)
+        else:
+            self.log.warning('%s: There are no fragment observations associated with this Design! Have you scored '
+                             'it yet? See \'Scoring Interfaces\' in the %s' % (self.path, PUtils.guide_string))
+            return None
+
         self.all_residue_score = total_design_metrics['nanohedra_score']
         self.center_residue_score = total_design_metrics['nanohedra_score_central']
         self.fragment_residues_total = total_design_metrics['number_fragment_residues_total']
