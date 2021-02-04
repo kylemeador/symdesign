@@ -434,34 +434,21 @@ class Structure:  # (Coords):
 
     def mutate_residue(self, residue_number, to='ALA'):
         """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format"""
-        # if using residue number, then residue_atom_list[i] is necessary
-        # else using Residue object, residue.atoms[i] is necessary
         if to.upper() in IUPACData.protein_letters_1to3:
             to = IUPACData.protein_letters_1to3[to.upper()]
 
         residue = self.residue(residue_number)
-        # residue_atom_list = self.get_residue_atoms(chain, residue)  # residue.atoms
         delete = []
         for atom in residue.get_atoms():
-            if atom.is_backbone():  # or atom.is_CB():
-                # residue_atom_list[i].residue_type = to.upper()
+            if atom.is_backbone():
                 atom.residue_type = to.upper()  # should be fine? Atom is an Atom object reference by others
-            else:  # TODO using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
+            else:  # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
                 # delete.append(i)
                 delete.append(atom)
 
-        # if delete:
-            # delete = sorted(delete, reverse=True)
-            # for j in delete:
-        print(str(residue))
         for atom in reversed(delete):
-            # i = residue_atom_list[j]
-            # self.atoms.remove(i)
-            print(str(atom))
             self.atoms.remove(atom)
             residue.atoms.remove(atom)
-        print(str(residue))
-        # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
         self.renumber_atoms()
 
     def get_structure_sequence(self):
