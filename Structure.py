@@ -439,25 +439,30 @@ class Structure:  # (Coords):
         if to.upper() in IUPACData.protein_letters_1to3:
             to = IUPACData.protein_letters_1to3[to.upper()]
 
-        residue_atom_list = self.residue(residue_number).get_atoms()
+        residue = self.residue(residue_number)
         # residue_atom_list = self.get_residue_atoms(chain, residue)  # residue.atoms
         delete = []
-        for i, atom in enumerate(residue_atom_list):
-            if atom.is_backbone() or atom.is_CB():
-                residue_atom_list[i].residue_type = to.upper()
-                # atom.residue_type = res_id.upper()  # should be fine? Atom is an Atom object reference by others
-            else:  # TODO using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms
-                delete.append(i)
-                # delete.append(atom)
+        for atom in residue.get_atoms():
+            if atom.is_backbone():  # or atom.is_CB():
+                # residue_atom_list[i].residue_type = to.upper()
+                atom.residue_type = to.upper()  # should be fine? Atom is an Atom object reference by others
+            else:  # TODO using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
+                # delete.append(i)
+                delete.append(atom)
 
-        if delete:
+        # if delete:
             # delete = sorted(delete, reverse=True)
             # for j in delete:
-            for j in reversed(delete):
-                i = residue_atom_list[j]
-                self.atoms.remove(i)
-            # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
-            self.renumber_atoms()
+        print(str(residue))
+        for atom in reversed(delete):
+            # i = residue_atom_list[j]
+            # self.atoms.remove(i)
+            print(str(atom))
+            self.atoms.remove(atom)
+            residue.atoms.remove(atom)
+        print(str(residue))
+        # self.delete_atoms(residue_atom_list[j] for j in reversed(delete))  # TODO use this instead
+        self.renumber_atoms()
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
