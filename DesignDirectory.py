@@ -702,7 +702,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         all_chains = [entity.chain_id for entity in self.pose.entities]  # pose.interface_residues}  # ['A', 'B', 'C']
         interface_residue_d = {'interface%s' % chain: '' for chain in all_chains}
-        for i, (entity, residues) in enumerate(self.pose.interface_residues.items(), 1):
+        for entity, residues in self.pose.interface_residues.items():
             interface_residue_d['interface%s' % entity.chain_id] = ','.join('%d%s'
                                                                             % (residue.number, entity.chain_id)
                                                                             for residue in residues)
