@@ -1268,6 +1268,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
 
+        # first get interface residues
+        for entity_pair in combinations_with_replacement(self.active_entities, 2):
+            self.find_interface_residues(*entity_pair)
+
         if fragments:
             if query_fragments:  # search for new fragment information
                 self.generate_interface_fragments(db=design_dir.frag_db, out_path=design_dir.frags,
@@ -1356,7 +1360,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         #                       'initialized the Pose with a database!' % self.generate_interface_fragments.__name__)
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.find_interface_residues(*entity_pair)
+            # self.find_interface_residues(*entity_pair)
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'
                            % tuple(entity.name for entity in entity_pair))
             self.query_interface_for_fragments(*entity_pair)
