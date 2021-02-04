@@ -512,6 +512,7 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
         f.write('#!/bin/%s\n\n%s\n' % (shell, command))
         if additional:
             f.write('%s\n' % '\n'.join(x for x in additional))
+        f.write('\n')
 
     return file_name
 
