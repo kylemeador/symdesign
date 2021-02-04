@@ -587,7 +587,22 @@ class Structure:  # (Coords):
 
             return out_path
 
-    def get_fragments(self, residue_numbers, fragment_length=5):
+    def get_fragments(self, residue_numbers=None, fragment_length=5):
+        """From the Structure, find Residues with a matching fragment type as identified in a fragment library
+
+        Keyword Args:
+            residue_numbers=None (list): The specific residue numbers to search for
+        """
+        if not residue_numbers:
+            return None
+
+        # residues = self.get_residues()
+        # ca_stretches = [[residues[idx + i].ca for i in range(-2, 3)] for idx, residue in enumerate(residues)]
+        # compare ca_stretches versus monofrag ca_stretches
+        # monofrag_array = repeat([ca_stretch_frag_index1, ca_stretch_frag_index2, ...]
+        # monofrag_indices = filter_euler_lookup_by_zvalue(ca_stretches, monofrag_array, z_value_func=fragment_overlap,
+        #                                                  max_z_value=rmsd_threshold)
+
         interface_frags = []
         for residue_number in residue_numbers:
             frag_residue_numbers = [residue_number + i for i in range(-2, 3)]  # Todo parameterize
