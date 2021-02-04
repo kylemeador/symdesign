@@ -663,12 +663,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                     % (entity.name, entity.chain_id, entity.get_terminal_residue('c').number)
                                     for entity in self.pose.entities[:-1]])))
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
-        print(self.pose.interface_residues)
-
-        self.log.info('Interface Residues: %s'  # Todo ensure interface is checked even if no fragment info!
-                      % ', '.join('%s%s' % (residue.number, entity.chain_id)
-                                  for entity, residues in self.pose.interface_residues.values()
-                                  for residue in residues))
 
         # # need to assign the designable residues for each entity to a interfaceA or interfaceB variable
         # interface_metrics = self.pose.return_fragment_query_metrics()
@@ -708,7 +702,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             interface_residue_d['interface%s' % entity.chain_id] = ','.join('%d%s'
                                                                             % (residue.number, entity.chain_id)
                                                                             for residue in residues)
-
+        self.log.info('Interface Residues:\n\t%s'
+                      % '\n\t'.join('%s: %s' % (residues, entity) for entity, residues in interface_residue_d.items()))
         refine_variables.extend(interface_residue_d.items())
 
         flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
