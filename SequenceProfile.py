@@ -274,13 +274,13 @@ class SequenceProfile:
                                                   % (self.add_evolutionary_profile.__name__, self.name))
                     elif seq_file == os.path.join(out_path, '%s.hmm' % self.name):
                         self.pssm_file = os.path.join(out_path, seq_file)
-                        self.log.debug('%s PSSM Files=%s' % (self.name, self.pssm_file))
+                        self.log.info('%s PSSM Files=%s' % (self.name, self.pssm_file))
                         break
                     elif seq_file == os.path.join(out_path, '%s.fasta' % self.name):
                         self.sequence_file = seq_file
-                        self.log.debug('%s PSSM File not yet created' % self.name)
+                        self.log.info('%s fasta file: %s' % (self.name, self.sequence_file))
                     else:
-                        self.log.error('Found the file \'%s\' which was not expected in %s' % (seq_file, out_path))
+                        self.log.debug('Found the file \'%s\' which was not expected in %s' % (seq_file, out_path))
                         #     with open(temp_file, 'w') as f:
                         #         f.write('Started fetching data. Process will resume once data is gathered\n')
 
@@ -298,6 +298,7 @@ class SequenceProfile:
 
         if not self.pssm_file:
             # Make PSSM of sequence
+            self.log.debug('%s PSSM File not yet created.' % self.name)
             self.log.info('Generating PSSM file for %s' % self.name)
             if profile_source == 'psiblast':
                 self.psiblast(out_path=out_path)

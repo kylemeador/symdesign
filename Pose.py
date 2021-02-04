@@ -1158,8 +1158,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if not entity1_residue_numbers or not entity2_residue_numbers:
             self.log.info('Interface %s | %s, no interface found' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
-            self.interface_residues[entity1] = []
-            self.interface_residues[entity2] = []
+            if entity1 not in self.interface_residues:
+                self.interface_residues[entity1] = []
+            if entity2 not in self.interface_residues:
+                self.interface_residues[entity2] = []
             return None
         else:
             self.log.info('At interface Entity %s | Entity %s\t%s has interface residue numbers: %s'
