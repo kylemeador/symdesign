@@ -35,12 +35,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.project_designs = None
         self.protein_data = None
-        # design_symmetry/protein_data (P432/Protein_Data)
+        # design_symmetry/data (P432/Data)
         self.pdbs = None
-        # design_symmetry/protein_data/pdbs (P432/Protein_Data/PDBs)
+        # design_symmetry/data/pdbs (P432/Data/PDBs)
         self.sequences = None
         # design_symmetry/sequences (P432/Sequence_Info)
-        # design_symmetry/protein_data/sequences (P432/Protein_Data/Sequence_Info)
+        # design_symmetry/data/sequences (P432/Data/Sequence_Info)
         self.all_scores = None
         # design_symmetry/all_scores (P432/All_Scores)
         self.trajectories = None
@@ -305,7 +305,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not os.path.exists(self.path):
             raise DesignError('Path does not exist!\n\t%s' % self.path)
             # self.log.warning('%s: Path does not exist!' % self.path)
-        self.protein_data = os.path.join(self.program_root, PUtils.protein_data)
+        self.protein_data = os.path.join(self.program_root, PUtils.data.title())
         self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
 
@@ -642,15 +642,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.design_dim is not None:  # can be 0
             protocol = PUtils.protocol[self.design_dim]
             if self.design_dim > 0:  # layer or space
-                sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.symm
+                sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
                 main_cmd += ['-symmetry_definition', 'CRYST1']
             else:  # point
-                self.log.debug(self.sym_entry_number)
+                self.log.debug('Design has Symmetry Entry Number: %d (Laniado & Yeates, 2020)' % self.sym_entry_number)
                 sym_def_file = sdf_lookup(self.sym_entry_number)
                 main_cmd += ['-symmetry_definition', sym_def_file]
             self.log.info('Symmetry Option: %s' % protocol)
         else:
-            sym_def_file, protocol = 'null', 'null'
+            sym_def_file = 'null'
+            protocol = PUtils.protocol[-1]  # Make part of self.design_dim
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it is'
                               'an ASU, may be missing crucial contacts. Is this what you want?')
 
@@ -742,12 +743,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
         if self.script:
-            self.log.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
+            self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
                                                     out_path=self.scripts))
         else:
-            self.log.info('Refine Command: %s' % subprocess.list2cmdline(relax_cmd))
-            refine_process = subprocess.Popen(relax_cmd)
+            self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
+            refine_process = subprocess.Popen(refine_cmd)
             # Wait for Rosetta Refine command to complete
             refine_process.communicate()
 
