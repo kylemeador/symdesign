@@ -1181,6 +1181,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         else:
             self.interface_residues[entity2].extend(entity2.get_residues(numbers=entity2_residue_numbers))
 
+        self.log.debug('interface_residues: %s' % self.interface_residues)
         # return entity1_residue_numbers, entity2_residue_numbers
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
