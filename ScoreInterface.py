@@ -123,7 +123,8 @@ if __name__ == '__main__':
         # # interface_d = {key: result[key] for result in results for key in result}
 
         zipped_args = zip(interface_poses, repeat(1), repeat(2))
-        # score_interface(entity1=None, entity2=None)
+        # Todo change zipped_args, args to (entity1, entity2) self.entities?
+        #  score_interface(entity1=None, entity2=None)
         results = mp_starmap(Pose.score_interface, zipped_args, threads=args.threads)
         interface_d = {pose.name: result.values() for pose, result in zip(interface_poses, results)}
     else:
