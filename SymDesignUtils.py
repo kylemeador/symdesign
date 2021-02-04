@@ -34,7 +34,7 @@ layer_group_d = {2, 4, 10, 12, 17, 19, 20, 21, 23,
                  71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
 
 # Todo get SDF files for all commented out
-possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T', 'O32': 'O', 'O42': 'O', 'O43': 'O',
+possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T',  # O32': 'O', 'O42': 'O', 'O43': 'O',
                        'I:{C2}{C3}': 'I', 'I:{C2}{C5}': 'I', 'I:{C3}{C5}': 'T', 'T:{C2}{C3}': 'T',
                        'T:{C3}{C3}': 'T',  # 'O:{C2}{C3}': 'O', 'O:{C2}{C4}': 'O', 'O:{C3}{C4}': 'I',
                        'I:{C3}{C2}': 'I', 'I:{C5}{C2}': 'I', 'I:{C5}{C3}': 'I', 'T:{C3}{C2}': 'T',
@@ -45,11 +45,11 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        # space groups  # Todo
                        }
 # Todo space and cryst
-all_sym_entry_dict = {'T': {'C2': {'C3': 54}, 'C3': {'C2': 54, 'C3': 7}, 'T': -1},
+all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': -1},
                       'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': -2},
                       'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}}}
 
-point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33', 7: 'O32', 13: 'O42', 56: 'O43',
+point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7: 'O32', 13: 'O42', 56: 'O43',
                        -1: 'T3', -2: 'O3'}
 
 
@@ -151,8 +151,8 @@ def handle_symmetry(symmetry_entry_number):
 
 
 def sdf_lookup(symmetry_entry, dummy=False):
-    if dummy:
-        return os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
+    if not symmetry_entry or dummy:
+        return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
     else:
         symmetry_name = point_group_sdf_map[symmetry_entry]
 
@@ -161,7 +161,8 @@ def sdf_lookup(symmetry_entry, dummy=False):
             if symmetry_name in file:
                 return os.path.join(PUtils.symmetry_def_files, file)
 
-    return os.path.join(PUtils.symmetry_def_files, 'dummy.symm')
+    logger.warning('Error locating specified symmetry entry: %s' % str(symmetry_entry))
+    return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
 
 #####################
 # Runtime Utilities
@@ -996,6 +997,8 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
     Returns:
         (list[tuple]): (Function overlap parameter, z-value of function)
     """
+    # Todo, signature = coords_list1, coords_list2, rmsd_list
+    # Todo make coords_list1, coords_list2, rmsd_list all np array. Calling this function on array will return array
     overlap_results = []
     for index_pair in index_pairs:
         ghost_frag = ghost_frags[index_pair[0]]
@@ -1005,7 +1008,7 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
         surf_frag = surface_frags[index_pair[1]]
         coords2 = coords_l2[index_pair[1]]
         # surf_frag.get_guide_coords()
-        if surf_frag.get_i_type() == ghost_frag.get_j_frag_type():  # could move this as mask outside
+        if surf_frag.get_i_type() == ghost_frag.get_j_frag_type():  # Todo remove to mask outside
             result, z_value = z_value_func(coords1=coords1, coords2=coords2,
                                            coords_rmsd_reference=ghost_frag.get_rmsd())
             if z_value <= max_z_value:
