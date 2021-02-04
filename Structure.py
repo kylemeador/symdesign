@@ -625,7 +625,7 @@ class Structure:  # (Coords):
         return hash(self.__key())
 
     def __str__(self):
-        return ''.join(atom for atom in self.atoms)
+        return self.name
 
 
 class Chain(Structure):
