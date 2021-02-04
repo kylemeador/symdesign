@@ -661,7 +661,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.log.info('Found the following chain breaks in the ASU:\n%s'
                       % ('\n'.join(['\tEntity %s, Chain %s Residue %d'
                                     % (entity.name, entity.chain_id, entity.get_terminal_residue('c').number)
-                                    for entity in self.pose.entities])))
+                                    for entity in self.pose.entities[:-1]])))
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
         self.log.info('Interface Residues: %s'  # Todo ensure interface is checked even if no fragment info!
                       % ', '.join('%s%s' % (residue.number, entity.chain_id)
@@ -702,6 +702,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         all_chains = [entity.chain_id for entity in self.pose.entities]  # pose.interface_residues}  # ['A', 'B', 'C']
         interface_residue_d = {'interface%s' % chain: '' for chain in all_chains}
+        print(self.pose.interface_residues)
         for entity, residues in self.pose.interface_residues.items():
             interface_residue_d['interface%s' % entity.chain_id] = ','.join('%d%s'
                                                                             % (residue.number, entity.chain_id)
