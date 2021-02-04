@@ -914,7 +914,7 @@ class Residue:
         return NotImplemented
 
     def __str__(self):
-        return ''.join(atom for atom in self.atoms)
+        return ''.join(str(atom) for atom in self.atoms)
 
     def __hash__(self):
         return hash(self.__key())
