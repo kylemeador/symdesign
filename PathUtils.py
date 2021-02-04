@@ -50,7 +50,6 @@ sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
 design_directory = 'Designs'
 
 data = 'data'
-symmetry_def_file_dir = 'sdf'
 pdbs_outdir = 'designs'  # was rosetta_pdbs/ 1/25/21
 scores_outdir = 'scores'
 scripts = 'scripts'
@@ -148,10 +147,11 @@ uniclustdb = os.path.join(dependency_dir, 'hh-suite/databases', 'UniRef30_2020_0
 # uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
 # Rosetta Scripts and Misc Files
 rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
-symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
+symmetry_def_file_dir = 'sdf'
+symmetry_def_files = os.path.join(rosetta_scripts, symmetry_def_file_dir)
 sym_weights = (os.path.join(rosetta_scripts, 'ref2015_sym.wts_patch'))
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
-protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
+protocol = {-1: 'null', 0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 
 # Cluster Dependencies and Multiprocessing
 sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
