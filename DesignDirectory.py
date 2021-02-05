@@ -832,10 +832,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 _header = True
             pose_s.to_csv(outpath, mode='a', header=_header)
 
-        write_shell_script('', name=PUtils.stage[2], out_path=self.scripts,
+        write_shell_script('', name=PUtils.interface_design_command, out_path=self.scripts,
                            additional=['bash %s' % design_script for design_script in shell_scripts])
         self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
-        write_commands(shell_scripts, name=PUtils.interface_design_command, out_path=self.scripts)
+        # write_commands(shell_scripts, name=PUtils.interface_design_command, out_path=self.scripts)
 
     def prepare_rosetta_flags(self, flag_variables, stage, out_path=os.getcwd()):
         """Prepare a protocol specific Rosetta flags file with program specific variables
