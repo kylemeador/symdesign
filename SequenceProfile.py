@@ -1270,30 +1270,31 @@ class SequenceProfile:
 
         # find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
         lod_freq, counts_freq = False, False
-        separation_string1, separation_string2 = 3, 3
+        separation1, separation2 = 3, 3
+        # first_key = next(iter(pssm_dict.keys()))
         if type(pssm_dict[next(iter(pssm_dict.keys()))]['lod']['A']) == float:
-            lod_freq = True
-            separation_string1 = 4
-        if type(pssm_dict[next(iter(pssm_dict.keys()))]['A']) == float:
-            counts_freq = True
+            separation1 = 4
+            # lod_freq = True
+        # if type(pssm_dict[first_key]['A']) == float:
+        #     counts_freq = True
 
-        header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in alph_3_aa_list) \
-                 + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in alph_3_aa_list) + '\n'
-        footer = ''
+        header = '\n\n            %s%s%s\n' % ((' ' * separation1).join(alph_3_aa_list), ' ' * separation1,
+                                               (' ' * separation2).join(alph_3_aa_list))
+        # footer = ''
         out_file = os.path.join(out_path, name)
         with open(out_file, 'w') as f:
             f.write(header)
             for residue_number in pssm_dict:
                 aa_type = pssm_dict[residue_number]['type']
                 lod_string = ''
-                if lod_freq:
+                if isinstance(pssm_dict[residue_number]['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
                     for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
                         lod_string += '{:>4.2f} '.format(pssm_dict[residue_number]['lod'][aa])
                 else:
                     for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
                         lod_string += '{:>3d} '.format(pssm_dict[residue_number]['lod'][aa])
                 counts_string = ''
-                if counts_freq:
+                if isinstance(pssm_dict[residue_number]['A'], float):  # counts_freq: # relevant for freq calculations
                     for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
                         counts_string += '{:>3.0f} '.format(math.floor(pssm_dict[residue_number][aa] * 100))
                 else:
@@ -1301,11 +1302,13 @@ class SequenceProfile:
                         counts_string += '{:>3d} '.format(pssm_dict[residue_number][aa])
                 info = pssm_dict[residue_number]['info']
                 weight = pssm_dict[residue_number]['weight']
-                line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(residue_number, aa_type, lod_string,
-                                                                                 counts_string, round(info, 4),
-                                                                                 round(weight, 4))
-                f.write(line)
-            f.write(footer)
+                # line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
+                #                                                                counts_string, round(info, 4),
+                #                                                                round(weight, 4))
+                f.write('{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
+                                                                               counts_string, round(info, 4),
+                                                                               round(weight, 4)))
+            # f.write(footer)
 
         return out_file
 
