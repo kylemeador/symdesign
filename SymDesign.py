@@ -359,6 +359,49 @@ def orient_pdb_file(pdb_path, log_path, sym=None, out_dir=None):
         return oriented_file_path
 
 
+def format_additional_flags(flags):
+    """Takes non-argparse specified flags and returns them into a dictionary compatible with argparse style.
+    This is useful for handling general program flags that apply to many modules, would be tedious to hard code and
+    request from the user
+
+    Returns:
+        (dict)
+    """
+    formatted_flags = []
+    for flag in flags:
+        if flag[0] == '-' and flag[1] != '-':
+            formatted_flags.append(flag)
+        elif flag[0] == '-' and flag[1] == '-':
+            formatted_flags.append(flag[1:])
+        elif flag[0] != '-':
+            formatted_flags.append(flag)  # '-%s' % flag)
+
+    # combines ['-symmetry', 'O', '-nanohedra_output', True', ...]
+    combined_extra_flags = []
+    for idx, flag in enumerate(formatted_flags):
+        if flag.startswith('-'):  # this is a real flag
+            extra_arguments = ''
+            increment = 1
+            while not formatted_flags[idx + 1].startswith('-') and (idx + increment) != len(formatted_flags):  # an argument
+                extra_arguments += ' %s' % formatted_flags[idx + increment]
+                increment += 1
+            combined_extra_flags.append('%s%s' % (flag, extra_arguments))  # extra_flags[idx + 1]))
+    logger.debug('Combined flags: %s' % combined_extra_flags)
+
+    # parses ['-nanohedra_output True', ...]
+    final_flags = {}
+    for flag_arg in combined_extra_flags:
+        if ' ' in flag_arg:
+            flag = flag_arg.split()[0].lstrip('-')
+            final_flags[flag] = flag_arg.split()[1]
+            if final_flags[flag].title() in ['None', 'True', 'False']:
+                final_flags[flag] = eval(final_flags[flag].title())
+        else:  # remove - from the front and add to the dictionary
+            final_flags[flag_arg[1:]] = None
+
+    return final_flags
+
+
 def terminate(all_exceptions):
     any_exceptions = [exception for exception in all_exceptions if exception]
     # any_exceptions = list(filter(bool, exceptions))
@@ -383,7 +426,7 @@ def terminate(all_exceptions):
                                                  location=args.directory)
         logger.info('All poses with exceptions written to file: %s' % except_file)
 
-    exit('\n')
+    exit(0)
 
 
 if __name__ == '__main__':
@@ -429,7 +472,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_mask = subparsers.add_parser('mask', help='Generate a residue mask for %s' % PUtils.program_name)
     # ---------------------------------------------------
-    parser_selection = subparsers.add_parser('design_selection',
+    parser_selection = subparsers.add_parser('design_selector',
                                              help='Generate a residue selection for %s' % PUtils.program_name)
     # ---------------------------------------------------
     parser_filter = subparsers.add_parser('filter', help='Filter designs based on design specific metrics.')
@@ -551,7 +594,7 @@ if __name__ == '__main__':
     else:
         logger = SDUtils.start_log(name=os.path.splitext(os.path.basename(__file__))[0], level=2)
 
-    if args.sub_module not in ['query', 'guide', 'flags', 'design_selection']:
+    if args.sub_module not in ['query', 'guide', 'flags', 'design_selector']:
         logger.info('Starting %s with options:\n\t%s' %
                     (os.path.basename(__file__),
                      '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
@@ -561,35 +604,13 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     if additional_flags:  # args.additional_flags
         logger.debug('Additional: %s' % additional_flags)
-
-        def format_flags(flags):
-            formatted_flags = []
-            for flag in flags:
-                if flag[0] == '-' and flag[1] != '-':
-                    formatted_flags.append(flag)
-                elif flag[0] == '-' and flag[1] == '-':
-                    formatted_flags.append(flag[1:])
-                elif flag[0] != '-':
-                    formatted_flags.append('-%s' % flag)
-
-            return formatted_flags
-        extra_flags = format_flags(additional_flags)
-        # extra_flags.extend(format_flags(args.additional_flags))
-
-        # parses ['-nanohedra_output True', ...]
-        design_flags = {}
-        for flag_arg in extra_flags:
-            if ' ' in flag_arg:
-                flag = flag_arg.split()[0].lstrip('-')
-                design_flags[flag] = flag_arg.split()[1]
-                if design_flags[flag].title() in ['None', 'True', 'False']:
-                    design_flags[flag] = eval(design_flags[flag].title())
-            else:  # remove - from the front and add to the dictionary
-                design_flags[flag_arg[1:0]] = None
-
+        design_flags = format_additional_flags(additional_flags)
     else:
         design_flags = return_default_flags(args.sub_module)
-        extra_flags = None  # Todo remove
+        extra_flags = None
+        # Todo remove/modify
+        #  This serves to pass additional arguments to NanohedraWrap. it does so through a list of args. Not very
+        #  compatible with the above parsing
     design_flags.update(args.__dict__)
     logger.debug('All flags: %s' % design_flags)
     # -----------------------------------------------------------------------------------------------------------------
@@ -597,7 +618,7 @@ if __name__ == '__main__':
     # Grab all Designs (DesignDirectory) to be processed from either directory name or file
     initial_iter = None
     # -----------------------------------------------------------------------------------------------------------------
-    if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'design_selection']:
+    if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'design_selector']:
         pass
     # Todo depreciate args.mode here
     elif args.sub_module in ['design', 'filter', 'generate_fragments', 'expand_asu'] or args.mode == 'design':
@@ -605,25 +626,40 @@ if __name__ == '__main__':
         if args.directory or args.file:
             # Pull nanohedra_output and mask_design_using_sequence out of flags
             # design_flags = load_flags(args.design_flags)
-            # Todo move to a verify flags function
-            pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, set(), None
+            # Todo move to a verify flags function inside of Pose
+            pdb_select, entity_select, chain_select, residue_select, atom_select = None, None, None, set(), None
             if 'select_designable_residues_by_sequence' in design_flags \
                     and design_flags['select_designable_residues_by_sequence']:
-                residue_mask = residue_mask.union(
+                residue_select = residue_select.union(
                     SequenceProfile.generate_sequence_mask(design_flags['select_designable_residues_by_sequence']))
             if 'select_designable_residues_by_pose_number' in design_flags \
                     and design_flags['select_designable_residues_by_pose_number']:
-                residue_mask = residue_mask.union(
-                    SequenceProfile.generate_residue_mask(design_flags['select_designable_residues_by_pose_number']))
-
+                residue_select = residue_select.union(
+                    SequenceProfile.format_index_string(design_flags['select_designable_residues_by_pose_number']))
             if 'select_designable_chains' in design_flags and design_flags['select_designable_chains']:
-                chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
+                chain_select = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
+            # -------------------
+            pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, set(), None
+            if 'mask_designable_residues_by_sequence' in design_flags \
+                    and design_flags['select_designable_residues_by_sequence']:
+                residue_mask = residue_select.union(
+                    SequenceProfile.generate_sequence_mask(design_flags['select_designable_residues_by_sequence']))
+            if 'mask_designable_residues_by_pose_number' in design_flags \
+                    and design_flags['select_designable_residues_by_pose_number']:
+                residue_mask = residue_select.union(
+                    SequenceProfile.format_index_string(design_flags['select_designable_residues_by_pose_number']))
 
-            design_flags.update({'design_selection': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
-                                                      'residues': residue_mask, 'atoms': atom_mask}})
-            logger.debug('Design flags after masking: %s' % design_flags)
+            if 'mask_designable_chains' in design_flags and design_flags['select_designable_chains']:
+                chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
+            design_flags.update({'design_selector':
+                                 {'selection': {'pdbs': pdb_select, 'entities': entity_select, 'chains': chain_select,
+                                                'residues': residue_select, 'atoms': atom_select},
+                                  'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
+                                           'residues': residue_mask, 'atoms': atom_mask}}})
+            # logger.debug('Design flags after masking: %s' % design_flags)
 
             # Add additional program flags to design_flags
+
             # if args.mpi:  # Todo
             #     # extras = ' mpi %d' % CUtils.mpi
             #     logger.info(
@@ -793,11 +829,12 @@ if __name__ == '__main__':
         else:
             query_user_for_flags()
     # ---------------------------------------------------
-    elif args.sub_module == 'design_selection':
+    elif args.sub_module == 'design_selector':
         fasta_file = generate_sequence_template(args.additional_flags[0])
-        logger.info('The design_selection template was written to %s. Please edit this file so that the design_selection can be generated for '
-                    'protein design. Mask should be formatted so a \'-\' replaces all sequence of interest to be '
-                    'overlooked during design. Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>design_selection\nMAGH----LV\n'
+        logger.info('The design_selector template was written to %s. Please edit this file so that the design_selector '
+                    'can be generated for protein design. Mask should be formatted so a \'-\' replaces all sequence of '
+                    'interest to be overlooked during design. '
+                    'Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>design_selector\nMAGH----LV\n'
                     % fasta_file)
     # ---------------------------------------------------
     elif args.sub_module == 'expand_asu':
