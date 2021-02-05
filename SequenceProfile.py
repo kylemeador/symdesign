@@ -165,7 +165,7 @@ class SequenceProfile:
             out_path=os.getcwd() (str): Location where sequence files should be written
             pdb_numbering=True (bool):
         """
-        if null:
+        if not evolution and not fragments or null:
             self.add_evolutionary_profile(null=null, **kwargs)
             evolution, fragments = False, False
 
@@ -269,12 +269,12 @@ class SequenceProfile:
                     if seq_file == os.path.join(out_path, '%s.hold' % self.name):
                         self.log.info('Waiting for \'%s\' profile generation...' % self.name)
                         while not os.path.exists(os.path.join(out_path, '%s.hmm' % self.name)):
-                            time.sleep(20)
                             if int(time.time()) - int(os.path.getmtime(temp_file)) > 600:  # > 10 minutes have passed
                                 os.remove(temp_file)
                                 raise DesignError('%s: Generation of the profile for %s took longer than the time '
                                                   'limit. Job killed!'
                                                   % (self.add_evolutionary_profile.__name__, self.name))
+                            time.sleep(20)
                     elif seq_file == os.path.join(out_path, '%s.hmm' % self.name):
                         self.pssm_file = os.path.join(out_path, seq_file)
                         self.log.info('%s PSSM Files=%s' % (self.name, self.pssm_file))
