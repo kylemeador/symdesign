@@ -431,26 +431,31 @@ def terminate(all_exceptions):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@',
-                                     description='\nControl all input/output of %s including:\n1. Pose initialization\n'
-                                                 '2. Command distribution to computational nodes\n'
-                                                 '3. Analysis of designs' % PUtils.program_name)
+                                     description='\nControl all input/output of various %s operations including: '
+                                                 '\n1. Nanohedra docking '
+                                                 '\n2. Pose set up, sampling, assembly generation, fragment decoration '
+                                                 '\n3. Interface design using constrained residue profiles and Rosetta '
+                                                 '\n4. Analysis of all designs using interface metrics '
+                                                 '\n5. Sequence selection and design guided by linearly weighted '
+                                                 'interface metrics.\n All jobs have built in features for command '
+                                                 'monitoring & distribution to computational clusters for parallel '
+                                                 'processing\n' % PUtils.program_name)
     # ---------------------------------------------------
     # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
-    #                                                               'include %s' % ', '.join(SDUtils.possible_symmetries))
-    parser.add_argument('-c', '--command_only', action='store_true',
-                        help='Should commands be written but not executed?\nDefault=False')
+    #                                                             'include %s' % ', '.join(SDUtils.possible_symmetries))
+    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
     parser.add_argument('-d', '--directory', type=os.path.abspath,
                         help='Master directory where %s design poses are located. This may be the output directory '
                              'from %s.py, or a directory with poses requiring interface design'
                              % (PUtils.program_name, PUtils.nano.title()))
-    # parser.add_argument('-@', '--design_flags', type=str)
     parser.add_argument('-f', '--file', type=os.path.abspath,
                         help='File with location(s) of %s design poses' % PUtils.program_name, default=None)
-    parser.add_argument('-m', '--mode', type=str, choices=['design', 'dock'], help='Which mode to operate in?') \
-        # , required=True)
-    parser.add_argument('-mp', '--multi_processing', action='store_true',
+    parser.add_argument('-m', '--mode', type=str, choices=['design', 'dock'], help='Which mode to operate in?')
+    #                   , required=True)
+    parser.add_argument('-mp', '--multi_processing', action='store_true',  # Todo always true
                         help='Should job be run with multiprocessing?\nDefault=False')
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('-r', '--run_in_shell', action='store_true',
+                        help='Should commands be written but not executed?\nDefault=False')
     parser.add_argument('-s', '--design_string', type=str, help='If pose names are specified by design string instead '
                                                                 'of directories, which directory path to '
                                                                 'prefix with?\nDefault=None', default=None)
@@ -470,7 +475,21 @@ if __name__ == '__main__':
     parser_flag.add_argument('-t', '--template', action='store_true',
                              help='Generate a flags template to edit on your own.')
     # ---------------------------------------------------
-    parser_mask = subparsers.add_parser('mask', help='Generate a residue mask for %s' % PUtils.program_name)
+    parser_dist = subparsers.add_parser('distribute',
+                                        help='Distribute specific design step commands to computational resources. '
+                                             'In distribution mode, the --file or --directory argument specifies which '
+                                             'pose commands should be distributed.')
+    parser_dist.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
+                             help='The stage of design to be prepared. One of %s' %
+                                  ', '.join(list(v for v in PUtils.stage_f.keys())), required=True)
+    parser_dist.add_argument('-y', '--success_file', help='The name/location of file containing successful commands\n'
+                                                          'Default={--stage}_stage_pose_successes', default=None)
+    parser_dist.add_argument('-n', '--failure_file', help='The name/location of file containing failed commands\n'
+                                                          'Default={--stage}_stage_pose_failures', default=None)
+    parser_dist.add_argument('-m', '--max_jobs', type=int, help='How many jobs to run at once?\nDefault=80',
+                             default=80)
+    # ---------------------------------------------------
+    # parser_mask = subparsers.add_parser('mask', help='Generate a residue mask for %s' % PUtils.program_name)
     # ---------------------------------------------------
     parser_selection = subparsers.add_parser('design_selector',
                                              help='Generate a residue selection for %s' % PUtils.program_name)
@@ -547,20 +566,6 @@ if __name__ == '__main__':
     parser_sequence.add_argument('-w', '--weights', type=str, help='Weights of various metrics to final poses\n'
                                                                    'Default=1/number of --filters')
     # ---------------------------------------------------
-    parser_dist = subparsers.add_parser('distribute',
-                                        help='Distribute specific design step commands to computational resources. '
-                                             'In distribution mode, the --file or --directory argument specifies which '
-                                             'pose commands should be distributed.')
-    parser_dist.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
-                             help='The stage of design to be prepared. One of %s' %
-                                  ', '.join(list(v for v in PUtils.stage_f.keys())), required=True)
-    parser_dist.add_argument('-y', '--success_file', help='The name/location of file containing successful commands\n'
-                                                          'Default={--stage}_stage_pose_successes', default=None)
-    parser_dist.add_argument('-n', '--failure_file', help='The name/location of file containing failed commands\n'
-                                                          'Default={--stage}_stage_pose_failures', default=None)
-    parser_dist.add_argument('-m', '--max_jobs', type=int, help='How many jobs to run at once?\nDefault=80',
-                             default=80)
-    # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
                                default=None)
@@ -593,16 +598,10 @@ if __name__ == '__main__':
         logger = SDUtils.start_log(name=os.path.splitext(os.path.basename(__file__))[0], level=1)
     else:
         logger = SDUtils.start_log(name=os.path.splitext(os.path.basename(__file__))[0], level=2)
-
-    if args.sub_module not in ['query', 'guide', 'flags', 'design_selector']:
-        logger.info('Starting %s with options:\n\t%s' %
-                    (os.path.basename(__file__),
-                     '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
-    logger.debug('Debug mode. Verbose output')
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
-    if additional_flags:  # args.additional_flags
+    if additional_flags:
         logger.debug('Additional: %s' % additional_flags)
         design_flags = format_additional_flags(additional_flags)
     else:
@@ -611,13 +610,22 @@ if __name__ == '__main__':
         # Todo remove/modify
         #  This serves to pass additional arguments to NanohedraWrap. it does so through a list of args. Not very
         #  compatible with the above parsing
-    design_flags.update(args.__dict__)
-    logger.debug('All flags: %s' % design_flags)
+
+    args_dict = vars(args)
+    args_dict.update(design_flags)
+    # design_flags.update(args.__dict__)
+    # logger.debug('All flags: %s' % design_flags)
+
+    if args.sub_module not in ['query', 'guide', 'flags', 'design_selector']:
+        logger.info('Starting %s with options:\n\t%s' %
+                    (PUtils.program_name,
+                     '\n\t'.join(['%s:%s' % (str(arg), str(getattr(args, arg))) for arg in args_dict])))
+    logger.debug('Debug mode. Verbose output')
+    # -----------------------------------------------------------------------------------------------------------------
+    # Grab all Designs (DesignDirectory) to be processed from either directory name or file
     # -----------------------------------------------------------------------------------------------------------------
     all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
-    # Grab all Designs (DesignDirectory) to be processed from either directory name or file
     initial_iter = None
-    # -----------------------------------------------------------------------------------------------------------------
     if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'design_selector']:
         pass
     # Todo depreciate args.mode here
@@ -802,16 +810,17 @@ if __name__ == '__main__':
     else:
         raise SDUtils.DesignError('Error: --mode flag must be passed since the module is %s!' % args.sub_module)
 
-    args.suspend = False
-    if args.command_only:
+    if args.run_in_shell:
+        args.suspend = False
+        logger.info('Modelling will occur in this process, ensure you don\'t lose connection to the shell!')
+    else:
         args.suspend = True
-        logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed')
+        logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed.')
 
     # -----------------------------------------------------------------------------------------------------------------
-
     # Parse SubModule specific commands
-    results, exceptions = [], []
     # -----------------------------------------------------------------------------------------------------------------
+    results, exceptions = [], []
     if args.sub_module == 'guide':
         with open(PUtils.readme, 'r') as f:
             print(f.read(), end='')
@@ -829,7 +838,10 @@ if __name__ == '__main__':
         else:
             query_user_for_flags()
     # ---------------------------------------------------
-    elif args.sub_module == 'design_selector':
+    elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
+        distribute(args)
+    # ---------------------------------------------------
+    elif args.sub_module == 'design_selector':  # Todo
         fasta_file = generate_sequence_template(args.additional_flags[0])
         logger.info('The design_selector template was written to %s. Please edit this file so that the design_selector '
                     'can be generated for protein design. Mask should be formatted so a \'-\' replaces all sequence of '
@@ -863,7 +875,12 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)
             logger.info('Starting multiprocessing using %s threads' % str(threads))
-            if args.command_only:
+            if args.run_in_shell:
+                # TODO implementation where SymDesignControl calls Nanohedra.py
+                logger.error('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
+                             % (PUtils.nano, __file__))
+                exit(1)
+            else:
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
                                       repeat(args.design_string), initial_iter)
@@ -872,13 +889,13 @@ if __name__ == '__main__':
                     zipped_args = zip(design_directories, repeat(args.design_string))
                     results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, threads))
                 results = list(results)
-            else:  # TODO implementation where SymDesignControl calls Nanohedra.py
-                logger.info('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
-                            % (PUtils.nano, __file__))
-                exit()
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
-            if args.command_only:
+            if args.run_in_shell:
+                logger.error('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
+                             % (PUtils.nano, __file__))
+                exit(1)
+            else:
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     for initial, (path1, path2) in zip(initial_iter, pdb_pairs):
                         result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
@@ -890,10 +907,6 @@ if __name__ == '__main__':
                         result, error = nanohedra_recap_s(dock_directory, args.design_string)
                         results.append(result)
                         exceptions.append(error)
-            else:  # TODO implementation where SymDesignControl calls Nanohedra.py
-                logger.info('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
-                            % (PUtils.nano, __file__))
-                exit()
 
         # Make single file with names of each directory. Specific for docking due to no established directory
         args.file = os.path.join(args.directory, 'all_docked_directories.paths')  # Todo Parameterized
@@ -904,19 +917,16 @@ if __name__ == '__main__':
         all_commands = [result for result in results if result]
         if len(all_commands) > 0:
             command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, out_path=args.directory)
-            logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
-
             args.success_file = None
             args.failure_file = None
             args.max_jobs = 80
-            distribute(logger, stage=PUtils.nano, directory=args.directory, file=command_file,
+            distribute(stage=PUtils.nano, directory=args.directory, file=command_file,
                        success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
-            # logger.info('\nTo process commands, execute:\n%s' %  # cd %s\n%s' % (args.directory,
-            #             'python %s -f %s distribute -s %s' % (__file__, command_file, PUtils.nano))  # args.file,
+            logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
         else:
             logger.error('No \'%s\' commands were written!' % PUtils.nano)
     # ---------------------------------------------------
-    elif args.sub_module == 'generate_fragments':  # -c command_only, -i fragment_library, -p mpi, -x suspend
+    elif args.sub_module == 'generate_fragments':  # -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -930,7 +940,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 design.generate_interface_fragments()
     # ---------------------------------------------------
-    elif args.sub_module == 'design':  # -c command_only, -i fragment_library, -p mpi, -x suspend
+    elif args.sub_module == 'design':  # -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -945,51 +955,17 @@ if __name__ == '__main__':
                 results.append(result)
                 exceptions.append(error)
 
-        # # Start pose processing and preparation for Rosetta
-        # if args.multi_processing:
-        #     # Calculate the number of threads to use depending on computer resources
-        #     threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
-        #     logger.info('Starting multiprocessing using %s threads' % str(threads))
-        #     zipped_args = zip(design_directories, repeat(args.fragment_database), repeat(args.symmetry_group),
-        #                       repeat(args.command_only), repeat(args.mpi), repeat(args.suspend),
-        #                       repeat(args.debug))
-        #     results, exceptions = zip(*SDUtils.mp_starmap(initialization_mp, zipped_args, threads))
-        #     results = list(results)
-        # else:
-        #     logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
-        #     for des_directory in design_directories:
-        #         result, error = initialization_s(des_directory, args.fragment_database, args.symmetry_group,
-        #                                          script=args.command_only, mpi=args.mpi, suspend=args.suspend,
-        #                                          debug=args.debug)
-        #         results.append(result)
-        #         exceptions.append(error)
-        #
-        if args.command_only:
+        if not args.run_in_shell:
             all_commands = []
-            # all_commands = [[] for s in PUtils.stage_f]
-            # command_files = [[] for s in PUtils.stage_f]
             for des_directory in design_directories:
-                # for i, stage in enumerate(PUtils.stage_f):
                 all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % interface_design_command))
-            # for i, stage in enumerate(PUtils.stage_f):
-            #     if i > 1:  # 1/31/21 only have one option for commands now  # > 3:  # No consensus
-            #         break
             command_file = SDUtils.write_commands(all_commands, name=interface_design_command, out_path=args.directory)
-            logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design_command, command_file))
             args.success_file = None
             args.failure_file = None
             args.max_jobs = 80
-            distribute(logger, stage=PUtils.nano, directory=args.directory, file=command_file,
+            distribute(stage=PUtils.nano, directory=args.directory, file=command_file,
                        success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
-            # logger.info('\nTo process all commands in correct order, execute:\ncd %s\n%s' %
-            #             (args.directory, '\n'.join(['python %s -f %s distribute -s %s' %
-            #                                         (__file__, command_files[i], stage)
-            #                                         for i, stage in enumerate(list(PUtils.stage_f.keys()))[:3]])))
-            #                                                                                        args.file,
-            # TODO make args.file equal to command_files[i] and change distribution to no stage prefix...
-    # ---------------------------------------------------
-    elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
-        distribute(args, logger)
+            logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design_command, command_file))
     # ---------------------------------------------------
     elif args.sub_module == 'analysis':  # -o output, -f figures, -n no_save, -j join, -g delta_g
         save = True
