@@ -541,9 +541,9 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
     if status_wrap:
         modifier = '&&'
         check = subprocess.list2cmdline(['python', os.path.join(PUtils.source, 'CommandDistributer.py'), '--stage',
-                                         name, '--info', status_wrap, '--check', modifier, '\n'])
+                                         name, 'status', '--info', status_wrap, '--check', modifier, '\n'])
         _set = subprocess.list2cmdline(['python', os.path.join(PUtils.source, 'CommandDistributer.py'), '--stage', name,
-                                       '--info', status_wrap, '--set'])
+                                       'status', '--info', status_wrap, '--set'])
     else:
         check, _set, modifier = '', '', ''
     if name.endswith('.sh'):
