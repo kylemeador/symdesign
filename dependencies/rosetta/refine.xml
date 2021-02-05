@@ -31,6 +31,8 @@
 		<FastRelax name="consensus" disable_design="true" scorefxn="2015_nano" relaxscript="InterfaceRelax2019" repeats="5" ramp_down_constraints="false"/>
 		# Pull subroutines in from other files
 		<Subroutine name="metrics_interface_design" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_design.xml"/>
+		# Used to measure interactions between symmetric copies in a symmetric assembly
+		<Subroutine name="metrics_interface_design_sym_dof" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_design_sym_dof.xml"/>
 		# Symmetry selector
 		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%" />
 		<SwitchMover name="relax_switch" movers="refine,consensus" selected="%%switch%%" />
@@ -44,7 +46,8 @@
 		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry_switch"/>
 <!--		<Add mover_name="relax_switch"/>-->
-		<Add mover_name="metrics_interface_design"/>
+<!--		<Add mover_name="metrics_interface_design"/>-->
+		<Add mover_name="metrics_interface_design_sym_dof"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
 
