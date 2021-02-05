@@ -24,20 +24,34 @@ flags = \
                                          '2- and 3-D materials will be output with a single unit cell.'},
       'select_designable_residues_by_sequence':
           {'type': str, 'default': None,
-           'description': 'If design should only occur at certain residues, specify the location of a .fasta file '
-                          'containing the design selection. Run \'%s design_selection path/to/your.pdb\' '
+           'description': 'If design should occur ONLY at certain residues, specify the location of a .fasta file '
+                          'containing the design selection. Run \'%s design_selector path/to/your.pdb\' '
                           'to set this up.'
                           % program_command},
       'select_designable_residues_by_pose_number':
           {'type': str, 'default': None,
-           'description': 'If design should only occur at certain residues, specify the residue POSE numbers '
+           'description': 'If design should occur ONLY at certain residues, specify the residue POSE numbers '
                           '(starting with 1) as a comma separated string. Ranges are allowed '
                           'Ex: \'23,24,35,41,100-110,267,289-293\''},
       'select_designable_chains':
           {'type': str, 'default': None,
-           'description': 'If a design should be masked at certain chains, provide the chain ID\'s as a comma '
-                          'separated string. Ex: \'A,C,D\''}
-
+           'description': 'If a design should occur ONLY at certain chains, provide the chain ID\'s as a comma '
+                          'separated string. Ex: \'A,C,D\''},
+      'mask_designable_residues_by_sequence':
+          {'type': str, 'default': None,
+           'description': 'If design should NOT occur at certain residues, specify the location of a .fasta file '
+                          'containing the design mask. Run \'%s design_selector path/to/your.pdb\' '
+                          'to set this up.'
+                          % program_command},
+      'mask_designable_residues_by_pose_number':
+          {'type': str, 'default': None,
+           'description': 'If design should NOT occur at certain residues, specify the POSE number of residue(s) '
+                          '(starting with 1) as a comma separated string. Ranges are allowed '
+                          'Ex: \'27-35,118,281\''},
+      'mask_designable_chains':
+          {'type': str, 'default': None,
+           'description': 'If a design should NOT occur at certain chains, provide the chain ID\'s as a comma '
+                          'separated string. Ex: \'C\''}
       # 'input_location': '(str) Specify a file with a list of input files or a directory where input files are '
       #                   'located. If the input is a %s.py output, specifying the master output directory is '
       #                   'sufficient' % nano
