@@ -12,7 +12,7 @@ from sklearn.neighbors import BallTree
 import PathUtils as PUtils
 from PDB import PDB
 from SequenceProfile import SequenceProfile, calculate_match_metrics
-from Structure import Coords
+from Structure import Coords, Structure
 # Globals
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap,  \
     filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, point_group_sdf_map, possible_symmetries # logger,
@@ -583,10 +583,19 @@ class SymmetricModel(Model):
 
         return asu_symm_mates
 
-    def symmetric_assembly_is_clash(self, clash_distance=2.2):  # Todo design_selection
+    def symmetric_assembly_is_clash(self, clash_distance=2.2):  # Todo design_selector
+        """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
+
+        Keyword Args:
+            clash_distance=2.2 (float): The cutoff distance for the coordinate overlap
+
+        Returns:
+            (bool)
+        """
         if not self.number_of_models:
             raise DesignError('Cannot check if the assembly is clashing without first calling %s'
                               % self.generate_symmetric_assembly.__name__)
+
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
         # print('ModelASU Indices: %s' % model_asu_indices)
         # print('Equivalent ModelASU: %d' % self.find_asu_equivalent_symmetry_model())
@@ -594,21 +603,18 @@ class SymmetricModel(Model):
             asu_indices = self.asu.get_backbone_and_cb_indices()
             # model_indices_filter = np.array(asu_indices * self.number_of_models)
             # print('BB/CB ASU Indices: %s' % asu_indices)
-            # Need to subtract all the coords that are not CB from the model coords.
-            # We have all the CB indices from ASU now need to multiply this by every integer in self.number_of_models
-            # to get all the CB coords.
+
+            # Need to only select the coords that are not BB or CB from the model coords.
+            # We have all the BB/CB indices from ASU now need to multiply this by every integer in self.number_of_models
+            # to get every BB/CB coord.
             # Finally we take out those indices that are inclusive of the model_asu_indices like below
             number_asu_atoms = self.asu.number_of_atoms
             model_indices_filter = np.array([idx + (model_number * number_asu_atoms)
                                              for model_number in range(self.number_of_models)
                                              for idx in asu_indices])
             # print('Model indices factor: %s' % model_indices_factor)
-            # model_indices_filter += model_indices_factor
-            # model_asu_indices = sorted(set(model_asu_indices).difference(model_asu_indices))
-            # model_indices_filter = [asu_indices * (model_number + 1) for model_number in range(self.number_of_models)]
-            # model_indices_filter = np.array(model_indices_filter).flatten()
             # print('Model ASU indices[0] & [-1]: %d & %d' % (model_asu_indices[0], model_asu_indices[-1]))
-        else:
+        else:  # we will frag every coord in the model
             model_indices_filter = np.array([idx for idx in range(len(self.model_coords))])
             asu_indices = None
 
@@ -626,12 +632,16 @@ class SymmetricModel(Model):
         # print('Model minus ASU indices: %s' % model_indices_without_asu)
         # print('Model Coord filtered length: %d' % len(self.model_coords[model_indices_without_asu]))
         # print('Model Coord filtered: %s' % self.model_coords[model_indices_without_asu])
+        selected_assembly_coords = len(self.model_coords[model_indices_without_asu]) + len(self.coords[asu_indices])
+        all_assembly_coords_length = len(asu_indices) * self.number_of_models
+        assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue with indexing.' \
+                                                                       % self.symmetric_assembly_is_clash()
 
         clash_count = asu_coord_kdtree.two_point_correlation(self.model_coords[model_indices_without_asu],
                                                              [clash_distance])
-
         if clash_count[0] > 0:
-            self.log.warning('Found %d clashing sites at: %s' % (clash_count[0], clash_count))
+            self.log.warning('%s: Found %d clashing sites! Pose is not a viable symmetric assembly'
+                             % (self.pdb.name, clash_count[0]))
             return True  # clash
         else:
             return False  # no clash
@@ -801,13 +811,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # else:
         #     self.log = start_log()
 
-        if asu:  # Todo ensure a Structure/PDB object
+        if asu and isinstance(asu, Structure):
             self.asu = asu
             self.pdb = self.asu
         elif asu_file:
             self.asu = PDB.from_file(asu_file, log=self.log)
             self.pdb = self.asu
-        elif pdb:
+        elif pdb and isinstance(asu, Structure):
             self.pdb = pdb
             # self.set_pdb(pdb)
         elif pdb_file:
@@ -819,11 +829,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # else:
         #     nothing = True
         if self.pdb:
+            # add structure to the SequenceProfile
+            self.pdb.is_clash()
             self.set_structure(self.pdb)
-            self.coords = Coords(self.pdb.get_coords())  # get_pdb_coords(self.asu))
+            # set up coordinate information for SymmetricModel
+            self.coords = Coords(self.pdb.get_coords())
 
-        self.entity_selection = set()
-        self.design_selection_indices = set()
+        self.design_selector_entities = set()
+        self.design_selector_indices = set()
         self.interface_residues = {}
         self.fragment_observations = []
 
@@ -883,7 +896,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
     @property
     def active_entities(self):
-        return [entity for entity in self.pdb.entities if entity in self.entity_selection]
+        return [entity for entity in self.pdb.entities if entity in self.design_selector_entities]
 
     @property
     def entities(self):
@@ -958,42 +971,51 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
             self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
-    def handle_flags(self, design_selection=None, frag_db=None, **kwargs):
-        if design_selection:
-            self.create_design_selection_filter(**design_selection)
+    def handle_flags(self, design_selector=None, frag_db=None, **kwargs):
+        if design_selector:
+            self.create_design_selector(**design_selector)
         if frag_db:
             # Attach an existing FragmentDB to the Pose
             self.attach_fragment_database(db=frag_db)
             for entity in self.entities:
                 entity.attach_fragment_database(db=frag_db)
 
-    def create_design_selection_filter(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
-        entity_union = set()
-        atom_selection = set(self.pdb.atom_indices)
-        if pdbs:
-            # atom_selection = set(self.pdb.get_residue_atom_indices(numbers=residues))
-            raise DesignError('Can\'t select residues by PDB yet!')
-        if entities:
-            atom_selection = atom_selection.intersection(chain.from_iterable([self.entity(entity).atom_indices
-                                                                              for entity in entities]))
-            entity_union = entity_union.union([self.entity(entity) for entity in entities])
-        if chains:
-            # vv This is for the intersectional model
-            atom_selection = atom_selection.intersection(chain.from_iterable([self.chain(chain_id).atom_indices
-                                                                              for chain_id in chains]))
-            # atom_selection.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
-            #                                     for chain_id in chains))
-            # ^^ This is for the additive model
-            entity_union = entity_union.union([self.chain(chain_id) for chain_id in chains])
-        if residues:
-            atom_selection = atom_selection.intersection(self.pdb.get_residue_atom_indices(numbers=residues))
-        if atoms:
-            atom_selection = atom_selection.intersection(self.pdb.get_atom_indices(numbers=atoms))
+    def create_design_selector(self, selection=None, mask=None):
+        # def mask(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
+        def grab_indices(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
+            entity_union = set()
+            atom_intersect = set(self.pdb.atom_indices)
+            if pdbs:
+                # atom_selection = set(self.pdb.get_residue_atom_indices(numbers=residues))
+                raise DesignError('Can\'t select residues by PDB yet!')
+            if entities:
+                atom_intersect = atom_intersect.intersection(chain.from_iterable([self.entity(entity).atom_indices
+                                                                                  for entity in entities]))
+                entity_union = entity_union.union([self.entity(entity) for entity in entities])
+            if chains:
+                # vv This is for the intersectional model
+                atom_intersect = atom_intersect.intersection(chain.from_iterable([self.chain(chain_id).atom_indices
+                                                                                  for chain_id in chains]))
+                # atom_selection.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
+                #                                     for chain_id in chains))
+                # ^^ This is for the additive model
+                entity_union = entity_union.union([self.chain(chain_id) for chain_id in chains])
+            if residues:
+                atom_intersect = atom_intersect.intersection(self.pdb.get_residue_atom_indices(numbers=residues))
+            if atoms:
+                atom_intersect = atom_intersect.intersection(self.pdb.get_atom_indices(numbers=atoms))
 
-        # self.entity_selection = set(self.entities)
-        # self.entity_selection = self.entity_selection.intersection(entity_union)
-        self.entity_selection = self.entity_selection.union(entity_union)
-        self.design_selection_indices = self.design_selection_indices.union(atom_selection)
+            return entity_union, atom_intersect
+
+        entity_selection, atom_selection = grab_indices(**selection)
+        entity_mask, atom_mask = grab_indices(**mask)
+        entity_selection = entity_selection.difference(entity_mask)
+        atom_selection = atom_selection.difference(atom_mask)
+
+        # self.design_selector_entities = set(self.entities)
+        # self.design_selector_entities = self.design_selector_entities.intersection(entity_union)
+        self.design_selector_entities = self.design_selector_entities.union(entity_selection)
+        self.design_selector_indices = self.design_selector_indices.union(atom_selection)
 
     # def add_pdb(self, pdb):  # Todo
     #     """Add a PDB to the PosePDB as well as the member PDB list"""
@@ -1063,7 +1085,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         Caution!: Pose must have Coords representing all atoms as residue pairs are found using CB indices from all atoms
 
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
-        design_selection aware
+        design_selector aware
 
         Keyword Args:
             entity1=None (Entity): First entity to measure interface between
@@ -1091,14 +1113,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # entity2_atoms = self.pdb.entity(entity2).get_atoms()  # if passing by name
         # entity2_indices = self.pdb.entity(entity2).get_cb_indices(InclGlyCA=include_glycine)
 
-        if self.design_selection_indices:  # subtract the masked atom indices from the entity indices
+        if self.design_selector_indices:  # subtract the masked atom indices from the entity indices
             before = len(entity1_indices) + len(entity2_indices)
-            entity1_indices = list(set(entity1_indices).intersection(self.design_selection_indices))
-            entity2_indices = list(set(entity2_indices).intersection(self.design_selection_indices))
-            after = len(entity1_indices) + len(entity2_indices)
+            entity1_indices = list(set(entity1_indices).intersection(self.design_selector_indices))
+            entity2_indices = list(set(entity2_indices).intersection(self.design_selector_indices))
             self.log.debug('Applied design selection to interface identification. Number of indices before '
-                           'selection = %d. '
-                           'Number after = %d' % (before, after))
+                           'selection = %d. Number after = %d' % (before, len(entity1_indices) + len(entity2_indices)))
 
         if not entity1_indices or not entity2_indices:
             return None
@@ -1271,14 +1291,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
 
-        # first get interface residues
-        for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.find_interface_residues(*entity_pair)
-
         if fragments:
             if query_fragments:  # search for new fragment information
-                self.generate_interface_fragments(db=design_dir.frag_db, out_path=design_dir.frags,
-                                                  write_fragments=write_fragments)
+                # inherently gets interface residues for the designable entities
+                self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
             else:  # add existing fragment information to the pose
                 # must provide des_dir.fragment_observations from des_dir.gather_fragment_metrics then specify whether
                 # the Entity in question is from mapped or paired (entity1 is mapped, entity2 is paired from Nanohedra)
@@ -1312,58 +1328,72 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 self.log.debug('Query Pair: %s, %s\nFragment Info: %s' % (query_pair[0].name, query_pair[1].name, fragment_info))
                 for query_idx, entity in enumerate(query_pair):
                     # Attach an existing FragmentDB to the Pose
-                    entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
+                    entity.attach_fragment_database(db=design_dir.frag_db)
+                    # entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
                     entity.assign_fragments(fragments=fragment_info,
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
+        else:
+            # get interface residues for the designable entities
+            for entity_pair in combinations_with_replacement(self.active_entities, 2):
+                self.find_interface_residues(*entity_pair)
 
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
-            entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
-            entity.add_profile(evolution=evolution, fragments=fragments, out_path=design_dir.sequences)
-            # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.combine_ssm()
+            # Todo check this assumption...
+            #  DesignDirectory.path was removed from evol as the input oligomers should be perfectly symmetric so the tx
+            #  won't matter for each entity. right?
+            # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
+            if entity not in self.active_entities:  # we shouldn't design
+                entity.add_profile(null=True, out_path=design_dir.sequences)
+            else:
+                entity.add_profile(evolution=evolution, fragments=fragments, out_path=design_dir.sequences)
 
-        if fragments:
-            # set pose.fragment_profile
+        # Update DesignDirectory with design information # Todo include in DesignDirectory initialization by args?
+        # This info is pulled out in AnalyzeOutput from Rosetta currently
+
+        if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
             self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
             self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
             self.interface_data_file = pickle_object(self.fragment_profile, frag_db + PUtils.frag_profile,
                                                      out_path=design_dir.data)
+            design_dir.info['fragment_database'] = frag_db
+            design_dir.info['fragment_profile'] = self.interface_data_file
 
-        if evolution:
-            # Extract PSSM for each protein and combine into single PSSM
-            # set pose.evolutionary_profile
+        if evolution:  # set pose.evolutionary_profile by combining entity evo profile into single profile
             self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
             self.log.debug('Position Specific Scoring Matrix: %s' % str(self.evolutionary_profile))
-            self.pssm_file = self.make_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=design_dir.data)
+            self.pssm_file = self.write_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=design_dir.data)
+            design_dir.info['evolutionary_profile'] = self.pssm_file
 
-            self.combine_profile([entity.profile for entity in self.entities])  # sets pose.profile
-            self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
-            self.design_pssm_file = self.make_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
+        self.combine_profile([entity.profile for entity in self.entities])
+        self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
+        self.design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
+        design_dir.info['design_profile'] = self.design_pssm_file
+        design_dir.info['design_residues'] = self.interface_residues
 
         # -------------------------------------------------------------------------
         # self.solve_consensus()  # Todo
         # -------------------------------------------------------------------------
 
-        # Update DesignDirectory with design information # Todo where to save this/include in pose initialization?
-        design_dir.info['evolutionary_profile'] = self.pssm_file
-        design_dir.info['fragment_profile'] = self.interface_data_file
-        design_dir.info['design_profile'] = self.design_pssm_file
-        design_dir.info['db'] = frag_db
-        # This info is pulled out in AnalyzeOutput from Rosetta currently
-        design_dir.info['design_residues'] = self.interface_residues
-        # TODO add symmetry or oligomer data to .info?
+    def generate_interface_fragments(self, write_fragments=True, out_path=None, new_db=False):
+        """Using the attached fragment database, generate interface fragments between the Pose interfaces
 
-    def generate_interface_fragments(self, db=None, out_path=None, write_fragments=True):
-        """Using the attached fragment database, generate interface fragments between the Pose interfaces"""
-        # if db:
-        # This will connect to a new DB if db is none
-        self.attach_fragment_database(db=db)
-        # elif not self.frag_db:
-        #     raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
-        #                       'initialized the Pose with a database!' % self.generate_interface_fragments.__name__)
+        Keyword Args:
+            write_fragments=True (bool): Whether or not to write the located fragments
+            out_path=None (str): The location to write each fragment file
+            new_db=False (bool): Whether a fragment database should be initialized for the interface fragment search
+        """
+        if new_db:  # Connect to a new DB
+            self.connect_fragment_database()  # default, init=True. other args are source= , location= ,
+        elif not self.frag_db:  # There is no fragment database connected
+            raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
+                              'initialized the Pose with a database (pass FragmentDatabase obj by \'frag_db\')! '
+                              'Alternatively pass new_db=True to %s'
+                              % (self.generate_interface_fragments.__name__,
+                                 self.generate_interface_fragments.__name__))
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            # self.find_interface_residues(*entity_pair)
+            self.find_interface_residues(*entity_pair)
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'
                            % tuple(entity.name for entity in entity_pair))
             self.query_interface_for_fragments(*entity_pair)
