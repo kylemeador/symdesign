@@ -494,25 +494,38 @@ def remove_duplicates(_iter):
     return [x for x in _iter if not (x in seen or seen_add(x))]
 
 
-def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash'):
-    """Take a list with command flags formatted for subprocess and write to a name.sh script
+def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash',
+                       status_wrap=None):
+    """Take a command and write to a name.sh script. By default bash is used as the shell interpreter
 
     Args:
         command (str): The command formatted using subprocess.list2cmdline(list())
     Keyword Args:
         name='script' (str): The name of the output shell script
-        outpath=os.getcwd() (str): The location where the script will be written
+        out_path=os.getcwd() (str): The location where the script will be written
         additional=None (iter): Additional commands also formatted using subprocess.list2cmdline
         shell='bash' (str): The shell which should interpret the script
+        status_wrap=None (str): The name of a file in which to check and set the status of the command in the shell
     Returns:
         (str): The name of the file
     """
+    if status_wrap:
+        modifier = '&&'
+        check = subprocess.list2cmdline(['python', os.path.join(PUtils.source, 'CommandDistributer.py'), '--stage',
+                                         name, '--info', status_wrap, '--check', modifier, '\n'])
+        _set = subprocess.list2cmdline(['python', os.path.join(PUtils.source, 'CommandDistributer.py'), '--stage', name,
+                                       '--info', status_wrap, '--set'])
+    else:
+        check, _set, modifier = '', '', ''
+    if name.endswith('.sh'):
+        name = name[:-3]
+
     file_name = os.path.join(out_path, '%s.sh' % name)
     with open(file_name, 'w') as f:
-        f.write('#!/bin/%s\n\n%s\n' % (shell, command))
+        f.write('#!/bin/%s\n\n%s%s %s\n' % (shell, check, command, modifier))
         if additional:
-            f.write('%s\n' % '\n'.join(x for x in additional))
-        f.write('\n')
+            f.write('%s\n' % ('\n'.join('%s %s' % (x, modifier) for x in additional)))
+        f.write('%s\n' % _set)
 
     return file_name
 
@@ -524,7 +537,7 @@ def write_commands(command_list, name='all_commands', out_path=os.getcwd()):  # 
         extension = '.cmd'
     file = os.path.join(out_path, name + extension)
     with open(file, 'w') as f:
-        f.write('\n'.join(command for command in command_list))
+        f.write('%s\n' % '\n'.join(command for command in command_list))
 
     return file
 
