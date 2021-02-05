@@ -830,7 +830,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         #     nothing = True
         if self.pdb:
             # add structure to the SequenceProfile
-            self.pdb.is_clash()
+            # self.pdb.is_clash()  # Todo
             self.set_structure(self.pdb)
             # set up coordinate information for SymmetricModel
             self.coords = Coords(self.pdb.get_coords())
