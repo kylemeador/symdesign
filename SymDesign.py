@@ -619,10 +619,9 @@ if __name__ == '__main__':
     # design_flags.update(args.__dict__)
     # logger.debug('All flags: %s' % design_flags)
 
+    options_table = SDUtils.pretty_format_table(args_dict.items())
     if args.sub_module not in ['query', 'guide', 'flags', 'design_selector']:
-        logger.info('Starting %s with options:\n\t%s' %
-                    (PUtils.program_name,
-                     '\n\t'.join(['%s:%s' % (str(arg), str(getattr(args, arg))) for arg in args_dict])))
+        logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
     logger.debug('Debug mode. Verbose output')
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either directory name or file
