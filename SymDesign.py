@@ -595,9 +595,12 @@ if __name__ == '__main__':
     # Start Logging
     # -----------------------------------------------------------------------------------------------------------------
     if args.debug:
-        logger = SDUtils.start_log(name=os.path.splitext(os.path.basename(__file__))[0], level=1)
+        logger = SDUtils.start_log(name=PUtils.program_name, level=1)
     else:
-        logger = SDUtils.start_log(name=os.path.splitext(os.path.basename(__file__))[0], level=2)
+        # set up the root logger to output to a stream
+        logger = SDUtils.start_log(name='')
+        # and a file
+        logger = SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
