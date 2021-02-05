@@ -982,7 +982,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
     def create_design_selector(self, selection=None, mask=None):
         # def mask(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
-        def grab_indices(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
+        def grab_indices(pdbs=None, entities=None, chains=None, residues=None, atoms=None):
             entity_union = set()
             atom_intersect = set(self.pdb.atom_indices)
             if pdbs:
