@@ -19,7 +19,7 @@ from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, wri
     DesignError, match_score_from_z_value, handle_design_errors, pickle_object, write_commands
 
 
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+# logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 # Globals
 design_direcotry_modes = ['design', 'dock']
@@ -335,6 +335,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 dummy = True
 
         else:  # Ensure directories are only created once Pose Processing is called
+            self.log.debug('Setting up DesignDirectory for design: %s' % self.source)
             if not os.path.exists(self.protein_data):
                 os.makedirs(self.protein_data)
             if not os.path.exists(self.pdbs):
