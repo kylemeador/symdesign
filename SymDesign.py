@@ -382,7 +382,7 @@ def format_additional_flags(flags):
         if flag.startswith('-'):  # this is a real flag
             extra_arguments = ''
             increment = 1
-            while not formatted_flags[idx + 1].startswith('-') and (idx + increment) != len(formatted_flags):  # an argument
+            while (idx + increment) != len(formatted_flags) and not formatted_flags[idx + 1].startswith('-'):  # an argument
                 extra_arguments += ' %s' % formatted_flags[idx + increment]
                 increment += 1
             combined_extra_flags.append('%s%s' % (flag, extra_arguments))  # extra_flags[idx + 1]))
