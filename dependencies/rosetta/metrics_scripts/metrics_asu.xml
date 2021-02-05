@@ -17,7 +17,7 @@
 		# same, but for residues from chain "B"
 		<Index name="B_interface" resnums="%%interfaceB%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
 		# same, but for residues from chain "C"
-		<Index name="C_interface" resnums="%%interfaceC%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface3%% # can't use pose numbering with chain deletion. need to use residue numbering. %%interfaceB%%
+<!--		<Index name="C_interface" resnums="%%interfaceC%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface3%% # can't use pose numbering with chain deletion. need to use residue numbering. %%interfaceB%%-->
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="A_interface,B_interface,C_interface"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
