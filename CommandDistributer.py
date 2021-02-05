@@ -15,7 +15,7 @@ import PathUtils as PUtils
 from SymDesignUtils import index_offset, start_log, DesignError, collect_directories, mp_starmap, unpickle, \
     pickle_object
 
-start_log(__name__)
+logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 
 class GracefulKiller:
@@ -105,17 +105,17 @@ def run(cmd, log_file, srun=None, program='bash'):  # , log_file=None):
         return False
 
 
-def distribute(logger, stage=None, directory=None, file=None, success_file=None, failure_file=None, max_jobs=80):
-    # Todo back out logger
+def distribute(stage=None, directory=None, file=None, success_file=None, failure_file=None, max_jobs=80):
     if not stage:
         raise DesignError('No --stage specified. Required!!!')
+
     if file:  # or directory: Todo
         # here using collect directories get the commands from the provided file
         _commands, location = collect_directories(directory, file=file)
     else:
         raise DesignError('Error: You must pass a file containing a list of commands to process. This is '
-                                  'typically output to a \'[stage].cmds\' file. Ensure that this file exists and '
-                                  'resubmit with -f \'[stage].cmds\'\n')
+                          'typically output to a \'[stage].cmds\' file. Ensure that this file exists and '
+                          'resubmit with -f \'[stage].cmds\'\n')
         #             ', replacing stage with the desired stage.')
 
     # Automatically detect if the commands file has executable scripts or errors
@@ -123,16 +123,16 @@ def distribute(logger, stage=None, directory=None, file=None, success_file=None,
     for idx, _command in enumerate(_commands):
         if not os.path.exists(_command):  # check for any missing commands and report
             raise DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
-                                      % (file, idx + 1, _command))
+                              % (file, idx + 1, _command))
         if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
             if idx != 0 and script_present:  # There was a change from script files to non-script files
                 raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                          'or not. Cannot mix!\n' % (file, idx + 1))
+                                  'or not. Cannot mix!\n' % (file, idx + 1))
             # break
         else:  # the command string is a shell script
             if idx != 0 and not script_present:  # There was a change from non-script files to script files
                 raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                          'or not. Cannot mix!\n' % (file, idx + 1))
+                                  'or not. Cannot mix!\n' % (file, idx + 1))
             script_present = '-c'
 
     # Create success and failures files
@@ -141,7 +141,7 @@ def distribute(logger, stage=None, directory=None, file=None, success_file=None,
         success_file = os.path.join(directory, '%s_sbatch-%d_success.log' % (stage, ran_num))
     if not failure_file:
         failure_file = os.path.join(directory, '%s_sbatch-%d_failures.log' % (stage, ran_num))
-    logger.info('\nSuccessful poses will be listed in \'%s\'\nFailed poses will be listed in \'%s\''
+    logger.info('\nSuccessful designs will be listed in \'%s\'\nFailed designs will be listed in \'%s\''
                 % (success_file, failure_file))
 
     # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
