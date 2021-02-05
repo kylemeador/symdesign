@@ -162,7 +162,7 @@ def distribute(stage=None, directory=None, file=None, success_file=None, failure
         new_f.write(PUtils.sb_flag + out + '\n')
         array = 'array=1-%d%%%d' % (int(len(_commands) / command_divisor + 0.5), max_jobs)
         new_f.write(PUtils.sb_flag + array + '\n')
-        new_f.write('\npython %s distribute --stage %s --success_file %s --failure_file %s --command_file %s %s\n' %
+        new_f.write('\npython %s --stage %s distribute --success_file %s --failure_file %s --command_file %s %s\n' %
                     (PUtils.cmd_dist, stage, success_file, failure_file, file, (script_present or '')))
 
     logger.info('To distribute \'%s\'commands, ensure the sbatch script located at %s is correct. Specifically, check '
