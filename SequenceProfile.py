@@ -82,7 +82,7 @@ class SequenceProfile:
         try:
             return self._profile_length
         except AttributeError:
-            self.set_profile_length()
+            self.profile_length = self.structure.number_of_residues
             return self._profile_length
 
     @profile_length.setter
@@ -106,17 +106,18 @@ class SequenceProfile:
         self.structure = structure
         self.structure_sequence = self.structure.get_structure_sequence()
 
-    def set_profile_length(self):
-        self.profile_length = len(self.profile)
+    # def set_profile_length(self):
+    #     self.profile_length = len(self.profile)
 
     def connect_fragment_database(self, location=None, init=False, **kwargs):
         """Generate a new connection. Initialize the representative library by passing init=True"""
-        self.frag_db = FragmentDatabase(location=location, init_db=init)  # source=source, location=location, init_db=init_db)
+        self.frag_db = FragmentDatabase(location=location, init_db=init)
+        #                               source=source, location=location, init_db=init_db)
 
     def attach_fragment_database(self, db=None, **kwargs):
         """Attach an existing Fragment Database to the SequenceProfile or generate a new connection. Initialize the
         representative library by passing init=True"""
-        #                         source='directory', location='biological_interfaces', length=5, init_db=True):
+        #                        source='directory', location='biological_interfaces', length=5, init_db=True):
         if db:
             self.frag_db = db
         else:
@@ -152,7 +153,7 @@ class SequenceProfile:
     # def sequence(self, sequence):
     #     self._sequence = sequence
 
-    def add_profile(self, evolution=True, out_path=os.getcwd(),
+    def add_profile(self, evolution=True, out_path=os.getcwd(), null=False,
                     fragments=True, fragment_observations=None, entities=None, pdb_numbering=True, **kwargs):
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
@@ -162,6 +163,10 @@ class SequenceProfile:
             out_path=os.getcwd() (str): Location where sequence files should be written
             pdb_numbering=True (bool):
         """
+        if null:
+            self.add_evolutionary_profile(null=null, **kwargs)
+            evolution, fragments = False, False
+
         if fragments:  # add fragment information to the SequenceProfile
             if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
                 if entities:
@@ -189,38 +194,29 @@ class SequenceProfile:
             self.find_alpha()
 
         if evolution:  # add evolutionary information to the SequenceProfile
-            # DesignDirectory.path could be removed as the input oligomers should be perfectly symmetric so the tx won't
-            # matter for each entity. right? Todo check this assumption...
             self.add_evolutionary_profile(out_path=out_path, **kwargs)
+            self.verify_profile()
             # TODO currently using self.structure.reference_sequence which could be ATOM, could be SEQRES.
             #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequnce
             #  processing
-            self.combine_ssm(boltzmann=True, favor_fragments=fragments)
+            # Todo currently using favor_fragments as mechanism if fragments exist, this is overloaded and not intended
+        self.calculate_design_profile(boltzmann=True, favor_fragments=fragments)
 
-    # def atom_profile(self):  # Todo resolve
-    #     """Make the atom profile from the structure.sequence and the profile"""
-    #     atom_profile = []
-    #     return atom_profile
-
-    def verify_profile(self):  # Todo
-        """Check Pose and Profile for equality before proceeding"""
-        rerun, second, failed = False, False, False
-        while not failed:
-            if self.profile_length != self.structure.number_of_residues:  # ():
+    def verify_profile(self):
+        """Check Pose and evolutionary profile for equality before proceeding"""
+        rerun, second, success = False, False, False
+        while not success:
+            if self.profile_length != len(self.evolutionary_profile):
                 self.log.warning('%s: Profile and Pose are different lengths!\nProfile=%d, Pose=%d. '
-                                 'Generating a new profile' % (self.structure.file_path, self.profile_length,
-                                                               self.structure.number_of_residues))
+                                 'Generating a new profile' % (self.name, len(self.evolutionary_profile),
+                                                               self.profile_length))
                 rerun = True
 
-            # if not rerun:
-            else:
+            if not rerun:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
-                # pssm_res, pose_res = {}, {}
                 for idx, residue in enumerate(self.structure.get_residues(), 1):
                     profile_residue_type = self.profile[idx]['type']
-                    # pssm_res[residue.number] = self.profile[idx]['type']
                     pose_residue_type = IUPACData.protein_letters_3to1[residue.type.title()]
-                    # pose_res[residue.number] = IUPACData.protein_letters_3to1[residue.type.title()]
                     if profile_residue_type != pose_residue_type:
                         self.log.warning(
                             '%s: Profile and Pose sequences mismatched!\nResidue %d: Profile=%s, Pose=%s. Generating a'
@@ -231,13 +227,14 @@ class SequenceProfile:
 
             if rerun:
                 if second:
-                    # self.log.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
                     raise DesignError('Profile Generation got stuck, design aborted')
-                    # raise DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                self.add_profile(force=True)
-                second = True
+                else:
+                    self.add_profile(force=True)
+                    second = True
+            else:
+                success = True
 
-    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', force=False):
+    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', force=False, null=False):
         """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
         homologous protein sequences (evolutionary)
 
@@ -247,6 +244,10 @@ class SequenceProfile:
         Sets:
             self.evolutionary_profile
         """
+        if null:
+            self.null_pssm()
+            return None
+
         if profile_source not in ['hhblits', 'psiblast']:
             raise DesignError('%s: Profile generation only possible from \'hhblits\' or \'psiblast\', not %s'
                               % (self.add_evolutionary_profile.__name__, profile_source))
@@ -285,14 +286,8 @@ class SequenceProfile:
                         #         f.write('Started fetching data. Process will resume once data is gathered\n')
 
         if not self.sequence_file:
-            # Extract/Format Sequence Information
-            # if not self.sequence:  # Use structure sequence if atom sequence is missing
-            #     self.sequence = self.get_structure_sequence()
-            #     self.sequence = self.structure.get_structure_sequence()
-            #     self.sequence_source = 'atom'
+            # Extract/Format Sequence Information. This will be SEQRES if available
             self.log.debug('%s Sequence=%s' % (self.name, self.structure.reference_sequence))
-
-            # make self.sequence_file
             self.write_fasta_file(self.structure.reference_sequence, name='%s' % self.name, out_path=out_path)
             self.log.debug('%s fasta file: %s' % (self.name, self.sequence_file))
 
@@ -310,20 +305,43 @@ class SequenceProfile:
         else:
             self.parse_hhblits_pssm()
 
+    def null_pssm(self):
+        """Take the contents of a pssm file, parse, and input into a sequence dictionary.
+
+        Sets:
+            self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
+            Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
+                 2: {}, ...}
+        """
+        self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa_list, type=int)
+        for idx, residue_number in enumerate(self.evolutionary_profile):
+            # line_data = line.strip().split()
+            # if len(line_data) == 44:
+            #     residue_number = int(line_data[0])
+            #     self.evolutionary_profile[residue_number] = deepcopy(aa_counts_dict)
+            # for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[residue_number], 22):
+            #     Get normalized counts for pose_dict
+                # self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
+            self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts_dict)
+            # for i, aa in enumerate(alph_3_aa_list, 2):
+            #     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
+            self.evolutionary_profile[residue_number]['type'] = self.structure_sequence[idx]
+            self.evolutionary_profile[residue_number]['info'] = 0.0
+            self.evolutionary_profile[residue_number]['weight'] = 0.0
+
     def psiblast(self, out_path=None, remote=False):
         """Generate an position specific scoring matrix using PSI-BLAST subprocess
 
         Keyword Args:
-            outpath=None (str): Disk location where generated file should be written
-            remote=False (bool): Whether to perform the serach locally (need blast installed locally) or perform search through web
-        Returns:
-            outfile_name (str): Name of the file generated by psiblast
-            p (subprocess): Process object for monitoring progress of psiblast command
+            out_path=None (str): Disk location where generated file should be written
+            remote=False (bool): Whether to perform the search through the web. If False, need blast installed locally!
+        Sets:
+            self.pssm_file (str): Name of the file generated by psiblast
         """
         self.pssm_file = os.path.join(out_path, '%s.pssm' % str(self.name))
 
         cmd = ['psiblast', '-db', PUtils.alignmentdb, '-query', self.sequence_file + '.fasta', '-out_ascii_pssm',
-               self.pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo ^ iters
+               self.pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo # iters
         if remote:
             cmd.append('-remote')
         else:
@@ -331,14 +349,14 @@ class SequenceProfile:
             cmd.append('8')
 
         p = subprocess.Popen(cmd)
-        p.communicate()
+        p.wait()
 
     @handle_errors_f(errors=(FileNotFoundError,))
     def parse_psiblast_pssm(self):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
-
-        Returns:
-            pose_dict (dict): Dictionary containing residue indexed profile information
+        # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_design_profile, CHANGE psiblast lod score parsing
+        Sets:
+            self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
@@ -360,15 +378,14 @@ class SequenceProfile:
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
                 self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
 
-    def hhblits(self, threads=CUtils.hhblits_threads, out_path=os.getcwd()):
+    def hhblits(self, out_path=os.getcwd(), threads=CUtils.hhblits_threads,):
         """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
 
         Keyword Args:
+            out_path=None (str): Disk location where generated file should be written
             threads=CUtils.hhblits_threads (int): Number of cpu's to use for the process
-            outpath=None (str): Disk location where generated file should be written
-        Returns:
-            outfile_name (str): Name of the file generated by hhblits
-            p (subprocess): Process object for monitoring progress of hhblits command
+        Sets:
+            self.pssm_file (str): Name of the file generated by psiblast
         """
 
         self.pssm_file = os.path.join(out_path, '%s.hmm' % str(self.name))
@@ -377,22 +394,22 @@ class SequenceProfile:
                '-cpu', str(threads)]
         self.log.info('%s Profile Command: %s' % (self.name, subprocess.list2cmdline(cmd)))
         p = subprocess.Popen(cmd)
-        p.communicate()
+        p.wait()
 
     @handle_errors_f(errors=(FileNotFoundError,))
     def parse_hhblits_pssm(self, null_background=True):
         """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
-        Returns:
-            (dict): {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-                'weight': 0.00}, {...}}
+        Sets:
+            self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
+            Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                     'weight': 0.00}, {...}}
         """
         dummy = 0.00
+        # 'uniclust30_2018_08'
         null_bg = {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228,
-                   'I': 0.0534,
-                   'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401, 'R': 0.0599,
-                   'S': 0.0791,
-                   'T': 0.0584, 'V': 0.0632, 'W': 0.0127, 'Y': 0.0287}  # 'uniclust30_2018_08'
+                   'I': 0.0534, 'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401,
+                   'R': 0.0599, 'S': 0.0791, 'T': 0.0584, 'V': 0.0632, 'W': 0.0127, 'Y': 0.0287}
 
         def to_freq(value):
             if value == '*':
@@ -426,7 +443,8 @@ class SequenceProfile:
                     self.evolutionary_profile[residue_number] = {}
                     for i, aa in enumerate(IUPACData.protein_letters, 2):
                         self.evolutionary_profile[residue_number][aa] = to_freq(items[i])
-                    self.evolutionary_profile[residue_number]['lod'] = get_lod(self.evolutionary_profile[residue_number], null_bg)
+                    self.evolutionary_profile[residue_number]['lod'] = \
+                        get_lod(self.evolutionary_profile[residue_number], null_bg)
                     self.evolutionary_profile[residue_number]['type'] = items[0]
                     self.evolutionary_profile[residue_number]['info'] = dummy
                     self.evolutionary_profile[residue_number]['weight'] = dummy
@@ -707,7 +725,7 @@ class SequenceProfile:
             return None
 
         if not self.fragment_map:
-            self.fragment_map = self.populate_design_dictionary(self.structure.number_of_residues,
+            self.fragment_map = self.populate_design_dictionary(self.profile_length,
                                                                 [j for j in range(*self.frag_db.fragment_range)],
                                                                 dtype=list)
         #     print('New fragment_map')
@@ -723,7 +741,7 @@ class SequenceProfile:
         # should be unnecessary when fragments are generated internally
         # remove entries which don't exist on protein because of fragment_index +- residues
         not_available = [residue_number for residue_number in self.fragment_map
-                         if residue_number <= 0 or residue_number > self.structure.number_of_residues]
+                         if residue_number <= 0 or residue_number > self.profile_length]
         for residue_number in not_available:
             self.log.debug('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
                            'Fragment index will be deleted.' % (self.name, residue_number))
@@ -852,8 +870,8 @@ class SequenceProfile:
                 self.fragment_profile.pop(residue)
 
     def find_alpha(self, alpha=0.5):
-        """Find fragment contribution to design with cap at alpha. Used subsequently to generating a fragment profile
-        before combining with evolutionary profile in combine_ssm
+        """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
+         fragment profile during combination with evolutionary profile in calculate_design_profile
 
         Takes self.fragment_map
             (dict) {1: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
@@ -870,7 +888,7 @@ class SequenceProfile:
             alpha=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
         """
         if not self.frag_db:
-            raise DesignError('%s: No fragment database connected! Cannot caculate optimal fragment contribution '
+            raise DesignError('%s: No fragment database connected! Cannot calculate optimal fragment contribution '
                               'without this.' % self.find_alpha.__name__)
         assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.find_alpha.__name__
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}
@@ -922,16 +940,14 @@ class SequenceProfile:
             else:
                 self.alpha[entry] = alpha * match_modifier
 
-    def combine_ssm(self, favor_fragments=True, boltzmann=False, alpha=0.5):
+    def calculate_design_profile(self, favor_fragments=True, boltzmann=False, alpha=0.5):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
-        All input must be zero indexed
-
         Takes self.evolutionary_profile
-            (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+            (dict): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                                    'weight': 0.00}, {...}}
-                    PSIBLAST - {0: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
-                                    'weight': 0.73}, {...}} CURRENTLY IMPOSSIBLE, NEED TO CHANGE LOD SCORE IN PARSING
+                    PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
+                                    'weight': 0.73}, {...}}
         self.fragment_profile
             (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
         and self.alpha
@@ -945,19 +961,19 @@ class SequenceProfile:
             alpha=0.5 (float): The maximum alpha value to use, bounded between 0 and 1
 
         And outputs self.profile
-            (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+            (dict): {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                          'weight': 0.00}, ...}} - combined PSSM dictionary
         """
-        assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.combine_ssm.__name__
+        assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.calculate_design_profile.__name__
         # copy the evol profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
-        for entry in self.alpha:  # will be 0 unless self.fragment_profile is not {}
+        for entry in self.alpha:  # alpha[entry] will be 0 if the fragment_profile is empty
             for aa in IUPACData.protein_letters:
                 self.profile[entry][aa] = (self.alpha[entry] * self.fragment_profile[entry][aa]) + \
                                           ((1 - self.alpha[entry]) * self.profile[entry][aa])
-            self.log.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
-                          % (entry + index_offset, self.alpha[entry] * 100))
+            self.log.info('Entity %s, Residue %d: Combined evolutionary and fragment profile: %.0f%% fragment'
+                          % (self.name, entry, self.alpha[entry] * 100))
 
         if favor_fragments:
             # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
@@ -1240,11 +1256,11 @@ class SequenceProfile:
         return lods
 
     @staticmethod
-    def make_pssm_file(pssm_dict, name, out_path=os.getcwd()):
+    def write_pssm_file(pssm_dict, name, out_path=os.getcwd()):
         """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
 
         Args:
-            pssm_dict (dict): A pssm dictionary which has the fields: all aa's ('A', 'C', ...), 'lod', 'type', 'info', 'weight'
+            pssm_dict (dict): A dictionary which has the keys: 'A', 'C', ... (all aa's), 'lod', 'type', 'info', 'weight'
             name (str): The name of the file including the extension
         Keyword Args:
             out_path=os.getcwd() (str): A specific location to write the file to
@@ -1273,17 +1289,17 @@ class SequenceProfile:
                 aa_type = pssm_dict[residue_number]['type']
                 lod_string = ''
                 if lod_freq:
-                    for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                    for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
                         lod_string += '{:>4.2f} '.format(pssm_dict[residue_number]['lod'][aa])
                 else:
-                    for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                    for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
                         lod_string += '{:>3d} '.format(pssm_dict[residue_number]['lod'][aa])
                 counts_string = ''
                 if counts_freq:
-                    for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                    for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
                         counts_string += '{:>3.0f} '.format(math.floor(pssm_dict[residue_number][aa] * 100))
                 else:
-                    for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                    for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
                         counts_string += '{:>3d} '.format(pssm_dict[residue_number][aa])
                 info = pssm_dict[residue_number]['info']
                 weight = pssm_dict[residue_number]['weight']
@@ -2949,7 +2965,7 @@ def nanohedra_fragment_match_score(fragment_metric_d):
 
 
 def generate_sequence_mask(fasta_file):
-    """From a sequence with a design_selection, grab the residue indices that should be designed in the target
+    """From a sequence with a design_selector, grab the residue indices that should be designed in the target
     structural calculation
 
     Returns:
@@ -2960,8 +2976,8 @@ def generate_sequence_mask(fasta_file):
     sequence = sequences[0]
     mask = sequences[1]
     if not len(sequence) == len(mask):
-        raise DesignError('The sequence and design_selection are different lengths! Please correct the alignment and lengths '
-                          'before proceeding.')
+        raise DesignError('The sequence and design_selector are different lengths! Please correct the alignment and '
+                          'lengths before proceeding.')
 
     return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
 
@@ -2970,32 +2986,28 @@ def clean_comma_separated_string(string):
     return list(map(str.strip, string.strip().split(',')))
 
 
-def generate_residue_mask(residue_string):
-    """From a string with a design_selection, grab the residue indices that should be designable in the target
-    structural calculation
+def format_index_string(index_string):
+    """From a string with indices of interest, format the indices provided
 
     Returns:
-        (list): The residue numbers (in pose format) that should be ignored in design
+        (list): residue numbers in pose format
     """
-    clean_residue_list = clean_comma_separated_string(residue_string)
-    # extract ranges
-    final_residues = []
-    for residue in clean_residue_list:
-        if '-' in residue:  # we have a range
-            for residue_idx in range(*tuple(map(int, residue.split('-')))):
-                final_residues.append(residue_idx)
-            final_residues.append(residue_idx + 1)
-        else:
-            final_residues.append(residue)
+    final_index = []
+    for index in clean_comma_separated_string(index_string):
+        if '-' in index:  # we have a range, extract ranges
+            for _idx in range(*tuple(map(int, index.split('-')))):
+                final_index.append(_idx)
+            final_index.append(_idx + 1)
+        else:  # single index
+            final_index.append(index)
 
-    return list(map(int, final_residues))
+    return list(map(int, final_index))
 
 
 def generate_chain_mask(chain_string):
-    """From a string with a  design_selection, grab the chains that should be designable in the target
-    structural calculation
+    """From a string with a design_selection, format the chains provided
 
     Returns:
-        (list): The residue numbers (in pose format) that should be ignored in design
+        (list): chain ids in pose format
     """
     return clean_comma_separated_string(chain_string)
