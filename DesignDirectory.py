@@ -111,7 +111,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.ave_z = None  # TODO MOVE Metrics
 
         # Design flags
-        self.design_selection = None
+        self.design_selector = None
         self.evolution = True
         self.design_with_fragments = True
         self.query_fragments = True
@@ -331,7 +331,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         if os.path.exists(self.info_pickle):  # Pose has already been processed. We can assume files are available
             self.info = unpickle(self.info_pickle)
-            if 'design' in self.info and self.info['design']:
+            if 'design' in self.info and self.info['design']:  # Todo, respond to the state
                 dummy = True
 
         else:  # Ensure directories are only created once Pose Processing is called
@@ -618,11 +618,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
-                  output_assembly=False, design_selection=None, script=True, mpi=False, **kwargs):  # nanohedra_output,
+                  output_assembly=False, design_selector=None, script=True, mpi=False, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         self.sym_entry_number = sym_entry_number
         # self.nano = nanohedra_output
-        self.design_selection = design_selection
+        self.design_selector = design_selector
         self.evolution = design_with_evolution
         self.design_with_fragments = design_with_fragments
         # self.fragment_file = fragments_exist
@@ -717,7 +717,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                              'switch=%s' % PUtils.stage[5]]
                 if self.script:
                     shell_scripts.append(write_shell_script(subprocess.list2cmdline(consensus_cmd),
-                                                            name=PUtils.stage[5], out_path=self.scripts))
+                                                            name=PUtils.stage[5], out_path=self.scripts,
+                                                            status_wrap=self.info_pickle))
                     # additional_cmd = [subprocess.list2cmdline(consensus_cmd)]
                 else:
                     self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
@@ -743,7 +744,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.script:
             self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
-                                                    out_path=self.scripts))
+                                                    out_path=self.scripts, status_wrap=self.info_pickle))
         else:
             self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
             refine_process = subprocess.Popen(refine_cmd)
@@ -753,12 +754,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # DESIGN: Prepare command and flags file
         design_variables = copy.deepcopy(refine_variables)
         design_variables.append(('design_profile', self.info['design_profile']))
+
         constraint_percent, free_percent = 0, 1
         if self.evolution:
             constraint_percent = 0.5
             free_percent -= constraint_percent
         design_variables.append(('constrained_percent', constraint_percent))
         design_variables.append(('free_percent', free_percent))
+
         flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
         # TODO back out nstruct label to command distribution
         design_cmd = main_cmd + ['-in:file:pssm', self.info['evolutionary_profile']] if self.evolution else [] + \
@@ -799,9 +802,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.script:
             self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2],
-                                                    out_path=self.scripts))
+                                                    out_path=self.scripts, status_wrap=self.info_pickle))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(generate_files_cmd), name=PUtils.stage[3],
-                                                    out_path=self.scripts,
+                                                    out_path=self.scripts, status_wrap=self.info_pickle,
                                                     additional=[subprocess.list2cmdline(command)
                                                                 for n, command in enumerate(metric_cmds.values())]))
             for idx, metric_cmd in enumerate(metric_cmds):
@@ -820,7 +823,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.script:
             pass
             # analysis_cmd = '%s -d %s %s' % (PUtils.program_command, self.path, PUtils.stage[4])
-            # write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=self.scripts)
+            # write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=self.scripts, status_wrap=self.info_pickle
         else:
             pose_s = analyze_output(self)
             outpath = os.path.join(self.all_scores, PUtils.analysis_file)
@@ -829,8 +832,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 _header = True
             pose_s.to_csv(outpath, mode='a', header=_header)
 
-        self.info['status'] = {shell_script: False for shell_script in shell_scripts}
-
+        write_shell_script('', name=PUtils.stage[2], out_path=self.scripts,
+                           additional=['bash %s' % design_script for design_script in shell_scripts])
+        self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
         write_commands(shell_scripts, name=PUtils.interface_design_command, out_path=self.scripts)
 
     def prepare_rosetta_flags(self, flag_variables, stage, out_path=os.getcwd()):
@@ -880,8 +884,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def load_pose(self):
+        """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
+        self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
+
+        Handles clash testing and writing the assembly if those options are True
+        """
         self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
-                                       design_selection=self.design_selection, frag_db=self.frag_db)
+                                       design_selector=self.design_selector, frag_db=self.frag_db)
         # Save renumbered PDB to clean_asu.pdb
         self.pose.pdb.write(out_path=self.asu)
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)
@@ -895,38 +904,57 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def expand_asu(self):
-        print(self.source)
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
-                                       design_selection=self.design_selection, frag_db=self.frag_db)
+        """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
+        self.symmetry, and self.log objects then expand the design given the provided symmetry operators and write to a
+        file
+
+        Reports on clash testing
+        """
+        self.log.info('Expanding PDB: %s' % self.source)
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
+        #                              design_selector=self.design_selector)
         # Save renumbered PDB to clean_asu.pdb
         self.pose.pdb.write(out_path=self.asu)
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)
         self.pose.get_assembly_symmetry_mates()
+        if self.pose.symmetric_assembly_is_clash():
+            self.log.critical('The Symmetric Assembly contains clashes! %s is not viable. Writing out assembly anyway'
+                              % self.asu)
         self.pose.write(out_path=os.path.join(self.path, PUtils.assembly))
         self.log.info('Expanded Assembly PDB: \'%s\'' % os.path.join(self.path, PUtils.assembly))
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
+        """For the design info given by a DesignDirectory source, initialize the Pose then generate interfacial fragment
+        information between Entities. Aware of symmetry and design_selectors in fragment generation
+        file
+        """
         self.load_pose()
-        self.pose.generate_interface_fragments(db=self.frag_db, out_path=self.frags)
+        self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=True)  # Todo parameterize
         self.info['fragments'] = self.frag_file
-        self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
+        self.pickle_info()
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
+        """For the design info given by a DesignDirectory source, initialize the Pose then prepare all parameters for
+        interfacial redesign between between Pose Entities. Aware of symmetry, design_selectors, fragments, and
+        evolutionary information in interface design
+        """
         self.load_pose()
         # if self.info:  # Todo
         #     return None  # pose has already been initialized for design
-        self.pose.interface_design(design_dir=self,  # output_assembly=self.output_assembly,
+        self.pose.interface_design(design_dir=self,
                                    evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.design_with_fragments, write_fragments=self.write_frags,
-                                   query_fragments=self.query_fragments,)
-                                   # frag_db=self.frag_db)  Todo clean up
+                                   query_fragments=self.query_fragments)
+        # TODO add symmetry or oligomer data to self.info?
         self.set_symmetry(**self.pose.return_symmetry_parameters())
         self.log.debug('DesignDirectory Symmetry: %s' % self.return_symmetry_parameters())
-        self.info_pickle = pickle_object(self.info, 'info', out_path=self.data)
         self.prepare_rosetta_commands()
+        self.pickle_info()
 
+    def pickle_info(self):
+        pickle_object(self.info, self.info_pickle, out_path='')
     # @handle_errors_f(errors=(FileNotFoundError, ))
     # def gather_fragment_infov0(self):  # DEPRECIATED v0
     #     """Gather fragment metrics from Nanohedra output"""
