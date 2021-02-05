@@ -1296,43 +1296,41 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 # inherently gets interface residues for the designable entities
                 self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
             else:  # add existing fragment information to the pose
-                # must provide des_dir.fragment_observations from des_dir.gather_fragment_metrics then specify whether
-                # the Entity in question is from mapped or paired (entity1 is mapped, entity2 is paired from Nanohedra)
-                # Need to renumber fragments to Pose residue numbering when we add to the available queries
-                # if existing_fragments:  # add provided fragment information to the pose
-                #     # Todo DesignDirectory.gather_fragment_info(self)
-                #     #   design_dir.fragment_observations?
-                #     with open(existing_fragments, 'r') as f:
-                #         fragment_source = f.readlines()
-                # else:
+                if not self.frag_db:
+                    self.connect_fragment_database(init=False)  # location='biological_interfaces' inherent in call
+                    self.handle_flags(frag_db=self.frag_db)  # attach to all entities
+
                 fragment_source = design_dir.fragment_observations
                 if not fragment_source:
                     raise DesignError('%s: Fragments were set for design but there were none found in the Design '
                                       'Directory! Fix your input flags if this is not what you expected or generate '
                                       'them with \'%s generate_frags\'' % (str(design_dir), PUtils.program_command))
 
-                # self.fragment_queries[tuple(entity.name for entity in self.entities)] = fragment_source
+                # Must provide des_dir.fragment_observations then specify whether the Entity in question is from the
+                # mapped or paired chain (entity1 is mapped, entity2 is paired from Nanohedra). Then, need to renumber
+                # fragments to Pose residue numbering when added to fragment queries
                 if design_dir.nano:
-                    entity_ids = tuple(entity.name for entity in self.entities)  # Todo compatible with > 2 entities
-                    self.log.debug('Entity ID\'s: %s' % str(entity_ids))
+                    if len(self.entities) > 2:  # Todo compatible with > 2 entities
+                        raise DesignError('Not able to solve fragment/residue membership with more than 2 Entities!')
+                    entity_ids = tuple(entity.name for entity in self.entities)
+                    self.log.debug('Fragment data found in Nanohedra docking. Solving fragment membership for '
+                                   'Entity ID\'s: %s by PDB numbering correspondence' % str(entity_ids))
                     self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
                                             pdb_numbering=True)
                 else:  # assuming the input is in Pose numbering
-                    self.log.debug('Fragment data being pulled from file')  #. Data:\n%s' % fragment_source)
+                    self.log.debug('Fragment data found from prior query. Solving query index by Pose number/Entity '
+                                   'matching')
                     self.add_fragment_query(query=fragment_source)
-                # for entity in self.entities:
-                #     entity.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
-                #                               pdb_numbering=True)
 
             for query_pair, fragment_info in self.fragment_queries.items():
                 self.log.debug('Query Pair: %s, %s\nFragment Info: %s' % (query_pair[0].name, query_pair[1].name, fragment_info))
                 for query_idx, entity in enumerate(query_pair):
-                    # Attach an existing FragmentDB to the Pose
-                    entity.attach_fragment_database(db=design_dir.frag_db)
+                    # # Attach an existing FragmentDB to the Pose
+                    # entity.attach_fragment_database(db=design_dir.frag_db)
                     # entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
                     entity.assign_fragments(fragments=fragment_info,
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
-        else:
+        else:  # No fragments
             # get interface residues for the designable entities
             for entity_pair in combinations_with_replacement(self.active_entities, 2):
                 self.find_interface_residues(*entity_pair)
@@ -1383,14 +1381,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             out_path=None (str): The location to write each fragment file
             new_db=False (bool): Whether a fragment database should be initialized for the interface fragment search
         """
-        if new_db:  # Connect to a new DB
-            self.connect_fragment_database()  # default, init=True. other args are source= , location= ,
-        elif not self.frag_db:  # There is no fragment database connected
-            raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
-                              'initialized the Pose with a database (pass FragmentDatabase obj by \'frag_db\')! '
-                              'Alternatively pass new_db=True to %s'
-                              % (self.generate_interface_fragments.__name__,
-                                 self.generate_interface_fragments.__name__))
+        if not self.frag_db:  # There is no fragment database connected
+            # Connect to a new DB, Todo parameterize which one should be used with location=
+            self.connect_fragment_database()  # default, init=False. other args are source= ,
+        # elif not self.frag_db:  # There is no fragment database connected
+        #     raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
+        #                       'initialized the Pose with a database (pass FragmentDatabase obj by \'frag_db\')! '
+        #                       'Alternatively pass new_db=True to %s'
+        #                       % (self.generate_interface_fragments.__name__,
+        #                          self.generate_interface_fragments.__name__))
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.find_interface_residues(*entity_pair)
