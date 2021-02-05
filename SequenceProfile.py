@@ -217,7 +217,7 @@ class SequenceProfile:
             if not rerun:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
                 for idx, residue in enumerate(self.structure.get_residues(), 1):
-                    profile_residue_type = self.profile[idx]['type']
+                    profile_residue_type = self.evolutionary_profile[idx]['type']
                     pose_residue_type = IUPACData.protein_letters_3to1[residue.type.title()]
                     if profile_residue_type != pose_residue_type:
                         self.log.warning(
