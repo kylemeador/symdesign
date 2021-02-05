@@ -231,7 +231,7 @@ class SequenceProfile:
                 if second:
                     raise DesignError('Profile Generation got stuck, design aborted')
                 else:
-                    self.add_profile(force=True)
+                    self.add_evolutionary_profile(force=True)
                     second = True
             else:
                 success = True
