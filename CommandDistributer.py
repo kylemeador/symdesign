@@ -43,7 +43,7 @@ class GracefulKiller:
 
 def exit_gracefully(signum, frame):
     with open(args.failure_file, 'a') as f:
-        for i, pose in enumerate(command_paths):
+        for pose in command_paths:
             f.write('%s\n' % pose)
 
     # Append SLURM output to log_file(s)
@@ -162,12 +162,14 @@ def distribute(stage=None, directory=None, file=None, success_file=None, failure
         new_f.write(PUtils.sb_flag + out + '\n')
         array = 'array=1-%d%%%d' % (int(len(_commands) / command_divisor + 0.5), max_jobs)
         new_f.write(PUtils.sb_flag + array + '\n')
-        new_f.write('\npython %s --stage %s --success_file %s --failure_file %s --command_file %s %s\n' %
-                    (PUtils.cmd_dist, stage, success_file, failure_file, file,
-                     (script_present or '')))
+        new_f.write('\npython %s distribute --stage %s --success_file %s --failure_file %s --command_file %s %s\n' %
+                    (PUtils.cmd_dist, stage, success_file, failure_file, file, (script_present or '')))
 
-    logger.info('To distribute commands, ensure the sbatch script (%s) is correct, then enter the following:'
-                '\nsbatch %s' % (filename, os.path.basename(filename)))
+    logger.info('To distribute \'%s\'commands, ensure the sbatch script located at %s is correct. Specifically, check '
+                'the job array and any node specifications to be accurate. You can look at the sbatch manual '
+                '(man sbatch or sbatch --help) to understand the variables or ask for help if you are still unsure. '
+                'Once you are satisfied, enter the following:\nsbatch %s'
+                % (stage, filename, os.path.basename(filename)))
 
 
 if __name__ == '__main__':
@@ -241,35 +243,36 @@ if __name__ == '__main__':
         log_files = ['%s.log' % os.path.splitext(log_dir)[0] for log_dir in command_paths]
         iteration = 0
         complete = False
-        while not complete:
-            # allocation = ['srun', '-c', 1, '-p', 'long', '--mem-per-cpu', CUtils.memory_scale[args.stage]]
-            allocation = None
-            zipped_commands = zip(command_paths, log_files, repeat(allocation))
+        # while not complete:
+        #     allocation = ['srun', '-c', 1, '-p', 'long', '--mem-per-cpu', CUtils.memory_scale[args.stage]]
+        #     allocation = None
+        #     zipped_commands = zip(command_paths, log_files, repeat(allocation))
+        zipped_commands = zip(command_paths, log_files)
 
-            # Ensure all log files exist
-            for log_file in log_files:
-                create_file(log_file)
-            create_file(args.success_file)
-            create_file(args.failure_file)
+        # Ensure all log files exist
+        for log_file in log_files:
+            create_file(log_file)
+        create_file(args.success_file)
+        create_file(args.failure_file)
 
-            # Run commands in parallel
-            # monitor = GracefulKiller()  # TODO solution to SIGTERM. TEST shows this doesn't appear to be possible...
-            signal.signal(signal.SIGINT, exit_gracefully)
-            # signal.signal(signal.SIGKILL, exit_gracefully)  # Doesn't work, not possible
-            signal.signal(signal.SIGTERM, exit_gracefully)
-            # while not monitor.kill_now:
+        # Run commands in parallel
+        # monitor = GracefulKiller()  # TODO solution to SIGTERM. TEST shows this doesn't appear to be possible...
+        signal.signal(signal.SIGINT, exit_gracefully)
+        # signal.signal(signal.SIGKILL, exit_gracefully)  # Doesn't work, not possible
+        signal.signal(signal.SIGTERM, exit_gracefully)
+        # while not monitor.kill_now:
 
-            # # python 2.7 compatibility NO MP here
-            # results = []
-            # for command, log_file in commands:
-            #     results.append(run(command, log_file))
+        # # python 2.7 compatibility NO MP here
+        # results = []
+        # for command, log_file in commands:
+        #     results.append(run(command, log_file))
 
-            # python 3.7 compatible
-            if len(command_paths) > 1:  # set by CUtils.process_scale
-                results = mp_starmap(run, zipped_commands, threads=len(command_paths))  # Todo change the command paths
-            else:
-                results = [run(*command_pair) for command_pair in zipped_commands]
-            iteration += 1
+        # python 3.7 compatible
+        if len(command_paths) > 1:  # set by CUtils.process_scale
+            results = mp_starmap(run, zipped_commands, threads=len(command_paths))  # Todo change the command paths
+        else:
+            results = [run(*command_pair) for command_pair in zipped_commands]
+        #    iteration += 1
 
         # Write out successful and failed commands TODO ensure write is only possible one at a time
         with open(args.success_file, 'a') as f:
