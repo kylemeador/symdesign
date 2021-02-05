@@ -43,7 +43,7 @@
 	<PROTOCOLS>
 		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry_switch"/>
-		<Add mover_name="relax_switch"/>
+<!--		<Add mover_name="relax_switch"/>-->
 		<Add mover_name="metrics_interface_design"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
