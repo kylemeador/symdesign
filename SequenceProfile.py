@@ -315,7 +315,7 @@ class SequenceProfile:
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa_list, type=int)
+        self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa_list, dtype=int)
         for idx, residue_number in enumerate(self.evolutionary_profile):
             # line_data = line.strip().split()
             # if len(line_data) == 44:
@@ -1218,8 +1218,7 @@ class SequenceProfile:
             n (int): number of residues in a design
             alphabet (iter): alphabet of interest
         Keyword Args:
-            dtype=dict (object): The type of object present in the interior dictionary
-            counts=False (bool): If True, include an integer placeholder for counting
+            dtype=object (object): The type of object present in the interior dictionary
             zero_index=False (bool): If True, return the dictionary with zero indexing
          Returns:
              (dict): {1: {alph1: {}, alph2: {}, ...}, 2: {}, ...}
@@ -1230,9 +1229,6 @@ class SequenceProfile:
         else:
             offset = index_offset
 
-        # if counts:
-        #     return {residue + offset: {i: 0 for i in alphabet} for residue in range(n)}
-        # else:
         return {residue + offset: {i: dtype() for i in alphabet} for residue in range(n)}
 
     @staticmethod
