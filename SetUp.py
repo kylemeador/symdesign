@@ -96,6 +96,7 @@ def main():
           'Press Enter once these are located to continue.\nInput:')
 
     print('Finally, hh-suite needs to be available. This is being created for you in the dependencies directory.')
+    hh_blits_latest_url = 'http://wwwuser.gwdg.de/~compbiol/data/hhsuite/databases/hhsuite_dbs/uniclust-latest'
     hhsuite = subprocess.Popen()
     hhsuite.communicate()
 
