@@ -45,9 +45,9 @@
 	
 	<MOVERS>
 		# add coordinate constraint to residues not at interface
-		<AddConstraints name="add_csts">
-			<CoordinateConstraintGenerator name="coord_cst_gen" residue_selector="full_pose" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" native="false" align_reference="false"/> # bounded_width="0" no native pose as this isn't refined, sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
-		</AddConstraints>
+<!--		<AddConstraints name="add_csts">-->
+<!--			<CoordinateConstraintGenerator name="coord_cst_gen" residue_selector="full_pose" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" native="false" align_reference="false"/> # bounded_width="0" no native pose as this isn't refined, sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic-->
+<!--		</AddConstraints>-->
 		<FastDesign name="int_design" scorefxn="2015_nano" disable_design="false" task_operations="init,vrt,include_current,des_around_total" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 		# sample all rotamers to find minimum
 		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/>
