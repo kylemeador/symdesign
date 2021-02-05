@@ -207,6 +207,35 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
 logger = start_log(name=__name__, handler=3, level=1)
 
 
+def pretty_format_table(rows, justifications=None):
+    """Present a table in readable format.
+
+    Args:
+        rows (iter): The rows of data you would like to populate the table
+    Keyword Args:
+        justifications=None (list): A list with either 'l', 'r', or 'c' as the text justification values
+    """
+    widths = get_table_column_widths(rows)
+    if not justifications:
+        justifications = list(str.ljust for width in widths)
+    else:
+        justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center}
+        try:
+            justifications = []
+            for key in justifications:
+                justifications.append(justification_d[key])
+        except KeyError:
+            raise KeyError('%s: The justification \'%s\' is not of the allowed types (%s).'
+                           % (pretty_format_table.__name__, key, list(justification_d.keys())))
+
+    return [' '.join(justifications[idx](str(col), width) for idx, (col, width) in enumerate(zip(row, widths)))
+            for row in rows]
+
+
+def get_table_column_widths(rows):
+    return tuple(max(map(len, map(str, col))) for col in zip(*rows))
+
+
 @handle_errors_f(errors=(FileNotFoundError, ))
 def unpickle(file_name):
     """Unpickle (deserialize) and return a python object located at filename"""
