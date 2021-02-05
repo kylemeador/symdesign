@@ -111,6 +111,8 @@ class SequenceProfile:
 
     def connect_fragment_database(self, location=None, init=False, **kwargs):
         """Generate a new connection. Initialize the representative library by passing init=True"""
+        if not location:  # Todo fix once multiple are available
+            location = 'biological_interfaces'
         self.frag_db = FragmentDatabase(location=location, init_db=init)
         #                               source=source, location=location, init_db=init_db)
 
