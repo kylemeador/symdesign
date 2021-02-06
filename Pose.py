@@ -830,13 +830,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         #     nothing = True
         if self.pdb:
             # add structure to the SequenceProfile
-            self.pdb.is_clash()
+            if self.pdb.is_clash():
+                raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
             self.set_structure(self.pdb)
             # set up coordinate information for SymmetricModel
             self.coords = Coords(self.pdb.get_coords())
 
         self.design_selector_entities = set()
         self.design_selector_indices = set()
+        self.required_indices = set()
         self.interface_residues = {}
         self.interface_split = {}
         self.fragment_observations = []
@@ -981,8 +983,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             for entity in self.entities:
                 entity.attach_fragment_database(db=frag_db)
 
-    def create_design_selector(self, selection=None, mask=None):
-        # def mask(self, pdbs=None, entities=None, chains=None, residues=None, atoms=None):
+    def create_design_selector(self, selection=None, mask=None, required=None):
+        """Set up a design selector for the Pose including selctions, masks, and required Entities and Atoms
+
+        Sets:
+            self.design_selector_indices (set[int])
+            self.design_selector_entities (set[Entity])
+            self.required_indices (set[int])
+        """
         def grab_indices(pdbs=None, entities=None, chains=None, residues=None, atoms=None):
             entity_union = set()
             atom_intersect = set(self.pdb.atom_indices)
@@ -1010,6 +1018,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         entity_selection, atom_selection = grab_indices(**selection)
         entity_mask, atom_mask = grab_indices(**mask)
+        entity_required, atom_required = grab_indices(**required)
         entity_selection = entity_selection.difference(entity_mask)
         atom_selection = atom_selection.difference(atom_mask)
 
@@ -1017,6 +1026,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # self.design_selector_entities = self.design_selector_entities.intersection(entity_union)
         self.design_selector_entities = self.design_selector_entities.union(entity_selection)
         self.design_selector_indices = self.design_selector_indices.union(atom_selection)
+        self.required_indices = self.required_indices.union(atom_required)
 
     # def add_pdb(self, pdb):  # Todo
     #     """Add a PDB to the PosePDB as well as the member PDB list"""
