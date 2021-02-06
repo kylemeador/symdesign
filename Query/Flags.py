@@ -22,6 +22,11 @@ flags = \
       'output_assembly': {'type': bool, 'default': False,
                           'description': 'If symmetric, whether the expanded assembly should be output. '
                                          '2- and 3-D materials will be output with a single unit cell.'},
+      'require_design_at_residues':
+          {'type': str, 'default': None,
+           'description': 'Regardless of participation in an interface, if certain residues should be included in'
+                          'design. Specify the residue POSE numbers (starting with 1) as a comma separated string. '
+                          'Ranges are allowed Ex: \'23,24,35,41,100-110,267,289-293\''},
       'select_designable_residues_by_sequence':
           {'type': str, 'default': None,
            'description': 'If design should occur ONLY at certain residues, specify the location of a .fasta file '

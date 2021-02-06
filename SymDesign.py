@@ -635,7 +635,12 @@ if __name__ == '__main__':
         if args.directory or args.file:
             # Pull nanohedra_output and mask_design_using_sequence out of flags
             # design_flags = load_flags(args.design_flags)
-            # Todo move to a verify flags function inside of Pose
+            # Todo move to a verify design_selectors function inside of Pose? Own flags module?
+            entity_req, chain_req, residues_req = None, None, set()
+            if 'require_design_at_residues' in design_flags and design_flags['require_design_at_residues']:
+                residues_req = residues_req.union(
+                    SequenceProfile.format_index_string(design_flags['require_design_at_residues']))
+            # -------------------
             pdb_select, entity_select, chain_select, residue_select, atom_select = None, None, None, set(), None
             if 'select_designable_residues_by_sequence' in design_flags \
                     and design_flags['select_designable_residues_by_sequence']:
@@ -657,14 +662,16 @@ if __name__ == '__main__':
                     and design_flags['select_designable_residues_by_pose_number']:
                 residue_mask = residue_select.union(
                     SequenceProfile.format_index_string(design_flags['select_designable_residues_by_pose_number']))
-
             if 'mask_designable_chains' in design_flags and design_flags['select_designable_chains']:
                 chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
+            # -------------------
             design_flags.update({'design_selector':
                                  {'selection': {'pdbs': pdb_select, 'entities': entity_select, 'chains': chain_select,
                                                 'residues': residue_select, 'atoms': atom_select},
                                   'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
-                                           'residues': residue_mask, 'atoms': atom_mask}}})
+                                           'residues': residue_mask, 'atoms': atom_mask},
+                                  'required': {'entities': entity_req, 'chains': chain_req, 'residues': residues_req}}})
+
             # logger.debug('Design flags after masking: %s' % design_flags)
 
             # Add additional program flags to design_flags
