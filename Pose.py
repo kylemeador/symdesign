@@ -830,7 +830,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         #     nothing = True
         if self.pdb:
             # add structure to the SequenceProfile
-            # self.pdb.is_clash()  # Todo
+            self.pdb.is_clash()
             self.set_structure(self.pdb)
             # set up coordinate information for SymmetricModel
             self.coords = Coords(self.pdb.get_coords())
@@ -838,6 +838,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.interface_residues = {}
+        self.interface_split = {}
         self.fragment_observations = []
 
         symmetry_kwargs = self.pdb.symmetry
@@ -1124,7 +1125,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             return None
 
         if self.symmetry:
-            # get all symmetric indices if the pose is symmetric
+            # get all symmetric indices
             entity2_indices = [idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
                                for idx in entity2_indices]
             pdb_atoms = [atom for model_number in range(self.number_of_models) for atom in pdb_atoms]
@@ -1136,23 +1137,34 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
                 # self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
             entity2_coords = self.model_coords[np.array(entity2_indices)]  # only get the coordinate indices we want
+        elif entity1 == entity2:
+            # without symmetry, we can't measure this
+            return None
         else:
             entity2_coords = self.coords[np.array(entity2_indices)]  # only get the coordinate indices we want
 
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
-        entity1_indices = np.array(entity1_indices)
-        entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want
+        entity1_coords = self.coords[np.array(entity1_indices)]  # only get the coordinate indices we want
         entity1_tree = BallTree(entity1_coords)
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates
-        self.log.info('Querying %d Entity %s CB residues versus, %d Entity %s CB residues'
+        self.log.info('Querying %d CB residues in Entity %s versus, %d CB residues in Entity %s'
                       % (len(entity1_indices), entity1.name, len(entity2_indices), entity2.name))
         # self.log.debug('Entity2 Query size: %d' % entity2_query.size)
-
-        return [(pdb_atoms[entity1_indices[entity1_idx]].residue_number,  # Todo return residue object from atom?
-                 pdb_atoms[entity2_indices[entity2_idx]].residue_number)
-                for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
+        contacting_pairs = [(pdb_atoms[entity1_indices[entity1_idx]].residue_number,
+                             pdb_atoms[entity2_indices[entity2_idx]].residue_number)
+                            for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
+        if entity2 != entity1:
+            return contacting_pairs
+        else:  # solve symmetric results for asymmetric contacts
+            asymmetric_contacting_pairs, found_pairs = [], []
+            for possible_pair in contacting_pairs:
+                if possible_pair not in found_pairs or (possible_pair[1], possible_pair[0]) not in found_pairs:
+                    # only add if we have never observed either pair orientation
+                    asymmetric_contacting_pairs.append(possible_pair)
+                found_pairs.append(possible_pair)  # always add, regardless
+            return asymmetric_contacting_pairs
 
     @staticmethod
     def split_interface_pairs(interface_pairs):
@@ -1162,7 +1174,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         else:
             return [], []
 
-    def find_interface_residues(self, entity1=None, entity2=None, **kwargs):  # entity1=None, entity2=None, distance=8, include_glycine=True):
+    def find_interface_residues(self, entity1=None, entity2=None, **kwargs):  # distance=8, include_glycine=True):
         """Get unique residues from each pdb across an interface provide two Entity names
 
         Keyword Args:
@@ -1176,12 +1188,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         entity1_residue_numbers, entity2_residue_numbers = \
             self.split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
         if not entity1_residue_numbers or not entity2_residue_numbers:
-            self.log.info('Interface %s | %s, no interface found' % (entity1.name, entity2.name))
+            self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
-            if entity1 not in self.interface_residues:
-                self.interface_residues[entity1] = []
-            if entity2 not in self.interface_residues:
-                self.interface_residues[entity2] = []
+            # if (entity1, entity2) not in self.interface_residues:
+            self.interface_residues[(entity1, entity2)] = ()
+            # if entity2 not in self.interface_residues:
+            #     self.interface_residues[entity2] = []
             return None
         else:
             self.log.info('At interface Entity %s | Entity %s\t%s has interface residue numbers: %s'
@@ -1189,22 +1201,30 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.log.info('At interface Entity %s | Entity %s\t%s has interface residue numbers: %s'
                           % (entity1.name, entity2.name, entity2.name, entity2_residue_numbers))
 
-        if entity1 not in self.interface_residues:
-            self.interface_residues[entity1] = entity1.get_residues(numbers=entity1_residue_numbers)
-        else:
-            self.interface_residues[entity1].extend(entity1.get_residues(numbers=entity1_residue_numbers))
+        self.interface_residues[(entity1, entity2)] = (entity1.get_residues(numbers=entity1_residue_numbers),
+                                                       entity2.get_residues(numbers=entity2_residue_numbers))
+        # if entity1 not in self.interface_residues:
+        #     self.interface_residues[entity1] = entity1.get_residues(numbers=entity1_residue_numbers)
+        # else:
+        #     self.interface_residues[entity1].extend(entity1.get_residues(numbers=entity1_residue_numbers))
+        #
+        # if entity2 not in self.interface_residues:
+        #     self.interface_residues[entity2] = entity2.get_residues(numbers=entity2_residue_numbers)
+        # else:
+        #     self.interface_residues[entity2].extend(entity2.get_residues(numbers=entity2_residue_numbers))
 
-        if entity2 not in self.interface_residues:
-            self.interface_residues[entity2] = entity2.get_residues(numbers=entity2_residue_numbers)
-        else:
-            self.interface_residues[entity2].extend(entity2.get_residues(numbers=entity2_residue_numbers))
-
-        self.log.debug('interface_residues: %s' % self.interface_residues)
+        self.log.debug('Added interface_residues: %s' % ['%d%s' % (eval('entity%s.name' % idx), residue.number)
+                       for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)], 1)
+                       for residue in entity_residues])
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
         # Todo identity frag type by residue, not by calculation
-        surface_frags1 = entity1.get_fragments([residue.number for residue in self.interface_residues[entity1]])
-        surface_frags2 = entity2.get_fragments([residue.number for residue in self.interface_residues[entity2]])
+        surface_frags1 = entity1.get_fragments([residue.number
+                                                for residue in self.interface_residues[(entity1, entity2)][0]])
+        surface_frags2 = entity2.get_fragments([residue.number
+                                                for residue in self.interface_residues[(entity1, entity2)][1]])
+        # surface_frags1 = entity1.get_fragments([residue.number for residue in self.interface_residues[entity1]])
+        # surface_frags2 = entity2.get_fragments([residue.number for residue in self.interface_residues[entity2]])
         if not surface_frags1 or not surface_frags2:
             self.log.debug('At interface Entity %s | Entity %s\tMISSING interface residues with matching fragments'
                            % (entity1.name, entity2.name))
@@ -1237,6 +1257,111 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.calculate_fragment_query_metrics()
 
         return self.return_fragment_query_metrics(entity1=entity1, entity2=entity2, per_interface=True)
+
+    def check_interface_topology(self):
+        first, second = 0, 1
+        interface_residue_d = {first: {}, second: {}, 'self': (False, False)}
+        terminate = False
+        for entity_pair, entity_residues in self.interface_residues.items():
+            if not entity_residues:
+                continue
+            else:
+                if entity_pair[first] == entity_pair[second]:  # if query is with self, have to record it
+                    _self = True
+                else:
+                    _self = False
+
+                # idx - 1 grabs the last index if at the first index, or grabs the first index if it's the last
+                if not interface_residue_d[first]:
+                    # on first observation, add the pair to the dictionary in their indexed order
+                    interface_residue_d[first][entity_pair[first]] = entity_residues[first]  # list
+                    interface_residue_d[second][entity_pair[second]] = entity_residues[second]  # list
+                    if _self:
+                        interface_residue_d['self'][second] = _self
+                else:
+                    # >= Second observation, divide the residues in each entity to the correct interface index
+                    # Need to check if the Entity is in either side before adding
+                    #           for idx, residues in enumerate(entity_residues):
+                    if entity_pair[first] in interface_residue_d[first]:
+                        if interface_residue_d['self'][first]:
+                            # Ex4 - self Entity was added to index 0 while ASU added to index 1.
+                            # Now, flip Entity at index 0 to the other side, add new Entity to index 1
+                            interface_residue_d[second][entity_pair[first]].extend(entity_residues[first])
+                            interface_residue_d[first][entity_pair[second]] = entity_residues[second]
+                        else:
+                            # Entities are properly indexed, extend the first index
+                            interface_residue_d[first][entity_pair[first]].extend(entity_residues[first])
+                            # Because of combinations with replacement entity search, the second entity is not in
+                            # the second index, UNLESS the self Entity (SYMMETRY) is in FIRST (as above)
+                            # Therefore we add below without checking for overwrite
+                            interface_residue_d[second][entity_pair[second]] = entity_residues[second]
+                            # if _self:  # This can't happen, it would VIOLATES RULES
+                            #     interface_residue_d['self'][1] = _self
+                    # we have interface assigned and the entity is not in the first index, which means it may
+                    # be in the second, it may not
+                    elif entity_pair[first] in interface_residue_d[second]:
+                        # it is, add it to the second index
+                        interface_residue_d[second][entity_pair[first]].extend(entity_residues[first])
+                        # also add it's partner entity to the first index
+                        # if entity_pair[1] in interface_residue_d[first]:  # Can this ever be True? Can't find a case
+                        #     interface_residue_d[first][entity_pair[1]].extend(entity_residues[1])
+                        # else:  # Ex5
+                        interface_residue_d[first][entity_pair[second]] = entity_residues[second]
+                        if _self:
+                            interface_residue_d['self'][first] = _self
+                    # CHECK INDEX 2
+                    elif entity_pair[second] in interface_residue_d[second]:
+                        # this is possible (A:D) (C:D)
+                        interface_residue_d[second][entity_pair[second]].extend(entity_residues[second])
+                        # if entity_pair[first] in interface_residue_d[first]: # NOT POSSIBLE ALREADY CHECKED
+                        #     interface_residue_d[first][entity_pair[first]].extend(entity_residues[first])
+                        # else:
+                        interface_residue_d[first][entity_pair[first]] = entity_residues[first]
+                        if _self:  # Ex3
+                            interface_residue_d['self'][first] = _self
+                        # interface_residue_d['self'][first] = _self  # NOT POSSIBLE ALREADY CHECKED
+                    elif entity_pair[second] in interface_residue_d[first]:
+                        # the first Entity wasn't found in either, but both are already set, therefore it can't be a
+                        # self, so the only way this works is if entity_pair[first] is further in the iterative process
+                        # which is impossible, this violates the rules
+                        interface_residue_d[second][entity_pair[first]] = False
+                        terminate = True
+                        break
+                    # Neither of our indices are in the dictionary yet. We are going to add 2 entities to each interface
+                    else:
+                        # the first and second Entity weren't found in either, but both are already set, violation
+                        interface_residue_d[first][entity_pair[first]] = False
+                        interface_residue_d[second][entity_pair[second]] = False
+
+                        terminate = True
+                        break
+
+            interface1, interface2, self_check = tuple(interface_residue_d.values())
+            if len(interface1) == 2 and len(interface2) == 2 and all(self_check):
+                pass
+            elif len(interface1) == 1 or len(interface2) == 1:
+                pass
+            else:
+                terminate = True
+                break
+
+        self.interface_split = \
+            {key: '%d%s' % (residue, entity.chain) for key, interface_entities in interface_residue_d.items()
+             if key != 'self' for entity, residues in interface_entities.items() for residue in residues}
+
+        if terminate:
+            self.log.critical('%s: The set of interfaces found during interface search generated a topologically '
+                              'disallowed combination.\n\t %s\n This cannot be modelled by a simple split for residues '
+                              'on either side while respecting the requirements of polymeric Entities. '
+                              '%sPlease correct your design_selectors to reduce the number of Entities you are '
+                              'attempting to design. This issue may be global if your designs are very similar'
+                              % (self.name,
+                                 '|'.join(','.join(interface_entities)
+                                          for key, interface_entities in interface_residue_d.items() if key != 'self'),
+                                 'Symmetry was set which may have influenced this unfeasible topology, you can try to '
+                                 'set it False. ' if self.symmetry else ''))
+            raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
+                              ' for more information.')
 
     def interface_design(self, design_dir=None, symmetry=None, evolution=True,
                          fragments=True, query_fragments=False, write_fragments=True,
@@ -1290,11 +1415,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if query_fragments:  # search for new fragment information
             # inherently gets interface residues for the designable entities
             self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
+            self.check_interface_topology()
         else:  # No fragment query, add existing fragment information to the pose
             # get interface residues for the designable entities
             for entity_pair in combinations_with_replacement(self.active_entities, 2):
                 self.find_interface_residues(*entity_pair)
 
+            self.check_interface_topology()
             if not self.frag_db:
                 self.connect_fragment_database(init=False)  # location='biological_interfaces' inherent in call
                 self.handle_flags(frag_db=self.frag_db)  # attach to all entities
@@ -1362,8 +1489,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
         self.design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
         design_dir.info['design_profile'] = self.design_pssm_file
-        design_dir.info['design_residues'] = self.interface_residues
-
         # -------------------------------------------------------------------------
         # self.solve_consensus()  # Todo
         # -------------------------------------------------------------------------
