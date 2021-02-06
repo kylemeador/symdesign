@@ -3,13 +3,14 @@ from math import sqrt
 from collections.abc import Iterable
 from random import random
 
+from sklearn.neighbors import KDTree
 import numpy as np
 from Bio.SeqUtils import IUPACData
 from numpy.linalg import eigh, LinAlgError
 
 from Query.PDB import get_sequence_by_entity_id
 from SequenceProfile import SequenceProfile
-from SymDesignUtils import start_log
+from SymDesignUtils import start_log, DesignError
 
 
 class Structure:  # (Coords):
@@ -51,7 +52,7 @@ class Structure:  # (Coords):
 
     @property
     def name(self):
-        # return self.id
+        """Returns: (str)"""
         return self._name
 
     @name.setter
@@ -61,8 +62,10 @@ class Structure:  # (Coords):
     @property
     def coords(self):
         """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
-        belonging to the specific Structure instance"""
-        # print('We are here?')
+        belonging to the specific Structure instance
+        Returns:
+            (Numpy.ndarray)
+        """
         return self._coords.coords  # [self.atom_indices]
         # return self._coords.get_indices(self.atom_indices)
 
@@ -80,6 +83,10 @@ class Structure:  # (Coords):
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     def return_transformed_copy(self, rotation=None, translation=None):
+        """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space
+        Returns:
+            (Structure)
+        """
         new_coords = np.array(self.extract_coords())
         if rotation:
             new_coords = np.matmul(new_coords, np.transpose(np.array(rotation)))
@@ -101,6 +108,7 @@ class Structure:  # (Coords):
 
     @property
     def atom_indices(self):  # In Residue too
+        """Returns: (list[int])"""
         return [atom.index for atom in self.atoms]
     #     try:
     #         return self._atom_indices
@@ -114,6 +122,7 @@ class Structure:  # (Coords):
 
     @property
     def number_of_atoms(self):
+        """Returns: (int)"""
         return len(self.atoms)
     #     try:
     #         return self._number_of_atoms
@@ -127,6 +136,7 @@ class Structure:  # (Coords):
 
     @property
     def number_of_residues(self):
+        """Returns: (int)"""
         return len(self.residues)
     #     try:
     #         return self._number_of_residues
@@ -140,6 +150,7 @@ class Structure:  # (Coords):
 
     @property
     def center_of_mass(self):
+        """Returns: (Numpy.ndarray)"""
         divisor = 1 / self.number_of_atoms
         return np.matmul(np.full(self.number_of_atoms, divisor), self.get_coords())
         # try:
@@ -158,30 +169,50 @@ class Structure:  # (Coords):
     #     self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
     def get_coords(self):
-        """Return a view of the Coords from the Structure"""
+        """Return a view of the Coords from the Structure
+
+        Returns:
+            (Numpy.ndarray)
+        """
         return self.coords[self.atom_indices]
 
     def get_backbone_coords(self):
-        """Return a view of the Coords from the Structure with only backbone atom coordinates"""
+        """Return a view of the Coords from the Structure with only backbone atom coordinates
+
+        Returns:
+            (Numpy.ndarray)
+        """
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone()]
         # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_backbone_and_cb_coords(self):
         """Return a view of the Coords from the Structure with backbone and CB atom coordinates
-        inherently gets all glycine CA's"""
+        inherently gets all glycine CA's
+
+        Returns:
+            (Numpy.ndarray)
+        """
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
         # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_ca_coords(self):
-        """Return a view of the Coords from the Structure with CA atom coordinates"""
+        """Return a view of the Coords from the Structure with CA atom coordinates
+
+        Returns:
+            (Numpy.ndarray)
+        """
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CA()]
         # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_cb_coords(self, InclGlyCA=True):
-        """Return a view of the Coords from the Structure with CB atom coordinates"""
+        """Return a view of the Coords from the Structure with CB atom coordinates
+
+        Returns:
+            (Numpy.ndarray)
+        """
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
         # return self._coords[index_mask]
         return self.coords[index_mask]
@@ -190,7 +221,11 @@ class Structure:  # (Coords):
         return self.extract_coords()
 
     def extract_coords(self):  # compatibility
-        """Grab all the coordinates from the Structure's Coords, returns a list with views of the Coords array"""
+        """Grab all the coordinates from the Structure's Coords, returns a list with views of the Coords array
+
+        Returns:
+            (list[Numpy.ndarray])
+        """
         return [atom.coords for atom in self.get_atoms()]
 
     def extract_backbone_coords(self):  # compatibility
@@ -208,7 +243,11 @@ class Structure:  # (Coords):
 
     # @property Todo
     def get_atoms(self, numbers=None):
-        """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned"""
+        """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned
+
+        Returns:
+            (list[Atom])
+        """
         if numbers and isinstance(numbers, Iterable):
             return [atom for atom in self.atoms if atom.number in numbers]
         else:
@@ -254,31 +293,73 @@ class Structure:  # (Coords):
 
     def get_atom_indices(self, numbers=None):
         """Retrieve Atom indices for Atoms in the Structure. Returns all by default. If atom numbers are provided
-         the selected Atoms are returned"""
+         the selected Atoms are returned
+
+        Returns:
+            (list[int])
+        """
         # if numbers and isinstance(numbers, Iterable):
         return [atom.index for atom in self.get_atoms(numbers=numbers)]
         # else:
         #     return [atom.index for atom in self.get_atoms()]
 
+    def get_atoms_by_indices(self, indices=None):  # Todo overlap with self.atom_indices above...
+        """Retrieve Atoms in the Structure specified by indices. Returns all by default
+
+        Returns:
+            (list[Atom])
+        """
+        return [self.atoms[index] for index in indices]
+
     def get_residue_atom_indices(self, numbers=None):
         """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
-         the selected Residues are returned"""
+         the selected Residues are returned
+
+        Returns:
+            (list[int])
+        """
         return [atom.index for atom in self.get_residue_atoms(numbers=numbers)]
 
+    def get_residues_by_atom_indices(self, indices=None):
+        """Retrieve Residues in the Structure specified by Atom indices.
+
+        Returns:
+            (list[Residue])
+        """
+        atoms = self.get_atoms_by_indices(indices)
+        residue_numbers = [atom.residue_number for atom in atoms]
+        return self.get_residues(numbers=residue_numbers)
+
     def get_backbone_indices(self):
-        """Return backbone Atom indices from the Structure"""
+        """Return backbone Atom indices from the Structure
+
+        Returns:
+            (list[int])
+        """
         return [atom.index for atom in self.get_atoms() if atom.is_backbone()]
 
     def get_backbone_and_cb_indices(self):
-        """Return backbone and CB Atom indices from the Structure inherently gets all glycine CA's"""
+        """Return backbone and CB Atom indices from the Structure inherently gets all glycine CA's
+
+        Returns:
+            (list[int])
+        """
         return [atom.index for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
 
     def get_cb_indices(self, InclGlyCA=True):
-        """Return CB Atom indices from the Structure. By default, inherently gets all glycine CA's"""
+        """Return CB Atom indices from the Structure. By default, inherently gets all glycine CA's
+
+        Returns:
+            (list[int])
+        """
         return [atom.index for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     def get_helix_cb_indices(self):
-        """Only works on secondary structure assigned structures!"""
+        """Only works on secondary structure assigned structures!
+
+        Returns:
+            (list[int])
+        """
         h_cb_indices = []
         for idx, residue in enumerate(self.get_residues()):
             if not residue.get_secondary_structure():
@@ -294,19 +375,43 @@ class Structure:  # (Coords):
         return self.get_ca_atoms()
 
     def get_ca_atoms(self):
+        """Return CA Atoms from the Structure
+
+        Returns:
+            (list[Atom])
+        """
         return [atom for atom in self.get_atoms() if atom.is_CA()]
 
     def get_cb_atoms(self):
+        """Return CB Atoms from the Structure
+
+        Returns:
+            (list[Atom])
+        """
         return [atom for atom in self.get_atoms() if atom.is_CB()]
 
     def get_backbone_atoms(self):
+        """Return backbone Atoms from the Structure
+
+        Returns:
+            (list[Atom])
+        """
         return [atom for atom in self.get_atoms() if atom.is_backbone()]
 
     def get_backbone_and_cb_atoms(self):
+        """Return backbone and CB Atoms from the Structure
+
+        Returns:
+            (list[Atom])
+        """
         return [atom for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
 
     def atom(self, atom_number):
-        """Retrieve the Atom specified by atom number"""
+        """Retrieve the Atom specified by atom number
+
+        Returns:
+            (list[Atom])
+        """
         for atom in self.atoms:
             if atom.number == atom_number:
                 return atom
@@ -334,7 +439,11 @@ class Structure:  # (Coords):
     # @property Todo
     def get_residues(self, numbers=None):
         """Retrieve Residues in Structure. Returns all by default. If a list of numbers is provided, the selected
-        Residues numbers are returned"""
+        Residues numbers are returned
+
+        Returns:
+            (list[Residue])
+        """
         if numbers and isinstance(numbers, Iterable):
             return [residue for residue in self.residues if residue.number in numbers]
         else:
@@ -374,23 +483,36 @@ class Structure:  # (Coords):
         self.residues.append(Residue(atoms=current_residue, coords=self._coords))
 
     def residue(self, residue_number):
-        """Retrieve the Residue specified"""
+        """Retrieve the Residue specified
+
+        Returns:
+            (Residue)
+        """
         for residue in self.residues:
             if residue.number == residue_number:
                 return residue
         return None
 
     def get_terminal_residue(self, termini='c'):
+        """Retrieve the Residue from the specified termini
+
+        Returns:
+            (Residue)
+        """
         if termini.lower() == 'n':
-            return self.get_residues()[0]
+            return self.residues[0]
         elif termini.lower() == 'c':
-            return self.get_residues()[-1]
+            return self.residues[-1]
         else:
             self.log.error('%s: N or C are only allowed inputs!' % self.get_terminal_residue.__name__)
             return None
 
     def get_residue_atoms(self, numbers=None):
-        """Return the Atoms contained in the Residue objects matching a set of residue numbers"""
+        """Return the Atoms contained in the Residue objects matching a set of residue numbers
+
+        Returns:
+            (list[Atoms])
+        """
         atoms = []
         for residue in self.get_residues(numbers=numbers):
             atoms.extend(residue.get_atoms())
@@ -398,21 +520,33 @@ class Structure:  # (Coords):
         # return [residue.get_atoms() for residue in self.get_residues(numbers=residue_numbers)]
 
     def residue_from_pdb_numbering(self, residue_number):
-        """Returns the Residue object from the Structure according to PDB residue number"""
+        """Returns the Residue object from the Structure according to PDB residue number
+
+        Returns:
+            (Residue)
+        """
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue
         return None
 
     def residue_number_from_pdb(self, residue_number):
-        """Returns the pose residue number from the queried .pdb number"""
+        """Returns the pose residue number from the queried .pdb number
+
+        Returns:
+            (int)
+        """
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue.number
         return None
 
     def residue_number_to_pdb(self, residue_number):
-        """Returns the .pdb residue number from the queried pose number"""
+        """Returns the .pdb residue number from the queried pose number
+
+        Returns:
+            (int)
+        """
         for residue in self.residues:
             if residue.number == residue_number:
                 return residue.number_pdb
@@ -453,6 +587,9 @@ class Structure:  # (Coords):
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
+
+        Returns:
+            (str)
         """
         sequence_list = [residue.type for residue in self.get_residues()]
         sequence = ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
@@ -460,6 +597,50 @@ class Structure:  # (Coords):
                             for k in sequence_list])
 
         return sequence
+
+    def is_clash(self, clash_distance=2.2):
+        """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
+        the Residue where the clash occurred and the clashing Atoms
+
+        Returns:
+            (bool)
+        """
+        all_atom_tree = KDTree(self.coords)
+        number_of_residues = self.number_of_residues
+        non_residue_indices = np.ones(self.number_of_atoms, dtype=bool)
+        # print(len(non_residue_indices))
+        for idx, residue in enumerate(self.residues, -1):
+            residue_query = all_atom_tree.query_radius(residue.coords, clash_distance)
+            # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
+            # For the edge cases (N- & C-term), use other termini C & N atoms.
+            # We might miss a clash here! It would be peculiar for the C-terminal C clashing with the N-terminus atoms
+            # and vice-versa. This also allows a PDB with permuted sequence to be handled properly!
+            residue_indices_and_bonded_c_and_n = residue.atom_indices + \
+                [self.residues[idx].c.index, self.residues[-number_of_residues + 2 + idx].n.index]
+            non_residue_indices[residue_indices_and_bonded_c_and_n] = False
+            # for all_clashing_indices in residue_query:
+            #     atom_clash = list(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
+            clashes = residue_query[:, non_residue_indices].flatten()
+            if clashes.any():
+                # atom_clash = list(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
+                # if atom_clash:
+                    # print(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
+                for clash in clashes:
+                    if self.atoms[clash].is_backbone() or self.atoms[clash].is_cb():
+                        # raise DesignError('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
+                        #                   'permitted. See:\n%s'
+                        #                   % (self.name, len(clashes), residue.number, self.atoms[clash]))
+                        self.log.critical('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
+                                          'permitted. See:\n%s'
+                                          % (self.name, len(clashes), residue.number, self.atoms[clash]))
+                        return True
+                self.log.warning('%s contains %d clashing atoms at residue %d! See:\n\t%s'
+                                 % (self.name, len(clashes), residue.number,
+                                    '\n\t'.join(self.atoms[clash] for clash in clashes)))
+
+            # return the mask to a blank state
+            non_residue_indices[residue_indices_and_bonded_c_and_n] = True
+        return False
 
     # def stride(self, chain=None):
     #     # REM  -------------------- Secondary structure summary -------------------  XXXX
@@ -747,19 +928,50 @@ class Entity(Chain, SequenceProfile):  # Structure):
 class Residue:
     def __init__(self, atoms=None, coords=None):
         self.atoms = atoms
-        # self.ca = self.get_ca()
-        # self.cb = self.get_cb()
-        # self.number = self.ca.residue_number  # get_number()
-        # self.number_pdb = self.ca.pdb_residue_number  # get_pdb_residue_number()
-        # self.chain = self.ca.chain  # get_chain()
-        # self.type = self.ca.residue_type  # get_type()
         self.secondary_structure = None
+        self.set_atoms()
         if coords:
             self.coords = coords
 
     @property
+    def n(self):
+        return self.atoms[self._n]
+
+    @n.setter
+    def n(self, index):
+        self._n = index
+
+    @property
     def ca(self):
-        return self.get_ca()
+        return self.atoms[self._ca]
+
+    @ca.setter
+    def ca(self, index):
+        self._ca = index
+
+    @property
+    def cb(self):
+        return self.atoms[self._cb]
+
+    @cb.setter
+    def cb(self, index):
+        self._cb = index
+
+    @property
+    def c(self):
+        return self.atoms[self._c]
+
+    @c.setter
+    def c(self, index):
+        self._c = index
+
+    @property
+    def co(self):
+        return self.atoms[self._co]
+
+    @co.setter
+    def co(self, index):
+        self._co = index
 
     @property
     def number(self):
@@ -777,11 +989,21 @@ class Residue:
     def type(self):
         return self.ca.get_residue_type()
 
-    @property
-    def cb(self):
-        return self.get_cb()
+    def set_atoms(self):
+        # self.atoms = atoms
+        for idx, atom in enumerate(self.atoms):
+            if atom.is_n():
+                self.n = idx
+            elif atom.is_CA():
+                self.ca = idx
+            elif atom.is_CB():
+                self.cb = idx
+            elif atom.is_c():
+                self.c = idx
+            elif atom.is_o():
+                self.co = idx
 
-    # This is the setter for all the above properties
+    # This is the setter for all atom properties available above
     def set_atoms_attributes(self, **kwargs):
         """Set attributes specified by key, value pairs for all atoms in the Residue"""
         for kwarg, value in kwargs.items():
@@ -958,21 +1180,33 @@ class Atom:  # (Coords):
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     def is_backbone(self):
-        # returns True if atom is part of the proteins backbone and False otherwise
-        backbone_specific_atom_type = ["N", "CA", "C", "O"]
-        if self.type in backbone_specific_atom_type:
-            return True
-        else:
-            return False
+        """Check if the Atom is a backbone Atom
+         Returns:
+             (bool)"""
+        # backbone_specific_atom_type = ["N", "CA", "C", "O"]
+        # if self.type in backbone_specific_atom_type:
+        #     return True
+        # else:
+        #     return False
+        return self.is_n() or self.is_ca() or self.is_c() or self.is_o()
+
+    def is_n(self):
+        return self.type == 'N'
 
     def is_CB(self, InclGlyCA=False):
         if InclGlyCA:
-            return self.type == "CB" or (self.type == "CA" and self.residue_type == "GLY")
+            return self.type == 'CB' or (self.type == 'CA' and self.residue_type == 'GLY')
         else:
-            return self.type == "CB" or (self.type == "H" and self.residue_type == "GLY")
+            return self.type == 'CB' or (self.type == 'H' and self.residue_type == 'GLY')
 
     def is_CA(self):
-        return self.type == "CA"
+        return self.type == 'CA'
+
+    def is_c(self):
+        return self.type == 'C'
+
+    def is_o(self):
+        return self.type == 'O'
 
     def distance(self, atom, intra=False):
         """returns distance (type float) between current instance of Atom and another instance of Atom"""
