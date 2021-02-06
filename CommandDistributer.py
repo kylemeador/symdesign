@@ -105,7 +105,21 @@ def run(cmd, log_file, srun=None, program='bash'):  # , log_file=None):
         return False
 
 
-def distribute(stage=None, directory=None, file=None, success_file=None, failure_file=None, max_jobs=80):
+def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, failure_file=None, max_jobs=80,
+               **kwargs):
+    """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
+
+    Keyword Args:
+        stage=None (str): The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs
+        directory=os.getcwd() (str): Where to write out the sbatch script
+        file=None (str): The location of the file which contains your commands to distribute through an sbatch array
+        success_file=None (str): What file to write the successful jobs to for job organization
+        failure_file=None (str): What file to write the failed jobs to for job organization
+        max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once from
+        your array
+    Returns:
+        (str): The name of the sbatch script that was written
+    """
     if not stage:
         raise DesignError('No --stage specified. Required!!!')
 
@@ -170,6 +184,8 @@ def distribute(stage=None, directory=None, file=None, success_file=None, failure
                 '(man sbatch or sbatch --help) to understand the variables or ask for help if you are still unsure. '
                 'Once you are satisfied, enter the following:\nsbatch %s'
                 % (stage, filename, os.path.basename(filename)))
+
+    return filename
 
 
 if __name__ == '__main__':
