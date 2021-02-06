@@ -9,12 +9,13 @@
 
 	<RESIDUE_SELECTORS>
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
-		<Index name="A_interface" resnums="%%interfaceA%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface1%%
+		<Index name="A_interface" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface1%%
 		# same, but for residues from chain "B"
-		<Index name="B_interface" resnums="%%interfaceB%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
+		<Index name="B_interface" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
 		# same, but for residues from chain "C"
-<!--		<Index name="C_interface" resnums="%%interfaceC%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%-->
+		<Index name="Non_interface_designable_residues" resnums="%%other_designable%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
 		# combined group of all identified interface residues
+<!--		<Index name="tot_interface" selectors="%%all_interface%%"/>-->
 		<Or name="tot_interface" selectors="A_interface,B_interface"/> # ,C_interface
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>

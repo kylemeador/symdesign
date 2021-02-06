@@ -10,16 +10,12 @@
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
-		# used for selecting residues on one side of the interface from chain "A".
-		# When using pose numbering all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
-		# when using residue numbering all resnums are listed 23A,54A,64A,90A,etc... in the %%interfaceA%% variable
-		<Index name="A_interface" resnums="%%interfaceA%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface1%%
-		# same, but for residues from chain "B"
-		<Index name="B_interface" resnums="%%interfaceB%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
-		# same, but for residues from chain "C"
-<!--		<Index name="C_interface" resnums="%%interfaceC%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface3%% # can't use pose numbering with chain deletion. need to use residue numbering. %%interfaceB%%-->
+		# used for selecting residues on one side of the interface
+		# when using residue numbering all resnums are listed 23A,54A,64A,90A,etc...
+		<Index name="A_interface" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface1%%
+		<Index name="B_interface" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
 		# combined group of all identified interface residues
-		<Or name="tot_interface" selectors="A_interface,B_interface"/> # ,C_interface
+		<Or name="tot_interface" selectors="A_interface,B_interface"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
 		<HBond name="hbond_residues" residue_selector="%%chain%%_interface" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano"/>
 		# all residues
@@ -31,8 +27,8 @@
 		<InitializeFromCommandline name="init"/>
 		# standard operation to restrict all residues to repacking
 		<RestrictToRepacking name="rtr"/>
-		<DesignAround name="des_aroundA" design_shell="0.1" resnums="%%interfaceA%%" repack_shell="8.0"/> # %%interfaceA%%
-		<DesignAround name="des_aroundB" design_shell="0.1" resnums="%%interfaceB%%" repack_shell="8.0"/>
+		<DesignAround name="des_aroundA" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
+		<DesignAround name="des_aroundB" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
 	</TASKOPERATIONS>
 
 	<SIMPLE_METRICS>
