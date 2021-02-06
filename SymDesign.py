@@ -386,7 +386,7 @@ def format_additional_flags(flags):
                 extra_arguments += ' %s' % formatted_flags[idx + increment]
                 increment += 1
             combined_extra_flags.append('%s%s' % (flag, extra_arguments))  # extra_flags[idx + 1]))
-    logger.debug('Combined flags: %s' % combined_extra_flags)
+    # logger.debug('Combined flags: %s' % combined_extra_flags)
 
     # parses ['-nanohedra_output True', ...]
     final_flags = {}
@@ -594,18 +594,17 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging
     # -----------------------------------------------------------------------------------------------------------------
+    # Root logger output to a stream, with warning's enabled
+    logger = SDUtils.start_log(name='', level=3)
     if args.debug:
-        logger = SDUtils.start_log(name=PUtils.program_name, level=1)
+        logger = SDUtils.start_log(name='', level=1)
     else:
-        # set up the root logger to output to a stream
-        logger = SDUtils.start_log(name='')
         # and a file
         logger = SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
     if additional_flags:
-        logger.debug('Additional: %s' % additional_flags)
         design_flags = format_additional_flags(additional_flags)
     else:
         design_flags = return_default_flags(args.sub_module)
@@ -841,7 +840,7 @@ if __name__ == '__main__':
             query_user_for_flags()
     # ---------------------------------------------------
     elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
-        distribute(args)
+        distribute(**vars(args))
     # ---------------------------------------------------
     elif args.sub_module == 'design_selector':  # Todo
         fasta_file = generate_sequence_template(args.additional_flags[0])
@@ -853,7 +852,9 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.sub_module == 'expand_asu':
         for design_dir in design_directories:
-            design_dir.expand_asu()
+            result, error = design_dir.expand_asu()
+            results.append(result)
+            exceptions.append(error)
     # ---------------------------------------------------
     elif args.sub_module == 'filter':
         if args.metric == 'score':
@@ -871,7 +872,7 @@ if __name__ == '__main__':
                     % (args.metric, args.metric.title(),
                        '\n\t'.join('%.2f\t%s' % tup for tup in designpath_metric_tup_list_sorted)))
     # ---------------------------------------------------
-    elif args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir, -f additional_flags
+    elif args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -958,16 +959,35 @@ if __name__ == '__main__':
                 exceptions.append(error)
 
         if not args.run_in_shell:
-            all_commands = []
+            output_dir = next(iter(design_directories)).project_designs
+            all_commands = [[] for s in PUtils.stage_f]
+            command_files = [[] for s in PUtils.stage_f]
+            sbatch = [[] for s in PUtils.stage_f]
             for des_directory in design_directories:
-                all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % interface_design_command))
-            command_file = SDUtils.write_commands(all_commands, name=interface_design_command, out_path=args.directory)
-            args.success_file = None
-            args.failure_file = None
-            args.max_jobs = 80
-            distribute(stage=PUtils.nano, directory=args.directory, file=command_file,
-                       success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
-            logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design_command, command_file))
+                for idx, stage in enumerate(PUtils.stage_f):
+                    all_commands[idx].append(os.path.join(des_directory.scripts, '%s.sh' % stage))
+            for idx, stage in enumerate(PUtils.stage_f):
+                if idx > 3:  # No consensus or higher
+                    break
+                command_files[idx] = SDUtils.write_commands(all_commands[idx], name=stage, out_path=args.directory)
+                sbatch[idx] = distribute(stage=stage, directory=args.directory, file=command_files[idx])
+                # logger.info('All \'%s\' commands were written to \'%s\'' % (stage, sbatch[idx]))
+
+            logger.info('\nTo process all commands in correct order, execute:\n\t%s' %
+                        ('\n\t'.join('sbatch %s' % sbatch[idx]
+                                     for idx, stage in enumerate(list(PUtils.stage_f.keys())[:3]))))
+            # WHEN ONE FILE RUNS ALL THREE MODES
+            # all_commands = []
+            # for des_directory in design_directories:
+            #     all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % interface_design_command))
+            # command_file = SDUtils.write_commands(all_commands, name=interface_design_command, out_path=args.directory)
+            # args.success_file = None
+            # args.failure_file = None
+            # args.max_jobs = 80
+            # TODO add interface_design_command to PUtils.stage_f
+            # distribute(stage=interface_design_command, directory=args.directory, file=command_file,
+            #            success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
+            # logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design_command, command_file))
     # ---------------------------------------------------
     elif args.sub_module == 'analysis':  # -o output, -f figures, -n no_save, -j join, -g delta_g
         save = True
