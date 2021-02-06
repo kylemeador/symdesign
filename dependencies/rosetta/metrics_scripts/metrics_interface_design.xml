@@ -19,9 +19,9 @@
 
 	<RESIDUE_SELECTORS>
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
-		<Index name="A_interface" resnums="%%interfaceA%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface1%%
+		<Index name="A_interface" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface1%%
 		# same, but for residues from chain "B"
-		<Index name="B_interface" resnums="%%interfaceB%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
+		<Index name="B_interface" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="A_interface,B_interface"/>
 		# the negation of all interface residues
@@ -100,7 +100,7 @@
 			<!-- <AverageDegree name="int_connectivity1" threshold="0" distance_threshold="10.0" task_operations="des_around1"/> -->
 			<!-- <AverageDegree name="int_connectivity2" threshold="0" distance_threshold="10.0" task_operations="des_around2"/> -->
 		# find the number of carbon carbon contacts with specified residues
-		<AtomicContactCount name="contact_count" partition="none" task_operations="init,vrt,non_int_no_repack" distance="5.0"/>
+		<AtomicContactCount name="contact_count" partition="jump" task_operations="init,vrt,non_int_no_repack" distance="5.0" normalize_by_carbon_count="1"/>
 		# find the shape complementarity between residues in an interface. report the median distance (or interface area, but this seems inaccurate) between the two
 		<ShapeComplementarity name="int_sc" min_sc="0.1" min_interface="0" residue_selector1="A_interface" residue_selector2="B_interface" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		# find the solvent accessable surface area across an interface specified by a chain-chain jump. can be hydrophobic, polar or if not specified, the total SASA
