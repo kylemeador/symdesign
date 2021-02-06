@@ -394,7 +394,7 @@ class PDB(Structure):
     #     # chain_ids.sort(key=lambda x: (x[0].isdigit(), x))
     #     self.chain_id_list = chain_ids
 
-    def get_chain_index(self, index):
+    def get_chain_index(self, index):  # Todo Depreciate
         """Return the chain name associated with a set of Atoms when the chain name for those Atoms is changed"""
         return self.chain_id_list[index]
 
@@ -471,7 +471,7 @@ class PDB(Structure):
     #         atom.coords = coords[idx]
     #         # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
 
-    def get_term_ca_indices(self, term):  # DEPRECIATE
+    def get_term_ca_indices(self, term):  # Todo DEPRECIATE
         if term == "N":
             ca_term_list = []
             chain_id = None
@@ -508,7 +508,7 @@ class PDB(Structure):
                 c[i] += a[i][j] * b[j]
         return c
 
-    def rotate_translate(self, rot, tx):
+    def rotate_translate(self, rot, tx):  # Todo Depreciate
         for atom in self.get_atoms():
             coord = [atom.x, atom.y, atom.z]
             coord_rot = self.mat_vec_mul3(rot, coord)
@@ -517,14 +517,14 @@ class PDB(Structure):
             newZ = coord_rot[2] + tx[2]
             atom.x, atom.y, atom.z = newX, newY, newZ
 
-    def translate(self, tx):
+    def translate(self, tx):  # Todo Depreciate
         for atom in self.get_atoms():
             newX = atom.x + tx[0]
             newY = atom.y + tx[1]
             newZ = atom.z + tx[2]
             atom.x, atom.y, atom.z = newX, newY, newZ
 
-    def rotate(self, rot, store_cb_and_bb_coords=False):
+    def rotate(self, rot, store_cb_and_bb_coords=False):  # Todo Depreciate
         if store_cb_and_bb_coords:
             for atom in self.get_atoms():
                 atom.x, atom.y, atom.z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
@@ -536,7 +536,7 @@ class PDB(Structure):
             for atom in self.get_atoms():
                 atom.x, atom.y, atom.z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
 
-    def rotate_along_principal_axis(self, degrees=90.0, axis='x'):
+    def rotate_along_principal_axis(self, degrees=90.0, axis='x'):  # Todo Depreciate
         """Rotate the coordinates about the given axis
         """
         deg = math.radians(float(degrees))
@@ -559,7 +559,7 @@ class PDB(Structure):
             newZ = coord[0] * rotmatrix[2][0] + coord[1] * rotmatrix[2][1] + coord[2] * rotmatrix[2][2]
             atom.x, atom.y, atom.z = newX, newY, newZ
 
-    def ReturnRotatedPDB(self, degrees=90.0, axis='x', store_cb_and_bb_coords=False):
+    def ReturnRotatedPDB(self, degrees=90.0, axis='x', store_cb_and_bb_coords=False):  # Todo Depreciate
         """Rotate the coordinates about the given axis
         """
         deg = math.radians(float(degrees))
@@ -590,7 +590,7 @@ class PDB(Structure):
 
         return rotated_pdb
 
-    def ReturnTranslatedPDB(self, tx, store_cb_and_bb_coords=False):
+    def ReturnTranslatedPDB(self, tx, store_cb_and_bb_coords=False):  # Todo Depreciate
         translated_atoms = []
         for atom in self.get_atoms():
             coord = [atom.x, atom.y, atom.z]
@@ -606,7 +606,7 @@ class PDB(Structure):
 
         return translated_pdb
 
-    def ReturnRotatedPDBMat(self, rot):
+    def ReturnRotatedPDBMat(self, rot):  # Todo Depreciate
         rotated_coords = []
         return_atoms = []
         return_pdb = PDB()
@@ -1908,6 +1908,6 @@ def generate_sequence_template(pdb_file):
     pdb = PDB.from_file(pdb_file)
     sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), 'Protein'), id=pdb.filepath)
     sequence_mask = copy(sequence)
-    sequence_mask.id = 'design_selection'
+    sequence_mask.id = 'design_selector'
     sequences = [sequence, sequence_mask]
-    return write_fasta(sequences, file_name='%s_sequence_for_mask' % os.path.splitext(pdb.filepath)[0])
+    return write_fasta(sequences, file_name='%s_design_selector_sequence' % os.path.splitext(pdb.filepath)[0])
