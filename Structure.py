@@ -615,31 +615,39 @@ class Structure:  # (Coords):
             # For the edge cases (N- & C-term), use other termini C & N atoms.
             # We might miss a clash here! It would be peculiar for the C-terminal C clashing with the N-terminus atoms
             # and vice-versa. This also allows a PDB with permuted sequence to be handled properly!
-            residue_indices_and_bonded_c_and_n = residue.atom_indices + \
-                [self.residues[idx].c.index, self.residues[-number_of_residues + 2 + idx].n.index]
-            non_residue_indices[residue_indices_and_bonded_c_and_n] = False
+            residue_indices_and_bonded_c_and_n = np.array(residue.atom_indices + \
+                [self.residues[idx].c.index, self.residues[-number_of_residues + 2 + idx].n.index])
+            # non_residue_indices[residue_indices_and_bonded_c_and_n] = False
+            # print(residue_query)
+            # clashes = residue_query[residue_indices_and_bonded_c_and_n].flatten()
+            # clashes = residue_query[:, non_residue_indices].flatten()
+            all_contacts = np.concatenate(residue_query).ravel()  # .reshape(-1)
+            # all_contacts = residue_query.ravel()
             # for all_clashing_indices in residue_query:
             #     atom_clash = list(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
-            clashes = residue_query[:, non_residue_indices].flatten()
-            if clashes.any():
+            # print(all_contacts)
+            # print(residue_indices_and_bonded_c_and_n)
+            clashes = np.setdiff1d(all_contacts, residue_indices_and_bonded_c_and_n)
+            # clashes = list(set(all_contacts).difference(residue_indices_and_bonded_c_and_n))
+            if any(clashes):
                 # atom_clash = list(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
                 # if atom_clash:
-                    # print(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
+                # print(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
                 for clash in clashes:
-                    if self.atoms[clash].is_backbone() or self.atoms[clash].is_cb():
+                    if self.atoms[clash].is_backbone() or self.atoms[clash].is_CB():
                         # raise DesignError('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
                         #                   'permitted. See:\n%s'
                         #                   % (self.name, len(clashes), residue.number, self.atoms[clash]))
                         self.log.critical('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
                                           'permitted. See:\n%s'
-                                          % (self.name, len(clashes), residue.number, self.atoms[clash]))
+                                          % (self.name, len(clashes), residue.number, str(self.atoms[clash])))
                         return True
                 self.log.warning('%s contains %d clashing atoms at residue %d! See:\n\t%s'
                                  % (self.name, len(clashes), residue.number,
-                                    '\n\t'.join(self.atoms[clash] for clash in clashes)))
+                                    '\n\t'.join(str(self.atoms[clash]) for clash in clashes)))
 
-            # return the mask to a blank state
-            non_residue_indices[residue_indices_and_bonded_c_and_n] = True
+            # # return the mask to a blank state
+            # non_residue_indices[residue_indices_and_bonded_c_and_n] = True
         return False
 
     # def stride(self, chain=None):
@@ -1188,7 +1196,7 @@ class Atom:  # (Coords):
         #     return True
         # else:
         #     return False
-        return self.is_n() or self.is_ca() or self.is_c() or self.is_o()
+        return self.is_n() or self.is_CA() or self.is_c() or self.is_o()
 
     def is_n(self):
         return self.type == 'N'
