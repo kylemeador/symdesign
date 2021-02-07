@@ -403,30 +403,32 @@ def format_additional_flags(flags):
 
 
 def terminate(all_exceptions):
-    any_exceptions = [exception for exception in all_exceptions if exception]
+    # any_exceptions = [exception for exception in all_exceptions if exception]
     # any_exceptions = list(filter(bool, exceptions))
     # any_exceptions = list(set(exceptions))
     # if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
-    if len(any_exceptions) > 1:
-        logger.warning('\nThe following exceptions were thrown. Design for %d directories is inaccurate!!!\n' %
-                       len(any_exceptions))
-        all_exception_poses = []
-        for exception in any_exceptions:
-            # if exception:
-            des_dir, exception_msg = exception
-            try:
-                logger.warning('%s: %s' % (des_dir.path, exception_msg))
-            except AttributeError:
-                logger.warning('%s: %s' % (des_dir, exception_msg))
-
-            all_exception_poses.append(des_dir)
-        print('\n')
+    if all_exceptions:
+        logger.warning('\nExceptions were thrown for %d designs. Check their logs for further details\n' %
+                       len(all_exceptions))
+        logger.warning('\n'.join('%s: %s' % (directory, error) for directory, error in all_exceptions))
+        # all_exception_poses = []
+        # for exception in any_exceptions:
+        #     # if exception:
+        #     des_dir, exception_msg = exception
+        #     try:
+        #         logger.warning('%s: %s' % (des_dir.path, exception_msg))
+        #     except AttributeError:
+        #         logger.warning('%s: %s' % (des_dir, exception_msg))
+        #
+        #     all_exception_poses.append(des_dir)
         # except_file = os.path.join(args.location, 'EXCEPTIONS.log')
-        except_file = SDUtils.write_list_to_file(all_exception_poses, name='EXCEPTIONS.log',
-                                                 location=args.directory)
-        logger.info('All poses with exceptions written to file: %s' % except_file)
+        # except_file = SDUtils.write_list_to_file(all_exception_poses, name='EXCEPTIONS.log',
+        #                                          location=args.directory)
+        # logger.info('All poses with exceptions written to file: %s' % except_file)
 
-    exit(0)
+        exit(1)
+    else:
+        exit(0)
 
 
 if __name__ == '__main__':
@@ -626,8 +628,8 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either directory name or file
     # -----------------------------------------------------------------------------------------------------------------
-    all_docked_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
-    initial_iter = None
+    all_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
+    initial_iter, inputs_moved = None, False
     if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'design_selector']:
         pass
     # Todo depreciate args.mode here
@@ -686,7 +688,6 @@ if __name__ == '__main__':
             #     design_flags.update({'mpi': True, 'script': True})
 
             # Set up DesignDirectories  # Todo args.design_String?!?
-            inputs_moved = False
             if 'nanohedra_output' in design_flags and design_flags['nanohedra_output']:
                 all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, dir_type=PUtils.nano)
                 design_directories = [DesignDirectory.from_nanohedra(pose, mode=mode, project=args.design_string,
@@ -728,16 +729,6 @@ if __name__ == '__main__':
                 for design in design_directories:
                     design.connect_db(frag_db=fragment_db)
 
-            if not args.file or inputs_moved:
-                # Make single file with names of each directory where all_docked_poses can be found
-                project_string = os.path.basename(design_directories[0].project_designs)
-                args.file = os.path.join(os.getcwd(), '%s_pose.paths' % project_string)
-                with open(args.file, 'w') as design_f:
-                    design_f.write('\n'.join(pose for pose in all_poses))
-                logger.critical('The file \'%s\' contains all the designs in your current project. Utilize this file to'
-                                ' interact with %s designs in future commands for this project such as \'%s --file %s '
-                                'analysis\''
-                                % (args.file, PUtils.program_name, PUtils.program_command, args.file))
         else:
             raise SDUtils.DesignError('No design directories/files were specified!\n'
                                       'Please specify --directory or --file and run your command again')
@@ -862,7 +853,7 @@ if __name__ == '__main__':
         for design_dir in design_directories:
             result, error = design_dir.expand_asu()
             results.append(result)
-            exceptions.append(error)
+            exceptions.append(error)  # Todo
     # ---------------------------------------------------
     elif args.sub_module == 'filter':
         if args.metric == 'score':
@@ -912,12 +903,12 @@ if __name__ == '__main__':
                         result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
                                                             args.design_string, initial)
                         results.append(result)
-                        exceptions.append(error)
+                        exceptions.append(error)  # Todo
                 else:  # single directory docking (already made directories)
                     for dock_directory in design_directories:
                         result, error = nanohedra_recap_s(dock_directory, args.design_string)
                         results.append(result)
-                        exceptions.append(error)
+                        exceptions.append(error)  # Todo
 
         # Make single file with names of each directory. Specific for docking due to no established directory
         args.file = os.path.join(args.directory, 'all_docked_directories.paths')  # Todo Parameterized
@@ -962,11 +953,13 @@ if __name__ == '__main__':
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
-                result, error = design.interface_design()
+                result = design.interface_design()
                 results.append(result)
-                exceptions.append(error)
+        success = [result for result in results if not isinstance(result, BaseException)]
+        exceptions = [design_directories[idx] for idx, result in enumerate(results)
+                      if isinstance(result, BaseException)]
 
-        if not args.run_in_shell and any(results):
+        if not args.run_in_shell and any(success):
             output_dir = next(iter(design_directories)).project_designs
             all_commands = [[] for s in PUtils.stage_f]
             command_files = [[] for s in PUtils.stage_f]
@@ -1017,9 +1010,9 @@ if __name__ == '__main__':
                 result, error = analyze_output_s(des_directory, delta_refine=args.delta_g, merge_residue_data=args.join,
                                                  debug=args.debug, save_trajectories=save, figures=args.figures)
                 results.append(result)
-                exceptions.append(error)
+                exceptions.append(error)  # Todo
 
-        failures = [index for index, exception in enumerate(exceptions) if exception]
+        failures = [index for index, exception in enumerate(exceptions) if exception]  # Todo
         for index in reversed(failures):
             del results[index]
 
@@ -1062,7 +1055,7 @@ if __name__ == '__main__':
                             merge_docking_pair(pair)
                         except FileExistsError:
                             logger.info('%s directory already exits, moving on. Use --force to overwrite.' % pair[1])
-                terminate(exceptions)
+                terminate(exceptions)  # Todo
 
         if failures:
             logger.warning('The following directories have no partner:\n%s' % '\n'.join(fail.path
@@ -1217,10 +1210,10 @@ if __name__ == '__main__':
                 # for des_directory in design_directories:
                 #     result, error = select_sequences_s(des_directory, number=args.number)
                 #     results.append(result)
-                #     exceptions.append(error)
+                #     exceptions.append(error)  # Todo
 
         results = list(results)
-        failures = [index for index, exception in enumerate(exceptions) if exception]
+        failures = [index for index, exception in enumerate(exceptions) if exception]  # Todo
         for index in reversed(failures):
             del results[index]
 
@@ -1243,7 +1236,7 @@ if __name__ == '__main__':
             for i, pose_des_dir in enumerate(pose_des_dirs):
                 file = glob('%s*%s*' % (pose_des_dir.designs, design[i]))
                 if file == list():  # If no file found, skip and add to exceptions
-                    exceptions.append((pose_des_dir.path, 'No file found for %s*%s*' %
+                    exceptions.append((pose_des_dir.path, 'No file found for %s*%s*' %  # Todo
                                        (pose_des_dir.designs, design[i])))
                     continue
                 try:
@@ -1433,5 +1426,17 @@ if __name__ == '__main__':
                                                                '%sSelected_Sequences_Expression_Additions' %
                                                                args.selection_string, outpath=outdir)
     # -----------------------------------------------------------------------------------------------------------------
-    # Report any program exceptions
+    # Format the designs passing output and report program exceptions
+    # -----------------------------------------------------------------------------------------------------------------
+    if inputs_moved or all_poses and design_directories and not args.file:
+        # Make single file with names of each directory where all_docked_poses can be found
+        project_string = os.path.basename(design_directories[0].project_designs)
+        args.file = os.path.join(os.getcwd(), '%s_pose.paths' % project_string)
+        with open(args.file, 'w') as design_f:
+            design_f.write('\n'.join(pose for pose in all_poses))
+        logger.critical('The file \'%s\' contains all the designs in your current project. Utilize this file to'
+                        ' interact with %s designs in future commands for this project such as \'%s --file %s '
+                        'analysis\''
+                        % (args.file, PUtils.program_name, PUtils.program_command, args.file))
+
     terminate(exceptions)
