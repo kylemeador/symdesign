@@ -4,16 +4,14 @@
 import os
 import subprocess
 
-import DesignDirectory
 import PathUtils as PUtils
-import SymDesignUtils
-import SymDesignUtils as SDUtils
+from SymDesignUtils import DesignError, handle_design_errors, write_shell_script, unpickle
 
 pickle_prot = 2
 
 
 # TODO multiprocessing compliant (picklable) error decorator
-@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
+@handle_design_errors(errors=(DesignError, AssertionError))
 def nanohedra_recap_s(dock_dir, string):
     return nanohedra_design_recap(dock_dir, suffix=string)
 
@@ -22,7 +20,7 @@ def nanohedra_recap_mp(dock_dir, string):
     try:
         file = nanohedra_design_recap(dock_dir, suffix=string)
         return file, None
-    except (SymDesignUtils.DesignError, AssertionError) as e:
+    except (DesignError, AssertionError) as e:
         return None, (dock_dir, e)
 
 
@@ -33,7 +31,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
     symmetries = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
     sym_hierarchy = {sym: i for i, sym in enumerate(symmetries, 1)}
 
-    des_dir_d = SDUtils.unpickle(os.path.join(dock_dir, '%s_vflip_dock.pkl' % os.path.basename(dock_dir)))  # 9/29/20 removed .pkl added _vflip
+    des_dir_d = unpickle(os.path.join(dock_dir, '%s_vflip_dock.pkl' % os.path.basename(dock_dir)))  # 9/29/20 removed .pkl added _vflip
     # {0_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
 
     syms = list(set(des_dir_d.keys()) - {'final_symmetry'})  # ex: [0_C2, 1_C3]
@@ -47,12 +45,12 @@ def nanohedra_design_recap(dock_dir, suffix=None):
         # Used with the flipped_180y pdb's
         if sym.split('_')[0] == '1':  # The higher symmetry
             if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-                raise SymDesignUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
+                raise DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
             else:
                 path2 = os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())
         else:
             if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-                raise SymDesignUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
+                raise DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
             else:
                 path1 = os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())
 
@@ -63,7 +61,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
         # check if .pdb exists
         if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-            raise SymDesignUtils.DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
+            raise DesignError(['Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower())])
 
         # This protocol should be obsolete with ASU.py fixed symmetry order TODO, remove when old pickles are unnecessary
         new_symmetry_rank = sym_hierarchy[_sym]
@@ -96,7 +94,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
 
 # TODO multiprocessing compliant (picklable) error decorator
-@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
+@handle_design_errors(errors=(DesignError, AssertionError))
 def nanohedra_command_s(entry, path1, path2, out_dir, flags, suffix, initial):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
@@ -115,7 +113,7 @@ def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix, initial):
     try:
         file = nanohedra_command(entry, path1, path2, out_dir=out_dir, flags=flags, suffix=suffix, initial=initial)
         return file, None
-    except (SymDesignUtils.DesignError, AssertionError) as e:
+    except (DesignError, AssertionError) as e:
         return None, ((path1, path2), e)
 
 
@@ -170,4 +168,4 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
     if initial:
         _cmd.extend(['-initial'])
 
-    return SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name=name, out_path=script_out_dir)
+    return write_shell_script(subprocess.list2cmdline(_cmd), name=name, out_path=script_out_dir)
