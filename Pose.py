@@ -1225,8 +1225,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         #     self.interface_residues[entity2] = entity2.get_residues(numbers=entity2_residue_numbers)
         # else:
         #     self.interface_residues[entity2].extend(entity2.get_residues(numbers=entity2_residue_numbers))
-
-        self.log.debug('Added interface_residues: %s' % ['%d%s' % (eval('entity%s.name' % idx), residue.number)
+        entity_d = {1: entity1, 2: entity2}  # Todo clean
+        self.log.debug('Added interface_residues: %s' % ['%d%s' % (residue.number, entity_d[idx].name)
                        for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)], 1)
                        for residue in entity_residues])
 
