@@ -410,7 +410,7 @@ def terminate(all_exceptions):
     if all_exceptions:
         logger.warning('\nExceptions were thrown for %d designs. Check their logs for further details\n' %
                        len(all_exceptions))
-        logger.warning('\n'.join('%s: %s' % (directory, error) for directory, error in all_exceptions))
+        logger.warning('\n'.join('%s: %s' % (str(directory.path), error) for directory, error in all_exceptions))
         # all_exception_poses = []
         # for exception in any_exceptions:
         #     # if exception:
@@ -820,7 +820,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands
     # -----------------------------------------------------------------------------------------------------------------
-    results, exceptions = [], []
+    results, success, exceptions = [], [], []
     if args.sub_module == 'guide':
         with open(PUtils.readme, 'r') as f:
             print(f.read(), end='')
@@ -958,7 +958,7 @@ if __name__ == '__main__':
         success = [result for result in results if not isinstance(result, BaseException)]
         exceptions = [design_directories[idx] for idx, result in enumerate(results)
                       if isinstance(result, BaseException)]
-        print(success)
+
         if not args.run_in_shell and any(success):
             output_dir = next(iter(design_directories)).project_designs
             all_commands = [[] for s in PUtils.stage_f]
@@ -1428,7 +1428,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Format the designs passing output and report program exceptions
     # -----------------------------------------------------------------------------------------------------------------
-    if inputs_moved or all_poses and design_directories and not args.file:
+    if success and inputs_moved or (all_poses and design_directories and not args.file):
         # Make single file with names of each directory where all_docked_poses can be found
         project_string = os.path.basename(design_directories[0].project_designs)
         args.file = os.path.join(os.getcwd(), '%s_pose.paths' % project_string)
