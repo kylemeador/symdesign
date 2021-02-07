@@ -771,11 +771,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Mutate all design positions to Ala before the Refinement
         mutated_pdb = copy.deepcopy(self.pose.pdb)
-        for entity, residues in self.pose.interface_residues.items():
-            self.log.debug('Removing residues from chain %s' % entity.chain_id)
-            for residue in residues:
-                if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
-                    mutated_pdb.mutate_residue(residue.number, to='A')
+        for entity_pair, residue_pair in self.pose.interface_residues.items():
+            for idx, entity_residues in enumerate(residue_pair):
+                self.log.debug('Removing residues from chain %s' % entity_pair[idx].chain_id)
+                for residue in entity_residues:
+                    if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+                        mutated_pdb.mutate_residue(residue.number, to='A')
 
         mutated_pdb.write(out_path=self.refine_pdb)
         self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
