@@ -1273,7 +1273,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
     def check_interface_topology(self):
         first, second = 0, 1
-        interface_residue_d = {first: {}, second: {}, 'self': (False, False)}
+        interface_residue_d = {first: {}, second: {}, 'self': [False, False]}
         terminate = False
         for entity_pair, entity_residues in self.interface_residues.items():
             if not entity_residues:
