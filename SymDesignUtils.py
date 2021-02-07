@@ -125,6 +125,7 @@ def handle_design_errors(errors=(Exception,)):
             try:
                 return func(*args, **kwargs), None
             except errors as e:
+                print('handled a clash')
                 args[0].log.error(e)  # This might forgo termination exceptions reporting if args[0] is des_dir
                 return None, (args[0], e)  # requires a directory identifier as args[0]
                 # return None, (args[0].path, e)
