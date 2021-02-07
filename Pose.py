@@ -1177,6 +1177,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                     # only add if we have never observed either pair orientation
                     asymmetric_contacting_pairs.append(possible_pair)
                 found_pairs.append(possible_pair)  # always add, regardless
+                found_pairs.append((possible_pair[1], possible_pair[0]))  # always add, regardless
             return asymmetric_contacting_pairs
 
     @staticmethod
@@ -1377,7 +1378,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                               ' for more information.')
 
     def interface_design(self, design_dir=None, symmetry=None, evolution=True,
-                         fragments=True, query_fragments=False, write_fragments=True,
+                         fragments=True, query_fragments=False, write_fragments=True, fragments_exist=False,
                          frag_db='biological_interfaces',  # mask=None, output_assembly=False,
                          ):  # Todo initialize without DesignDirectory
         """Take the provided PDB, and use the ASU to compute calculations relevant to interface design.
@@ -1424,51 +1425,54 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
 
-        # if fragments:
-        if query_fragments:  # search for new fragment information
-            # inherently gets interface residues for the designable entities
-            self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
-            self.check_interface_topology()
-        else:  # No fragment query, add existing fragment information to the pose
-            # get interface residues for the designable entities
-            for entity_pair in combinations_with_replacement(self.active_entities, 2):
-                self.find_interface_residues(*entity_pair)
+        # get interface residues for the designable entities
+        for entity_pair in combinations_with_replacement(self.active_entities, 2):
+            self.find_interface_residues(*entity_pair)
 
-            self.check_interface_topology()
-            if not self.frag_db:
-                self.connect_fragment_database(init=False)  # location='biological_interfaces' inherent in call
-                self.handle_flags(frag_db=self.frag_db)  # attach to all entities
+        self.check_interface_topology()
 
-            fragment_source = design_dir.fragment_observations
-            if not fragment_source:
-                raise DesignError('%s: Fragments were set for design but there were none found in the Design '
-                                  'Directory! Fix your input flags if this is not what you expected or generate '
-                                  'them with \'%s generate_frags\'' % (str(design_dir), PUtils.program_command))
+        if fragments:
+            if query_fragments:  # search for new fragment information
+                # inherently gets interface residues for the designable entities
+                self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
+                self.check_interface_topology()
+            else:  # No fragment query, add existing fragment information to the pose
+                # if fragments_exist:
+                if not self.frag_db:
+                    self.connect_fragment_database(init=False)  # location='biological_interfaces' inherent in call
+                    self.handle_flags(frag_db=self.frag_db)  # attach to all entities
 
-            # Must provide des_dir.fragment_observations then specify whether the Entity in question is from the
-            # mapped or paired chain (entity1 is mapped, entity2 is paired from Nanohedra). Then, need to renumber
-            # fragments to Pose residue numbering when added to fragment queries
-            if design_dir.nano:
-                if len(self.entities) > 2:  # Todo compatible with > 2 entities
-                    raise DesignError('Not able to solve fragment/residue membership with more than 2 Entities!')
-                entity_ids = tuple(entity.name for entity in self.entities)
-                self.log.debug('Fragment data found in Nanohedra docking. Solving fragment membership for '
-                               'Entity ID\'s: %s by PDB numbering correspondence' % str(entity_ids))
-                self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
-                                        pdb_numbering=True)
-            else:  # assuming the input is in Pose numbering
-                self.log.debug('Fragment data found from prior query. Solving query index by Pose number/Entity '
-                               'matching')
-                self.add_fragment_query(query=fragment_source)
+                fragment_source = design_dir.fragment_observations
+                if not fragment_source:
+                    raise DesignError('%s: Fragments were set for design but there were none found in the Design '
+                                      'Directory! Fix your input flags if this is not what you expected or generate '
+                                      'them with \'%s generate_frags\'' % (str(design_dir), PUtils.program_command))
 
-        for query_pair, fragment_info in self.fragment_queries.items():
-            self.log.debug('Query Pair: %s, %s\nFragment Info: %s' % (query_pair[0].name, query_pair[1].name, fragment_info))
-            for query_idx, entity in enumerate(query_pair):
-                # # Attach an existing FragmentDB to the Pose
-                # entity.attach_fragment_database(db=design_dir.frag_db)
-                # entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
-                entity.assign_fragments(fragments=fragment_info,
-                                        alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
+                # Must provide des_dir.fragment_observations then specify whether the Entity in question is from the
+                # mapped or paired chain (entity1 is mapped, entity2 is paired from Nanohedra). Then, need to renumber
+                # fragments to Pose residue numbering when added to fragment queries
+                if design_dir.nano:
+                    if len(self.entities) > 2:  # Todo compatible with > 2 entities
+                        raise DesignError('Not able to solve fragment/residue membership with more than 2 Entities!')
+                    entity_ids = tuple(entity.name for entity in self.entities)
+                    self.log.debug('Fragment data found in Nanohedra docking. Solving fragment membership for '
+                                   'Entity ID\'s: %s by PDB numbering correspondence' % str(entity_ids))
+                    self.add_fragment_query(entity1=entity_ids[0], entity2=entity_ids[1], query=fragment_source,
+                                            pdb_numbering=True)
+                else:  # assuming the input is in Pose numbering
+                    self.log.debug('Fragment data found from prior query. Solving query index by Pose number/Entity '
+                                   'matching')
+                    self.add_fragment_query(query=fragment_source)
+
+            for query_pair, fragment_info in self.fragment_queries.items():
+                self.log.debug('Query Pair: %s, %s\nFragment Info: %s' % (query_pair[0].name, query_pair[1].name,
+                                                                          fragment_info))
+                for query_idx, entity in enumerate(query_pair):
+                    # # Attach an existing FragmentDB to the Pose
+                    # entity.attach_fragment_database(db=design_dir.frag_db)
+                    # entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
+                    entity.assign_fragments(fragments=fragment_info,
+                                            alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
 
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
