@@ -593,14 +593,15 @@ if __name__ == '__main__':
     args, additional_flags = parser.parse_known_args()
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging
+    # Root logs to stream with level warning, SymDesign main to stream with level info
+    # All Designs log to specific file with info level, total to single file with info level
     # -----------------------------------------------------------------------------------------------------------------
-    # Root logger output to a stream, with warning's enabled
-    logger = SDUtils.start_log(name='', level=3)
     if args.debug:
         logger = SDUtils.start_log(name='', level=1)
     else:
         # and a file
         logger = SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
+    logger = SDUtils.start_log(name=__name__, level=3)
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
@@ -666,11 +667,11 @@ if __name__ == '__main__':
                 chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
             # -------------------
             design_flags.update({'design_selector':
-                                 {'selection': {'pdbs': pdb_select, 'entities': entity_select, 'chains': chain_select,
-                                                'residues': residue_select, 'atoms': atom_select},
-                                  'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
-                                           'residues': residue_mask, 'atoms': atom_mask},
-                                  'required': {'entities': entity_req, 'chains': chain_req, 'residues': residues_req}}})
+                                     {'selection': {'pdbs': pdb_select, 'entities': entity_select, 'chains': chain_select,
+                                                    'residues': residue_select, 'atoms': atom_select},
+                                      'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
+                                               'residues': residue_mask, 'atoms': atom_mask},
+                                      'required': {'entities': entity_req, 'chains': chain_req, 'residues': residues_req}}})
 
             # logger.debug('Design flags after masking: %s' % design_flags)
 

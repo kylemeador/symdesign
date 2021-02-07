@@ -238,7 +238,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     os.makedirs(self.path)
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
                 self.path = design_path
-                self.asu = os.path.join(self.path, '%s-%s' % (self.name, PUtils.clean))
+                self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean))
                 self.source = self.asu
                 self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])  # symmetry.rstrip(os.sep)
                 self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
