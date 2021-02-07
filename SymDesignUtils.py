@@ -574,7 +574,7 @@ def write_commands(command_list, name='all_commands', out_path=os.getcwd()):  # 
 def write_list_to_file(_list, name=None, location=os.getcwd()):
     file_name = os.path.join(location, name)  # + '.cmd')
     with open(file_name, 'w') as f:
-        f.write('\n'.join(item for item in _list))
+        f.write('\n'.join(str(item) for item in _list))
 
     return file_name
 
