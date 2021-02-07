@@ -598,7 +598,7 @@ class Structure:  # (Coords):
 
         return sequence
 
-    def is_clash(self, clash_distance=2.2):
+    def is_clash(self, clash_distance=2.15):
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms
 
