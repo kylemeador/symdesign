@@ -410,7 +410,8 @@ def terminate(all_exceptions):
     if all_exceptions:
         logger.warning('\nExceptions were thrown for %d designs. Check their logs for further details\n' %
                        len(all_exceptions))
-        logger.warning('\n'.join('%s: %s' % (str(directory.path), error) for (directory, error) in all_exceptions))
+        logger.warning('\n%s' % '\n\t'.join('%s: %s' % (str(directory.path), error)
+                                            for (directory, error) in all_exceptions))
         # all_exception_poses = []
         # for exception in any_exceptions:
         #     # if exception:
