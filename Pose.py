@@ -1359,7 +1359,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 break
 
         self.interface_split = \
-            {key: '%d%s' % (residue, entity.chain) for key, interface_entities in interface_residue_d.items()
+            {key: '%d%s' % (residue.number, entity.chain) for key, interface_entities in interface_residue_d.items()
              if key != 'self' for entity, residues in interface_entities.items() for residue in residues}
 
         if terminate:
