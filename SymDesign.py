@@ -958,7 +958,7 @@ if __name__ == '__main__':
         success = [result for result in results if not isinstance(result, BaseException)]
         exceptions = [design_directories[idx] for idx, result in enumerate(results)
                       if isinstance(result, BaseException)]
-
+        print(success)
         if not args.run_in_shell and any(success):
             output_dir = next(iter(design_directories)).project_designs
             all_commands = [[] for s in PUtils.stage_f]
@@ -967,8 +967,8 @@ if __name__ == '__main__':
             for des_directory in design_directories:
                 for idx, stage in enumerate(PUtils.stage_f):
                     all_commands[idx].append(os.path.join(des_directory.scripts, '%s.sh' % stage))
-            for idx, stage in enumerate(PUtils.stage_f):
-                if idx > 3:  # No consensus or higher
+            for idx, stage in enumerate(PUtils.stage_f, 1):
+                if idx > 3:  # No analysis or higher
                     break
                 command_files[idx] = SDUtils.write_commands(all_commands[idx], name=stage, out_path=args.directory)
                 sbatch[idx] = distribute(stage=stage, directory=args.directory, file=command_files[idx])

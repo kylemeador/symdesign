@@ -123,10 +123,10 @@ def handle_design_errors(errors=(Exception,)):
     def wrapper(func):
         def wrapped(*args, **kwargs):
             try:
-                return func(*args, **kwargs), None
-            except errors as e:
-                args[0].log.error(e)  # This might forgo termination exceptions reporting if args[0] is des_dir
-                return None, (args[0], e)  # requires a directory identifier as args[0]
+                return func(*args, **kwargs)  #, None
+            except errors as error:
+                args[0].log.error(error)  # Allows exception reporting using DesignDirectory
+                return error
                 # return None, (args[0].path, e)
             # finally:  TODO figure out how to run only when uncaught exception is found
             #     print('Error occurred in %s' % args[0].path)
