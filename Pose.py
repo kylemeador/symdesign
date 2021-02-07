@@ -1360,8 +1360,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 break
 
         self.interface_split = \
-            {key: '%d%s' % (residue.number, entity.chain) for key, interface_entities in interface_residue_d.items()
-             if key != 'self' for entity, residues in interface_entities.items() for residue in residues}
+            {key: ','.join('%d%s' % (residue.number, entity.chain_id) for entity, residues in interface_entities.items()
+             for residue in residues) for key, interface_entities in interface_residue_d.items() if key != 'self'}
 
         if terminate:
             self.log.critical('%s: The set of interfaces found during interface search generated a topologically '
