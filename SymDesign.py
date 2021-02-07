@@ -410,7 +410,7 @@ def terminate(all_exceptions):
     if all_exceptions:
         logger.warning('\nExceptions were thrown for %d designs. Check their logs for further details\n' %
                        len(all_exceptions))
-        logger.warning('\n'.join('%s: %s' % (str(directory.path), error) for directory, error in all_exceptions))
+        logger.warning('\n'.join('%s: %s' % (str(directory.path), error) for (directory, error) in all_exceptions))
         # all_exception_poses = []
         # for exception in any_exceptions:
         #     # if exception:
@@ -956,7 +956,7 @@ if __name__ == '__main__':
                 result = design.interface_design()
                 results.append(result)
         success = [result for result in results if not isinstance(result, BaseException)]
-        exceptions = [design_directories[idx] for idx, result in enumerate(results)
+        exceptions = [(design_directories[idx], result) for idx, result in enumerate(results)
                       if isinstance(result, BaseException)]
 
         if not args.run_in_shell and any(success):
@@ -1428,7 +1428,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Format the designs passing output and report program exceptions
     # -----------------------------------------------------------------------------------------------------------------
-    if success and inputs_moved or (all_poses and design_directories and not args.file):
+    if success and (inputs_moved or all_poses and design_directories and not args.file):  # Todo
         # Make single file with names of each directory where all_docked_poses can be found
         project_string = os.path.basename(design_directories[0].project_designs)
         args.file = os.path.join(os.getcwd(), '%s_pose.paths' % project_string)
