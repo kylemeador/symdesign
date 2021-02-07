@@ -1,47 +1,46 @@
 <ROSETTASCRIPTS>
 
-	<SCOREFXNS>
-		# patched version of 2015, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%">
-			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
-		</ScoreFunction>
-	</SCOREFXNS>
+<!--	<SCOREFXNS>-->
+<!--		# patched version of 2015, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy-->
+<!--		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%">-->
+<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
+<!--		</ScoreFunction>-->
+<!--	</SCOREFXNS>-->
 
 	<RESIDUE_SELECTORS>
-		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
-		<Index name="A_interface" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface1%%
-		# same, but for residues from chain "B"
-		<Index name="B_interface" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
-		# same, but for residues from chain "C"
-		<Index name="Non_interface_designable_residues" resnums="%%other_designable%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
-		# combined group of all identified interface residues
-<!--		<Index name="tot_interface" selectors="%%all_interface%%"/>-->
-		<Or name="tot_interface" selectors="A_interface,B_interface"/> # ,C_interface
-		# the negation of all interface residues
-		<Not name="not_interface" selector="tot_interface"/>
+<!--		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable-->
+<!--		<Index name="A_interface" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface1%%-->
+<!--		# same, but for residues from chain "B"-->
+<!--		<Index name="B_interface" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%-->
+<!--		# same, but for residues from chain "C"-->
+<!--		<Index name="Non_interface_designable_residues" resnums="%%other_designable%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%-->
+<!--		# combined group of all identified interface residues-->
+<!--		<Or name="tot_interface" selectors="A_interface,B_interface"/> # ,C_interface-->
+<!--		# the negation of all interface residues-->
+<!--		<Not name="not_interface" selector="tot_interface"/>-->
 		# all residues
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 
-	<TASKOPERATIONS>
-		# standard task operation to pull in commandline options
-		<InitializeFromCommandline name="init"/>
-		# initialize a pose with the input residues
-		<IncludeCurrent name="include_current"/>
-		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
-		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
-		# make a design restriction at the beggining of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues
-		<DesignRestrictions name="interface_start"> <Action residue_selector="tot_interface" aas="G"/> </DesignRestrictions>
-		<OperateOnResidueSubset name="non_int_no_repack" selector="not_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>
-	</TASKOPERATIONS>
+<!--	<TASKOPERATIONS>-->
+<!--		# standard task operation to pull in commandline options-->
+<!--		<InitializeFromCommandline name="init"/>-->
+<!--		# initialize a pose with the input residues-->
+<!--		<IncludeCurrent name="include_current"/>-->
+<!--		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless-->
+<!--		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>-->
+<!--		# make a design restriction at the beggining of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues-->
+<!--		<DesignRestrictions name="interface_start"> <Action residue_selector="tot_interface" aas="G"/> </DesignRestrictions>-->
+<!--		<OperateOnResidueSubset name="non_int_no_repack" selector="not_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>-->
+<!--	</TASKOPERATIONS>-->
 
 	<MOVERS>
 		# generates symmetry for the system in question using %%sdf%% or %%dist%%
 		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
 		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
 		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
-		# set all interface residues to GLY, leave everything else untouched
-		<SymPackRotamersMover name="start_int" scorefxn="2015_nano" task_operations="init,vrt,include_current,interface_start,non_int_no_repack"/>
+<!--		# set all interface residues to GLY, leave everything else untouched-->
+<!--		<SymPackRotamersMover name="start_int" scorefxn="2015_nano" task_operations="init,vrt,include_current,interface_start,non_int_no_repack"/>-->
 		# add CoordinateConstraints to restrict design movement during trajectory
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen" residue_selector="full_pose" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" native="false" align_reference="false"/> # bounded_width="0" no native pose as this isn't refined, sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
@@ -78,7 +77,7 @@
 		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry_switch"/>
 		<Add mover_name="add_csts"/>
-		<Add mover_name="start_int"/>
+<!--		<Add mover_name="start_int"/>-->
 		<Add mover_name="set_up_constraint_and_design"/>
 		<Add mover_name="metrics_interface_design"/>
 		<Add filter_name="time"/>
