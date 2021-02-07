@@ -18,7 +18,7 @@ from sklearn.neighbors import BallTree
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_symmdef, orient_exe_path, \
     orient_log_file, orient_dir
-from Query.PDB import get_pdb_info_by_entry
+from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from SequenceProfile import write_fasta
 from Stride import Stride
 from Structure import Structure, Chain, Atom, Coords, Entity
@@ -1345,8 +1345,13 @@ class PDB(Structure):
         """
         if not self.entity_d:  # we didn't find information from the PDB file
             self.get_entity_info_from_api()  # pdb_code=pdb_code)
-        if not self.entity_d:  # API didn't work either
+        if not self.entity_d:  # API didn't work for pdb_name
             self.get_entity_info_from_atoms()
+            for entity, atom_info in self.entity_d.items():
+                pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
+                if pdb_api_name:
+                    self.entity_d[pdb_api_name] = self.entity_d.pop(entity)
+            self.log.info('Found Entities \'%s\' by PDB API sequence search' % ', '.join(self.entity_d.keys()))
         else:
             for entity, info in self.entity_d.items():
                 info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
@@ -1363,14 +1368,14 @@ class PDB(Structure):
         for entity, info in self.entity_d.items():
             # chain_l = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
             # chain_l = filter(None, chain_l)
-            # if entity_names:
-            #     entity_name = '%s' % entity_names[entity - 1]  # zero-index
-            # else:
-            #     entity_name = '%d' % entity
+            if len(entity.split('_')) == 2:  # we have an name generated from a PDB API sequence search
+                entity_name = entity
+            else:  #
+                entity_name = '%s_%d' % (self.name, entity)
             # self.entities.append(self.create_entity(representative_chain=self.entity_d[entity]['representative'],
             #                                         chains=chain_l, entity_id=entity_name,
             #                                         uniprot_id=self.entity_accession_map[entity]))
-            self.entities.append(Entity.from_representative(chains=info['chains'], name='%s_%d' % (self.name, entity),
+            self.entities.append(Entity.from_representative(chains=info['chains'], name=entity_name,
                                                             coords=self._coords,
                                                             uniprot_id=info['accession'], log=self.log,
                                                             representative=info['representative']))

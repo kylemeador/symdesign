@@ -104,16 +104,77 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                           }
 
 
+def retrieve_entity_id_by_sequence(sequence):
+    """From a given sequence, retrieve the top matching Entity ID from the PDB API
+
+    Returns:
+        (str): '1ABC_1'
+    """
+    return find_matching_entities_by_sequence(sequence=sequence)[0]
+    # matching_entity_ids = find_matching_entities_by_sequence(sequence=sequence)
+    # entity_json = None
+    # idx = 0
+    # while idx < 5:  # lets only give this 5 attempts. If it isn't in the top five, the sequence is likely engineered
+    #     while not entity_json:
+    #         entity_json = query_entity_id(matching_entity_ids[idx])
+    #         idx += 1
+    #     # if entity_json:
+    #     try:
+    #         return entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
+    #     except KeyError:  # if no uniprot_id
+    #         entity_json = None
+
+
+def find_matching_entities_by_sequence(sequence=None, return_type='polymer_entity', **kwargs):
+    """Search the PDB for matching IDs given a sequence and a return_type. Pass all_matching=True to retrieve all IDs
+    otherwise, only return the top 10 IDs
+
+    Keyword Args:
+        return_type='polymer_entity' (str): The type of ID to search for
+    Returns:
+        (list[str])
+    """
+    sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
+    sequence_query_results = query_pdb(generate_query(sequence_query, return_type=return_type, **kwargs))
+    return parse_pdb_response_for_ids(sequence_query_results)
+
+
 def parse_pdb_response_for_ids(response):
     return [result['identifier'] for result in response['result_set']]
 
 
 def parse_pdb_response_for_score(response):
-    return [result['score'] for result in response['result_set']]
+    if response:
+        return [result['score'] for result in response['result_set']]
+    else:
+        return []
 
 
-def query_pdb(query):
-    return requests.get(pdb_query_url, params={'json': dumps(query)}).json()
+def query_pdb(_query):
+    query_response = requests.get(pdb_query_url, params={'json': dumps(_query)})
+    if query_response.status_code == 200:
+        return query_response.json()
+    else:
+        return None
+
+
+def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):  # Todo set up by kwargs
+    if sequence:  # Todo
+        return {'evalue_cutoff': 1, 'identity_cutoff': 0.95, 'target': 'pdb_protein_sequence', 'value': sequence}
+    else:
+        return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
+
+
+def generate_terminal_group(service, *parameter_args, **kwargs):
+    return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(**kwargs)}
+
+
+def generate_query(search, return_type, all_matching=False):
+    query_d = {'query': search, 'return_type': return_type}
+    if all_matching:
+        query_d.update({'request_options': {'return_all_hits': True}})
+
+    return query_d
 
 
 def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force_schema_update=False):
@@ -123,23 +184,14 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         return [(key, schema[key]['description']) for key in schema if schema[key]['description'] and
                 term.lower() in schema[key]['description'].lower()]
 
-    def generate_parameters(attribute, operator, negation, value):
-        return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
-
-    def generate_terminal_group(service, *parameter_args):
-        return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(*parameter_args)}
-
     def generate_group(operation, child_groups):
         return {'type': 'group', 'logical_operator': operation, 'nodes': list(child_groups)}
 
-    def generate_query(search, return_type, return_all=True):
-        query_d = {'query': search, 'return_type': return_type}
-        if return_all:
-            query_d.update({'request_options': {'return_all_hits': True}})
-
-        return query_d
-
-    def make_groups(*args, recursive_depth=0):  # (terminal_queries, grouping,
+    def make_groups(*args, recursive_depth=0):
+        # Todo remove ^ * expression?
+        # on initialization have [{}, {}, ...]
+        #  was [(), (), ...]
+        # on recursion get (terminal_queries, grouping,
         terminal_queries = args[0]
         work_on_group = args[recursive_depth]
         all_grouping_indices = {i for i in range(1, len(work_on_group) + 1)}
@@ -164,7 +216,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                                  '\n'.join(query_display_string % (query_num, service.upper(), attribute,
                                                                    'NOT ' if negate else '', operator.upper(), value)
                                            for query_num, (service, attribute, operator, negate, value)
-                                           in enumerate(terminal_queries, 1))
+                                           in enumerate(list(terminal_queries.values()), 1))
 
         if recursive_depth == 0:
             intro_string = group_introduction
@@ -173,7 +225,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
             intro_string = group_grouping_intro
             available_entity_string = '\nYour available groups are:\n%s\n' % \
                                       '\n'.join('\tGroup Group #%d%s' % (i, format_string % group)
-                                                for i, group in enumerate(work_on_group, 1))
+                                                for i, group in enumerate(list(work_on_group.values()), 1))
 
         print(intro_string)  # provide an introduction
         print(available_entity_string)  # display available entities which switch between guery and group...
@@ -184,10 +236,11 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
             while True:  # ensure grouping input is viable
                 while True:
                     grouping = set(map(int, input(group_inquiry_string).split()))  # get new grouping
+                    # error on isdigit() ^
                     if len(grouping) > 1:
                         break
                     else:
-                        print('More than one group is required. Your group %s is invalid' % grouping)
+                        print('More than one group is required. Your group \'%s\' is invalid' % grouping)
                 while True:
                     confirm = input('%s\n%s' % (group_specification_string % grouping, confirmation_string))
                     if confirm.lower() in bool_d:
@@ -205,17 +258,20 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                     groupings.append((grouping, group_logic))
                     break
 
-            selected_grouping_indices -= grouping  # remove specified from the pool of available until all are gone
+            # remove specified from the pool of available until all are gone
+            selected_grouping_indices = selected_grouping_indices.difference(grouping)
 
         if len(selected_grouping_indices) > 0:
             groupings.append((selected_grouping_indices, 'and'))  # When only 1 remains, automatically add 'and'
+            # Todo test logic of and with one group?
 
-        args += (groupings,)
+        args.extend((groupings,))  # now [{} {}, ..., ([(grouping, group_logic), (), ...])
         # once all groupings are grouped, recurse
         if len(groupings) > 1:
+            # todo without the return call, the stack never comes back to update args?
             make_groups(*args, recursive_depth=recursive_depth + 1)
 
-        return list(args)
+        return list(args)  # list() may be unnecessary
 
     # Start the user input routine -------------------------------------------------------------------------------------
     schema = get_rcsb_metadata_schema(force_update=force_schema_update)
@@ -412,7 +468,8 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                     break
 
             # terminal_group_queries[increment] = (service, attribute, operator, negate, value)
-            terminal_group_queries.append((service, attribute, operator, negate, value))
+            terminal_group_queries.append(dict(service=service, attribute=attribute, operator=operator, negate=negate,
+                                               value=value))
             increment += 1
             while True:
                 additional = input(additional_input_string % ' query')
@@ -426,13 +483,14 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         # Group terminal queries into groups if there are more than 1
         if len(terminal_group_queries) > 1:
             recursive_query_tree = make_groups(terminal_group_queries)
+            # expecting return of [terminal_group_queries, bottom group hierarchy, second group hierarchy, ..., top]
         else:
             recursive_query_tree = [terminal_group_queries]
             # recursive_query_tree = (terminal_group_queries, )
         # recursive_query_tree = (queries, grouping1, grouping2, etc.)
         for i, node in enumerate(recursive_query_tree):
             if i == 0:
-                recursive_query_tree[i] = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node, 1)}
+                recursive_query_tree[i] = {j: generate_terminal_group(**leaf) for j, leaf in enumerate(node, 1)}
                 # recursive_query_tree[i] = {j: generate_terminal_group(*node[leaf]) for j, leaf in enumerate(node, 1)}
 
                 # terminal_group_queries = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node)}
@@ -456,7 +514,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                                            # for k in child_group_nums}
         final_query = recursive_query_tree[-1][1]  #
 
-    search_query = generate_query(final_query, return_type)  # , return_all=False)
+    search_query = generate_query(final_query, return_type, all_matching=True)
     response_d = query_pdb(search_query)
     print('The server returned:\n%s' % response_d)
 
@@ -483,11 +541,11 @@ def get_pdb_info_by_entry(entry):
     # ex. chain
     # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
     entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
-    if entry_request.status_code != 200:
+    if entry_request.status_code == 200:
+        entry_json = entry_request.json()
+    else:
         # print('%s not found in the PDB!' % entry)
         return None
-    else:
-        entry_json = entry_request.json()
     # The following information is returned. This can connect the entity ID to the chain
 
     # All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
@@ -548,10 +606,6 @@ def get_pdb_info_by_entry(entry):
     for i in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
         entity_id = '%s_%d' % (entry, i)
         entity_json = query_entity_id(entity_id)
-        # Todo ensure that the call doesn't fail. Example
-        #  chains = entity_json["rcsb_polymer_entity_container_identifiers"]['asym_ids']  # = ['A', 'B', 'C']
-        #   TypeError: 'NoneType' object is not subscriptable
-
         # For all method types the following keys are available:
         # {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
         #  'rcsb_polymer_entity_feature_summary', 'rcsb_polymer_entity_align', 'rcsb_id', 'rcsb_cluster_membership',
@@ -624,6 +678,10 @@ def query_entity_id(entity_id):
 
 
 def get_sequence_by_entity_id(entity_id):
+    """Query the PDB API for the one letter amino acid sequence for a specified entity ID (PDB EntryID_Entity_ID)
+    Returns:
+        (str)
+    """
     entity_json = query_entity_id(entity_id)
     return entity_json['entity_poly']['pdbx_seq_one_letter_code']
 
