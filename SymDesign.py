@@ -600,8 +600,8 @@ if __name__ == '__main__':
         logger = SDUtils.start_log(name='', level=1)
     else:
         # and a file
-        logger = SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
-    logger = SDUtils.start_log(name=__name__, level=2)
+        SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
+        logger = SDUtils.start_log(name=__name__, level=2)
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
@@ -966,7 +966,7 @@ if __name__ == '__main__':
                 results.append(result)
                 exceptions.append(error)
 
-        if not args.run_in_shell:
+        if not args.run_in_shell and any(results):
             output_dir = next(iter(design_directories)).project_designs
             all_commands = [[] for s in PUtils.stage_f]
             command_files = [[] for s in PUtils.stage_f]
