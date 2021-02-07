@@ -878,7 +878,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
         # write_commands(shell_scripts, name=PUtils.interface_design_command, out_path=self.scripts)
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    # @handle_design_errors(errors=(DesignError, AssertionError))
     def load_pose(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
