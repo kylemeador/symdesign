@@ -725,7 +725,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                             ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
 
         # Need to assign the designable residues for each entity to a interface1 or interface2 variable
-        interface_residue_d = {'interface%d' % interface: ','.join(residues)
+        interface_residue_d = {'interface%d' % interface: residues  # ','.join(residues)
                                for interface, residues in self.pose.interface_split.items()}
         refine_variables.extend(interface_residue_d.items())
         self.info['design_residues'] = self.pose.interface_residues  # Todo
