@@ -696,9 +696,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                     for entity in self.pose.entities[:-1]])))
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
 
-        # # need to assign the designable residues for each entity to a interfaceA or interfaceB variable
-        # interface_metrics = self.pose.return_fragment_query_metrics()
-        #
         # self.log.info('Pulling fragment info from clusters: %s' % ', '.join(metrics['fragment_cluster_ids']
         #                                                                    for metrics in interface_metrics.values()))
 
@@ -727,23 +724,25 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                             ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),
                             ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
 
-        # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        all_chains = [entity.chain_id for entity in self.pose.entities]  # pose.interface_residues}  # ['A', 'B', 'C']
-        self.log.debug('Added interface_residues: %s'
-                       % ','.join(['%d%s' % (entity_pair[idx].name, residue.number)
-                                   for entity_pair, residue_pair in self.pose.interface_residues.items()
-                                   for idx, residues in enumerate(residue_pair, 1) for residue in residues]))
+        # Need to assign the designable residues for each entity to a interface1 or interface2 variable
+        interface_residue_d = {'interface%d' % interface: ','.join(residues)
+                               for interface, residues in self.pose.interface_split.items()}
+        refine_variables.extend(interface_residue_d.items())
         self.info['design_residues'] = self.pose.interface_residues  # Todo
+        self.log.info('Interface Residues:\n\t%s' % '\n\t'.join(interface_residue_d))
+        # assign any additional designable residues
+        refine_variables.extend(('required_residues',
+                                 ','.join(residue.number for residue in self.pose.required_residues)))
 
+        # self.log.debug('Added interface_residues: %s'
+        #                % ','.join(['%d%s' % (entity_pair[idx].name, residue.number)
+        #                            for entity_pair, residue_pair in self.pose.interface_residues.items()
+        #                            for idx, residues in enumerate(residue_pair, 1) for residue in residues]))
         # interface_residue_d = {'interface%s' % chain: '' for chain in all_chains}
         #     for entity, residues in self.pose.interface_residues.items():
         #         interface_residue_d['interface%s' % entity.chain_id] = ','.join('%d%s'
         #                                                                         % (residue.number, entity.chain_id)
         #                                                                         for residue in residues)
-        interface_residue_d = {'interface%d' % interface: ','.join(residues)
-                               for interface, residues in self.pose.interface_split.items()}
-        refine_variables.extend(interface_residue_d.items())
-        self.log.info('Interface Residues:\n\t%s' % '\n\t'.join(interface_residue_d))
 
         self.make_path(self.scripts)
         flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
@@ -811,6 +810,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
              '-scorefile', os.path.join(self.scores, PUtils.scores_file)]
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
+        # Assumes all entity chains are renamed from A to Z for entities (1 to n)
+        all_chains = [entity.chain_id for entity in self.pose.entities]  # pose.interface_residues}  # ['A', 'B', 'C']
         # add symmetry definition files and set metrics up for oligomeric symmetry
         if self.nano:
             design_variables.extend([('sdf%s' % chain, self.sdfs[name])

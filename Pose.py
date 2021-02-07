@@ -839,6 +839,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.required_indices = set()
+        self.required_residues = None
         self.interface_residues = {}
         self.interface_split = {}
         self.fragment_observations = []
@@ -1027,6 +1028,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         self.design_selector_entities = self.design_selector_entities.union(entity_selection)
         self.design_selector_indices = self.design_selector_indices.union(atom_selection)
         self.required_indices = self.required_indices.union(atom_required)
+        self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
 
     # def add_pdb(self, pdb):  # Todo
     #     """Add a PDB to the PosePDB as well as the member PDB list"""
