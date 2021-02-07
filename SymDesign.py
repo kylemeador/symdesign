@@ -601,7 +601,7 @@ if __name__ == '__main__':
     else:
         # and a file
         logger = SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
-    logger = SDUtils.start_log(name=__name__, level=3)
+    logger = SDUtils.start_log(name=__name__, level=2)
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
