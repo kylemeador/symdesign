@@ -818,11 +818,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.nano:
             design_variables.extend([('sdf%s' % chain, self.sdfs[name])
                                      for chain, name in zip(all_chains, list(self.sdfs.keys()))])  # REQUIRES py3.6 dict
-            design_variables.append(('metrics_symmetry', 'oligomer'))
-        else:  # This may not always work if the input has lower symmetry
-            design_variables.append(('metrics_symmetry', 'no_symmetry'))
+            # design_variables.append(('metrics_symmetry', 'oligomer'))
+        # else:  # This may not always work if the input has lower symmetry
+        #     design_variables.append(('metrics_symmetry', 'no_symmetry'))
 
-        design_variables.extend([('all_but_%s' % chain, ''.join(set(all_chains) - set(chain))) for chain in all_chains])
+        # design_variables.extend([('all_but_%s' % chain, ''.join(set(all_chains) - set(chain))) for chain in all_chains])
 
         flags_metric = self.prepare_rosetta_flags(design_variables, PUtils.stage[3], out_path=self.scripts)
 
@@ -838,8 +838,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             metric_cmd = run_cmds[PUtils.rosetta_extras] + metric_cmd
             self.script = True
 
-        metric_cmds = {entity.chain_id: metric_cmd + ['-parser:script_vars', 'chain=%s' % entity.chain_id]
-                       for entity in self.pose.entities}
+        metric_cmds = [metric_cmd + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
         if self.script:
@@ -849,7 +848,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(generate_files_cmd), name=PUtils.stage[3],
                                                     out_path=self.scripts, status_wrap=self.info_pickle,
                                                     additional=[subprocess.list2cmdline(command)
-                                                                for n, command in enumerate(metric_cmds.values())]))
+                                                                for n, command in enumerate(metric_cmds)]))
             for idx, metric_cmd in enumerate(metric_cmds, 1):
                 self.log.info('Metrics Command %d: %s' % (idx, subprocess.list2cmdline(metric_cmd)))
         else:
