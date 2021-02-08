@@ -530,15 +530,15 @@ if __name__ == '__main__':
                                                          'constraints in Rosetta. Constrain using evolutionary profiles'
                                                          ' of homologous sequences and/or fragment profiles extracted '
                                                          'from the PDB or neither.')
-    parser_design.add_argument('-i', '--fragment_database', type=str,
-                               help='Database to match fragments for interface specific scoring matrices. One of %s'
-                                    '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
-                                                      list(PUtils.frag_directory.keys())[0]),
-                               default=list(PUtils.frag_directory.keys())[0])
+    # parser_design.add_argument('-i', '--fragment_database', type=str,
+    #                            help='Database to match fragments for interface specific scoring matrices. One of %s'
+    #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
+    #                                                   list(PUtils.frag_directory.keys())[0]),
+    #                            default=list(PUtils.frag_directory.keys())[0])
     # parser_design.add_argument('-x', '--suspend', action='store_true',
     #                            help='Should Rosetta design trajectory be suspended?\nDefault=False')
-    parser_design.add_argument('-p', '--mpi', action='store_true',
-                               help='Should job be set up for cluster submission?\nDefault=False')
+    # parser_design.add_argument('-p', '--mpi', action='store_true',
+    #                            help='Should job be set up for cluster submission?\nDefault=False')
     # ---------------------------------------------------
     parser_analysis = subparsers.add_parser('analysis', help='Run analysis on all poses specified and their designs.')
     parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
