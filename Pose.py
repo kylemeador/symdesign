@@ -1373,8 +1373,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                               '%sPlease correct your design_selectors to reduce the number of Entities you are '
                               'attempting to design. This issue may be global if your designs are very similar'
                               % (self.name,
-                                 '|'.join(','.join(entity.name for entity in interface_entities)
-                                          for key, interface_entities in interface_residue_d.items() if key != 'self'),
+                                 ' | '.join(':'.join(entity.name for entity in interface_entities)
+                                            for key, interface_entities in interface_residue_d.items()
+                                            if key != 'self'),
                                  'Symmetry was set which may have influenced this unfeasible topology, you can try to '
                                  'set it False. ' if self.symmetry else ''))
             raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
