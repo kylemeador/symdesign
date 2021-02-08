@@ -268,7 +268,7 @@ class SequenceProfile:
                     if seq_file == os.path.join(out_path, '%s.hold' % self.name):
                         self.log.info('Waiting for \'%s\' profile generation...' % self.name)
                         while not os.path.exists(os.path.join(out_path, '%s.hmm' % self.name)):
-                            if int(time.time()) - int(os.path.getmtime(temp_file)) > 600:  # > 10 minutes have passed
+                            if int(time.time()) - int(os.path.getmtime(temp_file)) > 1800:  # > 30 minutes have passed
                                 os.remove(temp_file)
                                 raise DesignError('%s: Generation of the profile for %s took longer than the time '
                                                   'limit. Job killed!'
@@ -744,11 +744,11 @@ class SequenceProfile:
         not_available = [residue_number for residue_number in self.fragment_map
                          if residue_number <= 0 or residue_number > self.profile_length]
         for residue_number in not_available:
-            self.log.debug('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
+            self.log.info('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
                            'Fragment index will be deleted.' % (self.name, residue_number))
             self.fragment_map.pop(residue_number)
 
-        self.log.debug('Residue Cluster Map: %s' % str(self.fragment_map))
+        # self.log.debug('Residue Cluster Map: %s' % str(self.fragment_map))
 
     def generate_fragment_profile(self):
         """Add frequency information to the fragment profile using parsed cluster information. Frequency information is
@@ -805,7 +805,7 @@ class SequenceProfile:
         Keyword Args:
             keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
         """
-        self.log.debug(self.fragment_profile.items())
+        # self.log.debug(self.fragment_profile.items())
         no_design = []
         for residue, index_d in self.fragment_profile.items():
             total_fragment_weight = 0
