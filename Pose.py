@@ -803,7 +803,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     """A Pose is made of multiple PDB objects all sharing a common feature such as symmetric copies or modifications to
     the PDB sequence
     """
-    def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, **kwargs):  # symmetry=None, log=None,
+    def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, ignore_clashes=False, **kwargs):  # symmetry=None, log=None,
         super().__init__(**kwargs)  # log=None,
         # super().__init__(log=log)
         # if log:  # from Super SymmetricModel
@@ -828,11 +828,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             # self.set_pdb(pdb)
         # else:
         #     nothing = True
+        self.ignore_clashes = ignore_clashes
         if self.pdb:
             # add structure to the SequenceProfile
             if self.pdb.is_clash():
                 # print('found a clash')
-                raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
+                if not self.ignore_clashes:
+                    raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
             self.set_structure(self.pdb)
             # set up coordinate information for SymmetricModel
             self.coords = Coords(self.pdb.get_coords())
@@ -1473,7 +1475,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                     # entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
                     entity.assign_fragments(fragments=fragment_info,
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
-
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
             # Todo check this assumption...
