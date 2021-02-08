@@ -1234,7 +1234,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # else:
         #     self.interface_residues[entity2].extend(entity2.get_residues(numbers=entity2_residue_numbers))
         entity_d = {1: entity1, 2: entity2}  # Todo clean
-        self.log.debug('Added interface_residues: %s' % ['%d%s' % (residue.number, entity_d[idx].name)
+        self.log.debug('Added interface_residues: %s' % ['%d%s' % (residue.number, entity_d[idx].chain_id)
                        for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)], 1)
                        for residue in entity_residues])
 
@@ -1366,9 +1366,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 terminate = True
                 break
 
-        self.interface_split = \
-            {key + 1: ','.join('%d%s' % (residue.number, entity.chain_id) for entity, residues in interface_entities.items()
-             for residue in residues) for key, interface_entities in interface_residue_d.items() if key != 'self'}
 
         if terminate:
             self.log.critical('%s: The set of interfaces found during interface search generated a topologically '
@@ -1377,12 +1374,18 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                               '%sPlease correct your design_selectors to reduce the number of Entities you are '
                               'attempting to design. This issue may be global if your designs are very similar'
                               % (self.name,
-                                 '|'.join(','.join(interface_entities)
+                                 '|'.join(','.join(entity.name for entity in interface_entities)
                                           for key, interface_entities in interface_residue_d.items() if key != 'self'),
                                  'Symmetry was set which may have influenced this unfeasible topology, you can try to '
                                  'set it False. ' if self.symmetry else ''))
             raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
                               ' for more information.')
+
+        self.interface_split = \
+            {key + 1: ','.join('%d%s' % (residue.number, entity.chain_id)
+                               for entity, residues in interface_entities.items()
+                               for residue in residues) for key, interface_entities in interface_residue_d.items()
+             if key != 'self'}
 
     def interface_design(self, design_dir=None, symmetry=None, evolution=True,
                          fragments=True, query_fragments=False, write_fragments=True, fragments_exist=False,
