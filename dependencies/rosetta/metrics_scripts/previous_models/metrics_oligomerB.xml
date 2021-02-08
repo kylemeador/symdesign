@@ -8,37 +8,37 @@
 
 	<RESIDUE_SELECTORS>
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
-		<Index name="A_interface" resnums="%%interface1%%" error_on_out_of_bounds_index="1" reverse="0"/>
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="1" reverse="0"/>
 		# same, but for residues from chain "B"
-		<Index name="B_interface" resnums="%%interface2%%" error_on_out_of_bounds_index="1" reverse="0"/>
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="1" reverse="0"/>
 		# combined group of all identified interface residues
-		<Or name="tot_interface" selectors="A_interface,B_interface"/>
+		<Or name="tot_interface" selectors="interface1,interface2"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
-		<HBond name="hbond_residues" residue_selector="B_interface" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>
+		<HBond name="hbond_residues" residue_selector="interface2" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>
 		# all residues
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 	
 	<TASK_OPERATIONS>
-		<DesignAround name="des_aroundA" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
-		<DesignAround name="des_aroundB" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
+		<DesignAround name="des_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
+		<DesignAround name="des_around1" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
 	</TASK_OPERATIONS>
 
 	<SIMPLE_METRICS>
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues"/>
 		# gather the per residue SASA of a residue selection
-		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="B_interface" mode="hydrophobic_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="B_interface" mode="polar_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="B_interface" mode="all_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="interface2" mode="hydrophobic_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="interface2" mode="polar_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="interface2" mode="all_sasa"/>
 		# find the per residue energy of residues in a residue_selector 
-		<PerResidueEnergyMetric name="M_int_energy_oligomer_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="B_interface" use_native="false" scoretype="total_score" scorefxn="2015"/>
+		<PerResidueEnergyMetric name="M_int_energy_oligomer_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="interface2" use_native="false" scoretype="total_score" scorefxn="2015"/>
 			<!-- <PerResidueEnergyMetric name="M_int_energy_unbound_per_res" custom_type="per" output_as_pdb_nums="false" residue_selector="tot_interface" use_native="false" scoretype="total_score" scorefxn="2015"/> -->
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="M_int_energy_total_asu" custom_type="int_energy" metric="M_int_energy_oligomer_per_res" action="sum"/>
 			<!-- <ResidueSummaryMetric name="M_int_energy_total_unbound" custom_type="int_energy" metric="M_int_energy_unbound_per_res" action="sum"/> -->
 		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="B_interface" residue_selector2="full_pose" scorefxn="2015"/> #used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
+		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface2" residue_selector2="full_pose" scorefxn="2015"/> #used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
 	</SIMPLE_METRICS>
 
 	<MOVERS>
@@ -74,10 +74,10 @@
 	<FILTERS>
 		<ScoreType name="full_stability" scorefxn="2015" score_type="total_score" threshold="20000" confidence="1.0"/>
 		# find the average degree of connectivity to residues surrounding specified residues
-		<AverageDegree name="int_connectivityA" threshold="0" distance_threshold="10.0" task_operations="des_aroundA"/>
-		<AverageDegree name="int_connectivityB" threshold="0" distance_threshold="10.0" task_operations="des_aroundB"/>
-		<Report name="R_int_connectivityA" 				filter="int_connectivityA"/>
-		<Report name="R_int_connectivityB" 				filter="int_connectivityB"/>
+		<AverageDegree name="int_connectivity1" threshold="0" distance_threshold="10.0" task_operations="des_around1"/>
+		<AverageDegree name="int_connectivity2" threshold="0" distance_threshold="10.0" task_operations="des_around2"/>
+		<Report name="R_int_connectivity1" 				filter="int_connectivity1"/>
+		<Report name="R_int_connectivity2" 				filter="int_connectivity2"/>
 	</FILTERS>
 
 	<PROTOCOLS>
