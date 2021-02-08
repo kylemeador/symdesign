@@ -869,9 +869,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     remove_columns = copy.deepcopy(columns_to_remove)
     rename_columns = copy.deepcopy(columns_to_rename)
 
-    # Get design information including: interface residues, SSM's, and wild_type/design files
-    design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
-    des_residues = SDUtils.get_interface_residues(design_flags)  # Changed in favor of residue_processing identification
+    # # Get design information including: interface residues, SSM's, and wild_type/design files
+    # design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
 
     # # used to be found from strings, now associated with the des_dir
     # pssm = SDUtils.parse_pssm(des_dir.info['pssm'])
@@ -1001,15 +1000,16 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     all_mutations_no_chains = SequenceProfile.make_mutations_chain_agnostic(all_mutations)
     all_mutations_simplified = SequenceProfile.simplify_mutation_dict(all_mutations_no_chains)
     cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
-    residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
-                                            hbonds=interface_hbonds)
-    # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
-    #                                   hbonds=interface_hbonds)  # TODO when columns are correct
+    # residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
+    #                                         hbonds=interface_hbonds)
+    residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
+                                      hbonds=interface_hbonds)
 
     # Calculate amino acid observation percent from residue dict and background SSM's
     obs_d = {}
     for profile in profile_dict:
-        obs_d[profile] = {design: mutation_conserved(residue_dict[design], SequenceProfile.offset_index(profile_dict[profile]))
+        obs_d[profile] = {design: mutation_conserved(residue_dict[design],
+                                                     SequenceProfile.offset_index(profile_dict[profile]))
                           for design in residue_dict}
 
     # Remove residues from fragment dict if no fragment information available for them
@@ -1043,6 +1043,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Check if any of the values in columns are 1. If so, return True for that column
     interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()
     int_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
+    des_residues = des_dir.info['design_residues']
     if set(int_residues) != set(des_residues):
         logger.info('Residues %s are located in the interior' %
                     ', '.join(map(str, list(set(des_residues) - set(int_residues)))))
