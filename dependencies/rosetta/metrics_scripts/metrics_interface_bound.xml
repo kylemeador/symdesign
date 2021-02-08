@@ -46,8 +46,8 @@
 		# restrict all non-interface residues to repacking only, no design
 		<OperateOnResidueSubset name="non_int_rtr" selector="not_interface"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
 		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
-		<DesignAround name="des_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
-		<DesignAround name="des_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
+		<DesignAround name="design_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
+		<DesignAround name="design_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
 			<!-- <DesignAround name="des_around_total" design_shell="0.1" resnums="%%interface1%%,%%interface2%%" repack_shell="8.0"/> -->
 	</TASKOPERATIONS>
 
