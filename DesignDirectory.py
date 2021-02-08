@@ -743,7 +743,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                      ','.join(str(residue.number) for residue in self.pose.required_residues)))
         else:
             # get an out of bounds index
-            refine_variables.append(('required_residues', int(list(chain_breaks.values())[-1])) + 50)
+            refine_variables.append(('required_residues', int(list(chain_breaks.values())[-1]) + 50))
 
         # self.log.debug('Added interface_residues: %s'
         #                % ','.join(['%d%s' % (entity_pair[idx].name, residue.number)
