@@ -19,8 +19,8 @@
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 	<TASK_OPERATIONS>
-		<DesignAround name="des_aroundA" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
-		<DesignAround name="des_aroundB" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
+		<DesignAround name="des_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
+		<DesignAround name="des_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
 	</TASK_OPERATIONS>
 
 	<SIMPLE_METRICS>
@@ -55,7 +55,7 @@
 		# Pull subroutines in from other files
 		<Subroutine name="metrics_interface_design" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_design.xml"/>
 		# Switch reporting to identify which design type or symmetry was selected
-		<SwitchMover name="oligomer_switch" movers="oligomerA,oligomerB" selected="oligomer%%chain%%"/>
+		<SwitchMover name="oligomer_switch" movers="interface1,interface2" selected="oligomer%%interface%%"/>
 		<ParsedProtocol name="oligomerA">
 			<Add mover_name="remove_chainB"/>
 			<Add mover_name="make_point_groupA"/>

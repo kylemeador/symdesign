@@ -20,10 +20,10 @@
 	<RESIDUE_SELECTORS>
 		# used for selecting residues on one side of the interface
 		# when using residue numbering all resnums are listed 23A,54A,64A,90A,etc...
-		<Index name="A_interface" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<Index name="B_interface" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		# combined group of all identified interface residues
-		<Or name="tot_interface" selectors="A_interface,B_interface"/>
+		<Or name="tot_interface" selectors="interface1,interface2"/>
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
@@ -64,7 +64,7 @@
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="int_energy" metric="M_int_energy_per_res" action="sum"/>
 		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="B_interface" residue_selector2="B_interface" scorefxn="2015_nano"/> #used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
+		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface2" residue_selector2="B_interface" scorefxn="2015_nano"/> #used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
 	</SIMPLE_METRICS>
 
 	<MOVERS>
@@ -103,7 +103,7 @@
 		<AtomicContactCount name="contact_count" partition="jump" sym_dof_name="JBC1" task_operations="init,vrt,non_int_no_repack" distance="5.0" normalize_by_carbon_count="1"/>
 		# find the shape complementarity between residues in an interface. report the median distance (or interface area, but this seems inaccurate) between the two
 		<ShapeComplementarity name="int_sc" min_sc="0.1" min_interface="0" sym_dof_name="JBC1" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-<!--		<ShapeComplementarity name="int_sc" min_sc="0.1" min_interface="0" residue_selector1="B_interface" residue_selector2="B_interface" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
+<!--		<ShapeComplementarity name="int_sc" min_sc="0.1" min_interface="0" residue_selector1="interface2" residue_selector2="B_interface" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
 		# find the solvent accessable surface area across an interface specified by a chain-chain jump. can be hydrophobic, polar or if not specified, the total SASA
 		<Sasa name="int_area_asu_hydrophobic" threshold="10" hydrophobic="1" polar="0" jump="1"/>
 		<Sasa name="int_area_asu_polar" threshold="10" hydrophobic="0" polar="1" jump="1"/>
