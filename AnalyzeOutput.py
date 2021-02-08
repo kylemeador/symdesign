@@ -47,42 +47,48 @@ metric_master = {'average_fragment_z_score': 'The average z-score per fragment u
                                                      'interface DB background values',
                  'fsp_energy': 'Total weight of sequence constraints used to favor certain amino acids in design. '
                                'Only some protocols have values',
-                 'fsp_total_stability': 'fsp_energy + total pose energy',  # DEPRECIATED
-                 'full_stability_complex': 'Total pose energy (essentially REU)',  # DEPRECIATED
-                 'full_stability_A_oligomer': 'Total A oligomer pose energy (essentially REU)',  # DEPRECIATED
-                 'full_stability_B_oligomer': 'Total B oligomer pose energy (essentially REU)',  # DEPRECIATED
-                 'full_stability_oligomer': 'Total oligomer pose energy (essentially REU)',  # DEPRECIATED
+                 # 'fsp_total_stability': 'fsp_energy + total pose energy',  # DEPRECIATED
+                 # 'full_stability_complex': 'Total pose energy (essentially REU)',  # DEPRECIATED
+                 # 'full_stability_A_oligomer': 'Total A oligomer pose energy (essentially REU)',  # DEPRECIATED
+                 # 'full_stability_B_oligomer': 'Total B oligomer pose energy (essentially REU)',  # DEPRECIATED
+                 # 'full_stability_oligomer': 'Total oligomer pose energy (essentially REU)',  # DEPRECIATED
                  'int_area_hydrophobic': 'Total interface buried surface area hydrophobic',
                  'int_area_polar': 'Total interface buried surface area polar',
-                 'int_area_res_summary_hydrophobic_A_oligomer': 'Sum of each interface residue\'s hydrophobic area for '
-                                                                'oligomer A',
-                 'int_area_res_summary_hydrophobic_B_oligomer': 'Sum of each interface residue\'s hydrophobic area for '
-                                                                'oligomer B',
-                 'int_area_res_summary_polar_A_oligomer': 'Sum of each interface residue\'s polar area for oligomer A',
-                 'int_area_res_summary_polar_B_oligomer': 'Sum of each interface residue\'s polar area for oligomer B',
-                 'int_area_res_summary_total_A_oligomer': 'Sum of each interface residue\'s total area for oligomer A',
-                 'int_area_res_summary_total_B_oligomer': 'Sum of each interface residue\'s total area for oligomer B',
+                 'int_area_res_summary_hydrophobic_1_unbound': 'Sum of each interface residue\'s hydrophobic area for '
+                                                                'interface1',
+                 'int_area_res_summary_hydrophobic_2_unbound': 'Sum of each interface residue\'s hydrophobic area for '
+                                                                'interface2',
+                 'int_area_res_summary_polar_1_unbound': 'Sum of each interface residue\'s polar area for interface1',
+                 'int_area_res_summary_polar_2_unbound': 'Sum of each interface residue\'s polar area for interface2',
+                 'int_area_res_summary_total_1_unbound': 'Sum of each interface residue\'s total area for interface1',
+                 'int_area_res_summary_total_2_unbound': 'Sum of each interface residue\'s total area for interface2',
+                 # 'int_area_res_summary_polar_A_oligomer': 'Sum of each interface residue\'s polar area for oligomer A',
+                 # 'int_area_res_summary_polar_B_oligomer': 'Sum of each interface residue\'s polar area for oligomer B',
+                 # 'int_area_res_summary_total_A_oligomer': 'Sum of each interface residue\'s total area for oligomer A',
+                 # 'int_area_res_summary_total_B_oligomer': 'Sum of each interface residue\'s total area for oligomer B',
                  'int_area_total': 'Total interface solvent accessible surface area',
                  'int_composition_diff': 'The similarity to the expected interface composition given BSA. 1 is similar',
-                 'int_connectivity_A': 'Interface connection chainA to the rest of the protein',
-                 'int_connectivity_B': 'Interface connection chainB to the rest of the protein',
-                 'int_energy_context_A_oligomer': 'Interface energy of the A oligomer',  # DEPRECIATED x2
-                 'int_energy_context_B_oligomer': 'Interface energy of the B oligomer',  # DEPRECIATED x2
-                 'int_energy_context_oligomer_A': 'Interface energy of the A oligomer',  # DEPRECIATED
-                 'int_energy_context_oligomer_B': 'Interface energy of the B oligomer',  # DEPRECIATED
-                 'int_energy_context_complex': 'interface energy of the complex',  # DEPRECIATED
-                 'int_energy_res_summary_A_oligomer': 'Sum of each interface residue\'s energy for oligomer A',  # DEPRECIATED
-                 'int_energy_res_summary_B_oligomer': 'Sum of each interface residue\'s energy for oligomer B',  # DEPRECIATED
+                 # 'int_connectivity_A': 'Interface connection chainA to the rest of the protein',
+                 # 'int_connectivity_B': 'Interface connection chainB to the rest of the protein',
+                 'int_connectivity_1': 'Interface connection for interface1 to the rest of the protein',
+                 'int_connectivity_2': 'Interface connection for interface2 to the rest of the protein',
+                 # 'int_energy_context_A_oligomer': 'Interface energy of the A oligomer',  # DEPRECIATED x2
+                 # 'int_energy_context_B_oligomer': 'Interface energy of the B oligomer',  # DEPRECIATED x2
+                 # 'int_energy_context_oligomer_A': 'Interface energy of the A oligomer',  # DEPRECIATED
+                 # 'int_energy_context_oligomer_B': 'Interface energy of the B oligomer',  # DEPRECIATED
+                 # 'int_energy_context_complex': 'interface energy of the complex',  # DEPRECIATED
+                 # 'int_energy_res_summary_A_oligomer': 'Sum of each interface residue\'s energy for oligomer A',  # DEPRECIATED
+                 # 'int_energy_res_summary_B_oligomer': 'Sum of each interface residue\'s energy for oligomer B',  # DEPRECIATED
                  'int_energy_res_summary_complex': 'Sum of each interface residue\'s energy for the complex',
-                 'int_energy_res_summary_delta': 'Delta of int_energy_res_summary_complex and _oligomer',
-                 'int_energy_res_summary_oligomer': 'Sum of each interface residue\'s energy for total oligomer',
-                 'int_energy_res_summary_oligomer_A': 'Sum of each interface residue\'s energy for oligomer A',
-                 'int_energy_res_summary_oligomer_B': 'Sum of each interface residue\'s energy for oligomer B',
+                 'int_energy_res_summary_delta': 'Delta of int_energy_res_summary_complex and _unbound',
+                 'int_energy_res_summary_unbound': 'Sum of each interface residue\'s energy for total unbound',
+                 'int_energy_res_summary_unbound_1': 'Sum of each interface residue\'s energy for interface1',
+                 'int_energy_res_summary_unbound_2': 'Sum of each interface residue\'s energy for interface2',
                  'int_separation': 'Median distance between all atom points on two sides of a interface (SC term)',
                  'interaction_energy_complex': 'The two-body interface energy of the assembled complex',
-                 'interface_b_factor_per_res': 'The average interface residue B-factor as measure from the PDB',
+                 # 'interface_b_factor_per_res': 'The average interface residue B-factor as measure from the PDB',
                  'shape_complementarity': 'Interface shape complementarity (SC). Measure of fit between two surfaces',
-                 'number_hbonds': 'The number of Hbonding residues present in the interface',
+                 'number_hbonds': 'The number of H-bonding residues present in the interface',
                  'observations': 'Number of unique data points',
                  'observed_combined': 'Percent of observed residues in combined profile',
                  'observed_evolution': 'Percent of observed residues in evolutionary profile',
@@ -112,33 +118,31 @@ metric_master = {'average_fragment_z_score': 'The average z-score per fragment u
                  'total_interface_residues': 'The number of interface residues found in the pose',
                  'interface_b_factor_per_res': 'The average B factor for each atom in each interface residue',
                  'REU': 'Rosetta Energy Units. Always 0. We can disregard',
-                 'buns_asu': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
-                 'buns_asu_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
-                 'buns_nano': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
-                 'buns_nano_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
-                 'int_area_asu_hydrophobic': 'Buried surface area in asu interface hydrophobic',  # UNUSED
-                 'int_area_asu_polar': 'Buried surface area in asu interface area polar',  # UNUSED
-                 'int_area_asu_total': 'Buried surface area in asu interface area total',  # UNUSED
-                 'int_area_ex_asu_hydrophobic': 'Buried surface area in extra-asu interface area hydrophobic',  # UNUSED
-                 'int_area_ex_asu_polar': 'Buried surface area in extra-asu interface area polar',  # UNUSED
-                 'int_area_ex_asu_total': 'Buried surface area in extra-asu interface area total',  # UNUSED
-                 'int_connectivity1': 'Old connectivity',  # DEPRECIATED
-                 'int_connectivity2': 'Old connectivity',  # DEPRECIATED
-                 'int_energy_context_asu': 'Interface energy of the ASU',  # UNUSED, DEPRECIATED
-                 'int_energy_context_unbound': 'Interface energy of the unbound complex',  # UNUSED, DEPRECIATED
+                 # 'buns_asu': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
+                 # 'buns_asu_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
+                 # 'buns_nano': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
+                 # 'buns_nano_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
+                 # 'int_area_asu_hydrophobic': 'Buried surface area in asu interface hydrophobic',  # UNUSED
+                 # 'int_area_asu_polar': 'Buried surface area in asu interface area polar',  # UNUSED
+                 # 'int_area_asu_total': 'Buried surface area in asu interface area total',  # UNUSED
+                 # 'int_area_ex_asu_hydrophobic': 'Buried surface area in extra-asu interface area hydrophobic',  # UNUSED
+                 # 'int_area_ex_asu_polar': 'Buried surface area in extra-asu interface area polar',  # UNUSED
+                 # 'int_area_ex_asu_total': 'Buried surface area in extra-asu interface area total',  # UNUSED
+                 # 'int_energy_context_asu': 'Interface energy of the ASU',  # UNUSED, DEPRECIATED
+                 # 'int_energy_context_unbound': 'Interface energy of the unbound complex',  # UNUSED, DEPRECIATED
                  'coordinate_constraint': 'Same as cst_weight',
-                 'int_energy_res_summary_asu': 'Sum of each interface residues individual energy for the ASU',  # DEPRECIATED
-                 'int_energy_res_summary_unbound': 'Sum of each interface residues individual energy for the unbound',  # DEPRECIATED
-                 'interaction_energy': 'Interaction energy between two sets of residues',  # DEPRECIATED
-                 'interaction_energy_asu': 'Interaction energy between two sets of residues in ASU state',  # DEPRECIATED
-                 'interaction_energy_oligomerA': 'Interaction energy between two sets of residues in oligomerA',  # DEPRECIATED
-                 'interaction_energy_oligomerB': 'Interaction energy between two sets of residues in oligomerB',  # DEPRECIATED
-                 'interaction_energy_unbound': 'Interaction energy between two sets of residues in unbound state', # DEPRECIATED
+                 # 'int_energy_res_summary_asu': 'Sum of each interface residues individual energy for the ASU',  # DEPRECIATED
+                 # 'int_energy_res_summary_unbound': 'Sum of each interface residues individual energy for the unbound',  # DEPRECIATED
+                 # 'interaction_energy': 'Interaction energy between two sets of residues',  # DEPRECIATED
+                 # 'interaction_energy_asu': 'Interaction energy between two sets of residues in ASU state',  # DEPRECIATED
+                 # 'interaction_energy_oligomerA': 'Interaction energy between two sets of residues in oligomerA',  # DEPRECIATED
+                 # 'interaction_energy_oligomerB': 'Interaction energy between two sets of residues in oligomerB',  # DEPRECIATED
+                 # 'interaction_energy_unbound': 'Interaction energy between two sets of residues in unbound state', # DEPRECIATED
                  'res_type_constraint': 'Same as fsp_energy',
                  'time': 'Time for the protocol to complete',
-                 'hbonds_res_selection_complex': 'The specific hbonds present in the bound pose',
-                 'hbonds_res_selection_A_oligomer': 'The specific hbonds present in the oligomeric pose A',
-                 'hbonds_res_selection_B_oligomer': 'The specific hbonds present in the oligomeric pose B',
+                 'hbonds_res_selection_unbound': 'The specific h-bonds present in the bound pose',
+                 'hbonds_res_selection_1_unbound': 'The specific h-bonds present in the unbound interface1',
+                 'hbonds_res_selection_2_unbound': 'The specific h-bonds present in the unbound interface2',
                  'dslf_fa13': 'Rosetta Energy Term - disulfide bonding',
                  'fa_atr': 'Rosetta Energy Term - lennard jones full atom atractive forces',
                  'fa_dun': 'Rosetta Energy Term - dunbrack rotamer library statistical probability',
@@ -162,12 +166,12 @@ metric_master = {'average_fragment_z_score': 'The average z-score per fragment u
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total', 'contact_count',
                      'cst_weight', 'fsp_energy', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total',
-                     'int_connectivity_A', 'int_connectivity_B', 'int_energy_context_oligomer_A',
-                     'int_energy_context_oligomer_B', 'int_energy_context_complex', 'int_energy_res_summary_oligomer_A',
-                     'int_energy_res_summary_oligomer_B', 'int_energy_res_summary_complex', 'int_separation',
+                     'int_connectivity_1', 'int_connectivity_1', 'int_energy_context_unbound_1',
+                     'int_energy_context_unbound_2', 'int_energy_context_complex', 'int_energy_res_summary_unbound_1',
+                     'int_energy_res_summary_unbound_2', 'int_energy_res_summary_complex', 'int_separation',
                      'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch',
-                     'hbonds_res_selection_complex', 'hbonds_res_selection_A_oligomer',
-                     'hbonds_res_selection_B_oligomer'}
+                     'hbonds_res_selection_complex', 'hbonds_res_selection_1_unbound',
+                     'hbonds_res_selection_2_unbound'}
 
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'int_area_res_summary_hydrophobic_A_oligomer', 'int_area_res_summary_hydrophobic_B_oligomer',
@@ -179,9 +183,9 @@ necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano',
 #                      'int_energy_res_summary_oligomer', 'int_energy_context_oligomer',
 
 final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'cst_weight', 'fsp_energy',
-                 'percent_fragment', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total', 'int_connectivity_A',
-                 'int_connectivity_B', 'int_energy_res_summary_A_oligomer', 'int_energy_res_summary_B_oligomer',
-                 'int_energy_res_summary_complex', 'int_energy_res_summary_delta', 'int_energy_res_summary_oligomer',
+                 'percent_fragment', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total', 'int_connectivity_1',
+                 'int_connectivity_2', 'int_energy_res_summary_1_unbound', 'int_energy_res_summary_2_unbound',
+                 'int_energy_res_summary_complex', 'int_energy_res_summary_delta', 'int_energy_res_summary_unbound',
                  'int_separation', 'interaction_energy_complex', 'number_hbonds', 'observed_combined',
                  'observed_evolution', 'observed_interface', 'ref', 'rmsd', 'shape_complementarity', 'solvation_energy'}
 #               These are missing the bb_hb contribution and are inaccurate
@@ -198,10 +202,10 @@ final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_c
 
 columns_to_rename = {'int_sc': 'shape_complementarity', 'int_sc_int_area': 'int_area',
                      'int_sc_median_dist': 'int_separation', 'R_full_stability': 'R_full_stability_complex',
-                     'int_energy_context_A_oligomer': 'int_energy_context_oligomer_A',
-                     'int_energy_context_B_oligomer': 'int_energy_context_oligomer_B',
-                     'int_energy_res_summary_B_oligomer': 'int_energy_res_summary_oligomer_B',
-                     'int_energy_res_summary_A_oligomer': 'int_energy_res_summary_oligomer_A',
+                     # 'int_energy_context_1_unbound': 'int_energy_context_unbound_1',
+                     # 'int_energy_context_2_unbound': 'int_energy_context_unbound_2',
+                     # 'int_energy_res_summary_B_oligomer': 'int_energy_res_summary_oligomer_B',
+                     # 'int_energy_res_summary_A_oligomer': 'int_energy_res_summary_oligomer_A',
                      'relax_switch': groups, 'no_constraint_switch': groups,
                      'limit_to_profile_switch': groups, 'combo_profile_switch': groups,
                      'favor_profile_switch': groups, 'consensus_design_switch': groups}
@@ -217,7 +221,7 @@ summation_pairs = {'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
                    # 'int_energy_context_oligomer':
                    #     ('int_energy_context_oligomer_A', 'int_energy_context_oligomer_B'),
                    'int_energy_res_summary_oligomer':
-                       ('int_energy_res_summary_oligomer_A', 'int_energy_res_summary_oligomer_B')}  # ,
+                       ('int_energy_res_summary_unbound_1', 'int_energy_res_summary_unbound_2')}  # ,
 #                    'full_stability_oligomer': ('full_stability_A_oligomer', 'full_stability_B_oligomer')}  # ,
 #                    'hbonds_oligomer': ('hbonds_res_selection_A_oligomer', 'hbonds_res_selection_B_oligomer')}
 
@@ -237,11 +241,11 @@ division_pairs = {'percent_int_area_hydrophobic': ('int_area_hydrophobic', 'int_
                   'percent_support': ('support', 'total_interface_residues'),
                   'buns_per_ang': ('buns_total', 'int_area_total')}
 
-# Some of these are unneeded now, but handing around incase renaming has occurred
+# Some of these are unneeded now, but hanging around in case renaming occurred
 unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_total',
                'int_area_ex_asu_hydrophobic', 'int_area_ex_asu_polar', 'int_area_ex_asu_total',
-               'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'int_connectivity1',
-               'int_connectivity2', 'int_energy_context_asu', 'int_energy_context_unbound',
+               'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol',  # 'int_connectivity1',
+               'int_energy_context_asu', 'int_energy_context_unbound',  # 'int_connectivity2',
                'coordinate_constraint', 'int_energy_res_summary_asu', 'int_energy_res_summary_unbound',
                'interaction_energy', 'interaction_energy_asu', 'interaction_energy_oligomerA',
                'interaction_energy_oligomerB', 'interaction_energy_unbound', 'res_type_constraint', 'time', 'REU',
@@ -249,8 +253,8 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                'int_area_res_summary_hydrophobic_A_oligomer', 'int_area_res_summary_hydrophobic_B_oligomer',
                'int_area_res_summary_polar_A_oligomer', 'int_area_res_summary_polar_B_oligomer',
                'int_area_res_summary_total_A_oligomer', 'int_area_res_summary_total_B_oligomer',
-               'full_stability_A_oligomer', 'full_stability_B_oligomer',
-               'full_stability_oligomer_A', 'full_stability_oligomer_B']  # TODO Remove once Entry65 is done
+               'full_stability_A_oligomer', 'full_stability_B_oligomer']
+#                'full_stability_oligomer_A', 'full_stability_oligomer_B']
 
 # All terms but ref as this seems useful to keep
 rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 'yhh_planarity', 'dslf_fa13',
@@ -259,7 +263,8 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
 
 # Current protocols in use in design.xml
 protocols = ['combo_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'no_constraint_switch']
-protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']
+protocols_of_interest = ['combo_profile', 'no_constraint']  # Todo ensure proper process with two instead of three
+# protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']
 
 # Specific columns of interest to distinguish between design trajectories
 protocol_specific_columns = ['shape_complementarity', 'buns_total', 'contact_count', 'int_energy_res_summary_delta',
@@ -359,8 +364,8 @@ def hbond_processing(score_dict, columns, offset=None):
     Args:
         score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection': '15A,21A,26A,35A,...'}, ...}
-        columns (list): ['hbonds_res_selection_complex', 'hbonds_res_selection_A_oligomer',
-            'hbonds_res_selection_B_oligomer']
+        columns (list): ['hbonds_res_selection_complex', 'hbonds_res_selection_1_unbound',
+            'hbonds_res_selection_2_unbound']
     Keyword Args:
         offset=None (dict): {'A': 0, 'B': 102}
     Returns:
@@ -375,13 +380,14 @@ def hbond_processing(score_dict, columns, offset=None):
             if hbonds[0] == '' and len(hbonds) == 1:
                 hbonds = set()
             else:
-                if column.split('_')[-1] == 'oligomer' and offset:
+                if column.split('_')[-1] == 'unbound' and offset:  # 'oligomer'
                     res_offset = offset[column.split('_')[-2]]
                 for i in range(len(hbonds)):
                     hbonds[i] = int(hbonds[i][:-1]) + res_offset  # remove chain ID off last index
             entry_dict[column.split('_')[3]] = set(hbonds)
         if len(entry_dict) == 3:
-            hbond_dict[entry] = list((entry_dict['complex'] - entry_dict['A']) - entry_dict['B'])
+            hbond_dict[entry] = list((entry_dict['complex'] - entry_dict['1']) - entry_dict['2'])
+            #                                                   entry_dict['A']) - entry_dict['B'])
         else:
             hbond_dict[entry] = list()
         #     logger.error('%s: Missing hbonds_res_selection_ data for %s. Hbonds inaccurate!' % (pose, entry))
@@ -413,14 +419,15 @@ def dirty_hbond_processing(score_dict, offset=None):  # columns
                 if hbonds[0] == '' and len(hbonds) == 1:
                     hbonds = set()
                 else:
-                    if column.split('_')[-1] == 'oligomer' and offset:
+                    if column.split('_')[-1] == 'unbound' and offset:  # 'oligomer'
                         # find offset according to chain
                         res_offset = offset[column.split('_')[-2]]
                     for i in range(len(hbonds)):
                         hbonds[i] = int(hbonds[i][:-1]) + res_offset  # remove chain ID off last index of string
                 entry_dict[column.split('_')[3]] = set(hbonds)
         if len(entry_dict) == 3:
-            hbond_dict[entry] = list((entry_dict['complex'] - entry_dict['A']) - entry_dict['B'])
+            hbond_dict[entry] = list((entry_dict['complex'] - entry_dict['1']) - entry_dict['2'])
+            #                                                   entry_dict['A']) - entry_dict['B'])
         else:
             hbond_dict[entry] = list()
             # logger.error('%s: Missing hbonds_res_selection_ data for %s. Hbonds inaccurate!' % (pose, entry))
@@ -492,8 +499,8 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
         score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection': '15A,21A,26A,35A,...'}, ...}
         mutations (dict): {'0001': {mutation_index: {'from': 'A', 'to: 'K'}, ...}, ...}
-        columns (list): ['per_res_energy_complex_5', 'per_res_sasa_polar_A_oligomer_5', 
-            'per_res_energy_A_oligomer_5', ...]
+        columns (list): ['per_res_energy_complex_5', 'per_res_sasa_polar_1_unbound_5', 
+            'per_res_energy_1_unbound_5', ...]
     Keyword Args:
         offset=None (dict): {'A': 0, 'B': 102}
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
@@ -501,9 +508,9 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
             22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}
     """  # , 'hot_spot': 1
-    dict_template = {'energy': {'complex': 0, 'oligomer': 0, 'fsp': 0, 'cst': 0},
-                     'sasa': {'polar': {'complex': 0, 'oligomer': 0}, 'hydrophobic': {'complex': 0, 'oligomer': 0},
-                              'total': {'complex': 0, 'oligomer': 0}},
+    dict_template = {'energy': {'complex': 0, 'unbound': 0, 'fsp': 0, 'cst': 0},
+                     'sasa': {'polar': {'complex': 0, 'unbound': 0}, 'hydrophobic': {'complex': 0, 'unbound': 0},
+                              'total': {'complex': 0, 'unbound': 0}},
                      'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
     total_residue_dict = {}
     for entry in score_dict:
@@ -515,17 +522,17 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
             # metadata = key.split('_')
             res = int(metadata[-1])
             r_type = metadata[2]  # energy or sasa
-            pose_state = metadata[-2]  # oligomer or complex or cst (constraint) or fsp (favor_sequence_profile)
-            if pose_state == 'oligomer' and offset:
+            pose_state = metadata[-2]  # unbound or complex or cst (constraint) or fsp (favor_sequence_profile)
+            if pose_state == 'unbound' and offset:  # 'oligomer'
                 res += offset[metadata[-3]]  # get oligomer chain name length offset
             if res not in residue_dict:
                 residue_dict[res] = copy.deepcopy(dict_template)
             if r_type == 'sasa':
-                # Ex. per_res_sasa_hydrophobic_A_oligomer_15 or per_res_sasa_hydrophobic_complex_15
+                # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                 polarity = metadata[3]  # hydrophobic or polar or total
                 residue_dict[res][r_type][polarity][pose_state] = round(score_dict[entry][column], 3)
             else:
-                # Ex. per_res_energy_A_oligomer_15 or per_res_energy_complex_15
+                # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
                 residue_dict[res][r_type][pose_state] = round(score_dict[entry][column], 3)
         # if residue_dict:
         for res in residue_dict:
@@ -537,17 +544,17 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
                 if res in hbonds[entry]:
                     residue_dict[res]['hbond'] = 1
             residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                - residue_dict[res]['energy']['oligomer'] - residue_dict[res]['energy']['cst']
+                - residue_dict[res]['energy']['unbound'] - residue_dict[res]['energy']['cst']  # 'oligomer'
             # - residue_dict[res]['energy']['fsp']
             rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                 residue_dict[res]['sasa']['total']['oligomer'])
+                                                 residue_dict[res]['sasa']['total']['unbound'])  # 'oligomer'
             rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
                                                 residue_dict[res]['sasa']['total']['complex'])
             for polarity in residue_dict[res]['sasa']:
                 # convert sasa measurements into bsa measurements
                 residue_dict[res]['bsa_' + polarity] = round(
-                    residue_dict[res]['sasa'][polarity]['oligomer'] - residue_dict[res]['sasa'][polarity][
-                        'complex'], 2)
+                    residue_dict[res]['sasa'][polarity]['unbound'] - residue_dict[res]['sasa'][polarity][
+                        'complex'], 2)  # 'oligomer'
             if residue_dict[res]['bsa_total'] > 0:
                 if rel_oligomer_sasa < 0.25:
                     residue_dict[res]['support'] = 1
@@ -585,9 +592,9 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
             22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}  # , 'hot_spot': 1
     """
-    dict_template = {'energy': {'complex': 0, 'oligomer': 0, 'fsp': 0, 'cst': 0},
-                     'sasa': {'polar': {'complex': 0, 'oligomer': 0}, 'hydrophobic': {'complex': 0, 'oligomer': 0},
-                              'total': {'complex': 0, 'oligomer': 0}},
+    dict_template = {'energy': {'complex': 0, 'unbound': 0, 'fsp': 0, 'cst': 0},
+                     'sasa': {'polar': {'complex': 0, 'unbound': 0}, 'hydrophobic': {'complex': 0, 'unbound': 0},
+                              'total': {'complex': 0, 'unbound': 0}},
                      'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
     total_residue_dict = {}
     for entry in score_dict:
@@ -600,17 +607,17 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                 res = int(metadata[-1])
                 r_type = metadata[2]  # energy or sasa
                 pose_state = metadata[-2]  # oligomer or complex
-                if pose_state == 'oligomer' and offset:
-                        res += offset[metadata[-3]]  # get oligomer chain offset
+                if pose_state == 'unbound' and offset:  # 'oligomer'
+                    res += offset[metadata[-3]]  # get oligomer chain offset
                 if res not in residue_dict:
                     residue_dict[res] = copy.deepcopy(dict_template)
                 if r_type == 'sasa':
-                    # Ex. per_res_sasa_hydrophobic_A_oligomer_15 or per_res_sasa_hydrophobic_complex_15
+                    # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     polarity = metadata[3]
                     residue_dict[res][r_type][polarity][pose_state] = round(score_dict[entry][key], 3)
                     # residue_dict[res][r_type][polarity][pose_state] = round(score_dict[entry][column], 3)
                 else:
-                    # Ex. per_res_energy_A_oligomer_15 or per_res_energy_complex_15
+                    # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
                     residue_dict[res][r_type][pose_state] = round(score_dict[entry][key], 3)
         # if residue_dict:
         for res in residue_dict:
@@ -622,14 +629,14 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                 if res in hbonds[entry]:
                     residue_dict[res]['hbond'] = 1
             residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                - residue_dict[res]['energy']['oligomer']  # - residue_dict[res]['energy']['fsp']
+                - residue_dict[res]['energy']['unbound']  # - residue_dict[res]['energy']['fsp']  # 'oligomer'
             rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                 residue_dict[res]['sasa']['total']['oligomer'])
+                                                 residue_dict[res]['sasa']['total']['unbound']) # 'oligomer'
             rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
                                                 residue_dict[res]['sasa']['total']['complex'])
             for polarity in residue_dict[res]['sasa']:
                 # convert sasa measurements into bsa measurements
-                residue_dict[res]['bsa_' + polarity] = round(residue_dict[res]['sasa'][polarity]['oligomer']
+                residue_dict[res]['bsa_' + polarity] = round(residue_dict[res]['sasa'][polarity]['unbound']  # 'oligomer
                                                              - residue_dict[res]['sasa'][polarity]['complex'], 2)
             if residue_dict[res]['bsa_total'] > 0:
                 if rel_oligomer_sasa < 0.25:
@@ -946,14 +953,14 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         elif column.startswith('hbonds_res_selection'):
             hbonds_columns.append(column)
     rename_columns.update(report_columns)
-    rename_columns.update({'R_int_sc': 'shape_complementarity', 'R_full_stability': 'full_stability_complex',
-                           'R_full_stability_oligomer_A': 'full_stability_oligomer_A',
-                           'R_full_stability_oligomer_B': 'full_stability_oligomer_B',
-                           'R_full_stability_A_oligomer': 'full_stability_oligomer_A',
-                           'R_full_stability_B_oligomer': 'full_stability_oligomer_B',
-                           'R_int_energy_context_A_oligomer': 'int_energy_context_oligomer_A',
-                           'R_int_energy_context_B_oligomer': 'int_energy_context_oligomer_B'})
-    #                       TODO remove the update when metrics protocol is changed
+    # rename_columns.update({'R_int_sc': 'shape_complementarity', 'R_full_stability': 'full_stability_complex',
+    #                        'R_full_stability_oligomer_A': 'full_stability_oligomer_A',
+    #                        'R_full_stability_oligomer_B': 'full_stability_oligomer_B',
+    #                        'R_full_stability_A_oligomer': 'full_stability_oligomer_A',
+    #                        'R_full_stability_B_oligomer': 'full_stability_oligomer_B',
+    #                        'R_int_energy_context_A_oligomer': 'int_energy_context_oligomer_A',
+    #                        'R_int_energy_context_B_oligomer': 'int_energy_context_oligomer_B'})
+    #                       TODO TEST if DONE? remove the update when metrics protocol is changed
     res_columns = hbonds_columns + per_res_columns
     remove_columns += res_columns + [groups]
 
