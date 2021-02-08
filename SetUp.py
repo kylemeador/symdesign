@@ -11,6 +11,9 @@ rosetta_variable_dictionary = {0: 'ROSETTA', 1: 'Rosetta', 2: 'rosetta'}
 
 
 def main():
+    print('To properly set up your python environment use the SymDesignEnvironment.yaml to initialize your environment.'
+          ' If you are using anaconda/conda for instance, the command \'conda env create --file '
+          'SymDesignEnvironment.yaml\' will handle this for you.')
     print('First, follow this url \'%s\' to begin licensing and download of the Rosetta Software suite if you have not '
           'installed already.' % rosetta_url)
     choice1 = input('Once downloaded, type \'Y\' to continue with install or \'S\' to skip if Rosetta is already '
