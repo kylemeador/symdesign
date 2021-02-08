@@ -1028,7 +1028,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             return entity_set, atom_indices
 
         entity_selection, atom_selection = grab_indices(**selection)
-        entity_mask, atom_mask = grab_indices(**mask)
+        entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
         entity_selection = entity_selection.difference(entity_mask)
         atom_selection = atom_selection.difference(atom_mask)
         entity_required, atom_required = grab_indices(**required, start_with_none=True)
@@ -1496,7 +1496,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
             self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
-            self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
+            # self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
             self.interface_data_file = pickle_object(self.fragment_profile, frag_db + PUtils.frag_profile,
                                                      out_path=design_dir.data)
             design_dir.info['fragment_database'] = frag_db
@@ -1504,12 +1504,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         if evolution:  # set pose.evolutionary_profile by combining entity evo profile into single profile
             self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
-            self.log.debug('Position Specific Scoring Matrix: %s' % str(self.evolutionary_profile))
+            # self.log.debug('Position Specific Scoring Matrix: %s' % str(self.evolutionary_profile))
             self.pssm_file = self.write_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=design_dir.data)
             design_dir.info['evolutionary_profile'] = self.pssm_file
 
         self.combine_profile([entity.profile for entity in self.entities])
-        self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
+        # self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
         self.design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
         design_dir.info['design_profile'] = self.design_pssm_file
         # -------------------------------------------------------------------------
