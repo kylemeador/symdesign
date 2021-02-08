@@ -112,9 +112,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Design flags
         self.design_selector = None
-        self.evolution = True
-        self.design_with_fragments = True
-        self.query_fragments = True
+        self.evolution = False
+        self.design_with_fragments = False
+        self.query_fragments = False
         self.write_frags = True
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
@@ -336,7 +336,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.write_frags = write_fragments
         self.output_assembly = output_assembly
         self.ignore_clashes = ignore_clashes
-        self.script = script
+        self.script = script  # Todo to reflect the run_in_shell flag
         self.mpi = mpi
         # self.fragment_type
 

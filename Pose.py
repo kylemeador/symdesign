@@ -1366,7 +1366,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 terminate = True
                 break
 
-
         if terminate:
             self.log.critical('%s: The set of interfaces found during interface search generated a topologically '
                               'disallowed combination.\n\t %s\n This cannot be modelled by a simple split for residues '
@@ -1529,7 +1528,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         """
         if not self.frag_db:  # There is no fragment database connected
             # Connect to a new DB, Todo parameterize which one should be used with location=
-            self.connect_fragment_database()  # default, init=False. other args are source= ,
+            self.connect_fragment_database(init=True)  # default, init=False. other args are source= ,
         # elif not self.frag_db:  # There is no fragment database connected
         #     raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
         #                       'initialized the Pose with a database (pass FragmentDatabase obj by \'frag_db\')! '
