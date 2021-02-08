@@ -995,39 +995,44 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.design_selector_entities (set[Entity])
             self.required_indices (set[int])
         """
-        def grab_indices(pdbs=None, entities=None, chains=None, residues=None, atoms=None):
-            entity_union = set()
-            atom_intersect = set(self.pdb.atom_indices)
+        def grab_indices(pdbs=None, entities=None, chains=None, residues=None, atoms=None, start_with_none=False):
+            if start_with_none:
+                entity_set = set()
+                atom_indices = set()
+                set_function = getattr(set, 'union')
+            else:  # start with all indices and include those of interest
+                entity_set = set(self.entities)
+                atom_indices = set(self.pdb.atom_indices)
+                set_function = getattr(set, 'intersection')
+
             if pdbs:
                 # atom_selection = set(self.pdb.get_residue_atom_indices(numbers=residues))
                 raise DesignError('Can\'t select residues by PDB yet!')
             if entities:
-                atom_intersect = atom_intersect.intersection(chain.from_iterable([self.entity(entity).atom_indices
-                                                                                  for entity in entities]))
-                entity_union = entity_union.union([self.entity(entity) for entity in entities])
+                atom_indices = set_function(atom_indices, chain.from_iterable([self.entity(entity).atom_indices
+                                                                               for entity in entities]))
+                entity_set = set_function(entity_set, [self.entity(entity) for entity in entities])
             if chains:
                 # vv This is for the intersectional model
-                atom_intersect = atom_intersect.intersection(chain.from_iterable([self.chain(chain_id).atom_indices
+                atom_indices = set_function(atom_indices, chain.from_iterable([self.chain(chain_id).atom_indices
                                                                                   for chain_id in chains]))
-                # atom_selection.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
+                # atom_indices.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
-                entity_union = entity_union.union([self.chain(chain_id) for chain_id in chains])
+                entity_set = set_function(entity_set, [self.chain(chain_id) for chain_id in chains])
             if residues:
-                atom_intersect = atom_intersect.intersection(self.pdb.get_residue_atom_indices(numbers=residues))
+                atom_indices = set_function(atom_indices, self.pdb.get_residue_atom_indices(numbers=residues))
             if atoms:
-                atom_intersect = atom_intersect.intersection(self.pdb.get_atom_indices(numbers=atoms))
+                atom_indices = set_function(atom_indices, self.pdb.get_atom_indices(numbers=atoms))
 
-            return entity_union, atom_intersect
+            return entity_set, atom_indices
 
         entity_selection, atom_selection = grab_indices(**selection)
         entity_mask, atom_mask = grab_indices(**mask)
-        entity_required, atom_required = grab_indices(**required)
         entity_selection = entity_selection.difference(entity_mask)
         atom_selection = atom_selection.difference(atom_mask)
+        entity_required, atom_required = grab_indices(**required, start_with_none=True)
 
-        # self.design_selector_entities = set(self.entities)
-        # self.design_selector_entities = self.design_selector_entities.intersection(entity_union)
         self.design_selector_entities = self.design_selector_entities.union(entity_selection)
         self.design_selector_indices = self.design_selector_indices.union(atom_selection)
         self.required_indices = self.required_indices.union(atom_required)
