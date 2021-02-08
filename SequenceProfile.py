@@ -209,9 +209,8 @@ class SequenceProfile:
         rerun, second, success = False, False, False
         while not success:
             if self.profile_length != len(self.evolutionary_profile):
-                self.log.warning('%s: Profile and Pose are different lengths!\nProfile=%d, Pose=%d. '
-                                 'Generating a new profile' % (self.name, len(self.evolutionary_profile),
-                                                               self.profile_length))
+                self.log.warning('%s: Profile and Pose are different lengths!\nProfile=%d, Pose=%d'
+                                 % (self.name, len(self.evolutionary_profile), self.profile_length))
                 rerun = True
 
             if not rerun:
@@ -221,9 +220,8 @@ class SequenceProfile:
                     pose_residue_type = IUPACData.protein_letters_3to1[residue.type.title()]
                     if profile_residue_type != pose_residue_type:
                         self.log.warning(
-                            '%s: Profile and Pose sequences mismatched!\nResidue %d: Profile=%s, Pose=%s. Generating a'
-                            ' new profile' % (self.structure.file_path, residue.number, profile_residue_type,
-                                              pose_residue_type))
+                            '%s: Profile and Pose sequences mismatched!\nResidue %d: Profile=%s, Pose=%s'
+                            % (self.structure.file_path, residue.number, profile_residue_type, pose_residue_type))
                         rerun = True
                         break
 
@@ -231,7 +229,8 @@ class SequenceProfile:
                 if second:
                     raise DesignError('Profile Generation got stuck, design aborted')
                 else:
-                    self.add_evolutionary_profile(force=True)
+                    self.log.info('Generating a new profile for %s' % self.name)
+                    self.add_evolutionary_profile(force=True, out_path=os.path.dirname(self.pssm_file))
                     second = True
             else:
                 success = True
@@ -380,7 +379,7 @@ class SequenceProfile:
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
                 self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
 
-    def hhblits(self, out_path=os.getcwd(), threads=CUtils.hhblits_threads,):
+    def hhblits(self, out_path=os.getcwd(), threads=CUtils.hhblits_threads):
         """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
 
         Keyword Args:
@@ -2516,7 +2515,7 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
         mutant (str): Mutant sequence. Will be in the 'to' key
         reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
     Keyword Args:
-        offset=True (bool): Whether sequences are different legnths. Creates a new alignment
+        offset=True (bool): Whether sequences are different lengths. Creates a new alignment
         blanks=False (bool): Whether to include all indices that are outside the reference sequence or missing residues
         termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
         reference_gaps=False (bool): Whether to include indices that are missing residues inside the reference sequence
