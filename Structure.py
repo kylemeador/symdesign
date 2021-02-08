@@ -328,7 +328,10 @@ class Structure:  # (Coords):
         """
         atoms = self.get_atoms_by_indices(indices)
         residue_numbers = [atom.residue_number for atom in atoms]
-        return self.get_residues(numbers=residue_numbers)
+        if residue_numbers:
+            return self.get_residues(numbers=residue_numbers)
+        else:
+            return None
 
     def get_backbone_indices(self):
         """Return backbone Atom indices from the Structure
