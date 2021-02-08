@@ -97,7 +97,7 @@
 		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_complex" in_context="1" residue_selector="tot_interface" scorefxn="2015_nano" confidence="1.0"/>
 		## Interface Metric Filters
 		# find the number of carbon carbon contacts with specified residues
-		<AtomicContactCount name="contact_count" partition="none" taskA="design_around1" taskB="design_around2" task_operations="init,vrt,non_int_no_repack" distance="5.0" normalize_by_carbon_count="1"/>
+		<AtomicContactCount name="contact_count" partition="none" taskA="design_around1,init,vrt,non_int_no_repack" taskB="design_around2,init,vrt,non_int_no_repack" distance="5.0" normalize_by_carbon_count="1"/> # task_operations="init,vrt,non_int_no_repack"
 		# find the shape complementarity between residues in an interface. report the median distance (or interface area, but this seems inaccurate) between the two
 		<ShapeComplementarity name="int_sc" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		# find the solvent accessable surface area across an interface specified by a chain-chain jump. can be hydrophobic, polar or if not specified, the total SASA
