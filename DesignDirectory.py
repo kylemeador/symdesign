@@ -124,6 +124,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.script = True
         self.mpi = False
         self.output_assembly = False
+        self.ignore_clashes = False
 
         # Analysis flags
         self.analysis = False
@@ -323,7 +324,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
-                  output_assembly=False, design_selector=None, script=True, mpi=False, **kwargs):  # nanohedra_output,
+                  output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         self.sym_entry_number = sym_entry_number
         # self.nano = nanohedra_output
@@ -334,6 +335,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.query_fragments = generate_fragments
         self.write_frags = write_fragments
         self.output_assembly = output_assembly
+        self.ignore_clashes = ignore_clashes
         self.script = script
         self.mpi = mpi
         # self.fragment_type
@@ -887,7 +889,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         Handles clash testing and writing the assembly if those options are True
         """
         self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
-                                       design_selector=self.design_selector, frag_db=self.frag_db)
+                                       design_selector=self.design_selector, frag_db=self.frag_db,
+                                       ignore_clashes=self.ignore_clashes)
         # Save renumbered PDB to clean_asu.pdb
         self.pose.pdb.write(out_path=self.asu)
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)
