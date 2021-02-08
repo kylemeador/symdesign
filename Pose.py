@@ -1480,7 +1480,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 for query_idx, entity in enumerate(query_pair):
                     # # Attach an existing FragmentDB to the Pose
                     # entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
-                    entity.attach_fragment_database(db=design_dir.frag_db)
+                    entity.attach_fragment_database(db=self.frag_db)
                     entity.assign_fragments(fragments=fragment_info,
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
         for entity in self.entities:
