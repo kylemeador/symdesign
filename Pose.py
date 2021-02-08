@@ -1015,7 +1015,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             if chains:
                 # vv This is for the intersectional model
                 atom_indices = set_function(atom_indices, chain.from_iterable([self.chain(chain_id).atom_indices
-                                                                                  for chain_id in chains]))
+                                                                               for chain_id in chains]))
                 # atom_indices.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
@@ -1475,12 +1475,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                     self.add_fragment_query(query=fragment_source)
 
             for query_pair, fragment_info in self.fragment_queries.items():
-                self.log.debug('Query Pair: %s, %s\nFragment Info: %s' % (query_pair[0].name, query_pair[1].name,
-                                                                          fragment_info))
+                self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
+                                                                           fragment_info))
                 for query_idx, entity in enumerate(query_pair):
                     # # Attach an existing FragmentDB to the Pose
-                    # entity.attach_fragment_database(db=design_dir.frag_db)
                     # entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
+                    entity.attach_fragment_database(db=design_dir.frag_db)
                     entity.assign_fragments(fragments=fragment_info,
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
         for entity in self.entities:
