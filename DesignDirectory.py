@@ -362,9 +362,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def start_log(self, debug=False, level=2):
         if debug:
             handler, level = 1, 1
+            propagate = False
         else:
+            propagate = True
             handler = 2
-        self.log = start_log(name=self.name, handler=handler, level=level, location=os.path.join(self.path, self.name))
+        self.log = start_log(name=self.name, handler=handler, level=level, location=os.path.join(self.path, self.name),
+                             propagate=propagate)
 
     def connect_db(self, frag_db=None, design_db=None, score_db=None):
         if frag_db and isinstance(frag_db, FragmentDatabase):
