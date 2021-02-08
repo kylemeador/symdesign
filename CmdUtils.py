@@ -7,6 +7,7 @@ min_cores_per_job = 1  # currently one for the MPI node, and 5 workers
 mpi = 6
 num_thread_per_process = 2
 hhblits_threads = 1
+hhblits_memory_threshold = 10000000000
 reference_average_residue_weight = 3  # for REF2015
 
 run_cmds = {'default': '',

@@ -16,6 +16,7 @@ from itertools import repeat, product, combinations
 from json import loads, dumps
 
 import pandas as pd
+import psutil
 
 import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
@@ -671,11 +672,11 @@ if __name__ == '__main__':
                 chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
             # -------------------
             design_flags.update({'design_selector':
-                                     {'selection': {'pdbs': pdb_select, 'entities': entity_select, 'chains': chain_select,
-                                                    'residues': residue_select, 'atoms': atom_select},
-                                      'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
-                                               'residues': residue_mask, 'atoms': atom_mask},
-                                      'required': {'entities': entity_req, 'chains': chain_req, 'residues': residues_req}}})
+                                 {'selection': {'pdbs': pdb_select, 'entities': entity_select, 'chains': chain_select,
+                                                'residues': residue_select, 'atoms': atom_select},
+                                  'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
+                                           'residues': residue_mask, 'atoms': atom_mask},
+                                  'required': {'entities': entity_req, 'chains': chain_req, 'residues': residues_req}}})
 
             # logger.debug('Design flags after masking: %s' % design_flags)
 
@@ -945,9 +946,15 @@ if __name__ == '__main__':
                 design.generate_interface_fragments()
     # ---------------------------------------------------
     elif args.sub_module == 'design':  # -i fragment_library, -p mpi, -x suspend
+        if design_flags['design_with_evolution']:
+            if psutil.virtual_memory().available <= CUtils.hhblits_memory_threshold:
+                logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
+                                '(the backbone of -design_with_evolution)! Please allocate the job to a computer with'
+                                'more memory or the process will fail. Otherwise, select -design_with_evolution False')
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
+
             threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)  # mpi=args.mpi, Todo
             logger.info('Starting multiprocessing using %s threads' % str(threads))
             results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads))
