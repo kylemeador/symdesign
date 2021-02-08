@@ -1389,6 +1389,7 @@ class FragmentDatabase(FragmentDB):
             # Todo initialize as local directory
             self.db = False
             if init_db:
+                logger.info('Initializing FragmentDatabase from disk. This may take awhile...')
                 self.get_monofrag_cluster_rep_dict()
                 self.get_intfrag_cluster_rep_dict()
                 self.get_intfrag_cluster_info_dict()
