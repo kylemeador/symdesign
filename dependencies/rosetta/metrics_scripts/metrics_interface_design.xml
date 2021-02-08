@@ -46,8 +46,8 @@
 		# restrict all non-interface residues to repacking only, no design
 		<OperateOnResidueSubset name="non_int_rtr" selector="not_interface"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
 		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
-			<!-- <DesignAround name="des_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/> -->
-			<!-- <DesignAround name="des_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/> -->
+		<DesignAround name="des_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
+		<DesignAround name="des_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
 			<!-- <DesignAround name="des_around_total" design_shell="0.1" resnums="%%interface1%%,%%interface2%%" repack_shell="8.0"/> -->
 	</TASKOPERATIONS>
 
@@ -96,11 +96,8 @@
 			<!-- <ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_unbound" in_context="1" residue_selector="tot_interface" scorefxn="2015" confidence="1.0"/> -->
 		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_complex" in_context="1" residue_selector="tot_interface" scorefxn="2015_nano" confidence="1.0"/>
 		## Interface Metric Filters
-			# find the average degree of connectivity to residues surrounding specified residues
-			<!-- <AverageDegree name="int_connectivity1" threshold="0" distance_threshold="10.0" task_operations="des_around1"/> -->
-			<!-- <AverageDegree name="int_connectivity2" threshold="0" distance_threshold="10.0" task_operations="des_around2"/> -->
 		# find the number of carbon carbon contacts with specified residues
-		<AtomicContactCount name="contact_count" partition="jump" task_operations="init,vrt,non_int_no_repack" distance="5.0" normalize_by_carbon_count="1"/>
+		<AtomicContactCount name="contact_count" partition="none" taskA="design_around1" taskB="design_around2" task_operations="init,vrt,non_int_no_repack" distance="5.0" normalize_by_carbon_count="1"/>
 		# find the shape complementarity between residues in an interface. report the median distance (or interface area, but this seems inaccurate) between the two
 		<ShapeComplementarity name="int_sc" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		# find the solvent accessable surface area across an interface specified by a chain-chain jump. can be hydrophobic, polar or if not specified, the total SASA
@@ -128,8 +125,6 @@
 		<Report name="R_rmsd" 							filter="rmsd"/>
 			<!-- <Report name="R_int_energy_context_asu"			filter="int_energy_context_asu"/> -->
 			<!-- <Report name="R_int_energy_context_unbound"		filter="int_energy_context_unbound"/> -->
-			<!-- <Report name="R_int_connectivity1" 				filter="int_connectivity1"/> -->
-			<!-- <Report name="R_int_connectivity2" 				filter="int_connectivity2"/> -->
 		#  Nanohedra
 		<Report name="R_full_stability_complex"			filter="full_stability_complex"/>
 		<Report name="R_fsp_energy" 					filter="fsp_energy"/>
@@ -205,8 +200,6 @@
 			<!-- <Add filter_name="R_int_energy_context_asu"/> -->
 		<!-- <Add mover_name="translate_asu"/> -->
 			<!-- <Add filter_name="R_int_energy_context_unbound"/> -->
-			<!-- <Add filter_name="R_int_connectivity1"/> -->
-			<!-- <Add filter_name="R_int_connectivity2"/> -->
 		## Nanohedra analysis ##
 		<Add mover_name="restore_nanohedra"/>
 		<Add filter_name="R_full_stability_complex"/>
