@@ -408,10 +408,11 @@ def terminate(all_exceptions):
     # any_exceptions = list(set(exceptions))
     # if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
     if all_exceptions:
-        logger.warning('\nExceptions were thrown for %d designs. Check their logs for further details\n' %
+        print('\n\n')
+        logger.warning('Exceptions were thrown for %d designs. Check their logs for further details\n' %
                        len(all_exceptions))
-        logger.warning('\n%s' % '\n\t'.join('%s: %s' % (str(directory.path), error)
-                                            for (directory, error) in all_exceptions))
+        logger.warning('\n%s' % '\n\t'.join('%s: %s' % (str(directory.path), _error)
+                                            for (directory, _error) in all_exceptions))
         # all_exception_poses = []
         # for exception in any_exceptions:
         #     # if exception:
