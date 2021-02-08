@@ -610,21 +610,19 @@ if __name__ == '__main__':
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
     if additional_flags:
-        design_flags = format_additional_flags(additional_flags)
+        formatted_flags = format_additional_flags(additional_flags)
     else:
-        design_flags = return_default_flags(args.sub_module)
+        formatted_flags = return_default_flags(args.sub_module)
         extra_flags = None
         # Todo remove/modify
         #  This serves to pass additional arguments to NanohedraWrap. it does so through a list of args. Not very
         #  compatible with the above parsing
 
-    args_dict = vars(args)
-    args_dict.update(design_flags)
-    # design_flags.update(args.__dict__)
-    # logger.debug('All flags: %s' % design_flags)
+    design_flags = vars(args)
+    design_flags.update(formatted_flags)
 
-    options_table = SDUtils.pretty_format_table(args_dict.items())
     if args.sub_module not in ['query', 'guide', 'flags', 'design_selector']:
+        options_table = SDUtils.pretty_format_table(design_flags.items())
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
     logger.debug('Debug mode. Verbose output')
     # -----------------------------------------------------------------------------------------------------------------
@@ -671,11 +669,11 @@ if __name__ == '__main__':
                 chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
             # -------------------
             design_flags.update({'design_selector':
-                                     {'selection': {'pdbs': pdb_select, 'entities': entity_select, 'chains': chain_select,
-                                                    'residues': residue_select, 'atoms': atom_select},
-                                      'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
-                                               'residues': residue_mask, 'atoms': atom_mask},
-                                      'required': {'entities': entity_req, 'chains': chain_req, 'residues': residues_req}}})
+                                 {'selection': {'pdbs': pdb_select, 'entities': entity_select, 'chains': chain_select,
+                                                'residues': residue_select, 'atoms': atom_select},
+                                  'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
+                                           'residues': residue_mask, 'atoms': atom_mask},
+                                  'required': {'entities': entity_req, 'chains': chain_req, 'residues': residues_req}}})
 
             # logger.debug('Design flags after masking: %s' % design_flags)
 
