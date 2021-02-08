@@ -696,10 +696,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.nano:
             self.log.info('Input Oligomers: %s' % ', '.join(name for name in self.oligomers))
 
-        self.log.info('Found the following chain breaks in the ASU:\n%s'
-                      % ('\n'.join(['\tEntity %s, Chain %s Residue %d'
-                                    % (entity.name, entity.chain_id, entity.get_terminal_residue('c').number)
-                                    for entity in self.pose.entities[:-1]])))
+        chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
+        self.log.info('Found the following chain breaks in the ASU:\n\t%s'
+                      % ('\n\t'.join('\tEntity %s, Chain %s Residue %d' % (entity.name, entity.chain_id, residue_number)
+                                     for entity, residue_number in list(chain_breaks.items())[:-1])))
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
 
         # self.log.info('Pulling fragment info from clusters: %s' % ', '.join(metrics['fragment_cluster_ids']
@@ -738,8 +738,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.log.info('Interface Residues:\n\t%s' % '\n\t'.join('%s : %s' % (interface, residues)
                                                                 for interface, residues in interface_residue_d.items()))
         # assign any additional designable residues
-        refine_variables.append(('required_residues',
-                                 ','.join(str(residue.number) for residue in self.pose.required_residues)))
+        if self.pose.required_residues:
+            refine_variables.append(('required_residues',
+                                     ','.join(str(residue.number) for residue in self.pose.required_residues)))
+        else:
+            # get an out of bounds index
+            refine_variables.append(('required_residues', int(list(chain_breaks.values())[-1])) + 50)
 
         # self.log.debug('Added interface_residues: %s'
         #                % ','.join(['%d%s' % (entity_pair[idx].name, residue.number)
