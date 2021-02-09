@@ -27,8 +27,8 @@
 		<InitializeFromCommandline name="init"/>
 		# standard operation to restrict all residues to repacking
 		<RestrictToRepacking name="rtr"/>
-		<DesignAround name="des_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
-		<DesignAround name="des_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
+		<DesignAround name="design_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
+		<DesignAround name="design_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
 	</TASKOPERATIONS>
 
 	<SIMPLE_METRICS>
@@ -84,7 +84,8 @@
 			<!-- <RunSimpleMetrics name="run_metrics_sasa_unbound" metrics="M_sasa_per_res" prefix="" suffix="_total_unbound" override="false"/>  -->
 			<!-- <RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_unbound_per_res,M_int_energy_total_unbound,M_interaction_energy,M_int_hbonds_res_selector" prefix="" suffix="_unbound" override="false"/> -->
 		# remove selected regions from the pose
-		<DeleteRegionMover name="delete_interface%%interface%%" residue_selector="interface%%interface%%"/>
+		<DeleteRegionMover name="measure_interface1" residue_selector="interface2"/>
+		<DeleteRegionMover name="measure_interface2" residue_selector="interface1"/>
 		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
 		<ParsedProtocol name="rotamer_trials_min_mover">
 			<Add mover_name="RT"/> # Unused in P432 for minimization of the unbound state
@@ -96,7 +97,7 @@
 	<FILTERS>
 		<ScoreType name="full_stability_%%interface%%_unbound" scorefxn="2015_nano" score_type="total_score" threshold="20000" confidence="1.0"/>
 		# find the average degree of connectivity to residues surrounding specified residues
-		<AverageDegree name="int_connectivity_%%interface%%" threshold="0" distance_threshold="10.0" task_operations="des_around%%interface%%"/>
+		<AverageDegree name="int_connectivity_%%interface%%" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
 		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_%%interface%%_unbound" in_context="1" residue_selector="interface%%interface%%" scorefxn="2015_nano" confidence="1.0"/>
 		<Report name="R_full_stability_%%interface%%_unbound" 			filter="full_stability_%%interface%%_unbound"/>
 		<Report name="R_int_connectivity_%%interface%%" 				filter="int_connectivity_%%interface%%"/>
@@ -105,7 +106,7 @@
 	</FILTERS>
 
 	<PROTOCOLS>
-		<Add mover_name="delete_interface%%interface%%"/>
+		<Add mover_name="measure_interface%%interface%%"/>
 		<Add mover_name="symmetry_switch"/>
 		<Add mover_name="add_csts"/>
 <!--		<Add mover_name="metrics_symmetry"/>-->
