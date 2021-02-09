@@ -105,11 +105,11 @@
 	</FILTERS>
 
 	<PROTOCOLS>
+		<Add mover_name="delete_interface%%interface%%"/>
 		<Add mover_name="symmetry_switch"/>
 		<Add mover_name="add_csts"/>
 <!--		<Add mover_name="metrics_symmetry"/>-->
 <!--		<Add mover_name="make_point_group%%interface%%"/>-->
-		<Add mover_name="delete_interface%%interface%%"/>
 		<Add mover_name="repack_loop"/> # Unused in P432 for minimization of the unbound state
 		<Add filter_name="R_int_connectivity_%%interface%%"/>
 		<Add filter_name="R_full_stability_%%interface%%_unbound"/>
