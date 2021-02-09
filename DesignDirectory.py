@@ -111,6 +111,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.ave_z = None  # TODO MOVE Metrics
 
         # Design flags
+        self.number_of_trajectories = None
         self.design_selector = None
         self.evolution = False
         self.design_with_fragments = False
@@ -324,7 +325,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
-                  output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False, **kwargs):  # nanohedra_output,
+                  output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
+                  number_of_trajectories=PUtils.nstruct, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         self.sym_entry_number = sym_entry_number
         # self.nano = nanohedra_output
@@ -336,6 +338,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.write_frags = write_fragments
         self.output_assembly = output_assembly
         self.ignore_clashes = ignore_clashes
+        self.number_of_trajectories = number_of_trajectories
         self.script = script  # Todo to reflect the run_in_shell flag
         self.mpi = mpi
         # self.fragment_type
@@ -670,12 +673,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file
 
-    def prepare_rosetta_commands(self):  # , script=False, mpi=False):
-        cst_value = round(0.2 * reference_average_residue_weight, 2)
-        # Set up protocol program_root
+    def prepare_rosetta_commands(self):
+        # Set up the command base (rosetta bin and database paths)
         main_cmd = copy.deepcopy(script_cmd)
-        # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = self.symmetry_parameters()
-        # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
         if self.design_dim is not None:  # can be 0
             protocol = PUtils.protocol[self.design_dim]
             if self.design_dim > 0:  # layer or space
@@ -721,10 +721,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             dist = 0
 
         # ------------------------------------------------------------------------------------------------------------
-
         # Rosetta Execution formatting
-        shell_scripts = []
         # ------------------------------------------------------------------------------------------------------------
+        cst_value = round(0.2 * reference_average_residue_weight, 2)
+        shell_scripts = []
         # RELAX: Prepare command and flags file
         refine_variables = [('pdb_reference', self.asu), ('scripts', PUtils.rosetta_scripts),
                             ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),
@@ -745,16 +745,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # get an out of bounds index
             refine_variables.append(('required_residues', int(list(chain_breaks.values())[-1]) + 50))
 
-        # self.log.debug('Added interface_residues: %s'
-        #                % ','.join(['%d%s' % (entity_pair[idx].name, residue.number)
-        #                            for entity_pair, residue_pair in self.pose.interface_residues.items()
-        #                            for idx, residues in enumerate(residue_pair, 1) for residue in residues]))
-        # interface_residue_d = {'interface%s' % chain: '' for chain in all_chains}
-        #     for entity, residues in self.pose.interface_residues.items():
-        #         interface_residue_d['interface%s' % entity.chain_id] = ','.join('%d%s'
-        #                                                                         % (residue.number, entity.chain_id)
-        #                                                                         for residue in residues)
-
         self.make_path(self.scripts)
         flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
         relax_cmd = main_cmd + \
@@ -769,15 +759,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     shell_scripts.append(write_shell_script(subprocess.list2cmdline(consensus_cmd),
                                                             name=PUtils.stage[5], out_path=self.scripts,
                                                             status_wrap=self.info_pickle))
-                    # additional_cmd = [subprocess.list2cmdline(consensus_cmd)]
                 else:
                     self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
                     consensus_process = subprocess.Popen(consensus_cmd)
                     # Wait for Rosetta Consensus command to complete
                     consensus_process.communicate()
             else:
-                self.log.critical('Cannot run consensus design without fragment info. Did you mean to design with '
-                                  '-fragments_exist None & -generate_fragments False?')
+                self.log.critical('Cannot run consensus design without fragment info and none was found.'
+                                  ' Did you mean to design with -generate_fragments False? You will need to run with'
+                                  '\'True\' if you want to use fragments')
 
         # Mutate all design positions to Ala before the Refinement
         mutated_pdb = copy.deepcopy(self.pose.pdb)
@@ -816,7 +806,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
         # TODO back out nstruct label to command distribution
         design_cmd = main_cmd + ['-in:file:pssm', self.info['evolutionary_profile']] if self.evolution else [] + \
-            ['-in:file:s', self.refined_pdb, '-in:file:native', self.asu, '-nstruct', str(PUtils.nstruct),
+            ['-in:file:s', self.refined_pdb, '-in:file:native', self.asu, '-nstruct', str(self.number_of_trajectories),
              '@%s' % os.path.join(self.path, flags_design),
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
              '-scorefile', os.path.join(self.scores, PUtils.scores_file)]
