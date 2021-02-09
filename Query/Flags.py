@@ -1,18 +1,21 @@
 from PathUtils import program_command, nano, program_name
 from Query.PDB import user_input_format, input_string, format_string, numbered_format_string, confirmation_string, \
     bool_d, invalid_string, header_string
+from SymDesignUtils import pretty_format_table
 
 
+terminal_formatter = '\n\t\t\t\t\t\t     '
 # Todo separate into types of options, aka fragments, residue selection, symmetry
 flags = \
     {'design':
      {'symmetry': {'type': str, 'default': None,
-                   'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned if not provided '
-                                  'unless Design targets are %s.py outputs' % nano},
+                   'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
+                                  'unless Design targets are %s.py outputs' % (terminal_formatter, nano)},
       'nanohedra_output': {'type': bool, 'default': True,
                            'description': 'Whether the design targets are a %s output' % nano},
       'fragments_exist': {'type': bool, 'default': True,
-                          'description': 'If fragment data has been generated for the design, where is it located?'},
+                          'description': 'If fragment data has been generated for the design,%swhere is it located?'
+                                         % terminal_formatter},
       'generate_fragments': {'type': bool, 'default': False,
                              'description': 'Whether fragments should be generated fresh for each Pose'},
       'design_with_fragments': {'type': bool, 'default': True,
@@ -20,43 +23,45 @@ flags = \
       'design_with_evolution': {'type': bool, 'default': True,
                                 'description': 'Whether to design with evolutionary amino acid frequency info'},
       'output_assembly': {'type': bool, 'default': False,
-                          'description': 'If symmetric, whether the expanded assembly should be output. '
-                                         '2- and 3-D materials will be output with a single unit cell.'},
+                          'description': 'If symmetric, whether the expanded assembly should be output.%s'
+                                         '2- and 3-D materials will be output with a single unit cell.'
+                                         % terminal_formatter},
       'require_design_at_residues':
           {'type': str, 'default': None,
-           'description': 'Regardless of participation in an interface, if certain residues should be included in'
-                          'design. Specify the residue POSE numbers (starting with 1) as a comma separated string. '
-                          'Ranges are allowed Ex: \'23,24,35,41,100-110,267,289-293\''},
+           'description': 'Regardless of participation in an interface,%sif certain residues should be included in'
+                          'design, specify the%sresidue POSE numbers as a comma separated string.%s'
+                          'Ex: \'23,24,35,41,100-110,267,289-293\' Ranges are allowed'
+                          % (terminal_formatter, terminal_formatter, terminal_formatter)},
       'select_designable_residues_by_sequence':
           {'type': str, 'default': None,
-           'description': 'If design should occur ONLY at certain residues, specify the location of a .fasta file '
-                          'containing the design selection. Run \'%s design_selector path/to/your.pdb\' '
+           'description': 'If design should occur ONLY at certain residues,%sspecify the location of a .fasta file '
+                          'containing the design selection.%sRun \'%s design_selector path/to/your.pdb\' '
                           'to set this up.'
-                          % program_command},
+                          % (terminal_formatter, terminal_formatter, program_command)},
       'select_designable_residues_by_pose_number':
           {'type': str, 'default': None,
-           'description': 'If design should occur ONLY at certain residues, specify the residue POSE numbers '
-                          '(starting with 1) as a comma separated string. Ranges are allowed '
-                          'Ex: \'23,24,35,41,100-110,267,289-293\''},
+           'description': 'If design should occur ONLY at certain residues,%sspecify the residue POSE numbers '
+                          'as a comma separated string.%sRanges are allowed '
+                          'Ex: \'23,24,35,41,100-110,267,289-293\'' % (terminal_formatter, terminal_formatter)},
       'select_designable_chains':
           {'type': str, 'default': None,
-           'description': 'If a design should occur ONLY at certain chains, provide the chain ID\'s as a comma '
-                          'separated string. Ex: \'A,C,D\''},
+           'description': 'If a design should occur ONLY at certain chains,%sprovide the chain ID\'s as a comma '
+                          'separated string.%sEx: \'A,C,D\'' % (terminal_formatter, terminal_formatter)},
       'mask_designable_residues_by_sequence':
           {'type': str, 'default': None,
-           'description': 'If design should NOT occur at certain residues, specify the location of a .fasta file '
-                          'containing the design mask. Run \'%s design_selector path/to/your.pdb\' '
+           'description': 'If design should NOT occur at certain residues,%sspecify the location of a .fasta file '
+                          'containing the design mask.%sRun \'%s design_selector path/to/your.pdb\' '
                           'to set this up.'
-                          % program_command},
+                          % (terminal_formatter, terminal_formatter, program_command)},
       'mask_designable_residues_by_pose_number':
           {'type': str, 'default': None,
-           'description': 'If design should NOT occur at certain residues, specify the POSE number of residue(s) '
-                          '(starting with 1) as a comma separated string. Ranges are allowed '
-                          'Ex: \'27-35,118,281\''},
+           'description': 'If design should NOT occur at certain residues,%sspecify the POSE number of residue(s) '
+                          'as a comma separated string.%sEx: \'27-35,118,281\' Ranges are allowed'
+                          % (terminal_formatter, terminal_formatter)},
       'mask_designable_chains':
           {'type': str, 'default': None,
-           'description': 'If a design should NOT occur at certain chains, provide the chain ID\'s as a comma '
-                          'separated string. Ex: \'C\''}
+           'description': 'If a design should NOT occur at certain chains,%sprovide the chain ID\'s as a comma '
+                          'separated string.%sEx: \'C\'' % (terminal_formatter, terminal_formatter)}
       # 'input_location': '(str) Specify a file with a list of input files or a directory where input files are '
       #                   'located. If the input is a %s.py output, specifying the master output directory is '
       #                   'sufficient' % nano
@@ -83,15 +88,19 @@ def query_user_for_flags(mode='design', template=False):
         write_file = True
         print('Writing template to %s' % flags_file)
 
-    flags_description = list(zip(flags[mode].keys(), [value_format['description']
-                                                      for value_format in flags[mode].values()]))
+    flags_header = [('Flag', 'Default', 'Description')]
+    flags_description = list((flag, values['default'], values['description']) for flag, values in flags[mode].items())
     while not write_file:
-        print('For a %s run, the following flags can be used to customize the design. You should include these in'
-              ' a \'@flags\' file (run \'%s flags --template\' for a template) or select from the following list to '
-              'generate a flags file automatically.\n%s'
-              % (mode, program_command, user_input_format
-                 % '\n'.join(numbered_format_string % (idx, *item) for idx, item in enumerate(flags_description, 1))))
-        flags_input = input('\nEnter the numbers corresponding to the flags your design requires. Ex: \'1 3 6\'\n%s'
+        flags_table = pretty_format_table(flags_header + flags_description)
+        # logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
+        print('For a %s run, the following flags can be used to customize the design. You can include these in'
+              ' a flags file\nsuch as \'my_design.flags\' specified on the command line like \'@my_design.flags\' or '
+              'manually by typing them in.\nTo automatically generate a flags file template, run \'%s flags --template'
+              '\' then modify the defaults.\nAlternatively, input the number(s) corresponding to the flag(s) of '
+              'interest from the table below to automatically\ngenerate this file\n\n%s'
+              % (mode, program_command, '\n'.join('%s %s' % (str(idx).rjust(2, ' ') if idx > 0 else '  ', item)
+                                                  for idx, item in enumerate(flags_table))))
+        flags_input = input('\nEnter the numbers corresponding to the flags your design requires. Ex: \'1 3 6\'%s'
                             % input_string)
         flag_numbers = flags_input.split()
         chosen_flags = [list(flags[mode].keys())[flag - 1] for flag in map(int, flag_numbers)
