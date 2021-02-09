@@ -219,11 +219,12 @@ def pretty_format_table(rows, justifications=None):
     if not justifications:
         justifications = list(str.ljust for width in widths)
     else:
-        justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center}
+        justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center,
+                           'left': str.ljust, 'right': str.rjust, 'center': str.center}
         try:
             justifications = []
             for key in justifications:
-                justifications.append(justification_d[key])
+                justifications.append(justification_d[key.lower()])
         except KeyError:
             raise KeyError('%s: The justification \'%s\' is not of the allowed types (%s).'
                            % (pretty_format_table.__name__, key, list(justification_d.keys())))
