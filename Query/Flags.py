@@ -1,3 +1,5 @@
+from copy import copy
+
 from PathUtils import program_command, nano, program_name, nstruct
 from Query.PDB import input_string, format_string, confirmation_string, \
     bool_d, invalid_string, header_string
@@ -7,8 +9,8 @@ from SymDesignUtils import pretty_format_table
 terminal_formatter = '\n\t\t\t\t\t\t     '
 # Todo separate into types of options, aka fragments, residue selection, symmetry
 global_flags = {'symmetry': {'type': str, 'default': None,
-                   'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
-                                  'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())}}
+                'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
+                               'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())}}
 design_flags = {
     'nanohedra_output': {'type': bool, 'default': True,
                          'description': 'Whether the design targets are a %s output' % nano.title()},
@@ -69,8 +71,8 @@ design_flags = {
     #                   'located. If the input is a %s.py output, specifying the master output directory is '
     #                   'sufficient' % nano
     }
-
-flags = {'design': design_flags.update(global_flags),
+design_globals = copy(global_flags)
+flags = {'design': design_globals.update(design_flags),
          'filter': {}}
 
 
