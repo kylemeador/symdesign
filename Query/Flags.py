@@ -30,7 +30,8 @@ design_flags = {
                                        % terminal_formatter},
     'number_of_trajectories': {'type': int, 'default': nstruct,
                                'description': 'The number of individual design trajectories to be run for each design'
-                                              '%sThis determines how many sequence sampling runs are used.'},
+                                              '%sThis determines how many sequence sampling runs are used.'
+                                              % terminal_formatter},
     'require_design_at_residues':
         {'type': str, 'default': None,
          'description': 'Regardless of participation in an interface,%sif certain residues should be included in'
@@ -72,7 +73,8 @@ design_flags = {
     #                   'sufficient' % nano
     }
 design_globals = copy(global_flags)
-flags = {'design': design_globals.update(design_flags),
+design_globals.update(design_flags)
+flags = {'design': design_globals,
          'filter': {}}
 
 
