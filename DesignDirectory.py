@@ -420,15 +420,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.info = unpickle(self.info_pickle)
             if 'design' in self.info and self.info['design']:  # Todo, respond to the state
                 dummy = True
-
         else:  # Ensure directories are only created once Pose Processing is called
             self.log.debug('Setting up DesignDirectory for design: %s' % self.source)
             self.make_path(self.protein_data)
             self.make_path(self.pdbs)
             self.make_path(self.sequences)
-            self.make_path(self.all_scores, condition=self.analysis)
-            self.make_path(self.frags, condition=self.query_fragments)
-            self.make_path(self.sdf, condition=self.nano)
+
+        self.make_path(self.all_scores, condition=self.analysis)
+        self.make_path(self.frags, condition=self.query_fragments)
+        self.make_path(self.sdf, condition=self.nano)
 
         if os.path.exists(self.frag_file):
             # if self.info['fragments']:
