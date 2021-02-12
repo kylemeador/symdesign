@@ -151,20 +151,19 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
 
     # Create success and failures files
     ran_num = int(100 * random())
+    name = os.path.basename(os.path.splitext(file)[0])
     if not success_file:
-        success_file = os.path.join(directory, '%s_sbatch-%d_success.log' % (stage, ran_num))
+        success_file = os.path.join(directory, '%s_%s-%d_success.log' % (name, PUtils.sbatch, ran_num))
     if not failure_file:
-        failure_file = os.path.join(directory, '%s_sbatch-%d_failures.log' % (stage, ran_num))
-    logger.info('\nSuccessful designs will be listed in \'%s\'\nFailed designs will be listed in \'%s\''
-                % (success_file, failure_file))
+        failure_file = os.path.join(directory, '%s_%s-%d_failures.log' % (name, PUtils.sbatch, ran_num))
 
     # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
     with open(PUtils.sbatch_templates[stage]) as template_f:
         template_sbatch = template_f.readlines()
 
     # Make sbatch file from template, array details, and command distribution script
-    filename = os.path.join(directory, '%s_%s-%d.sh' % (stage, PUtils.sbatch, ran_num))
-    output = os.path.join(directory, 'output')
+    filename = os.path.join(directory, '%s_%s-%d.sh' % (name, PUtils.sbatch, ran_num))
+    output = os.path.join(directory, 'sbatch_output')
     if not os.path.exists(output):
         os.mkdir(output)
 
@@ -179,11 +178,12 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         new_f.write('\npython %s --stage %s distribute --success_file %s --failure_file %s --command_file %s %s\n' %
                     (PUtils.cmd_dist, stage, success_file, failure_file, file, (script_present or '')))
 
-    logger.info('To distribute \'%s\'commands, ensure the sbatch script located at %s is correct. Specifically, check '
+    logger.info('To distribute \'%s\' commands, ensure the sbatch script located at %s is correct. Specifically, check '
                 'the job array and any node specifications to be accurate. You can look at the sbatch manual '
                 '(man sbatch or sbatch --help) to understand the variables or ask for help if you are still unsure. '
-                'Once you are satisfied, enter the following:\nsbatch %s'
-                % (stage, filename, os.path.basename(filename)))
+                'Once you are satisfied, enter the following to distribute jobs:\nsbatch %s\n\nSuccessful designs will '
+                'be listed in \'%s\'\nFailed designs will be listed in \'%s\''
+                % (stage, filename, filename, success_file, failure_file))
 
     return filename
 
