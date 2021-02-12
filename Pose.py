@@ -1029,8 +1029,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         print('The selection includes: ', selection)
         entity_selection, atom_selection = grab_indices(**selection)
-        print('Entity selection: ', entity_mask)
-        print('\nAtom selection: ', atom_mask)
+        print('Entity selection: ', entity_selection)
+        print('\nAtom selection: ', atom_selection)
         print('\n\n\n\nThe mask includes: ', mask)
         entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
         print('Entity mask: ', entity_mask)
