@@ -5,8 +5,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 # grandparent_dir = os.path.dirname(parent_dir)
 sys.path.extend([parent_dir])
-# from DesignDirectory import set_up_directory_objects
-# from SymDesignUtils import collect_directories
+from DesignDirectory import set_up_directory_objects
+from SymDesignUtils import collect_directories
 # from classes.PDB import PDB
 
 
@@ -108,9 +108,9 @@ def rank(master_design_dirpath, metric, outdir):
                          % str(metric))
 
     # designpath_metric_tup_list = []
-    print('finding all directories')
-    all_design_directories, location = collect_directories(master_design_dirpath)
-    print('Setting up directory objects')
+    print('Finding all Nanohedra directories')
+    all_design_directories, location = collect_directories(master_design_dirpath, dir_type='nanohedra')
+    # print('Setting up directory objects')
     all_design_directories = set_up_directory_objects(all_design_directories)
     # for root1, dirs1, files1 in os.walk(master_design_dirpath):
     #     for file1 in files1:
@@ -128,7 +128,7 @@ def rank(master_design_dirpath, metric, outdir):
     #             design_filename = design_filepath.split("/")[-1]
     #
     #             design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
-    print('Gathering directories and scores')
+    print('Gathering scores')
     designpath_metric_tup_list = [(des_dir.path, des_dir.pose_score())
                                   for des_dir in all_design_directories]
     print('Sorting')
