@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import time
 import logging
+from copy import deepcopy
 from csv import reader
 from glob import glob
 from itertools import repeat, product, combinations
@@ -403,35 +404,81 @@ def format_additional_flags(flags):
     return final_flags
 
 
-def terminate(all_exceptions):
+def terminate(module, designs, location=None, results=None, exceptions=None):
     # any_exceptions = [exception for exception in all_exceptions if exception]
     # any_exceptions = list(filter(bool, exceptions))
     # any_exceptions = list(set(exceptions))
     # if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
-    if all_exceptions:
-        print('\n\n')
-        logger.warning('Exceptions were thrown for %d designs. Check their logs for further details\n' %
-                       len(all_exceptions))
-        logger.warning('\n\t%s' % '\n\t'.join('%s: %s' % (str(directory.path), _error)
-                                              for (directory, _error) in all_exceptions))
-        # all_exception_poses = []
-        # for exception in any_exceptions:
-        #     # if exception:
-        #     des_dir, exception_msg = exception
-        #     try:
-        #         logger.warning('%s: %s' % (des_dir.path, exception_msg))
-        #     except AttributeError:
-        #         logger.warning('%s: %s' % (des_dir, exception_msg))
-        #
-        #     all_exception_poses.append(des_dir)
-        # except_file = os.path.join(args.location, 'EXCEPTIONS.log')
-        # except_file = SDUtils.write_list_to_file(all_exception_poses, name='EXCEPTIONS.log',
-        #                                          location=args.directory)
-        # logger.info('All poses with exceptions written to file: %s' % except_file)
-
-        exit(1)
+    program_root = next(iter(designs)).program_root
+    all_scores = next(iter(designs)).all_scores
+    if not location:
+        location_name = os.path.basename(next(iter(designs)).project_designs)
     else:
-        exit(0)
+        location_name = os.path.basename(location)
+    timestamp = time.strftime('%y%m%d-%H:%M:%S')
+
+    success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
+    exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
+
+    exit_code = 0
+    if exceptions:
+        print('\n\n')
+        logger.warning('Exceptions were thrown for %d designs. Check their logs for further details\n\t%s' %
+                       (len(exceptions), '\n\t'.join('%s: %s' % (str(design.path), _error)
+                                                     for (design, _error) in exceptions)))
+        exit_code = 1
+        print('\n' * 3)
+
+    if success:  # and (inputs_moved or all_poses and design_directories and not args.file):  # Todo
+        # Make single file with names of each directory where all_docked_poses can be found
+        # project_string = os.path.basename(design_directories[0].project_designs)
+        # program_root = design_directories[0].program_root
+        designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, timestamp))
+        with open(designs_file, 'w') as f:
+            f.write('\n'.join(design.path for design in success))
+        logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
+                        'internal checks/filtering. Utilize this file to interact with %s designs in future commands '
+                        'for this project such as \'%s --file %s analysis\'\n'
+                        % (designs_file, PUtils.program_name, PUtils.program_command, designs_file))
+
+    if module == 'analysis':
+        # failures = [idx for idx, result in enumerate(results) if isinstance(result, BaseException)]
+        # for index in reversed(failures):
+        #     del results[index]
+        success = [result for result in results if not isinstance(result, BaseException)]
+
+        if len(success) > 0:
+            # Save Design DataFrame
+            design_df = pd.DataFrame(results)
+            out_path = os.path.join(program_root, args.output)
+            design_df.to_csv(out_path)
+            logger.info('Analysis of all poses written to %s' % out_path)
+            if save:
+                logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
+
+    module_files = {'design': [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]]}
+    if module in module_files:
+        if len(success) > 0:
+            all_commands = {stage: [] for stage in module_files[module]}
+            for design in designs:
+                for stage in all_commands:
+                    all_commands[stage].append(os.path.join(design.scripts, '%s.sh' % stage))
+
+            # command_files = {stage: None for stage in module_files[module]}
+            # sbatch = {stage: None for stage in module_files[module]}
+            command_files, sbatch = {}, {}
+            for stage in all_commands:
+                command_files[stage] = SDUtils.write_commands(all_commands[stage],
+                                                              name='%s_%s_%s' % (stage, location_name, timestamp),
+                                                              out_path=program_root)
+                sbatch[stage] = distribute(stage=stage, directory=program_root, file=command_files[stage])
+
+            logger.info('To process all commands in correct order, execute these commands sequentially, ensuring the '
+                        'prior one has completed before issuing the next:\n\t%s' %
+                        ('\n\t'.join('sbatch %s' % sbatch[stage] for stage in sbatch)))
+            print('\n\n')
+
+    exit(exit_code)
 
 
 if __name__ == '__main__':
@@ -971,33 +1018,32 @@ if __name__ == '__main__':
             for design in design_directories:
                 result = design.interface_design()
                 results.append(result)
-        success = [result for result in results if not isinstance(result, BaseException)]
-        exceptions = [(design_directories[idx], result) for idx, result in enumerate(results)
-                      if isinstance(result, BaseException)]
 
-        if not args.run_in_shell and len(success) > 0:  # any(success): ALL success are None type
-            design_name = os.path.basename(next(iter(design_directories)).project_designs)
-            program_root = next(iter(design_directories)).program_root
-            all_commands = [[] for s in PUtils.stage_f]
-            command_files = [[] for s in PUtils.stage_f]
-            sbatch = [[] for s in PUtils.stage_f]
-            for des_directory in design_directories:
-                for idx, stage in enumerate(PUtils.stage_f, 1):
-                    if idx > 3:  # No analysis or higher
-                        break
-                    all_commands[idx].append(os.path.join(des_directory.scripts, '%s.sh' % stage))
-            for idx, stage in enumerate(PUtils.stage_f, 1):  # 1 - refine, 2 - design, 3 - metrics
-                if idx > 3:  # No analysis or higher
-                    break
-                command_files[idx] = SDUtils.write_commands(all_commands[idx], name='%s_%s' % (stage, design_name)
-                                                            , out_path=program_root)
-                sbatch[idx] = distribute(stage=stage, directory=program_root, file=command_files[idx])
-                # logger.info('All \'%s\' commands were written to \'%s\'' % (stage, sbatch[idx]))
+        terminate(args.sub_module, design_directories, location=location, results=results)
 
-            logger.info('\nTo process all commands in correct order, execute:\n\t%s' %
-                        ('\n\t'.join('sbatch %s' % sbatch[idx]
-                                     for idx, stage in enumerate(list(PUtils.stage_f.keys())[:3], 1))))
-            print('\n' * 5)
+        # if not args.run_in_shell and len(success) > 0:  # any(success): ALL success are None type
+        #     design_name = os.path.basename(next(iter(design_directories)).project_designs)
+        #     program_root = next(iter(design_directories)).program_root
+        #     all_commands = [[] for s in PUtils.stage_f]
+        #     command_files = [[] for s in PUtils.stage_f]
+        #     sbatch = [[] for s in PUtils.stage_f]
+        #     for des_directory in design_directories:
+        #         for idx, stage in enumerate(PUtils.stage_f, 1):
+        #             if idx > 3:  # No analysis or higher
+        #                 break
+        #             all_commands[idx].append(os.path.join(des_directory.scripts, '%s.sh' % stage))
+        #     for idx, stage in enumerate(PUtils.stage_f, 1):  # 1 - refine, 2 - design, 3 - metrics
+        #         if idx > 3:  # No analysis or higher
+        #             break
+        #         command_files[idx] = SDUtils.write_commands(all_commands[idx], name='%s_%s' % (stage, design_name)
+        #                                                     , out_path=program_root)
+        #         sbatch[idx] = distribute(stage=stage, directory=program_root, file=command_files[idx])
+        #         # logger.info('All \'%s\' commands were written to \'%s\'' % (stage, sbatch[idx]))
+        #
+        #     logger.info('\nTo process all commands in correct order, execute:\n\t%s' %
+        #                 ('\n\t'.join('sbatch %s' % sbatch[idx]
+        #                              for idx, stage in enumerate(list(PUtils.stage_f.keys())[:3], 1))))
+        #     print('\n' * 5)
             # WHEN ONE FILE RUNS ALL THREE MODES
             # all_commands = []
             # for des_directory in design_directories:
@@ -1023,29 +1069,17 @@ if __name__ == '__main__':
             zipped_args = zip(design_directories, repeat(args.delta_g), repeat(args.join), repeat(args.debug),
                               repeat(save), repeat(args.figures))
             # results, exceptions = SDUtils.mp_try_starmap(analyze_output_mp, zipped_args, threads)
-            results, exceptions = zip(*SDUtils.mp_starmap(analyze_output_mp, zipped_args, threads))
-            results = list(results)
+            results = zip(*SDUtils.mp_starmap(analyze_output_mp, zipped_args, threads))
+            # results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for des_directory in design_directories:
-                result, error = analyze_output_s(des_directory, delta_refine=args.delta_g, merge_residue_data=args.join,
-                                                 debug=args.debug, save_trajectories=save, figures=args.figures)
+                result = analyze_output_s(des_directory, delta_refine=args.delta_g, merge_residue_data=args.join,
+                                          debug=args.debug, save_trajectories=save, figures=args.figures)
                 results.append(result)
-                exceptions.append(error)  # Todo
+                # exceptions.append(error)  # Todo
 
-        failures = [index for index, exception in enumerate(exceptions) if exception]  # Todo
-        for index in reversed(failures):
-            del results[index]
-
-        if len(design_directories) >= 1:
-            # Save Design DataFrame
-            design_df = pd.DataFrame(results)
-            out_path = os.path.join(args.directory, args.output)
-            design_df.to_csv(out_path)
-            logger.info('Analysis of all poses written to %s' % out_path)
-            if save:
-                logger.info('Analysis of all Trajectories and Residues written to %s'
-                            % design_directories[0].all_scores)
+        terminate(args.sub_module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
         directory_pairs, failures = None, None
@@ -1076,11 +1110,10 @@ if __name__ == '__main__':
                             merge_docking_pair(pair)
                         except FileExistsError:
                             logger.info('%s directory already exits, moving on. Use --force to overwrite.' % pair[1])
-                terminate(exceptions)  # Todo
 
         if failures:
-            logger.warning('The following directories have no partner:\n%s' % '\n'.join(fail.path
-                                                                                        for fail in failures))
+            logger.warning('The following directories have no partner:\n\t%s' % '\n\t'.join(fail.path
+                                                                                            for fail in failures))
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
             threads = SDUtils.calculate_mp_threads(maximum=True)
@@ -1449,17 +1482,4 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Format the designs passing output and report program exceptions
     # -----------------------------------------------------------------------------------------------------------------
-    if success and (inputs_moved or all_poses and design_directories and not args.file):  # Todo
-        # Make single file with names of each directory where all_docked_poses can be found
-        project_string = os.path.basename(design_directories[0].project_designs)
-        program_root = design_directories[0].program_root
-        args.file = os.path.join(program_root, '%s_pose.paths' % project_string)
-        with open(args.file, 'w') as design_f:
-            design_f.write('\n'.join(pose for pose in all_poses))
-        logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
-                        'internal checks/filtering. Utilize this '
-                        'file to interact with %s designs in future commands for this project such as \'%s --file %s '
-                        'analysis\''
-                        % (args.file, PUtils.program_name, PUtils.program_command, args.file))
-
-    terminate(exceptions)
+    # terminate(exceptions=exceptions)  # Todo
