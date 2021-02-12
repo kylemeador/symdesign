@@ -611,7 +611,7 @@ class Structure:  # (Coords):
         all_atom_tree = KDTree(self.coords)
         number_of_residues = self.number_of_residues
         non_residue_indices = np.ones(self.number_of_atoms, dtype=bool)
-        # print(len(non_residue_indices))
+        all_clashes = []
         for idx, residue in enumerate(self.residues, -1):
             residue_query = all_atom_tree.query_radius(residue.coords, clash_distance)
             # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
@@ -641,17 +641,23 @@ class Structure:  # (Coords):
                         # raise DesignError('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
                         #                   'permitted. See:\n%s'
                         #                   % (self.name, len(clashes), residue.number, self.atoms[clash]))
-                        self.log.critical('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
-                                          'permitted. See:\n%s'
-                                          % (self.name, len(clashes), residue.number, str(self.atoms[clash])))
-                        return True
+                        all_clashes.append((residue, str(self.atoms[clash])))
+                        # self.log.critical('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
+                        #                   'permitted. See:\n%s'
+                        #                   % (self.name, len(clashes), residue.number, str(self.atoms[clash])))
+                        # return True
                 self.log.warning('%s contains %d clashing atoms at residue %d! See:\n\t%s'
                                  % (self.name, len(clashes), residue.number,
                                     '\n\t'.join(str(self.atoms[clash]) for clash in clashes)))
-
+        if all_clashes:
+            self.log.critical('%s contains %d backbone clashes at the following Residues!\n%s'
+                              % (self.name, len(all_clashes), '\n\t'.join('%d: %s' % (residue.number, atom)
+                                                                          for residue, atom in all_clashes)
+            return True
             # # return the mask to a blank state
             # non_residue_indices[residue_indices_and_bonded_c_and_n] = True
-        return False
+        else:
+            return False
 
     # def stride(self, chain=None):
     #     # REM  -------------------- Secondary structure summary -------------------  XXXX
