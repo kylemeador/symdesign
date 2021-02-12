@@ -975,24 +975,29 @@ if __name__ == '__main__':
         exceptions = [(design_directories[idx], result) for idx, result in enumerate(results)
                       if isinstance(result, BaseException)]
 
-        if not args.run_in_shell and any(success):
-            output_dir = next(iter(design_directories)).project_designs
+        if not args.run_in_shell and len(success) > 0:  # any(success): ALL success are None type
+            design_name = os.path.basename(next(iter(design_directories)).project_designs)
+            program_root = next(iter(design_directories)).program_root
             all_commands = [[] for s in PUtils.stage_f]
             command_files = [[] for s in PUtils.stage_f]
             sbatch = [[] for s in PUtils.stage_f]
             for des_directory in design_directories:
-                for idx, stage in enumerate(PUtils.stage_f):
+                for idx, stage in enumerate(PUtils.stage_f, 1):
+                    if idx > 3:  # No analysis or higher
+                        break
                     all_commands[idx].append(os.path.join(des_directory.scripts, '%s.sh' % stage))
-            for idx, stage in enumerate(PUtils.stage_f, 1):
+            for idx, stage in enumerate(PUtils.stage_f, 1):  # 1 - refine, 2 - design, 3 - metrics
                 if idx > 3:  # No analysis or higher
                     break
-                command_files[idx] = SDUtils.write_commands(all_commands[idx], name=stage, out_path=args.directory)
-                sbatch[idx] = distribute(stage=stage, directory=args.directory, file=command_files[idx])
+                command_files[idx] = SDUtils.write_commands(all_commands[idx], name='%s_%s' % (stage, design_name)
+                                                            , out_path=program_root)
+                sbatch[idx] = distribute(stage=stage, directory=program_root, file=command_files[idx])
                 # logger.info('All \'%s\' commands were written to \'%s\'' % (stage, sbatch[idx]))
 
             logger.info('\nTo process all commands in correct order, execute:\n\t%s' %
                         ('\n\t'.join('sbatch %s' % sbatch[idx]
-                                     for idx, stage in enumerate(list(PUtils.stage_f.keys())[:3]))))
+                                     for idx, stage in enumerate(list(PUtils.stage_f.keys())[:3], 1))))
+            print('\n' * 5)
             # WHEN ONE FILE RUNS ALL THREE MODES
             # all_commands = []
             # for des_directory in design_directories:
@@ -1447,11 +1452,13 @@ if __name__ == '__main__':
     if success and (inputs_moved or all_poses and design_directories and not args.file):  # Todo
         # Make single file with names of each directory where all_docked_poses can be found
         project_string = os.path.basename(design_directories[0].project_designs)
-        args.file = os.path.join(os.getcwd(), '%s_pose.paths' % project_string)
+        program_root = design_directories[0].program_root
+        args.file = os.path.join(program_root, '%s_pose.paths' % project_string)
         with open(args.file, 'w') as design_f:
             design_f.write('\n'.join(pose for pose in all_poses))
-        logger.critical('The file \'%s\' contains all the designs in your current project. Utilize this file to'
-                        ' interact with %s designs in future commands for this project such as \'%s --file %s '
+        logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
+                        'internal checks/filtering. Utilize this '
+                        'file to interact with %s designs in future commands for this project such as \'%s --file %s '
                         'analysis\''
                         % (args.file, PUtils.program_name, PUtils.program_command, args.file))
 
