@@ -1381,6 +1381,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
                               ' for more information.')
 
+        if self.interface_split[1] == '':
+            raise DesignError('No residues were found in an interface!')
+
         self.interface_split = \
             {key + 1: ','.join('%d%s' % (residue.number, entity.chain_id)
                                for entity, residues in interface_entities.items()
@@ -1430,7 +1433,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # else:
         #     # sdf_file_name = os.path.join(os.path.dirname(oligomer[name].filepath), '%s.sdf' % oligomer[name].name)
         #     # sym_definition_files[name] = oligomer[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
-        self.log.debug('Entities: %s' % str(self.entities))
+        self.log.debug('Entities: %s' % ', '.join(entity.name for entity in self.entities))
+        self.log.debug('Active Entities: %s' % ', '.join(entity.name for entity in self.active_entities))
+        # self.log.debug('Designable Residues: %s' % ', '.join(entity.name for entity in self.design_selector_indices))
         self.log.info('Symmetry is: %s' % symmetry)  # Todo resolve duplication with below self.symmetry
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
@@ -1456,7 +1461,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 if not fragment_source:
                     raise DesignError('%s: Fragments were set for design but there were none found in the Design '
                                       'Directory! Fix your input flags if this is not what you expected or generate '
-                                      'them with \'%s generate_frags\'' % (str(design_dir), PUtils.program_command))
+                                      'them with \'%s generate_fragments\'' % (str(design_dir), PUtils.program_command))
 
                 # Must provide des_dir.fragment_observations then specify whether the Entity in question is from the
                 # mapped or paired chain (entity1 is mapped, entity2 is paired from Nanohedra). Then, need to renumber
