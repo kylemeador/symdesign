@@ -1384,14 +1384,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
                               ' for more information.')
 
-        if self.interface_split[1] == '':
-            raise DesignError('No residues were found in an interface!')
-
         self.interface_split = \
             {key + 1: ','.join('%d%s' % (residue.number, entity.chain_id)
                                for entity, residues in interface_entities.items()
                                for residue in residues) for key, interface_entities in interface_residue_d.items()
              if key != 'self'}
+        self.log.debug('The interface is split as: %s' % self.interface_split)
+        if self.interface_split[1] == '':
+            raise DesignError('No residues were found in an interface!')
 
     def interface_design(self, design_dir=None, symmetry=None, evolution=True,
                          fragments=True, query_fragments=False, write_fragments=True, fragments_exist=False,
