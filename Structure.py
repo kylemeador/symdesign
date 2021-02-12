@@ -652,7 +652,7 @@ class Structure:  # (Coords):
         if all_clashes:
             self.log.critical('%s contains %d backbone clashes at the following Residues!\n%s'
                               % (self.name, len(all_clashes), '\n\t'.join('%d: %s' % (residue.number, atom)
-                                                                          for residue, atom in all_clashes)
+                                                                          for residue, atom in all_clashes)))
             return True
             # # return the mask to a blank state
             # non_residue_indices[residue_indices_and_bonded_c_and_n] = True
