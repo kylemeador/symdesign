@@ -1254,10 +1254,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                            % (entity1.name, entity2.name))
             return None
         else:
-            self.log.debug('At interface Entity %s | Entity %s\t%s has %s interface fragments'
-                           % (entity1.name, entity2.name, len(surface_frags1), entity1.name))
-            self.log.debug('At interface Entity %s | Entity %s\t%s has %s interface fragments'
-                           % (entity1.name, entity2.name, len(surface_frags2), entity2.name))
+            self.log.debug('At interface Entity %s | Entity %s\t%s has %d interface fragments'
+                           % (entity1.name, entity2.name, entity1.name, len(surface_frags1)))
+            self.log.debug('At interface Entity %s | Entity %s\t%s has %d interface fragments'
+                           % (entity1.name, entity2.name, entity2.name, len(surface_frags2)))
         if self.symmetry:
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary
