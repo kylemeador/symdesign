@@ -126,9 +126,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.mpi = False
         self.output_assembly = False
         self.ignore_clashes = False
-
         # Analysis flags
         self.analysis = False
+
+        self.set_flags(**kwargs)
 
         if self.nano:
             if project:
@@ -249,7 +250,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.start_log(debug=debug)
             self.set_up_design_directory()
             # self.design_from_file(symmetry=symmetry)
-        self.set_flags(**kwargs)
 
     @classmethod
     def from_nanohedra(cls, design_path, mode=None, project=None, **kwargs):
