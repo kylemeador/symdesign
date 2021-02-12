@@ -2,9 +2,7 @@ import copy
 import os
 import pickle
 from glob import glob
-from itertools import chain, combinations, combinations_with_replacement
-
-# import ipdb
+from itertools import chain, combinations_with_replacement
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -14,13 +12,15 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile, calculate_match_metrics
 from Structure import Coords, Structure
 # Globals
-from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap,  \
-    filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, point_group_sdf_map, possible_symmetries # logger,
-from FragDock import write_frag_match_info_file
+from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, \
+    filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, possible_symmetries  # logger,
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import MonoFragment, FragmentDB
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
+from utils.GeneralUtils import write_frag_match_info_file
 from utils.SymmUtils import valid_subunit_number
+
+# import ipdb
 
 
 logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
