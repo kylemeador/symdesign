@@ -1027,16 +1027,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
             return entity_set, atom_indices
 
-        print('The selection includes: ', selection)
+        self.log.debug('The design_selection includes: %s' % selection)
         entity_selection, atom_selection = grab_indices(**selection)
-        print('Entity selection: ', entity_selection)
-        print('\nAtom selection: ', atom_selection)
-        print('\n\n\n\nThe mask includes: ', mask)
+        self.log.debug('The design_mask includes: %s' % mask)
         entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
-        print('Entity mask: ', entity_mask)
-        print('\nAtom mask: ', atom_mask)
         entity_selection = entity_selection.difference(entity_mask)
         atom_selection = atom_selection.difference(atom_mask)
+        self.log.debug('The required_residues includes: %s' % required)
         entity_required, atom_required = grab_indices(**required, start_with_none=True)
 
         self.design_selector_entities = self.design_selector_entities.union(entity_selection)
