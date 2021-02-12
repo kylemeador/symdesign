@@ -7,7 +7,7 @@ from glob import glob
 import numpy as np
 
 import CmdUtils as CUtils
-from AnalyzeOutput import analyze_output
+# from AnalyzeOutput import analyze_output
 from CmdUtils import reference_average_residue_weight, script_cmd, run_cmds
 
 from PDB import PDB
