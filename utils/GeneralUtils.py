@@ -2,7 +2,8 @@ import os
 
 import numpy as np
 
-from SymDesignUtils import DesignError
+
+# from SymDesignUtils import DesignError
 
 
 def euclidean_squared_3d(coordinates_1, coordinates_2):
@@ -104,8 +105,8 @@ def get_last_sampling_state(log_file_path, zero=True):
 def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error=None, match_number=None,
                                central_frequencies=None, out_path=os.getcwd(), pose_id=None, is_initial_match=False):
 
-    if not ghost_frag and not matched_frag and not overlap_error and not match_number:
-        raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
+    # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
+    #     raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
 
     with open(os.path.join(out_path, PUtils.frag_text_file), "a+") as out_info_file:
         if is_initial_match:
