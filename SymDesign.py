@@ -459,11 +459,11 @@ if __name__ == '__main__':
     #                   , required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',  # Todo always true
                         help='Should job be run with multiprocessing?\nDefault=False')
+    parser.add_argument('-p', '--project', type=str, help='If pose names are specified by project instead '
+                                                          'of directories, which project to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
                         help='Should commands be written but not executed?\nDefault=False')
-    parser.add_argument('-s', '--design_string', type=str, help='If pose names are specified by design string instead '
-                                                                'of directories, which directory path to '
-                                                                'prefix with?\nDefault=None', default=None)
+    parser.add_argument('-s', '--single', type=str, help='If design name is specified by a single path instead')
     subparsers = parser.add_subparsers(title='SubModules', dest='sub_module',
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags. To get '
@@ -693,12 +693,11 @@ if __name__ == '__main__':
                 #         (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
                 #     design_flags.update({'mpi': True, 'script': True})
 
-                # Set up DesignDirectories  # Todo args.design_String?!?
+                # Set up DesignDirectories  # Todo args.project?!?
                 if 'nanohedra_output' in design_flags and design_flags['nanohedra_output']:
                     all_poses, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                       dir_type=PUtils.nano)
-                    design_directories = [DesignDirectory.from_nanohedra(pose, mode=mode, project=args.design_string,
-                                                                         **design_flags)
+                    design_directories = [DesignDirectory.from_nanohedra(pose, mode=mode, **design_flags)  # project=args.project
                                           for pose in all_poses]
                 else:
                     # We have to ensure that if the user has provided it, the symmetry is correct
@@ -716,7 +715,7 @@ if __name__ == '__main__':
                                                          ', '.join(SDUtils.possible_symmetries.keys())))
 
                     all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
-                    design_directories = [DesignDirectory.from_file(pose, project=args.design_string, **design_flags)
+                    design_directories = [DesignDirectory.from_file(pose, **design_flags)  # project=args.project,
                                           for pose in all_poses]
                     all_poses = [design.asu for design in design_directories]
                     inputs_moved = True
@@ -808,7 +807,7 @@ if __name__ == '__main__':
             elif args.directory or args.file:
                 all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                              dir_type=args.mode)
-                design_directories = [set_up_directory_objects(dock_dir, mode=args.mode, project=args.design_string)
+                design_directories = [set_up_directory_objects(dock_dir, mode=args.mode, project=args.project)  # **design_flags
                                       for dock_dir in all_dock_directories]
                 if len(design_directories) == 0:
                     raise SDUtils.DesignError('No docking directories/files were found!\n'
@@ -853,7 +852,7 @@ if __name__ == '__main__':
         distribute(**vars(args))
     # ---------------------------------------------------
     elif args.sub_module == 'design_selector':  # Todo
-        fasta_file = generate_sequence_template(args.additional_flags[0])
+        fasta_file = generate_sequence_template(args.single)
         logger.info('The design_selector template was written to %s. Please edit this file so that the design_selector '
                     'can be generated for protein design. Mask should be formatted so a \'-\' replaces all sequence of '
                     'interest to be overlooked during design. '
@@ -896,10 +895,10 @@ if __name__ == '__main__':
             else:
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
-                                      repeat(args.design_string), initial_iter)
+                                      repeat(args.project), initial_iter)
                     results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, threads))
                 else:  # args.directory or args.file set up docking directories
-                    zipped_args = zip(design_directories, repeat(args.design_string))
+                    zipped_args = zip(design_directories, repeat(args.project))
                     results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, threads))
                 results = list(results)
         else:
@@ -912,12 +911,12 @@ if __name__ == '__main__':
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     for initial, (path1, path2) in zip(initial_iter, pdb_pairs):
                         result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
-                                                            args.design_string, initial)
+                                                            args.project, initial)
                         results.append(result)
                         exceptions.append(error)  # Todo
                 else:  # single directory docking (already made directories)
                     for dock_directory in design_directories:
-                        result, error = nanohedra_recap_s(dock_directory, args.design_string)
+                        result, error = nanohedra_recap_s(dock_directory, args.project)
                         results.append(result)
                         exceptions.append(error)  # Todo
 
@@ -1152,7 +1151,7 @@ if __name__ == '__main__':
             all_poses, pose_design_numbers = zip(*csv_lines)
             # pose_design_numbers = list(map(list, pose_design_numbers))
             # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
-            design_directories = set_up_directory_objects(all_poses, project=args.design_string)
+            design_directories = set_up_directory_objects(all_poses, project=args.project)  # **design_flags
             results.append(zip(design_directories, pose_design_numbers))
             location = args.pose_design_file
         else:
@@ -1202,7 +1201,7 @@ if __name__ == '__main__':
                     final_poses = final_poses[:args.number]
                 logger.info('Final poses after clustering:\n%s' % '\n'.join(pose for pose in final_poses))
 
-                design_directories = set_up_directory_objects(final_poses, project=args.design_string)
+                design_directories = set_up_directory_objects(final_poses, project=args.project)  # **design_flags
                 if args.consensus:
                     results.append(zip(design_directories, repeat('consensus')))
                     output = True
