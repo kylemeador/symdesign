@@ -928,7 +928,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     def entity(self, entity):
         return self.pdb.entity(entity)
 
-    def chain(self, _chain):  # no not mess with chain.from_iterable namespace
+    def chain(self, _chain):  # To not mess with chain.from_iterable namespace
         return self.pdb.entity_from_chain(_chain)
 
     @property
@@ -1027,8 +1027,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
             return entity_set, atom_indices
 
+        print('The selection includes: ', selection)
         entity_selection, atom_selection = grab_indices(**selection)
+        print('Entity selection: ', entity_mask)
+        print('\nAtom selection: ', atom_mask)
+        print('\n\n\n\nThe mask includes: ', mask)
         entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
+        print('Entity mask: ', entity_mask)
+        print('\nAtom mask: ', atom_mask)
         entity_selection = entity_selection.difference(entity_mask)
         atom_selection = atom_selection.difference(atom_mask)
         entity_required, atom_required = grab_indices(**required, start_with_none=True)
