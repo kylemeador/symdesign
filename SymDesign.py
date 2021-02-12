@@ -709,15 +709,15 @@ if __name__ == '__main__':
                 # -------------------
                 pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, set(), None
                 if 'mask_designable_residues_by_sequence' in design_flags \
-                        and design_flags['select_designable_residues_by_sequence']:
+                        and design_flags['mask_designable_residues_by_sequence']:
                     residue_mask = residue_select.union(
-                        SequenceProfile.generate_sequence_mask(design_flags['select_designable_residues_by_sequence']))
+                        SequenceProfile.generate_sequence_mask(design_flags['mask_designable_residues_by_sequence']))
                 if 'mask_designable_residues_by_pose_number' in design_flags \
-                        and design_flags['select_designable_residues_by_pose_number']:
+                        and design_flags['mask_designable_residues_by_pose_number']:
                     residue_mask = residue_select.union(
-                        SequenceProfile.format_index_string(design_flags['select_designable_residues_by_pose_number']))
-                if 'mask_designable_chains' in design_flags and design_flags['select_designable_chains']:
-                    chain_mask = SequenceProfile.generate_chain_mask(design_flags['select_designable_chains'])
+                        SequenceProfile.format_index_string(design_flags['mask_designable_residues_by_pose_number']))
+                if 'mask_designable_chains' in design_flags and design_flags['mask_designable_chains']:
+                    chain_mask = SequenceProfile.generate_chain_mask(design_flags['mask_designable_chains'])
                 # -------------------
                 design_flags.update({'design_selector':
                                      {'selection': {'pdbs': pdb_select, 'entities': entity_select,
