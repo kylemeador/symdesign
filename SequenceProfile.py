@@ -165,9 +165,9 @@ class SequenceProfile:
             out_path=os.getcwd() (str): Location where sequence files should be written
             pdb_numbering=True (bool):
         """
-        if not evolution and not fragments or null:
+        if null or not evolution and not fragments:
+            null, evolution, fragments = True, False, False
             self.add_evolutionary_profile(null=null, **kwargs)
-            evolution, fragments = False, False
 
         if fragments:  # add fragment information to the SequenceProfile
             if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
