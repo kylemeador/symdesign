@@ -3,17 +3,18 @@ from copy import copy
 from PathUtils import program_command, nano, program_name, nstruct
 from Query.PDB import input_string, format_string, confirmation_string, \
     bool_d, invalid_string, header_string
-from SymDesignUtils import pretty_format_table
-
+from SequenceProfile import read_fasta_file
+from SymDesignUtils import pretty_format_table, DesignError
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
 # Todo separate into types of options, aka fragments, residue selection, symmetry
 global_flags = {'symmetry': {'type': str, 'default': None,
                 'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
-                               'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())}}
+                               'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
+                'nanohedra_output': {'type': bool, 'default': True,
+                                     'description': 'Whether the design targets are a %s output' % nano.title()},
+                }
 design_flags = {
-    'nanohedra_output': {'type': bool, 'default': True,
-                         'description': 'Whether the design targets are a %s output' % nano.title()},
     'design_with_evolution': {'type': bool, 'default': True,
                               'description': 'Whether to design with evolutionary amino acid frequency info'},
     'design_with_fragments': {'type': bool, 'default': True,
@@ -72,10 +73,55 @@ design_flags = {
     #                   'located. If the input is a %s.py output, specifying the master output directory is '
     #                   'sufficient' % nano
     }
-design_globals = copy(global_flags)
-design_globals.update(design_flags)
-flags = {'design': design_globals,
-         'filter': {}}
+filter_flags = {}
+
+design = copy(global_flags)
+design.update(design_flags)
+filters = copy(global_flags)
+filters.update(filter_flags)
+flags = {'design': design, 'filter': filters}
+
+
+def process_design_selector_flags(design_flags):
+    # Pull nanohedra_output and mask_design_using_sequence out of flags
+    # Todo move to a verify design_selectors function inside of Pose? Own flags module?
+    entity_req, chain_req, residues_req = None, None, set()
+    if 'require_design_at_residues' in design_flags and design_flags['require_design_at_residues']:
+        residues_req = residues_req.union(
+            format_index_string(design_flags['require_design_at_residues']))
+    # -------------------
+    pdb_select, entity_select, chain_select, residue_select, atom_select = None, None, None, set(), None
+    if 'select_designable_residues_by_sequence' in design_flags \
+            and design_flags['select_designable_residues_by_sequence']:
+        residue_select = residue_select.union(
+            generate_sequence_mask(design_flags['select_designable_residues_by_sequence']))
+    if 'select_designable_residues_by_pose_number' in design_flags \
+            and design_flags['select_designable_residues_by_pose_number']:
+        residue_select = residue_select.union(
+            format_index_string(design_flags['select_designable_residues_by_pose_number']))
+    if 'select_designable_chains' in design_flags and design_flags['select_designable_chains']:
+        chain_select = generate_chain_mask(design_flags['select_designable_chains'])
+    # -------------------
+    pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, set(), None
+    if 'mask_designable_residues_by_sequence' in design_flags \
+            and design_flags['mask_designable_residues_by_sequence']:
+        residue_mask = residue_select.union(
+            generate_sequence_mask(design_flags['mask_designable_residues_by_sequence']))
+    if 'mask_designable_residues_by_pose_number' in design_flags \
+            and design_flags['mask_designable_residues_by_pose_number']:
+        residue_mask = residue_select.union(
+            format_index_string(design_flags['mask_designable_residues_by_pose_number']))
+    if 'mask_designable_chains' in design_flags and design_flags['mask_designable_chains']:
+        chain_mask = generate_chain_mask(design_flags['mask_designable_chains'])
+    # -------------------
+    return {'design_selector':
+            {'selection': {'pdbs': pdb_select, 'entities': entity_select,
+                           'chains': chain_select, 'residues': residue_select,
+                           'atoms': atom_select},
+             'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
+                      'residues': residue_mask, 'atoms': atom_mask},
+             'required': {'entities': entity_req, 'chains': chain_req,
+                          'residues': residues_req}}}
 
 
 def return_default_flags(mode):
@@ -162,3 +208,52 @@ def load_flags(file):
         flags = {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
 
     return flags
+
+
+def generate_sequence_mask(fasta_file):
+    """From a sequence with a design_selector, grab the residue indices that should be designed in the target
+    structural calculation
+
+    Returns:
+        (list): The residue numbers (in pose format) that should be ignored in design
+    """
+    sequence_and_mask = read_fasta_file(fasta_file)
+    sequences = list(sequence_and_mask)
+    sequence = sequences[0]
+    mask = sequences[1]
+    if not len(sequence) == len(mask):
+        raise DesignError('The sequence and design_selector are different lengths! Please correct the alignment and '
+                          'lengths before proceeding.')
+
+    return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
+
+
+def clean_comma_separated_string(string):
+    return list(map(str.strip, string.strip().split(',')))
+
+
+def format_index_string(index_string):
+    """From a string with indices of interest, format the indices provided
+
+    Returns:
+        (list): residue numbers in pose format
+    """
+    final_index = []
+    for index in clean_comma_separated_string(index_string):
+        if '-' in index:  # we have a range, extract ranges
+            for _idx in range(*tuple(map(int, index.split('-')))):
+                final_index.append(_idx)
+            final_index.append(_idx + 1)
+        else:  # single index
+            final_index.append(index)
+
+    return list(map(int, final_index))
+
+
+def generate_chain_mask(chain_string):
+    """From a string with a design_selection, format the chains provided
+
+    Returns:
+        (list): chain ids in pose format
+    """
+    return clean_comma_separated_string(chain_string)
