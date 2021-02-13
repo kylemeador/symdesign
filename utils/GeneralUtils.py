@@ -2,8 +2,8 @@ import os
 
 import numpy as np
 
-
 # from SymDesignUtils import DesignError
+from PathUtils import frag_text_file
 
 
 def euclidean_squared_3d(coordinates_1, coordinates_2):
@@ -108,7 +108,7 @@ def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error
     # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
     #     raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
 
-    with open(os.path.join(out_path, PUtils.frag_text_file), "a+") as out_info_file:
+    with open(os.path.join(out_path, frag_text_file), "a+") as out_info_file:
         if is_initial_match:
             out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
             out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
