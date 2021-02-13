@@ -190,6 +190,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self.get_oligomers()
                 # self.gather_pose_metrics()
                 # self.gather_fragment_info()
+                self.gather_docking_metrics()
             elif self.mode == 'dock':
                 # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
                 # using typical directory structuring
@@ -200,6 +201,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self.program_root = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(program_root or '')))
 
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
+                self.gather_docking_metrics()
                 # self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.program_root]
                 # for k, _sym in enumerate(self.program_root):
                 # for k, _sym in enumerate(next(os.walk(self.program_root))):
@@ -213,6 +215,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_dirs[k].append(bb_dir)
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
+            elif self.mode == 'filter':
+                self.no_log = True
+                self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
+                # design_symmetry (P432)
+                self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
+                self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
+                # design_symmetry/building_blocks (P432/4ftd_5tch)
+                self.source = os.path.join(self.path, PUtils.asu)
+
             else:
                 raise DesignError('%s: %s is not an available mode. Choose from %s...\n'
                                   % (DesignDirectory.__name__, self.mode, ','.join(design_direcotry_modes)))
@@ -221,7 +232,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('%s: No %s found for this directory! Cannot perform material design without it.\n'
                                   'Ensure you have the file \'%s\' located properly before trying this Design!'
                                   % (self.__str__(), PUtils.master_log, self.nano_master_log))
-            self.gather_docking_metrics()
         else:
             if '.pdb' in design_path:  # set up /program_root/projects/project/design
                 self.source = design_path
@@ -252,8 +262,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.design_from_file(symmetry=symmetry)
 
     @classmethod
-    def from_nanohedra(cls, design_path, mode=None, project=None, **kwargs):
-        return cls(design_path, nano=True, mode=mode, project=project, **kwargs)
+    def from_nanohedra(cls, design_path, mode=None, project=None, nano=True, **kwargs):
+        return cls(design_path, nano=nano, mode=mode, project=project, **kwargs)
 
     @classmethod
     def from_file(cls, design_path, project=None, **kwargs):  # mode=None
