@@ -50,7 +50,7 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
     """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
 
     Args:
-        all_des_dirs (list(DesignDirectories)): List of relevant design directories
+        all_des_dirs (list[DesignDirectory]): List of relevant design directories
     Keyword Args:
         threads: Number of multiprocessing threads to run
     Returns:
@@ -60,10 +60,12 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
     pairs_to_process = []
     singlets = {}
     for pair in combinations(all_des_dirs, 2):
-        singlets[pair[0].building_blocks] = pair[0]  # add any poses that are missing partners to the map
+        # add all individual poses to a singles pool
+        singlets[pair[0].building_blocks] = pair[0]
         if pair[0].building_blocks == pair[1].building_blocks:
             singlets.pop(pair[0].building_blocks)
             pairs_to_process.append(pair)
+    # find the rmsd between a pair of poses.  multiprocessing to increase throughput
     _results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
 
     # Make dictionary with all pairs
@@ -77,12 +79,13 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
             if str(pair[0]) in pose_map[protein_pair_path]:
                 pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
                 if str(pair[1]) not in pose_map[protein_pair_path]:
-                    pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
+                    pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}  # add the pair with itself
         else:
-            pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}
+            pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}  # add the pair with itself
             pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-            pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
-    # Add all singlets
+            pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}  # add the pair with itself
+
+    # Add all singlets (poses that are missing partners) to the map
     for protein_pair in singlets:
         protein_path = os.path.basename(protein_pair)
         if protein_path in pose_map:
@@ -98,7 +101,7 @@ def pose_pair_rmsd(pair):
     """Calculate the rmsd between Nanohedra pose pairs using the intersecting residues at the interface of each pose
 
     Args:
-        pair (tuple(DesignDirectory, DesignDirectory)): Two DesignDirectory objects from pose processing directories
+        pair (tuple[DesignDirectory, DesignDirectory]): Two DesignDirectory objects from pose processing directories
     Returns:
         (float): RMSD value
     """
@@ -110,7 +113,7 @@ def pose_pair_rmsd(pair):
     # could use the union as well...?
     des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
                                                   for n, pose_residues in enumerate(des_residue_list)})
-    if des_residue_set == list():  # when the two structures are not significantly overlapped
+    if not des_residue_set:  # when the two structures are not significantly overlapped
         return np.nan
     else:
         pdb_parser = PDBParser(QUIET=True)
