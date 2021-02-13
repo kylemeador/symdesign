@@ -381,6 +381,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def start_log(self, debug=False, level=2):
         if self.skip_logging:
             self.log = start_log(name=self.name, handler=3, level=level)
+            return None
 
         if debug:
             handler, level = 1, 1
