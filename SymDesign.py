@@ -459,7 +459,7 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
         if module in module_files:
             if len(success) > 0:
                 all_commands = {stage: [] for stage in module_files[module]}
-                for design in designs:
+                for design in success:
                     for stage in all_commands:
                         all_commands[stage].append(os.path.join(design.scripts, '%s.sh' % stage))
 
@@ -472,8 +472,8 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
                                                                   out_path=program_root)
                     sbatch[stage] = distribute(stage=stage, directory=program_root, file=command_files[stage])
 
-                logger.info('To process all commands in correct order, execute these commands sequentially, ensuring the '
-                            'prior one has completed before issuing the next:\n\t%s' %
+                logger.info('To process all commands in correct order, execute these commands sequentially, ensuring '
+                            'the prior one has completed before issuing the next:\n\t%s' %
                             ('\n\t'.join('sbatch %s' % sbatch[stage] for stage in sbatch)))
                 print('\n\n')
 
