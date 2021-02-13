@@ -136,7 +136,10 @@ def find_matching_entities_by_sequence(sequence=None, return_type='polymer_entit
     """
     sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
     sequence_query_results = query_pdb(generate_query(sequence_query, return_type=return_type, **kwargs))
-    return parse_pdb_response_for_ids(sequence_query_results)
+    if sequence_query_results:
+        return parse_pdb_response_for_ids(sequence_query_results)
+    else:
+        print('[WARNING]: Sequence not found in PDB API!:\n%s' % sequence)
 
 
 def parse_pdb_response_for_ids(response):
@@ -154,13 +157,15 @@ def query_pdb(_query):
     query_response = requests.get(pdb_query_url, params={'json': dumps(_query)})
     if query_response.status_code == 200:
         return query_response.json()
+    elif query_response.status_code == 204:
+        print('[WARNING]: No response was returned. Your query likely found no matches!')
     else:
         return None
 
 
 def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):  # Todo set up by kwargs
-    if sequence:  # Todo
-        return {'evalue_cutoff': 1, 'identity_cutoff': 0.95, 'target': 'pdb_protein_sequence', 'value': sequence}
+    if sequence:  # scaled identity_cutoff to 80% due to orient modifications
+        return {'evalue_cutoff': 1, 'identity_cutoff': 0.80, 'target': 'pdb_protein_sequence', 'value': sequence}
     else:
         return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
 
