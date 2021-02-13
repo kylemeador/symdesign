@@ -22,16 +22,16 @@ from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, wri
 # logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 # Globals
-design_direcotry_modes = ['design', 'dock']
+design_directory_modes = ['design', 'dock', 'filter']
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, mode='design', project=None, pose_id=None, debug=False, **kwargs):
+    def __init__(self, design_path, nano=False, directory_type='design', project=None, pose_id=None, debug=False, **kwargs):
         self.name = os.path.splitext(os.path.basename(design_path))[0]  # works for all cases
         self.log = None
         self.nano = nano
-        self.mode = mode
+        self.directory_type = directory_type
 
         self.project_designs = None
         self.protein_data = None
@@ -128,7 +128,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.ignore_clashes = False
         # Analysis flags
         self.analysis = False
-        self.no_log = False
+        self.skip_logging = False
         self.set_flags(**kwargs)
 
         if self.nano:
@@ -145,7 +145,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if not os.path.exists(self.path):
                 raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.path)
 
-            self.start_log(debug=debug)
+            # self.start_log(debug=debug)
             # v used in dock_dir set up
             self.building_block_logs = []
             self.building_block_dirs = []
@@ -179,7 +179,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.fragment_cluster_freq_d = {}
             self.transform_d = {}  # dict[pdb# (1, 2)] = {'transform_type': matrix/vector}
 
-            if self.mode == 'design':
+            if self.directory_type == 'design':
                 self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
                 # design_symmetry (P432)
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
@@ -191,7 +191,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self.gather_pose_metrics()
                 # self.gather_fragment_info()
                 self.gather_docking_metrics()
-            elif self.mode == 'dock':
+            elif self.directory_type == 'dock':
                 # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
                 # using typical directory structuring
 
@@ -215,8 +215,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_dirs[k].append(bb_dir)
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-            elif self.mode == 'filter':
-                self.no_log = True
+            elif self.directory_type == 'filter':
+                self.skip_logging = True
                 self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
                 # design_symmetry (P432)
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
@@ -227,8 +227,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 print('back to DesignDirectory Set Up')
 
             else:
-                raise DesignError('%s: %s is not an available mode. Choose from %s...\n'
-                                  % (DesignDirectory.__name__, self.mode, ','.join(design_direcotry_modes)))
+                raise DesignError('%s: %s is not an available directory_type. Choose from %s...\n'
+                                  % (DesignDirectory.__name__, self.directory_type, ','.join(design_directory_modes)))
 
             if not os.path.exists(self.nano_master_log):
                 raise DesignError('%s: No %s found for this directory! Cannot perform material design without it.\n'
@@ -259,8 +259,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
                 self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
 
-            self.start_log(debug=debug)
             self.set_up_design_directory()
+        self.start_log(debug=debug)
             # self.design_from_file(symmetry=symmetry)
 
     @classmethod
@@ -268,7 +268,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return cls(design_path, nano=nano, mode=mode, project=project, **kwargs)
 
     @classmethod
-    def from_file(cls, design_path, project=None, **kwargs):  # mode=None
+    def from_file(cls, design_path, project=None, **kwargs):  # directory_type=None
         return cls(design_path, project=project, **kwargs)
 
     @property
@@ -354,7 +354,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.script = script  # Todo to reflect the run_in_shell flag
         self.mpi = mpi
         if skip_logging:
-            self.no_log = skip_logging
+            self.skip_logging = skip_logging
             print('Logging was skipped')
         # self.fragment_type
 
@@ -378,7 +378,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
     def start_log(self, debug=False, level=2):
-        if self.no_log:
+        if self.skip_logging:
             self.log = start_log(name=self.name, handler=3, level=level)
 
         if debug:
@@ -481,7 +481,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
     def get_oligomers(self):
-        if self.mode == 'design':
+        if self.directory_type == 'design':
             self.oligomer_names = os.path.basename(self.building_blocks).split('_')
             for name in self.oligomer_names:
                 name_pdb_file = glob(os.path.join(self.path, '%s*_tx_*.pdb' % name))
