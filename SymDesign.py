@@ -685,7 +685,8 @@ if __name__ == '__main__':
     # Todo depreciate args.mode here
     else:
         if args.sub_module in ['design', 'filter', 'generate_fragments', 'expand_asu'] or args.mode == 'design':
-            mode = 'design'
+            # mode = 'design'
+            design_flags['mode'] = 'design'
             if args.directory or args.file:
                 # Pull nanohedra_output and mask_design_using_sequence out of flags
                 # design_flags = load_flags(args.design_flags)
@@ -744,7 +745,7 @@ if __name__ == '__main__':
                 if 'nanohedra_output' in design_flags and design_flags['nanohedra_output']:
                     all_poses, location = SDUtils.collect_directories(args.directory, file=args.file,
                                                                       dir_type=PUtils.nano)
-                    design_directories = [DesignDirectory.from_nanohedra(pose, mode=mode, **design_flags)  # project=args.project
+                    design_directories = [DesignDirectory.from_nanohedra(pose, **design_flags)  # project=args.project
                                           for pose in all_poses]
                 else:
                     # We have to ensure that if the user has provided it, the symmetry is correct

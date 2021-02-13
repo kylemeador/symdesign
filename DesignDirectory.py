@@ -128,7 +128,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.ignore_clashes = False
         # Analysis flags
         self.analysis = False
-
+        self.no_log = False
         self.set_flags(**kwargs)
 
         if self.nano:
@@ -326,7 +326,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
-                  number_of_trajectories=PUtils.nstruct, **kwargs):  # nanohedra_output,
+                  number_of_trajectories=PUtils.nstruct, skip_logging=None, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         self.sym_entry_number = sym_entry_number
         # self.nano = nanohedra_output
@@ -341,6 +341,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.number_of_trajectories = number_of_trajectories
         self.script = script  # Todo to reflect the run_in_shell flag
         self.mpi = mpi
+        if skip_logging:
+            self.no_log = skip_logging
+            print('Logging was skipped')
         # self.fragment_type
 
     def set_symmetry(self, symmetry=None, dimension=None, uc_dimensions=None, expand_matrices=None, **kwargs):
@@ -363,6 +366,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
     def start_log(self, debug=False, level=2):
+        if self.no_log:
+            return None
+
         if debug:
             handler, level = 1, 1
             propagate = False
