@@ -3,7 +3,7 @@ import os
 import subprocess
 import time
 from copy import deepcopy, copy
-from glob import glob, iglob
+from glob import glob
 from itertools import chain
 
 from Bio import SeqIO  # import write, parse
@@ -17,9 +17,7 @@ import CmdUtils as CUtils
 import PathUtils as PUtils
 from classes.Fragment import FragmentDB
 from utils.MysqlPython import Mysql
-from Query.PDB import get_sequence_by_entity_id
-from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log, \
-    residue_interaction_graph  # logger,
+from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log  # logger,
 
 
 logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
@@ -2963,52 +2961,3 @@ def nanohedra_fragment_match_score(fragment_metric_d):
     # # full interface metrics
     # all_residue_score += center_residue_score
     return all_residue_score + center_residue_score, center_residue_score
-
-
-def generate_sequence_mask(fasta_file):
-    """From a sequence with a design_selector, grab the residue indices that should be designed in the target
-    structural calculation
-
-    Returns:
-        (list): The residue numbers (in pose format) that should be ignored in design
-    """
-    sequence_and_mask = read_fasta_file(fasta_file)
-    sequences = list(sequence_and_mask)
-    sequence = sequences[0]
-    mask = sequences[1]
-    if not len(sequence) == len(mask):
-        raise DesignError('The sequence and design_selector are different lengths! Please correct the alignment and '
-                          'lengths before proceeding.')
-
-    return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
-
-
-def clean_comma_separated_string(string):
-    return list(map(str.strip, string.strip().split(',')))
-
-
-def format_index_string(index_string):
-    """From a string with indices of interest, format the indices provided
-
-    Returns:
-        (list): residue numbers in pose format
-    """
-    final_index = []
-    for index in clean_comma_separated_string(index_string):
-        if '-' in index:  # we have a range, extract ranges
-            for _idx in range(*tuple(map(int, index.split('-')))):
-                final_index.append(_idx)
-            final_index.append(_idx + 1)
-        else:  # single index
-            final_index.append(index)
-
-    return list(map(int, final_index))
-
-
-def generate_chain_mask(chain_string):
-    """From a string with a design_selection, format the chains provided
-
-    Returns:
-        (list): chain ids in pose format
-    """
-    return clean_comma_separated_string(chain_string)
