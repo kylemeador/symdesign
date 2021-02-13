@@ -223,6 +223,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.path, PUtils.asu)
+                self.gather_docking_metrics()
+                print('back to DesignDirectory Set Up')
 
             else:
                 raise DesignError('%s: %s is not an available mode. Choose from %s...\n'
@@ -437,7 +439,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if 'design' in self.info and self.info['design']:  # Todo, respond to the state
                 dummy = True
         else:  # Ensure directories are only created once Pose Processing is called
-            self.log.debug('Setting up DesignDirectory for design: %s' % self.source)
+            # self.log.debug('Setting up DesignDirectory for design: %s' % self.source)
             self.make_path(self.protein_data)
             self.make_path(self.pdbs)
             self.make_path(self.sequences)
@@ -581,6 +583,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         self.degen2 = int(self.degen2) + 1  # number of degens is added to the original orientation
                     else:
                         self.degen2 = 1  # No degens becomes a single degen
+        print('closing docking metrics')
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
