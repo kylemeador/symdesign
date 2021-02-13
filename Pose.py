@@ -832,8 +832,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if self.pdb:
             # add structure to the SequenceProfile
             if self.pdb.is_clash():
-                # print('found a clash')
-                if not self.ignore_clashes:
+                if self.ignore_clashes:
+                    pass
+                else:
                     raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
             self.set_structure(self.pdb)
             # set up coordinate information for SymmetricModel

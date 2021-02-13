@@ -27,7 +27,8 @@ design_directory_modes = ['design', 'dock', 'filter']
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, directory_type='design', project=None, pose_id=None, debug=False, **kwargs):
+    def __init__(self, design_path, nano=False, directory_type='design', project=None, pose_id=None, debug=False,
+                 **kwargs):
         self.name = os.path.splitext(os.path.basename(design_path))[0]  # works for all cases
         self.log = None
         self.nano = nano
@@ -333,7 +334,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return int(number_steps1), int(number_steps2)
 
-    def add_flags(self, flags_file):
+    def add_flags(self, flags_file):  # UNUSED
         self.set_flags(**load_flags(flags_file))
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
@@ -356,8 +357,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.mpi = mpi
         if skip_logging:
             self.skip_logging = skip_logging
-            print('Logging was skipped')
-        # self.fragment_type
 
     def set_symmetry(self, symmetry=None, dimension=None, uc_dimensions=None, expand_matrices=None, **kwargs):
         #            sym_entry_number=None,
@@ -930,7 +929,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         Reports on clash testing
         """
         self.log.info('Expanding PDB: %s' % self.source)
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log)
+        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
+                                       ignore_clashes=self.ignore_clashes)
         #                              design_selector=self.design_selector)
         # Save renumbered PDB to clean_asu.pdb
         self.pose.pdb.write(out_path=self.asu)
