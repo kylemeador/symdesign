@@ -4,3 +4,5 @@
 #SBATCH --cpus-per-task=2  # starting one task through sbatch, 4 with python, using hyperthreading
 #SBATCH --mem-per-cpu=16000
 #SBATCH --no-requeue  # prevent failures from restarting automatically
+##Additional SBATCH arguments you may want to uncomment
+##SBATCH --exclude=compute-1-[1-16],compute-3-[1-8],compute-4-[1-6],compute-5-[1-34],compute-6-1
