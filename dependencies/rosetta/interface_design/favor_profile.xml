@@ -40,8 +40,6 @@
 		<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
 		# restrict all non-interface residues to no repacking and no design
 		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
-		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
-		<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/>
 		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
 		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/> # %%interface1%%,%%interface2%%
 		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
