@@ -825,7 +825,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
         # TODO back out nstruct label to command distribution
-        design_cmd = main_cmd + ['-in:file:pssm', self.info['evolutionary_profile']] if self.evolution else [] + \
+        design_cmd = main_cmd + (['-in:file:pssm', self.info['evolutionary_profile']] if self.evolution else []) + \
             ['-in:file:s', self.refined_pdb, '-in:file:native', self.asu, '-nstruct', str(self.number_of_trajectories),
              '@%s' % os.path.join(self.path, flags_design),
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
