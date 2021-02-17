@@ -9,8 +9,6 @@ import os
 import shutil
 import subprocess
 import time
-import logging
-from copy import deepcopy
 from csv import reader
 from glob import glob
 from itertools import repeat, product, combinations
@@ -22,23 +20,22 @@ import psutil
 import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
-
-from DesignDirectory import DesignDirectory, set_up_directory_objects
 import PathUtils as PUtils
 import Pose
 import SequenceProfile
 import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp
 from CommandDistributer import distribute
+from DesignDirectory import DesignDirectory, set_up_directory_objects
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
 from PDB import PDB, generate_sequence_template
-from PathUtils import interface_design_command
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 # from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
 from Query.Flags import query_user_for_flags, return_default_flags, process_design_selector_flags
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
+
 
 # logging.getLogger()
 
@@ -483,38 +480,45 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@',
                                      description='\nControl all input/output of various %s operations including: '
-                                                 '\n1. Nanohedra docking '
-                                                 '\n2. Pose set up, sampling, assembly generation, fragment decoration '
-                                                 '\n3. Interface design using constrained residue profiles and Rosetta '
-                                                 '\n4. Analysis of all designs using interface metrics '
-                                                 '\n5. Sequence selection and design guided by linearly weighted '
-                                                 'interface metrics.\n All jobs have built in features for command '
+                                                 '\n\t1. Nanohedra docking '
+                                                 '\n\t2. Pose set up, sampling, assembly generation, fragment '
+                                                 'decoration'
+                                                 '\n\t3. Interface design using constrained residue profiles and '
+                                                 'Rosetta'
+                                                 '\n\t4. Analysis of all designs using interface metrics '
+                                                 '\n\t5. Sequence selection and design guided by linearly weighted '
+                                                 'interface metrics.\nAll jobs have built in features for command '
                                                  'monitoring & distribution to computational clusters for parallel '
-                                                 'processing\n' % PUtils.program_name)
+                                                 'processing\n' % PUtils.program_name,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     # ---------------------------------------------------
     # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
     #                                                             'include %s' % ', '.join(SDUtils.possible_symmetries))
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
-    parser.add_argument('-d', '--directory', type=os.path.abspath,
+    parser.add_argument('-d', '--directory', type=os.path.abspath, metavar='/path/to_your_pdb_files/',
                         help='Master directory where %s design poses are located. This may be the output directory '
                              'from %s.py, or a directory with poses requiring interface design'
                              % (PUtils.program_name, PUtils.nano.title()))
-    parser.add_argument('-f', '--file', type=os.path.abspath,
+    parser.add_argument('-f', '--file', type=os.path.abspath, metavar='/path/to/file_with_directory_names.txt',
                         help='File with location(s) of %s design poses' % PUtils.program_name, default=None)
     parser.add_argument('-m', '--directory_type', type=str, choices=['design', 'dock'],
                         help='Which directory type to process?')
     #                   , required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',  # Todo always true
                         help='Should job be run with multiprocessing?\nDefault=False')
-    parser.add_argument('-p', '--project', type=str, help='If pose names are specified by project instead '
-                                                          'of directories, which project to use?')
+    parser.add_argument('-p', '--project', type=str, metavar='/path/to/SymDesignOutput/Projects/your_project',
+                        help='If pose names are specified by project instead of directories, which project to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
-                        help='Should commands be written but not executed?\nDefault=False')
-    parser.add_argument('-s', '--single', type=str, help='If design name is specified by a single path instead')
-    subparsers = parser.add_subparsers(title='SubModules', dest='sub_module',
-                                       description='These are the different modes that designs are processed',
-                                       help='Chose one of the SubModules followed by SubModule specific flags. To get '
-                                            'help on a SubModule such as specific commands and flags enter: \n%s\n\nAny'
+                        help='Should commands be executed through SymDesign command? Doesn\'t mazimize cassini\'s '
+                             'computational resources and can cause long trajectories to fail on a sinlge mistake.'
+                             '\nDefault=False')
+    parser.add_argument('-s', '--single', type=str,
+                        metavar='/path/to/SymDesignOutput/Projects/your_project/single_design',
+                        help='If design name is specified by a single path instead')
+    subparsers = parser.add_subparsers(title='Modules', dest='sub_module',  # todo change sub_module
+                                       description='These are the different modes that designs can be processed',
+                                       help='Chose a Module followed by Module specific flags. To get '
+                                            'help on a Module such as specific commands and flags enter:\n%s\n\nAny'
                                             'SubModule help can be accessed in this way'  # Todo
                                             % PUtils.submodule_help)
     # ---------------------------------------------------
@@ -526,20 +530,6 @@ if __name__ == '__main__':
     parser_flag = subparsers.add_parser('flags', help='Generate a flags file for %s' % PUtils.program_name)
     parser_flag.add_argument('-t', '--template', action='store_true',
                              help='Generate a flags template to edit on your own.')
-    # ---------------------------------------------------
-    parser_dist = subparsers.add_parser('distribute',
-                                        help='Distribute specific design step commands to computational resources. '
-                                             'In distribution mode, the --file or --directory argument specifies which '
-                                             'pose commands should be distributed.')
-    parser_dist.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
-                             help='The stage of design to be prepared. One of %s' %
-                                  ', '.join(list(v for v in PUtils.stage_f.keys())), required=True)
-    parser_dist.add_argument('-y', '--success_file', help='The name/location of file containing successful commands\n'
-                                                          'Default={--stage}_stage_pose_successes', default=None)
-    parser_dist.add_argument('-n', '--failure_file', help='The name/location of file containing failed commands\n'
-                                                          'Default={--stage}_stage_pose_failures', default=None)
-    parser_dist.add_argument('-m', '--max_jobs', type=int, help='How many jobs to run at once?\nDefault=80',
-                             default=80)
     # ---------------------------------------------------
     # parser_mask = subparsers.add_parser('mask', help='Generate a residue mask for %s' % PUtils.program_name)
     # ---------------------------------------------------
@@ -625,9 +615,23 @@ if __name__ == '__main__':
                                help='The stage of design to check status of. One of %s'
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
     # ---------------------------------------------------
+    parser_dist = subparsers.add_parser('distribute',
+                                        help='Distribute specific design step commands to computational resources. '
+                                             'In distribution mode, the --file or --directory argument specifies which '
+                                             'pose commands should be distributed.')
+    parser_dist.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
+                             help='The stage of design to be prepared. One of %s' %
+                                  ', '.join(list(v for v in PUtils.stage_f.keys())), required=True)
+    parser_dist.add_argument('-y', '--success_file', help='The name/location of file containing successful commands\n'
+                                                          'Default={--stage}_stage_pose_successes', default=None)
+    parser_dist.add_argument('-n', '--failure_file', help='The name/location of file containing failed commands\n'
+                                                          'Default={--stage}_stage_pose_failures', default=None)
+    parser_dist.add_argument('-m', '--max_jobs', type=int, help='How many jobs to run at once?\nDefault=80',
+                             default=80)
+    # ---------------------------------------------------
     parser_merge = subparsers.add_parser('merge', help='Merge all completed designs from location 2 (-f2/-d2) to '
                                                        'location 1(-f/-d). Includes renaming. Highly suggested you copy'
-                                                       ' original data!!!')
+                                                       ' original data, very untested!!!')
     parser_merge.add_argument('-d2', '--directory2', type=os.path.abspath, default=None,
                               help='Directory 2 where poses should be copied from and appended to location 1 poses')
     parser_merge.add_argument('-f2', '--file2', type=str, help='File 2 where poses should be copied from and appended '
@@ -636,7 +640,7 @@ if __name__ == '__main__':
     parser_merge.add_argument('-i', '--increment', type=int, help='How many to increment each design by?\nDefault=%d'
                                                                   % PUtils.nstruct)
     # ---------------------------------------------------
-    parser_modify = subparsers.add_parser('modify', help='Modify something for testing')
+    parser_modify = subparsers.add_parser('modify', help='Modify something for program testing')
     parser_modify.add_argument('-m', '--mod', type=str, help='Which type of modification?\nChoose from '
                                                              'consolidate_degen or pose_map')
     # ---------------------------------------------------
