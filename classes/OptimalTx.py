@@ -103,11 +103,11 @@ class OptimalTx:
         # print('9: %s' % self.dof9)
         # print('var_inv_tot: %s' % var_tot_inv)
         dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance x degree of freedom = (9 x n_dof)
-        vtdinvv = np.matmul(dof_t, dinvv)  # degree of freedom transpose x (9 x n_dof) = (n_dof x n_dof)
+        vtdinvv = np.matmul(dof_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
         vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
 
         dinvdelta = np.matmul(var_tot_inv, guide_delta)  # 1/variance x guide atom diff = (9 x 1)
-        vtdinvdelta = np.matmul(dof_t, dinvdelta)  # transpose of degrees of freedom x (9 x 1) = (n_dof x 1)
+        vtdinvdelta = np.matmul(dof_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
 
         shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
 

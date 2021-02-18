@@ -130,6 +130,21 @@ sym_comb_dict = {
     123: [123, 'O', 11, ['None'], 1, '<0,0,0>', 'O', 11, ['None'], 1, '<e,e,e>', 'O', 'P432', 3, '(2*e, 2*e, 2*e), (90, 90, 90)', 1, 1],
     124: [124, 'O', 11, ['None'], 1, '<0,0,0>', 'O', 11, ['None'], 1, '<e,0,0>', 'O', 'F432', 3, '(2*e, 2*e, 2*e), (90, 90, 90)', 1, 1]}
 
+# Standard T:{C3}{C3}
+# 54: [54, 'C3', 2, ['r:<0,0,1,a>', 't:<0,0,b>'], 4, '<0,0,0>', 'C3', 2, ['r:<0,0,1,c>', 't:<0,0,d>'], 12, '<0,0,0>',
+#      'T', 'T', 0, 'N/A', 4, 2],
+#
+# Number   grp1 grp1_idx            grp1_internal_dof grp1_set_mat grp1_external_dof
+# 54: [54, 'C3',      2, ['r:<0,0,1,a>', 't:<0,0,b>'],          4,        '<0,0,0>',
+#          grp2 grp2_idx            grp2_internal_dof grp2_set_mat grp2_external_dof
+#          'C3',      2, ['r:<0,0,1,c>', 't:<0,0,d>'],         12,        '<0,0,0>',
+#          pnt_grp final_sym dim  unit_cell tot_dof ring_size
+#          'T',         'T',  0,     'N/A',      4,       2],
+
+# Modified T:{C3}{C3} with group 1 internal DOF allowed, group 2, internal DOF disabled
+# 54: [54, 'C3', 2, ['r:<0,0,1,a>', 't:<0,0,b>'],  4, '<0,0,0>',
+#          'C3', 2,                     ['None'], 12, '<0,0,0>',
+#          'T', 'T', 0, 'N/A', 4, 2],
 
 # ROTATION RANGE DEG
 C2 = 180
@@ -142,11 +157,11 @@ RotRangeDict = {"C2": C2, "C3": C3, "C4": C4, "C5": C5, "C6": C6}
 
 # ROTATION SETTING MATRICES
 RotMat1 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
-RotMat2 = [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]
+RotMat2 = [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]  # 90 degrees CC on Y
 RotMat3 = [[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]]
 RotMat4 = [[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]
 RotMat5 = [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]
-RotMat6 = [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]
+RotMat6 = [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]  # # 90 degrees CC on X
 RotMat7 = [[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]]
 RotMat8 = [[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]]
 RotMat9 = [[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]]
@@ -173,7 +188,7 @@ RotSetDict = {1: RotMat1,
 class SymEntry:
 
     def __init__(self, entry):
-        if type(entry) == int and entry in range(1, 125):
+        if type(entry) == int and entry in sym_comb_dict:
             # GETTING ENTRY INFORMATION FROM sym_comb_dict
             self.entry_number = entry
             sym_comb_info = sym_comb_dict[self.entry_number]
@@ -197,7 +212,7 @@ class SymEntry:
             self.cycle_size = sym_comb_info[16]
 
         else:
-            raise ValueError("\nINVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: 1 to 124\n")
+            raise ValueError("\nINVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: %d to %d\n" % (1, len(sym_comb_dict)))
 
     def get_group1_sym(self):
         return self.group1
