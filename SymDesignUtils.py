@@ -134,6 +134,25 @@ def handle_design_errors(errors=(Exception,)):
     return wrapper
 
 
+def handle_errors(errors=(Exception,)):
+    """Decorator to wrap a function with try: ... except errors: finally:
+
+    Keyword Args:
+        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
+    Returns:
+        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
+            raised, else None
+    """
+    def wrapper(func):
+        def wrapped(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except errors as error:
+                return error
+        return wrapped
+    return wrapper
+
+
 ############
 # Symmetry
 ############
@@ -1041,8 +1060,9 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
     Returns:
         (list[tuple]): (Function overlap parameter, z-value of function)
     """
-    # Todo, signature = coords_list1, coords_list2, rmsd_list
-    # Todo make coords_list1, coords_list2, rmsd_list all np array. Calling this function on array will return array
+    # Todo, signature = coords_array1, coords_array2, rmsd_list
+    # Todo make coords_l1, coords_l2, rmsd_list all np array. Calling z_value_func on these arrays will return an array
+    #  must specify with optimal_tx if need to save the z_value. Could filter it in optimal_tx.apply()
     overlap_results = []
     for index_pair in index_pairs:
         ghost_frag = ghost_frags[index_pair[0]]
@@ -1052,7 +1072,7 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
         surf_frag = surface_frags[index_pair[1]]
         coords2 = coords_l2[index_pair[1]]
         # surf_frag.get_guide_coords()
-        if surf_frag.get_i_type() == ghost_frag.get_j_frag_type():  # Todo remove to mask outside
+        if surf_frag.get_i_type() == ghost_frag.get_j_frag_type():  # Todo remove frags to a mask outside
             result, z_value = z_value_func(coords1=coords1, coords2=coords2,
                                            coords_rmsd_reference=ghost_frag.get_rmsd())
             if z_value <= max_z_value:
