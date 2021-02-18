@@ -633,7 +633,8 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
                                                                            oligomer_symmetry_2,
                                                                            design_dim,
                                                                            design_symmetry_pg)
-
+    # Todo move all of this logging to logger and use a propogate=True flag to pass this info to the master log
+    #  This will allow the variable unpacked above to be unpacked in the docking section
     if main_log:
         with open(master_log_filepath, "a+") as master_log_file:
             # Default Rotation Step
@@ -733,6 +734,7 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
                                       "Representatives\n\n")
 
     # Create fragment database for all ijk cluster representatives
+    # Todo move to inside loop for single iteration docking
     ijk_frag_db = FragmentDB()
     #                       monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath)
 
@@ -756,6 +758,7 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
         {init_match_mapped: {init_match_paired: ijk_intfrag_cluster_info_dict[init_match_mapped][init_match_paired]}}
 
     # Initialize Euler Lookup Class
+    # Todo move inside dock
     eul_lookup = EulerLookup()
 
     # Get Design Expansion Matrices
@@ -1196,7 +1199,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                 # Rotate Oligomer1 Ghost Fragment Guide Coordinates using rot1_mat
                 rot1_mat_np_t = np.transpose(rot1_mat)
                 ghost_frag_guide_coords_list_rot_np = np.matmul(ghost_frag_guide_coords_list, rot1_mat_np_t)
-                ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_list_rot_np.tolist()
+                ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_list_rot_np.tolist()  # Todo unnecessary
                 ghost_frag_guide_coords_list_rot_and_set_for_eul = np.matmul(ghost_frag_guide_coords_list_rot,
                                                                              set_mat1_np_t)
                 for degen2 in degen_rot_mat_2[degen2_count:]:
@@ -1207,7 +1210,9 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                         rot2_mat_np_t = np.transpose(rot2_mat)
                         surf_frags_2_guide_coords_list_rot_np = np.matmul(surf_frags_oligomer_2_guide_coords_list,
                                                                           rot2_mat_np_t)
-                        surf_frags_2_guide_coords_list_rot = surf_frags_2_guide_coords_list_rot_np.tolist()
+                        surf_frags_2_guide_coords_list_rot = surf_frags_2_guide_coords_list_rot_np.tolist()  # Todo unnecessary
+                        surf_frags_2_guide_coords_list_rot_and_set_for_eul = np.matmul(
+                            surf_frags_2_guide_coords_list_rot, set_mat2_np_t)
 
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("\n***** OLIGOMER 1: Degeneracy %s Rotation %s | OLIGOMER 2: Degeneracy %s "
@@ -1220,8 +1225,6 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                             log_file.write("Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same "
                                            "Euler rotational space bucket\n")
 
-                        surf_frags_2_guide_coords_list_rot_and_set_for_eul = np.matmul(
-                            surf_frags_2_guide_coords_list_rot, set_mat2_np_t)
                         # print('Set for Euler Lookup:', surf_frags_2_guide_coords_list_rot_and_set_for_eul[:5])
 
                         eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(
