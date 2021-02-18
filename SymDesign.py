@@ -871,16 +871,16 @@ if __name__ == '__main__':
                                                                                        location))
     else:
         pass
-        # raise SDUtils.DesignError('Error: --directory_type flag must be passed since the module is %s!' % args.sub_module)
+        # raise SDUtils.DesignError('Error: --directory_type flag must be passed since the module is %s!'
+        # % args.sub_module)
 
-    if args.run_in_shell:
+    if args.sub_module in ['dock', 'design'] and args.run_in_shell:
         args.suspend = False
         logger.info('Modelling will occur in this process, ensure you don\'t lose connection to the shell!')
-    else:
+    elif args.sub_module in ['dock', 'design']:
         args.suspend = True
         logger.info('Writing modelling commands out to file only, no modelling will occur until commands are '
                     'executed.')
-
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands
     # -----------------------------------------------------------------------------------------------------------------
@@ -898,7 +898,7 @@ if __name__ == '__main__':
         if args.template:
             query_user_for_flags(template=True)
         else:
-            query_user_for_flags(mode=args.directory_type)  # Todo
+            query_user_for_flags(mode=args.directory_type)
     # ---------------------------------------------------
     elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
         distribute(**vars(args))
