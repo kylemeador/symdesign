@@ -627,8 +627,12 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     # Default Fragment Guide Atom Overlap Z-Value Threshold For All Subsequent Matches
     subseq_max_z_val = 2.0
 
-    degeneracy_matrices_1 = get_degeneracy_matrices(oligomer_symmetry_1, design_symmetry_pg)
-    degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_2, design_symmetry_pg)
+    # degeneracy_matrices_1 = get_degeneracy_matrices(oligomer_symmetry_1, design_symmetry_pg)
+    # degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_2, design_symmetry_pg)
+    degeneracy_matrices_1, degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_1,
+                                                                           oligomer_symmetry_2,
+                                                                           design_dim,
+                                                                           design_symmetry_pg)
 
     if main_log:
         with open(master_log_filepath, "a+") as master_log_file:
@@ -843,7 +847,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
             get_complete_ghost_frags_time_start = time.time()
 
     # KM this does a double calculation and storage by saving the initial fragments again. All caluclations with this group are doing more work than necessary
-    # one could imagine doing this first, then using a for loop to test for the indices that are the initial fragment search type
+    # one could imagine doing this first, then using a filter to test for the indices that are the initial fragment search type
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
