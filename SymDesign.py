@@ -512,8 +512,8 @@ if __name__ == '__main__':
                         help='Should commands be executed through SymDesign command? Doesn\'t mazimize cassini\'s '
                              'computational resources and can cause long trajectories to fail on a sinlge mistake.'
                              '\nDefault=False')
-    parser.add_argument('-s', '--single', type=str,
-                        metavar='/path/to/SymDesignOutput/Projects/your_project/single_design',
+    parser.add_argument('-s', '--single', type=os.path.abspath,
+                        metavar='/path/to/SymDesignOutput/Projects/your_project/single_design[.pdb]',
                         help='If design name is specified by a single path instead')
     subparsers = parser.add_subparsers(title='Modules', dest='sub_module',  # todo change sub_module
                                        description='These are the different modes that designs can be processed',
@@ -736,7 +736,7 @@ if __name__ == '__main__':
                                                   '\n%s\nCorrect your flags file and try again'
                                                   % (queried_flags['symmetry'],
                                                      ', '.join(SDUtils.possible_symmetries.keys())))
-
+                # Todo args.project and args.single input here
                 all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
                 design_directories = [DesignDirectory.from_file(pose, **queried_flags)  # project=args.project,
                                       for pose in all_poses]
@@ -904,6 +904,9 @@ if __name__ == '__main__':
         distribute(**vars(args))
     # ---------------------------------------------------
     elif args.sub_module == 'design_selector':  # Todo
+        if not args.single:
+            raise SDUtils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
+                                      'design_selector' % (PUtils.program_name, PUtils.program_command))
         fasta_file = generate_sequence_template(args.single)
         logger.info('The design_selector template was written to %s. Please edit this file so that the design_selector '
                     'can be generated for protein design. Mask should be formatted so a \'-\' replaces all sequence of '
