@@ -4,7 +4,7 @@ from PathUtils import program_command, nano, program_name, nstruct
 from Query.PDB import input_string, format_string, confirmation_string, \
     bool_d, invalid_string, header_string
 from SequenceProfile import read_fasta_file
-from SymDesignUtils import pretty_format_table, DesignError
+from SymDesignUtils import pretty_format_table, DesignError, handle_design_errors, handle_errors
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
 # Todo separate into types of options, aka fragments, residue selection, symmetry
@@ -79,7 +79,9 @@ design = copy(global_flags)
 design.update(design_flags)
 filters = copy(global_flags)
 filters.update(filter_flags)
-flags = {'design': design, 'filter': filters}
+all_flags = copy(design)
+all_flags.update(filters)
+flags = {'design': design, 'filter': filters, None: all_flags}
 
 
 def process_design_selector_flags(design_flags):
@@ -105,11 +107,11 @@ def process_design_selector_flags(design_flags):
     pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, set(), None
     if 'mask_designable_residues_by_sequence' in design_flags \
             and design_flags['mask_designable_residues_by_sequence']:
-        residue_mask = residue_select.union(
+        residue_mask = residue_mask.union(
             generate_sequence_mask(design_flags['mask_designable_residues_by_sequence']))
     if 'mask_designable_residues_by_pose_number' in design_flags \
             and design_flags['mask_designable_residues_by_pose_number']:
-        residue_mask = residue_select.union(
+        residue_mask = residue_mask.union(
             format_index_string(design_flags['mask_designable_residues_by_pose_number']))
     if 'mask_designable_chains' in design_flags and design_flags['mask_designable_chains']:
         chain_mask = generate_chain_mask(design_flags['mask_designable_chains'])
@@ -131,6 +133,7 @@ def return_default_flags(mode):
         return dict()
 
 
+@handle_errors(errors=KeyboardInterrupt)
 def query_user_for_flags(mode='design', template=False):
     flags_file = '%s.flags' % mode
     flag_output = return_default_flags(mode)
