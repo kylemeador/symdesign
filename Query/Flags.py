@@ -42,7 +42,7 @@ design_flags = {
     'select_designable_residues_by_sequence':
         {'type': str, 'default': None,
          'description': 'If design should occur ONLY at certain residues,%sspecify the location of a .fasta file '
-                        'containing the design selection.%sRun \'%s design_selector path/to/your.pdb\' '
+                        'containing the design selection.%sRun \'%s --single my_pdb_file.pdb design_selector\' '
                         'to set this up.'
                         % (terminal_formatter, terminal_formatter, program_command)},
     'select_designable_residues_by_pose_number':
@@ -57,7 +57,7 @@ design_flags = {
     'mask_designable_residues_by_sequence':
         {'type': str, 'default': None,
          'description': 'If design should NOT occur at certain residues,%sspecify the location of a .fasta file '
-                        'containing the design mask.%sRun \'%s design_selector path/to/your.pdb\' '
+                        'containing the design mask.%sRun \'%s --single my_pdb_file.pdb design_selector\' '
                         'to set this up.'
                         % (terminal_formatter, terminal_formatter, program_command)},
     'mask_designable_residues_by_pose_number':
