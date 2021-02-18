@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-# ROTATION RANGE DEG
+# ROTATION RANGE DEG  # Todo matches SymEntry, consolidate
 C2 = 180
 C3 = 120
 C4 = 90
@@ -11,17 +11,50 @@ C6 = 60
 RotRangeDict = {"C2": C2, "C3": C3, "C4": C4, "C5": C5, "C6": C6}
 
 
-def get_degeneracy_matrices(oligomer_symmetry, design_symmetry):
+def get_degeneracy_matrices(oligomer_symmetry_1, oligomer_symmetry_2, design_dimension, design_symmetry):
+    """From the intended point group symmetry and a single component, find the degeneracy matrices that produce all
+    viable configurations of the single component in the final symmetry
+
+    Returns:
+        (list[list[list[list[float]]]])
+    """
+    # Todo matches orient valid operators, consolidate
     valid_pt_gp_symm_list = ["C2", "C3", "C4", "C5", "C6", "D2", "D3", "D4", "D6", "T", "O", "I"]
 
-    degeneracy_matrices = None
-
-    if oligomer_symmetry not in valid_pt_gp_symm_list or design_symmetry not in valid_pt_gp_symm_list:
+    if oligomer_symmetry_1 not in valid_pt_gp_symm_list:
         raise ValueError("Invalid Point Group Symmetry")
 
-    else:
-        if oligomer_symmetry[0] == "C" and design_symmetry[0] == "C":
+    if oligomer_symmetry_2 not in valid_pt_gp_symm_list:
+        raise ValueError("Invalid Point Group Symmetry")
+
+    if design_symmetry not in valid_pt_gp_symm_list:
+        raise ValueError("Invalid Point Group Symmetry")
+
+    if design_dimension not in [0, 2, 3]:
+        raise ValueError("Invalid Design Dimension")
+
+    degeneracies = [None, None]
+
+    for i in range(2):
+
+        degeneracy_matrices = None
+
+        oligomer_symmetry = oligomer_symmetry_1 if i == 0 else oligomer_symmetry_2
+
+        # For cages, only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
+        if design_dimension == 0 and i == 1:
             degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
+
+        # For layers that obey a cyclic point group symmetry
+        # and that are constructed from two oligomers that both obey cyclic symmetry
+        # only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
+        elif design_dimension == 2 and i == 1 \
+                and (oligomer_symmetry_1[0], oligomer_symmetry_2[0], design_symmetry[0]) == ("C", "C", "C"):
+            degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
+
+        # else:
+        #     if oligomer_symmetry[0] == "C" and design_symmetry[0] == "C":
+        #         degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
         elif oligomer_symmetry in ["D3", "D4", "D6"] and design_symmetry in ["D3", "D4", "D6", "T", "O"]:
             # commented out "if" statement below because all possible translations are not always being tested for D3
@@ -30,12 +63,14 @@ def get_degeneracy_matrices(oligomer_symmetry, design_symmetry):
             # <0,e> would also have to be searched as well to remove the "if" statement below.
             # if (oligomer_symmetry, design_symmetry_pg) != ("D3", "D6"):
             if oligomer_symmetry == "D3":
-                degeneracy_matrices = [[[0.5, -0.86603, 0.0], [0.86603, 0.5, 0.0], [0.0, 0.0, 1.0]]]  # ROT60z
+                # ROT 60 degrees about z
+                degeneracy_matrices = [[[0.5, -0.86603, 0.0], [0.86603, 0.5, 0.0], [0.0, 0.0, 1.0]]]
             elif oligomer_symmetry == "D4":
-                degeneracy_matrices = [[[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0,
-                                                                                                1.0]]]  # 45 degrees about z; z unaffected; x goes to [1,-1,0] direction
+                # 45 degrees about z; z unaffected; x goes to [1,-1,0] direction
+                degeneracy_matrices = [[[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]]
             elif oligomer_symmetry == "D6":
-                degeneracy_matrices = [[[0.86603, -0.5, 0.0], [0.5, 0.86603, 0.0], [0.0, 0.0, 1.0]]]  # ROT30z
+                # ROT 30 degrees about z
+                degeneracy_matrices = [[[0.86603, -0.5, 0.0], [0.5, 0.86603, 0.0], [0.0, 0.0, 1.0]]]
 
         elif oligomer_symmetry == "D2" and design_symmetry != "O":
             if design_symmetry == "T":
@@ -55,7 +90,9 @@ def get_degeneracy_matrices(oligomer_symmetry, design_symmetry):
         elif oligomer_symmetry == "T" and design_symmetry == "T":
             degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
 
-        return degeneracy_matrices
+        degeneracies[i] = degeneracy_matrices
+
+    return degeneracies
 
 
 def parse_ref_tx_dof_str_to_list(ref_frame_tx_dof_string):
@@ -151,12 +188,21 @@ def get_rot_matrices(step_deg, axis, rot_range_deg):
 
 
 def get_degen_rotmatrices(degeneracy_matrices, rotation_matrices):
+    """From a set of degeneracy matrices and a set of rotation matrices, produce the complete combination of the
+    specified transformations.
+
+    Args:
+         degeneracy_matrices (list): [[[x, x, x], [y, y, y], [z, z, z]], ...]
+         rotation_matrices (list[list]): [[[x, y, z], [x, y, z], [x, y, z]], ...]
+    Returns:
+        (list[list])
+    """
     identity_matrix = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
     if rotation_matrices == list() and degeneracy_matrices is not None:
         return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracy_matrices]
 
     elif rotation_matrices != list() and degeneracy_matrices is None:
-        return [rotation_matrices]
+        return [rotation_matrices]  # Todo make list[list] in FragDock.py
 
     elif rotation_matrices != list() and degeneracy_matrices is not None:
         degen_rotmatrices = [rotation_matrices]
