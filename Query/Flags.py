@@ -45,9 +45,14 @@ design_flags = {
                         'containing the design selection.%sRun \'%s --single my_pdb_file.pdb design_selector\' '
                         'to set this up.'
                         % (terminal_formatter, terminal_formatter, program_command)},
+    'select_designable_residues_by_pdb_number':
+        {'type': str, 'default': None,
+         'description': 'If design should occur ONLY at certain residues,%sspecify the residue PDB number(s) '
+                        'as a comma separated string.%sRanges are allowed '
+                        'Ex: \'40-45,170-180,227,231\'' % (terminal_formatter, terminal_formatter)},
     'select_designable_residues_by_pose_number':
         {'type': str, 'default': None,
-         'description': 'If design should occur ONLY at certain residues,%sspecify the residue POSE numbers '
+         'description': 'If design should occur ONLY at certain residues,%sspecify the residue POSE number(s) '
                         'as a comma separated string.%sRanges are allowed '
                         'Ex: \'23,24,35,41,100-110,267,289-293\'' % (terminal_formatter, terminal_formatter)},
     'select_designable_chains':
@@ -60,9 +65,14 @@ design_flags = {
                         'containing the design mask.%sRun \'%s --single my_pdb_file.pdb design_selector\' '
                         'to set this up.'
                         % (terminal_formatter, terminal_formatter, program_command)},
+    'mask_designable_residues_by_pdb_number':
+        {'type': str, 'default': None,
+         'description': 'If design should NOT occur at certain residues,%sspecify the residue PDB number(s) '
+                        'as a comma separated string.%sEx: \'27-35,118,281\' Ranges are allowed'
+                        % (terminal_formatter, terminal_formatter)},
     'mask_designable_residues_by_pose_number':
         {'type': str, 'default': None,
-         'description': 'If design should NOT occur at certain residues,%sspecify the POSE number of residue(s) '
+         'description': 'If design should NOT occur at certain residues,%sspecify the residue POSE number(s) '
                         'as a comma separated string.%sEx: \'27-35,118,281\' Ranges are allowed'
                         % (terminal_formatter, terminal_formatter)},
     'mask_designable_chains':
@@ -87,16 +97,23 @@ flags = {'design': design, 'filter': filters, None: all_flags}
 def process_design_selector_flags(design_flags):
     # Pull nanohedra_output and mask_design_using_sequence out of flags
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
-    entity_req, chain_req, residues_req = None, None, set()
+    entity_req, chain_req, residues_req, residues_pdb_req = None, None, set(), set()
+    if 'require_design_at_pdb_residues' in design_flags and design_flags['require_design_at_pdb_residues']:
+        residues_pdb_req = residues_pdb_req.union(
+            format_index_string(design_flags['require_design_at_pdb_residues']))
     if 'require_design_at_residues' in design_flags and design_flags['require_design_at_residues']:
         residues_req = residues_req.union(
             format_index_string(design_flags['require_design_at_residues']))
     # -------------------
-    pdb_select, entity_select, chain_select, residue_select, atom_select = None, None, None, set(), None
+    pdb_select, entity_select, chain_select, residue_select, residue_pdb_select = None, None, None, set(), set()
     if 'select_designable_residues_by_sequence' in design_flags \
             and design_flags['select_designable_residues_by_sequence']:
         residue_select = residue_select.union(
             generate_sequence_mask(design_flags['select_designable_residues_by_sequence']))
+    if 'select_designable_residues_by_pdb_number' in design_flags \
+            and design_flags['select_designable_residues_by_pdb_number']:
+        residue_pdb_select = residue_pdb_select.union(
+            format_index_string(design_flags['select_designable_residues_by_pdb_number']))
     if 'select_designable_residues_by_pose_number' in design_flags \
             and design_flags['select_designable_residues_by_pose_number']:
         residue_select = residue_select.union(
@@ -104,11 +121,15 @@ def process_design_selector_flags(design_flags):
     if 'select_designable_chains' in design_flags and design_flags['select_designable_chains']:
         chain_select = generate_chain_mask(design_flags['select_designable_chains'])
     # -------------------
-    pdb_mask, entity_mask, chain_mask, residue_mask, atom_mask = None, None, None, set(), None
+    pdb_mask, entity_mask, chain_mask, residue_mask, residue_pdb_mask = None, None, None, set(), set()
     if 'mask_designable_residues_by_sequence' in design_flags \
             and design_flags['mask_designable_residues_by_sequence']:
         residue_mask = residue_mask.union(
             generate_sequence_mask(design_flags['mask_designable_residues_by_sequence']))
+    if 'mask_designable_residues_by_pdb_number' in design_flags \
+            and design_flags['mask_designable_residues_by_pdb_number']:
+        residue_pdb_mask = residue_pdb_mask.union(
+            format_index_string(design_flags['mask_designable_residues_by_pdb_number']))
     if 'mask_designable_residues_by_pose_number' in design_flags \
             and design_flags['mask_designable_residues_by_pose_number']:
         residue_mask = residue_mask.union(
@@ -119,11 +140,11 @@ def process_design_selector_flags(design_flags):
     return {'design_selector':
             {'selection': {'pdbs': pdb_select, 'entities': entity_select,
                            'chains': chain_select, 'residues': residue_select,
-                           'atoms': atom_select},
+                           'pdb_residues': residue_pdb_select},
              'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
-                      'residues': residue_mask, 'atoms': atom_mask},
+                      'residues': residue_mask, 'pdb_residues': residue_pdb_mask},
              'required': {'entities': entity_req, 'chains': chain_req,
-                          'residues': residues_req}}}
+                          'residues': residues_req, 'pdb_residues': residues_pdb_req}}}
 
 
 def return_default_flags(mode):
