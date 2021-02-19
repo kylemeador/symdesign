@@ -601,7 +601,7 @@ class Structure:  # (Coords):
 
         return sequence
 
-    def is_clash(self, clash_distance=2.15):
+    def is_clash(self, clash_distance=2.1):
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms
 
@@ -609,53 +609,60 @@ class Structure:  # (Coords):
             (bool)
         """
         all_atom_tree = KDTree(self.coords)
+        # all_atom_tree = KDTree(self.get_backbone_and_cb_coords())
         number_of_residues = self.number_of_residues
-        non_residue_indices = np.ones(self.number_of_atoms, dtype=bool)
-        all_clashes = []
+        # non_residue_indices = np.ones(self.number_of_atoms, dtype=bool)
+        all_clashes, side_chain_clashes = [], []
         for idx, residue in enumerate(self.residues, -1):
-            residue_query = all_atom_tree.query_radius(residue.coords, clash_distance)
+            # return a np.array((residue length, all_atom coords)) KDTree
+            # residue_query = all_atom_tree.query_radius(residue.coords, clash_distance)
+            residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, clash_distance)
+            # reduce the dimensions and format as a single array
+            all_contacts = np.concatenate(residue_query).ravel()  # .reshape(-1)
+
             # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
             # For the edge cases (N- & C-term), use other termini C & N atoms.
             # We might miss a clash here! It would be peculiar for the C-terminal C clashing with the N-terminus atoms
             # and vice-versa. This also allows a PDB with permuted sequence to be handled properly!
-            residue_indices_and_bonded_c_and_n = np.array(residue.atom_indices + \
-                [self.residues[idx].c.index, self.residues[-number_of_residues + 2 + idx].n.index])
+            residue_indices_and_bonded_c_and_n = np.array(residue.atom_indices +
+                                                          [self.residues[idx].c.index,
+                                                           self.residues[-number_of_residues + 2 + idx].n.index])
             # non_residue_indices[residue_indices_and_bonded_c_and_n] = False
-            # print(residue_query)
             # clashes = residue_query[residue_indices_and_bonded_c_and_n].flatten()
             # clashes = residue_query[:, non_residue_indices].flatten()
-            all_contacts = np.concatenate(residue_query).ravel()  # .reshape(-1)
             # all_contacts = residue_query.ravel()
             # for all_clashing_indices in residue_query:
             #     atom_clash = list(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
-            # print(all_contacts)
-            # print(residue_indices_and_bonded_c_and_n)
             clashes = np.setdiff1d(all_contacts, residue_indices_and_bonded_c_and_n)
             # clashes = list(set(all_contacts).difference(residue_indices_and_bonded_c_and_n))
             if any(clashes):
                 # atom_clash = list(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
                 # if atom_clash:
-                # print(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
                 for clash in clashes:
                     if self.atoms[clash].is_backbone() or self.atoms[clash].is_CB():
-                        # raise DesignError('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
-                        #                   'permitted. See:\n%s'
-                        #                   % (self.name, len(clashes), residue.number, self.atoms[clash]))
-                        all_clashes.append((residue, str(self.atoms[clash])))
-                        # self.log.critical('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
-                        #                   'permitted. See:\n%s'
-                        #                   % (self.name, len(clashes), residue.number, str(self.atoms[clash])))
-                        # return True
-                self.log.warning('%s contains %d clashing atoms at residue %d! See:\n\t%s'
-                                 % (self.name, len(clashes), residue.number,
-                                    '\n\t'.join(str(self.atoms[clash]) for clash in clashes)))
+                        all_clashes.append((residue, self.atoms[clash]))
+                    else:
+                        side_chain_clashes.append((residue, self.atoms[clash]))
+                # all_clashes.extend([(residue, self.atoms[clash]) for clash in clashes if self.atoms[clash].is_backbone()
+                #                     or self.atoms[clash].is_CB()])
+                # raise DesignError('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
+                #                   'permitted. See:\n%s'
+                #                   % (self.name, len(clashes), residue.number, self.atoms[clash]))
+                # self.log.critical('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
+                #                   'permitted. See:\n%s'
+                #                   % (self.name, len(clashes), residue.number, str(self.atoms[clash])))
+                # self.log.warning('%s contains %d clashing atoms at residue %d! See:\n\t%s'
+                #                  % (self.name, len(clashes), residue.number,
+                #                     '\n\t'.join(str(self.atoms[clash]) for clash in clashes)))
+        if side_chain_clashes:
+            self.log.warning('%s contains %d side-chain clashes at the following Residues!\n\t%s'
+                             % (self.name, len(all_clashes), '\n\t'.join('Residue %d: %s' % (residue.number, atom)
+                                                                         for residue, atom in all_clashes)))
         if all_clashes:
-            self.log.critical('%s contains %d backbone clashes at the following Residues!\n%s'
-                              % (self.name, len(all_clashes), '\n\t'.join('%d: %s' % (residue.number, atom)
+            self.log.critical('%s contains %d backbone clashes at the following Residues!\n\t%s'
+                              % (self.name, len(all_clashes), '\n\t'.join('Residue %d: %s' % (residue.number, atom)
                                                                           for residue, atom in all_clashes)))
             return True
-            # # return the mask to a blank state
-            # non_residue_indices[residue_indices_and_bonded_c_and_n] = True
         else:
             return False
 
@@ -946,13 +953,21 @@ class Residue:
     def __init__(self, atoms=None, coords=None):
         self.atoms = atoms
         self.secondary_structure = None
+        self._n = None
+        self._ca = None
+        self._cb = None
+        self._c = None
+        self._o = None
         self.set_atoms()
         if coords:
             self.coords = coords
 
     @property
     def n(self):
-        return self.atoms[self._n]
+        try:
+            return self.atoms[self._n]
+        except TypeError:
+            return None
 
     @n.setter
     def n(self, index):
@@ -960,7 +975,10 @@ class Residue:
 
     @property
     def ca(self):
-        return self.atoms[self._ca]
+        try:
+            return self.atoms[self._ca]
+        except TypeError:
+            return None
 
     @ca.setter
     def ca(self, index):
@@ -968,7 +986,10 @@ class Residue:
 
     @property
     def cb(self):
-        return self.atoms[self._cb]
+        try:
+            return self.atoms[self._cb]
+        except TypeError:
+            return None
 
     @cb.setter
     def cb(self, index):
@@ -976,19 +997,25 @@ class Residue:
 
     @property
     def c(self):
-        return self.atoms[self._c]
+        try:
+            return self.atoms[self._c]
+        except TypeError:
+            return None
 
     @c.setter
     def c(self, index):
         self._c = index
 
     @property
-    def co(self):
-        return self.atoms[self._co]
+    def o(self):
+        try:
+            return self.atoms[self._o]
+        except TypeError:
+            return None
 
-    @co.setter
-    def co(self, index):
-        self._co = index
+    @o.setter
+    def o(self, index):
+        self._o = index
 
     @property
     def number(self):
@@ -1013,12 +1040,12 @@ class Residue:
                 self.n = idx
             elif atom.is_CA():
                 self.ca = idx
-            elif atom.is_CB():
+            elif atom.is_CB(InclGlyCA=True):
                 self.cb = idx
             elif atom.is_c():
                 self.c = idx
             elif atom.is_o():
-                self.co = idx
+                self.o = idx
 
     # This is the setter for all atom properties available above
     def set_atoms_attributes(self, **kwargs):
@@ -1034,6 +1061,19 @@ class Residue:
         #     return np.matmul([self.x, self.y, self.z], transformation_operator)
         # else:
         return self._coords.coords[self.atom_indices]
+        # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
+
+    @property
+    def backbone_and_cb_coords(self):  # , transformation_operator=None):
+        """This holds the atomic coords which is a view from the Structure that created them"""
+        # if transformation_operator:
+        #     return np.matmul([self.x, self.y, self.z], transformation_operator)
+        # else:
+        # bb_cb_indices = [atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]
+        # print(bb_cb_indices)
+        return self._coords.coords[[atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]]
+        # return self._coords.coords[np.array(bb_cb_indices)]
+        # return self._coords.coords[np.array([self._n, self._ca, self._cb, self._c, self._o])]
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
 
     @coords.setter
@@ -1140,7 +1180,7 @@ class Residue:
         return NotImplemented
 
     def __str__(self):
-        return ''.join(str(atom) for atom in self.atoms)
+        return '\n'.join(str(atom) for atom in self.atoms)
 
     def __hash__(self):
         return hash(self.__key())
@@ -1318,9 +1358,9 @@ class Atom:  # (Coords):
     def __str__(self):
         """Represent Atom in PDB format"""
         return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-               '\n'.format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
-                           self.residue_number, self.code_for_insertion, self.x, self.y, self.z, self.occ,
-                           self.temp_fact, self.element_symbol, self.atom_charge)
+               .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
+                       self.residue_number, self.code_for_insertion, self.x, self.y, self.z, self.occ,
+                       self.temp_fact, self.element_symbol, self.atom_charge)
 
     def __eq__(self, other):
         return (self.number == other.number and self.chain == other.chain and self.type == other.type and
