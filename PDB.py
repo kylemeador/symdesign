@@ -268,7 +268,7 @@ class PDB(Structure):
         # self.atoms = [Atom.from_info(*info) for info in atom_info]
         # self.renumber_atoms()
         self.chain_id_list = chain_ids
-        self.log.debug('Multimodel %s: Chains %s' % ('Yes' if multimodel else 'No', self.chain_id_list))
+        self.log.debug('Multimodel %s, Chains %s' % (True if multimodel else False, self.chain_id_list))
         # self.coords = Coords(coords)  # np.array(coords)
         # self.set_atom_coordinates(self.coords)
         # assert len(self.atoms) == self.coords.shape[0], '%s: ERROR parseing Atoms (%d) and Coords (%d). Wrong size!' \
