@@ -311,14 +311,14 @@ class Structure:  # (Coords):
         """
         return [self.atoms[index] for index in indices]
 
-    def get_residue_atom_indices(self, numbers=None):
+    def get_residue_atom_indices(self, numbers=None, **kwargs):
         """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
          the selected Residues are returned
 
         Returns:
             (list[int])
         """
-        return [atom.index for atom in self.get_residue_atoms(numbers=numbers)]
+        return [atom.index for atom in self.get_residue_atoms(numbers=numbers, **kwargs)]
 
     def get_residues_by_atom_indices(self, indices=None):
         """Retrieve Residues in the Structure specified by Atom indices.
@@ -440,15 +440,20 @@ class Structure:  # (Coords):
     #         # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
 
     # @property Todo
-    def get_residues(self, numbers=None):
+    def get_residues(self, numbers=None, pdb=False, **kwargs):
         """Retrieve Residues in Structure. Returns all by default. If a list of numbers is provided, the selected
         Residues numbers are returned
 
         Returns:
             (list[Residue])
         """
+        if pdb:
+            number_source = 'number_pdb'
+        else:
+            number_source = 'number'
+
         if numbers and isinstance(numbers, Iterable):
-            return [residue for residue in self.residues if residue.number in numbers]
+            return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
         else:
             return self.residues
 
@@ -510,14 +515,14 @@ class Structure:  # (Coords):
             self.log.error('%s: N or C are only allowed inputs!' % self.get_terminal_residue.__name__)
             return None
 
-    def get_residue_atoms(self, numbers=None):
+    def get_residue_atoms(self, numbers=None, **kwargs):
         """Return the Atoms contained in the Residue objects matching a set of residue numbers
 
         Returns:
             (list[Atoms])
         """
         atoms = []
-        for residue in self.get_residues(numbers=numbers):
+        for residue in self.get_residues(numbers=numbers, **kwargs):
             atoms.extend(residue.get_atoms())
         return atoms
         # return [residue.get_atoms() for residue in self.get_residues(numbers=residue_numbers)]

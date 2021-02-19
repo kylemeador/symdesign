@@ -996,7 +996,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.design_selector_entities (set[Entity])
             self.required_indices (set[int])
         """
-        def grab_indices(pdbs=None, entities=None, chains=None, residues=None, atoms=None, start_with_none=False):
+        def grab_indices(pdbs=None, entities=None, chains=None, residues=None, pdb_residues=None, atoms=None,
+                         start_with_none=False):
             if start_with_none:
                 entity_set = set()
                 atom_indices = set()
@@ -1023,6 +1024,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 entity_set = set_function(entity_set, [self.chain(chain_id) for chain_id in chains])
             if residues:
                 atom_indices = set_function(atom_indices, self.pdb.get_residue_atom_indices(numbers=residues))
+            if pdb_residues:
+                atom_indices = set_function(atom_indices, self.pdb.get_residue_atom_indices(numbers=residues, pdb=True))
             if atoms:
                 atom_indices = set_function(atom_indices, self.pdb.get_atom_indices(numbers=atoms))
 
