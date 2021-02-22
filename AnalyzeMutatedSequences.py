@@ -26,7 +26,7 @@ import SymDesignUtils as SDUtils
 from PDB import PDB
 from PoseProcessing import extract_aa_seq
 from SequenceProfile import remove_non_mutations, pos_specific_jsd, weave_mutation_dict, \
-    generate_mutations, index_offset, make_mutations, populate_design_dict, create_bio_msa
+    generate_mutations, index_offset, make_mutations, SequenceProfile, create_bio_msa
 from SymDesignUtils import index_offset  # logger,
 
 # Globals
@@ -599,7 +599,7 @@ def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', muta
                 sequences[pdb + '_' + chain] = sequence_dict[pdb][chain]
         # filepath = write_multi_line_fasta_file(sequences, 'sequence_extraction.fasta', path=outpath)
         # logger.info('The following file was written:\n%s' % filepath)
-        logger.info('No file was written:\n%s' % filepath)
+        # logger.info('No file was written:\n%s' % filepath)
 
     if error_list:
         logger.error('The following residues were not extracted:\n%s' % str(error_list))
@@ -634,7 +634,6 @@ def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False):
         mutation_dict (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
     Keyword Args:
         aligned=False (bool): Whether the input sequences are already aligned
-        output=False (bool): Whether to make a .fasta file of the sequence
     Returns:
         all_sequences (dict): {name: sequence, ...}
     """
@@ -675,7 +674,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
         (dict): {chain: sequence, ...}
     """
     if not isinstance(pdb, PDB):
-        pdb = PDB(file=pdb)
+        pdb = PDB.from_file(pdb)
 
     seq_dict = {}
     for _chain in pdb.chain_id_list:
@@ -787,15 +786,16 @@ def generate_msa_dictionary(alignment, alphabet=IUPACData.protein_letters, weigh
     # Add Info to 'meta' record as needed
     alignment_dict = {'meta': {'num_sequences': len(alignment), 'query': aligned_seq.replace('-', ''),
                                'query_with_gaps': aligned_seq}}
-    # Populate Counts Dictionary
-    alignment_counts_dict = populate_design_dict(alignment.get_alignment_length(), alphabet, counts=True)
+    # Populate Counts Dictionary (one-indexed)
+    alignment_counts_dict = SequenceProfile.populate_design_dictionary(alignment.get_alignment_length(), alphabet,
+                                                                       dtype=int)
     if weight:
         for record in alignment:
-            for i, aa in enumerate(record.seq):
+            for i, aa in enumerate(record.seq, 1):
                 alignment_counts_dict[i][aa] += weighted_dict[i]
     else:
         for record in alignment:
-            for i, aa in enumerate(record.seq):
+            for i, aa in enumerate(record.seq, 1):
                 alignment_counts_dict[i][aa] += 1
     alignment_dict['counts'] = alignment_counts_dict
 
@@ -806,13 +806,13 @@ def add_column_weight(counts_dict, gaps=False):
     """Find total representation for each column in the alignment
 
     Args:
-        counts_dict (dict): {'counts': {0: {'A': 13, 'C': 1, 'D': 23, ...}, 1: {}, ...}
+        counts_dict (dict): {'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}
     Keyword Args:
         gaps=False (bool): Whether the alignment contains gaps
     Returns:
-        counts_dict (dict): {0: 210, 1: 211, 2:211, ...}
+        counts_dict (dict): {1: 210, 2:211, ...}
     """
-    return {i: sum_column_weight(counts_dict[i], gaps=gaps) for i in range(len(counts_dict))}
+    return {idx: sum_column_weight(aa_counts, gaps=gaps) for idx, aa_counts in counts_dict.items()}
 
 
 def sum_column_weight(column, gaps=False):
@@ -844,22 +844,21 @@ def msa_to_prob_distribution(alignment_dict):
 
     Args:
         alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
-                                'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {0: {'A': 13, 'C': 1, 'D': 23, ...}, 1: {}, ...},
-                                'rep': {0: 210, 1: 211, 2:211, ...}}
+                                         'query_with_gaps': 'MGS---THLVLK...'}}
+                                'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+                                'rep': {1: 210, 2:211, ...}}
     Returns:
-        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
-                                'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
-                                'rep': {0: 210, 1: 211, 2:211, ...}}
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
+                          'query_with_gaps': 'MGS---THLVLK...'}}
+                 'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+                 'rep': {1: 210, 2:211, ...}}
     """
     for residue in alignment_dict['counts']:
         total_weight_in_column = alignment_dict['rep'][residue]
         assert total_weight_in_column != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' % \
-                                            (msa_to_prob_distribution.__name__, residue)
+                                            (msa_to_prob_distribution.__name__, residue)  # Todo correct?
         for aa in alignment_dict['counts'][residue]:
             alignment_dict['counts'][residue][aa] /= total_weight_in_column
-            # cleaned_msa_dict[i][aa] = round(cleaned_msa_dict[i][aa], 3)
 
     return alignment_dict
 
@@ -964,7 +963,7 @@ def rank_possibilities(probability_dict):
 
 
 def process_alignment(bio_alignment_object, gaps=False):
-    """Take a Biopython MultipleSeqAlignment object and process for residue specific information
+    """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
     gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
     probability of residue i in the specific column more accurately.
@@ -975,9 +974,8 @@ def process_alignment(bio_alignment_object, gaps=False):
     Returns:
         probability_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
                                   'query_with_gaps': 'MGS---THLVLK...'}}
-                                  'counts': {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
-                                  'rep': {0: 210, 1: 211, 2:211, ...}}
-            Zero-indexed counts and rep dictionary elements
+                                  'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+                                  'rep': {1: 210, 2:211, ...}}
     """
     alignment_dict = generate_msa_dictionary(bio_alignment_object)
     alignment_dict['rep'] = add_column_weight(alignment_dict['counts'], gaps=gaps)
@@ -1011,7 +1009,7 @@ def multi_chain_alignment(mutated_sequences):
             total_alignment += alignment[chain][:, :]
 
     if total_alignment:
-        return AnalyzeMutatedSequences.process_alignment(total_alignment)
+        return process_alignment(total_alignment)
     else:
         logger.error('%s - No sequences were found!' % multi_chain_alignment.__name__)
         raise SymDesignUtils.DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
