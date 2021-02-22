@@ -18,7 +18,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 import AnalyzeMutatedSequences
-import DesignDirectory
+from DesignDirectory import DesignDirectory
 import PathUtils as PUtils
 # import PDB
 import SequenceProfile
@@ -82,19 +82,26 @@ metric_master = {'average_fragment_z_score': 'The average z-score per fragment u
                  'int_energy_res_summary_complex': 'Sum of each interface residue\'s energy for the complex',
                  'int_energy_res_summary_delta': 'Delta of int_energy_res_summary_complex and _unbound',
                  'int_energy_res_summary_unbound': 'Sum of each interface residue\'s energy for total unbound',
-                 'int_energy_res_summary_unbound_1': 'Sum of each interface residue\'s energy for interface1',
-                 'int_energy_res_summary_unbound_2': 'Sum of each interface residue\'s energy for interface2',
+                 'int_energy_res_summary_1_unbound': 'Sum of each interface residue\'s energy for interface1',
+                 'int_energy_res_summary_2_unbound': 'Sum of each interface residue\'s energy for interface2',
                  'int_separation': 'Median distance between all atom points on two sides of a interface (SC term)',
                  'interaction_energy_complex': 'The two-body interface energy of the assembled complex',
-                 # 'interface_b_factor_per_res': 'The average interface residue B-factor as measure from the PDB',
-                 'shape_complementarity': 'Interface shape complementarity (SC). Measure of fit between two surfaces',
+                 'interface_b_factor_per_res': 'The average B-factor from each atom, from each interface residue',
+                 'multiple_fragment_ratio': 'The extent to which fragments are embedded in the interface',
                  'number_hbonds': 'The number of H-bonding residues present in the interface',
+                 'nanohedra_score_per_res': 'The per residue normalized Nanohedra Score',
+                 'number_fragment_residues_total': 'The number of residues in the interface with fragment data found',
+                 'number_fragment_residues_central': 'The number of residues in the interface that are the central '
+                                                     'fragment observation',
                  'observations': 'Number of unique data points',
                  'observed_combined': 'Percent of observed residues in combined profile',
                  'observed_evolution': 'Percent of observed residues in evolutionary profile',
                  'observed_interface': 'Percent of observed residues in fragment profile',
                  'percent_core': 'The percentage of total residues which are \'core\' according to Levy, E. 2010',
                  'percent_fragment': 'Percent of residues with fragment data out of total residues',
+                 'percent_fragment_coil': 'The percentage of fragments represented from coiled elements',
+                 'percent_fragment_helix': 'The percentage of fragments represented from an a-helix',
+                 'percent_fragment_strand': 'The percentage of fragments represented from a b-strand',
                  'percent_int_area_hydrophobic': 'The percent of interface area which is occupied by hydrophobic atoms',
                  'percent_int_area_polar': 'The percent of interface area which is occupied by polar atoms',
                  'percent_rim': 'The percentage of total residues which are \'rim\' according to Levy, E. 2010',
@@ -109,14 +116,14 @@ metric_master = {'average_fragment_z_score': 'The average z-score per fragment u
                  'rim': 'The number of rim residues as classified by E. Levy 2010',
                  'rmsd': 'Root Mean Square Deviation of all CA atoms between relaxed and design state',
                  groups: 'Protocols I to search sequence space for fragments and evolutionary information',
+                 'shape_complementarity': 'Interface shape complementarity (SC). Measure of fit between two surfaces',
                  'solvation_energy': 'Energy required to hydrate the unbound components.',
                  'support': 'The number of support residues as classified by E. Levy 2010',
                  'symmetry': 'The specific symmetry type used design (point, layer, lattice)',
-                 'nanohedra_score': 'Sum of all residue match scores (1 / 1 + Z-score^2) weighted by overlap ',
+                 # 'nanohedra_score': 'Sum of all residue match scores (1 / 1 + Z-score^2) weighted by overlap ',  # DEPRECIATED
                  'fragment_z_score_total': 'The sum of all fragments Z-Scores',
                  'unique_fragments': 'The number of unique fragments placed on the pose',
                  'total_interface_residues': 'The number of interface residues found in the pose',
-                 'interface_b_factor_per_res': 'The average B factor for each atom in each interface residue',
                  'REU': 'Rosetta Energy Units. Always 0. We can disregard',
                  # 'buns_asu': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
                  # 'buns_asu_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
@@ -166,39 +173,53 @@ metric_master = {'average_fragment_z_score': 'The average z-score per fragment u
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total', 'contact_count',
                      'cst_weight', 'fsp_energy', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total',
-                     'int_connectivity_1', 'int_connectivity_1', 'int_energy_context_unbound_1',
-                     'int_energy_context_unbound_2', 'int_energy_context_complex', 'int_energy_res_summary_unbound_1',
-                     'int_energy_res_summary_unbound_2', 'int_energy_res_summary_complex', 'int_separation',
+                     'int_connectivity_1', 'int_connectivity_2', 'int_energy_context_1_unbound',
+                     'int_energy_context_2_unbound', 'int_energy_context_complex', 'int_energy_res_summary_1_unbound',
+                     'int_energy_res_summary_2_unbound', 'int_energy_res_summary_complex', 'int_separation',
                      'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch',
                      'hbonds_res_selection_complex', 'hbonds_res_selection_1_unbound',
-                     'hbonds_res_selection_2_unbound'}
-
+                     'hbonds_res_selection_2_unbound',
+                     'int_area_res_summary_hydrophobic_1_unbound', 'int_area_res_summary_hydrophobic_2_unbound',
+                     'int_area_res_summary_polar_1_unbound', 'int_area_res_summary_polar_2_unbound',
+                     'int_area_res_summary_total_1_unbound', 'int_area_res_summary_total_2_unbound'}
 #                      'fsp_total_stability', 'full_stability_complex',
-#                      'int_area_res_summary_hydrophobic_A_oligomer', 'int_area_res_summary_hydrophobic_B_oligomer',
-#                      'int_area_res_summary_polar_A_oligomer', 'int_area_res_summary_polar_B_oligomer',
-#                      'int_area_res_summary_total_A_oligomer', 'int_area_res_summary_total_B_oligomer',
 #                      'int_energy_res_summary_delta', 'number_hbonds', 'total_interface_residues',
 #                      'int_energy_context_delta',
 #                      'average_fragment_z_score', 'nanohedra_score', 'unique_fragments', 'interface_b_factor_per_res',
 #                      'int_energy_res_summary_oligomer', 'int_energy_context_oligomer',
 
-final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'cst_weight', 'fsp_energy',
-                 'percent_fragment', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total', 'int_connectivity_1',
+final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'core', 'cst_weight',
+                 'fsp_energy',
+                 'percent_fragment', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total', 'int_composition_diff',
+                 'int_connectivity_1',
                  'int_connectivity_2', 'int_energy_res_summary_1_unbound', 'int_energy_res_summary_2_unbound',
                  'int_energy_res_summary_complex', 'int_energy_res_summary_delta', 'int_energy_res_summary_unbound',
                  'int_separation', 'interaction_energy_complex', 'number_hbonds', 'observed_combined',
-                 'observed_evolution', 'observed_interface', 'ref', 'rmsd', 'shape_complementarity', 'solvation_energy'}
-#               These are missing the bb_hb contribution and are inaccurate
-#                  'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
-#                  'int_energy_context_delta', 'int_energy_context_oligomer',
-#               These are accounted for in other pose metrics
-#                  'nanohedra_score', 'average_fragment_z_score', 'unique_fragments', 'total_interface_residues',
-#                  'interface_b_factor_per_res'}
-#               These could be added in, but seem to be unnecessary
-#                  'fsp_total_stability', 'full_stability_complex',
-#                  'int_area_res_summary_hydrophobic_A_oligomer', 'int_area_res_summary_hydrophobic_B_oligomer',
-#                  'int_area_res_summary_polar_A_oligomer', 'int_area_res_summary_polar_B_oligomer',
-#                  'int_area_res_summary_total_A_oligomer', 'int_area_res_summary_total_B_oligomer',
+                 'observed_evolution', 'observed_interface', 'ref', 'rim', 'rmsd', 'shape_complementarity',
+                 'solvation_energy', 'support', 'symmetry',
+                 'int_area_res_summary_hydrophobic_1_unbound', 'int_area_res_summary_hydrophobic_2_unbound',
+                 'int_area_res_summary_polar_1_unbound', 'int_area_res_summary_polar_2_unbound',
+                 'int_area_res_summary_total_1_unbound', 'int_area_res_summary_total_2_unbound',
+                 'interface_b_factor_per_res', 'multiple_fragment_ratio', 'number_hbonds', 'nanohedra_score_per_res',
+                 'number_fragment_residues_total', 'number_fragment_residues_central', 'observations',
+                 'observed_combined',
+                 'observed_evolution', 'observed_interface', 'percent_core', 'percent_fragment',
+                 'percent_fragment_coil',
+                 'percent_fragment_helix', 'percent_fragment_strand', 'percent_int_area_hydrophobic',
+                 'percent_int_area_polar',
+                 'percent_rim', 'percent_support', 'protocol_energy_distance_sum', 'protocol_similarity_sum',
+                 'protocol_seq_distance_sum',
+                 'divergence_combined_per_residue', 'divergence_fragment_per_residue',
+                 'divergence_evolution_per_residue',
+                 'divergence_interface_per_residue'}
+#                These are missing the bb_hb contribution and are inaccurate
+#                   'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
+#                   'int_energy_context_delta', 'int_energy_context_oligomer',
+#                These are accounted for in other pose metrics
+#                   'nanohedra_score', 'average_fragment_z_score', 'unique_fragments', 'total_interface_residues',
+#                   'interface_b_factor_per_res'}
+#                These could be added in, but seem to be unnecessary
+#                   'fsp_total_stability', 'full_stability_complex',
 
 columns_to_rename = {'int_sc': 'shape_complementarity', 'int_sc_int_area': 'int_area',
                      'int_sc_median_dist': 'int_separation', 'R_full_stability': 'R_full_stability_complex',
@@ -220,13 +241,13 @@ summation_pairs = {'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
                    'buns_heavy_total': ('buns_asu', 'buns_nano'),
                    # 'int_energy_context_oligomer':
                    #     ('int_energy_context_oligomer_A', 'int_energy_context_oligomer_B'),
-                   'int_energy_res_summary_oligomer':
-                       ('int_energy_res_summary_unbound_1', 'int_energy_res_summary_unbound_2')}  # ,
+                   'int_energy_res_summary_unbound':
+                       ('int_energy_res_summary_1_unbound', 'int_energy_res_summary_2_unbound')}  # ,
 #                    'full_stability_oligomer': ('full_stability_A_oligomer', 'full_stability_B_oligomer')}  # ,
 #                    'hbonds_oligomer': ('hbonds_res_selection_A_oligomer', 'hbonds_res_selection_B_oligomer')}
 
 # subtract columns using tuple [0] - [1] to make delta column
-delta_pairs = {'int_energy_res_summary_delta': ('int_energy_res_summary_complex', 'int_energy_res_summary_oligomer'),
+delta_pairs = {'int_energy_res_summary_delta': ('int_energy_res_summary_complex', 'int_energy_res_summary_unbound'),
                'solvation_energy': ('interaction_energy_complex', 'int_energy_res_summary_delta')}
 #                'int_energy_context_delta': ('int_energy_context_complex', 'int_energy_context_oligomer'),
 #                'full_stability_delta': ('full_stability_complex', 'full_stability_oligomer')}
@@ -250,10 +271,10 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                'interaction_energy', 'interaction_energy_asu', 'interaction_energy_oligomerA',
                'interaction_energy_oligomerB', 'interaction_energy_unbound', 'res_type_constraint', 'time', 'REU',
                'full_stability_complex', 'full_stability_oligomer', 'fsp_total_stability',
-               'int_area_res_summary_hydrophobic_A_oligomer', 'int_area_res_summary_hydrophobic_B_oligomer',
-               'int_area_res_summary_polar_A_oligomer', 'int_area_res_summary_polar_B_oligomer',
-               'int_area_res_summary_total_A_oligomer', 'int_area_res_summary_total_B_oligomer',
-               'full_stability_A_oligomer', 'full_stability_B_oligomer']
+               'full_stability_1_unbound', 'full_stability_2_unbound']
+               # 'int_area_res_summary_hydrophobic_1_unbound', 'int_area_res_summary_hydrophobic_2_unbound',
+               # 'int_area_res_summary_polar_1_unbound', 'int_area_res_summary_polar_2_unbound',
+               # 'int_area_res_summary_total_1_unbound', 'int_area_res_summary_total_2_unbound',
 #                'full_stability_oligomer_A', 'full_stability_oligomer_B']
 
 # All terms but ref as this seems useful to keep
@@ -502,7 +523,7 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
         columns (list): ['per_res_energy_complex_5', 'per_res_sasa_polar_1_unbound_5', 
             'per_res_energy_1_unbound_5', ...]
     Keyword Args:
-        offset=None (dict): {'A': 0, 'B': 102}
+        offset=None (dict): {'A': 0, 'B': 102} Whether to offset the residue numbers during processing
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
@@ -889,33 +910,39 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # dssm = SDUtils.parse_pssm(des_dir.info['dssm'])
 
     # frag_db = os.path.basename(des_dir.info['issm'].split(PUtils.frag_profile)[0])
-    # interface_bkgd = SDUtils.get_db_aa_frequencies(PUtils.frag_directory[os.path.basename(des_dir.info['fragment_database'])])
-    interface_bkgd = SequenceProfile.get_db_aa_frequencies(PUtils.frag_directory[des_dir.info['fragment_database']])
     # profile_dict = {'evolution': pssm, 'fragment': issm, 'combined': dssm}
-    profile_dict = {'evolution': SequenceProfile.parse_pssm(des_dir.info['evolutionary_profile']),
-                    'fragment': SDUtils.unpickle(des_dir.info['fragment_profile']),
-                    'combined': SequenceProfile.parse_pssm(des_dir.info['design_profile'])}
-    issm_residues = list(set(profile_dict['fragment'].keys()))
-    assert len(issm_residues) > 0, 'issm has no fragment information'
+
+    profile_dict = {'combined': SequenceProfile.parse_pssm(des_dir.info['design_profile'])}
+    if 'evolutionary_profile' in des_dir.info:
+        profile_dict['evolution'] = SequenceProfile.parse_pssm(des_dir.info['evolutionary_profile'])
+    if 'fragment_profile' in des_dir.info:
+        profile_dict['fragment'] = SDUtils.unpickle(des_dir.info['fragment_profile'])
+        issm_residues = list(set(profile_dict['fragment'].keys()))
+    else:
+        issm_residues = []
+        logger.info('Design has no fragment information')
+    interface_bkgd = SequenceProfile.get_db_aa_frequencies(PUtils.frag_directory[des_dir.info['fragment_database']])
 
     # Get the scores from all design trajectories
     all_design_scores = read_scores(os.path.join(des_dir.scores, PUtils.scores_file))
-    all_design_scores = SDUtils.clean_interior_keys(all_design_scores, remove_score_columns)
+    all_design_scores = SDUtils.remove_interior_keys(all_design_scores, remove_score_columns)
 
     # Gather mutations for residue specific processing and design sequences
-    wild_type_file = SequenceProfile.get_wildtype_file(des_dir)
+    wild_type_file = des_dir.get_wildtype_file()
     wt_sequence = AnalyzeMutatedSequences.get_pdb_sequences(wild_type_file)
     all_design_files = des_dir.get_designs()
     # all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.designs)
     # logger.debug('Design Files: %s' % ', '.join(all_design_files))
     sequence_mutations = AnalyzeMutatedSequences.generate_all_design_mutations(all_design_files, wild_type_file)
     # logger.debug('Design Files: %s' % ', '.join(sequence_mutations))
-    offset_dict = AnalyzeMutatedSequences.pdb_to_pose_num(sequence_mutations['ref'])
-    logger.debug('Chain offset: %s' % str(offset_dict))
+    # offset_dict = AnalyzeMutatedSequences.pdb_to_pose_num(sequence_mutations['ref'])  # Removed on 01/2021 metrics.xml
+    # logger.debug('Chain offset: %s' % str(offset_dict))
 
     # Remove wt sequence and find all designs which have corresponding pdb files
     sequence_mutations.pop('ref')
-    all_design_sequences = AnalyzeMutatedSequences.generate_sequences(wt_sequence, sequence_mutations)  # TODO just pull from design pdbs...
+    # all_design_sequences = {AnalyzeMutatedSequences.get_pdb_sequences(file) for file in all_design_files}
+    # Todo just pull from design pdbs... reorient for {chain: {name: sequence, ...}, ...} ^^
+    all_design_sequences = AnalyzeMutatedSequences.generate_sequences(wt_sequence, sequence_mutations)
     logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
                                                         for name in all_design_sequences[chain]))
     all_design_scores = remove_pdb_prefixes(all_design_scores)
@@ -925,15 +952,20 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
     # logger.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
     #                                                      for name in all_design_sequences[chain]))
-    logger.debug('all_design_scores: %s' % ', '.join(design for design in all_design_scores))
+    logger.debug('all_design_scores: %s' % ', '.join(all_design_scores.keys()))
     # Ensure data is present for both scores and sequences, then initialize DataFrames
-    good_designs = list(set([design for chain in all_design_sequences for design in all_design_sequences[chain]])
-                        & set([design for design in all_design_scores]))
+    good_designs = list(set(design_sequences.keys() for design_sequences in all_design_sequences.values())
+                        & set(all_design_scores.keys()))
     logger.info('All Designs: %s' % ', '.join(good_designs))
     all_design_scores = SDUtils.clean_dictionary(all_design_scores, good_designs, remove=False)
     all_design_sequences = {chain: SDUtils.clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
                             for chain in all_design_sequences}
     logger.debug('All Sequences: %s' % all_design_sequences)
+
+    # Gather miscellaneous pose specific metrics
+    other_pose_metrics = des_dir.pose_metrics()  # these are initialized with DeisgnDirectory init
+    other_pose_metrics['observations'] = len(good_designs)
+
     # pd.set_option('display.max_columns', None)
     idx = pd.IndexSlice
     scores_df = pd.DataFrame(all_design_scores).T
@@ -944,7 +976,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         if column.startswith('R_'):
             report_columns[column] = column.replace('R_', '')
         elif column.startswith('symmetry_switch'):
-            symmetry = scores_df.loc[PUtils.stage[1], column].replace('make_', '')
+            other_pose_metrics['symmetry'] = scores_df.loc[PUtils.stage[1], column].replace('make_', '')
         elif column.startswith('per_res_'):
             per_res_columns.append(column)
         elif column.startswith('hbonds_res_selection'):
@@ -1000,18 +1032,19 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
     # residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, offset=offset_dict,
     #                                         hbonds=interface_hbonds)
-    residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, offset=offset_dict,
-                                      hbonds=interface_hbonds)
+    residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns, hbonds=interface_hbonds)
+    #                                 offset=offset_dict)
 
     # Calculate amino acid observation percent from residue dict and background SSM's
     obs_d = {}
     for profile in profile_dict:
-        obs_d[profile] = {design: mutation_conserved(residue_dict[design],
-                                                     SequenceProfile.offset_index(profile_dict[profile]))
+        obs_d[profile] = {design: mutation_conserved(residue_dict[design], profile_dict[profile])
                           for design in residue_dict}
 
-    # Remove residues from fragment dict if no fragment information available for them
-    obs_d['fragment'] = SDUtils.clean_interior_keys(obs_d['fragment'], issm_residues, remove=False)
+    if 'fragment' in profile_dict:
+        # Remove residues from fragment dict if no fragment information available for them
+        obs_d['fragment'] = SDUtils.remove_interior_keys(obs_d['fragment'], issm_residues, keep=True)
+
     # Add observation information into the residue dictionary
     for design in residue_dict:
         res_dict = {'observed_%s' % profile: obs_d[profile][design] for profile in obs_d}
@@ -1040,45 +1073,40 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     interior_residue_df = residue_df.loc[:, idx[:, residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)
     # Check if any of the values in columns are 1. If so, return True for that column
     interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()
-    int_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
-    des_residues = des_dir.info['design_residues']
-    if set(int_residues) != set(des_residues):
+    interface_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
+    assert len(interface_residues) > 0, 'No interface residues found!'
+    other_pose_metrics['percent_fragment'] = len(issm_residues) / len(interface_residues)
+    scores_df['total_interface_residues'] = len(interface_residues)
+    # 'design_residues' coming in as 234B (residue_number|chain)
+    design_residues = [int(residue[:-1]) for residue in des_dir.info['design_residues'].split(',')]
+    if set(interface_residues) != set(design_residues):
         logger.info('Residues %s are located in the interior' %
-                    ', '.join(map(str, list(set(des_residues) - set(int_residues)))))
-    scores_df['total_interface_residues'] = len(int_residues)
+                    ', '.join(map(str, set(design_residues) - set(interface_residues))))
 
-    # Gather miscellaneous pose specific metrics
-    other_pose_metrics = des_dir.pose_metrics()
-    # other_pose_metrics = Pose.gather_fragment_metrics(des_dir)
-    # nanohedra_score, average_fragment_z_score, unique_fragments
-    other_pose_metrics['observations'] = len(designs)
-    other_pose_metrics['symmetry'] = symmetry
-    # other_pose_metrics['total_interface_residues'] = len(int_residues)
-    other_pose_metrics['percent_fragment'] = len(profile_dict['fragment']) / len(int_residues)
-
-    # Interface B Factor TODO ensure clean_asu.pdb has B-factors
-    wt_pdb = PDB(file=wild_type_file)
+    # Interface B Factor TODO ensure clean_asu.pdb has B-factors for Nanohedra
+    wt_pdb = PDB.from_file(wild_type_file)
     chain_sep = wt_pdb.chain(wt_pdb.chain_id_list[0]).get_terminal_residue('c').number  # this only works with 2 chains TODO
     int_b_factor = 0
-    for residue in int_residues:
+    for residue in interface_residues:
         if residue <= chain_sep:
             int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[0], residue)
         else:
             int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[1], residue)
-    other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(int_residues), 2)
+    other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
 
     pose_alignment = AnalyzeMutatedSequences.multi_chain_alignment(all_design_sequences)
-    mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], int_residues, remove=False)
+    mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
     # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
     pose_res_dict = {}
-    for profile in profile_dict:  # both mut_freq and profile_dict[profile] are zero indexed
-        pose_res_dict['divergence_%s' % profile] = SequenceProfile.pos_specific_jsd(mutation_frequencies, profile_dict[profile])
-
+    for profile in profile_dict:  # both mut_freq and profile_dict[profile] are one-indexed
+        pose_res_dict['divergence_%s' % profile] = SequenceProfile.pos_specific_jsd(mutation_frequencies,
+                                                                                    profile_dict[profile])
+    # if 'fragment' in profile_dict:
     pose_res_dict['divergence_interface'] = AnalyzeMutatedSequences.compute_jsd(mutation_frequencies, interface_bkgd)
     # pose_res_dict['hydrophobic_collapse_index'] = hci()  # TODO HCI
 
     # Subtract residue info from reference (refine)
-    if delta_refine:
+    if delta_refine:  # TODO REMOVE
         # TODO Refine is not great ref for deltaG as modelling occurred. Only subtracting energy [res_columns_subtract]
         residue_df.update(residue_df.iloc[:, residue_df.columns.get_level_values(1) == 'energy'].sub(
             residue_df.loc[PUtils.stage[1], residue_df.columns.get_level_values(1) == 'energy']))
@@ -1110,16 +1138,11 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                        (des_dir.path, ', '.join(residue_na_index)))
 
     # Fix reported per_residue_energy to contain only interface. BUT With delta, these residues should be subtracted
-    # int_residue_df = residue_df.loc[:, idx[int_residues, :]]
+    # int_residue_df = residue_df.loc[:, idx[interface_residues, :]]
 
     # Get unique protocols for protocol specific metrics and drop unneeded protocol values
     unique_protocols = protocol_s.unique().tolist()
-    protocol_intersection = set(protocols_of_interest) & set(unique_protocols)
-    # if len(unique_protocols) == 1:  # TODO protocol switch or no design switch
-    assert protocol_intersection == set(protocols_of_interest), \
-        'Missing %s protocol required for significance measurements! Analysis failed' \
-        % ', '.join(set(protocols_of_interest) - protocol_intersection)
-    for value in ['refine', '']:  # TODO remove '' after P432 MinMatch6 upon future script deployment
+    for value in ['refine']:  # TODO TEST if remove '' is fixed ## after P432 MinMatch6 upon future script deployment
         try:
             unique_protocols.remove(value)
         except ValueError:
@@ -1135,10 +1158,12 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                                                    if name in designs_by_protocol[protocol]}
                                            for chain in all_design_sequences}
         protocol_alignment = AnalyzeMutatedSequences.multi_chain_alignment(sequences_by_protocol[protocol])
-        protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'], int_residues)
-        protocol_res_dict = {'divergence_%s' % profile: SequenceProfile.pos_specific_jsd(protocol_mutation_freq, profile_dict[profile])
+        protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'], interface_residues)
+        protocol_res_dict = {'divergence_%s' % profile: SequenceProfile.pos_specific_jsd(protocol_mutation_freq,
+                                                                                         profile_dict[profile])
                              for profile in profile_dict}  # both prot_freq and profile_dict[profile] are zero indexed
-        protocol_res_dict['divergence_interface'] = AnalyzeMutatedSequences.compute_jsd(protocol_mutation_freq, interface_bkgd)
+        protocol_res_dict['divergence_interface'] = AnalyzeMutatedSequences.compute_jsd(protocol_mutation_freq,
+                                                                                        interface_bkgd)
 
         # Get per residue divergence metric by protocol
         for key in protocol_res_dict:
@@ -1182,92 +1207,103 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Calculate protocol significance
     # Find all unique combinations of protocols using 'mean' as all protocol combination source. Excludes Consensus
     protocol_subset_df = trajectory_df.loc[:, protocol_specific_columns]
-    sig_df = protocol_stat_df[stats_metrics[0]]
-    assert len(sig_df.index.to_list()) > 1, 'Can\'t measure protocol significance'
-    pvalue_df = pd.DataFrame()
-    for pair in combinations(sorted(sig_df.index.to_list()), 2):
-        select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]
-        difference_s = sig_df.loc[pair[0], protocol_specific_columns].sub(
-            sig_df.loc[pair[1], protocol_specific_columns])
-        pvalue_df[pair] = df_permutation_test(select_df, difference_s, group1_size=len(designs_by_protocol[pair[0]]),
-                                              compare=stats_metrics[0])
-    logger.debug(pvalue_df)
-    pvalue_df = pvalue_df.T  # change the significance pairs to the indices and protocol specific columns to columns
-    trajectory_df = trajectory_df.append(pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1))
+    protocol_intersection = set(protocols_of_interest) & set(unique_protocols)
+    # if len(unique_protocols) == 1:  # TODO protocol switch or no design switch
+    if protocol_intersection != set(protocols_of_interest):
+        logger.warning('Missing %s protocol required for significance measurements! Significance analysis failed!'
+                       % ', '.join(set(protocols_of_interest) - protocol_intersection))
+        significance = False
+    else:
+        significance = True
 
-    # Get pose sequence divergence TODO protocol switch
-    sim_sum_and_divergence_stats = {'%s_per_res' % key: per_res_metric(pose_res_dict[key]) for key in pose_res_dict}
+    if significance:
+        sig_df = protocol_stat_df[stats_metrics[0]]
+        assert len(sig_df.index.to_list()) > 1, 'Can\'t measure protocol significance'
+        pvalue_df = pd.DataFrame()
+        for pair in combinations(sorted(sig_df.index.to_list()), 2):
+            select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]
+            difference_s = sig_df.loc[pair[0], protocol_specific_columns].sub(
+                sig_df.loc[pair[1], protocol_specific_columns])
+            pvalue_df[pair] = df_permutation_test(select_df, difference_s, group1_size=len(designs_by_protocol[pair[0]]),
+                                                  compare=stats_metrics[0])
+        logger.debug(pvalue_df)
+        pvalue_df = pvalue_df.T  # change the significance pairs to the indices and protocol specific columns to columns
+        trajectory_df = trajectory_df.append(pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1))
 
-    # Compute sequence differences between each protocol
-    residue_energy_df = clean_residue_df.loc[:, idx[:, clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
-    # num_components = 3  # TODO choose number of componenents or percent variance explained
-    # pca = PCA(num_components)
-    res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
-    residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
-    residue_energy_pc = res_pca.fit_transform(residue_energy_np)
-    residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
-                                        columns=['pc' + str(x + SDUtils.index_offset)
-                                                 for x in range(len(res_pca.components_))])
-    #                                    ,columns=residue_energy_df.columns)
+        # Get pose sequence divergence TODO protocol switch
+        sim_sum_and_divergence_stats = {'%s_per_res' % key: per_res_metric(pose_res_dict[key]) for key in pose_res_dict}
 
-    seq_pca = copy.deepcopy(res_pca)
-    residue_dict.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
-    pairwise_sequence_diff_np = SDUtils.all_vs_all(residue_dict, SequenceProfile.sequence_difference)
-    pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
-    seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
-    # Compute the euclidean distance
-    # pairwise_pca_distance_np = pdist(seq_pc)
-    # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
+        # Compute sequence differences between each protocol
+        residue_energy_df = clean_residue_df.loc[:, idx[:, clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
+        # num_components = 3  # TODO choose number of componenents or percent variance explained
+        # pca = PCA(num_components)
+        res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
+        residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
+        residue_energy_pc = res_pca.fit_transform(residue_energy_np)
+        residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
+                                            columns=['pc' + str(x + SDUtils.index_offset)
+                                                     for x in range(len(res_pca.components_))])
+        #                                    ,columns=residue_energy_df.columns)
 
-    # Make PC DataFrame
-    # First take all the principal components identified from above and merge with labels
-    # Next the labels will be grouped and stats are taken for each group (mean is important)
-    # All protocol means will have pairwise distance measured as a means of accessing similarity
-    # These distance metrics will be reported in the final pose statistics
-    seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_dict.keys()),
-                             columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
-    # Merge principle components with labels
-    residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-    seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+        seq_pca = copy.deepcopy(res_pca)
+        residue_dict.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
+        pairwise_sequence_diff_np = SDUtils.all_vs_all(residue_dict, SequenceProfile.sequence_difference)
+        pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
+        seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
+        # Compute the euclidean distance
+        # pairwise_pca_distance_np = pdist(seq_pc)
+        # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
 
-    # Gather protocol similarity/distance metrics
-    sim_measures = {'similarity': None, 'seq_distance': {}, 'energy_distance': {}}
-    # Find similarity between each type of protocol by taking row average of all p-values for each metric
-    mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance
-    mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
-    sim_measures['similarity'] = mean_pvalue_s
-    # sim_measures['similarity'] = pvalue_df.mean(axis=1)
+        # Make PC DataFrame
+        # First take all the principal components identified from above and merge with labels
+        # Next the labels will be grouped and stats are taken for each group (mean is important)
+        # All protocol means will have pairwise distance measured as a means of accessing similarity
+        # These distance metrics will be reported in the final pose statistics
+        seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_dict.keys()),
+                                 columns=['pc' + str(x + SDUtils.index_offset)
+                                          for x in range(len(seq_pca.components_))])
+        # Merge principle components with labels
+        residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
+        seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
 
-    # TODO protocol switch or no design switch
-    grouped_pc_stat_df_dict, grouped_pc_energy_df_dict = {}, {}
-    for stat in stats_metrics:
-        grouped_pc_stat_df_dict[stat] = getattr(seq_pc_df.groupby(groups), stat)()
-        grouped_pc_energy_df_dict[stat] = getattr(residue_energy_pc_df.groupby(groups), stat)()
-        if stat == 'mean':
-            # if renaming is necessary
-            # protocol_stat_df[stat].index = protocol_stat_df[stat].index.to_series().map(
-            #     {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
-            seq_pca_mean_distance_vector = pdist(grouped_pc_stat_df_dict[stat])
-            energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df_dict[stat])
-            # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
-            #                             for k in seq_pca_mean_distance_vector)
-            for k, dist in enumerate(seq_pca_mean_distance_vector):
-                i, j = SDUtils.condensed_to_square(k, len(grouped_pc_stat_df_dict[stat].index))
-                sim_measures['seq_distance'][(grouped_pc_stat_df_dict[stat].index[i],
-                                              grouped_pc_stat_df_dict[stat].index[j])] = dist
+        # Gather protocol similarity/distance metrics
+        sim_measures = {'similarity': None, 'seq_distance': {}, 'energy_distance': {}}
+        # Find similarity between each type of protocol by taking row average of all p-values for each metric
+        mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance
+        mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
+        sim_measures['similarity'] = mean_pvalue_s
+        # sim_measures['similarity'] = pvalue_df.mean(axis=1)
 
-            for k, e_dist in enumerate(energy_pca_mean_distance_vector):
-                i, j = SDUtils.condensed_to_square(k, len(grouped_pc_energy_df_dict[stat].index))
-                sim_measures['energy_distance'][(grouped_pc_energy_df_dict[stat].index[i],
-                                                 grouped_pc_energy_df_dict[stat].index[j])] = e_dist
+        # TODO protocol switch or no design switch
+        grouped_pc_stat_df_dict, grouped_pc_energy_df_dict = {}, {}
+        for stat in stats_metrics:
+            grouped_pc_stat_df_dict[stat] = getattr(seq_pc_df.groupby(groups), stat)()
+            grouped_pc_energy_df_dict[stat] = getattr(residue_energy_pc_df.groupby(groups), stat)()
+            if stat == 'mean':
+                # if renaming is necessary
+                # protocol_stat_df[stat].index = protocol_stat_df[stat].index.to_series().map(
+                #     {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
+                seq_pca_mean_distance_vector = pdist(grouped_pc_stat_df_dict[stat])
+                energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df_dict[stat])
+                # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
+                #                             for k in seq_pca_mean_distance_vector)
+                for k, dist in enumerate(seq_pca_mean_distance_vector):
+                    i, j = SDUtils.condensed_to_square(k, len(grouped_pc_stat_df_dict[stat].index))
+                    sim_measures['seq_distance'][(grouped_pc_stat_df_dict[stat].index[i],
+                                                  grouped_pc_stat_df_dict[stat].index[j])] = dist
 
-    for pc_stat in grouped_pc_stat_df_dict:
-        logger.info(grouped_pc_stat_df_dict[pc_stat])
+                for k, e_dist in enumerate(energy_pca_mean_distance_vector):
+                    i, j = SDUtils.condensed_to_square(k, len(grouped_pc_energy_df_dict[stat].index))
+                    sim_measures['energy_distance'][(grouped_pc_energy_df_dict[stat].index[i],
+                                                     grouped_pc_energy_df_dict[stat].index[j])] = e_dist
 
-    # Find total protocol similarity for different metrics
-    for measure in sim_measures:
-        measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
-        sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
+        for pc_stat in grouped_pc_stat_df_dict:
+            logger.info(grouped_pc_stat_df_dict[pc_stat])
+
+        # Find total protocol similarity for different metrics
+        for measure in sim_measures:
+            measure_s = pd.Series({pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
+            sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
 
     # Create figures
     if figures:
