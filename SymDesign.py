@@ -24,7 +24,7 @@ import PathUtils as PUtils
 import Pose
 import SequenceProfile
 import SymDesignUtils as SDUtils
-from AnalyzeOutput import analyze_output_s, analyze_output_mp
+from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, final_metrics
 from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
@@ -441,11 +441,11 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
             # failures = [idx for idx, result in enumerate(results) if isinstance(result, BaseException)]
             # for index in reversed(failures):
             #     del results[index]
-            success = [result for result in results if not isinstance(result, BaseException)]
+            successes = [result for result in results if not isinstance(result, BaseException)]
 
             if len(success) > 0:
                 # Save Design DataFrame
-                design_df = pd.DataFrame(results)
+                design_df = pd.DataFrame(successes)
                 out_path = os.path.join(program_root, args.output)
                 design_df.to_csv(out_path)
                 logger.info('Analysis of all poses written to %s' % out_path)
@@ -587,17 +587,20 @@ if __name__ == '__main__':
                                  help='Create and save figures for all poses?\nDefault=False')
     parser_analysis.add_argument('-j', '--join', action='store_true',
                                  help='Join Trajectory and Residue Dataframes?\nDefault=False')
-    parser_analysis.add_argument('-g', '--delta_g', action='store_true',
+    parser_analysis.add_argument('-g', '--guide', action='store_true',
+                                 help='Whether to display the analysis guide. This will inform you about the various '
+                                      'metrics available after analysis')
+    parser_analysis.add_argument('-dg', '--delta_g', action='store_true',
                                  help='Compute deltaG versus Refine structure?\nDefault=False')
     # ---------------------------------------------------
-    parser_sequence = subparsers.add_parser('sequence', help='Generate protein sequences for selected designs. '
-                                                             'Either -d or -p is required. If both are provided, '
-                                                             '-p will be prioritized')
+    parser_sequence = subparsers.add_parser('sequence_selection', help='Generate protein sequences for selected designs'
+                                                                       '. Either -df or -p is required. If both are '
+                                                                       'provided, -p will be prioritized')
     sequence_required = parser_sequence.add_mutually_exclusive_group(required=True)
-    sequence_required.add_argument('-d', '--dataframe', type=os.path.abspath,  # required=True,
+    sequence_required.add_argument('-df', '--dataframe', type=os.path.abspath,  # required=True,
                                    help='Dataframe.csv from analysis containing pose info.')
     sequence_required.add_argument('-p', '--pose_design_file', type=str,
-                                   help='Name of pose, design .csv file to serve as sequence selector')
+                                   help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_sequence.add_argument('-c', '--consensus', action='store_true', help='Whether to grab the consensus sequence'
                                                                                 '\nDefault=False')
     parser_sequence.add_argument('-f', '--filters', action='store_true', help='Metrics with which to filter on\n'
@@ -1067,6 +1070,21 @@ if __name__ == '__main__':
             # logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design_command, command_file))
     # ---------------------------------------------------
     elif args.sub_module == 'analysis':  # -o output, -f figures, -n no_save, -j join, -g delta_g
+        if args.guide:
+            metrics_description = [(metric, metric_master[metric]) for metric in sorted(final_metrics)]
+            formatted_metrics = SDUtils.pretty_format_table(metrics_description)
+            logger.info('After running \'%s analysis\', the following metrics will be available for each pose '
+                        '(unique design configuration) selected for analysis:\n\t%s\n\nAdditionally, you can view the '
+                        'pose specific files [pose-id]_Trajectory.csv for comparison of different design trials for an '
+                        'individual pose, and [pose-id]_Residues.csv for residue specific information over the various '
+                        'trajectories. Usage of overall pose metrics '
+                        'across all poses should facilitate selection of the best configurations to move forward'
+                        ' with, while Trajectory and Residue information can inform your choice of sequence selection '
+                        'parameters. Selection of the resulting poses'
+                        ' can be accomplished through the %s module \'sequence_selection\'.\n\t'
+                        '\'%s sequence_selection -h\' will get you started.'
+                        % (PUtils.program_command, '\n\t'.join(formatted_metrics), PUtils.program_name,
+                           PUtils.program_command))
         save = True
         if args.no_save:
             save = False
@@ -1190,7 +1208,7 @@ if __name__ == '__main__':
                     logger.info('For \'%s\' stage, default settings should generate %d files'
                                 % (stage, PUtils.stage_f[stage]['len']))
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
-    elif args.sub_module == 'sequence':  # -c consensus, -d dataframe, -f filters, -n number, -p pose_design_file,
+    elif args.sub_module == 'sequence_selection':  # -c consensus, -df dataframe, -f filters, -n number, -p pose_design_file,
         if args.pose_design_file:        # -s selection_string, -w weights
             # Grab all poses (directories) to be processed from either directory name or file
             with open(args.pose_design_file) as csv_file:
