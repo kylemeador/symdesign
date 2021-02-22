@@ -1085,6 +1085,7 @@ if __name__ == '__main__':
                         '\'%s sequence_selection -h\' will get you started.'
                         % (PUtils.program_command, '\n\t'.join(formatted_metrics), PUtils.program_name,
                            PUtils.program_command))
+            exit()
         save = True
         if args.no_save:
             save = False
