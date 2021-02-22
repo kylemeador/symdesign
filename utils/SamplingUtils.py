@@ -118,16 +118,19 @@ def get_tx_dof_ref_frame_var_vec(string_vec, var):
 def get_ext_dof(ref_frame_tx_dof1, ref_frame_tx_dof2):
     ext_dof = []
 
-    parsed_1 = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof1)
-    parsed_2 = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof2)
+    parsed_ref_frame_tx_dof1 = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof1)
+    parsed_ref_frame_tx_dof2 = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof2)
 
-    e1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_1, 'e')
-    f1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_1, 'f')
-    g1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_1, 'g')
+    if parsed_ref_frame_tx_dof1 == ['0', '0', '0'] and parsed_ref_frame_tx_dof2 == ['0', '0', '0']:
+        return np.empty((0, 3), float)
 
-    e2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_2, 'e')
-    f2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_2, 'f')
-    g2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_2, 'g')
+    e1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof1, 'e')
+    f1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof1, 'f')
+    g1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof1, 'g')
+
+    e2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof2, 'e')
+    f2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof2, 'f')
+    g2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof2, 'g')
 
     e2e1_diff = (np.array(e2_var_vec) - np.array(e1_var_vec)).tolist()
     f2f1_diff = (np.array(f2_var_vec) - np.array(f1_var_vec)).tolist()
