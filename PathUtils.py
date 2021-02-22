@@ -54,7 +54,7 @@ pdbs_outdir = 'designs'  # was rosetta_pdbs/ 1/25/21
 scores_outdir = 'scores'
 scripts = 'scripts'
 scores_file = 'design_scores.sc'  # was all_scores.sc 1/25/21
-pose_metrics_file = 'pose_scores.sc'
+pose_metrics_file = 'pose_scores.sc'  # UNUSED
 analysis_file = 'AllDesignPoseMetrics.csv'
 directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\nEx:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
                       '\nIn design directory \'tx_c/\', output is located in \'%s\' and \'%s\'.' \

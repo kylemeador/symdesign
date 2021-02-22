@@ -309,7 +309,7 @@ def clean_dictionary(dictionary, keys, remove=True):
         return {key: dictionary[key] for key in keys if key in dictionary}
 
 
-def clean_interior_keys(dictionary, keys, remove=True):
+def remove_interior_keys(dictionary, keys, keep=False):
     """Clean specified keys from a dictionaries internal dictionary. Default removes the specified keys
 
     Args:
@@ -320,7 +320,7 @@ def clean_interior_keys(dictionary, keys, remove=True):
     Returns:
         (dict): {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
     """
-    if remove:
+    if not keep:
         for entry in dictionary:
             for key in keys:
                 try:
