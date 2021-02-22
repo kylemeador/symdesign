@@ -2,7 +2,8 @@ import time
 
 import sklearn.neighbors
 
-from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue
+from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue, match_score_from_z_value
+from PDB import PDB
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import *
 from classes.OptimalTx import *
@@ -18,14 +19,16 @@ from utils.SamplingUtils import *
 from utils.SymmUtils import get_uc_dimensions
 
 
-def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1, is_zshift2, optimal_tx_params,
-        ghostfrag_surffrag_pair_list, complete_ghost_frag_list, complete_surf_frag_list, log_filepath,
-        degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict, result_design_sym, uc_spec_string,
-        design_dim, pdb1_path, pdb2_path, expand_matrices, eul_lookup,
-        rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_exp_assembly=False, output_uc=False,
-        output_surrounding_uc=False, clash_dist=2.2, min_matched=3):
+# Globals
+fragment_length = 5
 
-    high_quality_match_value = 1
+
+def out(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, optimal_tx_params, ghostfrag_surffrag_pair_list,
+        complete_ghost_frag_np, complete_surf_frag_np, log_filepath, degen_subdir_out_path, rot_subdir_out_path,
+        ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup, rot_mat1=None, rot_mat2=None, max_z_val=2.0,
+        output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, clash_dist=2.2, min_matched=3):
+
+    high_quality_match_value = 1  # when z-value used, 0.5 if match score is used
     for tx_idx in range(len(optimal_tx_params)):
         with open(log_filepath, "a+") as log_file:
             log_file.write("Optimal Shift %d\n" % (tx_idx + 1))
@@ -70,7 +73,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 
         # Get Oligomer1 Optimal Internal Translation vector
         representative_int_dof_tx_param_1 = None
-        if is_zshift1:
+        if sym_entry.is_internal_tx1():
             representative_int_dof_tx_param_1 = [0, 0, tx_parameters[n_dof_external: n_dof_external + 1][0]]
 
         # Get Oligomer1 Optimal External Translation vector
@@ -81,7 +84,7 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 
         # Get Oligomer2 Optimal Internal Translation vector
         representative_int_dof_tx_param_2 = None
-        if is_zshift2:
+        if sym_entry.is_internal_tx2():
             representative_int_dof_tx_param_2 = [0, 0, tx_parameters[n_dof_external + 1: n_dof_external + 2][0]]
 
         # Get Oligomer2 Optimal External Translation vector
@@ -114,18 +117,28 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                 if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0 and ref_frame_tx_dof_g > 0:
                     ref_frame_var_is_pos = True
 
-            uc_dimensions = get_uc_dimensions(uc_spec_string, ref_frame_tx_dof_e, ref_frame_tx_dof_f,
+            uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), ref_frame_tx_dof_e, ref_frame_tx_dof_f,
                                               ref_frame_tx_dof_g)
 
         if (optimal_ext_dof_shifts is not None and ref_frame_var_is_pos) or (optimal_ext_dof_shifts is None):
 
             # Rotate, Translate and Set PDB1
-            pdb1_copy = rot_txint_set_txext_pdb(pdb1, rot_mat=rot_mat1, internal_tx_vec=representative_int_dof_tx_param_1,
-                                                set_mat=set_mat1, ext_tx_vec=representative_ext_dof_tx_params_1)
+            pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=representative_int_dof_tx_param_1,
+                                                     rotation2=sym_entry.get_rot_set_mat_group1(),
+                                                     translation2=representative_ext_dof_tx_params_1)
+            # pdb1_copy = rot_txint_set_txext_pdb(pdb1, rot_mat=rot_mat1,
+            #                                     internal_tx_vec=representative_int_dof_tx_param_1,
+            #                                     set_mat=sym_entry.get_rot_set_mat_group1(),
+            #                                     ext_tx_vec=representative_ext_dof_tx_params_1)
 
             # Rotate, Translate and Set PDB2
-            pdb2_copy = rot_txint_set_txext_pdb(pdb2, rot_mat=rot_mat2, internal_tx_vec=representative_int_dof_tx_param_2,
-                                                set_mat=set_mat2, ext_tx_vec=representative_ext_dof_tx_params_2)
+            pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=representative_int_dof_tx_param_2,
+                                                     rotation2=sym_entry.get_rot_set_mat_group2(),
+                                                     translation2=representative_ext_dof_tx_params_2)
+            # pdb2_copy = rot_txint_set_txext_pdb(pdb2, rot_mat=rot_mat2,
+            #                                     internal_tx_vec=representative_int_dof_tx_param_2,
+            #                                     set_mat=sym_entry.get_rot_set_mat_group1(),
+            #                                     ext_tx_vec=representative_ext_dof_tx_params_2)
 
             copy_rot_tr_set_time_stop = time.time()
             copy_rot_tr_set_time = copy_rot_tr_set_time_stop - copy_rot_tr_set_time_start
@@ -146,26 +159,21 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                    % str(oligomer1_oligomer2_clash_time))
 
                 # Full Interface Fragment Match
-                # TODO BIG This routine takes the bulk of the docking program due to the high amount of calculations.
-                #  It could be reduced by only transforming each pdb instead of separating the guide atoms from the normal atoms
-                #   This is already done for the ghost fragments... Low hanging fruit for surface frags, unless reason...
-                #  The call to return guide atoms could be implemented on the returned transformed fragment atoms/coords
-                #  In fact the transformed atoms are not needed at all in the output. Similar concept to PDB output except less useful in program operation.
-                #   The index of the fragment (i,j,k) could be used with the set and rot matrices, followed by the internal and external tx
-                #    Lots of memory overhead, this likely is what causes program termination so often in the optimal translation routines
-                #  The use of hashing on the surface and ghost fragments could increase program runtime, over tuple calls
+                # Todo
+                #  The use of hashing on the surface and ghost fragments could increase program runtime, over tuple call
                 #   to the ghost_fragment objects to return the aligned chain and residue then test for membership...
-                #    Is the chain necessary? Probably. Two chains can occupy interface, even the same residue could be used
-                #    Think D2 symmetry
-                #   Store all the ghost/surface frags in a chain/residue dictionary?
+                #  Is the chain necessary? Two chains can occupy interface, even the same residue could be used
+                #   Think D2 symmetry
+                #  Store all the ghost/surface frags in a chain/residue dictionary?
                 get_int_ghost_surf_frags_time_start = time.time()
-                interface_ghostfrag_l, interface_monofrag2_l, interface_ghostfrag_guide_coords_l, \
-                    interface_monofrag2_guide_coords_l, unique_interface_frag_count_pdb1, \
-                    unique_interface_frag_count_pdb2 = \
-                    get_interface_ghost_surf_frags(pdb1_copy, pdb2_copy, complete_ghost_frag_list,
-                                                   complete_surf_frag_list, rot_mat1, rot_mat2,
+                interface_ghostfrag_guide_coords_np, interface_monofrag2_guide_coords_np, \
+                    unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = \
+                    get_interface_ghost_surf_frags(pdb1_copy, pdb2_copy, complete_ghost_frag_np,
+                                                   complete_surf_frag_np, rot_mat1, rot_mat2,
                                                    representative_int_dof_tx_param_1, representative_int_dof_tx_param_2,
-                                                   set_mat1, set_mat2, representative_ext_dof_tx_params_1,
+                                                   sym_entry.get_rot_set_mat_group1(),
+                                                   sym_entry.get_rot_set_mat_group2(),
+                                                   representative_ext_dof_tx_params_1,
                                                    representative_ext_dof_tx_params_2)
                 get_int_ghost_surf_frags_time_end = time.time()
                 get_int_ghost_surf_frags_time = get_int_ghost_surf_frags_time_end - get_int_ghost_surf_frags_time_start
@@ -184,27 +192,45 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                     # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Mono Fragment) guide coodinate pairs
                     # in the same Euler rotational space bucket
                     eul_lookup_start_time = time.time()
-                    eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_l,
-                                                                               interface_monofrag2_guide_coords_l)
-                    eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
-                                            true_tup[2]]
+                    overlapping_ghost_frag_array, overlapping_surf_frag_array = \
+                        zip(*eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_np,
+                                                           interface_monofrag2_guide_coords_np))
+                    # eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
+                    #                         true_tup[2]]
                     eul_lookup_end_time = time.time()
                     eul_lookup_time = eul_lookup_end_time - eul_lookup_start_time
 
-                    # Get RMSD and z-value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
-                    # pair_count = 0
-                    # total_overlap_count = 0
+                    # Calculate z_value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
                     overlap_score_time_start = time.time()
-                    all_fragment_overlap = filter_euler_lookup_by_zvalue(eul_lookup_true_list, interface_ghostfrag_l,
-                                                                         interface_ghostfrag_guide_coords_l,
-                                                                         interface_monofrag2_l,
-                                                                         interface_monofrag2_guide_coords_l,
-                                                                         z_value_func=calculate_overlap,
-                                                                         max_z_value=max_z_val)
-                    passing_fragment_overlap = list(filter(None, all_fragment_overlap))
-                    ghostfrag_surffrag_pairs = [(interface_ghostfrag_l[eul_lookup_true_list[idx][0]],
-                                                 interface_monofrag2_l[eul_lookup_true_list[idx][1]])
-                                                for idx, boolean in enumerate(all_fragment_overlap) if boolean]
+                    # filter array by matching type for surface (i) and ghost (j) frags
+                    ij_type_match = [True if complete_surf_frag_np[overlapping_surf_frag_array[idx]].get_i_type() ==
+                                             complete_ghost_frag_np[ghost_frag_idx].get_j_type() else False
+                                     for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
+                    # get only those indices that pass and their associated coords
+                    passing_ghost_indices = np.array([ghost_idx
+                                                      for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                                                      if ij_type_match[idx]])
+                    passing_ghost_coords = interface_ghostfrag_guide_coords_np[passing_ghost_indices]
+                    passing_surf_indices = np.array([surf_idx
+                                                     for idx, surf_idx in enumerate(overlapping_surf_frag_array)
+                                                     if ij_type_match[idx]])
+                    passing_surf_coords = interface_monofrag2_guide_coords_np[passing_surf_indices]
+                    reference_rmsds = np.array([float(max(complete_ghost_frag_np[ghost_idx].get_rmsd(), 0.01))
+                                                for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                                                if ij_type_match[idx]])
+
+                    all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
+                                                             max_z_value=max_z_val)
+                    passing_overlaps = [idx for idx, overlap in enumerate(all_fragment_overlap) if overlap]
+                    # passing_z_values = [overlap for overlap in all_fragment_overlap if overlap]
+                    passing_z_values = all_fragment_overlap[passing_overlaps]
+                    match_scores = match_score_from_z_value(passing_z_values)
+                    interface_ghostfrags = complete_ghost_frag_np[passing_ghost_indices[passing_overlaps]]
+                    interface_monofrags2 = complete_surf_frag_np[passing_surf_indices[passing_overlaps]]
+
+                    ghostfrag_surffrag_pairs = [(complete_ghost_frag_np[passing_ghost_indices[idx]],
+                                                 complete_surf_frag_np[passing_surf_indices[idx]])
+                                                for idx in passing_overlaps]
 
                     overlap_score_time_stop = time.time()
                     overlap_score_time = overlap_score_time_stop - overlap_score_time_start
@@ -213,181 +239,13 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                         log_file.write("\t%d Fragment Match(es) Found in Complete Cluster Representative Fragment "
                                        "Library\n\t(Euler Lookup took %s s for %d fragment pairs and Overlap Score "
                                        "Calculation took %s for %d fragment pairs)\n" %
-                                       (len(passing_fragment_overlap), str(eul_lookup_time),
-                                        len(eul_lookup_all_to_all_list), str(overlap_score_time),
-                                        len(eul_lookup_true_list)))
-
-                    high_qual_match_count = sum([1 for match_score, z_value in passing_fragment_overlap
+                                       (len(ghostfrag_surffrag_pairs), str(eul_lookup_time),
+                                        len(interface_ghostfrag_guide_coords_np), str(overlap_score_time),
+                                        len(overlapping_ghost_frag_array)))
+                    high_qual_match_count = sum([1 for z_value in passing_z_values
                                                  if z_value <= high_quality_match_value])
 
                     if high_qual_match_count >= min_matched:
-                        for frag_idx, (interface_ghost_frag, interface_mono_frag) in enumerate(ghostfrag_surffrag_pairs):
-
-                            ghost_frag_i_type = interface_ghost_frag.get_i_frag_type()
-                            ghost_frag_j_type = interface_ghost_frag.get_j_frag_type()
-                            ghost_frag_k_type = interface_ghost_frag.get_k_frag_type()
-                            cluster_id = "i%s_j%s_k%s" % (ghost_frag_i_type, ghost_frag_j_type, ghost_frag_k_type)
-
-                            interface_ghost_frag_cluster_res_freq_list = \
-                                ijk_intfrag_cluster_info_dict[ghost_frag_i_type][ghost_frag_j_type][
-                                    ghost_frag_k_type].get_central_residue_pair_freqs()
-                            pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num = \
-                                interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
-                            pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num = \
-                                interface_mono_frag.get_central_res_tup()
-
-                            covered_residues_pdb1 = [
-                                (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num + j)
-                                for j in range(-2, 3)]
-                            covered_residues_pdb2 = [
-                                (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num + j)
-                                for j in range(-2, 3)]
-                            score_term = passing_fragment_overlap[frag_idx][0]
-                            for k in range(5):
-                                chid1, resnum1 = covered_residues_pdb1[k]
-                                chid2, resnum2 = covered_residues_pdb2[k]
-                                if (chid1, resnum1) not in chid_resnum_scores_dict_pdb1:
-                                    chid_resnum_scores_dict_pdb1[(chid1, resnum1)] = [score_term]
-                                else:
-                                    chid_resnum_scores_dict_pdb1[(chid1, resnum1)].append(score_term)
-
-                                if (chid2, resnum2) not in chid_resnum_scores_dict_pdb2:
-                                    chid_resnum_scores_dict_pdb2[(chid2, resnum2)] = [score_term]
-                                else:
-                                    chid_resnum_scores_dict_pdb2[(chid2, resnum2)].append(score_term)
-
-                            if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) \
-                                    not in unique_interface_monofrags_infolist_pdb1:
-                                unique_interface_monofrags_infolist_pdb1.append(
-                                    (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num))
-
-                            if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) \
-                                    not in unique_interface_monofrags_infolist_pdb2:
-                                unique_interface_monofrags_infolist_pdb2.append(
-                                    (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
-
-                            z_val = passing_fragment_overlap[frag_idx][1]
-                            frag_match_info_list.append((interface_ghost_frag, interface_mono_frag, z_val,
-                                                         cluster_id, frag_idx + 1,
-                                                         interface_ghost_frag_cluster_res_freq_list,
-                                                         interface_ghost_frag.get_rmsd()))
-                        unique_matched_interface_monofrag_count = len(unique_interface_monofrags_infolist_pdb1) + len(
-                            unique_interface_monofrags_infolist_pdb2)
-                        percent_of_interface_covered = unique_matched_interface_monofrag_count / float(
-                            unique_total_interface_monofrags_count)
-
-                    # for index_pair in eul_lookup_true_list:
-                    #     interface_ghost_frag = interface_ghostfrag_l[index_pair[0]]
-                    #     interface_ghost_frag_guide_coords = interface_ghostfrag_guide_coords_l[index_pair[0]]
-                    #     ghost_frag_i_type = interface_ghost_frag.get_i_frag_type()
-                    #     ghost_frag_j_type = interface_ghost_frag.get_j_frag_type()
-                    #     ghost_frag_k_type = interface_ghost_frag.get_k_frag_type()
-                    #     cluster_id = "i%s_j%s_k%s" % (ghost_frag_i_type, ghost_frag_j_type, ghost_frag_k_type)
-                    #     interface_ghost_frag_cluster_rmsd = interface_ghost_frag.get_rmsd()
-                    #     interface_ghost_frag_cluster_res_freq_list = \
-                    #         ijk_intfrag_cluster_info_dict[ghost_frag_i_type][ghost_frag_j_type][
-                    #             ghost_frag_k_type].get_central_residue_pair_freqs()
-                    #
-                    #     interface_mono_frag_guide_coords = interface_monofrag2_guide_coords_l[index_pair[1]]
-                    #     interface_mono_frag = interface_monofrag2_l[index_pair[1]]
-                    #     interface_mono_frag_type = interface_mono_frag.get_i_type()
-                    #
-                    #     if (interface_mono_frag_type == ghost_frag_j_type) and (interface_ghost_frag_cluster_rmsd > 0):
-                    #         # Calculate RMSD
-                    #         total_overlap_count += 1
-                    #         e1 = euclidean_squared_3d(interface_mono_frag_guide_coords[0],
-                    #                                   interface_ghost_frag_guide_coords[0])
-                    #         e2 = euclidean_squared_3d(interface_mono_frag_guide_coords[1],
-                    #                                   interface_ghost_frag_guide_coords[1])
-                    #         e3 = euclidean_squared_3d(interface_mono_frag_guide_coords[2],
-                    #                                   interface_ghost_frag_guide_coords[2])
-                    #         s = e1 + e2 + e3
-                    #         mean = s / float(3)
-                    #         rmsd = math.sqrt(mean)
-                    #
-                    #         # Calculate Guide Atom Overlap Z-Value
-                    #         # and Calculate Score Term for Nanohedra Residue Level Summation Score
-                    #         z_val = rmsd / float(interface_ghost_frag_cluster_rmsd)
-                    #
-                    #         if z_val <= max_z_val:
-                    #
-                    #             pair_count += 1
-                    #
-                    #             pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num = \
-                    #                 interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
-                    #             pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num = \
-                    #                 interface_mono_frag.get_central_res_tup()
-                    #
-                    #             score_term = 1 / float(1 + (z_val ** 2))
-                    #
-                    #             covered_residues_pdb1 = [
-                    #                 (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num + j)
-                    #                 for j in range(-2, 3)]
-                    #             covered_residues_pdb2 = [
-                    #                 (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num + j)
-                    #                 for j in range(-2, 3)]
-                    #             for k in range(5):
-                    #                 chid1, resnum1 = covered_residues_pdb1[k]
-                    #                 chid2, resnum2 = covered_residues_pdb2[k]
-                    #                 if (chid1, resnum1) not in chid_resnum_scores_dict_pdb1:
-                    #                     chid_resnum_scores_dict_pdb1[(chid1, resnum1)] = [score_term]
-                    #                 else:
-                    #                     chid_resnum_scores_dict_pdb1[(chid1, resnum1)].append(score_term)
-                    #
-                    #                 if (chid2, resnum2) not in chid_resnum_scores_dict_pdb2:
-                    #                     chid_resnum_scores_dict_pdb2[(chid2, resnum2)] = [score_term]
-                    #                 else:
-                    #                     chid_resnum_scores_dict_pdb2[(chid2, resnum2)].append(score_term)
-                    #
-                    #             # these next two blocks serve to calculate high_qual_match_count, then unique_matched_interface_monofrag_count
-                    #             if z_val <= high_quality_match_value:
-                    #                 if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) \
-                    #                         not in unique_interface_monofrags_infolist_highqual_pdb1:
-                    #                     unique_interface_monofrags_infolist_highqual_pdb1.append(
-                    #                         (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num))
-                    #                 if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) \
-                    #                         not in unique_interface_monofrags_infolist_highqual_pdb2:
-                    #                     unique_interface_monofrags_infolist_highqual_pdb2.append(
-                    #                         (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
-                    #
-                    #             #######################################################
-                    #
-                    #             if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) \
-                    #                     not in unique_interface_monofrags_infolist_pdb1:
-                    #                 unique_interface_monofrags_infolist_pdb1.append(
-                    #                     (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num))
-                    #
-                    #             if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) \
-                    #                     not in unique_interface_monofrags_infolist_pdb2:
-                    #                 unique_interface_monofrags_infolist_pdb2.append(
-                    #                     (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
-                    #
-                    #             frag_match_info_list.append((interface_ghost_frag, interface_mono_frag, z_val,
-                    #                                          cluster_id, pair_count,
-                    #                                          interface_ghost_frag_cluster_res_freq_list,
-                    #                                          interface_ghost_frag_cluster_rmsd))
-                    #
-                    # unique_matched_interface_monofrag_count = len(unique_interface_monofrags_infolist_pdb1) + len(
-                    #     unique_interface_monofrags_infolist_pdb2)
-                    # percent_of_interface_covered = unique_matched_interface_monofrag_count / float(
-                    #     unique_total_interface_monofrags_count)
-                    #
-                    # overlap_score_time_stop = time.time()
-                    # overlap_score_time = overlap_score_time_stop - overlap_score_time_start
-                    #
-                    # log_file = open(log_filepath, "a+")
-                    # log_file.write("\t%s Fragment Match(es) Found in Complete Cluster "
-                    #                "Representative Fragment Library\n" % str(pair_count))
-                    # log_file.write("\t(Euler Lookup took %s s for %s fragment pairs and Overlap Score Calculation took"
-                    #                " %s for %s fragment pairs)" %
-                    #                (str(eul_lookup_time), str(len(eul_lookup_all_to_all_list)), str(overlap_score_time),
-                    #                 str(total_overlap_count)) + "\n")
-                    # log_file.close()
-                    #
-                    # high_qual_match_count = len(unique_interface_monofrags_infolist_highqual_pdb1) + len(
-                    #     unique_interface_monofrags_infolist_highqual_pdb2)
-                    # if high_qual_match_count >= min_matched:
-
                         # Get contacting PDB 1 ASU and PDB 2 ASU
                         asu_pdb_1, asu_pdb_2 = get_contacting_asu(pdb1_copy, pdb2_copy)
 
@@ -400,8 +258,10 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                         sampling_id = '%s_%s_TX_%d' % (degen_subdir, rot_subdir, (tx_idx + 1))
                         if asu_pdb_1 is not None and asu_pdb_2 is not None:
                             exp_des_clash_time_start = time.time()
-                            exp_des_is_clash = expanded_design_is_clash(asu_pdb_1, asu_pdb_2, design_dim,
-                                                                        result_design_sym, expand_matrices,
+                            exp_des_is_clash = expanded_design_is_clash(asu_pdb_1, asu_pdb_2,
+                                                                        sym_entry.get_design_dim(),
+                                                                        sym_entry.get_result_design_sym(),
+                                                                        sym_entry.expand_matrices,
                                                                         uc_dimensions, tx_subdir_out_path,
                                                                         output_exp_assembly, output_uc,
                                                                         output_surrounding_uc)
@@ -427,20 +287,20 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                 # Write PDB1 and PDB2 files
                                 cryst1_record = None
                                 if optimal_ext_dof_shifts is not None:
-                                    cryst1_record = generate_cryst1_record(uc_dimensions, result_design_sym)
+                                    cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.get_result_design_sym())
                                 pdb1_fname = os.path.splitext(os.path.basename(pdb1.get_filepath()))[0]
                                 pdb2_fname = os.path.splitext(os.path.basename(pdb2.get_filepath()))[0]
                                 pdb1_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb1_fname, sampling_id)))
                                 pdb2_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb2_fname, sampling_id)))
 
-                                # Initial Interface Fragment Match
+                                # Initial Interface Fragment Match Todo make look like below
                                 # Rotate, translate and set initial match interface fragment
                                 init_match_ghost_frag = ghostfrag_surffrag_pair[0]
-                                init_match_ghost_frag_pdb = init_match_ghost_frag.get_pdb()
+                                init_match_ghost_frag_pdb = init_match_ghost_frag.pdb
                                 init_match_ghost_frag_pdb_copy = rot_txint_set_txext_pdb(init_match_ghost_frag_pdb,
                                                                                          rot_mat=rot_mat1,
                                                                                          internal_tx_vec=representative_int_dof_tx_param_1,
-                                                                                         set_mat=set_mat1,
+                                                                                         set_mat=sym_entry.get_rot_set_mat_group1(),
                                                                                          ext_tx_vec=representative_ext_dof_tx_params_1)
 
                                 # Make directories to output matched fragment PDB files
@@ -468,20 +328,20 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
 
                                 # Write out initial match interface fragment
                                 match_number = 0
-                                initial_ghost_frag_i = init_match_ghost_frag.get_i_frag_type()
-                                initial_ghost_frag_j = init_match_ghost_frag.get_j_frag_type()
-                                initial_ghost_frag_k = init_match_ghost_frag.get_k_frag_type()
+                                initial_ghost_frag_i = init_match_ghost_frag.get_i_type()
+                                initial_ghost_frag_j = init_match_ghost_frag.get_j_type()
+                                initial_ghost_frag_k = init_match_ghost_frag.get_k_type()
                                 # initial_ghost_frag_cluster_res_freqs = frag_db.info(init_match_ghost_frag.get_ijk()).get_central_residue_pair_freqs()  # TOSO
                                 initial_ghost_frag_cluster_res_freqs = \
                                     ijk_intfrag_cluster_info_dict[initial_ghost_frag_i][initial_ghost_frag_j][
                                         initial_ghost_frag_k].get_central_residue_pair_freqs()
-                                init_match_cluster_id = "i%s_j%s_k%s" % (initial_ghost_frag_i, initial_ghost_frag_j,
-                                                                         initial_ghost_frag_k)
+                                # init_match_cluster_id = "i%s_j%s_k%s" % (initial_ghost_frag_i, initial_ghost_frag_j,
+                                #                                          initial_ghost_frag_k)
                                 # if write_frags:
                                 init_match_ghost_frag_pdb_copy.write(
                                     os.path.join(init_match_outdir_path, 'int_frag_%s_%d.pdb'
                                                  % ('i%s_j%s_k%s' % init_match_ghost_frag.get_ijk(), match_number)))
-                                init_match_ghost_frag_cluster_rmsd = init_match_ghost_frag.get_rmsd()
+                                # init_match_ghost_frag_cluster_rmsd = init_match_ghost_frag.get_rmsd()
                                 init_match_surf_frag = ghostfrag_surffrag_pair[1]
                                 write_frag_match_info_file(ghost_frag=init_match_ghost_frag,
                                                            matched_frag=init_match_surf_frag,
@@ -492,45 +352,102 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                                            pose_id=pose_id, is_initial_match=True)
 
                                 # For all matched interface fragments
-                                # write out aligned cluster representative fragment
-                                # write out associated match information to frag_match_info_file.txt
-                                # calculate weighted frequency for central residues
-                                # write out weighted frequencies to frag_match_info_file.txt
-                                for matched_frag in frag_match_info_list:
+                                for frag_idx, (interface_ghost_frag, interface_mono_frag) in enumerate(
+                                        ghostfrag_surffrag_pairs):
                                     match_number += 1
-                                    interface_ghost_frag = matched_frag[0]
-                                    ghost_frag_i_type = interface_ghost_frag.get_i_frag_type()
-                                    ghost_frag_j_type = interface_ghost_frag.get_j_frag_type()
-                                    ghost_frag_k_type = interface_ghost_frag.get_k_frag_type()
-                                    if matched_frag[2] <= 1:  # if the overlap z-value is less than 1
+                                    ghost_frag_i_type = interface_ghost_frag.get_i_type()
+                                    ghost_frag_j_type = interface_ghost_frag.get_j_type()
+                                    ghost_frag_k_type = interface_ghost_frag.get_k_type()
+
+                                    interface_ghost_frag_cluster_res_freq_list = \
+                                        ijk_intfrag_cluster_info_dict[ghost_frag_i_type][ghost_frag_j_type][
+                                            ghost_frag_k_type].get_central_residue_pair_freqs()
+                                    pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num = \
+                                        interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
+                                    pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num = \
+                                        interface_mono_frag.get_central_res_tup()
+
+                                    covered_residues_pdb1 = [
+                                        (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num + j)
+                                        for j in range(-2, 3)]
+                                    covered_residues_pdb2 = [
+                                        (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num + j)
+                                        for j in range(-2, 3)]
+                                    score_term = match_scores[frag_idx]
+                                    for k in range(5):
+                                        chid1, resnum1 = covered_residues_pdb1[k]
+                                        chid2, resnum2 = covered_residues_pdb2[k]
+                                        if (chid1, resnum1) not in chid_resnum_scores_dict_pdb1:
+                                            chid_resnum_scores_dict_pdb1[(chid1, resnum1)] = [score_term]
+                                        else:
+                                            chid_resnum_scores_dict_pdb1[(chid1, resnum1)].append(score_term)
+
+                                        if (chid2, resnum2) not in chid_resnum_scores_dict_pdb2:
+                                            chid_resnum_scores_dict_pdb2[(chid2, resnum2)] = [score_term]
+                                        else:
+                                            chid_resnum_scores_dict_pdb2[(chid2, resnum2)].append(score_term)
+
+                                    if (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num) \
+                                            not in unique_interface_monofrags_infolist_pdb1:
+                                        unique_interface_monofrags_infolist_pdb1.append(
+                                            (pdb1_interface_surffrag_ch_id, pdb1_interface_surffrag_central_res_num))
+
+                                    if (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num) \
+                                            not in unique_interface_monofrags_infolist_pdb2:
+                                        unique_interface_monofrags_infolist_pdb2.append(
+                                            (pdb2_interface_surffrag_ch_id, pdb2_interface_surffrag_central_res_num))
+
+                                    z_value = passing_z_values[frag_idx]
+                                    if z_value <= 1:  # the overlap z-value has is greater than 1 std deviation
                                         matched_frag_outdir_path = high_qual_matches_outdir_path
                                     else:
                                         matched_frag_outdir_path = low_qual_matches_outdir_path
-                                    # if write_frags:
-                                    interface_ghost_frag.get_pdb().write(
-                                        os.path.join(matched_frag_outdir_path, 'int_frag_%s_%d.pdb'
-                                                     % (matched_frag[3], matched_frag[4])))
-                                    write_frag_match_info_file(ghost_frag=matched_frag[0], matched_frag=matched_frag[1],
-                                                               overlap_error=matched_frag[2],
-                                                               match_number=matched_frag[4],
-                                                               central_frequencies=matched_frag[5],
-                                                               out_path=matched_frag_reps_outdir_path, pose_id=pose_id)
 
-                                    match_res_pair_freq_list = matched_frag[5]
-                                    match_cnt_chid1, match_cnt_resnum1 = matched_frag[
-                                        0].get_aligned_surf_frag_central_res_tup()
-                                    match_cnt_chid2, match_cnt_resnum2 = matched_frag[1].get_central_res_tup()
-                                    match_z_val = matched_frag[2]
-                                    match_res_pair_freq_info = FragMatchInfo(match_res_pair_freq_list,
-                                                                             match_cnt_chid1,
-                                                                             match_cnt_resnum1,
-                                                                             match_cnt_chid2,
-                                                                             match_cnt_resnum2,
-                                                                             match_z_val)
+                                    # if write_frags:
+                                    # write out aligned cluster representative fragment
+                                    transformed_ghost_fragment = interface_ghost_frag.pdb.return_transformed_copy(
+                                        rotation=rot_mat1, translation=representative_int_dof_tx_param_1,
+                                        rotation2=sym_entry.get_rot_set_mat_group1(),
+                                        translation2=representative_ext_dof_tx_params_1)
+                                    cluster_id = 'i%s_j%s_k%s' % interface_ghost_frag.get_ijk()
+                                    transformed_ghost_fragment.write(
+                                        os.path.join(matched_frag_outdir_path, 'int_frag_%s_%d.pdb'
+                                                     % (cluster_id, match_number)))
+
+                                    # write out associated match information to frag_match_info_file.txt
+                                    write_frag_match_info_file(ghost_frag=interface_ghost_frag, matched_frag=interface_mono_frag,
+                                                               overlap_error=z_value,
+                                                               match_number=match_number,
+                                                               central_frequencies=interface_ghost_frag_cluster_res_freq_list,
+                                                               out_path=matched_frag_reps_outdir_path, pose_id=pose_id)
+                                    # frag_match_info_list.append((interface_ghost_frag, interface_mono_frag, z_value,
+                                    #                              cluster_id, match_number,
+                                    #                              interface_ghost_frag_cluster_res_freq_list,
+                                    #                              interface_ghost_frag.get_rmsd()))
+                                    # match_res_pair_freq_list = matched_frag[5]
+                                    # match_cnt_chid1, match_cnt_resnum1 = matched_frag[
+                                    #     0].get_aligned_surf_frag_central_res_tup()
+                                    # match_cnt_chid2, match_cnt_resnum2 = matched_frag[1].get_central_res_tup()
+                                    # match_z_val = matched_frag[2]
+                                    match_res_pair_freq_info = FragMatchInfo(interface_ghost_frag_cluster_res_freq_list,
+                                                                             pdb1_interface_surffrag_ch_id,
+                                                                             pdb1_interface_surffrag_central_res_num,
+                                                                             pdb2_interface_surffrag_ch_id,
+                                                                             pdb2_interface_surffrag_central_res_num,
+                                                                             z_value)
                                     res_pair_freq_info_list.append(match_res_pair_freq_info)
 
+                                # calculate weighted frequency for central residues
+                                # write out weighted frequencies to frag_match_info_file.txt
                                 weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
-                                weighted_seq_freq_info.write(os.path.join(matched_frag_reps_outdir_path, PUtils.frag_text_file))
+                                weighted_seq_freq_info.write(
+                                    os.path.join(matched_frag_reps_outdir_path, PUtils.frag_text_file))
+
+                                unique_matched_interface_monofrag_count = len(
+                                    unique_interface_monofrags_infolist_pdb1) + len(
+                                    unique_interface_monofrags_infolist_pdb2)
+                                percent_of_interface_covered = unique_matched_interface_monofrag_count / float(
+                                    unique_total_interface_monofrags_count)
 
                                 # Calculate Nanohedra Residue Level Summation Score
                                 res_lev_sum_score = 0
@@ -552,9 +469,11 @@ def out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is
                                                        unique_matched_interface_monofrag_count,
                                                        unique_total_interface_monofrags_count,
                                                        percent_of_interface_covered, rot_mat1,
-                                                       representative_int_dof_tx_param_1, set_mat1,
+                                                       representative_int_dof_tx_param_1,
+                                                       sym_entry.get_rot_set_mat_group1(),
                                                        representative_ext_dof_tx_params_1, rot_mat2,
-                                                       representative_int_dof_tx_param_2, set_mat2,
+                                                       representative_int_dof_tx_param_2,
+                                                       sym_entry.get_rot_set_mat_group2(),
                                                        representative_ext_dof_tx_params_2, cryst1_record, pdb1_path,
                                                        pdb2_path, pose_id)
 
@@ -627,8 +546,6 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     # Default Fragment Guide Atom Overlap Z-Value Threshold For All Subsequent Matches
     subseq_max_z_val = 2.0
 
-    # degeneracy_matrices_1 = get_degeneracy_matrices(oligomer_symmetry_1, design_symmetry_pg)
-    # degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_2, design_symmetry_pg)
     degeneracy_matrices_1, degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_1,
                                                                            oligomer_symmetry_2,
                                                                            design_dim,
@@ -757,41 +674,82 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     init_intfrag_cluster_info_dict = \
         {init_match_mapped: {init_match_paired: ijk_intfrag_cluster_info_dict[init_match_mapped][init_match_paired]}}
 
-    # Initialize Euler Lookup Class
-    # Todo move inside dock
-    eul_lookup = EulerLookup()
+    # # Initialize Euler Lookup Class
+    # eul_lookup = EulerLookup()
 
-    # Get Design Expansion Matrices
-    if design_dim == 2 or design_dim == 3:
-        expand_matrices = get_sg_sym_op(result_design_sym)
-    else:
-        expand_matrices = get_ptgrp_sym_op(result_design_sym)
+    # # Get Design Expansion Matrices
+    # if design_dim == 2 or design_dim == 3:
+    #     expand_matrices = get_sg_sym_op(result_design_sym)
+    # else:
+    #     expand_matrices = get_ptgrp_sym_op(result_design_sym)
 
     with open(master_log_filepath, "a+") as master_log_file:
         master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
                                                       os.path.basename(os.path.splitext(pdb2_path)[0])))
 
-    nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
-                   init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict,
-                   ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict, master_outdir, pdb1_path,
-                   pdb2_path, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1, is_zshift2,
-                   result_design_sym, uc_spec_string, design_dim, expand_matrices, eul_lookup, init_max_z_val,
-                   subseq_max_z_val, degeneracy_matrices_1=degeneracy_matrices_1,
-                   degeneracy_matrices_2=degeneracy_matrices_2, rot_step_deg_pdb1=rot_step_deg_pdb1,
-                   rot_range_deg_pdb1=rot_range_deg_pdb1, rot_step_deg_pdb2=rot_step_deg_pdb2,
-                   rot_range_deg_pdb2=rot_range_deg_pdb2, output_exp_assembly=output_exp_assembly,
-                   output_uc=output_uc, output_surrounding_uc=output_surrounding_uc, min_matched=min_matched,
-                   keep_time=keep_time)
+    nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict,
+                   init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2,
+                   init_intfrag_cluster_info_dict, ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict,
+                   master_outdir, pdb1_path, pdb2_path, init_max_z_val, subseq_max_z_val,
+                   rot_step_deg_pdb1=rot_step_deg_pdb1, rot_step_deg_pdb2=rot_step_deg_pdb2,
+                   output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+                   output_surrounding_uc=output_surrounding_uc, min_matched=min_matched, keep_time=keep_time)
 
 
-def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, init_monofrag_cluster_rep_pdb_dict_1,
-                   init_monofrag_cluster_rep_pdb_dict_2, init_intfrag_cluster_info_dict,
-                   ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict, master_outdir, pdb1_path,
-                   pdb2_path, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1, is_zshift2,
-                   result_design_sym, uc_spec_string, design_dim, expand_matrices, eul_lookup, init_max_z_val,
-                   subseq_max_z_val, degeneracy_matrices_1=None, degeneracy_matrices_2=None, rot_step_deg_pdb1=1,
-                   rot_range_deg_pdb1=0, rot_step_deg_pdb2=1, rot_range_deg_pdb2=0, output_exp_assembly=False,
-                   output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
+def nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict,
+                   init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2,
+                   init_intfrag_cluster_info_dict, ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict,
+                   master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0, subseq_max_z_val=2.0, rot_step_deg_pdb1=1,
+                   rot_step_deg_pdb2=1, output_exp_assembly=False, output_uc=False, output_surrounding_uc=False,
+                   min_matched=3, keep_time=True):
+
+    rot_range_deg_pdb1 = sym_entry.get_rot_range_deg_1()
+    rot_range_deg_pdb2 = sym_entry.get_rot_range_deg_2()
+
+    # Oligomer 1 Has Interior Rotational Degree of Freedom True or False
+    has_int_rot_dof_1 = False
+    if rot_range_deg_pdb1 != 0:
+        has_int_rot_dof_1 = True
+
+    # Oligomer 2 Has Interior Rotational Degree of Freedom True or False
+    has_int_rot_dof_2 = False
+    if rot_range_deg_pdb2 != 0:
+        has_int_rot_dof_2 = True
+
+    set_mat1 = sym_entry.get_rot_set_mat_group1()
+    set_mat2 = sym_entry.get_rot_set_mat_group2()
+
+    # Transpose Setting Matrices to Set Guide Coordinates just for Euler Lookup Using np.matmul
+    set_mat1_np_t = np.transpose(set_mat1)
+    set_mat2_np_t = np.transpose(set_mat2)
+
+    if sym_entry.is_internal_tx1():
+        zshift1 = set_mat1[2, :]
+    else:
+        zshift1 = None
+
+    if sym_entry.is_internal_tx2():
+        zshift2 = set_mat2[2, :]
+    else:
+        zshift2 = None
+
+    # Obtain Reference Frame Translation Info
+    # parsed_ref_frame_tx_dof1 = parse_ref_tx_dof_str_to_list(sym_entry.get_ref_frame_tx_dof_group1())
+    # parsed_ref_frame_tx_dof2 = parse_ref_tx_dof_str_to_list(sym_entry.get_ref_frame_tx_dof_group2())
+    #
+    # if parsed_ref_frame_tx_dof1 == ['0', '0', '0'] and parsed_ref_frame_tx_dof2 == ['0', '0', '0']:
+    #     dof_ext = np.empty((0, 3), float)
+    # else:
+    dof_ext = get_ext_dof(sym_entry.get_ref_frame_tx_dof_group1(), sym_entry.get_ref_frame_tx_dof_group2())
+
+    ref_frame_tx_dof1 = sym_entry.get_ref_frame_tx_dof_group1()
+    ref_frame_tx_dof2 = sym_entry.get_ref_frame_tx_dof_group2()
+
+    # result_design_sym = sym_entry.get_result_design_sym()
+    # uc_spec_string = sym_entry.get_uc_spec_string()
+
+    # Initialize Euler Lookup Class
+    eul_lookup = EulerLookup()
 
     # Output Directory
     pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
@@ -808,39 +766,14 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
 
     # Write to Logfile
     if not resume:
-        with open(log_file_path, "a+") as log_file:
+        with open(log_file_path, "a+") as log_file:  # Todo make , 'w') as log_file
             log_file.write("DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\nOutput Directory: %s\n\n"
                            % (pdb1_name, pdb2_name, pdb1_path, pdb2_path, outdir))
 
     # Get PDB1 Symmetric Building Block
-    pdb1 = PDB()
-    pdb1.readfile(pdb1_path)
-
-    # Get Oligomer 1 Ghost Fragments With Guide Coordinates Using Initial Match Fragment Database
-    if not resume:
-        with open(log_file_path, "a+") as log_file:
-            log_file.write("Getting %s Oligomer 1 Ghost Fragments Using INITIAL Fragment Database" % pdb1_name)
-        if keep_time:
-            get_init_ghost_frags_time_start = time.time()
-
-    kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(np.array(pdb1.extract_backbone_coords()))
+    pdb1 = PDB.from_file(pdb1_path)
     surf_frags_1 = get_surface_fragments(pdb1)
-    ghost_frag_list = []
-    ghost_frag_guide_coords_list = []
-    for frag1 in surf_frags_1:
-        monofrag1 = MonoFragment(frag1, init_monofrag_cluster_rep_pdb_dict_1)
-        monofrag_ghostfrag_list = monofrag1.get_ghost_fragments(init_intfrag_cluster_rep_dict,
-                                                                kdtree_oligomer1_backbone,
-                                                                init_intfrag_cluster_info_dict)
-        if monofrag_ghostfrag_list is not None:
-            ghost_frag_list.extend(monofrag_ghostfrag_list)
-            ghost_frag_guide_coords_list.extend(list(map(GhostFragment.get_guide_coords, monofrag_ghostfrag_list)))
-
-    if not resume and keep_time:
-        get_init_ghost_frags_time_stop = time.time()
-        get_init_ghost_frags_time = get_init_ghost_frags_time_stop - get_init_ghost_frags_time_start
-        with open(log_file_path, "a+") as log_file:
-            log_file.write(" (took: %s s)\n" % str(get_init_ghost_frags_time))
+    kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(np.array(pdb1.extract_backbone_coords()))
 
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
@@ -849,17 +782,25 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
         if keep_time:
             get_complete_ghost_frags_time_start = time.time()
 
-    # KM this does a double calculation and storage by saving the initial fragments again. All caluclations with this group are doing more work than necessary
-    # one could imagine doing this first, then using a filter to test for the indices that are the initial fragment search type
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
-        complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
-        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
-            ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone, ijk_intfrag_cluster_info_dict)
-        if complete_monofrag1_ghostfrag_list:
+        monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
+        if monofrag1.get_guide_coords():
+            complete_monofrag1_ghostfrag_list = monofrag1.get_ghost_fragments(
+                ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone, ijk_intfrag_cluster_info_dict)
             complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list)
-            # for complete_ghostfrag in complete_monofrag1_ghostfrag_list:
-            #     complete_ghost_frag_list.append(complete_ghostfrag)
+
+    # calculate the initial match type by finding the predominant surface type
+    frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
+    fragment_content1 = [frag_types1.count(frag_type) for frag_type in range(1, fragment_length + 1)]
+    initial_type1 = np.argmax(fragment_content1) + 1
+    ghost_frag_list = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list
+                       if ghost_frag1.get_i_type() == initial_type1]
+    ghost_frag_guide_coords_list = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frag_list]
+
+    ghost_frag_np = np.array(ghost_frag_list)
+    complete_ghost_frag_np = np.array(complete_ghost_frag_list)
+
     if not resume and keep_time:
         get_complete_ghost_frags_time_stop = time.time()
         get_complete_ghost_frags_time = get_complete_ghost_frags_time_stop - get_complete_ghost_frags_time_start
@@ -867,29 +808,8 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
             log_file.write(" (took: %s s)\n" % str(get_complete_ghost_frags_time))
 
     # Get PDB2 Symmetric Building Block
-    pdb2 = PDB()
-    pdb2.readfile(pdb2_path)
-
-    # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using Initial Match Fragment Database
-    if not resume:
-        with open(log_file_path, "a+") as log_file:
-            log_file.write("Getting Oligomer 2 Surface Fragments Using INITIAL Fragment Database")
-        if keep_time:
-            get_init_surf_frags_time_start = time.time()
+    pdb2 = PDB.from_file(pdb2_path)
     surf_frags_2 = get_surface_fragments(pdb2)
-    surf_frag_list = []
-    surf_frags_oligomer_2_guide_coords_list = []
-    for frag2 in surf_frags_2:
-        monofrag2 = MonoFragment(frag2, init_monofrag_cluster_rep_pdb_dict_2)
-        monofrag2_guide_coords = monofrag2.get_guide_coords()
-        if monofrag2_guide_coords is not None:
-            surf_frag_list.append(monofrag2)
-            surf_frags_oligomer_2_guide_coords_list.append(monofrag2_guide_coords)
-    if not resume and keep_time:
-        get_init_surf_frags_time_stop = time.time()
-        get_init_surf_frags_time = get_init_surf_frags_time_stop - get_init_surf_frags_time_start
-        with open(log_file_path, "a+") as log_file:
-            log_file.write(" (took: %s s)\n" % str(get_init_surf_frags_time))
 
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
@@ -897,16 +817,23 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
             log_file.write("Getting Oligomer 2 Surface Fragments Using COMPLETE Fragment Database")
         if keep_time:
             get_complete_surf_frags_time_start = time.time()
+
     complete_surf_frag_list = []
     for frag2 in surf_frags_2:
-        complete_monofrag2 = MonoFragment(frag2,
-                                          ijk_monofrag_cluster_rep_pdb_dict)  # KM this does a double calculation and storage by saving the initial fragments again. All caluclations with this group are doing more work than necessary
-        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()
-        if complete_monofrag2_guide_coords is not None:
-            complete_surf_frag_list.append(complete_monofrag2)
+        monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
+        monofrag2_guide_coords = monofrag2.get_guide_coords()
+        if monofrag2_guide_coords:
+            complete_surf_frag_list.append(monofrag2)
 
-    # After this, the entire fragment database is unnecessary. Dereferenceing for memory
-    del ijk_monofrag_cluster_rep_pdb_dict, init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2
+    # calculate the initial match type by finding the predominant surface type
+    frag_types2 = [monofrag2.get_i_type() for monofrag2 in complete_surf_frag_list]
+    fragment_content2 = [frag_types2.count(frag_type) for frag_type in range(1, fragment_length + 1)]
+    initial_type2 = np.argmax(fragment_content2) + 1
+    surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
+    surf_frags_oligomer_2_guide_coords_list = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
+
+    surf_frag_np = np.array(surf_frag_list)
+    complete_surf_frag_np = np.array(complete_surf_frag_list)
 
     if not resume and keep_time:
         get_complete_surf_frags_time_stop = time.time()
@@ -914,37 +841,18 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
         with open(log_file_path, "a+") as log_file:
             log_file.write(" (took: %s s)\n\n" % str(get_complete_surf_frags_time))
 
-    # Oligomer 1 Has Interior Rotational Degree of Freedom True or False
-    has_int_rot_dof_1 = False
-    if rot_range_deg_pdb1 != 0:
-        has_int_rot_dof_1 = True
+    # After this, the entire fragment database is unnecessary. De-referencing from memory
+    del ijk_monofrag_cluster_rep_pdb_dict, init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2
 
-    # Oligomer 2 Has Interior Rotational Degree of Freedom True or False
-    has_int_rot_dof_2 = False
-    if rot_range_deg_pdb2 != 0:
-        has_int_rot_dof_2 = True
-
-    # Obtain Reference Frame Translation Info
-    parsed_ref_frame_tx_dof1 = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof1)
-    parsed_ref_frame_tx_dof2 = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof2)
-
-    if parsed_ref_frame_tx_dof1 == ['0', '0', '0'] and parsed_ref_frame_tx_dof2 == ['0', '0', '0']:
-        dof_ext = np.empty((0, 3), float)
-    else:
-        dof_ext = get_ext_dof(ref_frame_tx_dof1, ref_frame_tx_dof2)
-
-    # Transpose Setting Matrices to Set Guide Coordinates just for Euler Lookup Using np.matmul
-    set_mat1_np_t = np.transpose(set_mat1)
-    set_mat2_np_t = np.transpose(set_mat2)
-
+    # Check if the job was running but stopped. Resume where last left off
     degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
     if resume:
         degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log_file_path)
         with open(log_file_path, "a+") as log_file:
             log_file.write('Job was run with the \'-resume\' flag. Resuming from last sampled rotational space!\n')
 
-    if (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (
-            degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
+    if (sym_entry.degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (
+            sym_entry.degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
         rot1_mat = None
         rot2_mat = None
         if not resume:
@@ -974,17 +882,17 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                            "coordinate pairs\n")
 
         optimal_tx = OptimalTx.from_dof(set_mat1, set_mat2, is_zshift1, is_zshift2, dof_ext)
-        all_optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
+        optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
                                                            ghost_frag_guide_coords_list,
                                                            surf_frag_list,
                                                            surf_frags_oligomer_2_guide_coords_list,
                                                            z_value_func=optimal_tx.apply,
                                                            max_z_value=init_max_z_val)
 
-        passing_optimal_shifts = list(filter(None, all_optimal_shifts))
+        passing_optimal_shifts = list(filter(None, optimal_shifts))
         ghostfrag_surffrag_pairs = [(ghost_frag_list[eul_lookup_true_list[idx][0]],
                                      surf_frag_list[eul_lookup_true_list[idx][1]])
-                                    for idx, boolean in enumerate(all_optimal_shifts) if boolean]
+                                    for idx, boolean in enumerate(optimal_shifts) if boolean]
 
         if len(passing_optimal_shifts) == 0:
             with open(log_file_path, "a+") as log_file:
@@ -998,22 +906,20 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
         rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                            (rot1_count, rot2_count))
 
-        out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1,
-            is_zshift2, passing_optimal_shifts, ghostfrag_surffrag_pairs, complete_ghost_frag_list,
-            complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
-            ijk_intfrag_cluster_info_dict, result_design_sym, uc_spec_string, design_dim,
-            pdb1_path, pdb2_path, expand_matrices, eul_lookup,
+        out(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, passing_optimal_shifts,
+            ghostfrag_surffrag_pairs, complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
+            degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup,
             rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
             output_uc=output_uc, output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
 
-    elif (degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
-            degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
+    elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
+            sym_entry.degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
         # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
         if not resume:
             with open(log_file_path, "a+") as log_file:
                 log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1\n")
         rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", rot_range_deg_pdb1)
-        degen_rot_mat_1 = get_degen_rotmatrices(degeneracy_matrices_1, rotation_matrices_1)
+        degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
 
         # No Degeneracies/Rotation Matrices to get for Oligomer2
         rot2_mat = None
@@ -1056,17 +962,17 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                     log_file.write("Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide"
                                    "coordinate pairs\n")
 
-                all_optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
+                optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
                                                                    ghost_frag_guide_coords_list_rot,
                                                                    surf_frag_list,
                                                                    surf_frags_oligomer_2_guide_coords_list,
                                                                    z_value_func=optimal_tx.apply,
                                                                    max_z_value=init_max_z_val)
 
-                passing_optimal_shifts = list(filter(None, all_optimal_shifts))
+                passing_optimal_shifts = list(filter(None, optimal_shifts))
                 ghostfrag_surffrag_pairs = [(ghost_frag_list[eul_lookup_true_list[idx][0]],
                                              surf_frag_list[eul_lookup_true_list[idx][1]])
-                                            for idx, boolean in enumerate(all_optimal_shifts) if boolean]
+                                            for idx, boolean in enumerate(optimal_shifts) if boolean]
 
                 if len(passing_optimal_shifts) == 0:
                     with open(log_file_path, "a+") as log_file:
@@ -1080,17 +986,15 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                 rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                    (rot1_count, rot2_count))
 
-                out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1,
-                    is_zshift2, passing_optimal_shifts, ghostfrag_surffrag_pairs, complete_ghost_frag_list,
-                    complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
-                    ijk_intfrag_cluster_info_dict, result_design_sym, uc_spec_string, design_dim,
-                    pdb1_path, pdb2_path, expand_matrices, eul_lookup,
-                    rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
+                out(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, passing_optimal_shifts,
+                    ghostfrag_surffrag_pairs, complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
+                    degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path,
+                    eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
                     output_uc=output_uc, output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
             rot1_count = 0
 
-    elif (degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (
-            degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
+    elif (sym_entry.degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (
+            sym_entry.degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
         # No Degeneracies/Rotation Matrices to get for Oligomer1
         rot1_mat = None
         if not resume:
@@ -1103,7 +1007,7 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
             with open(log_file_path, "a+") as log_file:
                 log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n\n")
         rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
-        degen_rot_mat_2 = get_degen_rotmatrices(degeneracy_matrices_2, rotation_matrices_2)
+        degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
 
         optimal_tx = OptimalTx.from_dof(set_mat1, set_mat2, is_zshift1, is_zshift2, dof_ext)
         for degen2 in degen_rot_mat_2[degen2_count:]:
@@ -1140,17 +1044,17 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                     log_file.write("Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide"
                                    " coordinate pairs\n")
 
-                all_optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
+                optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
                                                                    ghost_frag_guide_coords_list,
                                                                    surf_frag_list,
                                                                    surf_frags_2_guide_coords_list_rot,
                                                                    z_value_func=optimal_tx.apply,
                                                                    max_z_value=init_max_z_val)
 
-                passing_optimal_shifts = list(filter(None, all_optimal_shifts))
+                passing_optimal_shifts = list(filter(None, optimal_shifts))
                 ghostfrag_surffrag_pairs = [(ghost_frag_list[eul_lookup_true_list[idx][0]],
                                              surf_frag_list[eul_lookup_true_list[idx][1]])
-                                            for idx, boolean in enumerate(all_optimal_shifts) if boolean]
+                                            for idx, boolean in enumerate(optimal_shifts) if boolean]
 
                 if len(passing_optimal_shifts) == 0:
                     with open(log_file_path, "a+") as log_file:
@@ -1164,24 +1068,22 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                 rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                    (rot1_count, rot2_count))
 
-                out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1,
-                    is_zshift2, passing_optimal_shifts, ghostfrag_surffrag_pairs, complete_ghost_frag_list,
-                    complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
-                    ijk_intfrag_cluster_info_dict, result_design_sym, uc_spec_string, design_dim,
-                    pdb1_path, pdb2_path, expand_matrices, eul_lookup,
-                    rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
+                out(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, passing_optimal_shifts,
+                    ghostfrag_surffrag_pairs, complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
+                    degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path,
+                    eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
                     output_uc=output_uc, output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
             rot2_count = 0
 
-    elif (degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
-            degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
+    elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
+            sym_entry.degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
         if not resume:
             with open(log_file_path, "a+") as log_file:
                 log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1\n")
 
         # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
         rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", rot_range_deg_pdb1)
-        degen_rot_mat_1 = get_degen_rotmatrices(degeneracy_matrices_1, rotation_matrices_1)
+        degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
 
         if not resume:
             with open(log_file_path, "a+") as log_file:
@@ -1189,8 +1091,8 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
 
         # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
         rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
-        degen_rot_mat_2 = get_degen_rotmatrices(degeneracy_matrices_2, rotation_matrices_2)
-        optimal_tx = OptimalTx.from_dof(set_mat1, set_mat2, is_zshift1, is_zshift2, dof_ext)
+        degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
+        optimal_tx = OptimalTx.from_dof(dof_ext, zshift1=zshift1, zshift2=zshift2)  # set_mat1, set_mat2,
 
         for degen1 in degen_rot_mat_1[degen1_count:]:
             degen1_count += 1
@@ -1199,8 +1101,8 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                 # Rotate Oligomer1 Ghost Fragment Guide Coordinates using rot1_mat
                 rot1_mat_np_t = np.transpose(rot1_mat)
                 ghost_frag_guide_coords_list_rot_np = np.matmul(ghost_frag_guide_coords_list, rot1_mat_np_t)
-                ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_list_rot_np.tolist()  # Todo unnecessary
-                ghost_frag_guide_coords_list_rot_and_set_for_eul = np.matmul(ghost_frag_guide_coords_list_rot,
+                # ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_list_rot_np.tolist()
+                ghost_frag_guide_coords_list_rot_and_set_for_eul = np.matmul(ghost_frag_guide_coords_list_rot_np,
                                                                              set_mat1_np_t)
                 for degen2 in degen_rot_mat_2[degen2_count:]:
                     degen2_count += 1
@@ -1210,9 +1112,9 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
                         rot2_mat_np_t = np.transpose(rot2_mat)
                         surf_frags_2_guide_coords_list_rot_np = np.matmul(surf_frags_oligomer_2_guide_coords_list,
                                                                           rot2_mat_np_t)
-                        surf_frags_2_guide_coords_list_rot = surf_frags_2_guide_coords_list_rot_np.tolist()  # Todo unnecessary
+                        # surf_frags_2_guide_coords_list_rot = surf_frags_2_guide_coords_list_rot_np.tolist()
                         surf_frags_2_guide_coords_list_rot_and_set_for_eul = np.matmul(
-                            surf_frags_2_guide_coords_list_rot, set_mat2_np_t)
+                            surf_frags_2_guide_coords_list_rot_np, set_mat2_np_t)
 
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("\n***** OLIGOMER 1: Degeneracy %s Rotation %s | OLIGOMER 2: Degeneracy %s "
@@ -1227,49 +1129,67 @@ def nanohedra_dock(init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict, 
 
                         # print('Set for Euler Lookup:', surf_frags_2_guide_coords_list_rot_and_set_for_eul[:5])
 
-                        eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(
-                            ghost_frag_guide_coords_list_rot_and_set_for_eul,
-                            surf_frags_2_guide_coords_list_rot_and_set_for_eul)
-                        eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
-                                                true_tup[2]]
+                        overlapping_ghost_frag_array, overlapping_surf_frag_array = \
+                            zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_list_rot_and_set_for_eul,
+                                                               surf_frags_2_guide_coords_list_rot_and_set_for_eul))
+                        # eul_lookup_true_list = eul_lookup.check_lookup_table(
+                        #     ghost_frag_guide_coords_list_rot_and_set_for_eul,
+                        #     surf_frags_2_guide_coords_list_rot_and_set_for_eul)
+                        # Now all are coming back true
+                        # eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
+                        #                         true_tup[2]]
 
                         # Get optimal shift parameters for the selected (Ghost Fragment, Surface Fragment)
                         # guide coodinate pairs
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("Get optimal shift parameters for the selected Ghost Fragment/Surface "
                                            "Fragment guide coordinate pairs\n")
-                        # print('Euler Lookup:', eul_lookup_true_list[:5])
-                        all_optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
-                                                                           ghost_frag_guide_coords_list_rot,
-                                                                           surf_frag_list,
-                                                                           surf_frags_2_guide_coords_list_rot,
-                                                                           z_value_func=optimal_tx.apply,
-                                                                           max_z_value=init_max_z_val)
 
-                        passing_optimal_shifts = list(filter(None, all_optimal_shifts))
-                        ghostfrag_surffrag_pairs = [(ghost_frag_list[eul_lookup_true_list[idx][0]],
-                                                     surf_frag_list[eul_lookup_true_list[idx][1]])
-                                                    for idx, boolean in enumerate(all_optimal_shifts) if boolean]
+                        # Filter all overlapping arrays by matching ij type. This wouldn't increase speed much by
+                        # putting before check_euler_table as the all to all is a hash operation
+                        ij_type_match = [True if ghost_frag_list[ghost_frag_idx].get_j_type() ==
+                                         surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
+                                         for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
+                        passing_ghost_indices = [ghost_idx for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                                                 if ij_type_match[idx]]
+                        passing_ghost_coords = [ghost_frag_guide_coords_list_rot_and_set_for_eul[idx]
+                                                for idx in passing_ghost_indices]
+                        passing_surf_indices = [surf_idx for idx, surf_idx in enumerate(overlapping_surf_frag_array)
+                                                if ij_type_match[idx]]
+                        passing_surf_coords = [surf_frags_2_guide_coords_list_rot_and_set_for_eul[idx]
+                                               for idx in passing_surf_indices]
+                        reference_rmsds = [ghost_frag_list[ghost_idx].get_rmsd()
+                                           for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                                           if ij_type_match[idx]]
 
-                        if len(passing_optimal_shifts) == 0:
-                            with open(log_file_path, "a+") as log_file:
-                                log_file.write("No Initial Interface Fragment Matches Found\n\n")
-                        else:
-                            with open(log_file_path, "a+") as log_file:
-                                log_file.write("%d Initial Interface Fragment Match(es) Found\n"
-                                               % len(passing_optimal_shifts))
+                        # Todo test array based function
+                        optimal_shifts = optimal_tx.solve_optimal_shift(passing_ghost_coords, passing_surf_coords,
+                                                                        reference_rmsds, max_z_value=init_max_z_val)
+                        # optimal_shifts = filter_euler_lookup_by_zvalue(passing_ghost_coords, passing_surf_coords,
+                        #                                                reference_rmsds,
+                        #                                                z_value_func=optimal_tx.solve_optimal_shift,
+                        #                                                max_z_value=init_max_z_val)
+
+                        passing_optimal_shifts = [passing_shift for passing_shift in optimal_shifts if passing_shift]
+                        ghostfrag_surffrag_pairs = [(ghost_frag_list[passing_ghost_indices[idx]],
+                                                     surf_frag_list[passing_surf_indices[idx]])
+                                                    for idx, boolean in enumerate(optimal_shifts) if boolean]
+
+                        with open(log_file_path, "a+") as log_file:
+                            log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
+                                           % (len(passing_optimal_shifts) if passing_optimal_shifts else 'No',
+                                              'es' if len(passing_optimal_shifts) != 1 else ''))
 
                         degen_subdir_out_path = os.path.join(outdir, "DEGEN_%d_%d" % (degen1_count, degen2_count))
                         rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                            (rot1_count, rot2_count))
 
-                        out(pdb1, pdb2, set_mat1, set_mat2, ref_frame_tx_dof1, ref_frame_tx_dof2, is_zshift1,
-                            is_zshift2, passing_optimal_shifts, ghostfrag_surffrag_pairs, complete_ghost_frag_list,
-                            complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
-                            ijk_intfrag_cluster_info_dict, result_design_sym, uc_spec_string, design_dim,
-                            pdb1_path, pdb2_path, expand_matrices, eul_lookup,
-                            rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
-                            output_uc=output_uc, output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                        out(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, passing_optimal_shifts,
+                            ghostfrag_surffrag_pairs, complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
+                            degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path,
+                            pdb2_path, eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
+                            output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+                            output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
                     rot2_count = 0
                 degen2_count = 0
             rot1_count = 0
