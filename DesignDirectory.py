@@ -288,18 +288,27 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             except (AttributeError, ZeroDivisionError):
                 raise DesignError('No fragment information available! Design cannot be scored.')
 
-    def pose_score(self):  # Todo Depreciate by merge with above
+    def pose_score(self):  # Todo merge with above
         """Returns:
-            (float): The
+            (float): The Nanohedra score as reported in Laniado, Meador, Yeates 2021
         """
         return self.all_residue_score
 
     def pose_metrics(self):
         """Returns:
-            (dict): {'nanohedra_score': , 'average_fragment_z_score': , 'unique_fragments': }
+            (dict): {'nanohedra_score_per_res': , 'number_fragment_residues_total': ,
+                     'number_fragment_residues_central': , 'multiple_fragment_ratio': ,
+                     'percent_fragment_helix': , 'percent_fragment_strand': ,
+                     'percent_fragment_coil': , 'unique_fragments': }
         """
-        return {'nanohedra_score': self.all_residue_score, 'average_fragment_z_score': self.ave_z,
-                'unique_fragments': self.num_fragments}  # Todo expand with AnalyzeOutput
+        return {'nanohedra_score_per_res': self.score,
+                'number_fragment_residues_total': self.fragment_residues_total,
+                'number_fragment_residues_central': self.central_residues_with_fragment_overlap,
+                'multiple_fragment_ratio': self.multiple_frag_ratio,
+                'percent_fragment_helix': self.helical_fragment_content,
+                'percent_fragment_strand': self.strand_fragment_content,
+                'percent_fragment_coil': self.coil_fragment_content,
+                'unique_fragments': self.number_of_fragments}
 
     def pose_fragments(self):
         """Returns:
@@ -454,6 +463,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.gather_fragment_info()
             self.get_fragment_metrics(from_file=True)
 
+    def get_wildtype_file(self):
+        """Retrieve the wild-type file name from Design Directory"""
+        wt_file = glob(self.asu)
+        assert len(wt_file) == 1, '%s: More than one matching file found with %s' % (self.path, PUtils.asu)
+        return wt_file[0]
+        # for file in os.listdir(self.building_blocks):
+        #     if file.endswith(PUtils.asu):
+        #         return os.path.join(self.building_blocks, file)
+
     def get_designs(self, design_type='design'):
         """Return the paths of all design files in a DesignDirectory"""
         return glob(os.path.join(self.designs, '*%s*' % design_type))
@@ -515,6 +533,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.helical_fragment_content = total_design_metrics['percent_fragment_helix']
         self.strand_fragment_content = total_design_metrics['percent_fragment_strand']
         self.coil_fragment_content = total_design_metrics['percent_fragment_coil']
+        # self.number_of_fragments = total_design_metrics['number_fragments']
 
         # 'total_interface_residues': total_residues,
         # 'percent_residues_fragment_all': percent_interface_covered,
@@ -1006,10 +1025,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Get the scores from all design trajectories
         all_design_scores = read_scores(os.path.join(self.scores, PUtils.scores_file))
-        all_design_scores = SDUtils.clean_interior_keys(all_design_scores, remove_score_columns)
+        all_design_scores = SDUtils.remove_interior_keys(all_design_scores, remove_score_columns)
 
         # Gather mutations for residue specific processing and design sequences
-        wild_type_file = SequenceProfile.get_wildtype_file(self)  # Todo
+        wild_type_file = self.get_wildtype_file()  # Todo
         wt_sequence = AnalyzeMutatedSequences.get_pdb_sequences(wild_type_file)
         all_design_files = self.get_designs()
         # all_design_files = SDUtils.get_directory_pdb_file_paths(self.designs)
@@ -1123,7 +1142,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                               for design in residue_dict}
 
         # Remove residues from fragment dict if no fragment information available for them
-        obs_d['fragment'] = SDUtils.clean_interior_keys(obs_d['fragment'], issm_residues, remove=False)
+        obs_d['fragment'] = SDUtils.remove_interior_keys(obs_d['fragment'], issm_residues, keep=True)
         # Add observation information into the residue dictionary
         for design in residue_dict:
             res_dict = {'observed_%s' % profile: obs_d[profile][design] for profile in obs_d}
