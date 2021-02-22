@@ -1,3 +1,7 @@
+from utils.SamplingUtils import get_degeneracy_matrices
+from utils.ExpandAssemblyUtils import get_ptgrp_sym_op, get_sg_sym_op
+
+
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
 __copyright__ = "Copyright 2020, Nanohedra"
@@ -147,46 +151,24 @@ sym_comb_dict = {
 #          'T', 'T', 0, 'N/A', 4, 2],
 
 # ROTATION RANGE DEG
-C2 = 180
-C3 = 120
-C4 = 90
-C5 = 72
-C6 = 60
-RotRangeDict = {"C2": C2, "C3": C3, "C4": C4, "C5": C5, "C6": C6}
-
-
+RotRangeDict = {"C2": 180, "C3": 120, "C4": 90, "C5": 72, "C6": 60}
 # ROTATION SETTING MATRICES
-RotMat1 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
-RotMat2 = [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]  # 90 degrees CC on Y
-RotMat3 = [[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]]
-RotMat4 = [[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]
-RotMat5 = [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]
-RotMat6 = [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]  # # 90 degrees CC on X
-RotMat7 = [[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]]
-RotMat8 = [[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]]
-RotMat9 = [[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]]
-RotMat10 = [[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]]
-RotMat11 = [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]
-RotMat12 = [[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]
-RotMat13 = [[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]]
-
-RotSetDict = {1: RotMat1,
-              2: RotMat2,
-              3: RotMat3,
-              4: RotMat4,
-              5: RotMat5,
-              6: RotMat6,
-              7: RotMat7,
-              8: RotMat8,
-              9: RotMat9,
-              10: RotMat10,
-              11: RotMat11,
-              12: RotMat12,
-              13: RotMat13}
+RotSetDict = {1: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],  # identity
+              2: [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],  # 90 degrees CC on Y
+              3: [[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]],
+              4: [[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]],
+              5: [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]],
+              6: [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]],  # # 90 degrees CC on X
+              7: [[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]],
+              8: [[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]],
+              9: [[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]],
+              10: [[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]],
+              11: [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+              12: [[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]],
+              13: [[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]]}
 
 
 class SymEntry:
-
     def __init__(self, entry):
         if type(entry) == int and entry in sym_comb_dict:
             # GETTING ENTRY INFORMATION FROM sym_comb_dict
@@ -210,6 +192,18 @@ class SymEntry:
             self.unit_cell = sym_comb_info[14]
             self.tot_dof = sym_comb_info[15]
             self.cycle_size = sym_comb_info[16]
+
+            if self.get_design_dim() == 0:
+                self.expand_matrices = get_ptgrp_sym_op(self.get_result_design_sym())
+            elif self.get_design_dim() in [2, 3]:
+                self.expand_matrices = get_sg_sym_op(self.get_result_design_sym())
+            else:
+                raise ValueError('\nINVALID SYMMETRY ENTRY. SUPPORTED DESIGN DIMENSIONS: %s\n'
+                                 % ', '.join(map(str, [0, 2, 3])))
+            self.degeneracy_matrices_1, self.degeneracy_matrices_2 = get_degeneracy_matrices(self.get_group1_sym(),
+                                                                                             self.get_group2_sym(),
+                                                                                             self.get_design_dim(),
+                                                                                             self.get_pt_grp_sym())
 
         else:
             raise ValueError("\nINVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: %d to %d\n" % (1, len(sym_comb_dict)))
