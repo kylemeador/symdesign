@@ -468,9 +468,9 @@ class SequenceProfile:
         """Combine a list of fragment profiles incrementing the residue number in each additional fragment profile
 
         Args:
-            fragment_profiles (list(dict)): List of fragment profiles to concatentate
+            fragment_profiles (list(dict)): List of fragment profiles to concatenate
         Sets
-            self.fragment_profile (dict): To a concatentated fragment profile from the input fragment profiles
+            self.fragment_profile (dict): To a concatenated fragment profile from the input fragment profiles
         """
         new_key = 1
         for i in range(len(fragment_profiles)):
@@ -482,9 +482,9 @@ class SequenceProfile:
         """Combine a list of DSSMs incrementing the residue number in each additional DSSM
 
         Args:
-            profiles (list(dict)): List of DSSMs to concatentate
+            profiles (list(dict)): List of DSSMs to concatenate
         Sets
-            self.profile (dict): Using the list of input DSSMs, make a concatentated DSSM
+            self.profile (dict): Using the list of input DSSMs, make a concatenated DSSM
         """
         new_key = 1
         for i in range(len(profiles)):
@@ -717,6 +717,8 @@ class SequenceProfile:
             fragments=None (list): The fragment list to assign to the sequence profile with format
             [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
             alignment_type=None (str): Either mapped or paired
+        Sets:
+            self.fragment_map (dict): {1: [{'chain']: 'mapped', 'cluster': 1_2_123, 'match': 0.61}, ...], ...}
         """
         if alignment_type not in ['mapped', 'paired']:
             return None
@@ -743,7 +745,7 @@ class SequenceProfile:
                          if residue_number <= 0 or residue_number > self.profile_length]
         for residue_number in not_available:
             self.log.info('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
-                           'Fragment index will be deleted.' % (self.name, residue_number))
+                          'Fragment index will be deleted.' % (self.name, residue_number))
             self.fragment_map.pop(residue_number)
 
         # self.log.debug('Residue Cluster Map: %s' % str(self.fragment_map))
@@ -754,11 +756,11 @@ class SequenceProfile:
         observation is created for that fragment index.
 
         Converts a fragment_map with format:
-            (dict): {0: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
-                     1: {}, ...}
+            (dict): {1: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
+                     2: {}, ...}
         To a fragment_profile with format:
-            (dict): {0: {-2: {O: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, 1: {}}, -1: {}, ... },
-                     1: {}, ...}
+            (dict): {1: {-2: {O: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, 1: {}}, -1: {}, ... },
+                     2: {}, ...}
         """
         self.log.debug('Generating Fragment Profile from Map')
         for residue_number, fragment_indices in self.fragment_map.items():
@@ -1208,8 +1210,9 @@ class SequenceProfile:
     @staticmethod
     def populate_design_dictionary(n, alphabet, dtype=dict, zero_index=False):
         """Return a dictionary with n elements, each integer key containing another dictionary with the items in
-        alphabet as keys. By default, the data type inside the alphabet dictionary is a dictionary. Can set dtype as any
-        viable type including list, set, tuple, or int. If dtype is int, 0 will be added to use for counting
+        alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is a dictionary.
+        Set dtype as any viable container type [list, set, tuple, int, etc.]. If dtype is int, 0 will be added to use
+        for counting
 
         Args:
             n (int): number of residues in a design
@@ -1907,7 +1910,7 @@ def parse_pssm(file):
         file (str): The name/location of the file on disk
     Returns:
         pose_dict (dict): Dictionary containing residue indexed profile information
-            Ex: {0: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
+            Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                 {...}}
     """
     with open(file, 'r') as f:
@@ -1917,17 +1920,17 @@ def parse_pssm(file):
     for line in lines:
         line_data = line.strip().split()
         if len(line_data) == 44:
-            resi = int(line_data[0]) - index_offset
-            pose_dict[resi] = deepcopy(aa_counts_dict)
-            for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[resi], 22):
+            residue_number = int(line_data[0])
+            pose_dict[residue_number] = deepcopy(aa_counts_dict)
+            for i, aa in enumerate(alph_3_aa_list, 22):
                 # Get normalized counts for pose_dict
-                pose_dict[resi][aa] = (int(line_data[i]) / 100.0)
-            pose_dict[resi]['lod'] = {}
+                pose_dict[residue_number][aa] = (int(line_data[i]) / 100.0)
+            pose_dict[residue_number]['lod'] = {}
             for i, aa in enumerate(alph_3_aa_list, 2):
-                pose_dict[resi]['lod'][aa] = line_data[i]
-            pose_dict[resi]['type'] = line_data[1]
-            pose_dict[resi]['info'] = float(line_data[42])
-            pose_dict[resi]['weight'] = float(line_data[43])
+                pose_dict[residue_number]['lod'][aa] = line_data[i]
+            pose_dict[residue_number]['type'] = line_data[1]
+            pose_dict[residue_number]['info'] = float(line_data[42])
+            pose_dict[residue_number]['weight'] = float(line_data[43])
 
     return pose_dict
 
@@ -2590,7 +2593,7 @@ def simplify_mutation_dict(mutation_dict, to=True):
     """Simplify mutation dictionary to 'to'/'from' AA key
 
     Args:
-        mutation_dict (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        mutation_dict (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     Keyword Args:
         to=True (bool): Whether to use 'to' AA (True) or 'from' AA (False)
     Returns:
@@ -2626,17 +2629,6 @@ def get_mutation_to(mutation_dict):
         mutation_dict (str): 'K'
     """
     return mutation_dict['to']
-
-
-def get_wildtype_file(des_directory):
-    """Retrieve the wild-type file name from Design Directory"""
-    # wt_file = glob(os.path.join(des_directory.building_blocks, PUtils.clean))
-    wt_file = glob(os.path.join(des_directory.path, PUtils.clean))
-    assert len(wt_file) == 1, '%s: More than one matching file found with %s' % (des_directory.path, PUtils.asu)
-    return wt_file[0]
-    # for file in os.listdir(des_directory.building_blocks):
-    #     if file.endswith(PUtils.asu):
-    #         return os.path.join(des_directory.building_blocks, file)
 
 
 def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, des_divergence):
