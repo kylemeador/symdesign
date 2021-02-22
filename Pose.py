@@ -1815,18 +1815,21 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
 
     eul_lookup = EulerLookup()
     # Check for matching Euler angles
-    # Todo prefilter guide_coords_list with i/j type true array
     eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_list,
                                                                interface_surf_frag_guide_coords_list)
     eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if true_tup[2]]
-
-    all_fragment_overlap = filter_euler_lookup_by_zvalue(eul_lookup_true_list, complete_int1_ghost_frag_l,
-                                                         interface_ghostfrag_guide_coords_list,
-                                                         complete_int2_frag_l, interface_surf_frag_guide_coords_list,
-                                                         z_value_func=calculate_overlap, max_z_value=max_z_value)
+    # Todo make like FragDock routine with i/j type true array
+    all_fragment_overlap = calculate_overlap(interface_ghostfrag_guide_coords_list,
+                                             interface_surf_frag_guide_coords_list, rmsd_reference,
+                                             max_z_value=max_z_value)
+    # all_fragment_overlap = filter_euler_lookup_by_zvalue(eul_lookup_true_list, complete_int1_ghost_frag_l,
+    #                                                          interface_ghostfrag_guide_coords_list,
+    #                                                          complete_int2_frag_l, interface_surf_frag_guide_coords_list,
+    #                                                          z_value_func=calculate_overlap, max_z_value=max_z_value)
     # passing_fragment_overlap = list(filter(None, all_fragment_overlap))
+    # Todo ensure Tuple[2] is match score, now z-value
     ghostfrag_surffrag_pairs = [(complete_int1_ghost_frag_l[eul_lookup_true_list[idx][0]],
-                                 complete_int2_frag_l[eul_lookup_true_list[idx][1]], all_fragment_overlap[idx][0])
+                                 complete_int2_frag_l[eul_lookup_true_list[idx][1]], all_fragment_overlap[idx])
                                 for idx, boolean in enumerate(all_fragment_overlap) if boolean]
 
     return ghostfrag_surffrag_pairs
