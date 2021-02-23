@@ -1180,9 +1180,8 @@ class SequenceProfile:
         """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
 
         Returns:
-
+            # TODO
         """
-        # _matrix = getattr(matlist, matrix)
         _matrix = substitution_matrices.load(matrix)
         gap_penalty = -10
         gap_ext_penalty = -1
@@ -2213,15 +2212,15 @@ def consensus_sequence(pssm):
     return consensus_identities
 
 
-def sequence_difference(seq1, seq2, d=None, matrix='blosum62'):  # TODO AMS
+def sequence_difference(seq1, seq2, d=None, matrix='BLOSUM62'):  # TODO AMS
     """Returns the sequence difference between two sequence iterators
 
     Args:
         seq1 (any): Either an iterable with residue type as array, or key, with residue type as d[seq1][residue]['type']
         seq2 (any): Either an iterable with residue type as array, or key, with residue type as d[seq2][residue]['type']
     Keyword Args:
-        d=None (dict): The dictionary to look up seq1 and seq2 if they are keys and the iterable is a dictionary
-        matrix='blosum62' (str): The type of matrix to score the sequence differences on
+        d=None (dict): The dictionary to look up seq1 and seq2 if they are keys in the a dictionary
+        matrix='BLOSUM62' (str): The type of matrix to score the sequence differences on
     Returns:
         (float): The computed sequence difference between seq1 and seq2
     """
@@ -2237,7 +2236,7 @@ def sequence_difference(seq1, seq2, d=None, matrix='blosum62'):  # TODO AMS
             # s.append((seq1[i], seq2[i]))
     #     residue_iterator1 = seq1
     #     residue_iterator2 = seq2
-    m = getattr(matlist, matrix)
+    m = substitution_matrices.load(matrix)
     s = 0
     for tup in pairs:
         try:
@@ -2331,7 +2330,7 @@ def create_bio_msa(sequence_dict):
         new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
                                                SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
     """
-    sequences = [SeqRecord(Seq(sequence_dict[name], annotations={'molecule_type': 'Protein'}), id=name)
+    sequences = [SeqRecord(Seq(sequence_dict[name]), annotations={'molecule_type': 'Protein'}, id=name)
                  for name in sequence_dict]
     # sequences = [SeqIO.SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
     new_alignment = MultipleSeqAlignment(sequences)
@@ -2491,13 +2490,13 @@ def find_orf_offset(seq, mutations):
     return orf_offset_index
 
 
-def generate_alignment(seq1, seq2, matrix='blosum62'):
+def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
     """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
 
     Returns:
 
     """
-    _matrix = getattr(matlist, matrix)
+    _matrix = substitution_matrices.load(matrix)
     gap_penalty = -10
     gap_ext_penalty = -1
     # Create sequence alignment
