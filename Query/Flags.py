@@ -281,3 +281,65 @@ def generate_chain_mask(chain_string):
         (list): chain ids in pose format
     """
     return clean_comma_separated_string(chain_string)
+
+
+@handle_errors(errors=KeyboardInterrupt)
+def query_user_for_metrics(df, mode=None):
+    """Ask the user for the desired metrics to select indices from a dataframe
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to select indices from
+        filter_df (pandas.DataFrame): The DataFrame to pull filter information from
+    """
+    instructions = {'filter': 'Choosing values based on supported literature or design goals can help eliminate designs'
+                              ' that are certain to fail. Ensure that your cutoffs aren\'t too exclusive',
+                    'weight':
+                    'For each metric, choose a percentage signifying the metric\'s contribution to the total selection'
+                    ' weight. The weight will be used as a linear combination of all weights according to each designs'
+                    ' rank within the specified metric category. '
+                    'For instance, typically the total weight should equal 1. When choosing 5 metrics, you '
+                    'can assign an equal weight to each (specify 0.2 for each) or you can weight several more strongly '
+                    '(0.3, 0.3, 0.2, 0.1, 0.1). When ranking occurs, for each selected metric the metric will be '
+                    'sorted and designs in the top percentile will be given their percentage of the full weight. Top '
+                    'percentile is defined as the most advantageous score, so the top percentile of energy is lowest, '
+                    'while for hydrogen bonds it would be the most.'}
+
+    print('\n%s' % header_string % 'Select %s Metrics' % mode)
+    print('The provided dataframe will be used to select designs based on the measured metrics from each pose. '
+          'To \'%s\' designs, which metrics would you like to utilize?' % mode)
+
+    metric_values, chosen_metrics = {}, []
+    end = False
+    metrics_input = None
+    available_metrics = set(df.columns.to_list())
+    while not end:
+        if metrics_input.lower() == 'metrics':
+            print(', '.join(available_metrics))
+        metrics_input = input('The available metrics are located in the third row of your DataFrame. Enter your '
+                              'selected metrics as a comma separated input or alternatively, you can check out the'
+                              ' available metrics by entering \'metrics\'.\nEx: \'shape_complementarity, '
+                              'contact_count, etc.\'%s' % input_string)
+        chosen_metrics = set(map(str.strip, map(str.lower, metrics_input.split(','))))
+        unsupported_metrics = chosen_metrics - available_metrics
+        if unsupported_metrics:
+            print('\'%s\' not found in the DataFrame! Is your spelling correct? Have you used the correct '
+                  'underscores? Please try again.' % ', '.join(unsupported_metrics))
+        else:
+            end = True
+    correct = False
+    while not correct:
+        for metric in chosen_metrics:
+            metric_values[metric] = input('For \'%s\' metric \'%s\' what value of should be used for %sing?\n%s'
+                                          % (mode, metric, mode, instructions[mode]))
+
+        print('You selected:\n%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
+        while True:
+            confirm = input(confirmation_string)
+            if confirm.lower() in bool_d:
+                break
+            else:
+                print('%s %s is not a valid choice!' % invalid_string, confirm)
+        if bool_d[confirm]:
+            correct = True
+
+    return metric_values
