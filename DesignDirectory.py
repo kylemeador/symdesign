@@ -132,6 +132,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.skip_logging = False
         self.set_flags(**kwargs)
 
+        # if not self.nano:
+            # check to be sure it's not actually one
+        #     if ('DEGEN', 'ROT', 'tx') in self.path:
+        #         self.nano = True
         if self.nano:
             if project:
                 self.program_root = project.rstrip(os.sep)
