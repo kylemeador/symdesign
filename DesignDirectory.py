@@ -255,9 +255,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     os.makedirs(self.path)
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
                 self.path = design_path
+                print(self.path)
                 self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean))
                 self.source = self.asu
                 self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])  # symmetry.rstrip(os.sep)
+                print(self.program_root)
                 self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
                 self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
 
@@ -279,14 +281,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @property
     def score(self):
-        if self.center_residue_score and self.central_residues_with_fragment_overlap:
-            return self.center_residue_score / self.central_residues_with_fragment_overlap
-        else:
-            self.get_fragment_metrics()
-            try:
+        try:
+            if self.center_residue_score and self.central_residues_with_fragment_overlap:
                 return self.center_residue_score / self.central_residues_with_fragment_overlap
-            except (AttributeError, ZeroDivisionError):
-                raise DesignError('No fragment information available! Design cannot be scored.')
+            else:
+                self.get_fragment_metrics()
+                if self.center_residue_score and self.central_residues_with_fragment_overlap:
+                    return self.center_residue_score / self.central_residues_with_fragment_overlap
+        except (AttributeError, ZeroDivisionError):
+            self.log.error('No fragment information available! Design cannot be scored.')
+        return 0.0
 
     def pose_score(self):  # Todo merge with above
         """Returns:
@@ -349,7 +353,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
-                  number_of_trajectories=PUtils.nstruct, skip_logging=None, **kwargs):  # nanohedra_output,
+                  number_of_trajectories=PUtils.nstruct, skip_logging=None, analysis=False, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         self.sym_entry_number = sym_entry_number
         # self.nano = nanohedra_output
@@ -364,6 +368,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.number_of_trajectories = number_of_trajectories
         self.script = script  # Todo to reflect the run_in_shell flag
         self.mpi = mpi
+        self.analysis = analysis
         if skip_logging:
             self.skip_logging = skip_logging
 
@@ -472,9 +477,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     if file.endswith(PUtils.asu):
         #         return os.path.join(self.building_blocks, file)
 
-    def get_designs(self, design_type='design'):
+    def get_designs(self):  # design_type='design'
         """Return the paths of all design files in a DesignDirectory"""
-        return glob(os.path.join(self.designs, '*%s*' % design_type))
+        return glob('%s/*.pdb' % self.designs)
+        # return glob(os.path.join(self.designs, '*%s*' % design_type))
 
     # TODO generators for the various directory levels using the stored directory pieces
     def get_building_block_dir(self, building_block):
