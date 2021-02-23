@@ -289,7 +289,10 @@ def query_user_for_metrics(df, mode=None):
 
     Args:
         df (pandas.DataFrame): The DataFrame to select indices from
-        filter_df (pandas.DataFrame): The DataFrame to pull filter information from
+    Keyword Args:
+        mode=None (str): The mode in which to query and format metrics information
+    Returns:
+        (dict)
     """
     instructions = {'filter': 'Choosing values based on supported literature or design goals can help eliminate designs'
                               ' that are certain to fail. Ensure that your cutoffs aren\'t too exclusive',
