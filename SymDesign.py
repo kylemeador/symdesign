@@ -506,7 +506,8 @@ if __name__ == '__main__':
     #                   , required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',  # Todo always true
                         help='Should job be run with multiprocessing?\nDefault=False')
-    parser.add_argument('-p', '--project', type=str, metavar='/path/to/SymDesignOutput/Projects/your_project',
+    parser.add_argument('-p', '--project', type=os.path.abspath,
+                        metavar='/path/to/SymDesignOutput/Projects/your_project',
                         help='If pose names are specified by project instead of directories, which project to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
                         help='Should commands be executed through SymDesign command? Doesn\'t mazimize cassini\'s '
@@ -675,14 +676,21 @@ if __name__ == '__main__':
         #  compatible with the above parsing
     default_flags.update(formatted_flags)
 
+    # Add additional program flags to queried_flags
     queried_flags = vars(args)
     queried_flags.update(default_flags)
     queried_flags.update(process_design_selector_flags(queried_flags))
     if args.sub_module in ['design', 'generate_fragments', 'expand_asu'] or args.directory_type == 'design':
         # directory_type = 'design'
         queried_flags['directory_type'] = 'design'
-    elif args.sub_module in ['dock', 'filter']:
+    elif args.sub_module in ['dock', 'filter', 'analysis']:
         queried_flags['directory_type'] = args.sub_module
+        if args.sub_module == 'dock':
+            queried_flags['dock'] = True
+        if args.sub_module == 'filter':
+            queried_flags['filter'] = True
+        if args.sub_module == 'analysis':
+            queried_flags['analysis'] = True
     else:  # ['distribute', 'query', 'guide', 'flags', 'design_selector']
         queried_flags['directory_type'] = None
 
@@ -697,21 +705,17 @@ if __name__ == '__main__':
     initial_iter, inputs_moved = None, False
     # if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'design_selector']:
     #     pass
-    # Todo depreciate args.directory_type here
     # else:
     #     if args.sub_module in ['design', 'generate_fragments', 'expand_asu'] or args.directory_type == 'design':
-            # directory_type = 'design'
-            # queried_flags['directory_type'] = 'design'
+    #         directory_type = 'design'
+    #         queried_flags['directory_type'] = 'design'
     if queried_flags['directory_type'] == 'design':
-        if not args.directory and not args.file:
+        if not args.directory and not args.file and not args.project and not args.single:
             raise SDUtils.DesignError('No design directories/files were specified!\n'
-                                      'Please specify --directory or --file and run your command again')
+                                      'Please specify --directory, --file, --project, or --single '
+                                      'and run your command again')
         else:
-            # logger.debug('Design flags after masking: %s' % queried_flags)
-
-            # Add additional program flags to queried_flags
-
-            # if args.mpi:  # Todo
+            # if args.mpi:  # Todo figure out if needed
             #     # extras = ' mpi %d' % CUtils.mpi
             #     logger.info(
             #         'Setting job up for submission to MPI capable computer. Pose trajectories run in parallel,'
@@ -719,10 +723,11 @@ if __name__ == '__main__':
             #         (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
             #     queried_flags.update({'mpi': True, 'script': True})
 
-            # Set up DesignDirectories  # Todo args.project?!?
+            # Set up DesignDirectories
             if 'nanohedra_output' in queried_flags and queried_flags['nanohedra_output']:
-                all_poses, location = SDUtils.collect_directories(args.directory, file=args.file,
-                                                                  dir_type=PUtils.nano)
+                all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
+                                                                  single=args.single, dir_type=PUtils.nano)
+                # Todo ensure that the Nanohedra DesignDirectory has symmetry initialized properly
                 design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)  # project=args.project
                                       for pose in all_poses]
             else:
@@ -739,8 +744,8 @@ if __name__ == '__main__':
                                                   '\n%s\nCorrect your flags file and try again'
                                                   % (queried_flags['symmetry'],
                                                      ', '.join(SDUtils.possible_symmetries.keys())))
-                # Todo args.project and args.single input here
-                all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
+                all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
+                                                                  single=args.single)
                 design_directories = [DesignDirectory.from_file(pose, **queried_flags)  # project=args.project,
                                       for pose in all_poses]
                 all_poses = [design.asu for design in design_directories]
@@ -763,47 +768,29 @@ if __name__ == '__main__':
 
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
 
-    elif queried_flags['directory_type'] == 'filter':
+    elif queried_flags['directory_type'] in ['filter', 'analysis']:
         if 'nanohedra_output' in queried_flags and queried_flags['nanohedra_output']:
-            all_poses, location = SDUtils.collect_directories(args.directory, file=args.file,
-                                                              dir_type=PUtils.nano)
+            all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
+                                                              single=args.single, dir_type=PUtils.nano)
             design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)  # project=args.project
                                   for pose in all_poses]
         else:
-            # We have to ensure that if the user has provided it, the symmetry is correct
-            # if 'symmetry' in queried_flags and queried_flags['symmetry']:
-            #     if queried_flags['symmetry'] in SDUtils.possible_symmetries:
-            #         sym_entry = SDUtils.parse_symmetry_to_nanohedra_entry(queried_flags['symmetry'])
-            #         queried_flags['sym_entry_number'] = sym_entry
-            #     elif queried_flags['symmetry'].lower()[:5] == 'cryst':
-            #         do_something = True
-            #         # the symmetry information should be in the pdb headers
-            #     else:
-            #         raise SDUtils.DesignError('The symmetry %s is not supported! Supported symmetries include:'
-            #                                   '\n%s\nCorrect your flags file and try again'
-            #                                   % (queried_flags['symmetry'],
-            #                                      ', '.join(SDUtils.possible_symmetries.keys())))
-
-            all_poses, location = SDUtils.collect_directories(args.directory, file=args.file)
+            all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
+                                                              single=args.single)
             design_directories = [DesignDirectory.from_file(pose, **queried_flags)  # project=args.project,
                                   for pose in all_poses]
-            # all_poses = [design.asu for design in design_directories]
-            # inputs_moved = True
         if not design_directories:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s'
                                       % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
-        # if not args.debug:
-        #     logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
-        #                 % design_directories[0].log.handlers[0].baseFilename)
     elif queried_flags['directory_type'] == 'dock':
         args.directory_type = 'dock'
         # Getting PDB1 and PDB2 File paths
         if args.pdb_path1:
             if not args.entry:
-                exit('If using --pdb_path1 (-d1) and/or --pdb_path2 (-d2), please specify --entry as well. '
-                     '--entry can be found using SubModule \'%s query\'' % PUtils.program_command)
-
+                logger.critical('If using --pdb_path1 (-d1) and/or --pdb_path2 (-d2), please specify --entry as well. '
+                                '--entry can be found using the module \'%s query\'' % PUtils.program_command)
+                exit()
             else:
                 sym_entry = SymEntry(args.entry)
                 oligomer_symmetry_1 = sym_entry.get_group1_sym()
@@ -862,8 +849,10 @@ if __name__ == '__main__':
             design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
         elif args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
+                                                                         project=args.project, single=args.single,
                                                                          dir_type=args.directory_type)
-            design_directories = [set_up_directory_objects(dock_dir, mode=args.directory_type, project=args.project)  # **queried_flags
+            design_directories = [set_up_directory_objects(dock_dir, mode=args.directory_type, project=args.project)
+                                  # TODO                   **queried_flags
                                   for dock_dir in all_dock_directories]
             if len(design_directories) == 0:
                 raise SDUtils.DesignError('No docking directories/files were found!\n'
@@ -1090,6 +1079,11 @@ if __name__ == '__main__':
         if args.no_save:
             save = False
         # Start pose analysis of all designed files
+        out_path = os.path.join(next(iter(design_directories)).program_root, args.output)
+        if os.path.exists(args.output):
+            logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
+                            'data! Please modify that file or specify a new output name with -o/--output'
+                            % out_path)
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
             threads = SDUtils.calculate_mp_threads(maximum=True)
