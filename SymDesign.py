@@ -30,7 +30,6 @@ from DesignDirectory import DesignDirectory, set_up_directory_objects
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
 from PDB import PDB, generate_sequence_template
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
-# from AnalyzeMutatedSequences import filter_pose, get_pdb_sequences, select_sequences_s, select_sequences_mp, write_fasta_file
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
 from Query.Flags import query_user_for_flags, return_default_flags, process_design_selector_flags
 from classes.SymEntry import SymEntry
@@ -48,9 +47,9 @@ def rename(des_dir, increment=PUtils.nstruct):
     Keyword Args:
         increment=PUtils.nstruct (int): The number to increment by
     """
-    for pdb in os.listdir(des_dir.design_pdbs):
+    for pdb in os.listdir(des_dir.designs):
         if os.path.splitext(pdb)[0][-1].isdigit():
-            SDUtils.change_filename(os.path.join(des_dir.design_pdbs, pdb), increment=increment)
+            SDUtils.change_filename(os.path.join(des_dir.designs, pdb), increment=increment)
     SDUtils.modify_decoys(os.path.join(des_dir.scores, PUtils.scores_file), increment=increment)
 
 
@@ -604,13 +603,13 @@ if __name__ == '__main__':
                                    help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_sequence.add_argument('-c', '--consensus', action='store_true', help='Whether to grab the consensus sequence'
                                                                                 '\nDefault=False')
-    parser_sequence.add_argument('-f', '--filters', action='store_true', help='Metrics with which to filter on\n'
-                                                                              'Default=None', default=None)
+    parser_sequence.add_argument('-f', '--filter', action='store_true',
+                                 help='Whether to filter sequence selection using metrics from DataFrame')
     parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
                                  default=1)
     parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
-    parser_sequence.add_argument('-w', '--weights', type=str, help='Weights of various metrics to final poses\n'
-                                                                   'Default=1/number of --filters')
+    parser_sequence.add_argument('-w', '--weight', action='store_true',
+                                 help='Whether to weight sequence selction using metrics from DataFrame')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
@@ -1209,84 +1208,77 @@ if __name__ == '__main__':
             with open(args.pose_design_file) as csv_file:
                 csv_lines = [line for line in reader(csv_file)]
             all_poses, pose_design_numbers = zip(*csv_lines)
-            # pose_design_numbers = list(map(list, pose_design_numbers))
-            # all_poses, pose_design_numbers = zip(*reader(args.pose_design_file))
+
             design_directories = set_up_directory_objects(all_poses, project=args.project)  # **queried_flags
             results.append(zip(design_directories, pose_design_numbers))
             location = args.pose_design_file
         else:
-            output = False
             if args.dataframe:  # Figure out poses from a dataframe, filters, and weights
                 # TODO parameterize
-                if args.filters:
-                    exit('Vy made this and I am going to put in here!')
-                design_requirements = {'percent_int_area_polar': 0.2, 'buns_per_ang': 0.002}
-                crystal_means1 = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
-                crystal_means2 = {'shape_complementarity': 0.63, 'number_hbonds': 5}  # 'int_area_total': 570,
-                symmetry_requirements = crystal_means1
-                filters = {}
-                filters.update(design_requirements)
-                filters.update(symmetry_requirements)
-                if args.consensus:
-                    consensus_weights1 = {'interaction_energy_complex': 0.5, 'percent_fragment': 0.5}
-                    consensus_weights2 = {'interaction_energy_complex': 0.33, 'percent_fragment': 0.33,
-                                          'shape_complementarity': 0.33}
-                    filters = {'percent_int_area_polar': 0.2}
-                    weights = consensus_weights2
-                else:
-                    weights1 = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25,
-                                'observed_evolution': 0.25, 'int_composition_diff': 0.25}
-                    # Used without the interface area filter
-                    weights2 = {'protocol_energy_distance_sum': 0.20, 'shape_complementarity': 0.20,
-                                'observed_evolution': 0.20, 'int_composition_diff': 0.20, 'int_area_total': 0.20}
-                    weights = weights1
-                # if not args.weights:
-                #     sys.exit('VY made this and I am going to put in here!')
+                # if args.filters:
+                #     exit('Vy made this and I am going to put in here!')
+                # design_requirements = {'percent_int_area_polar': 0.2, 'buns_per_ang': 0.002}
+                # crystal_means1 = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
+                # crystal_means2 = {'shape_complementarity': 0.63, 'number_hbonds': 5}
+                # symmetry_requirements = crystal_means1
+                # filters = {}
+                # filters.update(design_requirements)
+                # filters.update(symmetry_requirements)
+                # if args.consensus:
+                #     consensus_weights1 = {'interaction_energy_complex': 0.5, 'percent_fragment': 0.5}
+                #     consensus_weights2 = {'interaction_energy_complex': 0.33, 'percent_fragment': 0.33,
+                #                           'shape_complementarity': 0.33}
+                #     filters = {'percent_int_area_polar': 0.2}
+                #     weights = consensus_weights2
+                # else:
+                #     weights1 = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25,
+                #                 'observed_evolution': 0.25, 'int_composition_diff': 0.25}
+                #     # Used without the interface area filter
+                #     weights2 = {'protocol_energy_distance_sum': 0.20, 'shape_complementarity': 0.20,
+                #                 'observed_evolution': 0.20, 'int_composition_diff': 0.20, 'int_area_total': 0.20}
+                #     weights = weights1
 
-                selected_poses = Ams.filter_pose(args.dataframe, filters, weights,  # num_designs=args.number,
-                                                 consensus=args.consensus, filter_file=PUtils.filter_and_sort)
+                selected_poses = Ams.filter_pose(args.dataframe, filter=args.filter, weight=args.weight,
+                                                 consensus=args.consensus)
 
                 # Sort results according to clustered poses
-                pose_cluster_map = SDUtils.unpickle(
-                    os.path.join(design_directories[0].protein_data, '%s.pkl' % PUtils.clustered_poses))
-                # {building_blocks: {design_string: cluster_representative}, ...}
-                pose_clusters_found, final_poses = [], []
-                # for des_dir in design_directories:
-                for pose in selected_poses:
-                    if pose_cluster_map[pose.split('-')[0]][pose] not in pose_clusters_found:
-                        pose_clusters_found.append(pose_cluster_map[pose.split('-')[0]][pose])
-                        final_poses.append(pose)
+                cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
+                if os.path.exists(cluster_map):
+                    pose_cluster_map = SDUtils.unpickle(cluster_map)
+                    # {building_blocks: {design_string: cluster_representative}, ...}
+                    pose_clusters_found, final_poses = [], []
+                    # for des_dir in design_directories:
+                    for pose in selected_poses:
+                        if pose_cluster_map[pose.split('-')[0]][pose] not in pose_clusters_found:
+                            pose_clusters_found.append(pose_cluster_map[pose.split('-')[0]][pose])
+                            final_poses.append(pose)
+                    logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(final_poses))
+                else:
+                    final_poses = selected_poses
 
                 if len(final_poses) > args.number:
                     final_poses = final_poses[:args.number]
-                logger.info('Final poses after clustering:\n%s' % '\n'.join(pose for pose in final_poses))
 
                 design_directories = set_up_directory_objects(final_poses, project=args.project)  # **queried_flags
-                if args.consensus:
-                    results.append(zip(design_directories, repeat('consensus')))
-                    output = True
 
-            if output:
-                pass
+            if args.consensus:
+                results.append(zip(design_directories, repeat('consensus')))
             elif args.multi_processing:
                 # Calculate the number of threads to use depending on computer resources
                 threads = SDUtils.calculate_mp_threads(maximum=True)
                 logger.info('Starting multiprocessing using %s threads' % str(threads))
-                sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
-                                    'int_energy_res_summary_delta': 0.25}
+                # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
+                #                     'int_energy_res_summary_delta': 0.25}
                 # sequence_weights = None  # Remove once calculated
-                zipped_args = zip(design_directories, repeat(sequence_weights))
+                zipped_args = zip(design_directories, repeat(args.weight))  # repeat(sequence_weights))
                 results, exceptions = zip(*SDUtils.mp_starmap(Ams.select_sequences_mp, zipped_args, threads))
                 # results, exceptions = zip(*SDUtils.mp_map(Ams.select_sequences_mp, design_directories, threads))
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
             else:
-                results, exceptions = zip(*list(Ams.select_sequences_s(des_directory, number=args.number)
+                results, exceptions = zip(*list(Ams.select_sequences_s(des_directory, weight=args.weight,
+                                                                       number=args.number)
                                                 for des_directory in design_directories))
-                # for des_directory in design_directories:
-                #     result, error = select_sequences_s(des_directory, number=args.number)
-                #     results.append(result)
-                #     exceptions.append(error)  # Todo
 
         results = list(results)
         failures = [index for index, exception in enumerate(exceptions) if exception]  # Todo
@@ -1297,7 +1289,7 @@ if __name__ == '__main__':
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
         else:
             args.selection_string += '_'
-        outdir = os.path.join(os.path.dirname(location), '%sSelected_PDBs' % args.selection_string)
+        outdir = os.path.join(os.path.dirname(location), '%sSelected_Designs' % args.selection_string)
         outdir_traj = os.path.join(outdir, 'Trajectories')
         outdir_res = os.path.join(outdir, 'Residues')
 
@@ -1311,19 +1303,24 @@ if __name__ == '__main__':
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
                 file = glob('%s*%s*' % (pose_des_dir.designs, design[i]))
-                if file == list():  # If no file found, skip and add to exceptions
-                    exceptions.append((pose_des_dir.path, 'No file found for %s*%s*' %  # Todo
+                if not file:
+                    # add to exceptions
+                    exceptions.append((pose_des_dir.path, 'No file found for \'%s*%s*\'' %
                                        (pose_des_dir.designs, design[i])))
                     continue
+                # for file in files:
                 try:
                     os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
-                    os.symlink(pose_des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(pose_des_dir.trajectories)))
-                    os.symlink(pose_des_dir.residues, os.path.join(outdir_res, os.path.basename(pose_des_dir.residues)))
+                    os.symlink(pose_des_dir.trajectories, os.path.join(outdir_traj,
+                                                                       os.path.basename(pose_des_dir.trajectories)))
+                    os.symlink(pose_des_dir.residues, os.path.join(outdir_res,
+                                                                   os.path.basename(pose_des_dir.residues)))
                 except FileExistsError:
                     pass
 
         # Format sequences for expression
-        chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        # chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        chains = PDB.available_letters
         final_sequences, inserted_sequences = {}, {}
         for pose in results:
             pose_des_dirs, design = zip(*pose)
@@ -1331,21 +1328,25 @@ if __name__ == '__main__':
                 # coming in as (chain: seq}
                 design_pose = PDB.from_file(glob('%s*%s*' % (pose_des_dir.designs, design[i]))[0])
                 # v {chain: sequence, ...}
-                design_sequences = AnalyzeMutatedSequences.get_pdb_sequences(design_pose)
-                pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')
+                design_sequences = design_pose.atom_sequences
+
                 # need the original pose chain identity
                 # source_pose = PDB(file=pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
-                source_pose = PDB.from_file(pose_des_dir.source)  # Think this is the best, need to modify chains
-                source_pose.reorder_chains()
-                source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
+                source_pose = PDB.from_file(pose_des_dir.source)  # Think this works the best
+                source_pose.reorder_chains()  # Do I need to modify chains?
+                # source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
+                if pose_des_dir.nano:
+                    pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')  # Todo depreciate
+                else:
+                    pose_pdbs = [entity.name for entity in source_pose.entities]
                 # if not source_pose.sequences:
-                oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
+                # oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
                 # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
-                oligomer_chain_database_chain_map = {chain: oligomers[k].chain_id_list[0]
-                                                     for k, chain in enumerate(source_pose.chain_id_list)}
+                oligomer_chain_database_chain_map = {entity.chain_id: True  # TODO API asym_id or modify down to use Entity_id
+                                                     for entity in source_pose.entities}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
-                source_seqres = {chain: oligomers[k].reference_sequence[oligomers[k].chain_id_list[0]]
+                source_seqres = {chain: oligomers[k].reference_sequence[]
                                  for k, chain in enumerate(chains[:len(oligomers)])}
 
                 # seqres_pose = PDB.PDB()
@@ -1410,7 +1411,8 @@ if __name__ == '__main__':
                         #     print('%s\tLocation %d' % (design_pose.get_structure_sequence(chain), residue))
 
                 # Get modified sequence
-                design_sequences_disordered = AnalyzeMutatedSequences.get_pdb_sequences(design_pose)
+                design_pose.get_chain_sequences()
+                design_sequences_disordered = design_pose.atom_sequences
                 # print('Disordered Insertions:\n%s' %
                 #       '\n'.join(['%s - %s' % (chain, design_sequences_disordered[chain])
                 #                  for chain in design_sequences_disordered]))
@@ -1442,11 +1444,13 @@ if __name__ == '__main__':
 
                 # Check for expression tag addition to the designed sequences
                 tag_sequences = {}
-                for j, (pdb_code, chain) in enumerate(zip(pose_pdbs, pretag_sequences)):
+                for j, (entity, chain) in enumerate(zip(source_pose.entities, pretag_sequences)):
+                    pdb_code = entity.name[:4]
                     # if sequence doesn't have a tag find all compatible tags
                     if not find_expression_tags(pretag_sequences[chain]):  # == dict():
                         tag_sequences[pdb_code] = \
-                            find_all_matching_pdb_expression_tags(pdb_code, oligomer_chain_database_chain_map[chain])
+                            find_all_matching_pdb_expression_tags(pdb_code,
+                                                                  oligomer_chain_database_chain_map[entity.chain_id])
                         # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
                         seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chains[j]])
                     else:  # re-use existing
