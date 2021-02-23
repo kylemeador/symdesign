@@ -17,22 +17,21 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import BallTree
 from sklearn.preprocessing import StandardScaler
 
-import DesignDirectory
-import PathUtils as PUtils
 import SequenceProfile
-import SymDesignUtils
-import SymDesignUtils as SDUtils
+import PathUtils as PUtils
+from DesignDirectory import DesignDirectory
 from PDB import PDB
 from PoseProcessing import extract_aa_seq
+from Query.Flags import query_user_for_metrics
 from SequenceProfile import remove_non_mutations, pos_specific_jsd, weave_mutation_dict, \
-    generate_mutations, index_offset, make_mutations, SequenceProfile, create_bio_msa
-from SymDesignUtils import index_offset  # logger,
+    generate_mutations, make_mutations, SequenceProfile, create_bio_msa
+from SymDesignUtils import DesignError, handle_design_errors, index_offset, start_log, unpickle, clean_dictionary,\
+    index_intersection, condensed_to_square, sym
 
 # Globals
 # logger = SDUtils.start_log(__name__)
-logger = SDUtils.start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 db = PUtils.biological_fragmentDB
-index_offset = SDUtils.index_offset
 
 
 #####################
@@ -143,6 +142,7 @@ index_offset = SDUtils.index_offset
 def df_filter_index_by_value(df, **kwargs):
     """Take a df and retrieve the indices which have column values greater_equal/less_equal to a value depending
     on whether the column should be sorted max/min
+
     Args:
         df (pandas.DataFrame): DataFrame to filter indices on
     Keyword Args:
@@ -157,39 +157,44 @@ def df_filter_index_by_value(df, **kwargs):
     return kwargs
 
 
-def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.filter_and_sort):
+def filter_pose(df_file, filter=None, weight=None, consensus=False):
+    """Return the indices from a dataframe that pass an set of filters (optional) and are ranked according to weight as
+    specified by user values.
 
-    # if debug:
-    #     global logger
-    # else:
-    logger = SDUtils.start_log(name=__name__, handler=1, level=2)
-                                   # location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
-
-    idx = pd.IndexSlice
-    df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
-    filter_df = pd.read_csv(filter_file, index_col=0)
-    logger.info('Number of starting designs = %d' % len(df))
-    logger.info('Using filter parameters: %s' % str(filters))
-
-    # design_requirements = {'percent_int_area_polar': 0.4, 'buns_per_ang': 0.002}
-    # crystal_means = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
-    # sort = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25, 'observed_evolution': 0.25,
-    #         'int_composition_diff': 0.25}
-
-    # When df is not ranked by percentage
-    _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': filters[metric]}
-                for metric in filters}
-
+    Args:
+        df_file (pandas.DataFrame): DataFrame to filter/weight indices
+    Keyword Args:
+        filter=False (bool): Whether filters are going to remove viable candidates
+        weight=False (bool): Whether weights are going to select the poses
+        consensus=False (bool): Whether consensus designs should be chosen
+    Returns:
+        (list): The indices of the designs to select based on the provided filters and weights
+    """
+    idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
-    _df = df.loc[:, idx['pose', df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
+    df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
+    logger.info('Number of starting designs = %d' % len(df))
+    _df = df.loc[:, idx_slice['pose',
+                              df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
 
-    # Filter the DataFrame to include only those values which are le/ge the specified filter
-    filters_with_idx = df_filter_index_by_value(_df, **_filters)
-    filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
-    logger.info('\n%s' % '\n'.join('Number of designs passing \'%s\' filter = %d' %
-                                   (metric, len(filtered_indices[metric])) for metric in filtered_indices))
-    final_indices = SDUtils.index_intersection(filtered_indices)
-    logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
+    filter_df = pd.read_csv(PUtils.filter_and_sort, index_col=0)
+    if filter:
+        filters = query_user_for_metrics(df, mode='filter')
+        logger.info('Using filter parameters: %s' % str(filters))
+
+        # When df is not ranked by percentage
+        _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
+                    for metric, value in filters.items()}
+
+        # Filter the DataFrame to include only those values which are le/ge the specified filter
+        filters_with_idx = df_filter_index_by_value(_df, **_filters)
+        filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
+        logger.info('\n%s' % '\n'.join('Number of designs passing \'%s\' filter = %d' %
+                                       (metric, len(filtered_indices[metric])) for metric in filtered_indices))
+        final_indices = index_intersection(filtered_indices)
+        logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
+        _df = _df.loc[final_indices, :]
+
     # When df IS ranked by percentage
     # bottom_percent = (num_designs / len(df))
     # top_percent = 1 - bottom_percent
@@ -202,69 +207,72 @@ def filter_pose(df_file, filters, weights, consensus=False, filter_file=PUtils.f
     # filters_with_idx = df_filter_index_by_value(ranked_df, **_sort)
 
     if consensus:
-        protocol_df = df.loc[:, idx['consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
-        #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', ['mean', 'stats'], :]].droplevel(1, axis=1)
+        protocol_df = df.loc[:, idx_slice['consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
+        #     df.loc[:, idx_slice[df.columns.get_level_values(0) != 'pose', ['mean', 'stats'], :]].droplevel(1, axis=1)
         # stats_protocol_df = \
-        #     df.loc[:, idx[df.columns.get_level_values(0) != 'pose', df.columns.get_level_values(1) == 'stats',
+        #     df.loc[:, idx_slice[df.columns.get_level_values(0) != 'pose', df.columns.get_level_values(1) == 'stats',
         #     :]].droplevel(1, axis=1)
         # design_protocols_df = pd.merge(protocol_df, stats_protocol_df, left_index=True, right_index=True)
         # TODO make more robust sampling from specific protocol
-        _df = pd.merge(protocol_df.loc[:, idx['consensus', :]],
-                       df.droplevel(0, axis=1).loc[:, idx[:, 'percent_fragment']],
+        _df = pd.merge(protocol_df.loc[:, idx_slice['consensus', :]],
+                       df.droplevel(0, axis=1).loc[:, idx_slice[:, 'percent_fragment']],
                        left_index=True, right_index=True).droplevel(0, axis=1)
     # filtered_indices = {}
 
     # for metric in filters:
     #     filtered_indices[metric] = set(df[df.droplevel(0, axis=1)[metric] >= filters[metric]].index.to_list())
     #     logger.info('Number of designs passing %s = %d' % (metric, len(filtered_indices[metric])))
-    _df = _df.loc[final_indices, :]
     # ranked_df = _df.rank(method='min', pct=True, )  # default is to rank lower values as closer to 1
-    # need {column: {'direction': 'max', 'value': 0.5, 'idx': []}, ...}
+    # need {column: {'direction': 'max', 'value': 0.5, 'idx_slice': []}, ...}
 
     # only used to check out the number of designs in each filter
     # for _filter in crystal_filters_with_idx:
-    #     print('%s designs = %d' % (_filter, len(crystal_filters_with_idx[_filter]['idx'])))
+    #     print('%s designs = %d' % (_filter, len(crystal_filters_with_idx[_filter]['idx_slice'])))
 
-    # {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
+    # {column: {'direction': 'min', 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
+    if weight:
+        # display(ranked_df[weights_s.index.to_list()] * weights_s)
+        weights = query_user_for_metrics(df, mode='weight')
+        logger.info('Using weighting parameters: %s' % str(weights))
+        _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
+                    for metric, value in weights.items()}
+        weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
+        # weights_s = pd.Series(weights)
+        weight_score_s_d = {}
+        for metric in _weights:
+            weight_score_s_d[metric] = _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+                                                        method=_weights[metric]['direction'], pct=True) \
+                                       * _weights[metric]['value']
 
-    # display(ranked_df[weights_s.index.to_list()] * weights_s)
-    logger.info('Using weighting parameters: %s' % str(weights))
-    _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
-                for metric in weights}
-    weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
-    # weights_s = pd.Series(weights)
-    weight_score_s_d = {}
-    for metric in _weights:
-        weight_score_s_d[metric] = _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
-                                                    method=_weights[metric]['direction'], pct=True) \
-                                   * _weights[metric]['value']
-
-    design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
-    design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+        design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
+        designs = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+    else:
+        designs = _df.index.to_list()
     # these will be sorted by the largest value to the smallest
     # design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
-    # design_list = design_scores_s.index.to_list()
-    # design_list = design_scores_s.index.to_list()[:num_designs]
-    logger.info('%d poses were selected:\n%s' % (len(design_list), '\n'.join(design_list)))
+    # designs = design_scores_s.index.to_list()
+    # designs = design_scores_s.index.to_list()[:num_designs]
+    logger.info('%d poses were selected:\n%s' % (len(designs), '\n'.join(designs)))
 
-    return design_list
-
-
-@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
-def select_sequences_s(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
-    return select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
+    return designs
 
 
-def select_sequences_mp(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
+@handle_design_errors(errors=(DesignError, AssertionError))
+def select_sequences_s(des_dir, weight=None, number=1, desired_protocol=None, debug=False):
+    return select_sequences(des_dir, weight=weight, number=number, desired_protocol=desired_protocol, debug=debug)
+
+
+def select_sequences_mp(des_dir, weight=None, number=1, desired_protocol=None, debug=False):
     try:
-        pose = select_sequences(des_dir, weights=weights, filter_file=filter_file, number=number, debug=debug)
-        return pose, None
-    except (SymDesignUtils.DesignError, AssertionError) as e:
-        return None, (des_dir.path, e)
+        pose = select_sequences(des_dir, weight=weight, number=number, desired_protocol=desired_protocol, debug=debug)
+        return pose
+    except (DesignError, AssertionError) as e:
+        return e
 
 
-def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, number=1, debug=False):
-    """From a design directory find the sequences with the most neighbors to select for further characterization
+def select_sequences(des_dir, weight=None, number=1, desired_protocol=None, debug=False):
+    """From a single design, select sequences for further characterization. If weights, then using weights the user can
+     prioritize sequences, otherwise the sequence with the most neighbors will be selected
 
     Args:
         des_dir (DesignDirectory)
@@ -275,13 +283,12 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
     Returns:
         (list): Containing tuples with (DesignDirectory, design index) for each sequence found
     """
-    desired_protocol = 'combo_profile'
-    # Log output
-    if debug:
-        global logger
-    else:
-        logger = SDUtils.start_log(name=__name__, handler=2, level=2,
-                                   location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
+    # # Log output
+    # if debug:
+    #     global logger
+    # else:
+    #     logger = SDUtils.start_log(name=__name__, handler=2, level=2,
+    #                                location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
 
     # Load relevant data from the design directory
     # trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
@@ -294,13 +301,13 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
     # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
     # designs = list(all_design_sequences[chains[0]].keys())
     logger.info('Number of starting trajectories = %d' % len(trajectory_df))
-    designs = trajectory_df[trajectory_df['protocol'] == desired_protocol].index.to_list()
 
-    if weights:
-        filter_df = pd.read_csv(filter_file, index_col=0)
+    if weight:
+        filter_df = pd.read_csv(PUtils.filter_and_sort, index_col=0)
         # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
         # _df = trajectory_df.loc[final_indices, :]
         _df = trajectory_df
+        weights = query_user_for_metrics(_df, mode='weight')
         logger.info('Using weighting parameters: %s' % str(weights))
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
                     for metric in weights}
@@ -317,94 +324,108 @@ def select_sequences(des_dir, weights=None, filter_file=PUtils.filter_and_sort, 
         logger.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
 
         return zip(repeat(des_dir), design_list[:number])
-
-    # sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
-    # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
-    #                                    os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
-    #
-    # all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
-    # {chain: {name: sequence, ...}, ...}
-    all_design_sequences = SDUtils.unpickle(des_dir.design_sequences)
-    # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so unnecessary
-    chains = list(all_design_sequences.keys())
-    concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains]) for design in designs]
-    logger.debug(chains)
-    logger.debug(concatenated_sequences)
-
-    # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, SDUtils.sequence_difference)
-    # Using concatenated sequences makes the values incredibly similar and inflated as most residues are the same
-    # doing min/max normalization to see variation
-    pairwise_sequence_diff_l = [SequenceProfile.sequence_difference(*seq_pair)
-                                for seq_pair in combinations(concatenated_sequences, 2)]
-    pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
-    _min = min(pairwise_sequence_diff_l)
-    # _max = max(pairwise_sequence_diff_l)
-    pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
-    # logger.info(pairwise_sequence_diff_l)
-
-    # PCA analysis of distances
-    pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
-    for k, dist in enumerate(pairwise_sequence_diff_np):
-        i, j = SDUtils.condensed_to_square(k, len(designs))
-        pairwise_sequence_diff_mat[i, j] = dist
-    pairwise_sequence_diff_mat = SDUtils.sym(pairwise_sequence_diff_mat)
-
-    pairwise_sequence_diff_mat = StandardScaler().fit_transform(pairwise_sequence_diff_mat)
-    seq_pca = PCA(PUtils.variance)
-    seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
-    seq_pca_distance_vector = pdist(seq_pc_np)
-    # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
-    epsilon = seq_pca_distance_vector.mean() * 0.5
-    logger.info('Finding maximum neighbors within distance of %f' % epsilon)
-
-    # logger.info(pairwise_sequence_diff_np)
-    # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
-    # epsilon = math.sqrt(seq_pc_np.myean()) * 0.5
-    # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
-
-    # Find the nearest neighbors for the pairwise distance matrix using the X*X^T (PCA) matrix, linear transform
-    seq_neighbors = BallTree(seq_pc_np)
-    seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # , sort_results=True)
-    top_count, top_idx = 0, None
-    for count in seq_neighbor_counts:  # idx, enumerate()
-        if count > top_count:
-            top_count = count
-
-    sorted_seqs = sorted(seq_neighbor_counts, reverse=True)
-    top_neighbor_counts = sorted(set(sorted_seqs[:number]), reverse=True)
-
-    # Find only the designs which match the top x (number) of neighbor counts
-    final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
-                     for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
-    logger.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
-                # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
-                % '\n'.join('\t%d\t%s' % (neighbors, os.path.join(des_dir.design_pdbs, des))
-                            for des, neighbors in final_designs.items()))
-
-    # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.designs, seq))
-    #                                                         for i, seq in enumerate(final_designs, 1)))
-
-    # Compute the highest density cluster using DBSCAN algorithm
-    # seq_cluster = DBSCAN(eps=epsilon)
-    # seq_cluster.fit(pairwise_sequence_diff_np)
-    #
-    # seq_pc_df = pd.DataFrame(seq_pc, index=designs,
-    #                          columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
-    # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-
-    # If final designs contains more sequences than specified, find the one with the lowest energy
-    if len(final_designs) > number:
-        energy_s = trajectory_df.loc[final_designs, 'int_energy_res_summary_delta']  # includes solvation energy
-        try:
-            energy_s = pd.Series(energy_s)
-        except ValueError:
-            raise SymDesignUtils.DesignError('no dataframe')
-        energy_s.sort_values(inplace=True)
-        final_seqs = zip(repeat(des_dir), energy_s.iloc[:number].index.to_list())  # , :].index.to_list()) - index_offset
     else:
-        final_seqs = zip(repeat(des_dir), final_designs.keys())
+        if desired_protocol:
+            unique_protocols = trajectory_df['protocol'].unique().tolist()
+            while True:
+                desired_protocol = input('Do you have a protocol that you prefer to pull your designs from? Possible '
+                                         'protocols include:\n%s' % ', '.join(unique_protocols))
+                if desired_protocol in unique_protocols:
+                    break
+                else:
+                    print('%s is not a valid protocol, try again.' % desired_protocol)
 
-    return final_seqs
+            designs = trajectory_df[trajectory_df['protocol'] == desired_protocol].index.to_list()
+        else:
+            designs = trajectory_df.index.to_list()
+        # sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
+        # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
+        #                                    os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+        #
+        # all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
+        # {chain: {name: sequence, ...}, ...}
+        all_design_sequences = unpickle(des_dir.design_sequences)
+        # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so unnecessary
+        chains = list(all_design_sequences.keys())
+        concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains])
+                                  for design in designs]
+        logger.debug(chains)
+        logger.debug(concatenated_sequences)
+
+        # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, SDUtils.sequence_difference)
+        # Using concatenated sequences makes the values incredibly similar and inflated as most residues are the same
+        # doing min/max normalization to see variation
+        pairwise_sequence_diff_l = [SequenceProfile.sequence_difference(*seq_pair)
+                                    for seq_pair in combinations(concatenated_sequences, 2)]
+        pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
+        _min = min(pairwise_sequence_diff_l)
+        # _max = max(pairwise_sequence_diff_l)
+        pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
+        # logger.info(pairwise_sequence_diff_l)
+
+        # PCA analysis of distances
+        pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
+        for k, dist in enumerate(pairwise_sequence_diff_np):
+            i, j = condensed_to_square(k, len(designs))
+            pairwise_sequence_diff_mat[i, j] = dist
+        pairwise_sequence_diff_mat = sym(pairwise_sequence_diff_mat)
+
+        pairwise_sequence_diff_mat = StandardScaler().fit_transform(pairwise_sequence_diff_mat)
+        seq_pca = PCA(PUtils.variance)
+        seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
+        seq_pca_distance_vector = pdist(seq_pc_np)
+        # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+        epsilon = seq_pca_distance_vector.mean() * 0.5
+        logger.info('Finding maximum neighbors within distance of %f' % epsilon)
+
+        # logger.info(pairwise_sequence_diff_np)
+        # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
+        # epsilon = math.sqrt(seq_pc_np.myean()) * 0.5
+        # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
+
+        # Find the nearest neighbors for the pairwise distance matrix using the X*X^T (PCA) matrix, linear transform
+        seq_neighbors = BallTree(seq_pc_np)  # Todo make brute force or automatic, not BallTree
+        seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # , sort_results=True)
+        top_count, top_idx = 0, None
+        for count in seq_neighbor_counts:  # idx, enumerate()
+            if count > top_count:
+                top_count = count
+
+        sorted_seqs = sorted(seq_neighbor_counts, reverse=True)
+        top_neighbor_counts = sorted(set(sorted_seqs[:number]), reverse=True)
+
+        # Find only the designs which match the top x (number) of neighbor counts
+        final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
+                         for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
+        logger.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
+                    # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
+                    % '\n'.join('\t%d\t%s' % (neighbors, os.path.join(des_dir.designs, design))
+                                for design, neighbors in final_designs.items()))
+
+        # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.designs, seq))
+        #                                                         for i, seq in enumerate(final_designs, 1)))
+
+        # Compute the highest density cluster using DBSCAN algorithm
+        # seq_cluster = DBSCAN(eps=epsilon)
+        # seq_cluster.fit(pairwise_sequence_diff_np)
+        #
+        # seq_pc_df = pd.DataFrame(seq_pc, index=designs,
+        #                       columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
+        # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+
+        # If final designs contains more sequences than specified, find the one with the lowest energy
+        if len(final_designs) > number:
+            energy_s = trajectory_df.loc[final_designs, 'int_energy_res_summary_delta']  # includes solvation energy
+            try:
+                energy_s = pd.Series(energy_s)
+            except ValueError:
+                raise DesignError('no dataframe')
+            energy_s.sort_values(inplace=True)
+            final_seqs = zip(repeat(des_dir), energy_s.iloc[:number].index.to_list())
+        else:
+            final_seqs = zip(repeat(des_dir), final_designs.keys())
+
+        return final_seqs
 
 
 def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unused Todo SequenceProfile.py
@@ -439,48 +460,6 @@ def mutate_wildtype_sequences(sequence_dir_files, wild_type_file):
     """Take a directory with PDB files and compare to a Wild-type PDB"""
     wt_seq_dict = get_pdb_sequences(wild_type_file)
     return generate_sequences(wt_seq_dict, generate_all_design_mutations(sequence_dir_files, wild_type_file))
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='%s\nAnalyze mutations compared to a wild_type protein. Requires a '
-                                                 'directory with \'mutated\' PDB files and a wild-type PDB reference.'
-                                                 % __name__)
-    parser.add_argument('-d', '--directory', type=str, help='Where is the design PDB directory located?',
-                        default=os.getcwd())
-    parser.add_argument('-w', '--wildtype', type=str, help='Where is the wild-type PDB located?', default=None)
-    parser.add_argument('-p', '--print', action='store_true', help='Print the output the the console? Default=False')
-    parser.add_argument('-s', '--score', type=str, help='Where is the score file located?', default=None)
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out? Default=False')
-
-    args = parser.parse_args()
-    # Start logging output
-    if args.debug:
-        logger = SDUtils.start_log(name='main', level=1)
-        logger.debug('Debug mode. Verbose output')
-    else:
-        logger = SDUtils.start_log(name='main', level=2)
-
-    logger.info('Starting %s with options:\n%s' %
-                (__name__, '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
-
-    design_directory = DesignDirectory.DesignDirectory(args.directory)
-
-    logger.warning('If you are running into issues with locating files, the problem is not you, it is me. '
-                   'I have limited capacity to locate specific files given the scope of my creation.')
-    if os.path.basename(args.directory).startswith('tx_'):
-        logger.info('Design directory specified, using standard method and disregarding additional inputs '
-                    '(-s, -score) and (-w, --wildtype).')
-        analyze_mutations(design_directory, mutate_wildtype_sequences(args.directory, args.wildtype),
-                          print_results=True)  # args.print)
-    else:
-        if args.directory and args.wildtype and args.score:
-            path_object = DesignDirectory.set_up_pseudo_design_dir(args.wildtype, args.directory, args.score)
-            analyze_mutations(design_directory, mutate_wildtype_sequences(args.directory, args.wildtype),
-                              print_results=True)  # args.print)
-        else:
-            logger.critical('Must pass all three, wildtype, directory, and score if using non-standard %s '
-                            'directory structure' % PUtils.program_name)
-            sys.exit()
 
 
 def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=False):  # Todo DEPRECIATE
@@ -682,7 +661,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
     # for _chain in pdb.chain_id_list:
     #     seq_dict[_chain] =
     if chain:
-        seq_dict = SDUtils.clean_dictionary(seq_dict, chain, remove=False)
+        seq_dict = clean_dictionary(seq_dict, chain, remove=False)
 
     return seq_dict
 
@@ -1014,4 +993,46 @@ def multi_chain_alignment(mutated_sequences):
         return process_alignment(total_alignment)
     else:
         logger.error('%s - No sequences were found!' % multi_chain_alignment.__name__)
-        raise SymDesignUtils.DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
+        raise DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='%s\nAnalyze mutations compared to a wild_type protein. Requires a '
+                                                 'directory with \'mutated\' PDB files and a wild-type PDB reference.'
+                                                 % __name__)
+    parser.add_argument('-d', '--directory', type=str, help='Where is the design PDB directory located?',
+                        default=os.getcwd())
+    parser.add_argument('-w', '--wildtype', type=str, help='Where is the wild-type PDB located?', default=None)
+    parser.add_argument('-p', '--print', action='store_true', help='Print the output the the console? Default=False')
+    parser.add_argument('-s', '--score', type=str, help='Where is the score file located?', default=None)
+    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out? Default=False')
+
+    args = parser.parse_args()
+    # Start logging output
+    if args.debug:
+        logger = start_log(name='main', level=1)
+        logger.debug('Debug mode. Verbose output')
+    else:
+        logger = start_log(name='main', level=2)
+
+    logger.info('Starting %s with options:\n%s' %
+                (__name__, '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
+
+    design_directory = DesignDirectory.DesignDirectory(args.directory)
+
+    logger.warning('If you are running into issues with locating files, the problem is not you, it is me. '
+                   'I have limited capacity to locate specific files given the scope of my creation.')
+    if os.path.basename(args.directory).startswith('tx_'):
+        logger.info('Design directory specified, using standard method and disregarding additional inputs '
+                    '(-s, -score) and (-w, --wildtype).')
+        analyze_mutations(design_directory, mutate_wildtype_sequences(args.directory, args.wildtype),
+                          print_results=True)  # args.print)
+    else:
+        if args.directory and args.wildtype and args.score:
+            path_object = DesignDirectory.set_up_pseudo_design_dir(args.wildtype, args.directory, args.score)
+            analyze_mutations(design_directory, mutate_wildtype_sequences(args.directory, args.wildtype),
+                              print_results=True)  # args.print)
+        else:
+            logger.critical('Must pass all three, wildtype, directory, and score if using non-standard %s '
+                            'directory structure' % PUtils.program_name)
+            exit()
