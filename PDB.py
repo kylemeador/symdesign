@@ -32,8 +32,10 @@ class PDB(Structure):
     """The base object for PDB file manipulation"""
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, metadata=None, **kwargs):  # , log=None):
-        super().__init__(**kwargs)  # log=log
+    def __init__(self, file=None, atoms=None, metadata=None, log=None, **kwargs):
+        if not log:
+            log = start_log()
+        super().__init__(log=log, **kwargs)  #
         self.log.debug('Initializing PDB')
         # if log:  # from Super Structure
         #     self.log = log
