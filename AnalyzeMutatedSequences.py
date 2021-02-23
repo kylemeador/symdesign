@@ -7,7 +7,6 @@ from itertools import combinations, repeat
 import numpy as np
 import pandas as pd
 # try:
-#     from Bio.SubsMat import MatrixInfo as matlist
 #     from Bio.Alphabet import generic_protein  # , IUPAC
 # except ImportError:
 # from Bio.Align import substitution_matrices
@@ -493,9 +492,9 @@ def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=Fal
     Returns:
         mutations (dict): {'file_name': {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
-    pdb_dict = {'ref': PDB(file=wild_type_file)}
+    pdb_dict = {'ref': PDB.from_file(wild_type_file)}
     for file_name in all_design_files:
-        pdb = PDB(file=file_name)
+        pdb = PDB.from_file(file_name)
         pdb.name = os.path.splitext(os.path.basename(file_name))[0]
         pdb_dict[pdb.name] = pdb
 
@@ -551,8 +550,10 @@ def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', muta
         fail_ref = []
         reference = pdb_class_dict['ref']
         for chain in pdb_class_dict['ref'].chain_id_list:
-            reference_seq_dict[chain], fail = extract_aa_seq(reference, aa_code, seq_source, chain)
-            if fail != list():
+            reference_seq_dict[chain] = reference.atom_sequences[chain]
+            fail = None
+            # reference_seq_dict[chain], fail = extract_aa_seq(reference, aa_code, seq_source, chain)
+            if fail:
                 fail_ref.append((reference, chain, fail))
 
         if fail_ref:
@@ -567,13 +568,14 @@ def extract_sequence_from_pdb(pdb_class_dict, aa_code=1, seq_source='atom', muta
             sequence2, failures2 = extract_aa_seq(_pdb, _aa, 'seqres', _chain)
             _offset = True
         else:
-            sequence1, failures1 = extract_aa_seq(_pdb, _aa, _source, _chain)
+            sequence1 = _pdb.atom_sequences[_chain]
+            failures1 = None
+            # sequence1, failures1 = extract_aa_seq(_pdb, _aa, _source, _chain)
             sequence2 = reference_seq_dict[_chain]
             sequence_dict[pdb_code][_chain] = sequence1
             _offset = False
         if mutation:
-            seq_mutations = generate_mutations(sequence1, sequence2, offset=_offset)
-            mutation_dict[pdb_code][_chain] = seq_mutations
+            mutation_dict[pdb_code][_chain] = generate_mutations(sequence1, sequence2, offset=_offset)
         if failures1:
             error_list.append((_pdb, _chain, failures1))
 
@@ -676,9 +678,9 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
     if not isinstance(pdb, PDB):
         pdb = PDB.from_file(pdb)
 
-    seq_dict = {}
-    for _chain in pdb.chain_id_list:
-        seq_dict[_chain], fail = extract_aa_seq(pdb, source=source, chain=_chain)
+    seq_dict = pdb.atom_sequences
+    # for _chain in pdb.chain_id_list:
+    #     seq_dict[_chain] =
     if chain:
         seq_dict = SDUtils.clean_dictionary(seq_dict, chain, remove=False)
 
