@@ -973,7 +973,7 @@ def collect_directories(directory, file=None, project=None, single=None, dir_typ
         location = directory
         if dir_type == 'dock':
             all_paths = get_docked_directories(directory)
-        elif dir_type == PUtils.nano:  # Todo this logic can be wrong
+        elif dir_type == PUtils.nano:
             base_directories = get_base_nanohedra_dirs(directory)
             all_paths = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
         elif directory:
