@@ -815,7 +815,7 @@ class Structure:  # (Coords):
                     ca_count += 1
             # todo reduce duplicate calculation
             if ca_count == 5:
-                interface_frags.append(Structure.from_residues(self.get_residues(frag_residue_numbers)))
+                interface_frags.append(Structure.from_residues(self.get_residues(frag_residue_numbers), log=False))
 
         for structure in interface_frags:
             structure.chain_id_list = [structure.get_residues()[0].chain]
