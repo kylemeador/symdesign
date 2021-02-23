@@ -415,7 +415,7 @@ def residue_interaction_graph(pdb, distance=8, gly_ca=True):  # Todo PDB.py
 ######################
 
 
-def all_vs_all(iterable, func, symmetrize=True):  # TODO SDUtils
+def all_vs_all(iterable, func, symmetrize=True):
     """Calculate an all versus all comparison using a defined function. Matrix is symmetrized by default
 
     Args:
@@ -949,7 +949,7 @@ def get_docked_dirs_from_base(base):
     # gives 2.4859059400041588 versus 13.074574943981133
 
 
-def collect_directories(directory, file=None, dir_type=None):
+def collect_directories(directory, file=None, project=None, single=None, dir_type=None):
     """Grab all poses from an input source
 
     Args:
@@ -970,19 +970,28 @@ def collect_directories(directory, file=None, dir_type=None):
             all_paths = [location.strip() for location in f.readlines()]
         location = file
     else:
+        location = directory
         if dir_type == 'dock':
             all_paths = get_docked_directories(directory)
-        elif dir_type == PUtils.nano or PUtils.nano in directory:  # Todo this logic can be wrong
+        elif dir_type == PUtils.nano:  # Todo this logic can be wrong
             base_directories = get_base_nanohedra_dirs(directory)
             all_paths = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
-        else:
+        elif directory:
             base_directories = get_base_symdesign_dirs(directory)
-            if base_directories:
-                # return all design directories within the base directory ->/base/projects/project/designs
-                all_paths = list(chain.from_iterable([get_symdesign_dirs_from_base(base) for base in base_directories]))
-            else:  # This is probably an uninitialized project and we should grab all .pdb files
+            if not base_directories:
+                # This is probably an uninitialized project and we should grab all .pdb files then initialize
                 all_paths = get_all_file_paths(directory, extension='.pdb')
-        location = directory
+            else:
+                # return all design directories within the base directory ->/base/Projects/project/design
+                all_paths = list(chain.from_iterable([get_symdesign_dirs(base=base) for base in base_directories]))
+        elif project:
+            all_paths = get_symdesign_dirs(project=project)
+            location = project
+        elif single:
+            all_paths = get_symdesign_dirs(single=single)
+            location = single
+        else:
+            all_paths = []
 
     return sorted(set(all_paths)), location
 
@@ -996,12 +1005,21 @@ def get_base_symdesign_dirs(directory):
         return [os.path.join(directory, sub_directory) for sub_directory in os.listdir(directory)
                 if sub_directory == PUtils.program_output]
     else:
-        return False
+        return []
     # for root, dirs, files in os.walk(directory):
 
 
-def get_symdesign_dirs_from_base(base):
-    return sorted(set(map(os.path.dirname, glob('%s/*/*/*/' % base))))  # /base/projects/project/designs
+def get_symdesign_dirs(base=None, project=None, single=None):
+    """Return the specific design directories from the specified hierarchy with the format
+    /base(SymDesignOutput)/Projects/project/design
+    """
+    if single:
+        return sorted(set(map(os.path.dirname, glob('%s/' % single))))
+    elif project:
+        return sorted(set(map(os.path.dirname, glob('%s/*/' % project))))
+    else:
+        return sorted(set(map(os.path.dirname, glob('%s/*/*/*/' % base))))
+
 
 # # DEPRECIATED
 # def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # removed a .pkl 9/29/20 9/17/20 run used .pkl.pkl TODO remove vflip
