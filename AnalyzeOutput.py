@@ -853,7 +853,7 @@ def analyze_output_mp(des_dir, delta_refine=False, merge_residue_data=False, deb
                               save_trajectories=save_trajectories, figures=figures)
         return pose  # , None
     except (SymDesignUtils.DesignError, AssertionError) as e:
-        return des_dir.path, e
+        return e
     # finally:
     #     print('Error occurred in %s' % des_dir.path)
     #     return None, (des_dir.path, e)
