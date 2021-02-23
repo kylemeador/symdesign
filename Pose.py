@@ -756,7 +756,7 @@ class SymmetricModel(Model):
                 f.write('{:9s}{:>4d}\n'.format('MODEL', i))
                 for chain in model.chains:
                     chain_atoms = chain.get_atoms()
-                    f.write(''.join(str(atom) for atom in chain_atoms))
+                    f.write('\n'.join(str(atom) for atom in chain_atoms))
                     f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_atoms[-1].number + 1,
                                                                           chain_atoms[-1].residue_type, chain.name,
                                                                           chain_atoms[-1].residue_number))
