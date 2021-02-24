@@ -7,17 +7,15 @@ from glob import glob
 import numpy as np
 
 import CmdUtils as CUtils
+import PathUtils as PUtils
 # from AnalyzeOutput import analyze_output
 from CmdUtils import reference_average_residue_weight, script_cmd, run_cmds
-
 from PDB import PDB
-import PathUtils as PUtils
 from Pose import Pose
 from Query.Flags import load_flags
 from SequenceProfile import calculate_match_metrics, FragmentDatabase, return_fragment_interface_metrics
-from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, pdb_list_file, \
-    DesignError, match_score_from_z_value, handle_design_errors, pickle_object, write_commands
-
+from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
+    match_score_from_z_value, handle_design_errors, pickle_object
 
 # logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
@@ -460,9 +458,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.make_path(self.protein_data)
             self.make_path(self.pdbs)
             self.make_path(self.sequences)
-            if self.analysis:
-                raise DesignError('Has not been initialized for design and therefore can\'t be analyzed. Initialize, '
-                                  'then perform interface design if you want to measure this design.')
 
         self.make_path(self.all_scores, condition=self.analysis)
         self.make_path(self.frags, condition=self.query_fragments)

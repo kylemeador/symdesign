@@ -9,20 +9,19 @@ from json import loads
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-import SymDesignUtils
-from PDB import PDB
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import pdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 import AnalyzeMutatedSequences
-from DesignDirectory import DesignDirectory
 import PathUtils as PUtils
 # import PDB
 import SequenceProfile
+import SymDesignUtils
 import SymDesignUtils as SDUtils
+from DesignDirectory import DesignDirectory
+from PDB import PDB
 
 # import CmdUtils as CUtils
 
@@ -872,7 +871,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         save_trajectories=False (bool): Whether to save trajectory and residue dataframes
         figures=True (bool): Whether to make and save pose figures
     Returns:
-        scores_df (Dataframe): Dataframe containing the average values from the input design directory
+        scores_df (pandas.DataFrame): DataFrame containing the average values from the input design directory
     """
     # Log output
     if debug:
@@ -882,7 +881,9 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     else:
         logger = SDUtils.start_log(name=__name__, handler=2, level=2,
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
-
+    if not des_dir.info:
+        raise SymDesignUtils.DesignError('Has not been initialized for design and therefore can\'t be analyzed. '
+                                         'Initialize and perform interface design if you want to measure this design.')
     # TODO add fraction_buried_atoms
     # Set up pose, ensure proper input
     global columns_to_remove, columns_to_rename, protocols_of_interest
