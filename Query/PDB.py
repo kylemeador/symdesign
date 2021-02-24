@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import time
 
 import requests
 
@@ -10,8 +11,7 @@ sys.path.append(parent_dir)
 from copy import deepcopy
 from json import dumps, load
 
-from SymDesignUtils import start_log, io_save, unpickle, pickle_object
-
+from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError
 
 # Globals
 # General Formatting
@@ -139,7 +139,8 @@ def find_matching_entities_by_sequence(sequence=None, return_type='polymer_entit
     if sequence_query_results:
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
-        print('[WARNING]: Sequence not found in PDB API!:\n%s' % sequence)
+        print('[WARNING]: Sequence not found in PDB API!:\n%s' % sequence)  # Todo logger
+        raise DesignError('Sequence not found in PDB API!:\n%s' % sequence)  # Todo logger
 
 
 def parse_pdb_response_for_ids(response):
@@ -154,7 +155,18 @@ def parse_pdb_response_for_score(response):
 
 
 def query_pdb(_query):
-    query_response = requests.get(pdb_query_url, params={'json': dumps(_query)})
+    iteration = 0
+    while True:
+        try:
+            query_response = requests.get(pdb_query_url, params={'json': dumps(_query)})
+            break
+        except requests.exceptions.ConnectionError:
+            time.sleep(1)
+            iteration += 1
+            if iteration > 5:
+                raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
+                                  'Offending request %s' % query_response.url)
+
     if query_response.status_code == 200:
         return query_response.json()
     elif query_response.status_code == 204:
