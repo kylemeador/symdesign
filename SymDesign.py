@@ -1335,9 +1335,9 @@ if __name__ == '__main__':
                 source_pose.reorder_chains()  # Do I need to modify chains?
                 # source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
                 # if pose_des_dir.nano:
-                #     pose_entities = os.path.basename(pose_des_dir.building_blocks).split('_')  # Todo depreciate
+                #     pose_entities = os.path.basename(pose_des_dir.building_blocks).split('_')  # Todo clean up depreciation
                 # else:
-                    # pose_entities = []
+                #     pose_entities = []
                 source_seqres = {}
                 for entity in source_pose.entities:
                     entity.retrieve_sequence_from_api(entity_id=entity.name)
@@ -1345,8 +1345,8 @@ if __name__ == '__main__':
                 # if not source_pose.sequences:
                 # oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
                 # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
-                oligomer_chain_database_chain_map = {entity.chain_id: True  # TODO API asym_id or modify down to use Entity_id
-                                                     for entity in source_pose.entities}
+                oligomer_chain_database_chain_map = {entity.chain_id: next(iter(source_pose.api_entry['entity'][idx]))
+                                                     for idx, entity in enumerate(source_pose.entities, 1)}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
 
@@ -1452,7 +1452,7 @@ if __name__ == '__main__':
                     # if sequence doesn't have a tag find all compatible tags
                     if not find_expression_tags(pretag_sequences[chain]):  # == dict():
                         tag_sequences[pdb_code] = \
-                            find_all_matching_pdb_expression_tags(pdb_code,  # Todo fix below for entity id?
+                            find_all_matching_pdb_expression_tags(pdb_code,
                                                                   oligomer_chain_database_chain_map[entity.chain_id])
                         # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
                         seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chain])
