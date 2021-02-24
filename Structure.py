@@ -8,7 +8,7 @@ import numpy as np
 from Bio.SeqUtils import IUPACData
 from numpy.linalg import eigh, LinAlgError
 
-from Query.PDB import get_sequence_by_entity_id
+from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entry, query_entity_id, get_pdb_info_by_entity
 from SequenceProfile import SequenceProfile
 from SymDesignUtils import start_log, DesignError
 
@@ -886,6 +886,7 @@ class Entity(Chain, SequenceProfile):  # Structure):
         #                                                                                     log=log,
         self.chain_id = representative.name
         self.chains = chains  # [Chain objs]
+        self.api_entry = None
         if sequence:
             self.reference_sequence = sequence
         else:
@@ -937,6 +938,14 @@ class Entity(Chain, SequenceProfile):  # Structure):
             return None
         self.reference_sequence = get_sequence_by_entity_id(entity_id)
         # self.sequence_source = 'seqres'
+
+    def retrieve_info_from_api(self):
+        """Retrieve information from the PDB API about the Entity
+
+        Sets:
+            self.api_entry (dict): {chain: db_reference, ...}
+        """
+        self.api_entry = get_pdb_info_by_entity(self.name)
 
     # Todo set up captain chain and mate chain dependency
 
