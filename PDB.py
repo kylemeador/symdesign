@@ -1217,11 +1217,13 @@ class PDB(Structure):
         if residue_number == 1:
             insert_atom_idx = 0
         else:
-            residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()
-            # residue_atoms = self.get_residue_atoms(chain_id, residue_number)
-            if residue_atoms:
+            try:
+                residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()
+                # residue_atoms = self.get_residue_atoms(chain_id, residue_number)
+                # if residue_atoms:
                 insert_atom_idx = residue_atoms[0].number - 1  # subtract 1 from first atom number to get insertion idx
-            else:  # Atom index is not an insert operation as the location is at the C-term of the chain
+            # else:  # Atom index is not an insert operation as the location is at the C-term of the chain
+            except AttributeError:  # Atom index is not an insert operation as the location is at the C-term of the chain
                 # prior_index = self.getResidueAtoms(chain, residue)[0].number - 1
                 prior_chain_length = self.chain(chain_id).residues[0].get_atoms()[0].number - 1
                 # chain_atoms = self.chain(chain_id).get_atoms()
@@ -1245,10 +1247,6 @@ class PDB(Structure):
             self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
                                                            'AAreference.pdb'),
                                               log=start_log(handler=3), no_entities=True)
-            # print([chain.name for chain in self.reference_aa.chains])
-            # print([residue.number for residue in self.reference_aa.residues])
-        print(residue_index)
-        # print(self.reference_aa.chain('A').residue(residue_index))
         insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).get_atoms())
 
         for atom in reversed(insert_atoms):  # essentially a push

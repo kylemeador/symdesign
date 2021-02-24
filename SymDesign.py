@@ -1419,7 +1419,6 @@ if __name__ == '__main__':
                 for chain in all_missing_residues_d:
                     # design_pose.renumber_residues()  TODO for correct pdb_number considering insert_residues function
                     for residue in all_missing_residues_d[chain]:
-                        print(all_missing_residues_d[chain][residue]['from'])
                         design_pose.insert_residue(chain, residue, all_missing_residues_d[chain][residue]['from'])
                         # if chain == 'B':
                         #     print('%s\tLocation %d' % (design_pose.get_structure_sequence(chain), residue))
