@@ -314,7 +314,7 @@ def query_user_for_metrics(df, mode=None):
     metric_values, chosen_metrics = {}, []
     end = False
     metrics_input = 'start'
-    available_metrics = set(df.columns.to_list())
+    available_metrics = list(df.columns.to_list())
     while not end:
         if metrics_input.lower() == 'metrics':
             print(', '.join(available_metrics))
@@ -323,8 +323,10 @@ def query_user_for_metrics(df, mode=None):
                               ' available metrics by entering \'metrics\'.\nEx: \'shape_complementarity, '
                               'contact_count, etc.\'%s' % input_string)
         chosen_metrics = set(map(str.strip, map(str.lower, metrics_input.split(','))))
-        unsupported_metrics = chosen_metrics - available_metrics
-        if unsupported_metrics:
+        unsupported_metrics = chosen_metrics - set(available_metrics)
+        if metrics_input == 'metrics':
+            pass
+        elif unsupported_metrics:
             print('\'%s\' not found in the DataFrame! Is your spelling correct? Have you used the correct '
                   'underscores? Please try again.' % ', '.join(unsupported_metrics))
         else:
