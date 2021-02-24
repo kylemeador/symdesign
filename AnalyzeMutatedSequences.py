@@ -654,7 +654,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
         (dict): {chain: sequence, ...}
     """
     if not isinstance(pdb, PDB):
-        pdb = PDB.from_file(pdb, log=start_log(handler=3), no_entites=True)
+        pdb = PDB.from_file(pdb, log=start_log(handler=3), no_entities=True)
 
     seq_dict = pdb.atom_sequences
     # for _chain in pdb.chain_id_list:
