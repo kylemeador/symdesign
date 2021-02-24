@@ -294,8 +294,10 @@ def query_user_for_metrics(df, mode=None):
     Returns:
         (dict)
     """
-    instructions = {'filter': 'Choosing values based on supported literature or design goals can help eliminate designs'
-                              ' that are certain to fail. Ensure that your cutoffs aren\'t too exclusive',
+    instructions = {'filter': 'For each metric, choose values based on supported literature or design goals to '
+                              'eliminate designs that are certain to fail or have sub-optimal features. Ensure your '
+                              'cutoffs aren\'t too exclusive. If you end up with no designs, try relaxing your filter '
+                              'values.',
                     'weight':
                     'For each metric, choose a percentage signifying the metric\'s contribution to the total selection'
                     ' weight. The weight will be used as a linear combination of all weights according to each designs'
@@ -332,10 +334,11 @@ def query_user_for_metrics(df, mode=None):
         else:
             end = True
     correct = False
+    print(instructions[mode])
     while not correct:
         for metric in chosen_metrics:
-            metric_values[metric] = float(input('For \'%s\' what value of should be used for %sing?\n%s%s'
-                                                % (metric, mode, instructions[mode], input_string)))
+            metric_values[metric] = float(input('For \'%s\' what value of should be used for %sing?%s'
+                                                % (metric, mode, input_string)))
 
         print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
         while True:
