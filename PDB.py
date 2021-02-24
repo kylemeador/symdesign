@@ -31,7 +31,7 @@ class PDB(Structure):
     """The base object for PDB file manipulation"""
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, metadata=None, log=None, **kwargs):
+    def __init__(self, file=None, atoms=None, metadata=None, log=None, no_entities=None, **kwargs):
         if not log:
             log = start_log()
         super().__init__(log=log, **kwargs)  #
@@ -77,7 +77,7 @@ class PDB(Structure):
         self.dihedral_chain = None
 
         if file:
-            self.readfile(file, **kwargs)
+            self.readfile(file, no_entities=no_entities)
         if atoms:
             self.set_atoms(atoms)  # sets all atoms and residues in PDB
             self.chain_id_list = remove_duplicates([residue.chain for residue in self.residues])
