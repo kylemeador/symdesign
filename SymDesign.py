@@ -681,14 +681,16 @@ if __name__ == '__main__':
     if args.sub_module in ['design', 'generate_fragments', 'expand_asu'] or args.directory_type == 'design':
         # directory_type = 'design'
         queried_flags['directory_type'] = 'design'
-    elif args.sub_module in ['dock', 'filter', 'analysis']:
+    elif args.sub_module in ['dock', 'filter', 'analysis', 'sequence_selection']:
         queried_flags['directory_type'] = args.sub_module
         if args.sub_module == 'dock':
             queried_flags['dock'] = True
-        if args.sub_module == 'filter':
+        elif args.sub_module == 'filter':
             queried_flags['filter'] = True
-        if args.sub_module == 'analysis':
+        elif args.sub_module == 'analysis':
             queried_flags['analysis'] = True
+        elif args.sub_module == 'sequence_selection':
+            queried_flags['sequence_selection'] = True
     else:  # ['distribute', 'query', 'guide', 'flags', 'design_selector']
         queried_flags['directory_type'] = None
 
@@ -766,7 +768,7 @@ if __name__ == '__main__':
 
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
 
-    elif queried_flags['directory_type'] in ['filter', 'analysis']:
+    elif queried_flags['directory_type'] in ['filter', 'analysis', 'sequence_selection']:
         if 'nanohedra_output' in queried_flags and queried_flags['nanohedra_output']:
             all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
                                                               single=args.single, dir_type=PUtils.nano)
