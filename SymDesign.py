@@ -754,11 +754,16 @@ if __name__ == '__main__':
                                       for pose in all_poses]
                 all_poses = [design.asu for design in design_directories]
                 inputs_moved = True
-            if not design_directories:
+            if args.guide:
+                pass
+            elif not design_directories:
                 raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
                                           'location. Are you sure you want to run with -%s %s'
                                           % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
-            if not args.debug:
+            else:
+                pass
+
+            if not args.debug:  # Todo make universal
                 logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
                             % design_directories[0].log.handlers[0].baseFilename)
 
