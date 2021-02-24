@@ -4,7 +4,7 @@ from PathUtils import program_command, nano, program_name, nstruct
 from Query.PDB import input_string, format_string, confirmation_string, \
     bool_d, invalid_string, header_string
 from SequenceProfile import read_fasta_file
-from SymDesignUtils import pretty_format_table, DesignError, handle_design_errors, handle_errors
+from SymDesignUtils import pretty_format_table, DesignError, handle_errors
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
 # Todo separate into types of options, aka fragments, residue selection, symmetry
@@ -91,7 +91,7 @@ filters = copy(global_flags)
 filters.update(filter_flags)
 all_flags = copy(design)
 all_flags.update(filters)
-flags = {'design': design, 'filter': filters, None: all_flags}
+flags = {'design': design, 'filter': filters, 'analysis': global_flags, 'sequence_selection': global_flags, None: all_flags}
 
 
 def process_design_selector_flags(design_flags):
