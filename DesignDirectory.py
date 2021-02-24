@@ -20,7 +20,7 @@ from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, wri
 # logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 # Globals
-design_directory_modes = ['design', 'dock', 'filter', 'analysis']
+design_directory_modes = ['design', 'dock', 'filter']
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
