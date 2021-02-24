@@ -24,7 +24,6 @@ from Stride import Stride
 from Structure import Structure, Chain, Atom, Coords, Entity
 from SymDesignUtils import remove_duplicates, start_log  # logger
 
-
 logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 
@@ -45,6 +44,8 @@ class PDB(Structure):
         # self.accession_entity_map = {}
         # self.atoms = []  # captured from Structure
         self.api_entry = None
+        # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+        #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
         self.bb_coords = []
         self.cb_coords = []
