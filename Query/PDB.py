@@ -140,7 +140,7 @@ def find_matching_entities_by_sequence(sequence=None, return_type='polymer_entit
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
         print('[WARNING]: Sequence not found in PDB API!:\n%s' % sequence)  # Todo logger
-        raise DesignError('Sequence not found in PDB API!:\n%s' % sequence)  # Todo logger
+        # raise DesignError('Sequence not found in PDB API!:\n%s' % sequence)
 
 
 def parse_pdb_response_for_ids(response):
