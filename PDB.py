@@ -1243,7 +1243,8 @@ class PDB(Structure):
         if not self.reference_aa:
             # TODO load in Residue.py
             self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
-                                                           'AAreference.pdb'), log='None', no_entities=True)
+                                                           'AAreference.pdb'),
+                                              log=start_log(handler=3), no_entities=True)
         insert_atoms = self.reference_aa.chain('A').residue(IUPACData.protein_letters.find(residue_type_1)).get_atoms()
 
         for atom in reversed(insert_atoms):  # essentially a push
