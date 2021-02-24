@@ -1212,7 +1212,7 @@ class PDB(Structure):
             residue_type_1 = IUPACData.protein_letters_3to1_extended[residue_type.title()]
         else:  # Why would this be useful?
             residue_type_1 = residue_type.upper()
-
+        residue_index = IUPACData.protein_letters.find(residue_type_1) + 1  # offset
         # Find atom insertion index, should be last atom in preceding residue
         if residue_number == 1:
             insert_atom_idx = 0
@@ -1245,7 +1245,7 @@ class PDB(Structure):
             self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
                                                            'AAreference.pdb'),
                                               log=start_log(handler=3), no_entities=True)
-        insert_atoms = self.reference_aa.chain('A').residue(IUPACData.protein_letters.find(residue_type_1)).get_atoms()
+        insert_atoms = self.reference_aa.chain('A').residue(residue_index).get_atoms()
 
         for atom in reversed(insert_atoms):  # essentially a push
             atom.chain = chain_id
