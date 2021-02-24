@@ -1260,7 +1260,10 @@ if __name__ == '__main__':
                 if len(final_poses) > args.number:
                     final_poses = final_poses[:args.number]
 
-                design_directories = set_up_directory_objects(final_poses, project=args.project)  # **queried_flags
+                program_root = next(iter(design_directories)).program_root
+                design_directories = [DesignDirectory.from_pose_id(pose_id=pose, project=program_root, **queried_flags)
+                                      for pose in final_poses]
+                # design_directories = set_up_directory_objects(final_poses, project=args.project)  # **queried_flags
 
             if args.consensus:
                 results.append(zip(design_directories, repeat('consensus')))

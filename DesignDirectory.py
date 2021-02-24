@@ -27,6 +27,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def __init__(self, design_path, nano=False, directory_type='design', project=None, pose_id=None, debug=False,
                  **kwargs):
+        if pose_id:  # Todo may not be compatible P432
+            self.program_root = project
+            self.directory_string_to_path(pose_id)
+            design_path = self.path
         self.name = os.path.splitext(os.path.basename(design_path))[0]  # works for all cases
         self.log = None
         self.nano = nano
@@ -135,15 +139,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     if ('DEGEN', 'ROT', 'tx') in self.path:
         #         self.nano = True
         if self.nano:
-            if project:
-                self.program_root = project.rstrip(os.sep)
-                if pose_id:  # Todo may not be compatible P432
-                    self.directory_string_to_path(pose_id)
-                else:
-                    self.path = os.path.join(project, design_path)
-            else:
-                self.path = design_path
-                # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
+            # if project:
+            #     self.program_root = project.rstrip(os.sep)
+            #     if pose_id:  # Todo may not be compatible P432
+            #         self.directory_string_to_path(pose_id)
+            #     else:
+            #         self.path = os.path.join(project, design_path)
+            # else:
+            #     self.path = design_path
+            #     design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
 
             if not os.path.exists(self.path):
                 raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.path)
@@ -274,6 +278,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @classmethod
     def from_file(cls, design_path, project=None, **kwargs):  # directory_type=None
         return cls(design_path, project=project, **kwargs)
+
+    @classmethod
+    def from_pose_id(cls, pose_id=None, project=None, **kwargs):  # directory_type=None
+        return cls(pose_id=pose_id, project=project, **kwargs)
 
     @property
     def number_of_fragments(self):
@@ -418,7 +426,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def directory_string_to_path(self, pose_id):  # todo
         assert self.program_root, 'No program_root attribute set! Cannot create a path from a pose_id without a ' \
                                   'program_root!'
-        self.path = os.path.join(self.program_root, pose_id.replace('-', os.sep))
+        self.path = os.path.join(self.program_root, pose_id.replace('Projects-', 'Projects%s' % os.sep)
+                                 .replace('Design-', 'Design%s' % os.sep))
 
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
@@ -1546,8 +1555,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def __str__(self):
         if self.program_root:
-            return self.path.replace(self.program_root + os.sep, '').replace(os.sep,
-                                                                             '-')  # TODO integrate with designDB?
+            # TODO integrate with designDB?
+            return self.path.replace(self.program_root + os.sep, '').replace(os.sep, '-')
         else:
             # When is this relevant?
             return self.path.replace(os.sep, '-')[1:]
