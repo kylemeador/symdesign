@@ -11,7 +11,7 @@ terminal_formatter = '\n\t\t\t\t\t\t     '
 global_flags = {'symmetry': {'type': str, 'default': None,
                 'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
                                'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
-                'nanohedra_output': {'type': bool, 'default': True,
+                'nanohedra_output': {'type': bool, 'default': False,
                                      'description': 'Whether the design targets are a %s output' % nano.title()},
                 }
 design_flags = {
