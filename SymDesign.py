@@ -1275,14 +1275,13 @@ if __name__ == '__main__':
                 #                     'int_energy_res_summary_delta': 0.25}
                 # sequence_weights = None  # Remove once calculated
                 zipped_args = zip(design_directories, repeat(args.weight))  # repeat(sequence_weights))
-                results, exceptions = zip(*SDUtils.mp_starmap(Ams.select_sequences_mp, zipped_args, threads))
+                results = zip(*SDUtils.mp_starmap(Ams.select_sequences_mp, zipped_args, threads))
                 # results, exceptions = zip(*SDUtils.mp_map(Ams.select_sequences_mp, design_directories, threads))
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
             else:
-                results, exceptions = zip(*list(Ams.select_sequences_s(des_directory, weight=args.weight,
-                                                                       number=args.number)
-                                                for des_directory in design_directories))
+                results = zip(*list(Ams.select_sequences_s(des_directory, weight=args.weight, number=args.number)
+                                    for des_directory in design_directories))
 
         results = list(results)
         failures = [index for index, exception in enumerate(exceptions) if exception]  # Todo
