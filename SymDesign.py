@@ -1463,11 +1463,14 @@ if __name__ == '__main__':
                     pdb_code = entity.name[:4]
                     # if sequence doesn't have a tag find all compatible tags
                     if not find_expression_tags(pretag_sequences[chain]):  # == dict():
-                        tag_sequences[pdb_code] = \
-                            find_all_matching_pdb_expression_tags(pdb_code,
-                                                                  oligomer_chain_database_chain_map[entity.chain_id])
-                        # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
-                        seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chain])
+                        # Todo fix residue
+                        # tag_sequences[pdb_code] = \
+                        #     find_all_matching_pdb_expression_tags(pdb_code,
+                        #                                           oligomer_chain_database_chain_map[entity.chain_id])
+                        # # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
+                        # seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chain])
+                        # Todo v remove
+                        seq = pretag_sequences[chain]
                     else:  # re-use existing
                         # tag_sequences[pdb_code] = None
                         seq = pretag_sequences[chain]
