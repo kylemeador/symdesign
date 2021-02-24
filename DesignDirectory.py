@@ -281,7 +281,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @classmethod
     def from_pose_id(cls, pose_id=None, root=None, **kwargs):  # directory_type=None
-        return cls(pose_id=pose_id, root=root, **kwargs)
+        return cls(None, pose_id=pose_id, root=root, **kwargs)
 
     @property
     def number_of_fragments(self):
