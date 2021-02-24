@@ -1204,13 +1204,16 @@ if __name__ == '__main__':
                                 % (stage, PUtils.stage_f[stage]['len']))
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.sub_module == 'sequence_selection':  # -c consensus, -df dataframe, -f filters, -n number, -p pose_design_file,
+        program_root = next(iter(design_directories)).program_root
         if args.pose_design_file:        # -s selection_string, -w weights
             # Grab all poses (directories) to be processed from either directory name or file
             with open(args.pose_design_file) as csv_file:
                 csv_lines = [line for line in reader(csv_file)]
             all_poses, pose_design_numbers = zip(*csv_lines)
 
-            design_directories = set_up_directory_objects(all_poses, project=args.project)  # **queried_flags
+            design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
+                                  for pose in all_poses]
+            # design_directories = set_up_directory_objects(all_poses, project=args.project)  # **queried_flags
             results.append(zip(design_directories, pose_design_numbers))
             location = args.pose_design_file
         else:
@@ -1260,14 +1263,13 @@ if __name__ == '__main__':
                 if len(final_poses) > args.number:
                     final_poses = final_poses[:args.number]
 
-                program_root = next(iter(design_directories)).program_root
                 design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
                                       for pose in final_poses]
                 # design_directories = set_up_directory_objects(final_poses, project=args.project)  # **queried_flags
-
-            if args.consensus:
+            elif args.consensus:
                 results.append(zip(design_directories, repeat('consensus')))
-            elif args.multi_processing:
+
+            if args.multi_processing:
                 # Calculate the number of threads to use depending on computer resources
                 threads = SDUtils.calculate_mp_threads(maximum=True)
                 logger.info('Starting multiprocessing using %s threads' % str(threads))
@@ -1292,10 +1294,10 @@ if __name__ == '__main__':
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
         else:
             args.selection_string += '_'
-        outdir = os.path.join(os.path.dirname(location), '%sSelected_Designs' % args.selection_string)
-        print('The outdir is: %s' % outdir)
+        outdir = os.path.join(os.path.dirname(program_root), '%sSelected_Designs' % args.selection_string)
         outdir_traj = os.path.join(outdir, 'Trajectories')
         outdir_res = os.path.join(outdir, 'Residues')
+        logger.info('Your files will be located in : %s' % outdir)
 
         if not os.path.exists(outdir):
             os.makedirs(outdir)
