@@ -1358,7 +1358,7 @@ if __name__ == '__main__':
                 # oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
                 # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
                 oligomer_chain_database_chain_map = {entity.chain_id: next(iter(entity.api_entry))
-                                                     for entity in source_pose.entities, 1}
+                                                     for entity in source_pose.entities}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
 
