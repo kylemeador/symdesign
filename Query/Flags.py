@@ -346,7 +346,7 @@ def query_user_for_metrics(df, mode=None):
             if confirm.lower() in bool_d:
                 break
             else:
-                print('%s %s is not a valid choice!' % invalid_string, confirm)
+                print('%s %s is not a valid choice!' % (invalid_string, confirm))
         if bool_d[confirm]:
             correct = True
 
