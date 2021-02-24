@@ -779,10 +779,14 @@ if __name__ == '__main__':
                                                               single=args.single)
             design_directories = [DesignDirectory.from_file(pose, **queried_flags)  # project=args.project,
                                   for pose in all_poses]
-        if not design_directories:
+        if args.guide:
+            pass
+        elif not design_directories:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s'
                                       % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
+        else:
+            pass
     elif queried_flags['directory_type'] == 'dock':
         args.directory_type = 'dock'
         # Getting PDB1 and PDB2 File paths
