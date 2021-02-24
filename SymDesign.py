@@ -1518,11 +1518,16 @@ if __name__ == '__main__':
                 #                            for j, pdb in enumerate(tag_sequences)}
 
         # Write output sequences to fasta file
-        seq_file = SequenceProfile.write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
-                                                    outpath=outdir)
+        additions_sequence = os.path.join(outdir, '%sSelected_Sequences_Expression_Additions'
+                                          % args.selection_string)
         seq_comparison_file = SequenceProfile.write_fasta_file(inserted_sequences,
                                                                '%sSelected_Sequences_Expression_Additions' %
                                                                args.selection_string, outpath=outdir)
+        logger.info('Design insertions for expression comparison written to %s' % additions_sequence)
+        final_sequence = os.path.join(outdir, '%sSelected_Sequences' % args.selection_string)
+        logger.info('Final Design sequences written to %s' % final_sequence)
+        seq_file = SequenceProfile.write_fasta_file(final_sequences, '%sSelected_Sequences' % args.selection_string,
+                                                    outpath=outdir)
     # -----------------------------------------------------------------------------------------------------------------
     # Format the designs passing output and report program exceptions
     # -----------------------------------------------------------------------------------------------------------------
