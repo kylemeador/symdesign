@@ -1245,8 +1245,8 @@ class PDB(Structure):
             self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
                                                            'AAreference.pdb'),
                                               log=start_log(handler=3), no_entities=True)
-            print(chain.name for chain in self.reference_aa.chains)
-            print(residue.number for residue in self.reference_aa.residues)
+            print([chain.name for chain in self.reference_aa.chains])
+            print([residue.number for residue in self.reference_aa.residues])
         insert_atoms = self.reference_aa.chain('A').residue(residue_index).get_atoms()
 
         for atom in reversed(insert_atoms):  # essentially a push
