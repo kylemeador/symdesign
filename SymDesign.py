@@ -1293,6 +1293,7 @@ if __name__ == '__main__':
         else:
             args.selection_string += '_'
         outdir = os.path.join(os.path.dirname(location), '%sSelected_Designs' % args.selection_string)
+        print('The outdir is: %s' % outdir)
         outdir_traj = os.path.join(outdir, 'Trajectories')
         outdir_res = os.path.join(outdir, 'Residues')
 
@@ -1305,10 +1306,10 @@ if __name__ == '__main__':
         for pose in results:
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
-                file = glob('%s*%s*' % (pose_des_dir.designs, design[i]))
+                file = glob('%s/*%s*' % (pose_des_dir.designs, design[i]))
                 if not file:
                     # add to exceptions
-                    exceptions.append((pose_des_dir.path, 'No file found for \'%s*%s*\'' %
+                    exceptions.append((pose_des_dir.path, 'No file found for \'%s/*%s*\'' %
                                        (pose_des_dir.designs, design[i])))
                     continue
                 # for file in files:
@@ -1329,7 +1330,11 @@ if __name__ == '__main__':
             pose_des_dirs, design = zip(*pose)
             for i, pose_des_dir in enumerate(pose_des_dirs):
                 # coming in as (chain: seq}
-                design_pose = PDB.from_file(glob('%s*%s*' % (pose_des_dir.designs, design[i]))[0])
+                file = glob('%s/*%s*' % (pose_des_dir.designs, design[i]))
+                if not file:
+                    logger.error('No file found for %s' % '%s/*%s*' % (pose_des_dir.designs, design[i]))
+                    continue
+                design_pose = PDB.from_file(file[0])
                 # v {chain: sequence, ...}
                 design_sequences = design_pose.atom_sequences
 
