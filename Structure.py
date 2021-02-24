@@ -1060,6 +1060,7 @@ class Residue:
                 self.c = idx
             elif atom.is_o():
                 self.o = idx
+        # Todo handle if the atom is missing backbone?
 
     # This is the setter for all atom properties available above
     def set_atoms_attributes(self, **kwargs):
