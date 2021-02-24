@@ -17,7 +17,7 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import BallTree
 from sklearn.preprocessing import StandardScaler
 
-import SequenceProfile
+from SequenceProfile import sequence_difference
 import PathUtils as PUtils
 from DesignDirectory import DesignDirectory
 from PDB import PDB
@@ -30,7 +30,7 @@ from SymDesignUtils import DesignError, handle_design_errors, index_offset, star
 
 # Globals
 # logger = SDUtils.start_log(__name__)
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
 db = PUtils.biological_fragmentDB
 
 
@@ -193,6 +193,9 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
                                        (metric, len(filtered_indices[metric])) for metric in filtered_indices))
         final_indices = index_intersection(filtered_indices)
         logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
+        if len(final_indices) == 0:
+            raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
+                              'some better designs!')
         _df = _df.loc[final_indices, :]
 
     # When df IS ranked by percentage
@@ -291,11 +294,7 @@ def select_sequences(des_dir, weight=None, number=1, desired_protocol=None, debu
     #                                location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
 
     # Load relevant data from the design directory
-    # trajectory_file = glob(os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir)))
-    # assert len(trajectory_file) == 1, 'Couldn\'t find files for %s' % \
-    #                                   os.path.join(des_dir.all_scores, '%s_Trajectories.csv' % str(des_dir))
-    # trajectory_df = pd.read_csv(trajectory_file[0], index_col=0, header=[0])  # , 1, 2]
-    trajectory_df = pd.read_csv(des_dir.trajectories, index_col=0, header=[0])  # , 1, 2]
+    trajectory_df = pd.read_csv(des_dir.trajectories, index_col=0, header=[0])
     trajectory_df.dropna(inplace=True)
     # trajectory_df.dropna('protocol', inplace=True)
     # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
@@ -352,10 +351,10 @@ def select_sequences(des_dir, weight=None, number=1, desired_protocol=None, debu
         logger.debug(chains)
         logger.debug(concatenated_sequences)
 
-        # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, SDUtils.sequence_difference)
+        # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)
         # Using concatenated sequences makes the values incredibly similar and inflated as most residues are the same
         # doing min/max normalization to see variation
-        pairwise_sequence_diff_l = [SequenceProfile.sequence_difference(*seq_pair)
+        pairwise_sequence_diff_l = [sequence_difference(*seq_pair)
                                     for seq_pair in combinations(concatenated_sequences, 2)]
         pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
         _min = min(pairwise_sequence_diff_l)
@@ -473,7 +472,7 @@ def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=Fal
     """
     pdb_dict = {'ref': PDB.from_file(wild_type_file)}
     for file_name in all_design_files:
-        pdb = PDB.from_file(file_name)
+        pdb = PDB.from_file(file_name, log=start_log(handler=3), no_entities=True)
         pdb.name = os.path.splitext(os.path.basename(file_name))[0]
         pdb_dict[pdb.name] = pdb
 
@@ -655,7 +654,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
         (dict): {chain: sequence, ...}
     """
     if not isinstance(pdb, PDB):
-        pdb = PDB.from_file(pdb)
+        pdb = PDB.from_file(pdb, log=start_log(handler=3), no_entites=True)
 
     seq_dict = pdb.atom_sequences
     # for _chain in pdb.chain_id_list:
