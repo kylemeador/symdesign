@@ -25,10 +25,10 @@ design_directory_modes = ['design', 'dock', 'filter']
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, directory_type='design', project=None, pose_id=None, debug=False,
-                 **kwargs):
+    def __init__(self, design_path, nano=False, directory_type='design', project=None, pose_id=None, root=None,
+                 debug=False, **kwargs):
         if pose_id:  # Todo may not be compatible P432
-            self.program_root = project
+            self.program_root = root
             self.directory_string_to_path(pose_id)
             design_path = self.path
         self.name = os.path.splitext(os.path.basename(design_path))[0]  # works for all cases
@@ -280,8 +280,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return cls(design_path, project=project, **kwargs)
 
     @classmethod
-    def from_pose_id(cls, pose_id=None, project=None, **kwargs):  # directory_type=None
-        return cls(pose_id=pose_id, project=project, **kwargs)
+    def from_pose_id(cls, pose_id=None, root=None, **kwargs):  # directory_type=None
+        return cls(pose_id=pose_id, root=root, **kwargs)
 
     @property
     def number_of_fragments(self):

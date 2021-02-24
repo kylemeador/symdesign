@@ -1261,7 +1261,7 @@ if __name__ == '__main__':
                     final_poses = final_poses[:args.number]
 
                 program_root = next(iter(design_directories)).program_root
-                design_directories = [DesignDirectory.from_pose_id(pose_id=pose, project=program_root, **queried_flags)
+                design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
                                       for pose in final_poses]
                 # design_directories = set_up_directory_objects(final_poses, project=args.project)  # **queried_flags
 
