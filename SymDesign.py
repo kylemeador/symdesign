@@ -21,7 +21,6 @@ import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
 import PathUtils as PUtils
-import Pose
 import SequenceProfile
 import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, final_metrics
@@ -1335,19 +1334,21 @@ if __name__ == '__main__':
                 source_pose = PDB.from_file(pose_des_dir.source)  # Think this works the best
                 source_pose.reorder_chains()  # Do I need to modify chains?
                 # source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
-                if pose_des_dir.nano:
-                    pose_pdbs = os.path.basename(pose_des_dir.building_blocks).split('_')  # Todo depreciate
-                else:
-                    pose_pdbs = [entity.name for entity in source_pose.entities]
+                # if pose_des_dir.nano:
+                #     pose_entities = os.path.basename(pose_des_dir.building_blocks).split('_')  # Todo depreciate
+                # else:
+                    # pose_entities = []
+                source_seqres = {}
+                for entity in source_pose.entities:
+                    entity.retrieve_sequence_from_api(entity_id=entity.name)
+                    source_seqres[entity.chain_id] = entity.reference_sequence
                 # if not source_pose.sequences:
-                # oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
-                # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_pdbs]
+                # oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
+                # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
                 oligomer_chain_database_chain_map = {entity.chain_id: True  # TODO API asym_id or modify down to use Entity_id
                                                      for entity in source_pose.entities}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
-                source_seqres = {chain: oligomers[k].reference_sequence[]
-                                 for k, chain in enumerate(chains[:len(oligomers)])}
 
                 # seqres_pose = PDB.PDB()
                 # for oligomer, _chain in zip(oligomers, reversed(chains)):
@@ -1419,7 +1420,9 @@ if __name__ == '__main__':
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
                 # grabs the mutated residues from design in the index of the seqres sequence
-                mutations = {chain: SequenceProfile.generate_mutations(source_seqres[chain], design_sequences[chain])
+                # mutations = {chain: SequenceProfile.generate_mutations(source_seqres[chain], design_sequences[chain])
+                mutations = {chain: SequenceProfile.generate_mutations(source_pose.atom_sequences[chain],  # Todo test
+                                                                       design_sequences[chain])
                              for chain in design_sequences}
                 # print('Mutations:\n%s' %
                 #       '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
@@ -1444,22 +1447,22 @@ if __name__ == '__main__':
 
                 # Check for expression tag addition to the designed sequences
                 tag_sequences = {}
-                for j, (entity, chain) in enumerate(zip(source_pose.entities, pretag_sequences)):
+                for entity, chain in zip(source_pose.entities, pretag_sequences):
                     pdb_code = entity.name[:4]
                     # if sequence doesn't have a tag find all compatible tags
                     if not find_expression_tags(pretag_sequences[chain]):  # == dict():
                         tag_sequences[pdb_code] = \
-                            find_all_matching_pdb_expression_tags(pdb_code,
+                            find_all_matching_pdb_expression_tags(pdb_code,  # Todo fix below for entity id?
                                                                   oligomer_chain_database_chain_map[entity.chain_id])
                         # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
-                        seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chains[j]])
+                        seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chain])
                     else:  # re-use existing
                         # tag_sequences[pdb_code] = None
-                        seq = pretag_sequences[chains[j]]
+                        seq = pretag_sequences[chain]
 
                     # tag_sequences = {pdb: find_all_matching_pdb_expression_tags(pdb,
                     #                                                             oligomer_chain_database_chain_map[chain])
-                    #                  for pdb, chain in zip(pose_pdbs, source_pose.chain_id_list)}
+                    #                  for pdb, chain in zip(pose_entities, source_pose.chain_id_list)}
 
                     # for j, pdb_code in enumerate(tag_sequences):
                     #     if tag_sequences[pdb_code]:
@@ -1479,7 +1482,7 @@ if __name__ == '__main__':
                     full_insertions = {residue: {'to': aa}
                                        for residue, aa in enumerate(final_sequences[design_string], 1)}
                     full_insertions.update(
-                        SequenceProfile.generate_mutations(design_sequences[chains[j]], final_sequences[design_string],
+                        SequenceProfile.generate_mutations(design_sequences[chain], final_sequences[design_string],
                                                            blanks=True))
                     # Reduce to sequence only
                     inserted_sequences[design_string] = '%s\n%s' % (''.join([full_insertions[idx]['to']
