@@ -294,14 +294,14 @@ def query_user_for_metrics(df, mode=None):
     Returns:
         (dict)
     """
-    instructions = {'filter': 'For each metric, choose values based on supported literature or design goals to '
+    instructions = {'filter': '\nFor each metric, choose values based on supported literature or design goals to '
                               'eliminate designs that are certain to fail or have sub-optimal features. Ensure your '
                               'cutoffs aren\'t too exclusive. If you end up with no designs, try relaxing your filter '
                               'values.',
                     'weight':
-                    'For each metric, choose a percentage signifying the metric\'s contribution to the total selection'
-                    ' weight. The weight will be used as a linear combination of all weights according to each designs'
-                    ' rank within the specified metric category. '
+                    '\nFor each metric, choose a percentage signifying the metric\'s contribution to the total '
+                    'selection weight. The weight will be used as a linear combination of all weights according to each'
+                    ' designs rank within the specified metric category. '
                     'For instance, typically the total weight should equal 1. When choosing 5 metrics, you '
                     'can assign an equal weight to each (specify 0.2 for each) or you can weight several more strongly '
                     '(0.3, 0.3, 0.2, 0.1, 0.1). When ranking occurs, for each selected metric the metric will be '
