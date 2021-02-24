@@ -11,6 +11,7 @@ import SequenceProfile
 import SymDesignUtils as SDUtils
 
 
+SDUtils.start_log(name=__name__)
 # Globals
 # uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 
@@ -26,7 +27,12 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate fin
     """
     uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
     # 'all' gives PDB.Chain, 'unique' gives only PDB handle
-    all_matching_pdb_chain = uniprot_pdb_d[pull_uniprot_id_by_pdb(pdb_code, chain=chain)]['all']
+    uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
+    if uniprot_id not in uniprot_pdb_d:
+        return AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(pdb_code), chain=chain,
+                                                         source='seqres')
+    else:
+        all_matching_pdb_chain = uniprot_pdb_d[uniprot_id]['all']
 
     # {pdb: [{'A': 'MSGHHHHHHGKLKPNDLRI...'}, ...], ...}
     pdb_chain_d = {}
@@ -36,15 +42,14 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate fin
 
     partner_sequences = []
     for matching_pdb in pdb_chain_d:
-        partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb), chain=pdb_chain_d[matching_pdb],
-                                                              source='seqres')
+        partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
+                                                              chain=pdb_chain_d[matching_pdb], source='seqres')
         partner_sequences.append(partner_d[pdb_chain_d[matching_pdb]])
         # TODO chain can be not found... Should this be available based on Uniprot-PDB Map creation? Need to extend this
 
     # {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}
-    matching_pdb_tags = {}
-    for idx, seq in enumerate(partner_sequences):
-        matching_pdb_tags[idx] = find_expression_tags(seq)  # can return an empty dict
+    matching_pdb_tags = {idx: find_expression_tags(seq) for idx, seq in enumerate(partner_sequences)}
+    # can return an empty dict
 
     # Next, align all the tags to the reference sequence and tally the tag location and type
     pdb_tag_tally = {'N': {}, 'C': {}}
@@ -182,8 +187,8 @@ def add_expression_tag(tag, sequence):
     return final_seq
 
 
-def pull_uniprot_id_by_pdb(pdb_code, chain=None):
-    uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
+def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
+    # uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
     source = 'unique_pdb'
     pdb_code = pdb_code.upper()
     if chain:
@@ -194,6 +199,7 @@ def pull_uniprot_id_by_pdb(pdb_code, chain=None):
     for uniprot_id in uniprot_pdb_d:
         if pdb_code in uniprot_pdb_d[uniprot_id][source]:
             return uniprot_id
+    return None
 
 
 def find_expression_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
