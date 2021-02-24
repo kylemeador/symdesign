@@ -313,7 +313,7 @@ def query_user_for_metrics(df, mode=None):
 
     metric_values, chosen_metrics = {}, []
     end = False
-    metrics_input = None
+    metrics_input = 'start'
     available_metrics = set(df.columns.to_list())
     while not end:
         if metrics_input.lower() == 'metrics':
