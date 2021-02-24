@@ -29,8 +29,9 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate fin
     # 'all' gives PDB.Chain, 'unique' gives only PDB handle
     uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
     if uniprot_id not in uniprot_pdb_d:
-        return AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(pdb_code), chain=chain,
-                                                         source='seqres')
+        return {'name': None, 'seq': None}
+        # return AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(pdb_code), chain=chain,
+        #                                                  source='seqres')
     else:
         all_matching_pdb_chain = uniprot_pdb_d[uniprot_id]['all']
 
