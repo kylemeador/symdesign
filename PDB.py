@@ -1210,7 +1210,7 @@ class PDB(Structure):
         # Convert 3 letter aa to uppercase, 1 letter aa
         if residue_type.title() in IUPACData.protein_letters_3to1_extended:
             residue_type_1 = IUPACData.protein_letters_3to1_extended[residue_type.title()]
-        else:  # Why would this be useful?
+        else:
             residue_type_1 = residue_type.upper()
         residue_index = IUPACData.protein_letters.find(residue_type_1) + 1  # offset
         # Find atom insertion index, should be last atom in preceding residue
@@ -1245,6 +1245,8 @@ class PDB(Structure):
             self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
                                                            'AAreference.pdb'),
                                               log=start_log(handler=3), no_entities=True)
+            print(chain.name for chain in self.reference_aa.chains)
+            print(residue.number for residue in self.reference_aa.residues)
         insert_atoms = self.reference_aa.chain('A').residue(residue_index).get_atoms()
 
         for atom in reversed(insert_atoms):  # essentially a push
