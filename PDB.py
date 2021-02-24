@@ -77,7 +77,7 @@ class PDB(Structure):
         self.dihedral_chain = None
 
         if file:
-            self.readfile(file)
+            self.readfile(file, **kwargs)
         if atoms:
             self.set_atoms(atoms)  # sets all atoms and residues in PDB
             self.chain_id_list = remove_duplicates([residue.chain for residue in self.residues])
@@ -152,7 +152,7 @@ class PDB(Structure):
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
-    def readfile(self, filepath, remove_alt_location=True):  # changed default to forget about coordinates only
+    def readfile(self, filepath, remove_alt_location=True, **kwargs):
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
         formatted_filename = os.path.splitext(os.path.basename(filepath))[0].rstrip('pdb').lstrip('pdb')
@@ -278,7 +278,7 @@ class PDB(Structure):
         #                                                 % (self.filepath, len(self.atoms), self.coords.shape[0])
         # for atom_idx, atom in enumerate(self.atoms):
         #     atom.coords = self.coords[atom_idx]
-        self.process_pdb(coords=coords, seqres=seq_res_lines, multimodel=multimodel)
+        self.process_pdb(coords=coords, seqres=seq_res_lines, multimodel=multimodel, **kwargs)
 
         # if seq_res_lines:
         #     self.parse_seqres(seq_res_lines)
@@ -298,7 +298,7 @@ class PDB(Structure):
         """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
         return None
 
-    def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False):
+    def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False, no_entities=False):
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
         if coords:
             self.coords = Coords(coords)
@@ -319,7 +319,8 @@ class PDB(Structure):
             self.create_chains(solve_discrepancy=False)
         else:
             self.create_chains()
-        self.create_entities()
+        if not no_entities:
+            self.create_entities()
         self.get_chain_sequences()
         # or
         # for entity in self.entity_d:
@@ -1241,8 +1242,8 @@ class PDB(Structure):
         # Grab the reference atom coordinates and push into the atom list
         if not self.reference_aa:
             # TODO load in Residue.py
-            self.reference_aa = PDB(file=os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
-                                                      'AAreference.pdb'))
+            self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
+                                                           'AAreference.pdb'), log='None', no_entities=True)
         insert_atoms = self.reference_aa.chain('A').residue(IUPACData.protein_letters.find(residue_type_1)).get_atoms()
 
         for atom in reversed(insert_atoms):  # essentially a push
