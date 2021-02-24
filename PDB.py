@@ -686,7 +686,7 @@ class PDB(Structure):
         moved_chains = [available_chains[idx] for idx in range(self.number_of_chains)]
 
         for idx, chain in enumerate(self.chain_id_list):
-            self.chain(chain).set_atoms_attribute(chain=moved_chains[idx])
+            self.chain(chain).set_atoms_attributes(chain=moved_chains[idx])
         # prev_chain = self.atoms[0].chain
         # chain_index = 0
         # l3 = []
