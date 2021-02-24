@@ -315,13 +315,13 @@ def query_user_for_metrics(df, mode=None):
     end = False
     metrics_input = 'start'
     available_metrics = set(df.columns.get_level_values(-1).to_list())
+    print('The available metrics are located in the third row of your DataFrame. Enter your selected metrics as a '
+          'comma separated input or alternatively, you can check out the available metrics by entering \'metrics\'.'
+          '\nEx: \'shape_complementarity, contact_count, etc.\'')
     while not end:
         if metrics_input.lower() == 'metrics':
-            print(', '.join(available_metrics))
-        metrics_input = input('The available metrics are located in the third row of your DataFrame. Enter your '
-                              'selected metrics as a comma separated input or alternatively, you can check out the'
-                              ' available metrics by entering \'metrics\'.\nEx: \'shape_complementarity, '
-                              'contact_count, etc.\'%s' % input_string)
+            print('Available Metrics\n%s\n' % ', '.join(available_metrics))
+        metrics_input = input('%s' % input_string)
         chosen_metrics = set(map(str.strip, map(str.lower, metrics_input.split(','))))
         unsupported_metrics = chosen_metrics - set(available_metrics)
         if metrics_input == 'metrics':
@@ -334,10 +334,10 @@ def query_user_for_metrics(df, mode=None):
     correct = False
     while not correct:
         for metric in chosen_metrics:
-            metric_values[metric] = input('For \'%s\' metric \'%s\' what value of should be used for %sing?\n%s'
-                                          % (mode, metric, mode, instructions[mode]))
+            metric_values[metric] = float(input('For \'%s\' what value of should be used for %sing?\n%s%s'
+                                                % (metric, mode, instructions[mode], input_string)))
 
-        print('You selected:\n%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
+        print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
         while True:
             confirm = input(confirmation_string)
             if confirm.lower() in bool_d:
