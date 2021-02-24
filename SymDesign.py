@@ -499,6 +499,8 @@ if __name__ == '__main__':
                              % (PUtils.program_name, PUtils.nano.title()))
     parser.add_argument('-f', '--file', type=os.path.abspath, metavar='/path/to/file_with_directory_names.txt',
                         help='File with location(s) of %s design poses' % PUtils.program_name, default=None)
+    parser.add_argument('-g', '--guide', action='store_true',
+                        help='Whether to display the %s or module specific guide.' % PUtils.program_name)
     parser.add_argument('-m', '--directory_type', type=str, choices=['design', 'dock'],
                         help='Which directory type to process?')
     #                   , required=True)
@@ -577,7 +579,9 @@ if __name__ == '__main__':
     # parser_design.add_argument('-p', '--mpi', action='store_true',
     #                            help='Should job be set up for cluster submission?\nDefault=False')
     # ---------------------------------------------------
-    parser_analysis = subparsers.add_parser('analysis', help='Run analysis on all poses specified and their designs.')
+    parser_analysis = subparsers.add_parser('analysis', help='Run analysis on all poses specified and their designs. '
+                                                             '--guide will inform you about the various metrics '
+                                                             'available after analysis')
     parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
                                  help='Name to output .csv files.\nDefault=%s' % PUtils.analysis_file)
     parser_analysis.add_argument('-n', '--no_save', action='store_true',
@@ -586,9 +590,9 @@ if __name__ == '__main__':
                                  help='Create and save figures for all poses?\nDefault=False')
     parser_analysis.add_argument('-j', '--join', action='store_true',
                                  help='Join Trajectory and Residue Dataframes?\nDefault=False')
-    parser_analysis.add_argument('-g', '--guide', action='store_true',
-                                 help='Whether to display the analysis guide. This will inform you about the various '
-                                      'metrics available after analysis')
+    # parser_analysis.add_argument('-g', '--guide', action='store_true',
+    #                              help='Whether to display the analysis guide. This will inform you about the various '
+    #                                   'metrics available after analysis')
     parser_analysis.add_argument('-dg', '--delta_g', action='store_true',
                                  help='Compute deltaG versus Refine structure?\nDefault=False')
     # ---------------------------------------------------
@@ -694,10 +698,10 @@ if __name__ == '__main__':
     else:  # ['distribute', 'query', 'guide', 'flags', 'design_selector']
         queried_flags['directory_type'] = None
 
-    if args.sub_module not in ['distribute', 'query', 'guide', 'flags', 'design_selector']:
+    if args.sub_module not in ['distribute', 'query', 'guide', 'flags', 'design_selector'] and not args.guide:
         options_table = SDUtils.pretty_format_table(queried_flags.items())
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
-    logger.debug('Debug directory_type. Verbose output')
+    logger.debug('Debug mode. Verbose output')
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either directory name or file
     # -----------------------------------------------------------------------------------------------------------------
