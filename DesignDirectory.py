@@ -427,7 +427,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         assert self.program_root, 'No program_root attribute set! Cannot create a path from a pose_id without a ' \
                                   'program_root!'
         self.path = os.path.join(self.program_root, pose_id.replace('Projects-', 'Projects%s' % os.sep).replace(
-            'Design-', 'Design%s' % os.sep))
+            'Designs-', 'Designs%s' % os.sep))
 
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
