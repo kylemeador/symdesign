@@ -1352,12 +1352,13 @@ if __name__ == '__main__':
                 source_seqres = {}
                 for entity in source_pose.entities:
                     entity.retrieve_sequence_from_api(entity_id=entity.name)
+                    entity.retrieve_info_from_api()
                     source_seqres[entity.chain_id] = entity.reference_sequence
                 # if not source_pose.sequences:
                 # oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
                 # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
-                oligomer_chain_database_chain_map = {entity.chain_id: next(iter(source_pose.api_entry['entity'][idx]))
-                                                     for idx, entity in enumerate(source_pose.entities, 1)}
+                oligomer_chain_database_chain_map = {entity.chain_id: next(iter(entity.api_entry))
+                                                     for entity in source_pose.entities, 1}
                 # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
                 #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
 
