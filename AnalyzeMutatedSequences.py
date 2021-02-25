@@ -179,7 +179,8 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
 
     filter_df = pd.read_csv(PUtils.filter_and_sort, index_col=0)
     if filter:
-        filters = query_user_for_metrics(df, mode='filter', level='design')
+        available_filters = _df.columns.to_list()
+        filters = query_user_for_metrics(available_filters, mode='filter', level='design')
         logger.info('Using filter parameters: %s' % str(filters))
 
         # When df is not ranked by percentage
@@ -235,7 +236,8 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     # {column: {'direction': 'min', 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
     if weight:
         # display(ranked_df[weights_s.index.to_list()] * weights_s)
-        weights = query_user_for_metrics(df, mode='weight', level='design')
+        available_metrics = _df.columns.to_list()
+        weights = query_user_for_metrics(available_metrics, mode='weight', level='design')
         logger.info('Using weighting parameters: %s' % str(weights))
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
                     for metric, value in weights.items()}
