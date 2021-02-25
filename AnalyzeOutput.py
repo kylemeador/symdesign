@@ -68,8 +68,9 @@ metric_master = {'average_fragment_z_score': 'The average fragment z-value used 
                  # 'int_area_res_summary_total_A_oligomer': 'Sum of each interface residue\'s total area for oligomer A',
                  # 'int_area_res_summary_total_B_oligomer': 'Sum of each interface residue\'s total area for oligomer B',
                  'int_area_total': 'Total interface buried surface area',
-                 'int_composition_diff': 'The similarity to the expected interface composition given interface buried '
-                                         'surface area. 1 is similar to natural interfaces, 0 is dissimilar',
+                 'int_composition_similarity':
+                     'The similarity to the expected interface composition given interface buried surface area. '
+                     '1 is similar to natural interfaces, 0 is dissimilar',
                  # 'int_connectivity_A': 'Interface connection chainA to the rest of the protein',
                  # 'int_connectivity_B': 'Interface connection chainB to the rest of the protein',
                  'int_connectivity_1': 'How embedded is interface1 in the rest of the protein?',
@@ -206,9 +207,8 @@ necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano',
 #                      'int_energy_res_summary_oligomer', 'int_energy_context_oligomer',
 
 final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'core', 'cst_weight',
-                 'fsp_energy',
-                 'percent_fragment', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total', 'int_composition_diff',
-                 'int_connectivity_1',
+                 'fsp_energy', 'percent_fragment', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total',
+                 'int_composition_similarity', 'int_connectivity_1',
                  'int_connectivity_2', 'int_energy_res_summary_1_unbound', 'int_energy_res_summary_2_unbound',
                  'int_energy_res_summary_complex', 'int_energy_res_summary_delta', 'int_energy_res_summary_unbound',
                  'int_separation', 'interaction_energy_complex', 'number_hbonds', 'observed_combined',
@@ -1095,7 +1095,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     for r_class in residue_classificiation:
         scores_df[r_class] = residue_df.loc[:, idx_slice[:,
                                                residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
-    scores_df['int_composition_diff'] = scores_df.apply(residue_composition_diff, axis=1)
+    scores_df['int_composition_similarity'] = scores_df.apply(residue_composition_diff, axis=1)
 
     interior_residue_df = residue_df.loc[:, idx_slice[:,
                                             residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)
