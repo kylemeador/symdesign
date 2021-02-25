@@ -268,7 +268,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if os.path.exists(self.asu):
                     self.source = self.asu
                 else:
-                    self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
+                    try:
+                        self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
+                    except IndexError:
+                        self.source = None
 
                 self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])  # symmetry.rstrip(os.sep)
                 self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
@@ -477,7 +480,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.make_path(self.all_scores, condition=self.analysis)
         self.make_path(self.frags, condition=self.query_fragments)
-        self.make_path(self.sdf, condition=self.nano)
+        self.make_path(self.sdf, condition=self.nano)  # Todo, is this necessary anymore?
 
         if os.path.exists(self.frag_file):
             # if self.info['fragments']:
