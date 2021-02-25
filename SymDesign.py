@@ -1235,6 +1235,7 @@ if __name__ == '__main__':
             results.append(zip(design_directories, pose_design_numbers))
             location = args.pose_design_file
         else:
+            sequence_weights = None
             if args.dataframe:  # Figure out poses from a dataframe, filters, and weights
                 # TODO parameterize
                 # if args.filters:
@@ -1283,11 +1284,11 @@ if __name__ == '__main__':
 
                 design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
                                       for pose in final_poses]
-
-                sample_trajectory = next(iter(design_directories)).trajectories
-                trajectory_df = pd.read_csv(sample_trajectory, index_col=0, header=[0])
-                sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
-                sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
+                if args.weight:
+                    sample_trajectory = next(iter(design_directories)).trajectories
+                    trajectory_df = pd.read_csv(sample_trajectory, index_col=0, header=[0])
+                    sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
+                    sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
             elif args.consensus:
                 results.append(zip(design_directories, repeat('consensus')))
 
@@ -1297,12 +1298,12 @@ if __name__ == '__main__':
                 logger.info('Starting multiprocessing using %s threads' % str(threads))
                 # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                 #                     'int_energy_res_summary_delta': 0.25}
-                zipped_args = zip(design_directories, repeat(args.weight), repeat(args.number_sequences))
+                zipped_args = zip(design_directories, repeat(sequence_weights), repeat(args.number_sequences))
                 results = zip(*SDUtils.mp_starmap(Ams.select_sequences_mp, zipped_args, threads))
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
             else:
-                results = zip(*list(Ams.select_sequences_s(des_directory, weights=args.weight,
+                results = zip(*list(Ams.select_sequences_s(des_directory, weights=sequence_weights,
                                                            number=args.number_sequences)
                                     for des_directory in design_directories))
 
