@@ -162,7 +162,7 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     specified by user values.
 
     Args:
-        df_file (pandas.DataFrame): DataFrame to filter/weight indices
+        df_file (str): DataFrame to filter/weight indices
     Keyword Args:
         filter=False (bool): Whether filters are going to remove viable candidates
         weight=False (bool): Whether weights are going to select the poses
@@ -179,7 +179,7 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
 
     filter_df = pd.read_csv(PUtils.filter_and_sort, index_col=0)
     if filter:
-        filters = query_user_for_metrics(df, mode='filter')
+        filters = query_user_for_metrics(df, mode='filter', level='design')
         logger.info('Using filter parameters: %s' % str(filters))
 
         # When df is not ranked by percentage
@@ -235,7 +235,7 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     # {column: {'direction': 'min', 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
     if weight:
         # display(ranked_df[weights_s.index.to_list()] * weights_s)
-        weights = query_user_for_metrics(df, mode='weight')
+        weights = query_user_for_metrics(df, mode='weight', level='design')
         logger.info('Using weighting parameters: %s' % str(weights))
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
                     for metric, value in weights.items()}
@@ -273,7 +273,7 @@ def select_sequences_mp(des_dir, weight=None, number=1, desired_protocol=None, d
         return e
 
 
-def select_sequences(des_dir, weight=None, number=1, desired_protocol=None, debug=False):
+def select_sequences(des_dir, weights=None, number=1, desired_protocol=None, debug=False):
     """From a single design, select sequences for further characterization. If weights, then using weights the user can
      prioritize sequences, otherwise the sequence with the most neighbors will be selected
 
@@ -301,12 +301,11 @@ def select_sequences(des_dir, weight=None, number=1, desired_protocol=None, debu
     # designs = list(all_design_sequences[chains[0]].keys())
     logger.info('Number of starting trajectories = %d' % len(trajectory_df))
 
-    if weight:
+    if weights:
         filter_df = pd.read_csv(PUtils.filter_and_sort, index_col=0)
         # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
         # _df = trajectory_df.loc[final_indices, :]
         _df = trajectory_df
-        weights = query_user_for_metrics(_df, mode='weight')
         logger.info('Using weighting parameters: %s' % str(weights))
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
                     for metric in weights}
