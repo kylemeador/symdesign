@@ -786,13 +786,11 @@ if __name__ == '__main__':
         if 'nanohedra_output' in queried_flags and queried_flags['nanohedra_output']:
             all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
                                                               single=args.single, dir_type=PUtils.nano)
-            design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)  # project=args.project
-                                  for pose in all_poses]
+            design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags) for pose in all_poses]
         else:
             all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
                                                               single=args.single)
-            design_directories = [DesignDirectory.from_file(pose, **queried_flags)  # project=args.project,
-                                  for pose in all_poses]
+            design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
         if args.guide:
             pass
         elif not design_directories:
