@@ -968,6 +968,7 @@ class Residue:
         self.atoms = atoms
         self.secondary_structure = None
         self._n = None
+        self._h = None
         self._ca = None
         self._cb = None
         self._c = None
@@ -986,6 +987,17 @@ class Residue:
     @n.setter
     def n(self, index):
         self._n = index
+
+    @property
+    def h(self):
+        try:
+            return self.atoms[self._h]
+        except TypeError:
+            return None
+
+    @h.setter
+    def h(self, index):
+        self._h = index
 
     @property
     def ca(self):
@@ -1052,6 +1064,8 @@ class Residue:
         for idx, atom in enumerate(self.atoms):
             if atom.is_n():
                 self.n = idx
+            elif atom.is_h():
+                self.h = idx
             elif atom.is_CA():
                 self.ca = idx
             elif atom.is_CB(InclGlyCA=True):
@@ -1086,7 +1100,7 @@ class Residue:
         # else:
         # bb_cb_indices = [atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]
         # print(bb_cb_indices)
-        return self._coords.coords[[atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]]
+        return self._coords.coords[[atom.index for atom in [self.n, self.h, self.ca, self.cb, self.c, self.o] if atom]]
         # return self._coords.coords[np.array(bb_cb_indices)]
         # return self._coords.coords[np.array([self._n, self._ca, self._cb, self._c, self._o])]
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
@@ -1260,16 +1274,19 @@ class Atom:  # (Coords):
         #     return True
         # else:
         #     return False
-        return self.is_n() or self.is_CA() or self.is_c() or self.is_o()
+        return self.is_n() or self.is_h() or self.is_CA() or self.is_c() or self.is_o()
 
     def is_n(self):
         return self.type == 'N'
 
+    def is_h(self):
+        return self.type == 'H'
+
     def is_CB(self, InclGlyCA=False):
         if InclGlyCA:
             return self.type == 'CB' or (self.type == 'CA' and self.residue_type == 'GLY')
-        else:
-            return self.type == 'CB' or (self.type == 'H' and self.residue_type == 'GLY')
+        else:  # When Rosetta assigns, it is this  v  but PDB assigns as this  v
+            return self.type == 'CB' or ((self.type == '2HA' or self.type == 'HA3') and self.residue_type == 'GLY')
 
     def is_CA(self):
         return self.type == 'CA'
