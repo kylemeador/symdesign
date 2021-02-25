@@ -1100,7 +1100,7 @@ class Residue:
         # else:
         # bb_cb_indices = [atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]
         # print(bb_cb_indices)
-        return self._coords.coords[[atom.index for atom in [self.n, self.h, self.ca, self.cb, self.c, self.o] if atom]]
+        return self._coords.coords[[atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]]  # self.h,
         # return self._coords.coords[np.array(bb_cb_indices)]
         # return self._coords.coords[np.array([self._n, self._ca, self._cb, self._c, self._o])]
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
@@ -1274,7 +1274,7 @@ class Atom:  # (Coords):
         #     return True
         # else:
         #     return False
-        return self.is_n() or self.is_h() or self.is_CA() or self.is_c() or self.is_o()
+        return self.is_n() or self.is_CA() or self.is_c() or self.is_o()  # or self.is_h()
 
     def is_n(self):
         return self.type == 'N'
