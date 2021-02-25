@@ -1,6 +1,7 @@
 import copy
 import math
 import os
+import shutil
 import subprocess
 from glob import glob
 
@@ -135,7 +136,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.set_flags(**kwargs)
 
         # if not self.nano:
-            # check to be sure it's not actually one
+        # check to be sure it's not actually one
         #     if ('DEGEN', 'ROT', 'tx') in self.path:
         #         self.nano = True
         if self.nano:
@@ -244,7 +245,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   % (self.__str__(), PUtils.master_log, self.nano_master_log))
         else:
             if '.pdb' in design_path:  # set up /program_root/projects/project/design
-                self.source = design_path
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 self.project_designs = os.path.join(self.projects, '%s_%s' % (design_path.split(os.sep)[-2],
@@ -259,17 +259,24 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     os.makedirs(self.project_designs)
                 if not os.path.exists(self.path):
                     os.makedirs(self.path)
+
+                self.source = design_path
+                shutil.copy(design_path, self.path)
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
                 self.path = design_path
                 self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean))
-                self.source = self.asu
+                if os.path.exists(self.asu):
+                    self.source = self.asu
+                else:
+                    self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
+
                 self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])  # symmetry.rstrip(os.sep)
                 self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
                 self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
 
             self.set_up_design_directory()
-        self.start_log(debug=debug)
             # self.design_from_file(symmetry=symmetry)
+        self.start_log(debug=debug)
 
     @classmethod
     def from_nanohedra(cls, design_path, mode=None, project=None, nano=True, **kwargs):
