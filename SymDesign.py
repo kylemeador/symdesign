@@ -1316,7 +1316,7 @@ if __name__ == '__main__':
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
         else:
             args.selection_string += '_'
-        outdir = os.path.join(os.path.dirname(program_root), '%sSelected_Designs' % args.selection_string)
+        outdir = os.path.join(os.path.dirname(program_root), '%sSelectedDesigns' % args.selection_string)
         outdir_traj = os.path.join(outdir, 'Trajectories')
         outdir_res = os.path.join(outdir, 'Residues')
         logger.info('Your selected design files are located in: %s' % outdir)
