@@ -30,7 +30,8 @@ from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_r
 from PDB import PDB, generate_sequence_template
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
-from Query.Flags import query_user_for_flags, return_default_flags, process_design_selector_flags
+from Query.Flags import query_user_for_flags, return_default_flags, process_design_selector_flags, \
+    query_user_for_metrics
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
 
@@ -600,17 +601,21 @@ if __name__ == '__main__':
                                                                        '. Either -df or -p is required. If both are '
                                                                        'provided, -p will be prioritized')
     sequence_required = parser_sequence.add_mutually_exclusive_group(required=True)
-    sequence_required.add_argument('-df', '--dataframe', type=os.path.abspath,  # required=True,
+    sequence_required.add_argument('-df', '--dataframe', type=os.path.abspath,
+                                   metavar='/path/to/AllPoseDesignMetrics.csv',
                                    help='Dataframe.csv from analysis containing pose info.')
-    sequence_required.add_argument('-p', '--pose_design_file', type=str,
+    sequence_required.add_argument('-p', '--pose_design_file', type=str, metavar='/path/to/pose_design.csv',
                                    help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_sequence.add_argument('-c', '--consensus', action='store_true', help='Whether to grab the consensus sequence'
                                                                                 '\nDefault=False')
     parser_sequence.add_argument('-f', '--filter', action='store_true',
                                  help='Whether to filter sequence selection using metrics from DataFrame')
-    parser_sequence.add_argument('-n', '--number', type=int, help='Number of top sequences to return per design',
-                                 default=1)
-    parser_sequence.add_argument('-s', '--selection_string', type=str, help='Output identifier for sequence selection')
+    parser_sequence.add_argument('-np', '--number_poses', type=int, default=1, metavar='integer',
+                                 help='Number of top sequences to return per design')
+    parser_sequence.add_argument('-ns', '--number_sequences', type=int, default=1, metavar='integer',
+                                 help='Number of top sequences to return per design')
+    parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
+                                 help='String to prepend to output for custom sequence selection name')
     parser_sequence.add_argument('-w', '--weight', action='store_true',
                                  help='Whether to weight sequence selction using metrics from DataFrame')
     # ---------------------------------------------------
@@ -1273,12 +1278,16 @@ if __name__ == '__main__':
                 else:
                     final_poses = selected_poses
 
-                if len(final_poses) > args.number:
-                    final_poses = final_poses[:args.number]
+                if len(final_poses) > args.number_poses:
+                    final_poses = final_poses[:args.number_poses]
 
                 design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
                                       for pose in final_poses]
-                # design_directories = set_up_directory_objects(final_poses, project=args.project)  # **queried_flags
+
+                sample_trajectory = next(iter(design_directories)).trajectories
+                trajectory_df = pd.read_csv(sample_trajectory, index_col=0, header=[0])
+                sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
+                sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
             elif args.consensus:
                 results.append(zip(design_directories, repeat('consensus')))
 
@@ -1288,18 +1297,17 @@ if __name__ == '__main__':
                 logger.info('Starting multiprocessing using %s threads' % str(threads))
                 # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                 #                     'int_energy_res_summary_delta': 0.25}
-                # sequence_weights = None  # Remove once calculated
-                zipped_args = zip(design_directories, repeat(args.weight))  # repeat(sequence_weights))
+                zipped_args = zip(design_directories, repeat(args.weight), repeat(args.number_sequences))
                 results = zip(*SDUtils.mp_starmap(Ams.select_sequences_mp, zipped_args, threads))
-                # results, exceptions = zip(*SDUtils.mp_map(Ams.select_sequences_mp, design_directories, threads))
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
             else:
-                results = zip(*list(Ams.select_sequences_s(des_directory, weight=args.weight, number=args.number)
+                results = zip(*list(Ams.select_sequences_s(des_directory, weight=args.weight,
+                                                           number=args.number_sequences)
                                     for des_directory in design_directories))
 
         results = list(results)
-        failures = [index for index, exception in enumerate(exceptions) if exception]  # Todo
+        failures = [index for index, exception in enumerate(exceptions) if exception]  # Todo move to terminate?
         for index in reversed(failures):
             del results[index]
 
@@ -1310,7 +1318,7 @@ if __name__ == '__main__':
         outdir = os.path.join(os.path.dirname(program_root), '%sSelected_Designs' % args.selection_string)
         outdir_traj = os.path.join(outdir, 'Trajectories')
         outdir_res = os.path.join(outdir, 'Residues')
-        logger.info('Your files will be located in : %s' % outdir)
+        logger.info('Your selected design files are located in: %s' % outdir)
 
         if not os.path.exists(outdir):
             os.makedirs(outdir)
@@ -1327,7 +1335,6 @@ if __name__ == '__main__':
                     exceptions.append((pose_des_dir.path, 'No file found for \'%s/*%s*\'' %
                                        (pose_des_dir.designs, design[i])))
                     continue
-                # for file in files:
                 try:
                     os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
                     os.symlink(pose_des_dir.trajectories, os.path.join(outdir_traj,
@@ -1338,7 +1345,6 @@ if __name__ == '__main__':
                     pass
 
         # Format sequences for expression
-        # chains = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         chains = PDB.available_letters
         final_sequences, inserted_sequences = {}, {}
         for pose in results:
@@ -1358,8 +1364,9 @@ if __name__ == '__main__':
                 source_pose = PDB.from_file(pose_des_dir.source)  # Think this works the best
                 source_pose.reorder_chains()  # Do I need to modify chains?
                 # source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
+                # Todo clean up depreciation
                 # if pose_des_dir.nano:
-                #     pose_entities = os.path.basename(pose_des_dir.building_blocks).split('_')  # Todo clean up depreciation
+                #     pose_entities = os.path.basename(pose_des_dir.building_blocks).split('_')
                 # else:
                 #     pose_entities = []
                 source_seqres = {}
