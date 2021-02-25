@@ -617,7 +617,7 @@ class Structure:  # (Coords):
         # all_atom_tree = KDTree(self.get_backbone_and_cb_coords())
         number_of_residues = self.number_of_residues
         # non_residue_indices = np.ones(self.number_of_atoms, dtype=bool)
-        all_clashes, side_chain_clashes = [], []
+        backbone_clashes, side_chain_clashes = [], []
         for idx, residue in enumerate(self.residues, -1):
             # return a np.array((residue length, all_atom coords)) KDTree
             # residue_query = all_atom_tree.query_radius(residue.coords, clash_distance)
@@ -645,10 +645,10 @@ class Structure:  # (Coords):
                 # if atom_clash:
                 for clash in clashes:
                     if self.atoms[clash].is_backbone() or self.atoms[clash].is_CB():
-                        all_clashes.append((residue, self.atoms[clash]))
+                        backbone_clashes.append((residue, self.atoms[clash]))
                     else:
                         side_chain_clashes.append((residue, self.atoms[clash]))
-                # all_clashes.extend([(residue, self.atoms[clash]) for clash in clashes if self.atoms[clash].is_backbone()
+                # backbone_clashes.extend([(residue, self.atoms[clash]) for clash in clashes if self.atoms[clash].is_backbone()
                 #                     or self.atoms[clash].is_CB()])
                 # raise DesignError('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
                 #                   'permitted. See:\n%s'
@@ -661,12 +661,12 @@ class Structure:  # (Coords):
                 #                     '\n\t'.join(str(self.atoms[clash]) for clash in clashes)))
         if side_chain_clashes:
             self.log.warning('%s contains %d side-chain clashes at the following Residues!\n\t%s'
-                             % (self.name, len(all_clashes), '\n\t'.join('Residue %d: %s' % (residue.number, atom)
-                                                                         for residue, atom in all_clashes)))
-        if all_clashes:
+                             % (self.name, len(backbone_clashes), '\n\t'.join('Residue %d: %s' % (residue.number, atom)
+                                                                         for residue, atom in backbone_clashes)))
+        if backbone_clashes:
             self.log.critical('%s contains %d backbone clashes at the following Residues!\n\t%s'
-                              % (self.name, len(all_clashes), '\n\t'.join('Residue %d: %s' % (residue.number, atom)
-                                                                          for residue, atom in all_clashes)))
+                              % (self.name, len(backbone_clashes), '\n\t'.join('Residue %d: %s' % (residue.number, atom)
+                                                                          for residue, atom in backbone_clashes)))
             return True
         else:
             return False
