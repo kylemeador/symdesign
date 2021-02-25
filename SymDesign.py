@@ -1302,7 +1302,7 @@ if __name__ == '__main__':
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
             else:
-                results = zip(*list(Ams.select_sequences_s(des_directory, weight=args.weight,
+                results = zip(*list(Ams.select_sequences_s(des_directory, weights=args.weight,
                                                            number=args.number_sequences)
                                     for des_directory in design_directories))
 

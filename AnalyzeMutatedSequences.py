@@ -263,13 +263,13 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
 
 
 @handle_design_errors(errors=(DesignError, AssertionError))
-def select_sequences_s(des_dir, weight=None, number=1, desired_protocol=None, debug=False):
-    return select_sequences(des_dir, weight=weight, number=number, desired_protocol=desired_protocol, debug=debug)
+def select_sequences_s(des_dir, weights=None, number=1, desired_protocol=None, debug=False):
+    return select_sequences(des_dir, weights=weights, number=number, desired_protocol=desired_protocol, debug=debug)
 
 
-def select_sequences_mp(des_dir, weight=None, number=1, desired_protocol=None, debug=False):
+def select_sequences_mp(des_dir, weights=None, number=1, desired_protocol=None, debug=False):
     try:
-        pose = select_sequences(des_dir, weight=weight, number=number, desired_protocol=desired_protocol, debug=debug)
+        pose = select_sequences(des_dir, weights=weights, number=number, desired_protocol=desired_protocol, debug=debug)
         return pose
     except (DesignError, AssertionError) as e:
         return e
