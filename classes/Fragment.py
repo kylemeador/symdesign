@@ -134,20 +134,25 @@ class GhostFragment:
     #     """
     #     return self.central_res_tup  + self.aligned_surf_frag_central_res_tup
 
-    def get_i_frag_type(self):
+    def get_i_type(self):
         return self.i_frag_type
 
-    def get_j_frag_type(self):
+    def get_j_type(self):
         return self.j_frag_type
 
-    def get_k_frag_type(self):
+    def get_k_type(self):
         return self.k_frag_type
 
     def get_rmsd(self):
         return self.rmsd
 
-    def get_pdb(self):
-        return self.pdb
+    @property
+    def pdb(self):
+        return self._pdb
+
+    @pdb.setter
+    def pdb(self, pdb):
+        self._pdb = pdb
 
     def get_pdb_coords(self):
         return self.pdb.get_coords()

@@ -82,16 +82,24 @@ class Structure:  # (Coords):
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    def return_transformed_copy(self, rotation=None, translation=None):
+    def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
         """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space
         Returns:
             (Structure)
         """
-        new_coords = np.array(self.extract_coords())
         if rotation:
-            new_coords = np.matmul(new_coords, np.transpose(np.array(rotation)))
+            new_coords = np.matmul(self.coords, np.transpose(np.array(rotation)))
+        else:
+            new_coords = self.coords
+
         if translation:
             new_coords += np.array(translation)
+
+        if rotation2:
+            new_coords = np.matmul(new_coords, np.transpose(np.array(rotation2)))
+
+        if translation2:
+            new_coords += np.array(translation2)
 
         new_structure = deepcopy(self)
         new_structure.replace_coords(Coords(new_coords))

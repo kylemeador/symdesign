@@ -18,12 +18,11 @@ from sklearn.neighbors import BallTree
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
+from utils.GeneralUtils import euclidean_squared_3d
 
 # logging.getLogger().setLevel(logging.INFO)
 
 # Globals
-from utils.GeneralUtils import euclidean_squared_3d
-
 index_offset = 1
 rmsd_threshold = 1.0
 layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
@@ -1035,6 +1034,8 @@ def get_symdesign_dirs(base=None, project=None, single=None):
 #     # return sorted(set(all_directories))
 #
 #     return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
+
+
 class DesignError(Exception):
     pass
     # def __init__(self, message):
@@ -1045,21 +1046,35 @@ class DesignError(Exception):
     #     return self.__str__() == other
 
 
-def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None):
-    e1 = euclidean_squared_3d(coords1[0], coords2[0])
-    e2 = euclidean_squared_3d(coords1[1], coords2[1])
-    e3 = euclidean_squared_3d(coords1[2], coords2[2])
-    s = e1 + e2 + e3
-    mean = s / float(3)
-    rmsd = math.sqrt(mean)
-
+def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2):
+    """Calculate the overlap between two sets of coordinates given a reference rmsd"""
+    rmsds = rmsd(coords1, coords2)
     # Calculate Guide Atom Overlap Z-Value
-    # and Calculate Score Term for Nanohedra Residue Level Summation Score
-    z_val = rmsd / float(max(coords_rmsd_reference, 0.01))
+    z_values = rmsds / coords_rmsd_reference
+    # filter z_values by passing threshold
+    return np.where(z_values < max_z_value, z_values, False)
 
-    match_score = 1 / float(1 + (z_val ** 2))
 
-    return match_score, z_val
+def rmsd(coords1=None, coords2=None):
+    """Calculate the RMSD over sets of coordinates in two numpy.arrays. The first axis (0) contains instances of
+    coordinate sets, the second axis (1) contains a set of coordinates, and the third axis (2) contains the x, y, z
+    values for a coordinate
+
+    Returns:
+        (np.ndarray)
+    """
+    # e1 = euclidean_squared_3d(coords1[0], coords2[0])
+    # e2 = euclidean_squared_3d(coords1[1], coords2[1])
+    # e3 = euclidean_squared_3d(coords1[2], coords2[2])
+    # s = e1 + e2 + e3
+    # mean = s / float(3)
+    # rmsd = math.sqrt(mean)
+    difference_squared = (coords1 - coords2) ** 2
+    # axis 2 gets the sum of the rows 0[1[2[],2[],2[]], 1[2[],2[],2[]]]
+    sum_difference_squared = difference_squared.sum(axis=2)
+    # axis 1 gets the mean of the rows 0[1[]], 1[]]
+    mean_sum_difference_squared = sum_difference_squared.mean(axis=1)
+    return math.sqrt(mean_sum_difference_squared)
 
 
 def z_value_from_match_score(match_score):
@@ -1071,7 +1086,7 @@ def match_score_from_z_value(z_value):
     return 1 / float(1 + (z_value ** 2))
 
 
-def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_frags, coords_l2, z_value_func=None,
+def filter_euler_lookup_by_zvalue(coords_l1, coords_l2, reference_coords, z_value_func=None,
                                   max_z_value=2):
     """Filter an EulerLookup by a specified z-value, where the z-value is calculated by a passed function which has
     two sets of coordinates and and rmsd as args
@@ -1082,23 +1097,24 @@ def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_f
     # Todo, signature = coords_array1, coords_array2, rmsd_list
     # Todo make coords_l1, coords_l2, rmsd_list all np array. Calling z_value_func on these arrays will return an array
     #  must specify with optimal_tx if need to save the z_value. Could filter it in optimal_tx.apply()
-    overlap_results = []
-    for index_pair in index_pairs:
-        ghost_frag = ghost_frags[index_pair[0]]
-        coords1 = coords_l1[index_pair[0]]
-        # or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
-        # coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
-        surf_frag = surface_frags[index_pair[1]]
-        coords2 = coords_l2[index_pair[1]]
-        # surf_frag.get_guide_coords()
-        if surf_frag.get_i_type() == ghost_frag.get_j_frag_type():  # Todo remove frags to a mask outside
-            result, z_value = z_value_func(coords1=coords1, coords2=coords2,
-                                           coords_rmsd_reference=ghost_frag.get_rmsd())
-            if z_value <= max_z_value:
-                overlap_results.append((result, z_value))
-            else:
-                overlap_results.append(False)
-        else:
-            overlap_results.append(False)
+    overlap_results = [z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
+                       for coords1, coords2 in zip(coords_l1, coords_l2)]
+    # for index_pair in index_pairs:
+    # for coords1, coords2 in zip(coords_l1, coords_l2):
+    #     ghost_frag = ghost_frags[index_pair[0]]
+    #     coords1 = coords_l1[index_pair[0]]
+    #     or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
+    #     coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
+    #     surf_frag = surface_frags[index_pair[1]]
+    #     coords2 = coords_l2[index_pair[1]]
+    #     surf_frag.get_guide_coords()
+    #     if surf_frag.get_i_type() == ghost_frag.get_j_type():  # Todo remove frags to a mask outside
+    #     result = z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
+    #     if z_value <= max_z_value:
+    #         overlap_results.append((result, z_value))
+    #     else:
+    #         overlap_results.append(False)
+    #     else:
+    #         overlap_results.append(False)
 
     return overlap_results
