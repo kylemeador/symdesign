@@ -4,6 +4,7 @@ SLURM/PBS computational clusters, analysis of designed poses, and renaming of co
 
 """
 import argparse
+import copy
 import datetime
 import os
 import shutil
@@ -16,6 +17,8 @@ from json import loads, dumps
 
 import pandas as pd
 import psutil
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
@@ -27,11 +30,12 @@ from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, fi
 from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
-from PDB import PDB, generate_sequence_template
+from PDB import PDB
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
 from Query.Flags import query_user_for_flags, return_default_flags, process_design_selector_flags, \
     query_user_for_metrics
+from SequenceProfile import write_fasta
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
 
@@ -474,6 +478,15 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
                 print('\n\n')
 
     exit(exit_code)
+
+
+def generate_sequence_template(pdb_file):
+    pdb = PDB.from_file(pdb_file)
+    sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), 'Protein'), id=pdb.filepath)
+    sequence_mask = copy.copy(sequence)
+    sequence_mask.id = 'design_selector'
+    sequences = [sequence, sequence_mask]
+    return write_fasta(sequences, file_name='%s_design_selector_sequence' % os.path.splitext(pdb.filepath)[0])
 
 
 if __name__ == '__main__':

@@ -10,8 +10,6 @@ from shutil import move
 
 import numpy as np
 from Bio import pairwise2
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 # from Bio.Alphabet import IUPAC
 from sklearn.neighbors import BallTree
@@ -19,7 +17,6 @@ from sklearn.neighbors import BallTree
 from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_symmdef, orient_exe_path, \
     orient_log_file, orient_dir
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
-from SequenceProfile import write_fasta
 from Stride import Stride
 from Structure import Structure, Chain, Atom, Coords, Entity
 from SymDesignUtils import remove_duplicates, start_log  # logger
@@ -1915,12 +1912,3 @@ class PDB(Structure):
     #     """
     #     return Entity.from_representative(representative_chain=representative_chain, chains=chains,
     #                                       name=entity_name, uniprot_id=uniprot_id)
-
-
-def generate_sequence_template(pdb_file):
-    pdb = PDB.from_file(pdb_file)
-    sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), 'Protein'), id=pdb.filepath)
-    sequence_mask = copy(sequence)
-    sequence_mask.id = 'design_selector'
-    sequences = [sequence, sequence_mask]
-    return write_fasta(sequences, file_name='%s_design_selector_sequence' % os.path.splitext(pdb.filepath)[0])
