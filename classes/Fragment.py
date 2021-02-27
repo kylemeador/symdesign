@@ -161,7 +161,7 @@ class MonoFragment:
                     # intfrag_partner_chain_id = intfrag[3]
                     # intfrag_partner_chain_central_res_num = intfrag[4]
 
-                    aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, self.structure.chain_id_list[0],
+                    aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, self.central_res_chain_id,
                                                                   intfrag_pdb, intfrag_mapped_chain)
 
                     # Only keep ghost fragments that don't clash with oligomer backbone
