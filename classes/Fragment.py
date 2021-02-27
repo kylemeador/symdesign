@@ -155,18 +155,17 @@ class MonoFragment:
             for j_type in intfrag_cluster_rep_dict[self.type]:
                 for k_type in intfrag_cluster_rep_dict[self.type][j_type]:
                     intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
-                    intfrag_pdb = intfrag[0]
-                    intfrag_mapped_chain = intfrag[1]
+                    frag_pdb = intfrag[0]
+                    frag_mapped_chain = intfrag[1]
                     # intfrag_mapped_chain_central_res_num = intfrag[2]
                     # intfrag_partner_chain_id = intfrag[3]
                     # intfrag_partner_chain_central_res_num = intfrag[4]
 
-                    aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, self.central_res_chain_id,
-                                                                  intfrag_pdb, intfrag_mapped_chain)
+                    aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, frag_pdb.chain(frag_mapped_chain))
 
                     # Only keep ghost fragments that don't clash with oligomer backbone
                     # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
-                    ghost_frag_chain = (set(aligned_ghost_frag_pdb.chain_id_list) - {'9', intfrag_mapped_chain}).pop()
+                    ghost_frag_chain = (set(aligned_ghost_frag_pdb.chain_id_list) - {'9', frag_mapped_chain}).pop()
                     g_frag_bb_coords = aligned_ghost_frag_pdb.chain(ghost_frag_chain).get_backbone_coords()
 
                     cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
