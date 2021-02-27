@@ -1,86 +1,86 @@
 import numpy as np
 import sklearn.neighbors
 
-from classes.Fragment import GhostFragment
-from classes.Fragment import MonoFragment
-from classes.PDB import *
+# from classes.Fragment import GhostFragment
+# from classes.Fragment import MonoFragment
+from PDB import PDB
 from utils.GeneralUtils import rot_txint_set_txext_frag_coord_sets
 
 
-def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):  # Todo to PDB
-    # pdb_coords = np.array(pdb.extract_coords())  # TODO
-    pdb_coords = np.array(pdb.extract_all_coords())
-
-    if pdb_coords.size != 0:
-
-        # Rotate coordinates if rotation matrix is provided
-        if rot_mat is not None:
-            rot_mat_T = np.transpose(rot_mat)
-            pdb_coords = np.matmul(pdb_coords, rot_mat_T)
-
-        # Translate coordinates if internal translation vector is provided
-        if internal_tx_vec is not None:
-            pdb_coords = pdb_coords + internal_tx_vec
-
-        # Set coordinates if setting matrix is provided
-        if set_mat is not None:
-            set_mat_T = np.transpose(set_mat)
-            pdb_coords = np.matmul(pdb_coords, set_mat_T)
-
-        # Translate coordinates if external translation vector is provided
-        if ext_tx_vec is not None:
-            pdb_coords = pdb_coords + ext_tx_vec
-
-        transformed_pdb = PDB()
-        transformed_atoms = []
-        atom_index = 0
-        for atom in pdb.get_atoms():
-            x_transformed = pdb_coords[atom_index][0]
-            y_transformed = pdb_coords[atom_index][1]
-            z_transformed = pdb_coords[atom_index][2]
-            atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
-                                    atom.get_residue_type(), atom.get_chain(), atom.get_residue_number(),
-                                    atom.get_code_for_insertion(), x_transformed, y_transformed, z_transformed,
-                                    atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-                                    atom.get_atom_charge())
-            transformed_atoms.append(atom_transformed)
-            atom_index += 1
-
-        transformed_pdb.set_all_atoms(transformed_atoms)
-        transformed_pdb.set_chain_id_list(pdb.get_chain_id_list())
-        transformed_pdb.set_filepath(pdb.get_filepath())
-
-        return transformed_pdb
-
-    else:
-        return []
+# def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):
+#     # pdb_coords = np.array(pdb.extract_coords())
+#     pdb_coords = np.array(pdb.extract_all_coords())
+#
+#     if pdb_coords.size != 0:
+#
+#         # Rotate coordinates if rotation matrix is provided
+#         if rot_mat is not None:
+#             rot_mat_T = np.transpose(rot_mat)
+#             pdb_coords = np.matmul(pdb_coords, rot_mat_T)
+#
+#         # Translate coordinates if internal translation vector is provided
+#         if internal_tx_vec is not None:
+#             pdb_coords = pdb_coords + internal_tx_vec
+#
+#         # Set coordinates if setting matrix is provided
+#         if set_mat is not None:
+#             set_mat_T = np.transpose(set_mat)
+#             pdb_coords = np.matmul(pdb_coords, set_mat_T)
+#
+#         # Translate coordinates if external translation vector is provided
+#         if ext_tx_vec is not None:
+#             pdb_coords = pdb_coords + ext_tx_vec
+#
+#         transformed_pdb = PDB()
+#         transformed_atoms = []
+#         atom_index = 0
+#         for atom in pdb.get_atoms():
+#             x_transformed = pdb_coords[atom_index][0]
+#             y_transformed = pdb_coords[atom_index][1]
+#             z_transformed = pdb_coords[atom_index][2]
+#             atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
+#                                     atom.get_residue_type(), atom.get_chain(), atom.get_residue_number(),
+#                                     atom.get_code_for_insertion(), x_transformed, y_transformed, z_transformed,
+#                                     atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
+#                                     atom.get_atom_charge())
+#             transformed_atoms.append(atom_transformed)
+#             atom_index += 1
+#
+#         transformed_pdb.set_all_atoms(transformed_atoms)
+#         transformed_pdb.set_chain_id_list(pdb.get_chain_id_list())
+#         transformed_pdb.set_filepath(pdb.get_filepath())
+#
+#         return transformed_pdb
+#
+#     else:
+#         return []
 
 
 def get_contacting_asu(pdb1, pdb2, contact_dist=8):
-    pdb1_ca_coords_chain_dict = {}
-    for atom in pdb1.get_atoms():
-        if atom.chain not in pdb1_ca_coords_chain_dict:
-            pdb1_ca_coords_chain_dict[atom.chain] = [atom.coords()]
-        else:
-            pdb1_ca_coords_chain_dict[atom.chain].append(atom.coords())
-
-    pdb2_ca_coords_chain_dict = {}
-    for atom in pdb2.get_atoms():
-        if atom.chain not in pdb2_ca_coords_chain_dict:
-            pdb2_ca_coords_chain_dict[atom.chain] = [atom.coords()]
-        else:
-            pdb2_ca_coords_chain_dict[atom.chain].append(atom.coords())
+    # pdb1_ca_coords_chain_dict = {}
+    # for atom in pdb1.get_atoms():
+    #     if atom.chain not in pdb1_ca_coords_chain_dict:
+    #         pdb1_ca_coords_chain_dict[atom.chain] = [atom.coords]
+    #     else:
+    #         pdb1_ca_coords_chain_dict[atom.chain].append(atom.coords)
+    #
+    # pdb2_ca_coords_chain_dict = {}
+    # for atom in pdb2.get_atoms():
+    #     if atom.chain not in pdb2_ca_coords_chain_dict:
+    #         pdb2_ca_coords_chain_dict[atom.chain] = [atom.coords]
+    #     else:
+    #         pdb2_ca_coords_chain_dict[atom.chain].append(atom.coords)
 
     max_contact_count = 0
     max_contact_chain1 = None
     max_contact_chain2 = None
-    for chain1 in pdb1_ca_coords_chain_dict:
-        for chain2 in pdb2_ca_coords_chain_dict:
-            pdb1_ca_coords = pdb1_ca_coords_chain_dict[chain1]
-            pdb2_ca_coords = pdb2_ca_coords_chain_dict[chain2]
+    for chain1 in pdb1.chains():
+        for chain2 in pdb2.chains():
+            # pdb1_ca_coords = pdb1_ca_coords_chain_dict[chain1]
+            # pdb2_ca_coords = pdb2_ca_coords_chain_dict[chain2]
 
-            pdb1_ca_coords_kdtree = sklearn.neighbors.BallTree(np.array(pdb1_ca_coords))
-            contact_count = pdb1_ca_coords_kdtree.two_point_correlation(pdb2_ca_coords, [contact_dist])[0]
+            pdb1_ca_coords_kdtree = sklearn.neighbors.BallTree(chain1.coords)
+            contact_count = pdb1_ca_coords_kdtree.two_point_correlation(chain2.coords, [contact_dist])[0]
 
             if contact_count > max_contact_count:
                 max_contact_count = contact_count
@@ -88,12 +88,10 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8):
                 max_contact_chain2 = chain2
 
     if max_contact_count > 0 and max_contact_chain1 is not None and max_contact_chain2 is not None:
-        pdb1_asu = PDB()
-        pdb1_asu.read_atom_list(pdb1.chain(max_contact_chain1))
+        pdb1_asu = PDB.from_atoms(pdb1.chain(max_contact_chain1))
         # pdb1_asu.read_atom_list(pdb1.get_chain_atoms(max_contact_chain1))
 
-        pdb2_asu = PDB()
-        pdb2_asu.read_atom_list(pdb2.chain(max_contact_chain2))
+        pdb2_asu = PDB.from_atoms(pdb2.chain(max_contact_chain2))
         # pdb2_asu.read_atom_list(pdb2.get_chain_atoms(max_contact_chain2))
 
         return pdb1_asu, pdb2_asu
@@ -128,10 +126,6 @@ def get_interface_fragments(pdb1, pdb2, cb_distance=9.0):
     pdb1_central_resnum_chainid_used = []
     pdb2_central_resnum_chainid_used = []
     for pair in interacting_pairs:
-        int_frag_out_pdb1 = PDB()
-        int_frag_out_pdb2 = PDB()
-        int_frag_out_atom_list_pdb1 = []
-        int_frag_out_atom_list_pdb2 = []
 
         pdb1_central_res_num = pair[0][0]
         pdb1_central_chain_id = pair[0][1]
@@ -144,6 +138,7 @@ def get_interface_fragments(pdb1, pdb2, cb_distance=9.0):
                              pdb2_central_res_num + 1, pdb2_central_res_num + 2]
 
         frag1_ca_count = 0
+        int_frag_out_atom_list_pdb1 = []
         for atom in pdb1.all_atoms:
             if atom.chain == pdb1_central_chain_id:
                 if atom.residue_number in pdb1_res_num_list:
@@ -152,6 +147,7 @@ def get_interface_fragments(pdb1, pdb2, cb_distance=9.0):
                         frag1_ca_count += 1
 
         frag2_ca_count = 0
+        int_frag_out_atom_list_pdb2 = []
         for atom in pdb2.all_atoms:
             if atom.chain == pdb2_central_chain_id:
                 if atom.residue_number in pdb2_res_num_list:
@@ -161,12 +157,12 @@ def get_interface_fragments(pdb1, pdb2, cb_distance=9.0):
 
         if frag1_ca_count == 5 and frag2_ca_count == 5:
             if (pdb1_central_res_num, pdb1_central_chain_id) not in pdb1_central_resnum_chainid_used:
-                int_frag_out_pdb1.read_atom_list(int_frag_out_atom_list_pdb1)
+                int_frag_out_pdb1 = PDB.from_atoms(int_frag_out_atom_list_pdb1)
                 interface_fragments_pdb1.append(int_frag_out_pdb1)
                 pdb1_central_resnum_chainid_used.append((pdb1_central_res_num, pdb1_central_chain_id))
 
             if (pdb2_central_res_num, pdb2_central_chain_id) not in pdb2_central_resnum_chainid_used:
-                int_frag_out_pdb2.read_atom_list(int_frag_out_atom_list_pdb2)
+                int_frag_out_pdb2 = PDB.from_atoms(int_frag_out_atom_list_pdb2)
                 interface_fragments_pdb2.append(int_frag_out_pdb2)
                 pdb2_central_resnum_chainid_used.append((pdb2_central_res_num, pdb2_central_chain_id))
 
