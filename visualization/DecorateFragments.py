@@ -9,7 +9,8 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 from SymDesignUtils import start_log, collect_directories
-from classes.Fragment import MonoFragment, FragmentDB
+from classes.Fragment import MonoFragment
+from interface_analysis.Database import FragmentDB
 from PDB import PDB
 
 

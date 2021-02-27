@@ -15,7 +15,7 @@ from Bio.SeqUtils import IUPACData
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-from classes.Fragment import FragmentDatabase
+from interface_analysis.Database import FragmentDatabase
 from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log  # logger,
 
 

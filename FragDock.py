@@ -10,6 +10,7 @@ from classes.Fragment import *
 from classes.OptimalTx import *
 from classes.SymEntry import *
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
+from interface_analysis.Database import FragmentDB
 from utils.CmdLineArgParseUtils import *
 from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
 # from utils.ExpandAssemblyUtils import *

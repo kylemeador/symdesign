@@ -26,7 +26,7 @@ import CmdUtils as CUtils
 import PathUtils as PUtils
 import SequenceProfile
 import SymDesignUtils as SDUtils
-from classes.Fragment import FragmentDatabase
+from interface_analysis.Database import FragmentDatabase
 from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, final_metrics
 from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects
