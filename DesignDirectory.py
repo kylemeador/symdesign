@@ -15,7 +15,7 @@ from PDB import PDB
 from Pose import Pose
 from Query.Flags import load_flags
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics
-from classes.Fragment import FragmentDatabase
+from interface_analysis.Database import FragmentDatabase
 from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object
 

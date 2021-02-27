@@ -15,7 +15,8 @@ from Structure import Coords, Structure
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, \
     filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, possible_symmetries  # logger,
 from classes.EulerLookup import EulerLookup
-from classes.Fragment import MonoFragment, FragmentDB
+from classes.Fragment import MonoFragment
+from interface_analysis.Database import FragmentDB
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from utils.GeneralUtils import write_frag_match_info_file
 from utils.SymmUtils import valid_subunit_number
