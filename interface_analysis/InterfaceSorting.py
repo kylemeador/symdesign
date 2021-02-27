@@ -1,8 +1,7 @@
 import argparse
 import os
 import sys
-from copy import copy, deepcopy
-from itertools import chain as iter_chain
+from copy import copy
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -11,9 +10,9 @@ sys.path.append(parent_dir)
 from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
 from SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, get_all_file_paths, to_iterable
-from PDB import PDB
-from Pose import retrieve_pdb_file_path
-from SequenceProfile import FragmentDatabase
+# from PDB import extract_interface
+# from Pose import retrieve_pdb_file_path
+from classes.Fragment import FragmentDatabase
 import Query.PDB as qPDB
 
 
@@ -25,100 +24,34 @@ def pisa_polymer_interface(interface):
     return True
 
 
-def return_pdb_interface(pdb_code, interface_id, full_chain=True, db=False):
-    try:
-        # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
-        if not db:   # This makes flexible with MySQL
-            pdb_file_path = retrieve_pdb_file_path(pdb_code, directory=pdb_directory)
-            pisa_file_path = retrieve_pisa_file_path(pdb_code, directory=pisa_directory)
-            if pisa_file_path and pdb_file_path:
-                source_pdb = PDB(file=pdb_file_path)
-                pisa_data = unpickle(pisa_file_path)
-            else:
-                return None
-        else:
-            print("Connection to MySQL DB not yet supported")
-            exit()
-
-        # interface_data = pisa_data['interfaces']
-        if pisa_polymer_interface(pisa_data['interfaces'][interface_id]):
-            interface_chain_data = pisa_data['interfaces'][interface_id]['chain_data']
-
-            return extract_interface(pdb, interface_chain_data, full_chain=full_chain)
-        else:
-            return None
-
-    except Exception as e:
-        print(e.__doc__)
-        print(e, pdb_code)
-
-        return pdb_code
-
-
-def extract_interface(pdb, chain_data_d, full_chain=True):
-    """
-    'interfaces': {interface_ID: {interface stats, {chain data}}, ...}
-        Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211,
-             'chain_data': {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-                                't_vec': [0.0, 0.0, 0.0], 'num_atoms': 104, 'int_res': {'87': 23.89, '89': 45.01, ...},
-                            2: ...}},
-             2: {'occ': ..., },
-             'all_ids': {interface_type: [interface_id1, matching_id2], ...}
-            } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
-
-    """
-    # if one were trying to map the interface fragments created in a fragment extraction back to the pdb, they would
-    # want to use the interface in interface_data and the chain id (renamed from letter to ID #) to find the chain and
-    # the translation from the pisa.xml file
-    # pdb_code, subdirectory = return_and_make_pdb_code_and_subdirectory(pdb_file_path)
-    # out_path = os.path.join(os.getcwd(), subdirectory)
-    # try:
-    #     # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
-    #     # This makes flexible with MySQL
-    #     source_pdb = PDB(file=pdb_file_path)
-    #     pisa_data = unpickle(pisa_file_path)  # Get PISA data
-    #     interface_data = pisa_data['interfaces']
-    #     # interface_data, chain_data = pp.parse_pisa_interfaces_xml(pisa_file_path)
-    #     for interface_id in interface_data:
-    #         if not interface_id.is_digit():  # == 'all_ids':
-    #             continue
-    # interface_pdb = PDB.PDB()
-    temp_names = ('.', ',')
-    interface_chain_pdbs = []
-    temp_chain_d = {}
-    for temp_name_idx, chain_id in enumerate(chain_data_d):
-        # chain_pdb = PDB.PDB()
-        chain = chain_data_d[chain_id]['chain']
-        # if not chain:  # for instances of ligands, stop process, this is not a protein-protein interface
-        #     break
-        # else:
-        if full_chain:  # get the entire chain
-            interface_atoms = deepcopy(pdb.get_chain_atoms(chain))
-        else:  # get only the specific residues at the interface
-            residue_numbers = chain_data_d[chain_id]['int_res']
-            interface_atoms = pdb.chain(chain).get_residue_atoms(residue_numbers)
-            # interface_atoms = []
-            # for residue_number in residues:
-            #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
-            #     interface_atoms.extend(deepcopy(residue_atoms))
-            # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
-        chain_pdb = PDB(atoms=deepcopy(interface_atoms))
-        # chain_pdb.read_atom_list(interface_atoms)
-
-        rot = chain_data_d[chain_id]['r_mat']
-        trans = chain_data_d[chain_id]['t_vec']
-        chain_pdb.apply(rot, trans)
-        chain_pdb.chain(chain).set_atoms_attributes(chain=temp_names[temp_name_idx])  # ensure that chain names are not the same
-        temp_chain_d[temp_names[temp_name_idx]] = str(chain_id)
-        interface_chain_pdbs.append(chain_pdb)
-        # interface_pdb.read_atom_list(chain_pdb.atoms)
-
-    interface_pdb = PDB(atoms=iter_chain.from_iterable([chain_pdb.get_atoms() for chain_pdb in interface_chain_pdbs]))
-    if len(interface_pdb.chain_id_list) == 2:
-        for temp_name in temp_chain_d:
-            interface_pdb.chain(temp_name).set_atoms_attributes(chain=temp_chain_d[temp_name])
-
-    return interface_pdb
+# def return_pdb_interface(pdb_code, interface_id, full_chain=True, db=False):
+#     try:
+#         # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
+#         if not db:   # This makes flexible with MySQL
+#             pdb_file_path = retrieve_pdb_file_path(pdb_code, directory=pdb_directory)
+#             pisa_file_path = retrieve_pisa_file_path(pdb_code, directory=pisa_directory)
+#             if pisa_file_path and pdb_file_path:
+#                 # source_pdb = PDB(file=pdb_file_path)
+#                 pisa_data = unpickle(pisa_file_path)
+#             else:
+#                 return None
+#         else:
+#             print("Connection to MySQL DB not yet supported")
+#             exit()
+#
+#         # interface_data = pisa_data['interfaces']
+#         if pisa_polymer_interface(pisa_data['interfaces'][interface_id]):
+#             interface_chain_data = pisa_data['interfaces'][interface_id]['chain_data']
+#
+#             return extract_interface(pdb, interface_chain_data, full_chain=full_chain)
+#         else:
+#             return None
+#
+#     except Exception as e:
+#         print(e.__doc__)
+#         print(e, pdb_code)
+#
+#         return pdb_code
 
 
 def set_up_interface_dict(pdb_interface_codes):

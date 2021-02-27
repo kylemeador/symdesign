@@ -26,6 +26,7 @@ import CmdUtils as CUtils
 import PathUtils as PUtils
 import SequenceProfile
 import SymDesignUtils as SDUtils
+from classes.Fragment import FragmentDatabase
 from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, final_metrics
 from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects
@@ -788,8 +789,7 @@ if __name__ == '__main__':
             if 'generate_fragments' in queried_flags and queried_flags['generate_fragments']:
                 interface_type = 'biological_interfaces'  # Todo parameterize
                 logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
-                fragment_db = SequenceProfile.FragmentDatabase(source='directory', location=interface_type,
-                                                               init_db=True)
+                fragment_db = FragmentDatabase(source='directory', location=interface_type, init_db=True)
                 for design in design_directories:
                     design.connect_db(frag_db=fragment_db)
 

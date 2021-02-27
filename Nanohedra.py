@@ -2,9 +2,8 @@ from itertools import product, combinations
 
 import PathUtils as PUtils
 from FragDock import nanohedra_dock
+from classes.Fragment import FragmentDB
 from SymDesignUtils import get_all_pdb_file_paths
-from classes.EulerLookup import EulerLookup
-from classes.Fragment import *
 from classes.SymEntry import *
 from utils.CmdLineArgParseUtils import *
 from utils.ExpandAssemblyUtils import *
