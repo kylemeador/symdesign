@@ -100,6 +100,8 @@ class MonoFragment:
                 guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
                 # t_vec = np.array(min_tx)
                 # r_mat = np.transpose(np.array(min_rot))
+                self.rot = min_rot
+                self.tx = min_tx
                 self.guide_coords = np.matmul(guide_coords, min_rot) + min_tx
 
     @classmethod
@@ -156,18 +158,18 @@ class MonoFragment:
                 for k_type in intfrag_cluster_rep_dict[self.type][j_type]:
                     intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
                     frag_pdb = intfrag[0]
-                    frag_mapped_chain = intfrag[1]
-                    # intfrag_mapped_chain_central_res_num = intfrag[2]
-                    # intfrag_partner_chain_id = intfrag[3]
-                    # intfrag_partner_chain_central_res_num = intfrag[4]
+                    frag_paired_chain = intfrag[1]
+                    # # frag_mapped_chain = intfrag[1]
+                    # # intfrag_mapped_chain_central_res_num = intfrag[2]
+                    # # intfrag_partner_chain_id = intfrag[3]
+                    # # intfrag_partner_chain_central_res_num = intfrag[4]
 
-                    aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, frag_pdb.chain(frag_mapped_chain))
-
+                    # aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, frag_pdb.chain(frag_mapped_chain))
                     # Only keep ghost fragments that don't clash with oligomer backbone
                     # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
-                    ghost_frag_chain = (set(aligned_ghost_frag_pdb.chain_id_list) - {'9', frag_mapped_chain}).pop()
-                    g_frag_bb_coords = aligned_ghost_frag_pdb.chain(ghost_frag_chain).get_backbone_coords()
-
+                    # ghost_frag_chain = (set(frag_pdb.chain_id_list) - {'9', frag_mapped_chain}).pop()
+                    aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
+                    g_frag_bb_coords = aligned_ghost_frag_pdb.chain(frag_paired_chain).get_backbone_coords()
                     cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
 
                     if cb_clash_count[0] == 0:
