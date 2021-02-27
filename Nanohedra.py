@@ -369,58 +369,10 @@ def main():
                 master_log_file.write("Retrieving Database of Complete Interface Fragment Cluster Representatives\n")
                 # Create fragment database for all ijk cluster representatives
                 ijk_frag_db = FragmentDB()
-                #           monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath)
                 # Get complete IJK fragment representatives database dictionaries
-                ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-                ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-                ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
-
-                if init_match_type == "1_2":
-                    master_log_file.write("Retrieving Database of Helix-Strand Interface Fragment Cluster "
-                                          "Representatives\n\n")
-                    # Get Helix-Strand fragment representatives database dict for initial interface fragment matching
-                    init_monofrag_cluster_rep_pdb_dict_1 = {"1": ijk_monofrag_cluster_rep_pdb_dict["1"]}
-                    init_monofrag_cluster_rep_pdb_dict_2 = {"2": ijk_monofrag_cluster_rep_pdb_dict["2"]}
-                    init_intfrag_cluster_rep_dict = {"1": {"2": ijk_intfrag_cluster_rep_dict["1"]["2"]}}
-                    init_intfrag_cluster_info_dict = {"1": {"2": ijk_intfrag_cluster_info_dict["1"]["2"]}}
-                elif init_match_type == "2_1":
-                    master_log_file.write("Retrieving Database of Strand-Helix Interface Fragment Cluster "
-                                          "Representatives\n\n")
-                    # Get Strand-Helix fragment representatives database dict for initial interface fragment matching
-                    init_monofrag_cluster_rep_pdb_dict_1 = {"2": ijk_monofrag_cluster_rep_pdb_dict["2"]}
-                    init_monofrag_cluster_rep_pdb_dict_2 = {"1": ijk_monofrag_cluster_rep_pdb_dict["1"]}
-                    init_intfrag_cluster_rep_dict = {"2": {"1": ijk_intfrag_cluster_rep_dict["2"]["1"]}}
-                    init_intfrag_cluster_info_dict = {"2": {"1": ijk_intfrag_cluster_info_dict["2"]["1"]}}
-                elif init_match_type == "2_2":
-                    master_log_file.write("Retrieving Database of Strand-Strand Interface Fragment Cluster "
-                                          "Representatives\n\n")
-                    # Get Strand-Strand fragment representatives database dict for initial interface fragment matching
-                    init_monofrag_cluster_rep_pdb_dict_1 = {"2": ijk_monofrag_cluster_rep_pdb_dict["2"]}
-                    init_monofrag_cluster_rep_pdb_dict_2 = {"2": ijk_monofrag_cluster_rep_pdb_dict["2"]}
-                    init_intfrag_cluster_rep_dict = {"2": {"2": ijk_intfrag_cluster_rep_dict["2"]["2"]}}
-                    init_intfrag_cluster_info_dict = {"2": {"2": ijk_intfrag_cluster_info_dict["2"]["2"]}}
-                else:
-                    master_log_file.write("Retrieving Database of Helix-Helix Interface Fragment Cluster "
-                                          "Representatives\n\n")
-                    # Get Helix-Helix fragment representatives database dict for initial interface fragment matching
-                    init_monofrag_cluster_rep_pdb_dict_1 = {"1": ijk_monofrag_cluster_rep_pdb_dict["1"]}
-                    init_monofrag_cluster_rep_pdb_dict_2 = {"1": ijk_monofrag_cluster_rep_pdb_dict["1"]}
-                    init_intfrag_cluster_rep_dict = {"1": {"1": ijk_intfrag_cluster_rep_dict["1"]["1"]}}
-                    init_intfrag_cluster_info_dict = {"1": {"1": ijk_intfrag_cluster_info_dict["1"]["1"]}}
-
-            # Initialize Euler Lookup Class
-            eul_lookup = EulerLookup()
-
-            # Get Design Expansion Matrices
-            if design_dim == 0:
-                expand_matrices = get_ptgrp_sym_op(result_design_sym)
-            elif design_dim == 2 or design_dim == 3:
-                expand_matrices = get_sg_sym_op(result_design_sym)
-            else:
-                with open(master_log_filepath, "a+") as master_log_file:
-                    master_log_file.write("\n%s is an Invalid Design Dimension. The Only Valid Dimensions are: 0, 2, 3"
-                                          "\n" % str(design_dim))
-                sys.exit()
+                ijk_frag_db.get_monofrag_cluster_rep_dict()
+                ijk_frag_db.get_intfrag_cluster_rep_dict()
+                ijk_frag_db.get_intfrag_cluster_info_dict()
 
             for pdb1_path, pdb2_path in pdb_filepaths:
                 pdb1_filename = os.path.splitext(os.path.basename(pdb1_path))[0]
@@ -428,16 +380,10 @@ def main():
                 with open(master_log_filepath, "a+") as master_log_file:
                     master_log_file.write("Docking %s / %s \n" % (pdb1_filename, pdb2_filename))
 
-                nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, init_intfrag_cluster_info_dict,
-                               ijk_monofrag_cluster_rep_pdb_dict, master_outdir, pdb1_path, pdb2_path, init_max_z_val,
+                nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val,
                                subseq_max_z_val, rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
                                output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                                output_surrounding_uc=output_surrounding_uc, min_matched=min_matched, keep_time=timer)
-
-                # master_log_file = open(master_log_filepath, "a+")
-                # master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' %
-                #                                                            (pdb1_filename, pdb2_filename)))
-                # master_log_file.close()
 
             master_log_file = open(master_log_filepath, "a+")
             master_log_file.write("\nCOMPLETED FRAGMENT-BASED SYMMETRY DOCKING PROTOCOL\n\n")
@@ -448,7 +394,7 @@ def main():
         except KeyboardInterrupt:
             with open(master_log_filepath, "a+") as master_log_file:
                 master_log_file.write("\nRun Ended By KeyboardInterrupt\n")
-            sys.exit()
+            exit()
 
     elif len(cmd_line_in_params) > 1 and cmd_line_in_params[1] == '-query':
         query_mode(cmd_line_in_params)
