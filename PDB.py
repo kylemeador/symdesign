@@ -1396,15 +1396,10 @@ class PDB(Structure):
         self.update_entity_d()  # pdb_code=pdb_code)
 
         for entity, info in self.entity_d.items():
-            # chain_l = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
-            # chain_l = filter(None, chain_l)
-            if len(entity.split('_')) == 2:  # we have an name generated from a PDB API sequence search
-                entity_name = entity
-            else:  #
+            if isinstance(entity, int):
                 entity_name = '%s_%d' % (self.name, entity)
-            # self.entities.append(self.create_entity(representative_chain=self.entity_d[entity]['representative'],
-            #                                         chains=chain_l, entity_id=entity_name,
-            #                                         uniprot_id=self.entity_accession_map[entity]))
+            else:  # entity.split('_')) == 2:  # we have an name generated from a PDB API sequence search
+                entity_name = entity
             self.entities.append(Entity.from_representative(chains=info['chains'], name=entity_name,
                                                             coords=self._coords,
                                                             uniprot_id=info['accession'], log=self.log,
