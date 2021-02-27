@@ -1385,7 +1385,7 @@ class PDB(Structure):
         else:
             for entity, info in self.entity_d.items():
                 info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
-                info['chains'] = filter(None, info['chains'])
+                info['chains'] = list(filter(None, info['chains']))
 
         # # solve this upon chain loading...?
         # if len(self.entity_d) > self.number_of_chains:
