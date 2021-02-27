@@ -127,21 +127,16 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
     asu = expanded_ptgrp_pdbs[0]
     symm_mates_wo_asu = expanded_ptgrp_pdbs[1:]
 
-    asu_bb_coords = asu.extract_backbone_coords()
+    # asu_bb_coords = asu.get_backbone_and_cb_coords()
+    # asu_bb_coords = asu.extract_backbone_coords()
+    # symm_mates_wo_asu_bb_coords = [sym_mate_pdb.get_backbone_and_cb_coords() for sym_mate_pdb in symm_mates_wo_asu]
     symm_mates_wo_asu_bb_coords = []
     for sym_mate_pdb in symm_mates_wo_asu:
         symm_mates_wo_asu_bb_coords.extend(sym_mate_pdb.extract_backbone_coords())
 
-    kdtree_central_asu_bb = sklearn.neighbors.BallTree(np.array(asu_bb_coords))
+    # kdtree_central_asu_bb = sklearn.neighbors.BallTree(np.array(asu_bb_coords))
+    kdtree_central_asu_bb = sklearn.neighbors.BallTree(asu.get_backbone_and_cb_coords())
     cb_clash_count = kdtree_central_asu_bb.two_point_correlation(symm_mates_wo_asu_bb_coords, [clash_distance])
-
-    ### CLASH TEST ###
-    # asu_bb_indices = asu.get_backbone_indices()
-    # query_list = kdtree_central_asu_bb.query_radius(symm_mates_wo_asu_bb_coords, clash_distance)
-    # for symm_mates_wo_asu_bb_coords_index in range(len(query_list)):
-    #     for kdtree_central_asu_bb_index in query_list[symm_mates_wo_asu_bb_coords_index]:
-    #         print asu.atoms[asu_bb_indices[kdtree_central_asu_bb_index]]
-    ##################
 
     if cb_clash_count[0] == 0:
         return False  # "NO CLASH"
@@ -656,6 +651,7 @@ def expand_uc(pdb_asu, expand_matrices, uc_dimensions, dimension, return_side_ch
 def expanded_design_is_clash(asu_pdb_1, asu_pdb_2, design_dim, result_design_sym, expand_matrices, uc_dimensions=None,
                              outdir=None, output_exp_assembly=False, output_uc=False, output_surrounding_uc=False):
     if design_dim == 0:
+        # Todo Pose from pdbs
         expanded_ptgrp_pdbs = get_expanded_ptgrp_pdbs(asu_pdb_1, asu_pdb_2, expand_matrices)
 
         is_clash = expanded_ptgrp_is_clash(expanded_ptgrp_pdbs)
