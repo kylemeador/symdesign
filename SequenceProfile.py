@@ -15,7 +15,6 @@ from Bio.SeqUtils import IUPACData
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-from interface_analysis.Database import FragmentDatabase
 from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log  # logger,
 
 
@@ -105,13 +104,6 @@ class SequenceProfile:
 
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
-
-    def connect_fragment_database(self, location=None, init=False, **kwargs):
-        """Generate a new connection. Initialize the representative library by passing init=True"""
-        if not location:  # Todo fix once multiple are available
-            location = 'biological_interfaces'
-        self.frag_db = FragmentDatabase(location=location, init_db=init)
-        #                               source=source, location=location, init_db=init_db)
 
     def attach_fragment_database(self, db=None, **kwargs):
         """Attach an existing Fragment Database to the SequenceProfile or generate a new connection. Initialize the
