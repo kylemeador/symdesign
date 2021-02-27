@@ -295,8 +295,8 @@ class PDB(Structure):
     #     """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
     #     return None
 
-    def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False, entities=True,
-                    lazy=False):
+    def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False,
+                    lazy=False, entities=True):
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
         if coords:
             self.coords = Coords(coords)
@@ -321,7 +321,7 @@ class PDB(Structure):
             self.create_chains(solve_discrepancy=False)
         else:
             self.create_chains()
-        if entities:
+        if entities and not lazy:
             self.create_entities()
         self.get_chain_sequences()
         # or
