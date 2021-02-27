@@ -153,7 +153,7 @@ class PDB(Structure):
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
         formatted_filename = os.path.splitext(os.path.basename(filepath))[0].rstrip('pdb').lstrip('pdb')
-        underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != 1 else None
+        underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
         self.name = formatted_filename[:underscore_idx]
 
         with open(self.filepath, 'r') as f:
