@@ -97,11 +97,12 @@ class FragmentDB:
                 for dirpath2, dirnames2, filenames2 in os.walk(root):
                     for filename in filenames2:
                         ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, filename), lazy=True, log=null_log)
-                        ijk_frag_cluster_rep_mapped_chain_id = \
-                            filename[filename.find("mappedchain") + 12:filename.find("mappedchain") + 13]
-
+                        # ijk_frag_cluster_rep_mapped_chain_id = \
+                        #     filename[filename.find("mappedchain") + 12:filename.find("mappedchain") + 13]
+                        ijk_frag_cluster_rep_partner_chain_id = \
+                            filename[filename.find("partnerchain") + 13:filename.find("partnerchain") + 14]
                         i_j_k_intfrag_cluster_rep_dict[i_cluster_type][j_cluster_type][k_cluster_type] = \
-                            (ijk_frag_cluster_rep_pdb, ijk_frag_cluster_rep_mapped_chain_id)
+                            (ijk_frag_cluster_rep_pdb, ijk_frag_cluster_rep_partner_chain_id)
 
         self.paired_frags = i_j_k_intfrag_cluster_rep_dict
 
