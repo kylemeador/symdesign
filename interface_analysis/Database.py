@@ -10,6 +10,7 @@ from utils.MysqlPython import Mysql
 
 logger = start_log(name=__name__)
 index_offset = 1
+null_log = start_log(name='%s.fragments' % __name__, handler=3, propagate=False)
 
 
 class ClusterInfoFile:
@@ -75,7 +76,7 @@ class FragmentDB:
 
     def get_monofrag_cluster_rep_dict(self):
         self.reps = {os.path.splitext(filename)[0]:
-                     PDB.from_file(os.path.join(self.monofrag_cluster_rep_dirpath, filename), lazy=True)
+                     PDB.from_file(os.path.join(self.monofrag_cluster_rep_dirpath, filename), lazy=True, log=null_log)
                      for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath) for filename in files}
 
     def get_intfrag_cluster_rep_dict(self):

@@ -215,7 +215,7 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
         lh = logging.FileHandler(location + '.log')
     else:  # handler == 3:
         lh = logging.NullHandler()
-        return _logger
+        # return _logger
     lh.setLevel(log_level[level])
     lh.setFormatter(log_format)
     _logger.addHandler(lh)
