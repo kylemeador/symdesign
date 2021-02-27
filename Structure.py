@@ -813,7 +813,7 @@ class Structure:  # (Coords):
         # monofrag_indices = filter_euler_lookup_by_zvalue(ca_stretches, monofrag_array, z_value_func=fragment_overlap,
         #                                                  max_z_value=rmsd_threshold)
 
-        interface_frags = []
+        fragments = []
         for residue_number in residue_numbers:
             frag_residue_numbers = [residue_number + i for i in range(-2, 3)]  # Todo parameterize
             ca_count = 0
@@ -823,12 +823,12 @@ class Structure:  # (Coords):
                     ca_count += 1
             # todo reduce duplicate calculation
             if ca_count == 5:
-                interface_frags.append(Structure.from_residues(self.get_residues(frag_residue_numbers), log=False))
+                fragments.append(Structure.from_residues(self.get_residues(frag_residue_numbers), log=False))
 
-        for structure in interface_frags:
+        for structure in fragments:
             structure.chain_id_list = [structure.get_residues()[0].chain]
 
-        return interface_frags
+        return fragments
 
     def __key(self):
         return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
