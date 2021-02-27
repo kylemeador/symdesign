@@ -10,8 +10,8 @@ from classes.OptimalTx import *
 from classes.SymEntry import *
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.CmdLineArgParseUtils import *
-# from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
-from utils.ExpandAssemblyUtils import *
+from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
+# from utils.ExpandAssemblyUtils import *
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info
 from utils.PDBUtils import *
 # from utils.SamplingUtils import get_degeneracy_matrices
@@ -93,11 +93,11 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
             uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), ref_frame_tx_dof_e, ref_frame_tx_dof_f,
                                               ref_frame_tx_dof_g)
 
-        # if (optimal_ext_dof_shifts is not None and ref_frame_var_is_pos) or (optimal_ext_dof_shifts is None):  # Old
-        # if (optimal_ext_dof_shifts and ref_frame_var_is_pos) or not optimal_ext_dof_shifts:  # clean
-        #     # true and true or not true
-        #     dummy = True # enter docking
-        # if optimal_ext_dof_shifts and not ref_frame_var_is_pos:  # negated
+            # if (optimal_ext_dof_shifts is not None and ref_frame_var_is_pos) or (optimal_ext_dof_shifts is None):  # Old
+            # if (optimal_ext_dof_shifts and ref_frame_var_is_pos) or not optimal_ext_dof_shifts:  # clean
+            #     # true and true or not true
+            #     dummy = True # enter docking
+            # if optimal_ext_dof_shifts and not ref_frame_var_is_pos:  # negated
             if not ref_frame_var_is_pos:  # negated
                 # true and not true
                 # don't enter docking
@@ -115,6 +115,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=representative_int_dof_tx_param_1,
                                                  rotation2=sym_entry.get_rot_set_mat_group1(),
                                                  translation2=representative_ext_dof_tx_params_1)
+        print('Wrote PDB1')
         # pdb1_copy = rot_txint_set_txext_pdb(pdb1, rot_mat=rot_mat1,
         #                                     internal_tx_vec=representative_int_dof_tx_param_1,
         #                                     set_mat=sym_entry.get_rot_set_mat_group1(),
@@ -124,6 +125,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=representative_int_dof_tx_param_2,
                                                  rotation2=sym_entry.get_rot_set_mat_group2(),
                                                  translation2=representative_ext_dof_tx_params_2)
+        print('Wrote PDB2')
         # pdb2_copy = rot_txint_set_txext_pdb(pdb2, rot_mat=rot_mat2,
         #                                     internal_tx_vec=representative_int_dof_tx_param_2,
         #                                     set_mat=sym_entry.get_rot_set_mat_group1(),
@@ -141,6 +143,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(pdb1_copy.get_backbone_and_cb_coords())
         asu_cb_clash_count = kdtree_oligomer1_backbone.two_point_correlation(pdb2_copy.get_backbone_and_cb_coords(),
                                                                              [clash_dist])
+        print('Checking clashes')
         oligomer1_oligomer2_clash_time_end = time.time()
         oligomer1_oligomer2_clash_time = oligomer1_oligomer2_clash_time_end - oligomer1_oligomer2_clash_time_start
 
@@ -163,7 +166,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         #  Store all the ghost/surface frags in a chain/residue dictionary?
         get_int_ghost_surf_frags_time_start = time.time()
         transformed_ghostfrag_guide_coords_np, transformed_monofrag2_guide_coords_np, \
-            unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = \
+        unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = \
             get_interface_ghost_surf_frags(pdb1_copy, pdb2_copy, complete_ghost_frag_np,
                                            complete_surf_frag_np, rot_mat1, rot_mat2,
                                            representative_int_dof_tx_param_1, representative_int_dof_tx_param_2,
@@ -171,6 +174,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
                                            sym_entry.get_rot_set_mat_group2(),
                                            representative_ext_dof_tx_params_1,
                                            representative_ext_dof_tx_params_2)
+        print('Transformed guide_coords')
         get_int_ghost_surf_frags_time_end = time.time()
         get_int_ghost_surf_frags_time = get_int_ghost_surf_frags_time_end - get_int_ghost_surf_frags_time_start
 
@@ -194,7 +198,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         overlapping_ghost_frag_array, overlapping_surf_frag_array = \
             zip(*eul_lookup.check_lookup_table(transformed_ghostfrag_guide_coords_np,
                                                transformed_monofrag2_guide_coords_np))
-
+        print('Euler lookup')
         eul_lookup_end_time = time.time()
         eul_lookup_time = eul_lookup_end_time - eul_lookup_start_time
 
@@ -218,12 +222,15 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         # precalculate the reference_rmsds for each ghost fragment
         reference_rmsds = np.array([float(max(complete_ghost_frag_np[ghost_idx].get_rmsd(), 0.01))
                                     for ghost_idx in passing_ghost_indices])
-
+        print('length of all coords arrays = %d, %d, %d' % (len(passing_ghost_coords), len(passing_surf_coords),
+                                                            len(reference_rmsds)))
         all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
                                                  max_z_value=max_z_val)
+        print('Checking all fragment overlap at interface')
         passing_overlaps = [idx for idx, overlap in enumerate(all_fragment_overlap) if overlap]
         # passing_z_values = [overlap for overlap in all_fragment_overlap if overlap]
         passing_z_values = all_fragment_overlap[passing_overlaps]
+        print('Overlapping z-values: %s' % passing_z_values)
         # sorted_overlaps = np.array([passing_overlaps, passing_z_values],
         #                            dtype=[('index', int), ('z_value', float)])
         high_qual_match_count = sum([1 for z_value in passing_z_values
@@ -248,6 +255,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         # else:
         # Get contacting PDB 1 ASU and PDB 2 ASU
         asu_pdb_1, asu_pdb_2 = get_contacting_asu(pdb1_copy, pdb2_copy)
+        print('Grabbing asu')
         if not asu_pdb_1 and not asu_pdb_2:
             with open(log_filepath, "a+") as log_file:
                 log_file.write("\tNO Design ASU Found\n")
@@ -262,13 +270,11 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         pose_id = "%s_%s_%s_TX_%d" % (oligomers_subdir, degen_subdir, rot_subdir, (tx_idx + 1))
         sampling_id = '%s_%s_TX_%d' % (degen_subdir, rot_subdir, (tx_idx + 1))
         exp_des_clash_time_start = time.time()
-        exp_des_is_clash = expanded_design_is_clash(asu_pdb_1, asu_pdb_2,
-                                                    sym_entry.get_design_dim(),
+        exp_des_is_clash = expanded_design_is_clash(asu_pdb_1, asu_pdb_2, sym_entry.get_design_dim(),
                                                     sym_entry.get_result_design_sym(),
-                                                    sym_entry.expand_matrices,
-                                                    uc_dimensions, tx_subdir_out_path,
-                                                    output_exp_assembly, output_uc,
-                                                    output_surrounding_uc)
+                                                    sym_entry.expand_matrices, uc_dimensions, tx_subdir_out_path,
+                                                    output_exp_assembly, output_uc, output_surrounding_uc)
+        print('Checked expand clash')
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
 
@@ -301,18 +307,14 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
 
         # Todo replace with DesignDirectory? Path object?
         # Make directories to output matched fragment PDB files
-        # high_qual_match for fragments that were matched with z values <= 1
-        # low_qual_match for fragments that were matched with z values > 1
         matched_frag_reps_outpath = os.path.join(tx_subdir_out_path, "matching_fragments")
         if not os.path.exists(matched_frag_reps_outpath):
             os.makedirs(matched_frag_reps_outpath)
-        # initial_match for the initial matched fragment
-        # init_match_outdir_path = os.path.join(matched_frag_reps_outpath, "initial_match")
-        # if not os.path.exists(init_match_outdir_path):
-        #     os.makedirs(init_match_outdir_path)
+        # high_qual_match for fragments that were matched with z values <= 1
         high_qual_matches_outpath = os.path.join(matched_frag_reps_outpath, 'high_qual_match')
         if not os.path.exists(high_qual_matches_outpath):
             os.makedirs(high_qual_matches_outpath)
+        # low_qual_match for fragments that were matched with z values > 1
         low_qual_matches_outpath = os.path.join(matched_frag_reps_outpath, "low_qual_match")
         if not os.path.exists(low_qual_matches_outpath):
             os.makedirs(low_qual_matches_outpath)
@@ -322,6 +324,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         # match_scores = match_score_from_z_value(sorted_overlaps[1])
         # match_scores = match_score_from_z_value(passing_z_values)
         match_scores = match_score_from_z_value(passing_z_values[sorted_fragment_indices])
+        print('Overlapping Match Scores: %s' % match_scores)
         # interface_ghostfrags = complete_ghost_frag_np[passing_ghost_indices[sorted_overlaps[0]]]
         # interface_monofrags2 = complete_surf_frag_np[passing_surf_indices[sorted_overlaps[0]]]
         # interface_ghostfrags = complete_ghost_frag_np[passing_ghost_indices[passing_overlaps]]
