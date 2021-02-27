@@ -88,7 +88,7 @@ class Structure:  # (Coords):
             (Structure)
         """
         if rotation:
-            new_coords = np.matmul(self.coords, np.transpose(np.array(rotation)))
+            new_coords = np.matmul(self.coords, np.transpose(rotation))
         else:
             new_coords = self.coords
 
@@ -96,7 +96,7 @@ class Structure:  # (Coords):
             new_coords += np.array(translation)
 
         if rotation2:
-            new_coords = np.matmul(new_coords, np.transpose(np.array(rotation2)))
+            new_coords = np.matmul(new_coords, np.transpose(rotation2))
 
         if translation2:
             new_coords += np.array(translation2)
@@ -382,8 +382,8 @@ class Structure:  # (Coords):
 
         return h_cb_indices
 
-    def get_CA_atoms(self):  # compatibility
-        return self.get_ca_atoms()
+    # def get_CA_atoms(self):  # compatibility
+    #     return self.get_ca_atoms()
 
     def get_ca_atoms(self):
         """Return CA Atoms from the Structure

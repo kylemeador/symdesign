@@ -1192,8 +1192,8 @@ class PDB(Structure):
         # only works for monomers or homo-complexes
         sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
 
-        return sasa_res
-        # return list(set(zip(sasa_chain, sasa_res)))  # for use with chains
+        # return sasa_res  # Todo
+        return list(zip(sasa_chain, sasa_res))  # for use with chains in PDB numbering
 
     def get_surface_area_residues(self, residue_numbers, probe_radius=2.2):
         """CURRENTLY UNUSEABLE Must be run when the PDB is in Pose numbering, chain data is not connected"""

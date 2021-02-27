@@ -1,6 +1,6 @@
 import time
 
-import sklearn.neighbors
+from sklearn.neighbors import BallTree
 
 from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue, match_score_from_z_value
 from PDB import PDB
@@ -23,11 +23,11 @@ from utils.SymmUtils import get_uc_dimensions
 fragment_length = 5
 
 
-def find_docked_poses(sym_entry, pdb1, pdb2, optimal_tx_params, complete_ghost_frag_np, complete_surf_frag_np,
-                      log_filepath, degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict,
-                      pdb1_path, pdb2_path, eul_lookup, rot_mat1=None, rot_mat2=None, max_z_val=2.0,
-                      output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, clash_dist=2.2,
-                      min_matched=3, high_quality_match_value=1):
+def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frag_np,
+                      complete_surf_frag_np, log_filepath, degen_subdir_out_path, rot_subdir_out_path, pdb1_path,
+                      pdb2_path, eul_lookup, rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_exp_assembly=False,
+                      output_uc=False, output_surrounding_uc=False, clash_dist=2.2, min_matched=3,
+                      high_quality_match_value=1):
     """
 
     Keyword Args:
@@ -141,7 +141,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, optimal_tx_params, complete_ghost_f
         # Check if PDB1 and PDB2 backbones clash
         oligomer1_oligomer2_clash_time_start = time.time()
         # Todo @profile and move to KDTree
-        kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(pdb1_copy.get_backbone_and_cb_coords())
+        kdtree_oligomer1_backbone = BallTree(pdb1_copy.get_backbone_and_cb_coords())
         asu_cb_clash_count = kdtree_oligomer1_backbone.two_point_correlation(pdb2_copy.get_backbone_and_cb_coords(),
                                                                              [clash_dist])
         print('Checking clashes')
@@ -356,13 +356,12 @@ def find_docked_poses(sym_entry, pdb1, pdb2, optimal_tx_params, complete_ghost_f
         # used to calculate a weighted frequency average for all central residues of matched fragments
         res_pair_freq_info_list = []
         for frag_idx, (interface_ghost_frag, interface_mono_frag) in enumerate(ghostfrag_surffrag_pairs):
-            ghost_frag_i_type = interface_ghost_frag.get_i_type()
-            ghost_frag_j_type = interface_ghost_frag.get_j_type()
-            ghost_frag_k_type = interface_ghost_frag.get_k_type()
+            ghostfrag_i_type = interface_ghost_frag.get_i_type()
+            ghostfrag_j_type = interface_ghost_frag.get_j_type()
+            ghostfrag_k_type = interface_ghost_frag.get_k_type()
 
             interface_ghost_frag_cluster_res_freq_list = \
-                ijk_intfrag_cluster_info_dict[ghost_frag_i_type][ghost_frag_j_type][
-                    ghost_frag_k_type].get_central_residue_pair_freqs()
+                ijk_frag_db.info[ghostfrag_i_type][ghostfrag_j_type][ghostfrag_k_type].get_central_residue_pair_freqs()
             pdb1_surffrag_chain, pdb1_surffrag_central_res_num = interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
             pdb2_surffrag_chain, pdb2_surffrag_central_res_num = interface_mono_frag.get_central_res_tup()
 
@@ -396,7 +395,7 @@ def find_docked_poses(sym_entry, pdb1, pdb2, optimal_tx_params, complete_ghost_f
 
             # if write_frags:
             # write out aligned cluster representative fragment
-            transformed_ghost_fragment = interface_ghost_frag.pdb.return_transformed_copy(
+            transformed_ghost_fragment = interface_ghost_frag.structure.return_transformed_copy(
                 rotation=rot_mat1, translation=representative_int_dof_tx_param_1,
                 rotation2=sym_entry.get_rot_set_mat_group1(), translation2=representative_ext_dof_tx_params_1)
             transformed_ghost_fragment.write(os.path.join(matched_frag_outdir_path, 'int_frag_%s_%d.pdb'
@@ -683,7 +682,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # Get PDB1 Symmetric Building Block
     pdb1 = PDB.from_file(pdb1_path)
     surf_frags_1 = get_surface_fragments(pdb1)
-    oligomer1_backbone_tree = sklearn.neighbors.BallTree(pdb1.get_backbone_and_cb_coords())
+    # surf_frags_1 = PDB.get_fragments(residue_numbers=None)  # Todo future implementation
+    oligomer1_backbone_tree = BallTree(pdb1.get_backbone_and_cb_coords())
 
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
@@ -816,9 +816,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                            (rot1_count, rot2_count))
 
-        find_docked_poses(sym_entry, pdb1, pdb2, passing_optimal_shifts, complete_ghost_frag_list,
-                          complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
-                          ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
+        find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
+                          complete_ghost_frag_list, complete_surf_frag_list, log_file_path, degen_subdir_out_path,
+                          rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
                           max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                           output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
 
@@ -896,12 +896,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                 rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                    (rot1_count, rot2_count))
 
-                find_docked_poses(sym_entry, pdb1, pdb2, passing_optimal_shifts, complete_ghost_frag_list,
-                                  complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
-                                  ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
-                                  max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
-                                  output_uc=output_uc, output_surrounding_uc=output_surrounding_uc,
-                                  min_matched=min_matched)
+                find_docked_poses(sym_entry, ijk_intfrag_cluster_info_dict, pdb1, pdb2, passing_optimal_shifts,
+                                  complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
+                                  degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
+                                  rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
+                                  output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+                                  output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
             rot1_count = 0
 
     elif (sym_entry.degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (
@@ -979,12 +979,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                 rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                    (rot1_count, rot2_count))
 
-                find_docked_poses(sym_entry, pdb1, pdb2, passing_optimal_shifts, complete_ghost_frag_list,
-                                  complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
-                                  ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
-                                  max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
-                                  output_uc=output_uc, output_surrounding_uc=output_surrounding_uc,
-                                  min_matched=min_matched)
+                find_docked_poses(sym_entry, ijk_intfrag_cluster_info_dict, pdb1, pdb2, passing_optimal_shifts,
+                                  complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
+                                  degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
+                                  rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
+                                  output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+                                  output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
             rot2_count = 0
 
     elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
@@ -1096,10 +1096,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                            (rot1_count, rot2_count))
 
-                        find_docked_poses(sym_entry, pdb1, pdb2, passing_optimal_shifts, complete_ghost_frag_np,
-                                          complete_surf_frag_np, log_file_path, degen_subdir_out_path,
-                                          rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path,
-                                          eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
+                        find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
+                                          complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
+                                          degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
+                                          rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
                                           output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                                           output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
                     rot2_count = 0
