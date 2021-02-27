@@ -15,30 +15,24 @@ from SymDesignUtils import start_log, DesignError
 
 class Structure:  # (Coords):
     def __init__(self, atoms=None, residues=None, name=None, coords=None, log=None, **kwargs):
-        # self.coords = coords
         # super().__init__(coords=coords)  # gets self.coords
         self.atoms = []  # atoms
         self.residues = []  # residues
-        # self.id = None
         self.name = name
         self.secondary_structure = None
-        # self.center_of_mass = None
-        # self.sequence = None
 
         if log:
             self.log = log
         else:
-            # print('Structure starting log')  # Todo when Structure is base class?
             # self.log = start_log()
             dummy = True
 
+        if coords:
+            self.coords = coords
         if atoms:
             self.set_atoms(atoms)
         if residues:  # Todo, the structure can not have Coords! if from_atoms or from_residues lacks them
             self.set_residues(residues)
-        # if isinstance(coords, np.ndarray) and coords.any():
-        if coords:  # and isinstance(coords, Coords):
-            self.coords = coords
 
         super().__init__(**kwargs)
 
@@ -823,7 +817,7 @@ class Structure:  # (Coords):
                     ca_count += 1
             # todo reduce duplicate calculation
             if ca_count == 5:
-                fragments.append(Structure.from_residues(self.get_residues(frag_residue_numbers), log=False))
+                fragments.append(Structure.from_residues(self.get_residues(frag_residue_numbers), coords=self._coords))
 
         for structure in fragments:
             structure.chain_id_list = [structure.get_residues()[0].chain]
