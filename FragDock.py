@@ -23,11 +23,11 @@ from utils.SymmUtils import get_uc_dimensions
 fragment_length = 5
 
 
-def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, optimal_tx_params,
-                      complete_ghost_frag_np, complete_surf_frag_np, log_filepath, degen_subdir_out_path,
-                      rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup,
-                      rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_exp_assembly=False, output_uc=False,
-                      output_surrounding_uc=False, clash_dist=2.2, min_matched=3, high_quality_match_value=1):
+def find_docked_poses(sym_entry, pdb1, pdb2, optimal_tx_params, complete_ghost_frag_np, complete_surf_frag_np,
+                      log_filepath, degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict,
+                      pdb1_path, pdb2_path, eul_lookup, rot_mat1=None, rot_mat2=None, max_z_val=2.0,
+                      output_exp_assembly=False, output_uc=False, output_surrounding_uc=False, clash_dist=2.2,
+                      min_matched=3, high_quality_match_value=1):
     """
 
     Keyword Args:
@@ -45,7 +45,8 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         # tx_parameters = optimal_tx_params[tx_idx]
 
         # Get Optimal External DOF shifts
-        n_dof_external = len(get_ext_dof(ref_frame_tx_dof1, ref_frame_tx_dof2))  # returns 0 - 3
+        n_dof_external = len(get_ext_dof(sym_entry.get_ref_frame_tx_dof_group1(),
+                                         sym_entry.get_ref_frame_tx_dof_group2()))  # returns 0 - 3
         optimal_ext_dof_shifts = None
         if n_dof_external > 0:
             optimal_ext_dof_shifts = tx_parameters[0:n_dof_external]
@@ -66,9 +67,9 @@ def find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof
         ref_frame_var_is_pos, uc_dimensions = False, None
         if optimal_ext_dof_shifts:
             # Get Oligomer1 & Oligomer2 Optimal External Translation vector
-            representative_ext_dof_tx_params_1 = get_optimal_external_tx_vector(ref_frame_tx_dof1,
+            representative_ext_dof_tx_params_1 = get_optimal_external_tx_vector(sym_entry.get_ref_frame_tx_dof_group1(),
                                                                                 optimal_ext_dof_shifts)
-            representative_ext_dof_tx_params_2 = get_optimal_external_tx_vector(ref_frame_tx_dof2,
+            representative_ext_dof_tx_params_2 = get_optimal_external_tx_vector(sym_entry.get_ref_frame_tx_dof_group2(),
                                                                                 optimal_ext_dof_shifts)
 
             # Get Unit Cell Dimensions for 2D and 3D SCMs
@@ -474,8 +475,8 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 
     design_dim = sym_entry.get_design_dim()
 
-    ref_frame_tx_dof1 = sym_entry.get_ref_frame_tx_dof_group1()
-    ref_frame_tx_dof2 = sym_entry.get_ref_frame_tx_dof_group2()
+    # ref_frame_tx_dof1 = sym_entry.get_ref_frame_tx_dof_group1()
+    # ref_frame_tx_dof2 = sym_entry.get_ref_frame_tx_dof_group2()
 
     result_design_sym = sym_entry.get_result_design_sym()
     uc_spec_string = sym_entry.get_uc_spec_string()
@@ -529,12 +530,14 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
             master_log_file.write("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
             master_log_file.write("Oligomer 1 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx1()))
             master_log_file.write("Oligomer 2 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx2()))
-            master_log_file.write("Oligomer 1 Setting Matrix: %s\n" % str(set_mat1))
-            master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % str(set_mat2))
-            master_log_file.write("Oligomer 1 Reference Frame Tx DOF: %s\n" % str(
-                ref_frame_tx_dof1) if sym_entry.is_ref_frame_tx_dof1() else str(None))
-            master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n" % str(
-                ref_frame_tx_dof2) if sym_entry.is_ref_frame_tx_dof2() else str(None))
+            master_log_file.write("Oligomer 1 Setting Matrix: %s\n" % set_mat1)
+            master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % set_mat2)
+            master_log_file.write("Oligomer 1 Reference Frame Tx DOF: %s\n"
+                                  % sym_entry.get_ref_frame_tx_dof_group1()
+                                  if sym_entry.is_ref_frame_tx_dof1() else None)
+            master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n"
+                                  % sym_entry.get_ref_frame_tx_dof_group2()
+                                  if sym_entry.is_ref_frame_tx_dof2() else None)
             master_log_file.write("Resulting SCM Symmetry: %s\n" % result_design_sym)
             master_log_file.write("SCM Dimension: %s\n" % str(design_dim))
             master_log_file.write("SCM Unit Cell Specification: %s\n\n" % uc_spec_string)
@@ -600,48 +603,35 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
     ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
 
-    init_match_mapped = init_match_type.split('_')[0]
-    init_match_paired = init_match_type.split('_')[1]
+    # init_match_mapped = init_match_type.split('_')[0]
+    # init_match_paired = init_match_type.split('_')[1]
     # 1_1 Get Helix-Helix fragment representatives database dict for initial interface fragment matching
     # 1_2 Get Helix-Strand fragment representatives database dict for initial interface fragment matching
     # 2_1 Get Strand-Helix fragment representatives database dict for initial interface fragment matching
     # 2_2 Get Strand-Strand fragment representatives database dict for initial interface fragment matching
 
-    init_monofrag_cluster_rep_pdb_dict_1 = {init_match_mapped: ijk_monofrag_cluster_rep_pdb_dict[init_match_mapped]}
-    init_monofrag_cluster_rep_pdb_dict_2 = {init_match_paired: ijk_monofrag_cluster_rep_pdb_dict[init_match_paired]}
-    init_intfrag_cluster_rep_dict = \
-        {init_match_mapped: {init_match_paired: ijk_intfrag_cluster_rep_dict[init_match_mapped][init_match_paired]}}
-    init_intfrag_cluster_info_dict = \
-        {init_match_mapped: {init_match_paired: ijk_intfrag_cluster_info_dict[init_match_mapped][init_match_paired]}}
-
-    # # Initialize Euler Lookup Class
-    # eul_lookup = EulerLookup()
-
-    # # Get Design Expansion Matrices
-    # if design_dim == 2 or design_dim == 3:
-    #     expand_matrices = get_sg_sym_op(result_design_sym)
-    # else:
-    #     expand_matrices = get_ptgrp_sym_op(result_design_sym)
+    # init_monofrag_cluster_rep_pdb_dict_1 = {init_match_mapped: ijk_monofrag_cluster_rep_pdb_dict[init_match_mapped]}
+    # init_monofrag_cluster_rep_pdb_dict_2 = {init_match_paired: ijk_monofrag_cluster_rep_pdb_dict[init_match_paired]}
+    # init_intfrag_cluster_rep_dict = \
+    #     {init_match_mapped: {init_match_paired: ijk_intfrag_cluster_rep_dict[init_match_mapped][init_match_paired]}}
+    # init_intfrag_cluster_info_dict = \
+    #     {init_match_mapped: {init_match_paired: ijk_intfrag_cluster_info_dict[init_match_mapped][init_match_paired]}}
 
     with open(master_log_filepath, "a+") as master_log_file:
         master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
                                                       os.path.basename(os.path.splitext(pdb2_path)[0])))
 
-    nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict,
-                   init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2,
-                   init_intfrag_cluster_info_dict, ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict,
-                   master_outdir, pdb1_path, pdb2_path, init_max_z_val, subseq_max_z_val,
-                   rot_step_deg_pdb1=rot_step_deg_pdb1, rot_step_deg_pdb2=rot_step_deg_pdb2,
+    nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, ijk_intfrag_cluster_info_dict,
+                   ijk_monofrag_cluster_rep_pdb_dict, master_outdir, pdb1_path, pdb2_path, init_max_z_val,
+                   subseq_max_z_val, rot_step_deg_pdb1=rot_step_deg_pdb1, rot_step_deg_pdb2=rot_step_deg_pdb2,
                    output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                    output_surrounding_uc=output_surrounding_uc, min_matched=min_matched, keep_time=keep_time)
 
 
-def nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict,
-                   init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2,
-                   init_intfrag_cluster_info_dict, ijk_monofrag_cluster_rep_pdb_dict, ijk_intfrag_cluster_info_dict,
-                   master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0, subseq_max_z_val=2.0, rot_step_deg_pdb1=1,
-                   rot_step_deg_pdb2=1, output_exp_assembly=False, output_uc=False, output_surrounding_uc=False,
-                   min_matched=3, keep_time=True):
+def nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, ijk_intfrag_cluster_info_dict,
+                   ijk_monofrag_cluster_rep_pdb_dict, master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
+                   subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_exp_assembly=False,
+                   output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
 
     rot_range_deg_pdb1 = sym_entry.get_rot_range_deg_1()
     rot_range_deg_pdb2 = sym_entry.get_rot_range_deg_2()
@@ -656,8 +646,8 @@ def nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster
     if rot_range_deg_pdb2 != 0:
         has_int_rot_dof_2 = True
 
-    set_mat1 = sym_entry.get_rot_set_mat_group1()
-    set_mat2 = sym_entry.get_rot_set_mat_group2()
+    set_mat1 = np.array(sym_entry.get_rot_set_mat_group1())
+    set_mat2 = np.array(sym_entry.get_rot_set_mat_group2())
 
     # Transpose Setting Matrices to Set Guide Coordinates just for Euler Lookup Using np.matmul
     set_mat1_np_t = np.transpose(set_mat1)
@@ -681,9 +671,6 @@ def nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster
     #     dof_ext = np.empty((0, 3), float)
     # else:
     dof_ext = get_ext_dof(sym_entry.get_ref_frame_tx_dof_group1(), sym_entry.get_ref_frame_tx_dof_group2())
-
-    ref_frame_tx_dof1 = sym_entry.get_ref_frame_tx_dof_group1()
-    ref_frame_tx_dof2 = sym_entry.get_ref_frame_tx_dof_group2()
 
     # result_design_sym = sym_entry.get_result_design_sym()
     # uc_spec_string = sym_entry.get_uc_spec_string()
@@ -846,11 +833,11 @@ def nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster
         rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                            (rot1_count, rot2_count))
 
-        find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, passing_optimal_shifts,
-                          complete_ghost_frag_list, complete_surf_frag_list, log_file_path, degen_subdir_out_path,
-                          rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup,
-                          rot1_mat, rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
-                          output_uc=output_uc, output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+        find_docked_poses(sym_entry, pdb1, pdb2, passing_optimal_shifts, complete_ghost_frag_list,
+                          complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
+                          ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
+                          max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+                          output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
 
     elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
             sym_entry.degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
@@ -926,12 +913,12 @@ def nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster
                 rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                    (rot1_count, rot2_count))
 
-                find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, passing_optimal_shifts,
-                                  complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
-                                  degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path,
-                                  pdb2_path, eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
-                                  output_exp_assembly=output_exp_assembly, output_uc=output_uc,
-                                  output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                find_docked_poses(sym_entry, pdb1, pdb2, passing_optimal_shifts, complete_ghost_frag_list,
+                                  complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
+                                  ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
+                                  max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
+                                  output_uc=output_uc, output_surrounding_uc=output_surrounding_uc,
+                                  min_matched=min_matched)
             rot1_count = 0
 
     elif (sym_entry.degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (
@@ -1009,12 +996,12 @@ def nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster
                 rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                    (rot1_count, rot2_count))
 
-                find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2, passing_optimal_shifts,
-                                  complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
-                                  degen_subdir_out_path, rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path,
-                                  pdb2_path, eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
-                                  output_exp_assembly=output_exp_assembly, output_uc=output_uc,
-                                  output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                find_docked_poses(sym_entry, pdb1, pdb2, passing_optimal_shifts, complete_ghost_frag_list,
+                                  complete_surf_frag_list, log_file_path, degen_subdir_out_path, rot_subdir_out_path,
+                                  ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
+                                  max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
+                                  output_uc=output_uc, output_surrounding_uc=output_surrounding_uc,
+                                  min_matched=min_matched)
             rot2_count = 0
 
     elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
@@ -1126,13 +1113,12 @@ def nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster
                         rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                            (rot1_count, rot2_count))
 
-                        find_docked_poses(sym_entry, pdb1, pdb2, ref_frame_tx_dof1, ref_frame_tx_dof2,
-                                          passing_optimal_shifts, complete_ghost_frag_np, complete_surf_frag_np,
-                                          log_file_path, degen_subdir_out_path, rot_subdir_out_path,
-                                          ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path, eul_lookup, rot1_mat,
-                                          rot2_mat, max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly,
-                                          output_uc=output_uc, output_surrounding_uc=output_surrounding_uc,
-                                          min_matched=min_matched)
+                        find_docked_poses(sym_entry, pdb1, pdb2, passing_optimal_shifts, complete_ghost_frag_np,
+                                          complete_surf_frag_np, log_file_path, degen_subdir_out_path,
+                                          rot_subdir_out_path, ijk_intfrag_cluster_info_dict, pdb1_path, pdb2_path,
+                                          eul_lookup, rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
+                                          output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+                                          output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
                     rot2_count = 0
                 degen2_count = 0
             rot1_count = 0

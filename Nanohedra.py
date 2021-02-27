@@ -428,10 +428,8 @@ def main():
                 with open(master_log_filepath, "a+") as master_log_file:
                     master_log_file.write("Docking %s / %s \n" % (pdb1_filename, pdb2_filename))
 
-                nanohedra_dock(sym_entry, init_intfrag_cluster_rep_dict, ijk_intfrag_cluster_rep_dict,
-                               init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2,
-                               init_intfrag_cluster_info_dict, ijk_monofrag_cluster_rep_pdb_dict,
-                               ijk_intfrag_cluster_info_dict, master_outdir, pdb1_path, pdb2_path, init_max_z_val,
+                nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, init_intfrag_cluster_info_dict,
+                               ijk_monofrag_cluster_rep_pdb_dict, master_outdir, pdb1_path, pdb2_path, init_max_z_val,
                                subseq_max_z_val, rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
                                output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                                output_surrounding_uc=output_surrounding_uc, min_matched=min_matched, keep_time=timer)
