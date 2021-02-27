@@ -81,18 +81,18 @@ class Structure:  # (Coords):
         Returns:
             (Structure)
         """
-        if rotation:
+        if rotation is not None:  # requried for np.ndarray or None checks
             new_coords = np.matmul(self.coords, np.transpose(rotation))
         else:
             new_coords = self.coords
 
-        if translation:
+        if translation is not None:  # requried for np.ndarray or None checks
             new_coords += np.array(translation)
 
-        if rotation2:
+        if rotation2 is not None:  # requried for np.ndarray or None checks
             new_coords = np.matmul(new_coords, np.transpose(rotation2))
 
-        if translation2:
+        if translation2 is not None:  # requried for np.ndarray or None checks
             new_coords += np.array(translation2)
 
         new_structure = deepcopy(self)
