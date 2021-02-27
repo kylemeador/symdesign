@@ -2,8 +2,9 @@ import time
 
 from sklearn.neighbors import BallTree
 
+# from Structure import get_surface_fragments
+from PathUtils import frag_text_file, master_log
 from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue, match_score_from_z_value
-from PDB import PDB
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import *
 from classes.OptimalTx import *
@@ -415,7 +416,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # calculate weighted frequency for central residues
         # write out weighted frequencies to frag_match_info_file.txt
         weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
-        weighted_seq_freq_info.write(os.path.join(matched_frag_reps_outpath, PUtils.frag_text_file))
+        weighted_seq_freq_info.write(os.path.join(matched_frag_reps_outpath, frag_text_file))
 
         unique_matched_monofrag_count = len(pdb1_unique_monofrags_info) + len(pdb2_unique_monofrags_info)
         percent_of_interface_covered = unique_matched_monofrag_count / float(unique_total_monofrags_count)
@@ -681,7 +682,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Get PDB1 Symmetric Building Block
     pdb1 = PDB.from_file(pdb1_path)
-    surf_frags_1 = get_surface_fragments(pdb1)
+    surf_frags_1 = pdb1.get_surface_fragments()
     # surf_frags_1 = PDB.get_fragments(residue_numbers=None)  # Todo future implementation
     oligomer1_backbone_tree = BallTree(pdb1.get_backbone_and_cb_coords())
 
@@ -719,7 +720,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Get PDB2 Symmetric Building Block
     pdb2 = PDB.from_file(pdb2_path)
-    surf_frags_2 = get_surface_fragments(pdb2)
+    surf_frags_2 = pdb2.get_surface_fragments()
 
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
@@ -752,7 +753,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             log_file.write(" (took: %s s)\n\n" % str(get_complete_surf_frags_time))
 
     # After this, the entire fragment database is unnecessary. De-referencing from memory
-    del ijk_monofrag_cluster_rep_pdb_dict, init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2
+    # del ijk_monofrag_cluster_rep_pdb_dict, init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2
 
     # Check if the job was running but stopped. Resume where last left off
     degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
@@ -1119,7 +1120,7 @@ if __name__ == '__main__':
             get_docking_parameters(cmd_line_in_params)
 
         # Master Log File
-        master_log_filepath = os.path.join(master_outdir, PUtils.master_log)
+        master_log_filepath = os.path.join(master_outdir, master_log)
 
         if initial:
             # Making Master Output Directory

@@ -1202,6 +1202,27 @@ class PDB(Structure):
 
         return total_sasa
 
+    def get_surface_fragments(self):
+        surface_frags = []
+        for (chain, res_num) in self.get_surface_residue_info():
+            frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
+            ca_count = 0
+
+            # for atom in pdb.get_chain_atoms(chain):
+            # for atom in pdb.chain(chain):
+            # frag_atoms = pdb.chain(chain).get_residue_atoms(numbers=frag_res_nums, pdb=True)  # Todo
+            frag_atoms = []
+            for atom in self.chain(chain).get_atoms():
+                # if atom.residue_number in frag_res_nums:  # TODO
+                if atom.pdb_residue_number in frag_res_nums:
+                    frag_atoms.append(atom)
+                    if atom.is_CA():
+                        ca_count += 1
+            if ca_count == 5:
+                surface_frags.append(Structure.from_atoms(frag_atoms))
+
+        return surface_frags
+
     def insert_residue(self, chain_id, residue_number, residue_type):  # Todo Chain compatible
         """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
         indexed"""
