@@ -81,9 +81,9 @@ class FragmentDB:
 
     def get_intfrag_cluster_rep_dict(self):
         i_j_k_intfrag_cluster_rep_dict = {}
-        for dirpath1, dirnames1, filenames1 in os.walk(self.intfrag_cluster_rep_dirpath):
+        for root, dirnames1, filenames1 in os.walk(self.intfrag_cluster_rep_dirpath):
             if not dirnames1:
-                ijk_cluster_name = dirpath1.split("/")[-1]
+                ijk_cluster_name = root.split(os.sep)[-1]
                 i_cluster_type = ijk_cluster_name.split("_")[0]
                 j_cluster_type = ijk_cluster_name.split("_")[1]
                 k_cluster_type = ijk_cluster_name.split("_")[2]
@@ -94,9 +94,9 @@ class FragmentDB:
                 if j_cluster_type not in i_j_k_intfrag_cluster_rep_dict[i_cluster_type]:
                     i_j_k_intfrag_cluster_rep_dict[i_cluster_type][j_cluster_type] = {}
 
-                for dirpath2, dirnames2, filenames2 in os.walk(dirpath1):
+                for dirpath2, dirnames2, filenames2 in os.walk(root):
                     for filename in filenames2:
-                        ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(dirpath1, filename), lazy=True)
+                        ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, filename), lazy=True, log=null_log)
                         ijk_frag_cluster_rep_mapped_chain_id = \
                             filename[filename.find("mappedchain") + 12:filename.find("mappedchain") + 13]
 
@@ -107,24 +107,19 @@ class FragmentDB:
 
     def get_intfrag_cluster_info_dict(self):
         intfrag_cluster_info_dict = {}
-        for dirpath1, dirnames1, filenames1 in os.walk(self.intfrag_cluster_info_dirpath):
-            if not dirnames1:
-                ijk_cluster_name = dirpath1.split("/")[-1]
-                i_cluster_type = ijk_cluster_name.split("_")[0]
-                j_cluster_type = ijk_cluster_name.split("_")[1]
-                k_cluster_type = ijk_cluster_name.split("_")[2]
+        for root, dirs, files in os.walk(self.intfrag_cluster_info_dirpath):
+            if not dirs:
+                ijk_cluster_name = root.split(os.sep)[-1]
+                i_cluster_type, j_cluster_type, k_cluster_type = ijk_cluster_name.split("_")
 
                 if i_cluster_type not in intfrag_cluster_info_dict:
                     intfrag_cluster_info_dict[i_cluster_type] = {}
-
                 if j_cluster_type not in intfrag_cluster_info_dict[i_cluster_type]:
                     intfrag_cluster_info_dict[i_cluster_type][j_cluster_type] = {}
 
-                for dirpath2, dirnames2, filenames2 in os.walk(dirpath1):
-                    for filename in filenames2:
-                        # if ".txt" in filename:
-                        intfrag_cluster_info_dict[i_cluster_type][j_cluster_type][k_cluster_type] = ClusterInfoFile(
-                            dirpath1 + "/" + filename)
+                for file in files:
+                    intfrag_cluster_info_dict[i_cluster_type][j_cluster_type][k_cluster_type] = \
+                        ClusterInfoFile(os.path.join(root, file))
 
         self.info = intfrag_cluster_info_dict
         # return intfrag_cluster_info_dict
