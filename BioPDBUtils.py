@@ -8,7 +8,7 @@ from Bio.PDB.Atom import PDBConstructionWarning
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
 
-def biopdb_aligned_chain(pdb_fixed, pdb_moving):
+def biopdb_aligned_chain(pdb_fixed, pdb_moving, chain_id_moving):
     biopdb_atom_fixed = []
     biopdb_atom_moving = []
 
@@ -18,7 +18,7 @@ def biopdb_aligned_chain(pdb_fixed, pdb_moving):
             BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                        " %s " % atom.type, atom.number, element=atom.element_symbol))
 
-    for atom in pdb_moving.get_ca_atoms():
+    for atom in pdb_moving.chain(chain_id_moving).get_ca_atoms():
         biopdb_atom_moving.append(
             BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                        " %s " % atom.type, atom.number, element=atom.element_symbol))
@@ -26,6 +26,7 @@ def biopdb_aligned_chain(pdb_fixed, pdb_moving):
     sup = Bio.PDB.Superimposer()
     sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)  # Todo remove Bio.PDB
     rot, tr = sup.rotran
+    # return np.transpose(rot), tr
     # transpose rotation matrix as Bio.PDB.Superimposer() returns correct matrix to rotate using np.matmul
     return pdb_moving.return_transformed_copy(rotation=np.transpose(rot), translation=tr)
 
