@@ -177,7 +177,6 @@ class PDB:
                 coords.append([x, y, z])
         return coords
 
-    # def get_ca_atoms(self):  # TODO
     def get_CA_atoms(self):
         ca_atoms = []
         for atom in self.all_atoms:

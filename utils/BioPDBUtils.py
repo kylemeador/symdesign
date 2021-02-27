@@ -7,6 +7,7 @@ from Bio.PDB.Atom import PDBConstructionWarning
 
 from classes.Atom import Atom
 from classes.PDB import PDB
+# from PDB import PDB  # Todo
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 # TODO DEPRECIATE THIS WHOLE MODULE
