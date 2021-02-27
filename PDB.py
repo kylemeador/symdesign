@@ -1223,6 +1223,7 @@ class PDB(Structure):
                     if atom.is_CA():
                         ca_count += 1
             if ca_count == 5:
+                # surface_frags.append(PDB.from_atoms(frag_atoms, coords=self._coords, lazy=True, log=self.log))
                 surface_frags.append(Structure.from_atoms(frag_atoms, coords=self._coords))
 
         return surface_frags
