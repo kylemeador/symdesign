@@ -11,12 +11,11 @@ import PathUtils as PUtils
 from PDB import PDB
 from SequenceProfile import SequenceProfile, calculate_match_metrics
 from Structure import Coords, Structure
-# Globals
-from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, \
-    filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, possible_symmetries  # logger,
+from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
+    start_log, possible_symmetries  # filter_euler_lookup_by_zvalue,
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import MonoFragment
-from interface_analysis.Database import FragmentDB
+from interface_analysis.Database import FragmentDB, FragmentDatabase
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from utils.GeneralUtils import write_frag_match_info_file
 from utils.SymmUtils import valid_subunit_number
@@ -24,6 +23,7 @@ from utils.SymmUtils import valid_subunit_number
 # import ipdb
 
 
+# Globals
 logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
 # # Initialize Euler Lookup Class
@@ -1531,6 +1531,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # -------------------------------------------------------------------------
         # self.solve_consensus()  # Todo
         # -------------------------------------------------------------------------
+
+    def connect_fragment_database(self, location=None, init=False, **kwargs):  # Todo Clean up
+        """Generate a new connection. Initialize the representative library by passing init=True"""
+        if not location:  # Todo fix once multiple are available
+            location = 'biological_interfaces'
+        self.frag_db = FragmentDatabase(location=location, init_db=init)
+        #                               source=source, location=location, init_db=init_db)
 
     def generate_interface_fragments(self, write_fragments=True, out_path=None, new_db=False):
         """Using the attached fragment database, generate interface fragments between the Pose interfaces

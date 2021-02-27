@@ -74,15 +74,9 @@ class FragmentDB:
         self.info = None
 
     def get_monofrag_cluster_rep_dict(self):
-        cluster_rep_pdb_dict = {}
-        for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath):
-            for filename in files:
-                # if ".pdb" in filename:  # Todo remove this check as all files are .pdb
-                pdb = PDB.from_file(os.path.join(self.monofrag_cluster_rep_dirpath, filename), lazy=True)
-                cluster_rep_pdb_dict[os.path.splitext(filename)[0]] = pdb
-
-        self.reps = cluster_rep_pdb_dict
-        # return cluster_rep_pdb_dict
+        self.reps = {os.path.splitext(filename)[0]:
+                     PDB.from_file(os.path.join(self.monofrag_cluster_rep_dirpath, filename), lazy=True)
+                     for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath) for filename in files}
 
     def get_intfrag_cluster_rep_dict(self):
         i_j_k_intfrag_cluster_rep_dict = {}
@@ -101,38 +95,14 @@ class FragmentDB:
 
                 for dirpath2, dirnames2, filenames2 in os.walk(dirpath1):
                     for filename in filenames2:
-                        # if ".pdb" in filename:  # Todo remove this check as all files are .pdb
                         ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(dirpath1, filename), lazy=True)
                         ijk_frag_cluster_rep_mapped_chain_id = \
                             filename[filename.find("mappedchain") + 12:filename.find("mappedchain") + 13]
-                        # ijk_frag_cluster_rep_partner_chain_id = \
-                        #     filename[filename.find("partnerchain") + 13:filename.find("partnerchain") + 14]
-                        #
-                        # # Get central residue number of mapped interface fragment chain
-                        # intfrag_mapped_chain_central_res_num = None
-                        # mapped_chain_res_count = 0
-                        # for atom in ijk_frag_cluster_rep_pdb.chain(ijk_frag_cluster_rep_mapped_chain_id):
-                        #     if atom.is_CA():
-                        #         mapped_chain_res_count += 1
-                        #         if mapped_chain_res_count == 3:
-                        #             intfrag_mapped_chain_central_res_num = atom.residue_number
-                        #
-                        # # Get central residue number of partner interface fragment chain
-                        # intfrag_partner_chain_central_res_num = None
-                        # partner_chain_res_count = 0
-                        # for atom in ijk_frag_cluster_rep_pdb.chain(ijk_frag_cluster_rep_partner_chain_id):
-                        #     if atom.is_CA():
-                        #         partner_chain_res_count += 1
-                        #         if partner_chain_res_count == 3:
-                        #             intfrag_partner_chain_central_res_num = atom.residue_number
 
                         i_j_k_intfrag_cluster_rep_dict[i_cluster_type][j_cluster_type][k_cluster_type] = \
-                            (ijk_frag_cluster_rep_pdb, ijk_frag_cluster_rep_mapped_chain_id)  # ,
-                             # intfrag_mapped_chain_central_res_num, ijk_frag_cluster_rep_partner_chain_id,
-                             # intfrag_partner_chain_central_res_num)
+                            (ijk_frag_cluster_rep_pdb, ijk_frag_cluster_rep_mapped_chain_id)
 
         self.paired_frags = i_j_k_intfrag_cluster_rep_dict
-        # return i_j_k_intfrag_cluster_rep_dict
 
     def get_intfrag_cluster_info_dict(self):
         intfrag_cluster_info_dict = {}
@@ -318,4 +288,4 @@ class FragmentDatabase(FragmentDB):
             self.fragment_range = (0 - _range, 0 + _range)
 
     def start_mysql_connection(self):
-        self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')\
+        self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
