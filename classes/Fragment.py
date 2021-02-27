@@ -7,32 +7,9 @@ import numpy as np
 
 # from classes.Atom import Atom
 # from classes.PDB import PDB
-from Structure import Structure
 from PDB import PDB
 from BioPDBUtils import biopdb_aligned_chain, biopdb_superimposer
 from PathUtils import intfrag_cluster_rep_dirpath, monofrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath
-
-
-def get_surface_fragments(pdb):  # Todo to PDB.py
-    surface_frags = []
-    for (chain, res_num) in pdb.get_surface_residue_info():
-        frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
-        ca_count = 0
-
-        # for atom in pdb.get_chain_atoms(chain):
-        # for atom in pdb.chain(chain):
-        # frag_atoms = pdb.chain(chain).get_residue_atoms(numbers=frag_res_nums, pdb=True)  # Todo
-        frag_atoms = []
-        for atom in pdb.chain(chain).get_atoms():
-            # if atom.residue_number in frag_res_nums:  # TODO
-            if atom.pdb_residue_number in frag_res_nums:
-                frag_atoms.append(atom)
-                if atom.is_CA():
-                    ca_count += 1
-        if ca_count == 5:
-            surface_frags.append(Structure.from_atoms(frag_atoms))
-
-    return surface_frags
 
 
 class GhostFragment:
