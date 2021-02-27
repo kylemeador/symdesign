@@ -596,40 +596,23 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     # Create fragment database for all ijk cluster representatives
     # Todo move to inside loop for single iteration docking
     ijk_frag_db = FragmentDB()
-    #                       monofrag_cluster_rep_dirpath, ijk_intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath)
 
     # Get complete IJK fragment representatives database dictionaries
-    ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-    ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-    ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
-
-    # init_match_mapped = init_match_type.split('_')[0]
-    # init_match_paired = init_match_type.split('_')[1]
-    # 1_1 Get Helix-Helix fragment representatives database dict for initial interface fragment matching
-    # 1_2 Get Helix-Strand fragment representatives database dict for initial interface fragment matching
-    # 2_1 Get Strand-Helix fragment representatives database dict for initial interface fragment matching
-    # 2_2 Get Strand-Strand fragment representatives database dict for initial interface fragment matching
-
-    # init_monofrag_cluster_rep_pdb_dict_1 = {init_match_mapped: ijk_monofrag_cluster_rep_pdb_dict[init_match_mapped]}
-    # init_monofrag_cluster_rep_pdb_dict_2 = {init_match_paired: ijk_monofrag_cluster_rep_pdb_dict[init_match_paired]}
-    # init_intfrag_cluster_rep_dict = \
-    #     {init_match_mapped: {init_match_paired: ijk_intfrag_cluster_rep_dict[init_match_mapped][init_match_paired]}}
-    # init_intfrag_cluster_info_dict = \
-    #     {init_match_mapped: {init_match_paired: ijk_intfrag_cluster_info_dict[init_match_mapped][init_match_paired]}}
+    ijk_frag_db.get_monofrag_cluster_rep_dict()
+    ijk_frag_db.get_intfrag_cluster_rep_dict()
+    ijk_frag_db.get_intfrag_cluster_info_dict()
 
     with open(master_log_filepath, "a+") as master_log_file:
         master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
                                                       os.path.basename(os.path.splitext(pdb2_path)[0])))
 
-    nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, ijk_intfrag_cluster_info_dict,
-                   ijk_monofrag_cluster_rep_pdb_dict, master_outdir, pdb1_path, pdb2_path, init_max_z_val,
-                   subseq_max_z_val, rot_step_deg_pdb1=rot_step_deg_pdb1, rot_step_deg_pdb2=rot_step_deg_pdb2,
+    nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val, subseq_max_z_val,
+                   rot_step_deg_pdb1=rot_step_deg_pdb1, rot_step_deg_pdb2=rot_step_deg_pdb2,
                    output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                    output_surrounding_uc=output_surrounding_uc, min_matched=min_matched, keep_time=keep_time)
 
 
-def nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, ijk_intfrag_cluster_info_dict,
-                   ijk_monofrag_cluster_rep_pdb_dict, master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
+def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
                    subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_exp_assembly=False,
                    output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
 
@@ -700,7 +683,7 @@ def nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, ijk_intfrag_cluster_
     # Get PDB1 Symmetric Building Block
     pdb1 = PDB.from_file(pdb1_path)
     surf_frags_1 = get_surface_fragments(pdb1)
-    kdtree_oligomer1_backbone = sklearn.neighbors.BallTree(np.array(pdb1.extract_backbone_coords()))
+    oligomer1_backbone_tree = sklearn.neighbors.BallTree(pdb1.get_backbone_and_cb_coords())
 
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
@@ -711,10 +694,10 @@ def nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, ijk_intfrag_cluster_
 
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
-        monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
+        monofrag1 = MonoFragment(frag1, ijk_frag_db.reps)
         if monofrag1.get_guide_coords():
-            complete_monofrag1_ghostfrag_list = monofrag1.get_ghost_fragments(
-                ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone, ijk_intfrag_cluster_info_dict)
+            complete_monofrag1_ghostfrag_list = monofrag1.get_ghost_fragments(ijk_frag_db.reps, oligomer1_backbone_tree,
+                                                                              ijk_frag_db.info)
             complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list)
 
     # calculate the initial match type by finding the predominant surface type
@@ -747,7 +730,7 @@ def nanohedra_dock(sym_entry, ijk_intfrag_cluster_rep_dict, ijk_intfrag_cluster_
 
     complete_surf_frag_list = []
     for frag2 in surf_frags_2:
-        monofrag2 = MonoFragment(frag2, ijk_monofrag_cluster_rep_pdb_dict)
+        monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
         monofrag2_guide_coords = monofrag2.get_guide_coords()
         if monofrag2_guide_coords:
             complete_surf_frag_list.append(monofrag2)
