@@ -89,6 +89,6 @@ class EulerLookup:
         #         euler_bool_l.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
 
         euler_bool_l = [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
-                        if self.eul_lookup_40[*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten()]]
+                        if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten()])]
 
         return euler_bool_l
