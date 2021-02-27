@@ -3,7 +3,7 @@ import time
 from sklearn.neighbors import BallTree
 
 # from Structure import get_surface_fragments
-from PathUtils import frag_text_file, master_log
+from PathUtils import frag_text_file
 from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue, match_score_from_z_value
 from classes.EulerLookup import EulerLookup
 from classes.Fragment import *
