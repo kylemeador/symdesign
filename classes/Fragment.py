@@ -7,8 +7,8 @@ import numpy as np
 
 # from classes.Atom import Atom
 # from classes.PDB import PDB
-from PDB import PDB
 from Structure import Structure
+from PDB import PDB
 from BioPDBUtils import biopdb_aligned_chain, biopdb_superimposer
 from PathUtils import intfrag_cluster_rep_dirpath, monofrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath
 
