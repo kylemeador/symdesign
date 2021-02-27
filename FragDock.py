@@ -698,8 +698,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     for frag1 in surf_frags_1:
         monofrag1 = MonoFragment(frag1, ijk_frag_db.reps)
         if monofrag1.get_i_type():
-            complete_monofrag1_ghostfrag_list = monofrag1.get_ghost_fragments(ijk_frag_db.reps, oligomer1_backbone_tree,
-                                                                              ijk_frag_db.info)
+            complete_monofrag1_ghostfrag_list = monofrag1.get_ghost_fragments(ijk_frag_db.paired_frags,
+                                                                              oligomer1_backbone_tree, ijk_frag_db.info)
             complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list)
 
     # calculate the initial match type by finding the predominant surface type
