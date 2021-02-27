@@ -473,7 +473,7 @@ def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=Fal
     """
     pdb_dict = {'ref': PDB.from_file(wild_type_file)}
     for file_name in all_design_files:
-        pdb = PDB.from_file(file_name, log=start_log(handler=3), no_entities=True)
+        pdb = PDB.from_file(file_name, log=start_log(handler=3), entities=False)
         pdb.name = os.path.splitext(os.path.basename(file_name))[0]
         pdb_dict[pdb.name] = pdb
 
@@ -656,7 +656,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
     """
     print('get_pdb_sequences is using pdb parameter: %s' % pdb)
     if not isinstance(pdb, PDB):
-        pdb = PDB.from_file(pdb, log=start_log(handler=3), no_entities=True)
+        pdb = PDB.from_file(pdb, log=start_log(handler=3), entities=False)
 
     if source == 'atom':
         seq_dict = pdb.atom_sequences

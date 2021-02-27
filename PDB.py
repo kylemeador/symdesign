@@ -28,7 +28,7 @@ class PDB(Structure):
     """The base object for PDB file manipulation"""
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, metadata=None, log=None, no_entities=None, **kwargs):
+    def __init__(self, file=None, atoms=None, metadata=None, log=None, entities=True, lazy=False, **kwargs):
         if not log:
             log = start_log()
         super().__init__(log=log, **kwargs)  #
@@ -74,7 +74,7 @@ class PDB(Structure):
         self.dihedral_chain = None
 
         if file:
-            self.readfile(file, no_entities=no_entities)
+            self.readfile(file, entities=entities, lazy=lazy)
         if atoms:
             self.set_atoms(atoms)  # sets all atoms and residues in PDB
             self.chain_id_list = remove_duplicates([residue.chain for residue in self.residues])
@@ -291,18 +291,22 @@ class PDB(Structure):
         # else:
         #     self.update_entity_d()
 
-    def process_symmetry(self):
-        """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
-        return None
+    # def process_symmetry(self):
+    #     """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
+    #     return None
 
-    def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False, no_entities=False):
+    def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False, entities=True,
+                    lazy=False):
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
         if coords:
             self.coords = Coords(coords)
             # replace the Atom and Residue Coords
             self.set_residues_attributes(coords=self._coords)
 
-        self.renumber_pdb()
+        if lazy:
+            pass
+        else:
+            self.renumber_pdb()
         # self.renumber_atoms()
         # self.renumber_residues()
         # self.find_center_of_mass()
@@ -317,7 +321,7 @@ class PDB(Structure):
             self.create_chains(solve_discrepancy=False)
         else:
             self.create_chains()
-        if not no_entities:
+        if entities:
             self.create_entities()
         self.get_chain_sequences()
         # or
@@ -1265,7 +1269,7 @@ class PDB(Structure):
             # TODO load in Residue.py
             self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
                                                            'AAreference.pdb'),
-                                              log=start_log(handler=3), no_entities=True)
+                                              log=start_log(handler=3), entities=False)
         insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).get_atoms())
 
         for atom in reversed(insert_atoms):  # essentially a push
