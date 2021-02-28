@@ -463,6 +463,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pose_file = os.path.join(self.path, PUtils.pose_file)
         self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
         self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean))
+        self.assembly = os.path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
         self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(PUtils.clean)[0])
         self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean)[0])
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
@@ -962,8 +963,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                               % str(self))
         if self.output_assembly:
             self.pose.get_assembly_symmetry_mates()
-            self.pose.write(out_path=os.path.join(self.path, PUtils.assembly))  # todo add to DesignDirectory
-            self.log.info('Expanded Assembly PDB: \'%s\'' % os.path.join(self.path, PUtils.assembly))
+            self.pose.write(out_path=self.assembly)
+            self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def expand_asu(self):
