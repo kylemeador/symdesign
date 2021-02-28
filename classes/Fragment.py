@@ -171,6 +171,8 @@ class MonoFragment:
                     aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
                     print(aligned_ghost_frag_pdb.filepath)
                     print(aligned_ghost_frag_pdb.chain_id_list)
+                    for chain in aligned_ghost_frag_pdb.chains:
+                        print(chain.name)
                     print(frag_paired_chain)
                     g_frag_bb_coords = aligned_ghost_frag_pdb.chain(frag_paired_chain).get_backbone_coords()
                     cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
