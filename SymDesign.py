@@ -1340,19 +1340,23 @@ if __name__ == '__main__':
         # Create symbolic links to the output PDB's
         for pose in results:
             pose_des_dirs, design = zip(*pose)
-            for i, pose_des_dir in enumerate(pose_des_dirs):
-                file = glob('%s/*%s*' % (pose_des_dir.designs, design[i]))
+            for i, des_dir in enumerate(pose_des_dirs):
+                file = glob('%s/*%s*' % (des_dir.designs, design[i]))
                 if not file:
                     # add to exceptions
-                    exceptions.append((pose_des_dir.path, 'No file found for \'%s/*%s*\'' %
-                                       (pose_des_dir.designs, design[i])))
+                    exceptions.append((des_dir.path, 'No file found for \'%s/*%s*\'' %
+                                       (des_dir.designs, design[i])))
                     continue
                 try:
-                    os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(pose_des_dir), design[i])))
-                    os.symlink(pose_des_dir.trajectories, os.path.join(outdir_traj,
-                                                                       os.path.basename(pose_des_dir.trajectories)))
-                    os.symlink(pose_des_dir.residues, os.path.join(outdir_res,
-                                                                   os.path.basename(pose_des_dir.residues)))
+                    shutil.copy(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design[i])))
+                    shutil.copy(des_dir.trajectories,
+                                os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
+                    shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
+                    # os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design[i])))
+                    # os.symlink(des_dir.trajectories, os.path.join(outdir_traj,
+                    #                                                    os.path.basename(des_dir.trajectories)))
+                    # os.symlink(des_dir.residues, os.path.join(outdir_res,
+                    #                                                os.path.basename(des_dir.residues)))
                 except FileExistsError:
                     pass
 
@@ -1361,24 +1365,24 @@ if __name__ == '__main__':
         final_sequences, inserted_sequences = {}, {}
         for pose in results:
             pose_des_dirs, design = zip(*pose)
-            for i, pose_des_dir in enumerate(pose_des_dirs):
+            for i, des_dir in enumerate(pose_des_dirs):
                 # coming in as (chain: seq}
-                file = glob('%s/*%s*' % (pose_des_dir.designs, design[i]))
+                file = glob('%s/*%s*' % (des_dir.designs, design[i]))
                 if not file:
-                    logger.error('No file found for %s' % '%s/*%s*' % (pose_des_dir.designs, design[i]))
+                    logger.error('No file found for %s' % '%s/*%s*' % (des_dir.designs, design[i]))
                     continue
                 design_pose = PDB.from_file(file[0])
                 # v {chain: sequence, ...}
                 design_sequences = design_pose.atom_sequences
 
                 # need the original pose chain identity
-                # source_pose = PDB(file=pose_des_dir.asu)  # Why can't I use design_sequences? localds quality!
-                source_pose = PDB.from_file(pose_des_dir.source)  # Think this works the best
+                # source_pose = PDB(file=des_dir.asu)  # Why can't I use design_sequences? localds quality!
+                source_pose = PDB.from_file(des_dir.source)  # Think this works the best
                 source_pose.reorder_chains()  # Do I need to modify chains?
                 # source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
                 # Todo clean up depreciation
-                # if pose_des_dir.nano:
-                #     pose_entities = os.path.basename(pose_des_dir.building_blocks).split('_')
+                # if des_dir.nano:
+                #     pose_entities = os.path.basename(des_dir.building_blocks).split('_')
                 # else:
                 #     pose_entities = []
                 source_seqres = {}
@@ -1520,7 +1524,7 @@ if __name__ == '__main__':
                     if seq[0] != 'M':
                         seq = 'M%s' % seq
 
-                    design_string = '%s_design_%s_%s' % (pose_des_dir, design[i], pdb_code)
+                    design_string = '%s_design_%s_%s' % (des_dir, design[i], pdb_code)
                     final_sequences[design_string] = seq
 
                     # For final manual check of the process, find sequence additions compared to the design and output
@@ -1538,12 +1542,12 @@ if __name__ == '__main__':
 
                 # full_insertions = {pdb: Ams.generate_mutations_from_seq(design_sequences[chains[j]],
                 #                                                         final_sequences['%s_design_%s_%s' %
-                #                                             (pose_des_dir, design[i], pdb)], offset=True, blanks=True)
+                #                                             (des_dir, design[i], pdb)], offset=True, blanks=True)
                 #                    for j, pdb in enumerate(tag_sequences)}
                 # for pdb in full_insertions:
-                #     inserted_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)] = '%s\n%s' % \
+                #     inserted_sequences['%s_design_%s_%s' % (des_dir, design[i], pdb)] = '%s\n%s' % \
                 #         (''.join([full_insertions[pdb][idx]['to'] for idx in full_insertions[pdb]]),
-                #          final_sequences['%s_design_%s_%s' % (pose_des_dir, design[i], pdb)])
+                #          final_sequences['%s_design_%s_%s' % (des_dir, design[i], pdb)])
 
                 # final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
                 #                                                    design_sequences[chains[j]])
