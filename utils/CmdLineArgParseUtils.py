@@ -150,23 +150,23 @@ def get_docking_parameters(arg_list):
     #         sys.exit()
     # else:
     #     cores = 1
-
-    if "-init_match_type" in arg_list:
-        init_match_type_index = arg_list.index('-init_match_type') + 1
-
-        if init_match_type_index < len(arg_list):
-            if arg_list[init_match_type_index] in ["1_1", "1_2", "2_1", "2_2"]:
-                init_match_type = str(arg_list[init_match_type_index])
-            else:
-                master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE SPECIFIED NOT RECOGNIZED" + "\n")
-                master_logfile.close()
-                sys.exit()
-        else:
-            master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE NOT SPECIFIED" + "\n")
-            master_logfile.close()
-            sys.exit()
-    else:
-        init_match_type = "1_1"  # default initial fragment match type is set to helix-helix interactions ==> "1_1"
+    #
+    # if "-init_match_type" in arg_list:
+    #     init_match_type_index = arg_list.index('-init_match_type') + 1
+    #
+    #     if init_match_type_index < len(arg_list):
+    #         if arg_list[init_match_type_index] in ["1_1", "1_2", "2_1", "2_2"]:
+    #             init_match_type = str(arg_list[init_match_type_index])
+    #         else:
+    #             master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE SPECIFIED NOT RECOGNIZED" + "\n")
+    #             master_logfile.close()
+    #             sys.exit()
+    #     else:
+    #         master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE NOT SPECIFIED" + "\n")
+    #         master_logfile.close()
+    #         sys.exit()
+    # else:
+    #     init_match_type = "1_1"  # default initial fragment match type is set to helix-helix interactions ==> "1_1"
 
     # FragDock PARAMETERS
     if "-rot_step1" in arg_list:
