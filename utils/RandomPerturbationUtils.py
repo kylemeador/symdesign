@@ -9,7 +9,7 @@ import numpy as np
 
 from classes.PDB import PDB
 from utils.ExpandAssemblyUtils import generate_cryst1_record
-from utils.SamplingUtils import get_optimal_external_tx_vector
+from classes.SymEntry import get_optimal_external_tx_vector
 from utils.SymmUtils import get_uc_dimensions
 
 

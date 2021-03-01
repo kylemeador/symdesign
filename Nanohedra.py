@@ -8,7 +8,7 @@ from classes.SymEntry import *
 from utils.CmdLineArgParseUtils import *
 from utils.ExpandAssemblyUtils import *
 from utils.NanohedraManualUtils import *
-from utils.SamplingUtils import get_degeneracy_matrices
+from classes.SymEntry import get_degeneracy_matrices
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
