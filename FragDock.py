@@ -701,7 +701,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     initial_type1 = np.argmax(fragment_content1) + 1
     ghost_frag_list = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list
                        if ghost_frag1.get_i_type() == initial_type1]
-    ghost_frag_guide_coords_list = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frag_list]
+    ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frag_list]
 
     ghost_frag_np = np.array(ghost_frag_list)
     complete_ghost_frag_np = np.array(complete_ghost_frag_list)
@@ -736,7 +736,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     fragment_content2 = [frag_types2.count(frag_type) for frag_type in range(1, fragment_length + 1)]
     initial_type2 = np.argmax(fragment_content2) + 1
     surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
-    surf_frags_oligomer_2_guide_coords_list = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
+    surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
 
     surf_frag_np = np.array(surf_frag_list)
     complete_surf_frag_np = np.array(complete_surf_frag_list)
@@ -775,8 +775,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             log_file.write("Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler rotational "
                            "space bucket\n")
 
-        ghost_frag_guide_coords_list_set_for_eul = np.matmul(ghost_frag_guide_coords_list, set_mat1_np_t)
-        surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags_oligomer_2_guide_coords_list, set_mat2_np_t)
+        ghost_frag_guide_coords_list_set_for_eul = np.matmul(ghost_frag_guide_coords, set_mat1_np_t)
+        surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags2_guide_coords, set_mat2_np_t)
 
         eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(ghost_frag_guide_coords_list_set_for_eul,
                                                                    surf_frags_2_guide_coords_list_set_for_eul)
@@ -789,9 +789,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
         optimal_tx = OptimalTx.from_dof(set_mat1, set_mat2, is_zshift1, is_zshift2, dof_ext)
         optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
-                                                           ghost_frag_guide_coords_list,
+                                                           ghost_frag_guide_coords,
                                                            surf_frag_list,
-                                                           surf_frags_oligomer_2_guide_coords_list,
+                                                           surf_frags2_guide_coords,
                                                            z_value_func=optimal_tx.apply,
                                                            max_z_value=init_max_z_val)
 
@@ -832,7 +832,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         if not resume:
             with open(log_file_path, "a+") as log_file:
                 log_file.write("No Rotation/Degeneracy Matrices for Oligomer 2\n\n")
-        surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags_oligomer_2_guide_coords_list, set_mat2_np_t)
+        surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags2_guide_coords, set_mat2_np_t)
 
         optimal_tx = OptimalTx.from_dof(set_mat1, set_mat2, is_zshift1, is_zshift2, dof_ext)
         # for degen1 in degen_rot_mat_1[degen1_count:]:
@@ -845,8 +845,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                 rot1_count += 1
                 # Rotate Oligomer1 Ghost Fragment Guide Coodinates using rot1_mat
                 rot1_mat_np_t = np.transpose(rot1_mat)
-                ghost_frag_guide_coords_list_rot_np = np.matmul(ghost_frag_guide_coords_list, rot1_mat_np_t)
-                ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_list_rot_np.tolist()
+                ghost_frag_guide_coords_rot = np.matmul(ghost_frag_guide_coords, rot1_mat_np_t)
+                ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_rot.tolist()
 
                 with open(log_file_path, "a+") as log_file:
                     log_file.write("\n***** OLIGOMER 1: Degeneracy %s Rotation %s | "
@@ -859,11 +859,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     log_file.write("Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler "
                                    "rotational space bucket\n")
 
-                ghost_frag_guide_coords_list_rot_and_set_for_eul = np.matmul(ghost_frag_guide_coords_list_rot,
+                ghost_frag_guide_coords_rot_and_set = np.matmul(ghost_frag_guide_coords_list_rot,
                                                                              set_mat1_np_t)
 
                 eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(
-                    ghost_frag_guide_coords_list_rot_and_set_for_eul, surf_frags_2_guide_coords_list_set_for_eul)
+                    ghost_frag_guide_coords_rot_and_set, surf_frags_2_guide_coords_list_set_for_eul)
                 eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
                                         true_tup[2]]
 
@@ -875,7 +875,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                 optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
                                                                    ghost_frag_guide_coords_list_rot,
                                                                    surf_frag_list,
-                                                                   surf_frags_oligomer_2_guide_coords_list,
+                                                                   surf_frags2_guide_coords,
                                                                    z_value_func=optimal_tx.apply,
                                                                    max_z_value=init_max_z_val)
 
@@ -911,7 +911,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         if not resume:
             with open(log_file_path, "a+") as log_file:
                 log_file.write("No Rotation/Degeneracy Matrices for Oligomer 1\n")
-        ghost_frag_guide_coords_list_set_for_eul = np.matmul(ghost_frag_guide_coords_list, set_mat1_np_t)
+        ghost_frag_guide_coords_list_set_for_eul = np.matmul(ghost_frag_guide_coords, set_mat1_np_t)
 
         # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
         if not resume:
@@ -927,9 +927,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                 rot2_count += 1
                 # Rotate Oligomer2 Surface Fragment Guide Coodinates using rot2_mat
                 rot2_mat_np_t = np.transpose(rot2_mat)
-                surf_frags_2_guide_coords_list_rot_np = np.matmul(surf_frags_oligomer_2_guide_coords_list,
+                surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords,
                                                                   rot2_mat_np_t)
-                surf_frags_2_guide_coords_list_rot = surf_frags_2_guide_coords_list_rot_np.tolist()
+                surf_frags_2_guide_coords_list_rot = surf_frags2_guide_coords_rot.tolist()
 
                 with open(log_file_path, "a+") as log_file:
                     log_file.write("\n***** OLIGOMER 1: Degeneracy %s Rotation %s | "
@@ -942,11 +942,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     log_file.write("Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler "
                                    "rotational space bucket\n")
 
-                surf_frags_2_guide_coords_list_rot_and_set_for_eul = np.matmul(surf_frags_2_guide_coords_list_rot,
+                surf_frags_2_guide_coords_rot_and_set = np.matmul(surf_frags_2_guide_coords_list_rot,
                                                                                set_mat2_np_t)
 
                 eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(
-                    ghost_frag_guide_coords_list_set_for_eul, surf_frags_2_guide_coords_list_rot_and_set_for_eul)
+                    ghost_frag_guide_coords_list_set_for_eul, surf_frags_2_guide_coords_rot_and_set)
                 eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
                                         true_tup[2]]
 
@@ -956,7 +956,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                    " coordinate pairs\n")
 
                 optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frag_list,
-                                                                   ghost_frag_guide_coords_list,
+                                                                   ghost_frag_guide_coords,
                                                                    surf_frag_list,
                                                                    surf_frags_2_guide_coords_list_rot,
                                                                    z_value_func=optimal_tx.apply,
@@ -996,7 +996,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
         rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", rot_range_deg_pdb1)
         degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
-
+        print(degen_rot_mat_1)
         if not resume:
             with open(log_file_path, "a+") as log_file:
                 log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n\n")
@@ -1006,34 +1006,28 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         # This is ready to go for sampling nothing if rot_range_deg == 0
         degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
         # This is ready to go returning identity matrices if there is no sampling on either degen or rotation
-        optimal_tx = OptimalTx.from_dof(sym_entry.get_ext_dof(), zshift1=zshift1, zshift2=zshift2)  # set_mat1, set_mat2,
+        optimal_tx = OptimalTx.from_dof(sym_entry.get_ext_dof(), zshift1=zshift1, zshift2=zshift2)
 
         for degen1 in degen_rot_mat_1[degen1_count:]:
             degen1_count += 1
             for rot1_mat in degen1[rot1_count:]:
+                print(rot1_mat)
+                print(np.transpose(rot1_mat))
                 rot1_count += 1
                 # Rotate Oligomer1 Ghost Fragment Guide Coordinates using rot1_mat
-                rot1_mat_np_t = np.transpose(rot1_mat)
-                ghost_frag_guide_coords_list_rot_np = np.matmul(ghost_frag_guide_coords_list, rot1_mat_np_t)
-                # ghost_frag_guide_coords_list_rot = ghost_frag_guide_coords_list_rot_np.tolist()
-                ghost_frag_guide_coords_list_rot_and_set_for_eul = np.matmul(ghost_frag_guide_coords_list_rot_np,
-                                                                             set_mat1_np_t)
+                ghost_frag_guide_coords_rot = np.matmul(ghost_frag_guide_coords, np.transpose(rot1_mat))
+                ghost_frag_guide_coords_rot_and_set = np.matmul(ghost_frag_guide_coords_rot, set_mat1_np_t)
                 for degen2 in degen_rot_mat_2[degen2_count:]:
                     degen2_count += 1
                     for rot2_mat in degen2[rot2_count:]:
                         rot2_count += 1
                         # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
-                        rot2_mat_np_t = np.transpose(rot2_mat)
-                        surf_frags_2_guide_coords_list_rot_np = np.matmul(surf_frags_oligomer_2_guide_coords_list,
-                                                                          rot2_mat_np_t)
-                        # surf_frags_2_guide_coords_list_rot = surf_frags_2_guide_coords_list_rot_np.tolist()
-                        surf_frags_2_guide_coords_list_rot_and_set_for_eul = np.matmul(
-                            surf_frags_2_guide_coords_list_rot_np, set_mat2_np_t)
+                        surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords, np.transpose(rot2_mat))
+                        surf_frags_2_guide_coords_rot_and_set = np.matmul(surf_frags2_guide_coords_rot, set_mat2_np_t)
 
                         with open(log_file_path, "a+") as log_file:
-                            log_file.write("\n***** OLIGOMER 1: Degeneracy %s Rotation %s | OLIGOMER 2: Degeneracy %s "
-                                           "Rotation %s *****\n" %
-                                           (str(degen1_count), str(rot1_count), str(degen2_count), str(rot2_count)))
+                            log_file.write("\n***** OLIGOMER 1: Degeneracy %d Rotation %d | OLIGOMER 2: Degeneracy %d "
+                                           "Rotation %d *****\n" % (degen1_count, rot1_count, degen2_count, rot2_count))
 
                         # Get (Oligomer1 Ghost Fragment (rotated), Oligomer2 (rotated) Surface Fragment)
                         # guide coodinate pairs in the same Euler rotational space bucket
@@ -1041,14 +1035,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                             log_file.write("Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same "
                                            "Euler rotational space bucket\n")
 
-                        # print('Set for Euler Lookup:', surf_frags_2_guide_coords_list_rot_and_set_for_eul[:5])
+                        # print('Set for Euler Lookup:', surf_frags_2_guide_coords_rot_and_set[:5])
 
                         overlapping_ghost_frag_array, overlapping_surf_frag_array = \
-                            zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_list_rot_and_set_for_eul,
-                                                               surf_frags_2_guide_coords_list_rot_and_set_for_eul))
+                            zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
+                                                               surf_frags_2_guide_coords_rot_and_set))
                         # eul_lookup_true_list = eul_lookup.check_lookup_table(
-                        #     ghost_frag_guide_coords_list_rot_and_set_for_eul,
-                        #     surf_frags_2_guide_coords_list_rot_and_set_for_eul)
+                        #     ghost_frag_guide_coords_rot_and_set,
+                        #     surf_frags_2_guide_coords_rot_and_set)
                         # Now all are coming back true
                         # eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
                         #                         true_tup[2]]
@@ -1066,11 +1060,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                          for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
                         passing_ghost_indices = [ghost_idx for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
                                                  if ij_type_match[idx]]
-                        passing_ghost_coords = [ghost_frag_guide_coords_list_rot_and_set_for_eul[idx]
+                        passing_ghost_coords = [ghost_frag_guide_coords_rot_and_set[idx]
                                                 for idx in passing_ghost_indices]
                         passing_surf_indices = [surf_idx for idx, surf_idx in enumerate(overlapping_surf_frag_array)
                                                 if ij_type_match[idx]]
-                        passing_surf_coords = [surf_frags_2_guide_coords_list_rot_and_set_for_eul[idx]
+                        passing_surf_coords = [surf_frags_2_guide_coords_rot_and_set[idx]
                                                for idx in passing_surf_indices]
                         reference_rmsds = [ghost_frag_list[ghost_idx].get_rmsd()
                                            for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
