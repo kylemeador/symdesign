@@ -84,9 +84,9 @@ class OptimalTx:
         """
 
         # form the guide coords into a matrix (column vectors)
-        guide_target_10 = np.transpose(np.array(coords1))
+        guide_target_10 = np.transpose(coords1)
         # guide_target_10 = np.transpose(np.array(self.guide_atom_coords1_set))
-        guide_query_10 = np.transpose(np.array(coords2))
+        guide_query_10 = np.transpose(coords2)
         # guide_query_10 = np.transpose(np.array(self.guide_atom_coords2_set))
 
         # calculate the initial difference between query and target (9 dim vector)
@@ -95,10 +95,9 @@ class OptimalTx:
 
         # isotropic case based on simple rmsd
         # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
-        diagval = 1. / (3. * coords_rmsd_reference ** 2)
         var_tot_inv = np.zeros([9, 9])
         for i in range(9):
-            var_tot_inv[i, i] = diagval
+            var_tot_inv[i, i] = 1. / (3. * coords_rmsd_reference ** 2)
 
         # Use degrees of freedom 9-dim array
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
@@ -125,6 +124,7 @@ class OptimalTx:
         # sqrt(variance / 3) / cluster_rmsd # old error
 
         if error <= max_z_value:
+            print('Found match (shift, rmsd ref)', shift, coords_rmsd_reference)
             return shift[:, 0]  # , error
         else:
             return None

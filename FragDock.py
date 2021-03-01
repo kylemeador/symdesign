@@ -688,16 +688,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                                           oligomer1_backbone_cb_tree, ijk_frag_db.info))
 
     # calculate the initial match type by finding the predominant surface type
-    print('Length of surface1_frags: %s' % surf_frags_1)
-    print('Length of complete_ghost_frags: %s' % complete_ghost_frag_list)
+    print('Length of surface1_frags: %d' % len(surf_frags_1))
+    print('Length of complete_ghost_frags: %d' % len(complete_ghost_frag_list))
     frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
     fragment_content1 = [frag_types1.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
-    print('Found oligomer 1 fragment content: %s' % fragment_content1)
+    print('Found oligomer 1 i fragment content: %s' % fragment_content1)
     # initial_type1 = str(np.argmax(fragment_content1) + 1)
     # print('Found initial fragment type oligomer 1: %s' % initial_type1)
     frag_types1_j = [ghost_frag1.get_j_type() for ghost_frag1 in complete_ghost_frag_list]
     fragment_content1_j = [frag_types1_j.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
-    print('Found oligomer 1 fragment content: %s' % fragment_content1_j)
+    print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_j_type() == initial_type2]
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
@@ -997,7 +997,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                 for rot2_mat in degen2[rot2_count:]:
                     rot2_count += 1
                     # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
-                    print('rotation matrix 2: %s' % rot2_mat)
+                    # print('rotation matrix 2: %s' % rot2_mat)
                     surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords, np.transpose(rot2_mat))
                     surf_frags_2_guide_coords_rot_and_set = np.matmul(surf_frags2_guide_coords_rot, set_mat2_np_t)
 
@@ -1017,7 +1017,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     overlapping_ghost_frags, overlapping_surf_frags = \
                         zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
                                                            surf_frags_2_guide_coords_rot_and_set))
-                    print('matching euler angle pairs', zip(overlapping_ghost_frags, overlapping_surf_frags))
+                    overlap_pairs = list(zip(overlapping_ghost_frags, overlapping_surf_frags))
+                    print('matching euler angle pairs', overlap_pairs)
                     overlapping_ghost_frag_array = np.array(overlapping_ghost_frags)
                     overlapping_surf_frag_array = np.array(overlapping_surf_frags)
                     # print('euler overlapping ghost indices:', overlapping_ghost_frag_array[:5])
@@ -1085,6 +1086,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                               if passing_shift is not None]
                     print('Number of passing optimal shifts: %d' % len(passing_optimal_shifts))
                     print('passing optimal shifts: %s' % passing_optimal_shifts)
+                    passing_optimal_shifts_idx = [idx for idx, passing_shift in enumerate(optimal_shifts)
+                                                  if passing_shift is not None]
+                    passing_fragment_pairs = [overlap_pairs[idx] for idx in passing_optimal_shifts_idx]
+                    print('passing fragment pairs: %s' % passing_fragment_pairs)
 
                     with open(log_file_path, "a+") as log_file:
                         log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
