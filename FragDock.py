@@ -610,49 +610,6 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
                    subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_exp_assembly=False,
                    output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
-
-    # rot_range_deg_pdb1 = sym_entry.get_rot_range_deg_1()
-    # rot_range_deg_pdb2 = sym_entry.get_rot_range_deg_2()
-
-    # Oligomer 1 Has Interior Rotational Degree of Freedom True or False
-    # has_int_rot_dof_1 = False
-    # if sym_entry.get_rot_range_deg_1() != 0:
-    #     has_int_rot_dof_1 = True
-
-    # Oligomer 2 Has Interior Rotational Degree of Freedom True or False
-    # has_int_rot_dof_2 = False
-    # if sym_entry.get_rot_range_deg_2() != 0:
-    #     has_int_rot_dof_2 = True
-
-    set_mat1 = np.array(sym_entry.get_rot_set_mat_group1())
-    set_mat2 = np.array(sym_entry.get_rot_set_mat_group2())
-
-    # Transpose Setting Matrices to Set Guide Coordinates just for Euler Lookup Using np.matmul
-    set_mat1_np_t = np.transpose(set_mat1)
-    set_mat2_np_t = np.transpose(set_mat2)
-
-    if sym_entry.is_internal_tx1():
-        zshift1 = set_mat1[:, 2:3].T  # must be 2d array
-    else:
-        zshift1 = None
-
-    if sym_entry.is_internal_tx2():
-        zshift2 = set_mat2[:, 2:3].T  # must be 2d array
-    else:
-        zshift2 = None
-
-    # Obtain Reference Frame Translation Info
-    # parsed_ref_frame_tx_dof1 = parse_ref_tx_dof_str_to_list(sym_entry.get_ref_frame_tx_dof_group1())
-    # parsed_ref_frame_tx_dof2 = parse_ref_tx_dof_str_to_list(sym_entry.get_ref_frame_tx_dof_group2())
-    #
-    # if parsed_ref_frame_tx_dof1 == ['0', '0', '0'] and parsed_ref_frame_tx_dof2 == ['0', '0', '0']:
-    #     dof_ext = np.empty((0, 3), float)
-    # else:
-    # dof_ext = get_ext_dof(sym_entry.get_ref_frame_tx_dof_group1(), sym_entry.get_ref_frame_tx_dof_group2())
-
-    # result_design_sym = sym_entry.get_result_design_sym()
-    # uc_spec_string = sym_entry.get_uc_spec_string()
-
     # Initialize Euler Lookup Class
     eul_lookup = EulerLookup()
 
@@ -995,7 +952,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1\n")
 
     # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
+    # Ready to go for sampling nothing if rot_range_deg == 0
     rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", sym_entry.get_rot_range_deg_1())
+    # Ready to go returning identity matrices if there is no sampling on either degen or rotation
     degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
     # print(degen_rot_mat_1)
     if not resume:
@@ -1004,10 +963,22 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
     rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", sym_entry.get_rot_range_deg_2())
-    # This is ready to go for sampling nothing if rot_range_deg == 0
     degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
-    # This is ready to go returning identity matrices if there is no sampling on either degen or rotation
+
+    set_mat1 = np.array(sym_entry.get_rot_set_mat_group1())
+    set_mat2 = np.array(sym_entry.get_rot_set_mat_group2())
+
+    zshift1, zshift2 = None, None
+    if sym_entry.is_internal_tx1():
+        zshift1 = set_mat1[:, 2:3].T  # must be 2d array
+
+    if sym_entry.is_internal_tx2():
+        zshift2 = set_mat2[:, 2:3].T  # must be 2d array
+
     optimal_tx = OptimalTx.from_dof(sym_entry.get_ext_dof(), zshift1=zshift1, zshift2=zshift2)
+
+    # Transpose Setting Matrices to Set Guide Coordinates just for Euler Lookup Using np.matmul
+    set_mat1_np_t, set_mat2_np_t = np.transpose(set_mat1), np.transpose(set_mat2)
 
     for degen1 in degen_rot_mat_1[degen1_count:]:
         degen1_count += 1
