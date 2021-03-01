@@ -91,9 +91,6 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                 if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0 and ref_frame_tx_dof_g > 0:
                     ref_frame_var_is_pos = True
 
-            uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), ref_frame_tx_dof_e, ref_frame_tx_dof_f,
-                                              ref_frame_tx_dof_g)
-
             # if (optimal_ext_dof_shifts is not None and ref_frame_var_is_pos) or (optimal_ext_dof_shifts is None):  # Old
             # if (optimal_ext_dof_shifts and ref_frame_var_is_pos) or not optimal_ext_dof_shifts:  # clean
             #     # true and true or not true
@@ -110,7 +107,10 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                    % (efg_tx_params_str[0], efg_tx_params_str[1], efg_tx_params_str[2]))
                 continue
             else:  # not optimal_ext_dof_shifts or (optimal_ext_dof_shifts and ref_frame_var_is_pos)
-                do_nothing_and_dock = True
+                # write uc_dimensions and dock
+                uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), ref_frame_tx_dof_e,
+                                                  ref_frame_tx_dof_f,
+                                                  ref_frame_tx_dof_g)
 
         # Rotate, Translate and Set PDB1
         pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=representative_int_dof_tx_param_1,
@@ -698,10 +698,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # calculate the initial match type by finding the predominant surface type
     frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
-    fragment_content1 = [frag_types1.count(frag_type) for frag_type in range(1, fragment_length + 1)]
+    fragment_content1 = [frag_types1.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found fragment content: %s' % fragment_content1)
     initial_type1 = str(np.argmax(fragment_content1) + 1)
-    print('Found fragment content: %s' % initial_type1)
+    print('Found initial fragment type oligomer 1: %s' % initial_type1)
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_i_type() == initial_type1]
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
@@ -735,10 +735,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # calculate the initial match type by finding the predominant surface type
     frag_types2 = [monofrag2.get_i_type() for monofrag2 in complete_surf_frag_list]
-    fragment_content2 = [frag_types2.count(frag_type) for frag_type in range(1, fragment_length + 1)]
+    fragment_content2 = [frag_types2.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
 
     initial_type2 = str(np.argmax(fragment_content2) + 1)
-    print('Found fragment inital type oligomer 2: %s' % initial_type2)
+    print('Found fragment initial type oligomer 2: %s' % initial_type2)
     surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
     surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
 
@@ -1015,8 +1015,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         for degen1 in degen_rot_mat_1[degen1_count:]:
             degen1_count += 1
             for rot1_mat in degen1[rot1_count:]:
-                # print(rot1_mat)
-                # print(np.transpose(rot1_mat))
                 rot1_count += 1
                 # Rotate Oligomer1 Ghost Fragment Guide Coordinates using rot1_mat
                 ghost_frag_guide_coords_rot = np.matmul(ghost_frag_guide_coords, np.transpose(rot1_mat))
