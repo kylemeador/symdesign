@@ -133,47 +133,42 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
                            representative_ext_dof_tx_params_1, rot_mat2, representative_int_dof_tx_param_2, set_mat2,
                            representative_ext_dof_tx_params_2, cryst1_record, pdb1_path, pdb2_path, pose_id):
 
-    out_info_file_path = outdir_path + "/docked_pose_info_file.txt"
-    out_info_file = open(out_info_file_path, "w")
+    out_info_file_path = os.path.join(outdir_path, "docked_pose_info_file.txt")
+    with open(out_info_file_path, "w") as out_info_file:
+        out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
+        out_info_file.write("Nanohedra Score: %s\n\n" % str(res_lev_sum_score))
+        out_info_file.write("Unique Mono Fragments Matched (z<=1): %s\n" % str(high_qual_match_count))
+        out_info_file.write("Unique Mono Fragments Matched: %s\n" % str(unique_matched_interface_monofrag_count))
+        out_info_file.write("Unique Mono Fragments at Interface: %s\n" % str(unique_total_interface_monofrags_count))
+        out_info_file.write("Interface Matched (%s): %s\n\n" % ("%", str(percent_of_interface_covered * 100)))
 
-    out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
+        out_info_file.write("ROT/DEGEN MATRIX PDB1: %s\n" % str(rot_mat1))
+        if representative_int_dof_tx_param_1 is not None:
+            int_dof_tx_vec_1 = representative_int_dof_tx_param_1
+        else:
+            int_dof_tx_vec_1 = None
+        out_info_file.write("INTERNAL Tx PDB1: %s\n" % str(int_dof_tx_vec_1))
+        out_info_file.write("SETTING MATRIX PDB1: %s\n" % str(set_mat1))
+        if representative_ext_dof_tx_params_1 == [0, 0, 0]:
+            ref_frame_tx_vec_1 = None
+        else:
+            ref_frame_tx_vec_1 = representative_ext_dof_tx_params_1
+        out_info_file.write("REFERENCE FRAME Tx PDB1: %s\n\n" % str(ref_frame_tx_vec_1))
 
-    out_info_file.write("Nanohedra Score: %s\n\n" % str(res_lev_sum_score))
+        out_info_file.write("ROT/DEGEN MATRIX PDB2: %s\n" % str(rot_mat2))
+        if representative_int_dof_tx_param_2 is not None:
+            int_dof_tx_vec_2 = representative_int_dof_tx_param_2
+        else:
+            int_dof_tx_vec_2 = None
+        out_info_file.write("INTERNAL Tx PDB2: %s\n" % str(int_dof_tx_vec_2))
+        out_info_file.write("SETTING MATRIX PDB2: %s\n" % str(set_mat2))
+        if representative_ext_dof_tx_params_2 == [0, 0, 0]:
+            ref_frame_tx_vec_2 = None
+        else:
+            ref_frame_tx_vec_2 = representative_ext_dof_tx_params_2
+        out_info_file.write("REFERENCE FRAME Tx PDB2: %s\n\n" % str(ref_frame_tx_vec_2))
 
-    out_info_file.write("Unique Mono Fragments Matched (z<=1): %s\n" % str(high_qual_match_count))
-    out_info_file.write("Unique Mono Fragments Matched: %s\n" % str(unique_matched_interface_monofrag_count))
-    out_info_file.write("Unique Mono Fragments at Interface: %s\n" % str(unique_total_interface_monofrags_count))
-    out_info_file.write("Interface Matched (%s): %s\n\n" % ("%", str(percent_of_interface_covered * 100)))
+        out_info_file.write("CRYST1 RECORD: %s\n\n" % str(cryst1_record))
 
-    out_info_file.write("ROT/DEGEN MATRIX PDB1: %s\n" % str(rot_mat1))
-    if representative_int_dof_tx_param_1 is not None:
-        int_dof_tx_vec_1 = representative_int_dof_tx_param_1
-    else:
-        int_dof_tx_vec_1 = None
-    out_info_file.write("INTERNAL Tx PDB1: " + str(int_dof_tx_vec_1) + "\n")
-    out_info_file.write("SETTING MATRIX PDB1: " + str(set_mat1) + "\n")
-    if representative_ext_dof_tx_params_1 == [0, 0, 0]:
-        ref_frame_tx_vec_1 = None
-    else:
-        ref_frame_tx_vec_1 = representative_ext_dof_tx_params_1
-    out_info_file.write("REFERENCE FRAME Tx PDB1: " + str(ref_frame_tx_vec_1) + "\n\n")
-
-    out_info_file.write("ROT/DEGEN MATRIX PDB2: %s\n" % str(rot_mat2))
-    if representative_int_dof_tx_param_2 is not None:
-        int_dof_tx_vec_2 = representative_int_dof_tx_param_2
-    else:
-        int_dof_tx_vec_2 = None
-    out_info_file.write("INTERNAL Tx PDB2: " + str(int_dof_tx_vec_2) + "\n")
-    out_info_file.write("SETTING MATRIX PDB2: " + str(set_mat2) + "\n")
-    if representative_ext_dof_tx_params_2 == [0, 0, 0]:
-        ref_frame_tx_vec_2 = None
-    else:
-        ref_frame_tx_vec_2 = representative_ext_dof_tx_params_2
-    out_info_file.write("REFERENCE FRAME Tx PDB2: " + str(ref_frame_tx_vec_2) + "\n\n")
-
-    out_info_file.write("CRYST1 RECORD: %s\n\n" % str(cryst1_record))
-
-    out_info_file.write('Canonical Orientation PDB1 Path: %s\n' % pdb1_path)
-    out_info_file.write('Canonical Orientation PDB2 Path: %s\n\n' % pdb2_path)
-
-    out_info_file.close()
+        out_info_file.write('Canonical Orientation PDB1 Path: %s\n' % pdb1_path)
+        out_info_file.write('Canonical Orientation PDB2 Path: %s\n\n' % pdb2_path)
