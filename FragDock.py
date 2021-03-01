@@ -698,8 +698,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     complete_surf_frag_list = []
     for frag2 in surf_frags_2:
         monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
-        # monofrag2_guide_coords = monofrag2.get_guide_coords()
-        # if monofrag2_guide_coords:
         if monofrag2.get_i_type():
             complete_surf_frag_list.append(monofrag2)
 
@@ -724,7 +722,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # Get PDB1 Symmetric Building Block
     pdb1 = PDB.from_file(pdb1_path)
     surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
-    oligomer1_backbone_tree = BallTree(pdb1.get_backbone_and_cb_coords())
+    oligomer1_backbone_cb_tree = BallTree(pdb1.get_backbone_and_cb_coords())
 
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
@@ -737,9 +735,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     for frag1 in surf_frags_1:
         monofrag1 = MonoFragment(frag1, ijk_frag_db.reps)
         if monofrag1.get_i_type():
-            complete_monofrag1_ghostfrag_list = monofrag1.get_ghost_fragments(ijk_frag_db.paired_frags,
-                                                                              oligomer1_backbone_tree, ijk_frag_db.info)
-            complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list)
+            complete_ghost_frag_list.extend(monofrag1.get_ghost_fragments(ijk_frag_db.paired_frags,
+                                                                          oligomer1_backbone_cb_tree, ijk_frag_db.info))
 
     # calculate the initial match type by finding the predominant surface type
     frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
@@ -1070,57 +1067,51 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
                         # Filter all overlapping arrays by matching ij type. This wouldn't increase speed much by
                         # putting before check_euler_table as the all to all is a hash operation
-                        for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array):
-                            # if idx < 30:
-                            #     print(ghost_frag_idx, overlapping_surf_frag_array[idx])
-                            #     print(ghost_frags[ghost_frag_idx].rmsd, surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
-                            #     print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
-                            #     print('\n\n')
-                            if ghost_frags[ghost_frag_idx].get_j_type() == surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type():
-                                print(idx)
-                            # else:
-                            #     dummy = False
-                        ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
-                                         surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
-                                         for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
-                        print('ij_type_match: %s' % ij_type_match[:5])
-                        if not any(ij_type_match):
+                        # for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array):
+                        #     # if idx < 30:
+                        #     #     print(ghost_frag_idx, overlapping_surf_frag_array[idx])
+                        #     #     print(ghost_frags[ghost_frag_idx].rmsd, surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
+                        #     #     print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
+                        #     #     print('\n\n')
+                        #     if ghost_frags[ghost_frag_idx].get_j_type() == surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type():
+                        #         print(idx)
+                        #     # else:
+                        #     #     dummy = False
+                        # ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
+                        #                  surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
+                        #                  for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
+                        # print('ij_type_match: %s' % ij_type_match[:5])
+                        if not any(overlapping_ghost_frag_array):
                             print('No overlapping ij fragments pairs, starting next sampling')
                             continue
 
-                        passing_ghost_indices = np.array([ghost_idx
-                                                          for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
-                                                          if ij_type_match[idx]])
-                        print('ghost indices:', passing_ghost_indices[:5])
-                        print('number of ghost indices considered: %d' % len(passing_ghost_indices))
-                        passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[passing_ghost_indices]
-                        print('ghost coords: %s' % passing_ghost_coords[:5])
+                        # passing_ghost_indices = np.array([ghost_idx
+                        #                                   for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                        #                                   if ij_type_match[idx]])
+                        # print('ghost indices:', passing_ghost_indices[:5])
+                        print('number of ghost indices considered: %d' % len(overlapping_ghost_frag_array))
+                        # passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[passing_ghost_indices]
+                        passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[overlapping_ghost_frag_array]
+                        # print('ghost coords: %s' % passing_ghost_coords[:5])
                         print('number of ghost coords considered: %d' % len(passing_ghost_coords))
-                        passing_surf_indices = np.array([surf_idx
-                                                         for idx, surf_idx in enumerate(overlapping_surf_frag_array)
-                                                         if ij_type_match[idx]])
-                        passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[passing_surf_indices]
+                        # passing_surf_indices = np.array([surf_idx
+                        #                                  for idx, surf_idx in enumerate(overlapping_surf_frag_array)
+                        #                                  if ij_type_match[idx]])
+                        # passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[passing_surf_indices]
+                        passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[overlapping_surf_frag_array]
                         reference_rmsds = [max(ghost_frags[ghost_idx].get_rmsd(), 0.01)
-                                           for idx, ghost_idx in enumerate(passing_ghost_indices)
-                                           if ij_type_match[idx]]
-                        # Todo test array based function
+                                           for ghost_idx in overlapping_ghost_frag_array]
+                        #                    if ij_type_match[idx]]
                         optimal_shifts = [optimal_tx.solve_optimal_shift(passing_ghost_coords[idx],
                                                                          passing_surf_coords[idx],
                                                                          reference_rmsds[idx],
                                                                          max_z_value=init_max_z_val)
                                           for idx in range(len(passing_ghost_coords))]
-                        # optimal_shifts = filter_euler_lookup_by_zvalue(passing_ghost_coords, passing_surf_coords,
-                        #                                                reference_rmsds,
-                        #                                                z_value_func=optimal_tx.solve_optimal_shift,
-                        #                                                max_z_value=init_max_z_val)
-                        print('number of optimal shifts: %d' % len(passing_ghost_indices))
-                        print('optimal shifts: %s' % optimal_shifts[:5])
-
-                        passing_optimal_shifts = [passing_shift for passing_shift in optimal_shifts if passing_shift]
+                        print('number of optimal shifts: %d' % len(optimal_shifts))
+                        # print('optimal shifts: %s' % optimal_shifts[:5])
+                        passing_optimal_shifts = [passing_shift for passing_shift in optimal_shifts
+                                                  if passing_shift is not None]
                         print('passing optimal shifts: %s' % passing_optimal_shifts[:5])
-                        # ghostfrag_surffrag_pairs = [(ghost_frags[passing_ghost_indices[idx]],
-                        #                              surf_frag_list[passing_surf_indices[idx]])
-                        #                             for idx, boolean in enumerate(optimal_shifts) if boolean]
 
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
