@@ -343,13 +343,6 @@ def main():
 
                 # Get Degeneracy Matrices
                 master_log_file.write("Searching For Possible Degeneracies" + "\n")
-                # degeneracy_matrices_1 = get_degeneracy_matrices(oligomer_symmetry_1, design_symmetry_pg)
-                # degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_2, design_symmetry_pg)
-                # degeneracy_matrices_1, degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_1,
-                #                                                                        oligomer_symmetry_2,
-                #                                                                        design_dim,
-                #                                                                        design_symmetry_pg)
-                # degeneracy_matrices_1, degeneracy_matrices_2 = sym_entry.get_degeneracy_matrices()
                 if sym_entry.degeneracy_matrices_1 is None:
                     master_log_file.write("No Degeneracies Found for Oligomer 1\n")
                 elif len(sym_entry.degeneracy_matrices_1) == 1:

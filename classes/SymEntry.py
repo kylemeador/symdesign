@@ -359,9 +359,8 @@ class SymEntry:
         viable configurations of the single component in the final symmetry
 
         Returns:
-            (list[list[list[list[float]]]])
+            (tuple[list[list[list[float]]] or None])
         """
-        # Todo matches orient valid operators, consolidate
         # valid_pt_gp_symm_list = ["C2", "C3", "C4", "C5", "C6", "D2", "D3", "D4", "D6", "T", "O", "I"]
         # here allows for D5. Is this bad? .pop('D5') The sym_entries are hardcoded...
         valid_pt_gp_symm_list = valid_subunit_number.keys()
@@ -378,12 +377,9 @@ class SymEntry:
         if self.get_design_dim() not in [0, 2, 3]:
             raise ValueError("Invalid Design Dimension")
 
-        degeneracies = [None, None]
-
+        degeneracies = []
         for i in range(2):
-
             degeneracy_matrices = None
-
             oligomer_symmetry = self.get_group1_sym() if i == 0 else self.get_group2_sym()
 
             # For cages, only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
@@ -393,8 +389,8 @@ class SymEntry:
             # For layers that obey a cyclic point group symmetry
             # and that are constructed from two oligomers that both obey cyclic symmetry
             # only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
-            elif self.get_design_dim() == 2 and i == 1 \
-                    and (self.get_group1_sym()[0], self.get_group2_sym()[0], self.get_pt_grp_sym()[0]) == ("C", "C", "C"):
+            elif self.get_design_dim() == 2 and i == 1 and \
+                    (self.get_group1_sym()[0], self.get_group2_sym()[0], self.get_pt_grp_sym()[0]) == ('C', 'C', 'C'):
                 degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
             # else:
@@ -402,7 +398,7 @@ class SymEntry:
             #         degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
             elif oligomer_symmetry in ["D3", "D4", "D6"] and self.get_pt_grp_sym() in ["D3", "D4", "D6", "T", "O"]:
-                # commented out "if" statement below because all possible translations are not always being tested for D3
+                # commented out "if" statement below because all possible translations are not always tested for D3
                 # example: in entry 82, only translations along <e,0.577e> are sampled.
                 # This restriction only considers 1 out of the 2 equivalent Wyckoff positions.
                 # <0,e> would also have to be searched as well to remove the "if" statement below.
@@ -435,7 +431,7 @@ class SymEntry:
             elif oligomer_symmetry == "T" and self.get_pt_grp_sym() == "T":
                 degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
 
-            degeneracies[i] = degeneracy_matrices
+            degeneracies.append(degeneracy_matrices)
 
         return degeneracies
 
@@ -528,14 +524,11 @@ def get_degen_rotmatrices(degeneracy_matrices, rotation_matrices):
     """
     if rotation_matrices is not None and degeneracy_matrices is not None:
         degen_rot_matrices = [[np.matmul(rot, degen_mat).tolist() for rot in rotation_matrices]
-                             for degen_mat in degeneracy_matrices]
-        # degen_rotmatrices = [rotation_matrices]
-        # for degen in degeneracy_matrices:
-        #     degen_rotmatrices.append([np.matmul(rot, degen).tolist() for rot in rotation_matrices])
-        return [rotation_matrices] + degen_rot_matrices  # (list[list[2Darray]])
+                              for degen_mat in degeneracy_matrices]
+        return [rotation_matrices] + degen_rot_matrices
 
     elif rotation_matrices is not None and degeneracy_matrices is None:
-        return [rotation_matrices]  # # (list[list[2Darray]]) Todo make list[list] in FragDock.py
+        return [rotation_matrices]
 
     elif rotation_matrices is None and degeneracy_matrices is not None:  # is this ever true? list addition seems wrong
         return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracy_matrices]
