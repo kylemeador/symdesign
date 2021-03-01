@@ -74,43 +74,49 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
             # Get Unit Cell Dimensions for 2D and 3D SCMs
             # Restrict all reference frame translation parameters to > 0 for SCMs with reference frame translational dof
-            ref_frame_tx_dof_e, ref_frame_tx_dof_f, ref_frame_tx_dof_g = 0, 0, 0
-            if len(optimal_ext_dof_shifts) == 1:
-                ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
-                if ref_frame_tx_dof_e > 0:
-                    ref_frame_var_is_pos = True
-            if len(optimal_ext_dof_shifts) == 2:
-                ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
-                ref_frame_tx_dof_f = optimal_ext_dof_shifts[1]
-                if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0:
-                    ref_frame_var_is_pos = True
-            if len(optimal_ext_dof_shifts) == 3:
-                ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
-                ref_frame_tx_dof_f = optimal_ext_dof_shifts[1]
-                ref_frame_tx_dof_g = optimal_ext_dof_shifts[2]
-                if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0 and ref_frame_tx_dof_g > 0:
-                    ref_frame_var_is_pos = True
+            # ref_frame_tx_dof_e, ref_frame_tx_dof_f, ref_frame_tx_dof_g = 0, 0, 0
+            # if len(optimal_ext_dof_shifts) == 1:
+            #     ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
+            #     if ref_frame_tx_dof_e > 0:
+            #         ref_frame_var_is_pos = True
+            # if len(optimal_ext_dof_shifts) == 2:
+            #     ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
+            #     ref_frame_tx_dof_f = optimal_ext_dof_shifts[1]
+            #     if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0:
+            #         ref_frame_var_is_pos = True
+            # if len(optimal_ext_dof_shifts) == 3:
+            #     ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
+            #     ref_frame_tx_dof_f = optimal_ext_dof_shifts[1]
+            #     ref_frame_tx_dof_g = optimal_ext_dof_shifts[2]
+            #     if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0 and ref_frame_tx_dof_g > 0:
+            #         ref_frame_var_is_pos = True
+            ref_frame_var_is_neg = False
+            for ref_frame_tx_dof in optimal_ext_dof_shifts:
+                if ref_frame_tx_dof < 0:
+                    ref_frame_var_is_neg = True
+                    break
 
             # if (optimal_ext_dof_shifts is not None and ref_frame_var_is_pos) or (optimal_ext_dof_shifts is None):  # Old
             # if (optimal_ext_dof_shifts and ref_frame_var_is_pos) or not optimal_ext_dof_shifts:  # clean
             #     # true and true or not true
             #     dummy = True # enter docking
             # if optimal_ext_dof_shifts and not ref_frame_var_is_pos:  # negated
-            if not ref_frame_var_is_pos:  # negated
+            if ref_frame_var_is_neg:
                 # true and not true
                 # don't enter docking
-                efg_tx_params_str = [str(None), str(None), str(None)]
-                for param_index in range(len(optimal_ext_dof_shifts)):
-                    efg_tx_params_str[param_index] = str(optimal_ext_dof_shifts[param_index])
+                # efg_tx_params_str = [str(None), str(None), str(None)]
+                # for param_index in range(len(optimal_ext_dof_shifts)):
+                #     efg_tx_params_str[param_index] = optimal_ext_dof_shifts[param_index]
                 with open(log_filepath, "a+") as log_file:
-                    log_file.write("\tReference Frame Shift Parameter(s) is/are Negative: e: %s, f: %s, g: %s\n\n"
-                                   % (efg_tx_params_str[0], efg_tx_params_str[1], efg_tx_params_str[2]))
+                    log_file.write("\tReference Frame Shift Parameter(s) is/are Negative: %s\n\n"
+                                   % optimal_ext_dof_shifts)
                 continue
             else:  # not optimal_ext_dof_shifts or (optimal_ext_dof_shifts and ref_frame_var_is_pos)
                 # write uc_dimensions and dock
-                uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), ref_frame_tx_dof_e,
-                                                  ref_frame_tx_dof_f,
-                                                  ref_frame_tx_dof_g)
+                uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), *optimal_ext_dof_shifts)
+                # uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), ref_frame_tx_dof_e,
+                #                                   ref_frame_tx_dof_f,
+                #                                   ref_frame_tx_dof_g)
 
         # Rotate, Translate and Set PDB1
         pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=representative_int_dof_tx_param_1,
@@ -736,11 +742,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # calculate the initial match type by finding the predominant surface type
     frag_types2 = [monofrag2.get_i_type() for monofrag2 in complete_surf_frag_list]
     fragment_content2 = [frag_types2.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
-
+    print('Found oligomer 2 fragment content: %s' % fragment_content2)
     initial_type2 = str(np.argmax(fragment_content2) + 1)
     print('Found fragment initial type oligomer 2: %s' % initial_type2)
     surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
+    print(surf_frag_list[:5])
     surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
+    print(surf_frags2_guide_coords[:5])
 
     surf_frag_np = np.array(surf_frag_list)
     complete_surf_frag_np = np.array(complete_surf_frag_list)
@@ -1024,6 +1032,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     for rot2_mat in degen2[rot2_count:]:
                         rot2_count += 1
                         # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
+                        print(rot2_mat)
                         surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords, np.transpose(rot2_mat))
                         surf_frags_2_guide_coords_rot_and_set = np.matmul(surf_frags2_guide_coords_rot, set_mat2_np_t)
 

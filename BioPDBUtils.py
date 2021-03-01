@@ -32,7 +32,15 @@ def biopdb_aligned_chain(pdb_fixed, pdb_moving, chain_id_moving):
 
 
 def biopdb_superimposer(atoms_fixed, atoms_moving):
+    """
 
+    Args:
+        atoms_fixed:
+        atoms_moving:
+
+    Returns:
+        (tuple[float, numpy.ndarray, numpy.ndarray])
+    """
     biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
                          for atom in atoms_fixed]
