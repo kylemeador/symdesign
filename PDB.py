@@ -152,7 +152,7 @@ class PDB(Structure):
     def readfile(self, filepath, remove_alt_location=True, **kwargs):
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
-        formatted_filename = os.path.splitext(os.path.basename(filepath))[0].rstrip('pdb').lstrip('pdb')
+        formatted_filename = os.path.splitext(os.path.basename(filepath))[0].replace('pdb', '')
         underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
         self.name = formatted_filename[:underscore_idx]
 
@@ -1337,11 +1337,8 @@ class PDB(Structure):
 
     def retrieve_pdb_info_from_api(self, pdb_code=None):  # Todo doesn't really need pdb_code currently. When would it?
         if not pdb_code:
-            # if self.name:
             pdb_code = self.name
-            # else:
-            #     print('No PDB code associated with file! Cannot retrieve Entity information from PDB API')
-            #     return None
+
         if len(pdb_code) == 4:
             if not self.api_entry:
                 self.api_entry = get_pdb_info_by_entry(pdb_code)
