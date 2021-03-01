@@ -133,7 +133,7 @@ class OptimalTx:
             return shift.T  # , error
             # return shift[:, 0]  # , error
         else:
-            return False
+            return None
 
         # return shift[:, 0]  # , error  # (shift, error_zvalue)
         # self.optimal_tx = shift[:, 0]  # (shift, error_zvalue)
