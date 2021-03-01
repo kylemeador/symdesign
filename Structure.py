@@ -256,7 +256,7 @@ class Structure:  # (Coords):
             return self.atoms
 
     def set_atoms(self, atom_list):
-        """Set the Structure atoms to Atoms in atom_list"""
+        """Set the Structure atoms to Atoms in atom_list and creates Residue objects"""
         self.atoms = atom_list
         # self.renumber_atoms()
         # self.reindex_atoms()

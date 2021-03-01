@@ -33,24 +33,21 @@ class PDB(Structure):
         if not log:
             log = start_log()
         super().__init__(log=log, **kwargs)  #
-        self.log.debug('Initializing PDB')
-        # if log:  # from Super Structure
-        #     self.log = log
-        # else:
-        #     self.log = start_log()
-
-        # self.accession_entity_map = {}
         # self.atoms = []  # captured from Structure
+        # self.center_of_mass = None  # captured from Structure
+        # self.coords = []  # captured from Structure
+        # self.name = None  # captured from Structure
+        # self.residues = []  # captured from Structure
+        # self.secondary_structure = None  # captured from Structure
+
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
         self.bb_coords = []
         self.cb_coords = []
-        # self.center_of_mass = None  # captured from Structure
         self.chain_id_list = []  # unique chain IDs in PDB Todo refactor
         self.chains = []
-        # self.coords = []  # captured from Structure
         self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.cryst_record = None
         self.dbref = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
@@ -58,16 +55,11 @@ class PDB(Structure):
         self.entities = []
         self.entity_d = {}  # {1: {'chains': [Chain objs], 'seq': 'GHIPLF...', 'representative': 'A'}
         # ^ ZERO-indexed for recap project!!!
-        # self.entity_accession_map = {}
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.header = []
-        # self.name = None  # captured from Structure
-        self.profile = {}
         self.reference_aa = None
         self.resolution = None
-        # self.residues = []  # captured from Structure
         self.rotation_d = {}
-        # self.secondary_structure = None  # captured from Structure
         self.reference_sequence = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         self.space_group = None
         self.uc_dimensions = []
@@ -77,7 +69,7 @@ class PDB(Structure):
         if file:
             self.readfile(file, entities=entities, lazy=lazy)
         if atoms:
-            self.set_atoms(atoms)  # sets all atoms and residues in PDB
+            self.set_atoms(atoms)
             self.chain_id_list = remove_duplicates([residue.chain for residue in self.residues])
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
