@@ -684,6 +684,43 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             log_file.write("DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\nOutput Directory: %s\n\n"
                            % (pdb1_name, pdb2_name, pdb1_path, pdb2_path, outdir))
 
+    # Get PDB2 Symmetric Building Block
+    pdb2 = PDB.from_file(pdb2_path)
+    surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
+
+    # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
+    if not resume:
+        with open(log_file_path, "a+") as log_file:
+            log_file.write("Getting Oligomer 2 Surface Fragments Using COMPLETE Fragment Database")
+        if keep_time:
+            get_complete_surf_frags_time_start = time.time()
+
+    complete_surf_frag_list = []
+    for frag2 in surf_frags_2:
+        monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
+        # monofrag2_guide_coords = monofrag2.get_guide_coords()
+        # if monofrag2_guide_coords:
+        if monofrag2.get_i_type():
+            complete_surf_frag_list.append(monofrag2)
+
+    # calculate the initial match type by finding the predominant surface type
+    frag_types2 = [monofrag2.get_i_type() for monofrag2 in complete_surf_frag_list]
+    fragment_content2 = [frag_types2.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
+    print('Found oligomer 2 fragment content: %s' % fragment_content2)
+    initial_type2 = str(np.argmax(fragment_content2) + 1)
+    print('Found fragment initial type oligomer 2: %s' % initial_type2)
+    surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
+    surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
+
+    surf_frag_np = np.array(surf_frag_list)
+    complete_surf_frag_np = np.array(complete_surf_frag_list)
+
+    if not resume and keep_time:
+        get_complete_surf_frags_time_stop = time.time()
+        get_complete_surf_frags_time = get_complete_surf_frags_time_stop - get_complete_surf_frags_time_start
+        with open(log_file_path, "a+") as log_file:
+            log_file.write(" (took: %s s)\n\n" % str(get_complete_surf_frags_time))
+
     # Get PDB1 Symmetric Building Block
     pdb1 = PDB.from_file(pdb1_path)
     surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
@@ -707,10 +744,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # calculate the initial match type by finding the predominant surface type
     frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
     fragment_content1 = [frag_types1.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
-    # print('Found fragment content: %s' % fragment_content1)
+    print('Found fragment content: %s' % fragment_content1)
     initial_type1 = str(np.argmax(fragment_content1) + 1)
-    # print('Found initial fragment type oligomer 1: %s' % initial_type1)
-    ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_i_type() == initial_type1]
+    print('Found initial fragment type oligomer 1: %s' % initial_type1)
+    ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_j_type() == initial_type2]
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
     ghost_frag_np = np.array(ghost_frags)
@@ -721,43 +758,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         get_complete_ghost_frags_time = get_complete_ghost_frags_time_stop - get_complete_ghost_frags_time_start
         with open(log_file_path, "a+") as log_file:
             log_file.write(" (took: %s s)\n" % str(get_complete_ghost_frags_time))
-
-    # Get PDB2 Symmetric Building Block
-    pdb2 = PDB.from_file(pdb2_path)
-    surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
-
-    # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
-    if not resume:
-        with open(log_file_path, "a+") as log_file:
-            log_file.write("Getting Oligomer 2 Surface Fragments Using COMPLETE Fragment Database")
-        if keep_time:
-            get_complete_surf_frags_time_start = time.time()
-
-    complete_surf_frag_list = []
-    for frag2 in surf_frags_2:
-        monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
-        # monofrag2_guide_coords = monofrag2.get_guide_coords()
-        # if monofrag2_guide_coords:
-        if monofrag2.get_i_type():
-            complete_surf_frag_list.append(monofrag2)
-
-    # calculate the initial match type by finding the predominant surface type
-    frag_types2 = [monofrag2.get_i_type() for monofrag2 in complete_surf_frag_list]
-    fragment_content2 = [frag_types2.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
-    # print('Found oligomer 2 fragment content: %s' % fragment_content2)
-    initial_type2 = str(np.argmax(fragment_content2) + 1)
-    # print('Found fragment initial type oligomer 2: %s' % initial_type2)
-    surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
-    surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
-
-    surf_frag_np = np.array(surf_frag_list)
-    complete_surf_frag_np = np.array(complete_surf_frag_list)
-
-    if not resume and keep_time:
-        get_complete_surf_frags_time_stop = time.time()
-        get_complete_surf_frags_time = get_complete_surf_frags_time_stop - get_complete_surf_frags_time_start
-        with open(log_file_path, "a+") as log_file:
-            log_file.write(" (took: %s s)\n\n" % str(get_complete_surf_frags_time))
 
     # After this, the entire fragment database is unnecessary. De-referencing from memory
     # del ijk_monofrag_cluster_rep_pdb_dict, init_monofrag_cluster_rep_pdb_dict_1, init_monofrag_cluster_rep_pdb_dict_2
@@ -1071,19 +1071,23 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         # Filter all overlapping arrays by matching ij type. This wouldn't increase speed much by
                         # putting before check_euler_table as the all to all is a hash operation
                         for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array):
-                            if idx < 30:
-                                print(ghost_frag_idx, overlapping_surf_frag_array[idx])
-                                print(ghost_frags[ghost_frag_idx].rmsd, surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
-                                print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
-                                print('\n\n')
+                            # if idx < 30:
+                            #     print(ghost_frag_idx, overlapping_surf_frag_array[idx])
+                            #     print(ghost_frags[ghost_frag_idx].rmsd, surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
+                            #     print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
+                            #     print('\n\n')
                             if ghost_frags[ghost_frag_idx].get_j_type() == surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type():
-                                dummy = True
-                            else:
-                                dummy = False
+                                print(idx)
+                            # else:
+                            #     dummy = False
                         ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
                                          surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
                                          for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
                         print('ij_type_match: %s' % ij_type_match[:5])
+                        if not any(ij_type_match):
+                            print('No overlapping ij fragments pairs, starting next sampling')
+                            continue
+
                         passing_ghost_indices = np.array([ghost_idx
                                                           for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
                                                           if ij_type_match[idx]])
