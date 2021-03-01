@@ -20,7 +20,6 @@ class OptimalTx:
         # self.is_zshift2 = is_zshift2  # Whether or not the space has internal translational DOF
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
-        print('self.dof: %s' % self.dof)
         self.zshift1 = zshift1  # internal translational DOF1
         self.zshift2 = zshift2  # internal translational DOF2
         self.dof9 = None

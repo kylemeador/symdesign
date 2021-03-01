@@ -632,15 +632,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     if sym_entry.is_internal_tx1():
         zshift1 = set_mat1[:, 2:3].T  # must be 2d array
-        # zshift1 = set_mat1[2, :]
-        print('shift1: %s' % zshift1)
     else:
         zshift1 = None
 
     if sym_entry.is_internal_tx2():
         zshift2 = set_mat2[:, 2:3].T  # must be 2d array
-        # zshift2 = set_mat2[2, :]
-        print('shift2: %s' % zshift2)
     else:
         zshift2 = None
 
