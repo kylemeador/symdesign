@@ -16,26 +16,22 @@ class OptimalTx:
         else:
             self.setting2 = np.array([])
 
-        # self.is_zshift1 = is_zshift1  # Whether or not the space has internal translational DOF
-        # self.is_zshift2 = is_zshift2  # Whether or not the space has internal translational DOF
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
         self.zshift1 = zshift1  # internal translational DOF1
         self.zshift2 = zshift2  # internal translational DOF2
         self.dof9 = None
+        self.dof_t = None
 
         # add internal z-shift degrees of freedom to 9-dim arrays if they exist
         self.n_dof_internal = 0
         if self.zshift1 is not None:
             self.dof = np.append(self.dof, -self.zshift1, axis=0)
             self.n_dof_internal += 1
-            # self.dof = np.append(self.dof, -self.setting1[:, 2:3].T, axis=0)
-            # self.dof_ext = np.append(self.dof_ext, -self.setting1[:, 2:3].T, axis=0)
         if self.zshift2 is not None:
             self.dof = np.append(self.dof, self.zshift2, axis=0)
             self.n_dof_internal += 1
-            # self.dof = np.append(self.dof, self.setting2[:, 2:3].T, axis=0)
-            # self.dof_ext = np.append(self.dof_ext, self.setting2[:, 2:3].T, axis=0)
+
         self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
         self.n_dof = self.dof.shape[0]
         if self.n_dof > 0:
@@ -71,6 +67,7 @@ class OptimalTx:
         for i in range(self.n_dof):
             self.dof9[i] = (np.array(number_of_coordinates * [self.dof[i]])).flatten()
             # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
+        self.dof_t = self.dof9
         self.dof9 = np.transpose(self.dof9)
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference, max_z_value=1.0):
@@ -105,18 +102,18 @@ class OptimalTx:
 
         # Use degrees of freedom 9-dim array
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
-        dof_t = np.transpose(self.dof9)  # degree of freedom transpose (row major: n_dof_ext x 9)
+        # self.dof_t transpose (row major: n_dof_ext x 9)
 
         # solve the problem
         # print('dof: %s' % self.dof)
         # print('9: %s' % self.dof9)
         # print('var_inv_tot: %s' % var_tot_inv)
         dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance x degree of freedom = (9 x n_dof)
-        vtdinvv = np.matmul(dof_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
+        vtdinvv = np.matmul(self.dof_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
         vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
 
         dinvdelta = np.matmul(var_tot_inv, guide_delta)  # 1/variance (9 x 9) x guide atom diff (9 x 1) = (9 x 1)
-        vtdinvdelta = np.matmul(dof_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
+        vtdinvdelta = np.matmul(self.dof_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
 
         shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
 
@@ -127,17 +124,10 @@ class OptimalTx:
         error = sqrt(np.matmul(resid_t, resid) / float(3.0)) / coords_rmsd_reference  # NEW. Is float(3.0) a scale?
         # sqrt(variance / 3) / cluster_rmsd # old error
 
-        # etmp = np.matmul(var_tot_inv, resid)  # need to comment out, old error
-        # error = np.matmul(residT, etmp)  # need to comment out, old error
         if error <= max_z_value:
-            return shift.T  # , error
-            # return shift[:, 0]  # , error
+            return shift[:, 0]  # , error
         else:
             return None
-
-        # return shift[:, 0]  # , error  # (shift, error_zvalue)
-        # self.optimal_tx = shift[:, 0]  # (shift, error_zvalue)
-        # self.error_zvalue = error
 
     @staticmethod
     def mat_vec_mul3(a, b):  # UNUSED
