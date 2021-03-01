@@ -1073,7 +1073,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array):
                             if idx < 30:
                                 print(ghost_frag_idx, overlapping_surf_frag_array[idx])
-                                print(ghost_frags[ghost_frag_idx].rmsd(), surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
+                                print(ghost_frags[ghost_frag_idx].rmsd, surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
                                 print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
                                 print('\n\n')
                             if ghost_frags[ghost_frag_idx].get_j_type() == surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type():
