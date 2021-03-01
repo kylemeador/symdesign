@@ -1197,12 +1197,12 @@ class PDB(Structure):
 
         return surface_atoms
 
-    def get_surface_residue_info(self, probe_radius=2.2, sasa_thresh=0):
+    def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
         sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
 
-        # return sasa_res  # Todo
-        return list(zip(sasa_chain, sasa_res))  # for use with chains in PDB numbering
+        return sasa_res  # Todo
+        # return list(zip(sasa_chain, sasa_res))  # for use with chains in PDB numbering, currently using Pose numbering
 
     def get_surface_area_residues(self, residue_numbers, probe_radius=2.2):
         """CURRENTLY UNUSEABLE Must be run when the PDB is in Pose numbering, chain data is not connected"""
@@ -1215,8 +1215,10 @@ class PDB(Structure):
         return total_sasa
 
     def get_surface_fragments(self):
+        """Using Sasa, return the 5 residue surface fragments for each surface residue on each chain"""
         surface_frags = []
-        for (chain, res_num) in self.get_surface_residue_info():
+        # for (chain, res_num) in self.get_surface_residues():
+        for res_num in self.get_surface_residues():
             frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
             ca_count = 0
 
@@ -1224,9 +1226,9 @@ class PDB(Structure):
             # for atom in pdb.chain(chain):
             # frag_atoms = pdb.chain(chain).get_residue_atoms(numbers=frag_res_nums, pdb=True)  # Todo
             frag_atoms = []
-            for atom in self.chain(chain).get_atoms():
-                # if atom.residue_number in frag_res_nums:  # TODO
-                if atom.pdb_residue_number in frag_res_nums:
+            for atom in self.get_residue_atoms(numbers=frag_res_nums):
+                # if atom.pdb_residue_number in frag_res_nums:
+                if atom.residue_number in frag_res_nums:
                     frag_atoms.append(atom)
                     if atom.is_CA():
                         ca_count += 1

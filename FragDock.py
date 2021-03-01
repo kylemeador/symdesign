@@ -686,8 +686,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Get PDB1 Symmetric Building Block
     pdb1 = PDB.from_file(pdb1_path)
-    surf_frags_1 = pdb1.get_surface_fragments()
-    # surf_frags_1 = PDB.get_fragments(residue_numbers=None)  # Todo future implementation
+    surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
     oligomer1_backbone_tree = BallTree(pdb1.get_backbone_and_cb_coords())
 
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
@@ -725,7 +724,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Get PDB2 Symmetric Building Block
     pdb2 = PDB.from_file(pdb2_path)
-    surf_frags_2 = pdb2.get_surface_fragments()
+    surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
 
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
