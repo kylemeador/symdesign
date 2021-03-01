@@ -456,7 +456,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 # KM TODO ijk_intfrag_cluster_info_dict contains all info in init_intfrag_cluster_info_dict. init info could be deleted,
 #     This doesn't take up much extra memory, but makes future maintanence bad, for porting frags to fragDB say...
 def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_step_deg_pdb2, master_outdir,
-              output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, keep_time=True,
+              output_exp_assembly, output_uc, output_surrounding_uc, min_matched, keep_time=True,
               main_log=False):
 
     # Fragment Database Directory Paths
@@ -1135,7 +1135,7 @@ if __name__ == '__main__':
     if len(cmd_line_in_params) > 1:
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_exp_assembly, \
-            output_uc, output_surrounding_uc, min_matched, init_match_type, timer, initial = \
+            output_uc, output_surrounding_uc, min_matched, timer, initial = \
             get_docking_parameters(cmd_line_in_params)
 
         # Master Log File
@@ -1155,7 +1155,7 @@ if __name__ == '__main__':
 
         try:
             nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir,
-                      output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type,
+                      output_exp_assembly, output_uc, output_surrounding_uc, min_matched,
                       keep_time=timer, main_log=initial)
 
         except KeyboardInterrupt:
