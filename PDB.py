@@ -20,6 +20,7 @@ from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Stride import Stride
 from Structure import Structure, Chain, Atom, Coords, Entity
 from SymDesignUtils import remove_duplicates, start_log  # logger
+from utils.SymmUtils import valid_subunit_number
 
 logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
 
@@ -886,10 +887,10 @@ class PDB(Structure):
     #         return None
 
     def orient(self, sym=None, out_dir=os.getcwd(), generate_oriented_pdb=False):
-        """Orient a symmetric PDB at the origin with it's symmetry axis cannonically set on axis defined by symmetry
+        """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axis defined by symmetry
         file"""
-        valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10,
-                                "D6": 12, "I": 60, "O": 24, "T": 12}
+        # valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10,
+        #                         "D6": 12, "I": 60, "O": 24, "T": 12}
         orient_log = os.path.join(out_dir, orient_log_file)
 
         pdb_file_name = os.path.basename(self.filepath)
