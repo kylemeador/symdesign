@@ -78,8 +78,8 @@ def get_docking_parameters(arg_list):
     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
 
     valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
-                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-init_match_type",
-                   '-no_time', '-initial']  # "-cores", '-resume'
+                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly",
+                   '-no_time', '-initial']  # "-cores", '-resume', "-init_match_type"
 
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
@@ -251,7 +251,7 @@ def get_docking_parameters(arg_list):
         initial = False
 
     return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_exp_assembly, \
-           output_uc, output_surrounding_uc, min_matched, init_match_type, keep_time, initial  #  cores, resume
+        output_uc, output_surrounding_uc, min_matched, keep_time, initial  # init_match_type, cores, resume
 
 
 def postprocess_mode(arg_list):

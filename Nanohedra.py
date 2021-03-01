@@ -22,7 +22,7 @@ def main():
 
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, cores, \
-            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, init_match_type, timer = \
+            output_exp_assembly, output_uc, output_surrounding_uc, min_matched, timer = \
             get_docking_parameters(cmd_line_in_params)
 
         # Master Log File
