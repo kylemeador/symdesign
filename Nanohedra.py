@@ -8,7 +8,6 @@ from classes.SymEntry import *
 from utils.CmdLineArgParseUtils import *
 from utils.ExpandAssemblyUtils import *
 from utils.NanohedraManualUtils import *
-from classes.SymEntry import get_degeneracy_matrices
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
@@ -346,24 +345,24 @@ def main():
                 master_log_file.write("Searching For Possible Degeneracies" + "\n")
                 # degeneracy_matrices_1 = get_degeneracy_matrices(oligomer_symmetry_1, design_symmetry_pg)
                 # degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_2, design_symmetry_pg)
-                degeneracy_matrices_1, degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_1,
-                                                                                       oligomer_symmetry_2,
-                                                                                       design_dim,
-                                                                                       design_symmetry_pg)
-                if degeneracy_matrices_1 is None:
-                    master_log_file.write("No Degeneracies Found for Oligomer 1" + "\n")
-                elif len(degeneracy_matrices_1) == 1:
-                    master_log_file.write("1 Degeneracy Found for Oligomer 1" + "\n")
+                # degeneracy_matrices_1, degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_1,
+                #                                                                        oligomer_symmetry_2,
+                #                                                                        design_dim,
+                #                                                                        design_symmetry_pg)
+                # degeneracy_matrices_1, degeneracy_matrices_2 = sym_entry.get_degeneracy_matrices()
+                if sym_entry.degeneracy_matrices_1 is None:
+                    master_log_file.write("No Degeneracies Found for Oligomer 1\n")
+                elif len(sym_entry.degeneracy_matrices_1) == 1:
+                    master_log_file.write("1 Degeneracy Found for Oligomer 1\n")
                 else:
-                    master_log_file.write("%s Degeneracies Found for Oligomer 1" % str(len(degeneracy_matrices_1)) +
-                                          "\n")
+                    master_log_file.write("%d Degeneracies Found for Oligomer 1\n" % len(sym_entry.degeneracy_matrices_1))
 
-                if degeneracy_matrices_2 is None:
+                if sym_entry.degeneracy_matrices_2 is None:
                     master_log_file.write("No Degeneracies Found for Oligomer 2\n\n")
-                elif len(degeneracy_matrices_2) == 1:
+                elif len(sym_entry.degeneracy_matrices_2) == 1:
                     master_log_file.write("1 Degeneracy Found for Oligomer 2\n\n")
                 else:
-                    master_log_file.write("%s Degeneracies Found for Oligomer 2\n\n" % str(len(degeneracy_matrices_2)))
+                    master_log_file.write("%d Degeneracies Found for Oligomer 2\n\n" % len(sym_entry.degeneracy_matrices_2))
 
                 master_log_file.write("Retrieving Database of Complete Interface Fragment Cluster Representatives\n")
                 # Create fragment database for all ijk cluster representatives

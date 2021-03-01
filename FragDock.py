@@ -9,8 +9,7 @@ from classes.EulerLookup import EulerLookup
 from classes.Fragment import *
 from classes.OptimalTx import *
 from classes.SymEntry import *
-from classes.SymEntry import get_degeneracy_matrices, get_optimal_external_tx_vector, get_rot_matrices, \
-    get_degen_rotmatrices
+from classes.SymEntry import get_optimal_external_tx_vector, get_rot_matrices, get_degen_rotmatrices
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from interface_analysis.Database import FragmentDB
 from utils.CmdLineArgParseUtils import *
@@ -486,10 +485,6 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     # Default Fragment Guide Atom Overlap Z-Value Threshold For All Subsequent Matches
     subseq_max_z_val = 2.0
 
-    degeneracy_matrices_1, degeneracy_matrices_2 = get_degeneracy_matrices(oligomer_symmetry_1,
-                                                                           oligomer_symmetry_2,
-                                                                           design_dim,
-                                                                           design_symmetry_pg)
     # Todo move all of this logging to logger and use a propogate=True flag to pass this info to the master log
     #  This will allow the variable unpacked above to be unpacked in the docking section
     if main_log:
@@ -563,19 +558,19 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 
             # Get Degeneracy Matrices
             master_log_file.write("Searching For Possible Degeneracies\n")
-            if degeneracy_matrices_1 is None:
+            if sym_entry.degeneracy_matrices_1 is None:
                 master_log_file.write("No Degeneracies Found for Oligomer 1\n")
-            elif len(degeneracy_matrices_1) == 1:
+            elif len(sym_entry.degeneracy_matrices_1) == 1:
                 master_log_file.write("1 Degeneracy Found for Oligomer 1\n")
             else:
-                master_log_file.write("%d Degeneracies Found for Oligomer 1\n" % len(degeneracy_matrices_1))
+                master_log_file.write("%d Degeneracies Found for Oligomer 1\n" % len(sym_entry.degeneracy_matrices_1))
 
-            if degeneracy_matrices_2 is None:
+            if sym_entry.degeneracy_matrices_2 is None:
                 master_log_file.write("No Degeneracies Found for Oligomer 2\n\n")
-            elif len(degeneracy_matrices_2) == 1:
+            elif len(sym_entry.degeneracy_matrices_2) == 1:
                 master_log_file.write("1 Degeneracy Found for Oligomer 2\n\n")
             else:
-                master_log_file.write("%s Degeneracies Found for Oligomer 2\n\n" % str(len(degeneracy_matrices_2)))
+                master_log_file.write("%s Degeneracies Found for Oligomer 2\n\n" % str(len(sym_entry.degeneracy_matrices_2)))
 
             # Get Initial Fragment Database
             master_log_file.write("Retrieving Database of Complete Interface Fragment Cluster Representatives\n")
