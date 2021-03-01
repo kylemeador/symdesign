@@ -150,9 +150,9 @@ class MonoFragment:
             return []
 
         ghost_fragments = []
-        for j_type in intfrag_cluster_rep_dict[self.type]:
-            for k_type in intfrag_cluster_rep_dict[self.type][j_type]:
-                intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
+        for j_type, j_dictionary in intfrag_cluster_rep_dict[self.type].items():
+            for k_type, intfrag in j_dictionary.items():
+                # intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
                 frag_pdb = intfrag[0]
                 frag_paired_chain = intfrag[1]
                 # # frag_mapped_chain = intfrag[1]
