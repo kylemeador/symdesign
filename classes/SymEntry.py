@@ -457,6 +457,15 @@ def get_tx_dof_ref_frame_var_vec(string_vec, var):
 
 
 def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):
+    """From the DOF and the computed shifts, return the translation vector
+
+    Args:
+        ref_frame_tx_dof:
+        optimal_ext_dof_shifts:
+
+    Returns:
+        (list[list[list]])
+    """
     ext_dof_variables = ['e', 'f', 'g']
 
     parsed_ref_tx_vec = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof)
@@ -464,8 +473,7 @@ def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):
     optimal_external_tx_vector = np.array([0.0, 0.0, 0.0])
     for idx, dof_shift in enumerate(optimal_ext_dof_shifts):
         var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_tx_vec, ext_dof_variables[idx])
-        shifted_var_vec = np.array(var_vec) * dof_shift
-        optimal_external_tx_vector += shifted_var_vec
+        optimal_external_tx_vector += np.array(var_vec) * dof_shift
 
     return optimal_external_tx_vector.tolist()
 
