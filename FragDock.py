@@ -707,9 +707,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # calculate the initial match type by finding the predominant surface type
     frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
     fragment_content1 = [frag_types1.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
-    print('Found fragment content: %s' % fragment_content1)
+    # print('Found fragment content: %s' % fragment_content1)
     initial_type1 = str(np.argmax(fragment_content1) + 1)
-    print('Found initial fragment type oligomer 1: %s' % initial_type1)
+    # print('Found initial fragment type oligomer 1: %s' % initial_type1)
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_i_type() == initial_type1]
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
@@ -734,7 +734,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             get_complete_surf_frags_time_start = time.time()
 
     complete_surf_frag_list = []
-    print('Surface_frags2: %s' % surf_frags_2[:5])
     for frag2 in surf_frags_2:
         monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
         # monofrag2_guide_coords = monofrag2.get_guide_coords()
@@ -745,9 +744,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # calculate the initial match type by finding the predominant surface type
     frag_types2 = [monofrag2.get_i_type() for monofrag2 in complete_surf_frag_list]
     fragment_content2 = [frag_types2.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
-    print('Found oligomer 2 fragment content: %s' % fragment_content2)
+    # print('Found oligomer 2 fragment content: %s' % fragment_content2)
     initial_type2 = str(np.argmax(fragment_content2) + 1)
-    print('Found fragment initial type oligomer 2: %s' % initial_type2)
+    # print('Found fragment initial type oligomer 2: %s' % initial_type2)
     surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
     surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
 
@@ -1078,13 +1077,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                 if ij_type_match[idx]]
                         passing_surf_coords = [surf_frags_2_guide_coords_rot_and_set[idx]
                                                for idx in passing_surf_indices]
-                        reference_rmsds = [ghost_frags[ghost_idx].get_rmsd()
+                        reference_rmsds = [max(ghost_frags[ghost_idx].get_rmsd(), 0.01)
                                            for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
                                            if ij_type_match[idx]]
 
                         # Todo test array based function
-                        optimal_shifts = optimal_tx.solve_optimal_shift(passing_ghost_coords, passing_surf_coords,
-                                                                        reference_rmsds, max_z_value=init_max_z_val)
+                        optimal_shifts = [optimal_tx.solve_optimal_shift(passing_ghost_coords[idx],
+                                                                         passing_surf_coords[idx],
+                                                                         reference_rmsds[idx],
+                                                                         max_z_value=init_max_z_val)
+                                          for idx in range(len(passing_ghost_coords))]
                         # optimal_shifts = filter_euler_lookup_by_zvalue(passing_ghost_coords, passing_surf_coords,
                         #                                                reference_rmsds,
                         #                                                z_value_func=optimal_tx.solve_optimal_shift,

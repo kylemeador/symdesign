@@ -98,7 +98,6 @@ class OptimalTx:
 
         # isotropic case based on simple rmsd
         # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
-        coords_rmsd_reference = max(coords_rmsd_reference, 0.01)  # Todo move outside
         diagval = 1. / (3. * coords_rmsd_reference ** 2)
         var_tot_inv = np.zeros([9, 9])
         for i in range(9):
