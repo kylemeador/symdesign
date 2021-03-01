@@ -733,7 +733,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # calculate the initial match type by finding the predominant surface type
     frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
     fragment_content1 = [frag_types1.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
-    print('Found fragment content: %s' % fragment_content1)
+    print('Found oligomer 1 fragment content: %s' % fragment_content1)
     initial_type1 = str(np.argmax(fragment_content1) + 1)
     # print('Found initial fragment type oligomer 1: %s' % initial_type1)
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_j_type() == initial_type2]
