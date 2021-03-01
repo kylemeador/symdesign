@@ -1046,6 +1046,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                            "Euler rotational space bucket\n")
 
                         # print('Set for Euler Lookup:', surf_frags_2_guide_coords_rot_and_set[:5])
+                        print('number of ghost coords: %d' % len(ghost_frag_guide_coords_rot_and_set))
 
                         overlapping_ghost_frag_array, overlapping_surf_frag_array = \
                             zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
@@ -1069,6 +1070,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
                         # Filter all overlapping arrays by matching ij type. This wouldn't increase speed much by
                         # putting before check_euler_table as the all to all is a hash operation
+                        for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array):
+                            if idx < 30:
+                                print(ghost_frag_idx, overlapping_surf_frag_array[idx])
+                                print(ghost_frags[ghost_frag_idx].rmsd(), surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
+                                print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
+                                print('\n\n')
+                            if ghost_frags[ghost_frag_idx].get_j_type() == surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type():
+                                dummy = True
+                            else:
+                                dummy = False
                         ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
                                          surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
                                          for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
