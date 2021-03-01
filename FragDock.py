@@ -465,21 +465,21 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     # SymEntry Parameters
     sym_entry = SymEntry(sym_entry_number)
 
-    oligomer_symmetry_1 = sym_entry.get_group1_sym()
-    oligomer_symmetry_2 = sym_entry.get_group2_sym()
-    design_symmetry_pg = sym_entry.get_pt_grp_sym()
+    # oligomer_symmetry_1 = sym_entry.get_group1_sym()
+    # oligomer_symmetry_2 = sym_entry.get_group2_sym()
+    # design_symmetry_pg = sym_entry.get_pt_grp_sym()
 
-    rot_range_deg_pdb1 = sym_entry.get_rot_range_deg_1()
-    rot_range_deg_pdb2 = sym_entry.get_rot_range_deg_2()
+    # rot_range_deg_pdb1 = sym_entry.get_rot_range_deg_1()
+    # rot_range_deg_pdb2 = sym_entry.get_rot_range_deg_2()
 
     set_mat1 = sym_entry.get_rot_set_mat_group1()
     set_mat2 = sym_entry.get_rot_set_mat_group2()
 
-    is_zshift1 = sym_entry.is_internal_tx1()
-    is_zshift2 = sym_entry.is_internal_tx2()
+    # is_zshift1 = sym_entry.is_internal_tx1()
+    # is_zshift2 = sym_entry.is_internal_tx2()
 
-    is_internal_rot1 = sym_entry.is_internal_rot1()
-    is_internal_rot2 = sym_entry.is_internal_rot2()
+    # is_internal_rot1 = sym_entry.is_internal_rot1()
+    # is_internal_rot2 = sym_entry.is_internal_rot2()
 
     design_dim = sym_entry.get_design_dim()
 
@@ -499,25 +499,22 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
     #  This will allow the variable unpacked above to be unpacked in the docking section
     if main_log:
         with open(master_log_filepath, "a+") as master_log_file:
-            # Default Rotation Step
-            if is_internal_rot1 and rot_step_deg_pdb1 is None:
-                rot_step_deg_pdb1 = 3  # If rotation step not provided but required, set rotation step to default
-            if is_internal_rot2 and rot_step_deg_pdb2 is None:
-                rot_step_deg_pdb2 = 3  # If rotation step not provided but required, set rotation step to default
-
-            if not is_internal_rot1 and rot_step_deg_pdb1 is not None:
+            if sym_entry.is_internal_rot1():  # if rotation step required
+                if not rot_step_deg_pdb1:
+                    rot_step_deg_pdb1 = 3  # set rotation step to default
+            else:
                 rot_step_deg_pdb1 = 1
-                master_log_file.write("Warning: Rotation Step 1 Specified Was Ignored. Oligomer 1 Does Not Have"
-                                      " Internal Rotational DOF\n\n")
-            if not is_internal_rot2 and rot_step_deg_pdb2 is not None:
+                if rot_step_deg_pdb1:
+                    master_log_file.write("Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have"
+                                          " Internal Rotational DOF\n\n")
+            if sym_entry.is_internal_rot2():  # if rotation step required
+                if not rot_step_deg_pdb2:
+                    rot_step_deg_pdb2 = 3  # set rotation step to default
+            else:
                 rot_step_deg_pdb2 = 1
-                master_log_file.write("Warning: Rotation Step 2 Specified Was Ignored. Oligomer 2 Does Not Have"
-                                      " Internal Rotational DOF\n\n")
-
-            if not is_internal_rot1 and rot_step_deg_pdb1 is None:
-                rot_step_deg_pdb1 = 1
-            if not is_internal_rot2 and rot_step_deg_pdb2 is None:
-                rot_step_deg_pdb2 = 1
+                if rot_step_deg_pdb2:
+                    master_log_file.write("Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have"
+                                          " Internal Rotational DOF\n\n")
 
             master_log_file.write("NANOHEDRA PROJECT INFORMATION\n")
             master_log_file.write("Oligomer 1 Input Directory: %s\n" % pdb1_path)
@@ -526,9 +523,9 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 
             master_log_file.write("SYMMETRY COMBINATION MATERIAL INFORMATION\n")
             master_log_file.write("Nanohedra Entry Number: %s\n" % str(sym_entry_number))
-            master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % oligomer_symmetry_1)
-            master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % oligomer_symmetry_1)
-            master_log_file.write("SCM Point Group Symmetry: %s\n" % design_symmetry_pg)
+            master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % sym_entry.get_group1_sym())
+            master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % sym_entry.get_group2_sym())
+            master_log_file.write("SCM Point Group Symmetry: %s\n" % sym_entry.get_pt_grp_sym())
 
             master_log_file.write("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))
             master_log_file.write("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
@@ -548,54 +545,48 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 
             master_log_file.write("ROTATIONAL SAMPLING INFORMATION\n")
             master_log_file.write(
-                "Oligomer 1 ROT Sampling Range: %s\n" % str(rot_range_deg_pdb1) if is_internal_rot1 else str(None))
+                "Oligomer 1 ROT Sampling Range: %s\n" % str(sym_entry.get_rot_range_deg_1())
+                if sym_entry.is_internal_rot1() else str(None))
             master_log_file.write(
-                "Oligomer 2 ROT Sampling Range: %s\n" % str(rot_range_deg_pdb2) if is_internal_rot2 else str(None))
+                "Oligomer 2 ROT Sampling Range: %s\n" % str(sym_entry.get_rot_range_deg_2())
+                if sym_entry.is_internal_rot2() else str(None))
             master_log_file.write(
-                "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg1) if is_internal_rot1 else str(None)))
+                "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg_pdb1) if sym_entry.is_internal_rot1()
+                                                        else None))
             master_log_file.write(
-                "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg_pdb2) if is_internal_rot2 else str(None)))
-
-            master_log_file.write("ROTATIONAL SAMPLING INFORMATION\n")
-            master_log_file.write(
-                "Oligomer 1 ROT Sampling Range: %s\n" % str(rot_range_deg_pdb1) if is_internal_rot1 else str(None))
-            master_log_file.write(
-                "Oligomer 2 ROT Sampling Range: %s\n" % str(rot_range_deg_pdb2) if is_internal_rot2 else str(None))
-            master_log_file.write(
-                "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg1) if is_internal_rot1 else str(None)))
-            master_log_file.write(
-                "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg_pdb2) if is_internal_rot2 else str(None)))
+                "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg_pdb2) if sym_entry.is_internal_rot2()
+                                                          else None))
 
             # Get Degeneracy Matrices
             master_log_file.write("Searching For Possible Degeneracies\n")
-            if sym_entry.degeneracy_matrices_1 is None:
+            if sym_entry.degeneracy_matrices_1:
+                num_degens = len(sym_entry.degeneracy_matrices_1)
+                master_log_file.write("%d Degenerac%s Found for Oligomer 1\n"
+                                      % (num_degens, 'ies' if num_degens > 1 else 'y'))
+            else:
                 master_log_file.write("No Degeneracies Found for Oligomer 1\n")
-            elif len(sym_entry.degeneracy_matrices_1) == 1:
-                master_log_file.write("1 Degeneracy Found for Oligomer 1\n")
-            else:
-                master_log_file.write("%d Degeneracies Found for Oligomer 1\n" % len(sym_entry.degeneracy_matrices_1))
 
-            if sym_entry.degeneracy_matrices_2 is None:
-                master_log_file.write("No Degeneracies Found for Oligomer 2\n\n")
-            elif len(sym_entry.degeneracy_matrices_2) == 1:
-                master_log_file.write("1 Degeneracy Found for Oligomer 2\n\n")
+            if sym_entry.degeneracy_matrices_2:
+                num_degens = len(sym_entry.degeneracy_matrices_2)
+                master_log_file.write("%d Degenerac%s Found for Oligomer 2\n"
+                                      % (num_degens, 'ies' if num_degens > 1 else 'y'))
             else:
-                master_log_file.write("%s Degeneracies Found for Oligomer 2\n\n" % str(len(sym_entry.degeneracy_matrices_2)))
+                master_log_file.write("No Degeneracies Found for Oligomer 2\n")
 
             # Get Initial Fragment Database
             master_log_file.write("Retrieving Database of Complete Interface Fragment Cluster Representatives\n")
-            if init_match_type == "1_2":
-                master_log_file.write("Retrieving Database of Helix-Strand Interface Fragment Cluster "
-                                      "Representatives\n\n")
-            elif init_match_type == "2_1":
-                master_log_file.write("Retrieving Database of Strand-Helix Interface Fragment Cluster "
-                                      "Representatives\n\n")
-            elif init_match_type == "2_2":
-                master_log_file.write("Retrieving Database of Strand-Strand Interface Fragment Cluster "
-                                      "Representatives\n\n")
-            else:
-                master_log_file.write("Retrieving Database of Helix-Helix Interface Fragment Cluster "
-                                      "Representatives\n\n")
+            # if init_match_type == "1_2":
+            #     master_log_file.write("Retrieving Database of Helix-Strand Interface Fragment Cluster "
+            #                           "Representatives\n\n")
+            # elif init_match_type == "2_1":
+            #     master_log_file.write("Retrieving Database of Strand-Helix Interface Fragment Cluster "
+            #                           "Representatives\n\n")
+            # elif init_match_type == "2_2":
+            #     master_log_file.write("Retrieving Database of Strand-Strand Interface Fragment Cluster "
+            #                           "Representatives\n\n")
+            # else:
+            #     master_log_file.write("Retrieving Database of Helix-Helix Interface Fragment Cluster "
+            #                           "Representatives\n\n")
 
     # Create fragment database for all ijk cluster representatives
     # Todo move to inside loop for single iteration docking
@@ -620,18 +611,18 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                    subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_exp_assembly=False,
                    output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
 
-    rot_range_deg_pdb1 = sym_entry.get_rot_range_deg_1()
-    rot_range_deg_pdb2 = sym_entry.get_rot_range_deg_2()
+    # rot_range_deg_pdb1 = sym_entry.get_rot_range_deg_1()
+    # rot_range_deg_pdb2 = sym_entry.get_rot_range_deg_2()
 
     # Oligomer 1 Has Interior Rotational Degree of Freedom True or False
-    has_int_rot_dof_1 = False
-    if rot_range_deg_pdb1 != 0:
-        has_int_rot_dof_1 = True
+    # has_int_rot_dof_1 = False
+    # if sym_entry.get_rot_range_deg_1() != 0:
+    #     has_int_rot_dof_1 = True
 
     # Oligomer 2 Has Interior Rotational Degree of Freedom True or False
-    has_int_rot_dof_2 = False
-    if rot_range_deg_pdb2 != 0:
-        has_int_rot_dof_2 = True
+    # has_int_rot_dof_2 = False
+    # if sym_entry.get_rot_range_deg_2() != 0:
+    #     has_int_rot_dof_2 = True
 
     set_mat1 = np.array(sym_entry.get_rot_set_mat_group1())
     set_mat2 = np.array(sym_entry.get_rot_set_mat_group2())
@@ -665,12 +656,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # Initialize Euler Lookup Class
     eul_lookup = EulerLookup()
 
-    # Output Directory
+    # Output Directory  # Todo DesignDirectory
     pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
     pdb2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
     outdir = os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name))
     if not os.path.exists(outdir):
         os.makedirs(outdir)
+
     #################################
     log_file_path = os.path.join(outdir, '%s_%s_log.txt' % (pdb1_name, pdb2_name))
     if os.path.exists(log_file_path):
@@ -995,144 +987,144 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                               output_exp_assembly=output_exp_assembly, output_uc=output_uc,
     #                               output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
     #         rot2_count = 0
+    #
+    # elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1) \
+    #         and (sym_entry.degeneracy_matrices_2 is not None or has_int_rot_dof_2):
+    if not resume:
+        with open(log_file_path, "a+") as log_file:
+            log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1\n")
 
-    elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1) \
-            and (sym_entry.degeneracy_matrices_2 is not None or has_int_rot_dof_2):
-        if not resume:
-            with open(log_file_path, "a+") as log_file:
-                log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1\n")
+    # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
+    rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", sym_entry.get_rot_range_deg_1())
+    degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
+    # print(degen_rot_mat_1)
+    if not resume:
+        with open(log_file_path, "a+") as log_file:
+            log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n\n")
 
-        # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
-        rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", rot_range_deg_pdb1)
-        degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
-        # print(degen_rot_mat_1)
-        if not resume:
-            with open(log_file_path, "a+") as log_file:
-                log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n\n")
+    # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
+    rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", sym_entry.get_rot_range_deg_2())
+    # This is ready to go for sampling nothing if rot_range_deg == 0
+    degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
+    # This is ready to go returning identity matrices if there is no sampling on either degen or rotation
+    optimal_tx = OptimalTx.from_dof(sym_entry.get_ext_dof(), zshift1=zshift1, zshift2=zshift2)
 
-        # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
-        rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
-        # This is ready to go for sampling nothing if rot_range_deg == 0
-        degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
-        # This is ready to go returning identity matrices if there is no sampling on either degen or rotation
-        optimal_tx = OptimalTx.from_dof(sym_entry.get_ext_dof(), zshift1=zshift1, zshift2=zshift2)
+    for degen1 in degen_rot_mat_1[degen1_count:]:
+        degen1_count += 1
+        for rot1_mat in degen1[rot1_count:]:
+            rot1_count += 1
+            # Rotate Oligomer1 Ghost Fragment Guide Coordinates using rot1_mat
+            ghost_frag_guide_coords_rot = np.matmul(ghost_frag_guide_coords, np.transpose(rot1_mat))
+            ghost_frag_guide_coords_rot_and_set = np.matmul(ghost_frag_guide_coords_rot, set_mat1_np_t)
+            for degen2 in degen_rot_mat_2[degen2_count:]:
+                degen2_count += 1
+                for rot2_mat in degen2[rot2_count:]:
+                    rot2_count += 1
+                    # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
+                    surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords, np.transpose(rot2_mat))
+                    surf_frags_2_guide_coords_rot_and_set = np.matmul(surf_frags2_guide_coords_rot, set_mat2_np_t)
 
-        for degen1 in degen_rot_mat_1[degen1_count:]:
-            degen1_count += 1
-            for rot1_mat in degen1[rot1_count:]:
-                rot1_count += 1
-                # Rotate Oligomer1 Ghost Fragment Guide Coordinates using rot1_mat
-                ghost_frag_guide_coords_rot = np.matmul(ghost_frag_guide_coords, np.transpose(rot1_mat))
-                ghost_frag_guide_coords_rot_and_set = np.matmul(ghost_frag_guide_coords_rot, set_mat1_np_t)
-                for degen2 in degen_rot_mat_2[degen2_count:]:
-                    degen2_count += 1
-                    for rot2_mat in degen2[rot2_count:]:
-                        rot2_count += 1
-                        # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
-                        surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords, np.transpose(rot2_mat))
-                        surf_frags_2_guide_coords_rot_and_set = np.matmul(surf_frags2_guide_coords_rot, set_mat2_np_t)
+                    with open(log_file_path, "a+") as log_file:
+                        log_file.write("\n***** OLIGOMER 1: Degeneracy %d Rotation %d | OLIGOMER 2: Degeneracy %d "
+                                       "Rotation %d *****\n" % (degen1_count, rot1_count, degen2_count, rot2_count))
 
-                        with open(log_file_path, "a+") as log_file:
-                            log_file.write("\n***** OLIGOMER 1: Degeneracy %d Rotation %d | OLIGOMER 2: Degeneracy %d "
-                                           "Rotation %d *****\n" % (degen1_count, rot1_count, degen2_count, rot2_count))
+                    # Get (Oligomer1 Ghost Fragment (rotated), Oligomer2 (rotated) Surface Fragment)
+                    # guide coodinate pairs in the same Euler rotational space bucket
+                    with open(log_file_path, "a+") as log_file:
+                        log_file.write("Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same "
+                                       "Euler rotational space bucket\n")
 
-                        # Get (Oligomer1 Ghost Fragment (rotated), Oligomer2 (rotated) Surface Fragment)
-                        # guide coodinate pairs in the same Euler rotational space bucket
-                        with open(log_file_path, "a+") as log_file:
-                            log_file.write("Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same "
-                                           "Euler rotational space bucket\n")
+                    # print('Set for Euler Lookup:', surf_frags_2_guide_coords_rot_and_set[:5])
+                    print('number of ghost coords pre-lookup: %d' % len(ghost_frag_guide_coords_rot_and_set))
 
-                        # print('Set for Euler Lookup:', surf_frags_2_guide_coords_rot_and_set[:5])
-                        print('number of ghost coords pre-lookup: %d' % len(ghost_frag_guide_coords_rot_and_set))
+                    overlapping_ghost_frag_array, overlapping_surf_frag_array = \
+                        zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
+                                                           surf_frags_2_guide_coords_rot_and_set))
+                    overlapping_ghost_frag_array = np.array(overlapping_ghost_frag_array)
+                    overlapping_surf_frag_array = np.array(overlapping_surf_frag_array)
+                    # print('euler overlapping ghost indices:', overlapping_ghost_frag_array[:5])
+                    # print('euler overlapping surface indices:', overlapping_surf_frag_array[:5])
+                    print('number of euler overlapping coord pairs: %d' % len(overlapping_ghost_frag_array))
 
-                        overlapping_ghost_frag_array, overlapping_surf_frag_array = \
-                            zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
-                                                               surf_frags_2_guide_coords_rot_and_set))
-                        overlapping_ghost_frag_array = np.array(overlapping_ghost_frag_array)
-                        overlapping_surf_frag_array = np.array(overlapping_surf_frag_array)
-                        # print('euler overlapping ghost indices:', overlapping_ghost_frag_array[:5])
-                        # print('euler overlapping surface indices:', overlapping_surf_frag_array[:5])
-                        print('number of euler overlapping coord pairs: %d' % len(overlapping_ghost_frag_array))
+                    # eul_lookup_true_list = eul_lookup.check_lookup_table(
+                    #     ghost_frag_guide_coords_rot_and_set,
+                    #     surf_frags_2_guide_coords_rot_and_set)
+                    # Now all are coming back true
+                    # eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
+                    #                         true_tup[2]]
 
-                        # eul_lookup_true_list = eul_lookup.check_lookup_table(
-                        #     ghost_frag_guide_coords_rot_and_set,
-                        #     surf_frags_2_guide_coords_rot_and_set)
-                        # Now all are coming back true
-                        # eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if
-                        #                         true_tup[2]]
+                    # Get optimal shift parameters for the selected (Ghost Fragment, Surface Fragment)
+                    # guide coodinate pairs
+                    with open(log_file_path, "a+") as log_file:
+                        log_file.write("Get optimal shift parameters for the selected Ghost Fragment/Surface "
+                                       "Fragment guide coordinate pairs\n")
 
-                        # Get optimal shift parameters for the selected (Ghost Fragment, Surface Fragment)
-                        # guide coodinate pairs
-                        with open(log_file_path, "a+") as log_file:
-                            log_file.write("Get optimal shift parameters for the selected Ghost Fragment/Surface "
-                                           "Fragment guide coordinate pairs\n")
+                    # Filter all overlapping arrays by matching ij type. This wouldn't increase speed much by
+                    # putting before check_euler_table as the all to all is a hash operation
+                    # for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array):
+                    #     # if idx < 30:
+                    #     #     print(ghost_frag_idx, overlapping_surf_frag_array[idx])
+                    #     #     print(ghost_frags[ghost_frag_idx].rmsd, surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
+                    #     #     print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
+                    #     #     print('\n\n')
+                    #     if ghost_frags[ghost_frag_idx].get_j_type() == surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type():
+                    #         print(idx)
+                    #     # else:
+                    #     #     dummy = False
+                    # ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
+                    #                  surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
+                    #                  for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
+                    # print('ij_type_match: %s' % ij_type_match[:5])
+                    if not any(overlapping_ghost_frag_array):
+                        print('No overlapping ij fragments pairs, starting next sampling')
+                        continue
 
-                        # Filter all overlapping arrays by matching ij type. This wouldn't increase speed much by
-                        # putting before check_euler_table as the all to all is a hash operation
-                        # for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array):
-                        #     # if idx < 30:
-                        #     #     print(ghost_frag_idx, overlapping_surf_frag_array[idx])
-                        #     #     print(ghost_frags[ghost_frag_idx].rmsd, surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
-                        #     #     print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
-                        #     #     print('\n\n')
-                        #     if ghost_frags[ghost_frag_idx].get_j_type() == surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type():
-                        #         print(idx)
-                        #     # else:
-                        #     #     dummy = False
-                        # ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
-                        #                  surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
-                        #                  for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
-                        # print('ij_type_match: %s' % ij_type_match[:5])
-                        if not any(overlapping_ghost_frag_array):
-                            print('No overlapping ij fragments pairs, starting next sampling')
-                            continue
+                    # passing_ghost_indices = np.array([ghost_idx
+                    #                                   for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                    #                                   if ij_type_match[idx]])
+                    # print('ghost indices:', passing_ghost_indices[:5])
+                    # print('number of ghost indices considered: %d' % len(overlapping_ghost_frag_array))
+                    # passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[passing_ghost_indices]
+                    passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[overlapping_ghost_frag_array]
+                    # print('ghost coords: %s' % passing_ghost_coords[:5])
+                    print('number of ghost coords considered: %d' % len(passing_ghost_coords))
+                    # passing_surf_indices = np.array([surf_idx
+                    #                                  for idx, surf_idx in enumerate(overlapping_surf_frag_array)
+                    #                                  if ij_type_match[idx]])
+                    # passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[passing_surf_indices]
+                    passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[overlapping_surf_frag_array]
+                    reference_rmsds = [max(ghost_frags[ghost_idx].get_rmsd(), 0.01)
+                                       for ghost_idx in overlapping_ghost_frag_array]
+                    #                    if ij_type_match[idx]]
+                    optimal_shifts = [optimal_tx.solve_optimal_shift(passing_ghost_coords[idx],
+                                                                     passing_surf_coords[idx],
+                                                                     reference_rmsds[idx],
+                                                                     max_z_value=init_max_z_val)
+                                      for idx in range(len(passing_ghost_coords))]
+                    print('number of optimal shifts: %d' % len(optimal_shifts))
+                    # print('optimal shifts: %s' % optimal_shifts[:5])
+                    passing_optimal_shifts = [passing_shift for passing_shift in optimal_shifts
+                                              if passing_shift is not None]
+                    print('passing optimal shifts: %s' % passing_optimal_shifts[:5])
 
-                        # passing_ghost_indices = np.array([ghost_idx
-                        #                                   for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
-                        #                                   if ij_type_match[idx]])
-                        # print('ghost indices:', passing_ghost_indices[:5])
-                        # print('number of ghost indices considered: %d' % len(overlapping_ghost_frag_array))
-                        # passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[passing_ghost_indices]
-                        passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[overlapping_ghost_frag_array]
-                        # print('ghost coords: %s' % passing_ghost_coords[:5])
-                        print('number of ghost coords considered: %d' % len(passing_ghost_coords))
-                        # passing_surf_indices = np.array([surf_idx
-                        #                                  for idx, surf_idx in enumerate(overlapping_surf_frag_array)
-                        #                                  if ij_type_match[idx]])
-                        # passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[passing_surf_indices]
-                        passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[overlapping_surf_frag_array]
-                        reference_rmsds = [max(ghost_frags[ghost_idx].get_rmsd(), 0.01)
-                                           for ghost_idx in overlapping_ghost_frag_array]
-                        #                    if ij_type_match[idx]]
-                        optimal_shifts = [optimal_tx.solve_optimal_shift(passing_ghost_coords[idx],
-                                                                         passing_surf_coords[idx],
-                                                                         reference_rmsds[idx],
-                                                                         max_z_value=init_max_z_val)
-                                          for idx in range(len(passing_ghost_coords))]
-                        print('number of optimal shifts: %d' % len(optimal_shifts))
-                        # print('optimal shifts: %s' % optimal_shifts[:5])
-                        passing_optimal_shifts = [passing_shift for passing_shift in optimal_shifts
-                                                  if passing_shift is not None]
-                        print('passing optimal shifts: %s' % passing_optimal_shifts[:5])
+                    with open(log_file_path, "a+") as log_file:
+                        log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
+                                       % (len(passing_optimal_shifts) if passing_optimal_shifts else 'No',
+                                          'es' if len(passing_optimal_shifts) != 1 else ''))
 
-                        with open(log_file_path, "a+") as log_file:
-                            log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
-                                           % (len(passing_optimal_shifts) if passing_optimal_shifts else 'No',
-                                              'es' if len(passing_optimal_shifts) != 1 else ''))
+                    degen_subdir_out_path = os.path.join(outdir, "DEGEN_%d_%d" % (degen1_count, degen2_count))
+                    rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
+                                                       (rot1_count, rot2_count))
 
-                        degen_subdir_out_path = os.path.join(outdir, "DEGEN_%d_%d" % (degen1_count, degen2_count))
-                        rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
-                                                           (rot1_count, rot2_count))
-
-                        find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
-                                          complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
-                                          degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
-                                          rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
-                                          output_exp_assembly=output_exp_assembly, output_uc=output_uc,
-                                          output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
-                    rot2_count = 0
-                degen2_count = 0
-            rot1_count = 0
+                    find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
+                                      complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
+                                      degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
+                                      rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
+                                      output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+                                      output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                rot2_count = 0
+            degen2_count = 0
+        rot1_count = 0
 
     with open(master_log_filepath, "a+") as master_log_file:
         master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
