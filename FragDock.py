@@ -1043,14 +1043,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                            "Euler rotational space bucket\n")
 
                         # print('Set for Euler Lookup:', surf_frags_2_guide_coords_rot_and_set[:5])
-                        print('number of ghost coords: %d' % len(ghost_frag_guide_coords_rot_and_set))
+                        print('number of ghost coords pre-lookup: %d' % len(ghost_frag_guide_coords_rot_and_set))
 
                         overlapping_ghost_frag_array, overlapping_surf_frag_array = \
                             zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
                                                                surf_frags_2_guide_coords_rot_and_set))
-                        print('euler overlapping ghost indices:', overlapping_ghost_frag_array[:5])
-                        print('euler overlapping surface indices:', overlapping_surf_frag_array[:5])
-                        print('number of euler overlapping ghost coords: %d' % len(overlapping_ghost_frag_array))
+                        overlapping_ghost_frag_array = np.array(overlapping_ghost_frag_array)
+                        overlapping_surf_frag_array = np.array(overlapping_surf_frag_array)
+                        # print('euler overlapping ghost indices:', overlapping_ghost_frag_array[:5])
+                        # print('euler overlapping surface indices:', overlapping_surf_frag_array[:5])
+                        print('number of euler overlapping coord pairs: %d' % len(overlapping_ghost_frag_array))
 
                         # eul_lookup_true_list = eul_lookup.check_lookup_table(
                         #     ghost_frag_guide_coords_rot_and_set,
@@ -1089,7 +1091,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         #                                   for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
                         #                                   if ij_type_match[idx]])
                         # print('ghost indices:', passing_ghost_indices[:5])
-                        print('number of ghost indices considered: %d' % len(overlapping_ghost_frag_array))
+                        # print('number of ghost indices considered: %d' % len(overlapping_ghost_frag_array))
                         # passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[passing_ghost_indices]
                         passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[overlapping_ghost_frag_array]
                         # print('ghost coords: %s' % passing_ghost_coords[:5])
