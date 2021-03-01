@@ -624,7 +624,7 @@ def get_pdb_info_by_entry(entry):
         entity_id = '%s_%d' % (entry, i)
         entity_ref_d = get_pdb_info_by_entity(entity_id)
         ref_d.update(entity_ref_d)
-        entity_chain_d[i] = entity_ref_d.keys()  # these are the chains
+        entity_chain_d[i] = list(entity_ref_d.keys())  # these are the chains
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
