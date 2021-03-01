@@ -636,13 +636,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     set_mat2_np_t = np.transpose(set_mat2)
 
     if sym_entry.is_internal_tx1():
-        zshift1 = set_mat1[2, :]
+        zshift1 = set_mat1[:, 2:3].T  # must be 2d array
+        # zshift1 = set_mat1[2, :]
         print('shift1: %s' % zshift1)
     else:
         zshift1 = None
 
     if sym_entry.is_internal_tx2():
-        zshift2 = set_mat2[2, :]
+        zshift2 = set_mat2[:, 2:3].T  # must be 2d array
+        # zshift2 = set_mat2[2, :]
         print('shift2: %s' % zshift2)
     else:
         zshift2 = None
@@ -764,8 +766,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         with open(log_file_path, "a+") as log_file:
             log_file.write('Job was run with the \'-resume\' flag. Resuming from last sampled rotational space!\n')
 
-    if (sym_entry.degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (
-            sym_entry.degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
+    if (sym_entry.degeneracy_matrices_1 is None and not has_int_rot_dof_1) \
+            and (sym_entry.degeneracy_matrices_2 is None and not has_int_rot_dof_2):
         rot1_mat = None
         rot2_mat = None
         if not resume:
@@ -825,8 +827,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                           max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                           output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
 
-    elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
-            sym_entry.degeneracy_matrices_2 is None and has_int_rot_dof_2 is False):
+    elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1) \
+            and (sym_entry.degeneracy_matrices_2 is None and not has_int_rot_dof_2):
         # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
         if not resume:
             with open(log_file_path, "a+") as log_file:
@@ -842,6 +844,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags_oligomer_2_guide_coords_list, set_mat2_np_t)
 
         optimal_tx = OptimalTx.from_dof(set_mat1, set_mat2, is_zshift1, is_zshift2, dof_ext)
+        # for degen1 in degen_rot_mat_1[degen1_count:]:
+        #     degen1_count += 1
+        #     for rot1_mat in degen1[rot1_count:]:
+        #         rot1_count += 1
         for degen1 in degen_rot_mat_1[degen1_count:]:
             degen1_count += 1
             for rot1_mat in degen1[rot1_count:]:
@@ -907,8 +913,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                   output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
             rot1_count = 0
 
-    elif (sym_entry.degeneracy_matrices_1 is None and has_int_rot_dof_1 is False) and (
-            sym_entry.degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
+    elif (sym_entry.degeneracy_matrices_1 is None and not has_int_rot_dof_1) \
+            and (sym_entry.degeneracy_matrices_2 is not None or has_int_rot_dof_2):
         # No Degeneracies/Rotation Matrices to get for Oligomer1
         rot1_mat = None
         if not resume:
@@ -990,8 +996,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                   output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
             rot2_count = 0
 
-    elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1 is True) and (
-            sym_entry.degeneracy_matrices_2 is not None or has_int_rot_dof_2 is True):
+    elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1) \
+            and (sym_entry.degeneracy_matrices_2 is not None or has_int_rot_dof_2):
         if not resume:
             with open(log_file_path, "a+") as log_file:
                 log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 1\n")
@@ -1006,7 +1012,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
         # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
         rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
+        # This is ready to go for sampling nothing if rot_range_deg == 0
         degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
+        # This is ready to go returning identity matrices if there is no sampling on either degen or rotation
         optimal_tx = OptimalTx.from_dof(sym_entry.get_ext_dof(), zshift1=zshift1, zshift2=zshift2)  # set_mat1, set_mat2,
 
         for degen1 in degen_rot_mat_1[degen1_count:]:
