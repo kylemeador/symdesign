@@ -1050,6 +1050,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         overlapping_ghost_frag_array, overlapping_surf_frag_array = \
                             zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
                                                                surf_frags_2_guide_coords_rot_and_set))
+                        print('euler overlapping ghost indices: %d' % overlapping_ghost_frag_array[:5])
+                        print('euler overlapping surface indices: %d' % overlapping_surf_frag_array[:5])
                         print('number of euler overlapping ghost coords: %d' % len(overlapping_ghost_frag_array))
 
                         # eul_lookup_true_list = eul_lookup.check_lookup_table(
@@ -1070,19 +1072,22 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
                                          surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
                                          for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
+                        print('ij_type_match: %s' % ij_type_match[:5])
                         passing_ghost_indices = np.array([ghost_idx
                                                           for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
                                                           if ij_type_match[idx]])
+                        print('ghost indices:', passing_ghost_indices[:5])
+                        print('number of ghost indices considered: %d' % len(passing_ghost_indices))
                         passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[passing_ghost_indices]
+                        print('ghost coords: %s' % passing_ghost_coords[:5])
+                        print('number of ghost coords considered: %d' % len(passing_ghost_coords))
                         passing_surf_indices = np.array([surf_idx
                                                          for idx, surf_idx in enumerate(overlapping_surf_frag_array)
                                                          if ij_type_match[idx]])
                         passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[passing_surf_indices]
                         reference_rmsds = [max(ghost_frags[ghost_idx].get_rmsd(), 0.01)
-                                           for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                                           for idx, ghost_idx in enumerate(passing_ghost_indices)
                                            if ij_type_match[idx]]
-                        print('number of ghost indices considered: %d' % len(passing_ghost_indices))
-                        print('number of ghost coords considered: %d' % len(passing_ghost_coords))
                         # Todo test array based function
                         optimal_shifts = [optimal_tx.solve_optimal_shift(passing_ghost_coords[idx],
                                                                          passing_surf_coords[idx],
