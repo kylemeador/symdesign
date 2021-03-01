@@ -125,7 +125,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=representative_int_dof_tx_param_1,
                                                  rotation2=sym_entry.get_rot_set_mat_group1(),
                                                  translation2=representative_ext_dof_tx_params_1)
-        print('Wrote PDB1')
+        print('copied PDB1')
         # pdb1_copy = rot_txint_set_txext_pdb(pdb1, rot_mat=rot_mat1,
         #                                     internal_tx_vec=representative_int_dof_tx_param_1,
         #                                     set_mat=sym_entry.get_rot_set_mat_group1(),
@@ -135,7 +135,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=representative_int_dof_tx_param_2,
                                                  rotation2=sym_entry.get_rot_set_mat_group2(),
                                                  translation2=representative_ext_dof_tx_params_2)
-        print('Wrote PDB2')
+        print('copied PDB2')
         # pdb2_copy = rot_txint_set_txext_pdb(pdb2, rot_mat=rot_mat2,
         #                                     internal_tx_vec=representative_int_dof_tx_param_2,
         #                                     set_mat=sym_entry.get_rot_set_mat_group1(),
@@ -1032,7 +1032,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     for rot2_mat in degen2[rot2_count:]:
                         rot2_count += 1
                         # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
-                        print(rot2_mat)
                         surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords, np.transpose(rot2_mat))
                         surf_frags_2_guide_coords_rot_and_set = np.matmul(surf_frags2_guide_coords_rot, set_mat2_np_t)
 
@@ -1051,6 +1050,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         overlapping_ghost_frag_array, overlapping_surf_frag_array = \
                             zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
                                                                surf_frags_2_guide_coords_rot_and_set))
+                        print('number of euler overlapping ghost coords: %d' % len(overlapping_ghost_frag_array))
+
                         # eul_lookup_true_list = eul_lookup.check_lookup_table(
                         #     ghost_frag_guide_coords_rot_and_set,
                         #     surf_frags_2_guide_coords_rot_and_set)
@@ -1069,18 +1070,19 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
                                          surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
                                          for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
-                        passing_ghost_indices = [ghost_idx for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
-                                                 if ij_type_match[idx]]
-                        passing_ghost_coords = [ghost_frag_guide_coords_rot_and_set[idx]
-                                                for idx in passing_ghost_indices]
-                        passing_surf_indices = [surf_idx for idx, surf_idx in enumerate(overlapping_surf_frag_array)
-                                                if ij_type_match[idx]]
-                        passing_surf_coords = [surf_frags_2_guide_coords_rot_and_set[idx]
-                                               for idx in passing_surf_indices]
+                        passing_ghost_indices = np.array([ghost_idx
+                                                          for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                                                          if ij_type_match[idx]])
+                        passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[passing_ghost_indices]
+                        passing_surf_indices = np.array([surf_idx
+                                                         for idx, surf_idx in enumerate(overlapping_surf_frag_array)
+                                                         if ij_type_match[idx]])
+                        passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[passing_surf_indices]
                         reference_rmsds = [max(ghost_frags[ghost_idx].get_rmsd(), 0.01)
                                            for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
                                            if ij_type_match[idx]]
-
+                        print('number of ghost indices considered: %d' % len(passing_ghost_indices))
+                        print('number of ghost coords considered: %d' % len(passing_ghost_coords))
                         # Todo test array based function
                         optimal_shifts = [optimal_tx.solve_optimal_shift(passing_ghost_coords[idx],
                                                                          passing_surf_coords[idx],
@@ -1091,8 +1093,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         #                                                reference_rmsds,
                         #                                                z_value_func=optimal_tx.solve_optimal_shift,
                         #                                                max_z_value=init_max_z_val)
+                        print('number of optimal shifts: %d' % len(passing_ghost_indices))
+                        print('optimal shifts: %s' % optimal_shifts[:5])
 
                         passing_optimal_shifts = [passing_shift for passing_shift in optimal_shifts if passing_shift]
+                        print('passing optimal shifts: %s' % passing_optimal_shifts[:5])
                         # ghostfrag_surffrag_pairs = [(ghost_frags[passing_ghost_indices[idx]],
                         #                              surf_frag_list[passing_surf_indices[idx]])
                         #                             for idx, boolean in enumerate(optimal_shifts) if boolean]
