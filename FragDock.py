@@ -66,14 +66,6 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         representative_ext_dof_tx_params_1, representative_ext_dof_tx_params_2 = None, None
         ref_frame_var_is_pos, uc_dimensions = False, None
         if optimal_ext_dof_shifts:
-            # Get Oligomer1 & Oligomer2 Optimal External Translation vector
-            representative_ext_dof_tx_params_1 = get_optimal_external_tx_vector(sym_entry.get_ref_frame_tx_dof_group1(),
-                                                                                optimal_ext_dof_shifts)
-            representative_ext_dof_tx_params_2 = get_optimal_external_tx_vector(sym_entry.get_ref_frame_tx_dof_group2(),
-                                                                                optimal_ext_dof_shifts)
-
-            # Get Unit Cell Dimensions for 2D and 3D SCMs
-            # Restrict all reference frame translation parameters to > 0 for SCMs with reference frame translational dof
             # ref_frame_tx_dof_e, ref_frame_tx_dof_f, ref_frame_tx_dof_g = 0, 0, 0
             # if len(optimal_ext_dof_shifts) == 1:
             #     ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
@@ -90,6 +82,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             #     ref_frame_tx_dof_g = optimal_ext_dof_shifts[2]
             #     if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0 and ref_frame_tx_dof_g > 0:
             #         ref_frame_var_is_pos = True
+
+            # Restrict all reference frame translation parameters to > 0 for SCMs with reference frame translational dof
             ref_frame_var_is_neg = False
             for ref_frame_tx_dof in optimal_ext_dof_shifts:
                 if ref_frame_tx_dof < 0:
@@ -113,6 +107,15 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                 continue
             else:  # not optimal_ext_dof_shifts or (optimal_ext_dof_shifts and ref_frame_var_is_pos)
                 # write uc_dimensions and dock
+                # Get Oligomer1 & Oligomer2 Optimal External Translation vector
+                representative_ext_dof_tx_params_1 = get_optimal_external_tx_vector(
+                    sym_entry.get_ref_frame_tx_dof_group1(),
+                    optimal_ext_dof_shifts)
+                representative_ext_dof_tx_params_2 = get_optimal_external_tx_vector(
+                    sym_entry.get_ref_frame_tx_dof_group2(),
+                    optimal_ext_dof_shifts)
+
+                # Get Unit Cell Dimensions for 2D and 3D SCMs
                 uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), *optimal_ext_dof_shifts)
                 # uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), ref_frame_tx_dof_e,
                 #                                   ref_frame_tx_dof_f,
@@ -732,6 +735,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             get_complete_surf_frags_time_start = time.time()
 
     complete_surf_frag_list = []
+    print('Surface_frags2: %s' % surf_frags_2[:5])
     for frag2 in surf_frags_2:
         monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
         # monofrag2_guide_coords = monofrag2.get_guide_coords()
@@ -746,9 +750,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     initial_type2 = str(np.argmax(fragment_content2) + 1)
     print('Found fragment initial type oligomer 2: %s' % initial_type2)
     surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
-    print(surf_frag_list[:5])
     surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
-    print(surf_frags2_guide_coords[:5])
 
     surf_frag_np = np.array(surf_frag_list)
     complete_surf_frag_np = np.array(complete_surf_frag_list)

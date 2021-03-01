@@ -81,22 +81,22 @@ class MonoFragment:
         self.central_res_num = central_res_num
         self.central_res_chain_id = central_res_chain_id
 
-        if pdb and monofrag_cluster_rep_dict:
+        if self.structure and monofrag_cluster_rep_dict:
             frag_ca_atoms = self.structure.get_ca_atoms()
             central_residue = frag_ca_atoms[2]  # Todo integrate this to be the main object identifier
             self.central_res_num = central_residue.residue_number
             self.central_res_chain_id = central_residue.chain
             min_rmsd = float('inf')
-            min_rmsd_cluster_rep_type = None
+            # min_rmsd_cluster_rep_type = None
             for cluster_type, cluster_rep in monofrag_cluster_rep_dict.items():
                 rmsd, rot, tx = biopdb_superimposer(frag_ca_atoms, cluster_rep.get_ca_atoms())
 
-                if rmsd <= min_rmsd and rmsd <= rmsd_thresh:
-                    min_rmsd_cluster_rep_type = cluster_type
+                if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
+                    self.type = cluster_type
                     min_rmsd, min_rot, min_tx = rmsd, rot, tx
 
-            if min_rmsd_cluster_rep_type:
-                self.type = min_rmsd_cluster_rep_type
+            if self.type:
+                # self.type = min_rmsd_cluster_rep_type
                 guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
                 # t_vec = np.array(min_tx)
                 # r_mat = np.transpose(np.array(min_rot))
