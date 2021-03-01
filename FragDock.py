@@ -135,6 +135,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=representative_int_dof_tx_param_2,
                                                  rotation2=sym_entry.get_rot_set_mat_group2(),
                                                  translation2=representative_ext_dof_tx_params_2)
+        pdb1_copy.write(out_path=os.path.join(os.path.dirname(log_filepath), 'pdb1_copy.pdb'))
+        pdb2_copy.write(out_path=os.path.join(os.path.dirname(log_filepath), 'pdb2_copy.pdb'))
         # print('copied PDB2')
         # pdb2_copy = rot_txint_set_txext_pdb(pdb2, rot_mat=rot_mat2,
         #                                     internal_tx_vec=representative_int_dof_tx_param_2,
@@ -1018,12 +1020,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
                                                            surf_frags_2_guide_coords_rot_and_set))
                     overlap_pairs = list(zip(overlapping_ghost_frags, overlapping_surf_frags))
-                    print('matching euler angle pairs', overlap_pairs)
                     overlapping_ghost_frag_array = np.array(overlapping_ghost_frags)
                     overlapping_surf_frag_array = np.array(overlapping_surf_frags)
                     # print('euler overlapping ghost indices:', overlapping_ghost_frag_array[:5])
                     # print('euler overlapping surface indices:', overlapping_surf_frag_array[:5])
-                    print('number of euler overlapping coord pairs: %d' % len(overlapping_ghost_frag_array))
+                    print('number of matching euler angle pairs: %d' % len(overlapping_ghost_frag_array))
+                    print('matching euler angle pairs', overlap_pairs)
 
                     # eul_lookup_true_list = eul_lookup.check_lookup_table(
                     #     ghost_frag_guide_coords_rot_and_set,
@@ -1080,7 +1082,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                                      reference_rmsds[idx],
                                                                      max_z_value=init_max_z_val)
                                       for idx in range(len(passing_ghost_coords))]
-                    print('Number of optimal shifts: %d' % len(optimal_shifts))
+                    # print('Number of optimal shifts: %d' % len(optimal_shifts))
                     # print('optimal shifts: %s' % optimal_shifts[:5])
                     passing_optimal_shifts = [passing_shift for passing_shift in optimal_shifts
                                               if passing_shift is not None]
@@ -1090,6 +1092,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                   if passing_shift is not None]
                     passing_fragment_pairs = [overlap_pairs[idx] for idx in passing_optimal_shifts_idx]
                     print('passing fragment pairs: %s' % passing_fragment_pairs)
+                    central_res_tuples = [ghost_frags[ghost_idx].get_central_res_tup()
+                                          for ghost_idx, surf_idx in passing_fragment_pairs]
+                    print('passing ghost fragment residue/chain: %s' % central_res_tuples)
 
                     with open(log_file_path, "a+") as log_file:
                         log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
