@@ -26,16 +26,18 @@ class OptimalTx:
         self.dof9 = None
 
         # add internal z-shift degrees of freedom to 9-dim arrays if they exist
+        self.n_dof_internal = 0
         if self.zshift1 is not None:
             self.dof = np.append(self.dof, -self.zshift1, axis=0)
+            self.n_dof_internal += 1
             # self.dof = np.append(self.dof, -self.setting1[:, 2:3].T, axis=0)
             # self.dof_ext = np.append(self.dof_ext, -self.setting1[:, 2:3].T, axis=0)
         if self.zshift2 is not None:
             self.dof = np.append(self.dof, self.zshift2, axis=0)
+            self.n_dof_internal += 1
             # self.dof = np.append(self.dof, self.setting2[:, 2:3].T, axis=0)
             # self.dof_ext = np.append(self.dof_ext, self.setting2[:, 2:3].T, axis=0)
         self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
-        self.n_dof_internal = 2 - [self.zshift1, self.zshift2].count(None)
         self.n_dof = self.dof.shape[0]
         if self.n_dof > 0:
             self.dof_convert9()
