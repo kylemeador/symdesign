@@ -9,15 +9,14 @@ from classes.EulerLookup import EulerLookup
 from classes.Fragment import *
 from classes.OptimalTx import *
 from classes.SymEntry import *
+from classes.SymEntry import get_degeneracy_matrices, get_optimal_external_tx_vector, get_rot_matrices, \
+    get_degen_rotmatrices
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from interface_analysis.Database import FragmentDB
 from utils.CmdLineArgParseUtils import *
 from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
-# from utils.ExpandAssemblyUtils import *
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info
 from utils.PDBUtils import *
-# from utils.SamplingUtils import get_degeneracy_matrices
-from utils.SamplingUtils import *
 from utils.SymmUtils import get_uc_dimensions
 
 
@@ -47,8 +46,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # tx_parameters = optimal_tx_params[tx_idx]
 
         # Get Optimal External DOF shifts
-        n_dof_external = len(get_ext_dof(sym_entry.get_ref_frame_tx_dof_group1(),
-                                         sym_entry.get_ref_frame_tx_dof_group2()))  # returns 0 - 3
+        n_dof_external = len(sym_entry.get_ext_dof())  # returns 0 - 3
         optimal_ext_dof_shifts = None
         if n_dof_external > 0:
             optimal_ext_dof_shifts = tx_parameters[0:n_dof_external]
@@ -639,11 +637,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     if sym_entry.is_internal_tx1():
         zshift1 = set_mat1[2, :]
+        print('shift1: %s' % zshift1)
     else:
         zshift1 = None
 
     if sym_entry.is_internal_tx2():
         zshift2 = set_mat2[2, :]
+        print('shift2: %s' % zshift2)
     else:
         zshift2 = None
 
@@ -654,7 +654,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # if parsed_ref_frame_tx_dof1 == ['0', '0', '0'] and parsed_ref_frame_tx_dof2 == ['0', '0', '0']:
     #     dof_ext = np.empty((0, 3), float)
     # else:
-    dof_ext = get_ext_dof(sym_entry.get_ref_frame_tx_dof_group1(), sym_entry.get_ref_frame_tx_dof_group2())
+    # dof_ext = get_ext_dof(sym_entry.get_ref_frame_tx_dof_group1(), sym_entry.get_ref_frame_tx_dof_group2())
 
     # result_design_sym = sym_entry.get_result_design_sym()
     # uc_spec_string = sym_entry.get_uc_spec_string()
@@ -1007,7 +1007,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
         rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", rot_range_deg_pdb2)
         degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
-        optimal_tx = OptimalTx.from_dof(dof_ext, zshift1=zshift1, zshift2=zshift2)  # set_mat1, set_mat2,
+        optimal_tx = OptimalTx.from_dof(sym_entry.get_ext_dof(), zshift1=zshift1, zshift2=zshift2)  # set_mat1, set_mat2,
 
         for degen1 in degen_rot_mat_1[degen1_count:]:
             degen1_count += 1

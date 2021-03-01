@@ -4,8 +4,8 @@ import numpy as np
 
 
 class OptimalTx:
-    def __init__(self, zshift1=None, zshift2=None, dof_ext=None, tx_params=None, error=None, setting1=None,
-                 setting2=None):  # this was before dor_ext -> cluster_rmsd, guide_atom_coords1, guide_atom_coords2
+    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, tx_params=None, error=None, setting1=None,
+                 setting2=None):  # this was before dof_ext -> cluster_rmsd, guide_atom_coords1, guide_atom_coords2
         if setting1:
             self.setting1 = np.array(setting1)
         else:
@@ -20,6 +20,7 @@ class OptimalTx:
         # self.is_zshift2 = is_zshift2  # Whether or not the space has internal translational DOF
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
+        print('self.dof: %s' % self.dof)
         self.zshift1 = zshift1  # internal translational DOF1
         self.zshift2 = zshift2  # internal translational DOF2
         self.dof9 = None
@@ -56,7 +57,7 @@ class OptimalTx:
             self.error_zvalue = float('inf')
 
     @classmethod
-    def from_dof(cls, dof_ext, zshift1=None, zshift2=None):  # setting1, setting2,
+    def from_dof(cls, dof_ext=None, zshift1=None, zshift2=None):  # setting1, setting2,
         return cls(dof_ext=dof_ext, zshift1=zshift1, zshift2=zshift2)  # setting1=setting1 setting2=setting2
 
     @classmethod
