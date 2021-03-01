@@ -159,7 +159,8 @@ class PDB(Structure):
         with open(self.filepath, 'r') as f:
             pdb_lines = f.readlines()
             pdb_lines = list(map(str.rstrip, pdb_lines))
-        available_chain_ids = [sec + first for sec in [''] + [PDB.available_letters] for first in PDB.available_letters]
+        available_chain_ids = [second + first for second in [''] + [i for i in PDB.available_letters]
+                               for first in PDB.available_letters]
         chain_ids = []
         seq_res_lines = []
         multimodel, start_of_new_model = False, False
@@ -782,32 +783,38 @@ class PDB(Structure):
     #
     #     return atoms
 
-    def create_chains(self, solve_discrepancy=True):  # Todo fix the discrepancy to not modify chain names if possible
+    def create_chains(self, solve_discrepancy=True):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues"""
         if solve_discrepancy:
             chain_idx = 0
-            chain_id = PDB.available_letters[chain_idx]
-            chain_residues = {chain_id: [self.residues[0]]}
+            # chain_residues = {chain_id: [self.residues[0]]}
+            chain_residues = {chain_idx: [self.residues[0]]}
             # previous_chain = self.residues[0].chain
             for idx, residue in enumerate(self.residues[1:], 1):  # start at the second index to avoid off by one
                 if residue.number_pdb < self.residues[idx - 1].number_pdb \
                         or residue.chain != self.residues[idx - 1].chain:
                     # Decreased number should only happen with new chain therefore this SHOULD satisfy a malformed PDB
                     chain_idx += 1
-                    # if residue.chain == previous_chain:  # residue[idx - 1].chain:
-                    chain_id = PDB.available_letters[chain_idx]  # get a new chain id
-                    # else:
-                    #     chain = residue.chain
-                    chain_residues[chain_id] = [residue]
+                    # # if residue.chain == previous_chain:  # residue[idx - 1].chain:
+                    # chain_id = PDB.available_letters[chain_idx]  # get a new chain id
+                    # # else:
+                    # #     chain = residue.chain
+                    chain_residues[chain_idx] = [residue]
+                    # chain_residues[chain_id] = [residue]
                 else:
-                    chain_residues[chain_id].append(residue)
-
-            for idx, (chain_id, residues) in enumerate(chain_residues.items()):
-                # for residue in residues:
-                #     residue.set_atoms_attributes(chain=chain_id)
-                self.chains.append(Chain(name=chain_id, coords=self._coords, residues=residues, log=self.log))  # ,
-                #                        sequence=self.reference_sequence[chain_id]))
+                    chain_residues[chain_idx].append(residue)
+                    # chain_residues[chain_id].append(residue)
+            available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
+                                   for first in PDB.available_letters)
+            # available_chain_ids = (letter for letter in PDB.available_letters if letter not in self.chain_id_list)
+            for idx, (chain_idx, residues) in enumerate(chain_residues.items()):
+                if chain_idx < len(self.chain_id_list):
+                    chain_id = self.chain_id_list[chain_idx]
+                else:
+                    chain_id = next(available_chain_ids)
+                self.chains.append(Chain(name=chain_id, coords=self._coords, residues=residues, log=self.log))
                 self.chains[idx].set_residues_attributes(chain=chain_id)
+            self.chain_id_list = [chain.name for chain in self.chains]
         else:
             for chain_id in self.chain_id_list:
                 self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log,
