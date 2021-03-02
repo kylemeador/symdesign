@@ -235,12 +235,12 @@ class PDB(Structure):
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-        # self.coords = Coords(coords)
+        self.coords = Coords(coords)
         # self.set_atoms([Atom.from_info(*info, self._coords) for info in atom_info])
         self.chain_id_list = chain_ids
         self.log.debug('Multimodel %s, Chains %s' % (True if multimodel else False, self.chain_id_list))
-        self.process_pdb(coords=coords, atoms=[Atom.from_info(*info, self._coords) for info in atom_info],
-                         seqres=seq_res_lines, multimodel=multimodel, lazy=lazy, **kwargs)
+        self.process_pdb(atoms=[Atom.from_info(*info, self._coords) for info in atom_info],
+                         seqres=seq_res_lines, multimodel=multimodel, lazy=lazy, **kwargs)  # coords=coords,
 
     # def process_symmetry(self):
     #     """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
@@ -253,7 +253,8 @@ class PDB(Structure):
         if coords:
             self.coords = Coords(coords)
             # # replace the Atom and Residue Coords
-            # self.set_residues_attributes(coords=self._coords)
+            self.set_atoms_attributes(coords=self._coords)
+
         if atoms:  # set atoms and create residues
             self.set_atoms(atoms)
 
