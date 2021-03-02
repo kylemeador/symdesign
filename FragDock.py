@@ -662,10 +662,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     frag_check = os.path.join(os.path.dirname(log_file_path), 'frag_check')
     if not os.path.exists(frag_check):
         os.makedirs(frag_check)
-    for idx_f, frag in enumerate(initial_surf_frags):
-        if idx_f % 8 == 0:
-            frag.structure.write(out_path=os.path.join(frag_check, 'surffrag%s_chain%s_res%s.pdb'
-                                                       % (frag.get_i_type(), *frag.get_central_res_tup())))
+    # for idx_f, frag in enumerate(initial_surf_frags):
+    #     if idx_f % 8 == 0:
+    #         frag.structure.write(out_path=os.path.join(frag_check, 'surffrag%s_chain%s_res%s.pdb'
+    #                                                    % (frag.get_i_type(), *frag.get_central_res_tup())))
     # -----------------------
     surf_frag_np = np.array(initial_surf_frags)
     complete_surf_frag_np = np.array(complete_surf_frag_list)
@@ -712,10 +712,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # -----------------------
 
     for idx_f, frag in enumerate(ghost_frags):
-        if idx_f % 8 == 0:
-            frag.structure.write(out_path=os.path.join(frag_check, 'ghostfrag%s_chain%s_res%s.pdb'
-                                                       % ('%s_%s_%s' % frag.get_ijk(),
-                                                          *frag.get_aligned_surf_frag_central_res_tup())))
+        # if idx_f % 8 == 0:
+        frag.structure.write(out_path=os.path.join(frag_check, 'ghostfrag%s_chain%s_res%s.pdb'
+                                                   % ('%s_%s_%s' % frag.get_ijk(),
+                                                      *frag.get_aligned_surf_frag_central_res_tup())))
     # -----------------------
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
@@ -1117,7 +1117,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         print('passing ghost fragment chain/residue: %s' % central_res_tuples)
                         surf_central_res_tuples = [initial_surf_frags[surf_idx].get_central_res_tup()
                                                    for ghost_idx, surf_idx in passing_fragment_pairs]
-                        print('passing ghost fragment chain/residue: %s' % surf_central_res_tuples)
+                        print('passing surface fragment chain/residue: %s' % surf_central_res_tuples)
                         out_string = os.path.join(frag_check, "DEGEN_%d_%d_ROT_%d_%d"
                                                   % (degen1_count, degen2_count, rot1_count, rot2_count))
                         if not os.path.exists(out_string):
