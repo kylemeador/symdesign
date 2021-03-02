@@ -6,8 +6,7 @@ sys.path.extend([parent_dir])
 import numpy as np
 
 from SymDesignUtils import start_log
-from BioPDBUtils import biopdb_aligned_chain, biopdb_superimposer
-
+from BioPDBUtils import biopdb_aligned_chain, biopdb_superimposer, biopdb_align_atom_lists
 
 logger = start_log(name=__name__)
 index_offset = 1
@@ -167,9 +166,13 @@ class MonoFragment:
                 # # intfrag_mapped_chain_central_res_num = intfrag[2]
                 # # intfrag_partner_chain_id = intfrag[3]
                 # # intfrag_partner_chain_central_res_num = intfrag[4]
-
-                aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure,  # self.central_res_chain_id,
-                                                              frag_pdb, frag_mapped_chain)
+                fixed = self.structure.get_ca_atoms()
+                moving = frag_pdb.chain(frag_mapped_chain).get_ca_atoms()
+                if len(fixed) != len(moving):
+                    print('Atom list lengths are not equal! %d != %d' % (len(fixed), len(moving)),
+                          self.get_central_res_tup(), frag_pdb.filepath)
+                    continue
+                aligned_ghost_frag_pdb = biopdb_align_atom_lists(fixed, moving)  # self.central_res_chain_id,
                 # aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
                 # is this what is not working?
 
