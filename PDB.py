@@ -893,7 +893,7 @@ class PDB(Structure):
             # if line != "\n" and line != "" and not line.startswith("#"):
             if line[:3] == 'SEQ':
                 sasa = float(line[16:])
-                if sasa >= sasa_thresh:
+                if sasa > sasa_thresh:
                     sasa_out_chain.append(line[4:5])
                     sasa_out_res.append(int(line[5:10]))
                     sasa_out.append(sasa)
@@ -996,7 +996,7 @@ class PDB(Structure):
         # only works for monomers or homo-complexes
         sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
 
-        return sasa_res  # Todo
+        return sasa_res  # Todo ensure pose mechanism work
         # return list(zip(sasa_chain, sasa_res))  # for use with chains in PDB numbering, currently using Pose numbering
 
     def get_surface_area_residues(self, residue_numbers, probe_radius=2.2):
