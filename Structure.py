@@ -76,23 +76,41 @@ class Structure:  # (Coords):
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
+    def translate(self, tx):
+        new_coords = self.coords + tx
+        self.replace_coords(new_coords)
+
+    def rotate(self, rotation):
+        new_coords = np.matmul(self.coords, np.transpose(rotation))
+        self.replace_coords(new_coords)
+
+    def transform(self, rotation=None, translation=None):
+        if rotation is not None:  # required for np.ndarray or None checks
+            new_coords = np.matmul(self.coords, np.transpose(rotation))
+        else:
+            new_coords = self.coords
+
+        if translation is not None:  # required for np.ndarray or None checks
+            new_coords += np.array(translation)
+        self.replace_coords(new_coords)
+
     def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
         """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space
         Returns:
             (Structure)
         """
-        if rotation is not None:  # requried for np.ndarray or None checks
+        if rotation is not None:  # required for np.ndarray or None checks
             new_coords = np.matmul(self.coords, np.transpose(rotation))
         else:
             new_coords = self.coords
 
-        if translation is not None:  # requried for np.ndarray or None checks
+        if translation is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation)
 
-        if rotation2 is not None:  # requried for np.ndarray or None checks
+        if rotation2 is not None:  # required for np.ndarray or None checks
             new_coords = np.matmul(new_coords, np.transpose(rotation2))
 
-        if translation2 is not None:  # requried for np.ndarray or None checks
+        if translation2 is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation2)
 
         new_structure = deepcopy(self)
@@ -1317,8 +1335,21 @@ class Atom:  # (Coords):
             distance = (self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2
             return distance
 
-    def translate(self, tx):
-        self.coords = self.coords + tx
+    # def translate(self, tx):
+    #     self.coords = Coords(self.coords + tx)
+    #
+    # def rotate(self, rotation):
+    #     self.coords = Coords(np.matmul(self.coords, np.transpose(rotation)))
+    #
+    # def transform(self, rotation=None, translation=None):
+    #     if rotation is not None:  # required for np.ndarray or None checks
+    #         new_coords = np.matmul(self.coords, np.transpose(rotation))
+    #     else:
+    #         new_coords = self.coords
+    #
+    #     if translation is not None:  # required for np.ndarray or None checks
+    #         new_coords += np.array(translation)
+    #     self.replace_coords(new_coords)
 
     def get_index(self):
         return self.index
