@@ -10,7 +10,7 @@ class OptimalTx:
         self.zshift1 = zshift1  # internal translational DOF1
         self.zshift2 = zshift2  # internal translational DOF2
         self.dof9 = None
-        self.dof_t = None
+        self.dof9_t = None
 
         # add internal z-shift degrees of freedom to 9-dim arrays if they exist
         self.n_dof_internal = 0
@@ -42,11 +42,11 @@ class OptimalTx:
         for i in range(self.n_dof):
             self.dof9[i] = (np.array(number_of_coordinates * [self.dof[i]])).flatten()
             # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
-        self.dof_t = self.dof9
+        self.dof9_t = self.dof9
         self.dof9 = np.transpose(self.dof9)
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference, max_z_value=1.0):
-        """This routine does the work to solve the optimal shift problem. The
+        """This routine does the work to solve the optimal shift problem
 
         Args:
             coords1 (np.ndarray): A 3 x 3 array with cartesian coordinates
@@ -55,7 +55,7 @@ class OptimalTx:
         Keyword Args:
             max_z_value=1 (float): The maximum initial error tolerated
         Returns:
-            (list(list)), (float): Returns the optimal translation for the set of coordinates and their error value
+            (list(list)), (float): Returns the optimal translation for the set of coordinates
         """
 
         # form the guide coords into a matrix (column vectors)
@@ -74,13 +74,13 @@ class OptimalTx:
 
         # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
-        # self.dof_t transpose (row major: n_dof_ext x 9)
+        # self.dof9_t transpose (row major: n_dof_ext x 9)
         dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance x degree of freedom = (9 x n_dof)
-        vtdinvv = np.matmul(self.dof_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
+        vtdinvv = np.matmul(self.dof9_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
         vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
 
         dinvdelta = np.matmul(var_tot_inv, guide_delta)  # 1/variance (9 x 9) x guide atom diff (9 x 1) = (9 x 1)
-        vtdinvdelta = np.matmul(self.dof_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
+        vtdinvdelta = np.matmul(self.dof9_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
 
         shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
 
