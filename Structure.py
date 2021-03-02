@@ -35,19 +35,23 @@ class Structure(StructureBase):  # (Coords):
         if coords:
             self.coords = coords
         if atoms:
+            if not coords:
+                raise DesignError('The Structure Object must have Coords passed!')
             self.set_atoms(atoms)
         if residues:  # Todo, the structure can not have Coords! if from_atoms or from_residues lacks them
+            if not coords:
+                raise DesignError('The Structure Object must have Coords passed!')
             self.set_residues(residues)
 
         super().__init__(**kwargs)
 
     @classmethod
-    def from_atoms(cls, atoms, **kwargs):
-        return cls(atoms=atoms, **kwargs)
+    def from_atoms(cls, atoms=None, coords=None, **kwargs):
+        return cls(atoms=atoms, coords=coords, **kwargs)
 
     @classmethod
-    def from_residues(cls, residues, **kwargs):
-        return cls(residues=residues, **kwargs)
+    def from_residues(cls, residues=None, coords=None, **kwargs):
+        return cls(residues=residues, coords=coords, **kwargs)
 
     @property
     def name(self):
