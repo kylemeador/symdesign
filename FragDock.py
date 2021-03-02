@@ -705,9 +705,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         os.makedirs(frag_check)
     for idx_f, frag in enumerate(ghost_frags):
         if idx_f % 8 == 0:
-            frag.write(outpath=os.path.join(frag_check, 'frag%s_chain%s_res%s.pdb'
-                                            % ('%s_%s_%s' % frag.get_ijk(),
-                                               *frag.get_aligned_surf_frag_central_res_tup())))
+            frag.write(out_path=os.path.join(frag_check, 'frag%s_chain%s_res%s.pdb'
+                                             % ('%s_%s_%s' % frag.get_ijk(),
+                                                *frag.get_aligned_surf_frag_central_res_tup())))
     # -----------------------
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
