@@ -148,7 +148,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #     else:
             #         self.path = os.path.join(project, design_path)
             # else:
-            #     self.path = design_path
+            self.path = design_path
             #     design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
 
             if not os.path.exists(self.path):
