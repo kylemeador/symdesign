@@ -93,14 +93,16 @@ class MonoFragment:
             min_rmsd = float('inf')
             for cluster_type, cluster_rep in monofrag_representatives.items():
                 rmsd, rot, tx = biopdb_superimposer(frag_ca_atoms, cluster_rep.get_ca_atoms())
-
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     self.type = cluster_type
                     min_rmsd, self.rot, self.tx = rmsd, np.transpose(rot), tx
 
             if self.type:
                 guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
+                # rot is returned in column major, therefore no need to transpose when transforming guide coordinates
                 self.guide_coords = np.matmul(guide_coords, rot) + self.tx
+            # else:
+            #     return None
 
     @classmethod
     def from_residue(cls):
@@ -138,9 +140,6 @@ class MonoFragment:
     @structure.setter
     def structure(self, structure):
         self._structure = structure
-
-    # def get_pdb_coords(self):
-    #     return self.structure.get_coords()
 
     def get_central_res_num(self):
         return self.central_res_num  # self.central_residue.number
@@ -188,5 +187,4 @@ class MonoFragment:
                     rmsd = intfrag_cluster_info[self.type][j_type][k_type].get_rmsd()
                     ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, rmsd,
                                                          self.get_central_res_tup()))
-
         return ghost_fragments
