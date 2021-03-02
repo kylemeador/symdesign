@@ -23,7 +23,7 @@ from utils.SymmUtils import get_uc_dimensions
 fragment_length = 5
 
 
-def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frag_np,
+def find_docked_poses(out_string, sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frag_np,
                       complete_surf_frag_np, log_filepath, degen_subdir_out_path, rot_subdir_out_path, pdb1_path,
                       pdb2_path, eul_lookup, rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_exp_assembly=False,
                       output_uc=False, output_surrounding_uc=False, clash_dist=2.2, min_matched=3,
@@ -133,8 +133,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=representative_int_dof_tx_param_2,
                                                  rotation2=sym_entry.get_rot_set_mat_group2(),
                                                  translation2=representative_ext_dof_tx_params_2)
-        pdb1_copy.write(out_path=os.path.join(os.path.dirname(log_filepath), 'pdb1_copy.pdb'))
-        pdb2_copy.write(out_path=os.path.join(os.path.dirname(log_filepath), 'pdb2_copy.pdb'))
+        pdb1_copy.write(out_path=os.path.join(out_string, 'pdb1.pdb'))
+        pdb2_copy.write(out_path=os.path.join(out_string, 'pdb2.pdb'))
         # print('copied PDB2')
         # pdb2_copy = rot_txint_set_txext_pdb(pdb2, rot_mat=rot_mat2,
         #                                     internal_tx_vec=representative_int_dof_tx_param_2,
@@ -1103,7 +1103,17 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     print('passing fragment pairs: %s' % passing_fragment_pairs)
                     central_res_tuples = [ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup()
                                           for ghost_idx, surf_idx in passing_fragment_pairs]
-                    print('passing ghost fragment residue/chain: %s' % central_res_tuples)
+                    out_string = os.path.join(frag_check,
+                                              "DEGEN_%d_%d_ROT_%d_%d"
+                                              % (degen1_count, degen2_count, rot1_count, rot2_count))
+                    if not os.path.exists(out_string):
+                        os.makedirs(out_string)
+                    central_res_tuples = [ghost_frags[ghost_idx].write(
+                        out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
+                                              % ('%s_%s_%s' % frag.get_ijk(),
+                                                 *frag.get_aligned_surf_frag_central_res_tup())))
+                                          for ghost_idx, surf_idx in passing_fragment_pairs]
+                    print('passing ghost fragment chain/residue: %s' % central_res_tuples)
 
                     with open(log_file_path, "a+") as log_file:
                         log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
@@ -1114,7 +1124,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                        (rot1_count, rot2_count))
 
-                    find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
+                    find_docked_poses(out_string, sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
                                       complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
                                       degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
                                       rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
