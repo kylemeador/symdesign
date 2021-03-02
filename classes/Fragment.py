@@ -77,7 +77,7 @@ class GhostFragment:
 
 
 class MonoFragment:
-    def __init__(self, pdb=None, monofrag_cluster_rep_dict=None, fragment_type=None, guide_coords=None,
+    def __init__(self, pdb=None, monofrag_representatives=None, fragment_type=None, guide_coords=None,
                  central_res_num=None, central_res_chain_id=None, rmsd_thresh=0.75):
         self.structure = pdb
         self.type = fragment_type
@@ -85,22 +85,22 @@ class MonoFragment:
         self.central_res_num = central_res_num
         self.central_res_chain_id = central_res_chain_id
 
-        if self.structure and monofrag_cluster_rep_dict:
+        if self.structure and monofrag_representatives:
             frag_ca_atoms = self.structure.get_ca_atoms()
             central_residue = frag_ca_atoms[2]  # Todo integrate this to be the main object identifier
             self.central_res_num = central_residue.residue_number
             self.central_res_chain_id = central_residue.chain
             min_rmsd = float('inf')
-            for cluster_type, cluster_rep in monofrag_cluster_rep_dict.items():
+            for cluster_type, cluster_rep in monofrag_representatives.items():
                 rmsd, rot, tx = biopdb_superimposer(frag_ca_atoms, cluster_rep.get_ca_atoms())
 
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     self.type = cluster_type
-                    min_rmsd, self.rot, self.tx = rmsd, rot, tx
+                    min_rmsd, self.rot, self.tx = rmsd, np.transpose(rot), tx
 
             if self.type:
                 guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
-                self.guide_coords = np.matmul(guide_coords, self.rot) + self.tx
+                self.guide_coords = np.matmul(guide_coords, rot) + self.tx
 
     @classmethod
     def from_residue(cls):
@@ -108,7 +108,7 @@ class MonoFragment:
 
     @classmethod
     def from_database(cls, pdb, representative_dict):
-        return cls(pdb=pdb, monofrag_cluster_rep_dict=representative_dict)
+        return cls(pdb=pdb, monofrag_representatives=representative_dict)
 
     @classmethod
     def from_fragment(cls, pdb=None, fragment_type=None, guide_coords=None, central_res_num=None,
