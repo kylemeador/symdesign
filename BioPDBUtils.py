@@ -39,7 +39,8 @@ def biopdb_align_atom_lists(atoms_fixed, atoms_moving):
     rot, tr = sup.rotran
     # return np.transpose(rot), tr
     # transpose rotation matrix as Bio.PDB.Superimposer() returns correct matrix to rotate using np.matmul
-    return pdb_moving.return_transformed_copy(rotation=np.transpose(rot), translation=tr)
+    return np.transpose(rot), tr
+    # return pdb_moving.return_transformed_copy(rotation=np.transpose(rot), translation=tr)
 
 
 def biopdb_superimposer(atoms_fixed, atoms_moving):
