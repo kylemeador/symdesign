@@ -159,7 +159,7 @@ class MonoFragment:
         count_check = 0  # TOdo
         ghost_fragments = []
         for j_type, j_dictionary in intfrag_cluster_rep[self.type].items():
-            for k_type, (frag_pdb, frag_paired_chain) in j_dictionary.items():
+            for k_type, (frag_pdb, frag_mapped_chain, frag_paired_chain) in j_dictionary.items():
                 # intfrag = intfrag_cluster_rep[self.type][j_type][k_type]
                 # frag_pdb = intfrag[0]
                 # frag_paired_chain = intfrag[1]
@@ -168,10 +168,12 @@ class MonoFragment:
                 # # intfrag_partner_chain_id = intfrag[3]
                 # # intfrag_partner_chain_central_res_num = intfrag[4]
 
-                # aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, frag_pdb.chain(frag_mapped_chain))
+                aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, self.central_res_chain_id,
+                                                              frag_pdb, frag_mapped_chain)
+                # aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
+                # is this what is not working?
 
                 # ghost_frag_chain = (set(frag_pdb.chain_id_list) - {'9', frag_mapped_chain}).pop()
-                aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
                 g_frag_bb_coords = aligned_ghost_frag_pdb.chain(frag_paired_chain).get_backbone_coords()
                 # Only keep ghost fragments that don't clash with oligomer backbone
                 # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
