@@ -709,6 +709,7 @@ if __name__ == '__main__':
         if args.sub_module == 'dock':
             queried_flags['dock'] = True
         elif args.sub_module == 'filter':
+            queried_flags['skip_logging'] = True
             queried_flags['filter'] = True
         elif args.sub_module == 'analysis':
             queried_flags['analysis'] = True
