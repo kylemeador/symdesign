@@ -4,18 +4,7 @@ import numpy as np
 
 
 class OptimalTx:
-    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, tx_params=None, error=None, setting1=None,
-                 setting2=None):  # this was before dof_ext -> cluster_rmsd, guide_atom_coords1, guide_atom_coords2
-        if setting1:
-            self.setting1 = np.array(setting1)
-        else:
-            self.setting1 = np.array([])
-
-        if setting2:
-            self.setting2 = np.array(setting2)
-        else:
-            self.setting2 = np.array([])
-
+    def __init__(self, dof_ext=None, zshift1=None, zshift2=None):
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
         self.zshift1 = zshift1  # internal translational DOF1
@@ -38,20 +27,6 @@ class OptimalTx:
             self.dof_convert9()
         else:
             raise ValueError('n_dof is not set! Can\'t get the OptimalTx without passing DOF')
-
-        # if setting1:  # ensures that a setting matrix is passed in order to get the 9 dimensional dof
-        #     self.dof_convert9()
-        # else:
-        #     self.n_dof_external = 0
-
-        if tx_params:
-            self.optimal_tx = np.array(tx_params)
-        else:
-            self.optimal_tx = np.array([])  # , float('inf'))  # (shift, error_zvalue)
-        if error:
-            self.error_zvalue = error
-        else:
-            self.error_zvalue = float('inf')
 
     @classmethod
     def from_dof(cls, dof_ext=None, zshift1=None, zshift2=None):  # setting1, setting2,
@@ -85,28 +60,21 @@ class OptimalTx:
 
         # form the guide coords into a matrix (column vectors)
         guide_target_10 = np.transpose(coords1)
-        # guide_target_10 = np.transpose(np.array(self.guide_atom_coords1_set))
         guide_query_10 = np.transpose(coords2)
-        # guide_query_10 = np.transpose(np.array(self.guide_atom_coords2_set))
 
         # calculate the initial difference between query and target (9 dim vector)
         guide_delta = np.transpose([guide_target_10.flatten('F') - guide_query_10.flatten('F')])
         # flatten column vector matrix above [[x, x, x], [y, y, y], [z, z, z]] -> [x, y, z, x, y, z, x, y, z], then T
 
         # isotropic case based on simple rmsd
-        # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
         var_tot_inv = np.zeros([9, 9])
         for i in range(9):
+            # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
             var_tot_inv[i, i] = 1. / (3. * coords_rmsd_reference ** 2)
 
-        # Use degrees of freedom 9-dim array
+        # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
         # self.dof_t transpose (row major: n_dof_ext x 9)
-
-        # solve the problem
-        # print('dof: %s' % self.dof)
-        # print('9: %s' % self.dof9)
-        # print('var_inv_tot: %s' % var_tot_inv)
         dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance x degree of freedom = (9 x n_dof)
         vtdinvv = np.matmul(self.dof_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
         vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
@@ -129,23 +97,6 @@ class OptimalTx:
         else:
             return None
 
-    @staticmethod
-    def mat_vec_mul3(a, b):  # UNUSED
-        c = [0. for i in range(3)]
-        for i in range(3):
-            # c[i] = 0.
-            for j in range(3):
-                c[i] += a[i][j] * b[j]
-
-        return c
-
-    # @staticmethod
-    def set_coords(self, mat, coords):  # UNUSED
-        """Apply a matrix to a set of 3 sets of x, y, z coordinates"""
-        # return np.matmul(mat, coords)  # Doesn't work because no transpose!
-        return np.matmul(coords, np.transpose(mat))  # Todo, check. This should work!
-        # return [self.mat_vec_mul3(mat, [coord[0], coord[1], coord[2]]) for coord in coords]
-
     def apply(self, coords1=None, coords2=None, coords_rmsd_reference=None):  # UNUSED
         """Apply Setting Matrix to provided Coords and solve for the translational shifts to overlap them"""
         # coords1_set = self.set_coords(self.setting1, coords1)
@@ -155,34 +106,3 @@ class OptimalTx:
 
         # solve for shifts and resulting error
         return self.solve_optimal_shift(coords1_set, coords2_set, coords_rmsd_reference)
-
-    def get_optimal_tx_dof_int(self):  # UNUSED
-        index = self.n_dof_external
-
-        tx_dof_int = []
-        if self.is_zshift1:
-            tx_dof_int.append(self.optimal_tx[index:index + 1][0])
-            index += 1
-
-        if self.is_zshift2:
-            tx_dof_int.append(self.optimal_tx[index:index + 1][0])
-
-        return tx_dof_int
-
-    def get_optimal_tx_dof_ext(self):  # UNUSED
-        # shift, error_zvalue = self.optimal_tx
-        return self.optimal_tx[:self.n_dof_external].tolist()
-
-    def get_all_optimal_shifts(self):  # UNUSED
-        # shift, error_zvalue = self.optimal_tx
-        return self.optimal_tx.tolist()
-
-    def get_n_dof_external(self):  # UNUSED
-        return self.n_dof_external
-
-    def get_n_dof_internal(self):  # UNUSED
-        return self.n_dof_internal
-
-    def get_zvalue(self):  # UNUSED
-        # shift, error_zvalue = self.optimal_tx
-        return self.error_zvalue
