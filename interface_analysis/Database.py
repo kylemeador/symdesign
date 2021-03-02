@@ -75,10 +75,9 @@ class FragmentDB:
         self.info = None
 
     def get_monofrag_cluster_rep_dict(self):
-        self.reps = {os.path.splitext(filename)[0]:
-                     PDB.from_file(os.path.join(self.monofrag_cluster_rep_dirpath, filename), solve_discrepancy=False,
-                                   lazy=True, log=null_log)
-                     for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath) for filename in files}
+        self.reps = {os.path.splitext(file)[0]:
+                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, lazy=True, log=null_log)
+                     for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
         i_j_k_intfrag_cluster_rep_dict = {}
