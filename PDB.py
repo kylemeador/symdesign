@@ -167,7 +167,7 @@ class PDB(Structure):
                 alt_location = line[16:17].strip()
                 if remove_alt_location and alt_location not in ['', 'A']:
                     continue
-                number = int(line[6:11].strip())
+                number = int(line[6:11])  # .strip()
                 atom_type = line[12:16].strip()
                 if line[17:20] == 'MSE':
                     residue_type = 'MET'
@@ -176,23 +176,23 @@ class PDB(Structure):
                 else:
                     residue_type = line[17:20].strip()
                 if multimodel:
-                    if start_of_new_model or line[21:22].strip() != curr_chain_id:
-                        curr_chain_id = line[21:22].strip()
+                    if start_of_new_model or line[21:22] != curr_chain_id:  # .strip()
+                        curr_chain_id = line[21:22]  # .strip()
                         model_chain_id = next(available_chain_ids)
                         start_of_new_model = False
                     chain = model_chain_id
                 else:
-                    chain = line[21:22].strip()
-                residue_number = int(line[22:26].strip())
+                    chain = line[21:22]  # .strip()
+                residue_number = int(line[22:26])  # .strip()
                 code_for_insertion = line[26:27].strip()
-                occ = float(line[54:60].strip())
-                temp_fact = float(line[60:66].strip())
+                occ = float(line[54:60])  # .strip()
+                temp_fact = float(line[60:66])  # .strip()
                 element_symbol = line[76:78].strip()
                 atom_charge = line[78:80].strip()
                 if chain not in chain_ids:
                     chain_ids.append(chain)
                 # prepare the atomic coordinates for addition to numpy array
-                coords.append([float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())])
+                coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
                 atom_info.append((atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
                                   code_for_insertion, occ, temp_fact, element_symbol, atom_charge))
                 atom_idx += 1
@@ -865,9 +865,20 @@ class PDB(Structure):
             return None
 
     def get_sasa(self, probe_radius=1.4, sasa_thresh=0):
-        """Use FreeSASA to calculate the surface area of a PDB.
+        """Use FreeSASA to calculate the surface area of residues in the PDB object
 
         Must be run with the self.filepath attribute. Entities/chains could have this, but don't currently"""
+        # # Residues in /yeates1/kmeador/Nanohedra_T33/C3_oriented_with_C3_symmetry/2pd2.pdb1
+        # SEQ A    1 MET :   74.46
+        # SEQ A    2 LYS :   96.30
+        # SEQ A    3 VAL :    0.00
+        # SEQ A    4 VAL :    0.00
+        # SEQ A    5 VAL :    0.00
+        # SEQ A    6 GLN :    0.00
+        # SEQ A    7 ILE :    0.00
+        # SEQ A    8 LYS :    0.87
+        # SEQ A    9 ASP :    1.30
+        # SEQ A   10 PHE :   64.55
         current_pdb_file = self.write(out_path='sasa_input.pdb')
         self.log.debug(current_pdb_file)
         p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius),
@@ -879,13 +890,12 @@ class PDB(Structure):
 
         sasa_out_chain, sasa_out_res, sasa_out = [], [], []
         for line in out_lines:
-            if line != "\n" and line != "" and not line.startswith("#"):
-                chain_id = line[4:5]
-                res_num = int(line[5:10])
+            # if line != "\n" and line != "" and not line.startswith("#"):
+            if line[:3] == 'SEQ':
                 sasa = float(line[16:])
                 if sasa >= sasa_thresh:
-                    sasa_out_chain.append(chain_id)
-                    sasa_out_res.append(res_num)
+                    sasa_out_chain.append(line[4:5])
+                    sasa_out_res.append(int(line[5:10]))
                     sasa_out.append(sasa)
 
         os.system('rm %s' % current_pdb_file)
