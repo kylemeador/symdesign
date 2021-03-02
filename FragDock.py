@@ -1110,9 +1110,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         if not os.path.exists(out_string):
                             os.makedirs(out_string)
                         transformed_frags = [ghost_frags[ghost_idx].structure.return_transformed_copy(rotation=rot1_mat,
-                                                                                                      translation=passing_optimal_shifts[0],
+                                                                                                      translation=passing_optimal_shifts[idx][0],
                                                                                                       rotation2=set_mat1)
-                                             for ghost_idx, surf_idx in passing_fragment_pairs]
+                                             for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
                         write_residue_matches = [frag.write(out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
                                                                                   % ('%s_%s_%s' % frag.get_ijk(),
                                                                                      *frag.get_aligned_surf_frag_central_res_tup())))
