@@ -610,9 +610,6 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
                    subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_exp_assembly=False,
                    output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
-    # Initialize Euler Lookup Class
-    eul_lookup = EulerLookup()
-
     # Output Directory  # Todo DesignDirectory
     pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
     pdb2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
@@ -629,7 +626,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Write to Logfile
     if not resume:
-        with open(log_file_path, "a+") as log_file:  # Todo make , 'w') as log_file
+        with open(log_file_path, 'w') as log_file:
             log_file.write("DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\nOutput Directory: %s\n\n"
                            % (pdb1_name, pdb2_name, pdb1_path, pdb2_path, outdir))
 
@@ -649,6 +646,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
         if monofrag2.get_i_type():
             complete_surf_frag_list.append(monofrag2)
+    # additional gains in fragment reduction could be realized with modifying SASA extent by ghost fragment access
 
     # calculate the initial match type by finding the predominant surface type
     frag_types2 = [monofrag2.get_i_type() for monofrag2 in complete_surf_frag_list]
@@ -656,10 +654,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     print('Found oligomer 2 fragment content: %s' % fragment_content2)
     initial_type2 = str(np.argmax(fragment_content2) + 1)
     # print('Found fragment initial type oligomer 2: %s' % initial_type2)
-    surf_frag_list = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
-    surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in surf_frag_list]
+    initial_surf_frags = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
+    initial_surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in initial_surf_frags]
 
-    surf_frag_np = np.array(surf_frag_list)
+    surf_frag_np = np.array(initial_surf_frags)
     complete_surf_frag_np = np.array(complete_surf_frag_list)
 
     if not resume and keep_time:
@@ -749,7 +747,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                        "space bucket\n")
     #
     #     ghost_frag_guide_coords_list_set_for_eul = np.matmul(ghost_frag_guide_coords, set_mat1_np_t)
-    #     surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags2_guide_coords, set_mat2_np_t)
+    #     surf_frags_2_guide_coords_list_set_for_eul = np.matmul(initial_surf_frags2_guide_coords, set_mat2_np_t)
     #
     #     eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(ghost_frag_guide_coords_list_set_for_eul,
     #                                                                surf_frags_2_guide_coords_list_set_for_eul)
@@ -763,14 +761,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #     optimal_tx = OptimalTx.from_dof(set_mat1, set_mat2, is_zshift1, is_zshift2, dof_ext)
     #     optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frags,
     #                                                        ghost_frag_guide_coords,
-    #                                                        surf_frag_list,
-    #                                                        surf_frags2_guide_coords,
+    #                                                        initial_surf_frags,
+    #                                                        initial_surf_frags2_guide_coords,
     #                                                        z_value_func=optimal_tx.apply,
     #                                                        max_z_value=init_max_z_val)
     #
     #     passing_optimal_shifts = list(filter(None, optimal_shifts))
     #     ghostfrag_surffrag_pairs = [(ghost_frags[eul_lookup_true_list[idx][0]],
-    #                                  surf_frag_list[eul_lookup_true_list[idx][1]])
+    #                                  initial_surf_frags[eul_lookup_true_list[idx][1]])
     #                                 for idx, boolean in enumerate(optimal_shifts) if boolean]
     #
     #     if len(passing_optimal_shifts) == 0:
@@ -805,7 +803,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #     if not resume:
     #         with open(log_file_path, "a+") as log_file:
     #             log_file.write("No Rotation/Degeneracy Matrices for Oligomer 2\n\n")
-    #     surf_frags_2_guide_coords_list_set_for_eul = np.matmul(surf_frags2_guide_coords, set_mat2_np_t)
+    #     surf_frags_2_guide_coords_list_set_for_eul = np.matmul(initial_surf_frags2_guide_coords, set_mat2_np_t)
     #
     #     optimal_tx = OptimalTx.from_dof(set_mat1, set_mat2, is_zshift1, is_zshift2, dof_ext)
     #     # for degen1 in degen_rot_mat_1[degen1_count:]:
@@ -847,14 +845,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #
     #             optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frags,
     #                                                                ghost_frag_guide_coords_list_rot,
-    #                                                                surf_frag_list,
-    #                                                                surf_frags2_guide_coords,
+    #                                                                initial_surf_frags,
+    #                                                                initial_surf_frags2_guide_coords,
     #                                                                z_value_func=optimal_tx.apply,
     #                                                                max_z_value=init_max_z_val)
     #
     #             passing_optimal_shifts = list(filter(None, optimal_shifts))
     #             ghostfrag_surffrag_pairs = [(ghost_frags[eul_lookup_true_list[idx][0]],
-    #                                          surf_frag_list[eul_lookup_true_list[idx][1]])
+    #                                          initial_surf_frags[eul_lookup_true_list[idx][1]])
     #                                         for idx, boolean in enumerate(optimal_shifts) if boolean]
     #
     #             if len(passing_optimal_shifts) == 0:
@@ -900,7 +898,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #             rot2_count += 1
     #             # Rotate Oligomer2 Surface Fragment Guide Coodinates using rot2_mat
     #             rot2_mat_np_t = np.transpose(rot2_mat)
-    #             surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords,
+    #             surf_frags2_guide_coords_rot = np.matmul(initial_surf_frags2_guide_coords,
     #                                                               rot2_mat_np_t)
     #             surf_frags_2_guide_coords_list_rot = surf_frags2_guide_coords_rot.tolist()
     #
@@ -930,14 +928,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #
     #             optimal_shifts = filter_euler_lookup_by_zvalue(eul_lookup_true_list, ghost_frags,
     #                                                                ghost_frag_guide_coords,
-    #                                                                surf_frag_list,
+    #                                                                initial_surf_frags,
     #                                                                surf_frags_2_guide_coords_list_rot,
     #                                                                z_value_func=optimal_tx.apply,
     #                                                                max_z_value=init_max_z_val)
     #
     #             passing_optimal_shifts = list(filter(None, optimal_shifts))
     #             ghostfrag_surffrag_pairs = [(ghost_frags[eul_lookup_true_list[idx][0]],
-    #                                          surf_frag_list[eul_lookup_true_list[idx][1]])
+    #                                          initial_surf_frags[eul_lookup_true_list[idx][1]])
     #                                         for idx, boolean in enumerate(optimal_shifts) if boolean]
     #
     #             if len(passing_optimal_shifts) == 0:
@@ -980,6 +978,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, "z", sym_entry.get_rot_range_deg_2())
     degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
 
+    # Initialize Euler Lookup Class
+    eul_lookup = EulerLookup()
+
     set_mat1 = np.array(sym_entry.get_rot_set_mat_group1())
     set_mat2 = np.array(sym_entry.get_rot_set_mat_group2())
 
@@ -1008,7 +1009,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     rot2_count += 1
                     # Rotate Oligomer2 Surface Fragment Guide Coordinates using rot2_mat
                     # print('rotation matrix 2: %s' % rot2_mat)
-                    surf_frags2_guide_coords_rot = np.matmul(surf_frags2_guide_coords, np.transpose(rot2_mat))
+                    surf_frags2_guide_coords_rot = np.matmul(initial_surf_frags2_guide_coords, np.transpose(rot2_mat))
                     surf_frags_2_guide_coords_rot_and_set = np.matmul(surf_frags2_guide_coords_rot, set_mat2_np_t)
 
                     with open(log_file_path, "a+") as log_file:
@@ -1053,15 +1054,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     # for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array):
                     #     # if idx < 30:
                     #     #     print(ghost_frag_idx, overlapping_surf_frag_array[idx])
-                    #     #     print(ghost_frags[ghost_frag_idx].rmsd, surf_frag_list[overlapping_surf_frag_array[idx]].central_res_num)
-                    #     #     print(ghost_frags[ghost_frag_idx].get_j_type(), surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type())
+                    #     #     print(ghost_frags[ghost_frag_idx].rmsd, initial_surf_frags[overlapping_surf_frag_array[idx]].central_res_num)
+                    #     #     print(ghost_frags[ghost_frag_idx].get_j_type(), initial_surf_frags[overlapping_surf_frag_array[idx]].get_i_type())
                     #     #     print('\n\n')
-                    #     if ghost_frags[ghost_frag_idx].get_j_type() == surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type():
+                    #     if ghost_frags[ghost_frag_idx].get_j_type() == initial_surf_frags[overlapping_surf_frag_array[idx]].get_i_type():
                     #         print(idx)
                     #     # else:
                     #     #     dummy = False
                     # ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
-                    #                  surf_frag_list[overlapping_surf_frag_array[idx]].get_i_type() else False
+                    #                  initial_surf_frags[overlapping_surf_frag_array[idx]].get_i_type() else False
                     #                  for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
                     # print('ij_type_match: %s' % ij_type_match[:5])
                     if not any(overlapping_ghost_frag_array):
