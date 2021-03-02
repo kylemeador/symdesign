@@ -39,8 +39,8 @@ def main():
         pdb_ch2.read_atom_list(pdb.get_chain_atoms(pdb.chain_id_list[1]))
 
         # Getting Ch1 and Ch2 Coordinates
-        ch1_cb_coords = pdb_ch1.extract_CB_coords(InclGlyCA=True)
-        ch2_cb_coords = pdb_ch2.extract_CB_coords(InclGlyCA=True)
+        ch1_cb_coords = pdb_ch1.extract_cb_coords(InclGlyCA=True)
+        ch2_cb_coords = pdb_ch2.extract_cb_coords(InclGlyCA=True)
         ch1_cb_coords = np.array(ch1_cb_coords)
         ch2_cb_coords = np.array(ch2_cb_coords)
 

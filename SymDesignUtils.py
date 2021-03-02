@@ -399,7 +399,7 @@ def residue_interaction_graph(pdb, distance=8, gly_ca=True):  # Todo PDB.py
         query (list()): sklearn query object of pdb2 coordinates within dist of pdb1 coordinates
     """
     # Get CB Atom Coordinates including CA coordinates for Gly residues
-    coords = np.array(pdb.extract_CB_coords(InclGlyCA=gly_ca))
+    coords = np.array(pdb.extract_cb_coords(InclGlyCA=gly_ca))
 
     # Construct CB Tree for PDB1
     pdb1_tree = BallTree(coords)

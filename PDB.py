@@ -424,23 +424,6 @@ class PDB(Structure):
             self.log.error('Select N or C Term')
             return []
 
-    def mat_vec_mul3(self, a, b):
-        c = [0. for i in range(3)]
-        for i in range(3):
-            c[i] = 0.
-            for j in range(3):
-                c[i] += a[i][j] * b[j]
-        return c
-
-    def rotate_translate(self, rot, tx):  # Todo Depreciate
-        for atom in self.get_atoms():
-            coord = [atom.x, atom.y, atom.z]
-            coord_rot = self.mat_vec_mul3(rot, coord)
-            newX = coord_rot[0] + tx[0]
-            newY = coord_rot[1] + tx[1]
-            newZ = coord_rot[2] + tx[2]
-            atom.x, atom.y, atom.z = newX, newY, newZ
-
     def rename_chains(self, chain_list_fixed):  # Todo Depreciate
         # Caution, doesn't update self.reference_sequence chain info
         lf = chain_list_fixed
@@ -867,7 +850,7 @@ class PDB(Structure):
             else:
                 return None
 
-        pdb_coords = self.extract_coords()
+        pdb_coords = self.get_coords()
         rot_matrices = get_rot_matrices(rot_step_deg, axis, rot_range_deg)
         tx_matrices = get_tx_matrices(tx_step, axis, start_tx_range, end_tx_range)
         sampled_coords_np = generate_sampled_coordinates_np(pdb_coords, rot_matrices, tx_matrices, degeneracy)
@@ -1114,24 +1097,6 @@ class PDB(Structure):
         #  PDB. Atom may hold on in memory because of refernce to Coords.
         for atom in atoms:
             self.atoms.remove(atom)
-
-    def apply(self, rot=None, tx=None):  # Todo move to Structure?
-        """Apply a transformation to the PDB object"""
-        # moved = []
-        # for coord in self.extract_coords():
-        #    coord_moved = self.mat_vec_mul3(rot, coord)
-        #    for j in range(3):
-        #         coord_moved[j] += tx[j]
-        #    moved.append(coord_moved)
-        if rot is not None:
-            moved = np.matmul(np.array(rot), self.coords)
-        else:
-            moved = self.coords
-        if tx is not None:
-            moved = moved + np.array(tx)
-
-        self.coords = Coords(moved)
-        # self.set_atom_coordinates(moved)
 
     def get_ave_residue_b_factor(self, chain_id, residue_number):
         residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()

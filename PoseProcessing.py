@@ -425,7 +425,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.get_uc_dimensions() is None
     symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
     symmetrized_model_chain1 = symmetrized_model.select_chain(oligomer[pdb_codes[0]])
-    symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_CB_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
+    symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_cb_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
     symmetrized_model_chain2 = symmetrized_model.select_chain(oligomer[pdb_codes[1]])
     # should I split this into the oligomeric component parts?
     oligomer_symmetry_int_residues = Pose.find_interface_residues(oligomer[pdb_codes[0]], symmetrized_model_chain1_coords)

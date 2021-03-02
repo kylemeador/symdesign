@@ -375,10 +375,10 @@ def get_surrounding_unit_cells(unit_cell_sym_mates, uc_dimensions, dimension=Non
 
     if return_side_chains:  # get different function calls depending on the return type
         extract_pdb_atoms = getattr(PDB, 'get_atoms')
-        extract_pdb_coords = getattr(PDB, '.extract_coords')
+        extract_pdb_coords = getattr(PDB, 'get_coords')
     else:
         extract_pdb_atoms = getattr(PDB, 'get_backbone_atoms')
-        extract_pdb_coords = getattr(PDB, 'extract_backbone_coords')
+        extract_pdb_coords = getattr(PDB, 'get_backbone_coords')
 
     asu_atom_template = extract_pdb_atoms(unit_cell_sym_mates[0])
     # asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()

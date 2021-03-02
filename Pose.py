@@ -85,27 +85,24 @@ class Model:  # (PDB)
     def chain(self, chain_id):
         return [pdb.chain(chain_id) for pdb in self.models]
 
-    def extract_all_coords(self):  # TODO
-        model_coords = [pdb.extract_coords() for pdb in self.models]
+    def get_coords(self):  # TODO
+        model_coords = [pdb.get_coords() for pdb in self.models]
         return np.array(model_coords)  # arr.reshape(-1, arr.shape[-1])
 
-    def extract_backbone_coords(self):  # TODO
-        return [pdb.extract_backbone_coords() for pdb in self.models]
+    def get_backbone_coords(self):  # TODO
+        return [pdb.get_backbone_coords() for pdb in self.models]
 
-    def extract_backbone_and_cb_coords(self):  # TODO
-        return [pdb.extract_backbone_and_cb_coords() for pdb in self.models]
+    def get_backbone_and_cb_coords(self):  # TODO
+        return [pdb.get_backbone_and_cb_coords() for pdb in self.models]
 
-    def extract_CA_coords(self):  # TODO
-        return [pdb.extract_CA_coords() for pdb in self.models]
+    def get_ca_coords(self):  # TODO
+        return [pdb.get_ca_coords() for pdb in self.models]
 
-    def extract_CB_coords(self, InclGlyCA=False):  # TODO
-        return [pdb.extract_CB_coords(InclGlyCA=InclGlyCA) for pdb in self.models]
+    def get_cb_coords(self, InclGlyCA=False):  # TODO
+        return [pdb.get_cb_coords(InclGlyCA=InclGlyCA) for pdb in self.models]
 
-    def extract_CB_coords_chain(self, chain_id, InclGlyCA=False):  # TODO
+    def extract_cb_coords_chain(self, chain_id, InclGlyCA=False):  # TODO
         return [pdb.extract_CB_coords_chain(chain_id, InclGlyCA=InclGlyCA) for pdb in self.models]
-
-    def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):  # TODO
-        return [pdb.get_CB_coords(ReturnWithCBIndices=ReturnWithCBIndices, InclGlyCA=InclGlyCA) for pdb in self.models]
 
     def set_atom_coordinates(self, new_coords):  # Todo
         for i, pdb in enumerate(self.models):
@@ -402,10 +399,10 @@ class SymmetricModel(Model):
                               % (self.get_assembly_symmetry_mates.__name__, self.asu.name))
         if return_side_chains:  # get different function calls depending on the return type
             extract_pdb_atoms = getattr(PDB, 'get_atoms')
-            # extract_pdb_coords = getattr(PDB, 'extract_coords')
+            # extract_pdb_coords = getattr(PDB, 'get_coords')
         else:
             extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            # extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+            # extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         # self.models.append(copy.copy(self.asu))
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
@@ -487,10 +484,10 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
             extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'extract_coords')
+            extract_pdb_coords = getattr(PDB, 'get_coords')
         else:
             extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+            extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
         asu_cart_coords = extract_pdb_coords(pdb)
@@ -516,10 +513,10 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
             extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'extract_coords')
+            extract_pdb_coords = getattr(PDB, 'get_coords')
         else:
             extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+            extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         # could move the next block to a get all uc frac coords and remove redundancy from here and return_uc_sym_mates
         asu_cart_coords = extract_pdb_coords(pdb)
@@ -1690,8 +1687,8 @@ def construct_cb_atom_tree(pdb1, pdb2, distance=8):
         pdb2_cb_indices (list): List of all CB indices from pdb2
     """
     # Get CB Atom Coordinates including CA coordinates for Gly residues
-    pdb1_coords = np.array(pdb1.extract_CB_coords(InclGlyCA=gly_ca))
-    pdb2_coords = np.array(pdb2.extract_CB_coords(InclGlyCA=gly_ca))
+    pdb1_coords = np.array(pdb1.extract_cb_coords(InclGlyCA=gly_ca))
+    pdb2_coords = np.array(pdb2.extract_cb_coords(InclGlyCA=gly_ca))
 
     # Construct CB Tree for PDB1
     pdb1_tree = BallTree(pdb1_coords)
@@ -1868,7 +1865,7 @@ def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
 
     interface_frags1 = get_fragments(entity1, entity1_interface_residue_numbers)
     interface_frags2 = get_fragments(entity2, entity2_interface_residue_numbers)
-    entity1_coords = entity1.extract_coords()
+    entity1_coords = entity1.get_coords()
 
     ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
     # fragment_matches = find_fragment_overlap_at_interface(entity1, entity2, entity1_interface_residue_numbers,
