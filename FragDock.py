@@ -1092,7 +1092,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                   if passing_shift is not None]
                     passing_fragment_pairs = [overlap_pairs[idx] for idx in passing_optimal_shifts_idx]
                     print('passing fragment pairs: %s' % passing_fragment_pairs)
-                    central_res_tuples = [ghost_frags[ghost_idx].get_central_res_tup()
+                    central_res_tuples = [ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup()
                                           for ghost_idx, surf_idx in passing_fragment_pairs]
                     print('passing ghost fragment residue/chain: %s' % central_res_tuples)
 
