@@ -479,17 +479,19 @@ class Structure(StructureBase):  # (Coords):
 
     def create_residues(self):
         """For the Structure, create all possible Residue instances"""
+        residue_atoms, found_types = [], []
         current_residue_number = self.atoms[0].residue_number
-        current_residue = []
         for atom in self.atoms:
-            if atom.residue_number == current_residue_number:
-                current_residue.append(atom)
+            # if the current residue number is the same as the prior number and the atom.type is not already present
+            if atom.residue_number == current_residue_number and atom.type not in found_types:
+                residue_atoms.append(atom)
+                found_types.append(atom.type)
             else:
-                self.residues.append(Residue(atoms=current_residue, coords=self._coords))
-                current_residue = [atom]
+                self.residues.append(Residue(atoms=residue_atoms, coords=self._coords))
+                found_types, residue_atoms = [atom.type], [atom]
                 current_residue_number = atom.residue_number
         # ensure last residue is added after iteration is complete
-        self.residues.append(Residue(atoms=current_residue, coords=self._coords))
+        self.residues.append(Residue(atoms=residue_atoms, coords=self._coords))
 
     def residue(self, residue_number):
         """Retrieve the Residue specified
