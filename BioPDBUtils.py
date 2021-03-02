@@ -56,5 +56,3 @@ def biopdb_superimposer(atoms_fixed, atoms_moving):
     # tx = sup.rotran[1].tolist()
 
     return (sup.rms, *sup.rotran)
-
-
