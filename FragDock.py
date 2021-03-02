@@ -45,23 +45,21 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # tx_parameters = optimal_tx_params[tx_idx]
         # tx_parameters = optimal_tx_params[tx_idx][0]
 
-        # Get Optimal External DOF shifts
-        n_dof_external = len(sym_entry.get_ext_dof())  # returns 0 - 3
-        optimal_ext_dof_shifts = None
-        if n_dof_external > 0:
-            optimal_ext_dof_shifts = tx_parameters[0:n_dof_external]
-
         copy_rot_tr_set_time_start = time.time()
 
-        # Get Oligomer1 Optimal Internal Translation vector
-        representative_int_dof_tx_param_1 = None
+        n_dof_external = len(sym_entry.get_ext_dof())  # returns 0 - 3
+        # Get Oligomer1, Oligomer2 Optimal Internal Translation vector
+        representative_int_dof_tx_param_1, representative_int_dof_tx_param_2 = None, None
         if sym_entry.is_internal_tx1():
-            representative_int_dof_tx_param_1 = [0, 0, tx_parameters[n_dof_external: n_dof_external + 1]]
-
-        # Get Oligomer2 Optimal Internal Translation vector
-        representative_int_dof_tx_param_2 = None
+            representative_int_dof_tx_param_1 = [0, 0, tx_parameters[n_dof_external]]
         if sym_entry.is_internal_tx2():
-            representative_int_dof_tx_param_2 = [0, 0, tx_parameters[n_dof_external + 1: n_dof_external + 2]]
+            representative_int_dof_tx_param_2 = [0, 0, tx_parameters[n_dof_external + 1]]
+
+        # Get Optimal External DOF shifts
+        # if n_dof_external > 0:
+        optimal_ext_dof_shifts = tx_parameters[:n_dof_external]
+        # else:
+        #     optimal_ext_dof_shifts = None
 
         representative_ext_dof_tx_params_1, representative_ext_dof_tx_params_2 = None, None
         ref_frame_var_is_pos, uc_dimensions = False, None
@@ -178,7 +176,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #  Store all the ghost/surface frags in a chain/residue dictionary?
         get_int_ghost_surf_frags_time_start = time.time()
         transformed_ghostfrag_guide_coords_np, transformed_monofrag2_guide_coords_np, \
-            unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = \
+        unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = \
             get_interface_ghost_surf_frags(pdb1_copy, pdb2_copy, complete_ghost_frag_np,
                                            complete_surf_frag_np, rot_mat1, rot_mat2,
                                            representative_int_dof_tx_param_1, representative_int_dof_tx_param_2,
@@ -218,7 +216,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         overlap_score_time_start = time.time()
         # filter array by matching type for surface (i) and ghost (j) frags
         ij_type_match = [True if complete_surf_frag_np[overlapping_surf_frag_array[idx]].get_i_type() ==
-                         complete_ghost_frag_np[ghost_frag_idx].get_j_type() else False
+                                 complete_ghost_frag_np[ghost_frag_idx].get_j_type() else False
                          for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
         # get only those indices that pass ij filter and their associated coords
         # Todo numpy overlapping_ghost_frag_array so can [index] operation
@@ -310,7 +308,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         # Write PDB1 and PDB2 files
         cryst1_record = None
-        if optimal_ext_dof_shifts is not None:
+        if optimal_ext_dof_shifts:
             cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.get_result_design_sym())
         pdb1_fname = os.path.splitext(os.path.basename(pdb1.get_filepath()))[0]
         pdb2_fname = os.path.splitext(os.path.basename(pdb2.get_filepath()))[0]
@@ -701,6 +699,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     fragment_content1_j = [frag_types1_j.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_j_type() == initial_type2]
+    # -----------------------
+    frag_check = os.path.join(os.path.dirname(log_file_path), 'frag_check')
+    if not os.path.exists(frag_check):
+        os.makedirs(frag_check)
+    for idx_f, frag in enumerate(ghost_frags):
+        if idx_f % 8 == 0:
+            frag.write(outpath=os.path.join(frag_check, 'frag%s_chain%s_res%s.pdb'
+                                            % ('%s_%s_%s' % frag.get_ijk(),
+                                               *frag.get_aligned_surf_frag_central_res_tup())))
+    # -----------------------
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
     ghost_frag_np = np.array(ghost_frags)
@@ -963,7 +971,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, "z", sym_entry.get_rot_range_deg_1())
     # Ready to go returning identity matrices if there is no sampling on either degen or rotation
     degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
-    # print(degen_rot_mat_1)
+
     if not resume:
         with open(log_file_path, "a+") as log_file:
             log_file.write("Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n\n")
