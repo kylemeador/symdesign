@@ -125,7 +125,7 @@ class OptimalTx:
 
         if error <= max_z_value:
             # print('Found match (shift, rmsd ref)', shift, coords_rmsd_reference)
-            return shift[:, 0]  # , error
+            return shift[:, 0].tolist()  # , error
         else:
             return None
 
