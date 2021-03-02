@@ -1,7 +1,7 @@
 import os
 import sys
 
-from classes.PDB import PDB
+from PDB import PDB
 # from utils.PDBUtils import rot_txint_set_txext_pdb
 
 # September 29th 2020
