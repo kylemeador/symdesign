@@ -353,33 +353,11 @@ class PDB(Structure):
         """Return the chain name associated with a set of Atoms when the chain name for those Atoms is changed"""
         return self.chain_id_list[index]
 
-    # def get_entity_atoms(self, entity_id):
-    #     """Return list of Atoms containing the subset of Atoms that belong to the selected Entity"""
-    #     return [atom for atom in self.get_atoms() if atom.chain in self.entity_d[entity_id]['chains']]
-
-    # def extract_coords(self):
-    #     """Grab all the coordinates from the PDB object"""
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms()]
-    #
-    # def extract_backbone_coords(self):
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms() if atom.is_backbone()]
-    #
-    # def extract_backbone_and_cb_coords(self):
-    #     # inherently gets all glycine CA's
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms() if atom.is_backbone() or
-    #             atom.is_CB()]
-    #
-    # def extract_CA_coords(self):
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms() if atom.is_CA()]
-    #
-    # def extract_CB_coords(self, InclGlyCA=False):
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
-
-    def extract_CB_coords_chain(self, chain, InclGlyCA=False):
+    def extract_CB_coords_chain(self, chain, InclGlyCA=False):  # Todo Depreciate
         return [[atom.x, atom.y, atom.z] for atom in self.get_atoms()
                 if atom.is_CB(InclGlyCA=InclGlyCA) and atom.chain == chain]
 
-    def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):
+    def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):  # Todo Depreciate
         coords, cb_indices = [], []
         for idx, atom in enumerate(self.get_atoms()):
             if atom.is_CB(InclGlyCA=InclGlyCA):
@@ -394,7 +372,7 @@ class PDB(Structure):
         else:
             return coords
 
-    def extract_coords_subset(self, res_start, res_end, chain_index, CA):
+    def extract_coords_subset(self, res_start, res_end, chain_index, CA):  # Todo Depreciate
         if CA:
             selected_atoms = []
             for atom in self.chain(self.chain_id_list[chain_index]):
@@ -416,15 +394,6 @@ class PDB(Structure):
                 [x, y, z] = [atom.x, atom.y, atom.z]
                 out_coords.append([x, y, z])
             return out_coords
-
-    # def set_atom_coordinates(self, coords):
-    #     """Replate all Atom coords with coords specified. Ensure the coords are the same length"""
-    #     assert len(self.atoms) == coords.shape[0], '%s: ERROR setting Atom coordinates, # Atoms (%d) !=  # Coords (%d)'\
-    #                                                % (self.filepath, len(self.atoms), coords.shape[0])
-    #     self.coords = coords
-    #     for idx, atom in enumerate(self.get_atoms()):
-    #         atom.coords = coords[idx]
-    #         # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
 
     def get_term_ca_indices(self, term):  # Todo DEPRECIATE
         if term == "N":
@@ -472,122 +441,10 @@ class PDB(Structure):
             newZ = coord_rot[2] + tx[2]
             atom.x, atom.y, atom.z = newX, newY, newZ
 
-    def translate(self, tx):  # Todo Depreciate
-        for atom in self.get_atoms():
-            newX = atom.x + tx[0]
-            newY = atom.y + tx[1]
-            newZ = atom.z + tx[2]
-            atom.x, atom.y, atom.z = newX, newY, newZ
-
-    def rotate(self, rot, store_cb_and_bb_coords=False):  # Todo Depreciate
-        if store_cb_and_bb_coords:
-            for atom in self.get_atoms():
-                atom.x, atom.y, atom.z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
-                if atom.is_backbone():
-                    self.bb_coords.append([atom.x, atom.y, atom.z])
-                if atom.is_CB(InclGlyCA=False):
-                    self.cb_coords.append([atom.x, atom.y, atom.z])
-        else:
-            for atom in self.get_atoms():
-                atom.x, atom.y, atom.z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
-
-    def rotate_along_principal_axis(self, degrees=90.0, axis='x'):  # Todo Depreciate
-        """Rotate the coordinates about the given axis
-        """
-        deg = math.radians(float(degrees))
-
-        # define the rotation matrices
-        if axis == 'x':
-            rotmatrix = [[1, 0, 0], [0, math.cos(deg), -1 * math.sin(deg)], [0, math.sin(deg), math.cos(deg)]]
-        elif axis == 'y':
-            rotmatrix = [[math.cos(deg), 0, math.sin(deg)], [0, 1, 0], [-1 * math.sin(deg), 0, math.cos(deg)]]
-        elif axis == 'z':
-            rotmatrix = [[math.cos(deg), -1 * math.sin(deg), 0], [math.sin(deg), math.cos(deg), 0], [0, 0, 1]]
-        else:
-            self.log.error('Axis does not exists!')
-
-        for atom in self.get_atoms():
-            coord = [atom.x, atom.y, atom.z]
-            # Todo replace below with atom.x, atom.y, atom.z = np.matmul(rotmatrix * coord)
-            newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
-            newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
-            newZ = coord[0] * rotmatrix[2][0] + coord[1] * rotmatrix[2][1] + coord[2] * rotmatrix[2][2]
-            atom.x, atom.y, atom.z = newX, newY, newZ
-
-    def ReturnRotatedPDB(self, degrees=90.0, axis='x', store_cb_and_bb_coords=False):  # Todo Depreciate
-        """Rotate the coordinates about the given axis
-        """
-        deg = math.radians(float(degrees))
-
-        # define the rotation matrices
-        if axis == 'x':
-            rotmatrix = [[1, 0, 0], [0, math.cos(deg), -1 * math.sin(deg)], [0, math.sin(deg), math.cos(deg)]]
-        elif axis == 'y':
-            rotmatrix = [[math.cos(deg), 0, math.sin(deg)], [0, 1, 0], [-1 * math.sin(deg), 0, math.cos(deg)]]
-        elif axis == 'z':
-            rotmatrix = [[math.cos(deg), -1 * math.sin(deg), 0], [math.sin(deg), math.cos(deg), 0], [0, 0, 1]]
-        else:
-            self.log.error('Axis does not exists!')
-
-        rotated_atoms = []
-        for atom in self.get_atoms():
-            coord = [atom.x, atom.y, atom.z]
-            newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
-            newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
-            newZ = coord[0] * rotmatrix[2][0] + coord[1] * rotmatrix[2][1] + coord[2] * rotmatrix[2][2]
-            rot_atom = deepcopy(atom)
-            rot_atom.x, rot_atom.y, rot_atom.z = newX, newY, newZ
-            rotated_atoms.append(rot_atom)
-
-        # rotated_pdb = PDB(atoms=)
-        rotated_pdb = PDB()
-        rotated_pdb.read_atom_list(rotated_atoms, store_cb_and_bb_coords=store_cb_and_bb_coords)
-
-        return rotated_pdb
-
-    def ReturnTranslatedPDB(self, tx, store_cb_and_bb_coords=False):  # Todo Depreciate
-        translated_atoms = []
-        for atom in self.get_atoms():
-            coord = [atom.x, atom.y, atom.z]
-            newX = coord[0] + tx[0]
-            newY = coord[1] + tx[1]
-            newZ = coord[2] + tx[2]
-            tx_atom = deepcopy(atom)
-            tx_atom.x, tx_atom.y, tx_atom.z = newX, newY, newZ
-            translated_atoms.append(tx_atom)
-
-        translated_pdb = PDB()
-        translated_pdb.read_atom_list(translated_atoms, store_cb_and_bb_coords)
-
-        return translated_pdb
-
-    def ReturnRotatedPDBMat(self, rot):  # Todo Depreciate
-        rotated_coords = []
-        return_atoms = []
-        return_pdb = PDB()
-        for coord in self.extract_coords():
-            coord_copy = deepcopy(coord)
-            coord_rotated = self.mat_vec_mul3(rot, coord_copy)
-            rotated_coords.append(coord_rotated)
-        for i in range(len(self.get_atoms())):
-            atom_copy = deepcopy(self.atoms[i])
-            atom_copy.x = rotated_coords[i][0]
-            atom_copy.y = rotated_coords[i][1]
-            atom_copy.z = rotated_coords[i][2]
-            return_atoms.append(atom_copy)
-        return_pdb.read_atom_list(return_atoms)
-
-        return return_pdb
-
     def rename_chains(self, chain_list_fixed):  # Todo Depreciate
         # Caution, doesn't update self.reference_sequence chain info
         lf = chain_list_fixed
         lm = self.chain_id_list[:]
-
-        l_abc = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-                 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-                 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7',
-                 '8', '9']
 
         l_av = []
         for e in PDB.available_letters:
