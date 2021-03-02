@@ -632,7 +632,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Get PDB2 Symmetric Building Block
     pdb2 = PDB.from_file(pdb2_path)
-    surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
 
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
@@ -640,6 +639,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             log_file.write("Getting Oligomer 2 Surface Fragments Using COMPLETE Fragment Database")
         if keep_time:
             get_complete_surf_frags_time_start = time.time()
+
+    print('pdb2 surface residues: %s' % ', '.join(pdb2.get_surface_residues()))
+    surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
 
     complete_surf_frag_list = []
     for frag2 in surf_frags_2:
@@ -656,7 +658,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # print('Found fragment initial type oligomer 2: %s' % initial_type2)
     initial_surf_frags = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
     initial_surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in initial_surf_frags]
-
+    # -----------------------
+    frag_check = os.path.join(os.path.dirname(log_file_path), 'frag_check')
+    if not os.path.exists(frag_check):
+        os.makedirs(frag_check)
+    for idx_f, frag in enumerate(initial_surf_frags):
+        if idx_f % 8 == 0:
+            frag.structure.write(out_path=os.path.join(frag_check, 'surffrag%s_chain%s_res%s.pdb'
+                                                       % (frag.get_i_type(), *frag.get_central_res_tup())))
+    # -----------------------
     surf_frag_np = np.array(initial_surf_frags)
     complete_surf_frag_np = np.array(complete_surf_frag_list)
 
@@ -668,7 +678,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Get PDB1 Symmetric Building Block
     pdb1 = PDB.from_file(pdb1_path)
-    surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
     oligomer1_backbone_cb_tree = BallTree(pdb1.get_backbone_and_cb_coords())
 
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
@@ -678,6 +687,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         if keep_time:
             get_complete_ghost_frags_time_start = time.time()
 
+    print('pdb1 surface residues: %s' % ', '.join(pdb1.get_surface_residues()))
+    surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
+
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
         monofrag1 = MonoFragment(frag1, ijk_frag_db.reps)
@@ -686,8 +698,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                                           oligomer1_backbone_cb_tree, ijk_frag_db.info))
 
     # calculate the initial match type by finding the predominant surface type
-    print('Length of surface1_frags: %d' % len(surf_frags_1))
-    print('Length of complete_ghost_frags: %d' % len(complete_ghost_frag_list))
+    print('Length of surface_frags1: %d' % len(surf_frags_1))
+    print('Length of complete_ghost_frags1: %d' % len(complete_ghost_frag_list))
     frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
     fragment_content1 = [frag_types1.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 1 i fragment content: %s' % fragment_content1)
@@ -698,12 +710,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_j_type() == initial_type2]
     # -----------------------
-    frag_check = os.path.join(os.path.dirname(log_file_path), 'frag_check')
-    if not os.path.exists(frag_check):
-        os.makedirs(frag_check)
+
     for idx_f, frag in enumerate(ghost_frags):
         if idx_f % 8 == 0:
-            frag.structure.write(out_path=os.path.join(frag_check, 'frag%s_chain%s_res%s.pdb'
+            frag.structure.write(out_path=os.path.join(frag_check, 'ghostfrag%s_chain%s_res%s.pdb'
                                                        % ('%s_%s_%s' % frag.get_ijk(),
                                                           *frag.get_aligned_surf_frag_central_res_tup())))
     # -----------------------
@@ -1105,6 +1115,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         central_res_tuples = [ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup()
                                               for ghost_idx, surf_idx in passing_fragment_pairs]
                         print('passing ghost fragment chain/residue: %s' % central_res_tuples)
+                        surf_central_res_tuples = [initial_surf_frags[surf_idx].get_central_res_tup()
+                                                   for ghost_idx, surf_idx in passing_fragment_pairs]
+                        print('passing ghost fragment chain/residue: %s' % surf_central_res_tuples)
                         out_string = os.path.join(frag_check, "DEGEN_%d_%d_ROT_%d_%d"
                                                   % (degen1_count, degen2_count, rot1_count, rot2_count))
                         if not os.path.exists(out_string):
