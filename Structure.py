@@ -117,7 +117,8 @@ class Structure(StructureBase):  # (Coords):
             new_coords += np.array(translation2)
 
         new_structure = deepcopy(self)
-        new_structure.replace_coords(Coords(new_coords))
+        # new_structure.replace_coords(Coords(new_coords))
+        new_structure.replace_coords(new_coords)
         return new_structure
 
     def replace_coords(self, new_coords):
@@ -835,8 +836,8 @@ class Structure(StructureBase):  # (Coords):
 
 
 class Chain(Structure):
-    def __init__(self, **kwargs):  # name=None, residues=None, coords=None, log=None, sequence=None,
-        super().__init__(**kwargs)  # residues=residues, name=name, coords=coords, log=log,
+    def __init__(self, **kwargs):  # name=None, residues=None, coords=None, log=None
+        super().__init__(**kwargs)  # residues=residues, name=name, coords=coords, log=log
         # self.residues = residues
         # self.id = name
         # if sequence:
@@ -1059,21 +1060,21 @@ class Residue:
         # self.atoms = atoms
         for idx, atom in enumerate(self.atoms):
             # if atom.is_n():
-            if self.type == 'N':
+            if atom.type == 'N':
                 self.n = idx
             # elif atom.is_h():
-            elif self.type == 'H':
+            elif atom.type == 'H':
                 self.h = idx
             # elif atom.is_CA():
-            elif self.type == 'CA':
+            elif atom.type == 'CA':
                 self.ca = idx
             elif atom.is_CB(InclGlyCA=True):
                 self.cb = idx
             # elif atom.is_c():
-            elif self.type == 'C':
+            elif atom.type == 'C':
                 self.c = idx
             # elif atom.is_o():
-            elif self.type == 'O':
+            elif atom.type == 'O':
                 self.o = idx
         # Todo handle if the atom is missing backbone?
 
@@ -1112,7 +1113,7 @@ class Residue:
             self._coords = coords
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
     def atom_indices(self):  # in structure too
