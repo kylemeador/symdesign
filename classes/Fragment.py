@@ -39,7 +39,7 @@ class GhostFragment:
     def get_aligned_surf_frag_central_res_tup(self):
         """Return the fragment information the GhostFragment instance is aligned to
         Returns:
-            (tuple): aligned chain, aligned residue_number"""
+            (tuple[str,int]): aligned chain, aligned residue_number"""
         return self.aligned_surf_frag_central_res_tup
 
     def get_i_type(self):
@@ -144,15 +144,26 @@ class MonoFragment:
     def get_central_res_chain_id(self):
         return self.central_res_chain_id
 
-    def get_ghost_fragments(self, intfrag_cluster_rep_dict, kdtree_oligomer_backbone, intfrag_cluster_info_dict,
-                            clash_dist=2.2):
-        if self.type not in intfrag_cluster_rep_dict:
+    def get_ghost_fragments(self, intfrag_cluster_rep, kdtree_oligomer_backbone, intfrag_cluster_info, clash_dist=2.2):
+        """Find all the GhostFragments associated with the MonoFragment that don't clash with the original structure
+        backbone
+
+        Args:
+            intfrag_cluster_rep (dict): The paired fragment database to match to the MonoFragment instance
+            kdtree_oligomer_backbone (sklearn.neighbors.KDTree): The backbone of the structure to assign fragments to
+            intfrag_cluster_info (dict): The paired fragment database info
+        Keyword Args:
+            clash_dist=2.2 (float): The distance to check for backbone clashes
+        Returns:
+            (list[GhostFragment])
+        """
+        if self.type not in intfrag_cluster_rep:
             return []
 
         ghost_fragments = []
-        for j_type, j_dictionary in intfrag_cluster_rep_dict[self.type].items():
+        for j_type, j_dictionary in intfrag_cluster_rep[self.type].items():
             for k_type, intfrag in j_dictionary.items():
-                # intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
+                # intfrag = intfrag_cluster_rep[self.type][j_type][k_type]
                 frag_pdb = intfrag[0]
                 frag_paired_chain = intfrag[1]
                 # # frag_mapped_chain = intfrag[1]
@@ -170,7 +181,7 @@ class MonoFragment:
                 cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
 
                 if cb_clash_count[0] == 0:
-                    rmsd = intfrag_cluster_info_dict[self.type][j_type][k_type].get_rmsd()
+                    rmsd = intfrag_cluster_info[self.type][j_type][k_type].get_rmsd()
                     ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, rmsd,
                                                          self.get_central_res_tup()))
 
