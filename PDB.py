@@ -142,7 +142,7 @@ class PDB(Structure):
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
-    def readfile(self, filepath, remove_alt_location=True, **kwargs):
+    def readfile(self, filepath, remove_alt_location=True, lazy=False, **kwargs):
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
         formatted_filename = os.path.splitext(os.path.basename(filepath))[0].replace('pdb', '')
@@ -151,33 +151,33 @@ class PDB(Structure):
 
         with open(self.filepath, 'r') as f:
             pdb_lines = f.readlines()
-            pdb_lines = list(map(str.rstrip, pdb_lines))
-        available_chain_ids = [second + first for second in [''] + [i for i in PDB.available_letters]
-                               for first in PDB.available_letters]
+            # pdb_lines = list(map(str.rstrip, pdb_lines))
+
         chain_ids = []
         seq_res_lines = []
         multimodel, start_of_new_model = False, False
         model_chain_id, curr_chain_id = None, None
-        model_chain_index = 0
         entity = None
-        atom_idx = 0
         coords, atom_info = [], []
+        atom_idx = 0
         for line in pdb_lines:
-            if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':  # KM modified 2/10/20 for MSE
+            if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':
+                alt_location = line[16:17].strip()
+                if remove_alt_location and alt_location not in ['', 'A']:
+                    continue
                 number = int(line[6:11].strip())
                 atom_type = line[12:16].strip()
-                alt_location = line[16:17].strip()
-                if line[17:20] == 'MSE':  # KM added 2/10/20
-                    residue_type = 'MET'  # KM added 2/10/20
+                if line[17:20] == 'MSE':
+                    residue_type = 'MET'
                     if atom_type == 'SE':
                         atom_type = 'SD'  # change type from Selenium to Sulfur delta
-                else:  # KM added 2/10/20
+                else:
                     residue_type = line[17:20].strip()
                 if multimodel:
                     if start_of_new_model or line[21:22].strip() != curr_chain_id:
                         curr_chain_id = line[21:22].strip()
-                        model_chain_id = available_chain_ids[model_chain_index]
-                        model_chain_index += 1
+                        model_chain_id = next(available_chain_ids)
+                        # model_chain_idx += 1
                         start_of_new_model = False
                     chain = model_chain_id
                 else:
@@ -188,34 +188,23 @@ class PDB(Structure):
                 temp_fact = float(line[60:66].strip())
                 element_symbol = line[76:78].strip()
                 atom_charge = line[78:80].strip()
-                _atom = (atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
-                         code_for_insertion, occ, temp_fact, element_symbol, atom_charge)
-                if remove_alt_location:
-                    if alt_location == '' or alt_location == 'A':
-                        if chain not in chain_ids:
-                            chain_ids.append(chain)
-                        # Store the atomic coordinates in a numpy array
-                        coords.append(
-                            [float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())])
-                        atom_info.append(_atom)
-                        atom_idx += 1
-                else:
-                    if chain not in chain_ids:  # Todo move this outside of the alt_location? Might be some weird files
-                        chain_ids.append(chain)
-                    # Store the atomic coordinates in a numpy array
-                    coords.append([float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())])
-                    atom_info.append(_atom)
-                    atom_idx += 1
-
+                if chain not in chain_ids:
+                    chain_ids.append(chain)
+                # prepare the atomic coordinates for addition to numpy array
+                coords.append([float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())])
+                atom_info.append((atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
+                                  code_for_insertion, occ, temp_fact, element_symbol, atom_charge))
+                atom_idx += 1
             elif line[0:5] == 'MODEL':
-                multimodel = True
-                start_of_new_model = True  # signifies that the next line comes after a new model
-                # model_chain_id = available_chain_ids[model_chain_index]
-                # model_chain_index += 1
+                # start_of_new_model signifies that the next line comes after a new model
+                multimodel, start_of_new_model = True, True
+                available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
+                                       for first in PDB.available_letters)
+            elif lazy:
+                continue
             elif line[0:6] == 'SEQRES':
                 seq_res_lines.append(line[11:])
             elif line[0:5] == 'DBREF':
-                # line = line.strip()
                 chain = line[12:14].strip().upper()
                 if line[5:6] == '2':
                     db_accession_id = line[18:40].strip()
@@ -237,53 +226,19 @@ class PDB(Structure):
                 self.entity_d[entity] = {'chains': line[line.rfind(':') + 1:].strip().rstrip(';').split(',')}
                 entity = None
             elif line[0:5] == 'SCALE':
-                self.header.append(line)
+                self.header.append(line.strip())
             elif line[0:6] == 'CRYST1':
-                self.header.append(line)
+                self.header.append(line.strip())
                 self.cryst_record = line.strip()
                 self.uc_dimensions, self.space_group = self.parse_cryst_record(self.cryst_record)
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-                # try:
-                #     a = float(line[6:15].strip())
-                #     b = float(line[15:24].strip())
-                #     c = float(line[24:33].strip())
-                #     ang_a = float(line[33:40].strip())
-                #     ang_b = float(line[40:47].strip())
-                #     ang_c = float(line[47:54].strip())
-                # except ValueError:
-                #     a, b, c = 0.0, 0.0, 0.0
-                #     ang_a, ang_b, ang_c = a, b, c
-                # space_group = line[55:66].strip()
 
         self.coords = Coords(coords)
-        # todo set atom coords
         self.set_atoms([Atom.from_info(*info) for info in atom_info])
-        # self.atoms = [Atom.from_info(*info) for info in atom_info]
-        # self.renumber_atoms()
         self.chain_id_list = chain_ids
         self.log.debug('Multimodel %s, Chains %s' % (True if multimodel else False, self.chain_id_list))
-        # self.coords = Coords(coords)  # np.array(coords)
-        # self.set_atom_coordinates(self.coords)
-        # assert len(self.atoms) == self.coords.shape[0], '%s: ERROR parseing Atoms (%d) and Coords (%d). Wrong size!' \
-        #                                                 % (self.filepath, len(self.atoms), self.coords.shape[0])
-        # for atom_idx, atom in enumerate(self.atoms):
-        #     atom.coords = self.coords[atom_idx]
-        self.process_pdb(coords=coords, seqres=seq_res_lines, multimodel=multimodel, **kwargs)
-
-        # if seq_res_lines:
-        #     self.parse_seqres(seq_res_lines)
-        # else:
-        #     self.reference_sequence = {chain_id: None for chain_id in self.chain_id_list}
-        #     self.design = True
-            # entity.retrieve_sequence_from_api(entity_id=None)
-
-        # self.get_chain_sequences()
-        # self.generate_entity_accession_map()
-        # if not self.entity_d:
-        #     self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
-        # else:
-        #     self.update_entity_d()
+        self.process_pdb(coords=coords, seqres=seq_res_lines, multimodel=multimodel, lazy=lazy, **kwargs)
 
     # def process_symmetry(self):
     #     """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
