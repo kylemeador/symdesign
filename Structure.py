@@ -13,7 +13,12 @@ from SequenceProfile import SequenceProfile
 from SymDesignUtils import start_log, DesignError
 
 
-class Structure:  # (Coords):
+class StructureBase:
+    def __init__(self, chains=None, solve_discrepancy=None, entities=None, **kwargs):
+        super().__init__(**kwargs)
+
+
+class Structure(StructureBase):  # (Coords):
     def __init__(self, atoms=None, residues=None, name=None, coords=None, log=None, **kwargs):
         # super().__init__(coords=coords)  # gets self.coords
         self.atoms = []  # atoms
@@ -261,7 +266,7 @@ class Structure:  # (Coords):
         # self.update_structure(atom_list)
         # self.set_length()
 
-    def set_residues_attributes(self, numbers=None, **kwargs):
+    def set_residues_attributes(self, numbers=None, **kwargs):  # UNUSED
         """Set attributes specified by key, value pairs for all Residues in the Structure"""
         # for kwarg, value in kwargs.items():
         for residue in self.get_residues(numbers=numbers):

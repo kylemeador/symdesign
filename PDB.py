@@ -29,16 +29,16 @@ class PDB(Structure):
     """The base object for PDB file manipulation"""
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, metadata=None, log=None, entities=True, lazy=False, **kwargs):
+    def __init__(self, file=None, atoms=None, metadata=None, log=None, lazy=False, **kwargs):  # entities=True,
         if not log:
             log = start_log()
         super().__init__(log=log, **kwargs)  #
-        # self.atoms = []  # captured from Structure
-        # self.center_of_mass = None  # captured from Structure
-        # self.coords = []  # captured from Structure
-        # self.name = None  # captured from Structure
-        # self.residues = []  # captured from Structure
-        # self.secondary_structure = None  # captured from Structure
+        # self.atoms = []  # from Structure
+        # self.center_of_mass = None  # from Structure
+        # self.coords = []  # from Structure
+        # self.name = None  # from Structure
+        # self.residues = []  # from Structure
+        # self.secondary_structure = None  # from Structure
 
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
@@ -67,13 +67,15 @@ class PDB(Structure):
         self.dihedral_chain = None
 
         if file:
-            self.readfile(file, entities=entities, lazy=lazy)
+            self.readfile(file, lazy=lazy, **kwargs)  # entities=entities,
         if atoms:
-            self.set_atoms(atoms)
-            self.chain_id_list = remove_duplicates([residue.chain for residue in self.residues])
+            self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
+            self.process_pdb(coords=[atom.coords for atom in atoms], atoms=atoms, **kwargs)
+            # self.coords = Coords([atom.coords for atom in atoms])
+            # self.set_atoms(atoms)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
-            self.process_pdb(coords=[atom.coords for atom in atoms])
+            # self.process_pdb(**kwargs)  # coords=[atom.coords for atom in atoms]
 
     @classmethod
     def from_file(cls, file, **kwargs):
@@ -177,7 +179,6 @@ class PDB(Structure):
                     if start_of_new_model or line[21:22].strip() != curr_chain_id:
                         curr_chain_id = line[21:22].strip()
                         model_chain_id = next(available_chain_ids)
-                        # model_chain_idx += 1
                         start_of_new_model = False
                     chain = model_chain_id
                 else:
@@ -234,42 +235,43 @@ class PDB(Structure):
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-        self.coords = Coords(coords)
-        self.set_atoms([Atom.from_info(*info) for info in atom_info])
+        # self.coords = Coords(coords)
+        # self.set_atoms([Atom.from_info(*info, self._coords) for info in atom_info])
         self.chain_id_list = chain_ids
         self.log.debug('Multimodel %s, Chains %s' % (True if multimodel else False, self.chain_id_list))
-        self.process_pdb(coords=coords, seqres=seq_res_lines, multimodel=multimodel, lazy=lazy, **kwargs)
+        self.process_pdb(coords=coords, atoms=[Atom.from_info(*info, self._coords) for info in atom_info],
+                         seqres=seq_res_lines, multimodel=multimodel, lazy=lazy, **kwargs)
 
     # def process_symmetry(self):
     #     """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
     #     return None
 
-    def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False,
-                    lazy=False, entities=True):
+    def process_pdb(self, coords=None, atoms=None, seqres=None, multimodel=False, lazy=False, chains=True,
+                    entities=True, solve_discrepancy=True, **kwargs):
+        #           reference_sequence=None
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
         if coords:
             self.coords = Coords(coords)
-            # replace the Atom and Residue Coords
-            self.set_residues_attributes(coords=self._coords)
+            # # replace the Atom and Residue Coords
+            # self.set_residues_attributes(coords=self._coords)
+        if atoms:  # set atoms and create residues
+            self.set_atoms(atoms)
 
-        if lazy:
-            pass
-        else:
+        if not lazy:
             self.renumber_pdb()
-        # self.renumber_atoms()
-        # self.renumber_residues()
-        # self.find_center_of_mass()
-        # self.create_residues()
+
+        if chains:
+            if multimodel:
+                self.create_chains(solve_discrepancy=False)
+            else:
+                self.create_chains(solve_discrepancy=solve_discrepancy)
+
         if seqres:
             self.parse_seqres(seqres)
         else:  # elif reference_sequence:
             self.reference_sequence = {chain_id: None for chain_id in self.chain_id_list}
             self.design = True
 
-        if multimodel:
-            self.create_chains(solve_discrepancy=False)
-        else:
-            self.create_chains()
         if entities and not lazy:
             self.create_entities()
         self.get_chain_sequences()
@@ -575,12 +577,10 @@ class PDB(Structure):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues"""
         if solve_discrepancy:
             chain_idx = 0
-            # chain_residues = {chain_id: [self.residues[0]]}
             chain_residues = {chain_idx: [self.residues[0]]}
-            # previous_chain = self.residues[0].chain
-            for idx, residue in enumerate(self.residues[1:], 1):  # start at the second index to avoid off by one
-                if residue.number_pdb < self.residues[idx - 1].number_pdb \
-                        or residue.chain != self.residues[idx - 1].chain:
+            for prior_idx, residue in enumerate(self.residues[1:]):  # start at the second index to avoid off by one
+                if residue.number_pdb < self.residues[prior_idx].number_pdb \
+                        or residue.chain != self.residues[prior_idx].chain:
                     # Decreased number should only happen with new chain therefore this SHOULD satisfy a malformed PDB
                     chain_idx += 1
                     # # if residue.chain == previous_chain:  # residue[idx - 1].chain:
@@ -588,20 +588,17 @@ class PDB(Structure):
                     # # else:
                     # #     chain = residue.chain
                     chain_residues[chain_idx] = [residue]
-                    # chain_residues[chain_id] = [residue]
                 else:
                     chain_residues[chain_idx].append(residue)
-                    # chain_residues[chain_id].append(residue)
             available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
                                    for first in PDB.available_letters)
-            # available_chain_ids = (letter for letter in PDB.available_letters if letter not in self.chain_id_list)
             for idx, (chain_idx, residues) in enumerate(chain_residues.items()):
                 if chain_idx < len(self.chain_id_list):
                     chain_id = self.chain_id_list[chain_idx]
                 else:
                     chain_id = next(available_chain_ids)
                 self.chains.append(Chain(name=chain_id, coords=self._coords, residues=residues, log=self.log))
-                self.chains[idx].set_residues_attributes(chain=chain_id)
+                self.chains[idx].set_atoms_attributes(chain=chain_id)
             self.chain_id_list = [chain.name for chain in self.chains]
         else:
             for chain_id in self.chain_id_list:
