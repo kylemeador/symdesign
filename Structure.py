@@ -1271,6 +1271,7 @@ class Atom:  # (Coords):
         # else:
         #     return False
         return self.is_n() or self.is_CA() or self.is_c() or self.is_o()  # or self.is_h()
+        # Todo so many function calls can slow down calculation
 
     def is_n(self):
         return self.type == 'N'
