@@ -62,14 +62,18 @@ class GhostFragment:
     def structure(self, structure):
         self._structure = structure
 
-    # def get_pdb_coords(self):
-    #     return self.pdb.get_coords()
-
     def get_guide_coords(self):
         return self.guide_coords
 
     def get_center_of_mass(self):
         return np.matmul(np.array([0.33333, 0.33333, 0.33333]), self.guide_coords)
+
+    def write(self, out_path=os.getcwd()):
+        if out_path:
+            with open(out_path, 'w') as outfile:
+                outfile.write('\n'.join(str(atom) for atom in self.structure.get_atoms()))
+
+            return out_path
 
 
 class MonoFragment:
