@@ -479,29 +479,9 @@ class SymmetricModel(Model):
         else:
             return self.return_unit_cell_symmetry_mates(pdb, **kwargs)  # # return_side_chains=return_side_chains
 
-    # @staticmethod
-    def return_point_group_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
+    def return_point_group_symmetry_mates(self, pdb):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
-        # if return_side_chains:  # get different function calls depending on the return type
-        #     extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-        #     extract_pdb_coords = getattr(PDB, 'extract_coords')
-        # else:
-        #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-        #     extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-        # ipdb.set_trace()
         return [pdb.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]  # Todo change below as well
-        # asu_symm_mates = []
-        # pdb_coords = np.array(extract_pdb_coords(pdb))
-        # for rot in self.expand_matrices:
-        #     r_mat = np.transpose(np.array(rot))
-        #     r_asu_coords = np.matmul(pdb_coords, r_mat)
-        #     symmetry_mate_pdb = pdb.return_transformed_copy(rotation=rot)
-        #     symmetry_mate_pdb = copy.deepcopy(pdb)
-        #     symmetry_mate_pdb.coords = Coords(r_asu_coords)
-        #     # symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
-        #     asu_symm_mates.append(symmetry_mate_pdb)
-        #
-        # return asu_symm_mates
 
     def return_unit_cell_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
