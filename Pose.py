@@ -1800,6 +1800,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
 
     eul_lookup = EulerLookup()
     # Check for matching Euler angles
+    # TODO update to modern version
     eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_list,
                                                                interface_surf_frag_guide_coords_list)
     eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if true_tup[2]]
