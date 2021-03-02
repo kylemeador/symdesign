@@ -995,7 +995,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Transpose Setting Matrices to Set Guide Coordinates just for Euler Lookup Using np.matmul
     set_mat1_np_t, set_mat2_np_t = np.transpose(set_mat1), np.transpose(set_mat2)
-
+    iteration = 0  # Todo
     for degen1 in degen_rot_mat_1[degen1_count:]:
         degen1_count += 1
         for rot1_mat in degen1[rot1_count:]:
@@ -1113,10 +1113,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                                                                       translation=passing_optimal_shifts[idx][0],
                                                                                                       rotation2=set_mat1)
                                              for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
-                        write_residue_matches = [frag.write(out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
-                                                                                  % ('%s_%s_%s' % frag.get_ijk(),
-                                                                                     *frag.get_aligned_surf_frag_central_res_tup())))
-                                                 for frag in transformed_frags]
+                        write_residue_matches = [transformed_frags[idx].write(
+                            out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
+                                                  % ('%s_%s_%s' % ghost_frags[ghost_idx].get_ijk(),
+                                                     *ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup())))
+                                                 for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
 
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
@@ -1133,6 +1134,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                           rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
                                           output_exp_assembly=output_exp_assembly, output_uc=output_uc,
                                           output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                        iteration += 1  # Todo
+                        if iteration == 5:  # Todo
+                            exit()
                 rot2_count = 0
             degen2_count = 0
         rot1_count = 0
