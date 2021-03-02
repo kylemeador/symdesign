@@ -1094,9 +1094,6 @@ def filter_euler_lookup_by_zvalue(coords_l1, coords_l2, reference_coords, z_valu
     Returns:
         (list[tuple]): (Function overlap parameter, z-value of function)
     """
-    # Todo, signature = coords_array1, coords_array2, rmsd_list
-    # Todo make coords_l1, coords_l2, rmsd_list all np array. Calling z_value_func on these arrays will return an array
-    #  must specify with optimal_tx if need to save the z_value. Could filter it in optimal_tx.apply()
     overlap_results = [z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
                        for coords1, coords2 in zip(coords_l1, coords_l2)]
     # for index_pair in index_pairs:
