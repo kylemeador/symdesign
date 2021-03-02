@@ -1058,17 +1058,22 @@ class Residue:
     def set_atoms(self):
         # self.atoms = atoms
         for idx, atom in enumerate(self.atoms):
-            if atom.is_n():
+            # if atom.is_n():
+            if self.type == 'N':
                 self.n = idx
-            elif atom.is_h():
+            # elif atom.is_h():
+            elif self.type == 'H':
                 self.h = idx
-            elif atom.is_CA():
+            # elif atom.is_CA():
+            elif self.type == 'CA':
                 self.ca = idx
             elif atom.is_CB(InclGlyCA=True):
                 self.cb = idx
-            elif atom.is_c():
+            # elif atom.is_c():
+            elif self.type == 'C':
                 self.c = idx
-            elif atom.is_o():
+            # elif atom.is_o():
+            elif self.type == 'O':
                 self.o = idx
         # Todo handle if the atom is missing backbone?
 
@@ -1265,19 +1270,19 @@ class Atom:  # (Coords):
         """Check if the Atom is a backbone Atom
          Returns:
              (bool)"""
-        # backbone_specific_atom_type = ["N", "CA", "C", "O"]
-        # if self.type in backbone_specific_atom_type:
-        #     return True
-        # else:
-        #     return False
-        return self.is_n() or self.is_CA() or self.is_c() or self.is_o()  # or self.is_h()
+        backbone_specific_atom_type = ["N", "CA", "C", "O"]
+        if self.type in backbone_specific_atom_type:
+            return True
+        else:
+            return False
+        # return self.is_n() or self.is_CA() or self.is_c() or self.is_o()  # or self.is_h()
         # Todo so many function calls can slow down calculation
 
-    def is_n(self):
-        return self.type == 'N'
+    # def is_n(self):
+    #     return self.type == 'N'
 
-    def is_h(self):
-        return self.type == 'H'
+    # def is_h(self):
+    #     return self.type == 'H'
 
     def is_CB(self, InclGlyCA=False):
         if InclGlyCA:
@@ -1288,11 +1293,11 @@ class Atom:  # (Coords):
     def is_CA(self):
         return self.type == 'CA'
 
-    def is_c(self):
-        return self.type == 'C'
+    # def is_c(self):
+    #     return self.type == 'C'
 
-    def is_o(self):
-        return self.type == 'O'
+    # def is_o(self):
+    #     return self.type == 'O'
 
     def distance(self, atom, intra=False):
         """returns distance (type float) between current instance of Atom and another instance of Atom"""
