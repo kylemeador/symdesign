@@ -6,7 +6,7 @@ import numpy as np
 class EulerLookup:
     def __init__(self, scale=3.0):
         nanohedra_dirpath = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        binary_lookup_table_path = nanohedra_dirpath + "/euler_lookup/euler_lookup_40.npz"
+        binary_lookup_table_path = os.path.join(nanohedra_dirpath, "euler_lookup/euler_lookup_40.npz")
 
         self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']
         self.scale = scale
@@ -71,14 +71,14 @@ class EulerLookup:
         """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
         overlap
         """
-        guide_list_1_np = np.array(guide_coords_list1)  # required to take the transpose could use Fortan order...
-        guide_list_1_np_T = np.array([atoms_coords_1.T for atoms_coords_1 in guide_list_1_np])
+        guide_list_1_np = np.array(guide_coords_list1)  # required to take the transpose, could use Fortan order...
+        guide_list_1_np_t = np.array([atoms_coords_1.T for atoms_coords_1 in guide_list_1_np])
 
         guide_list_2_np = np.array(guide_coords_list2)  # required to take the transpose
-        guide_list_2_np_T = np.array([atoms_coords_2.T for atoms_coords_2 in guide_list_2_np])
+        guide_list_2_np_t = np.array([atoms_coords_2.T for atoms_coords_2 in guide_list_2_np])
 
-        eulintarray1 = self.get_eulint_from_guides(guide_list_1_np_T)
-        eulintarray2 = self.get_eulint_from_guides(guide_list_2_np_T)
+        eulintarray1 = self.get_eulint_from_guides(guide_list_1_np_t)
+        eulintarray2 = self.get_eulint_from_guides(guide_list_2_np_t)
 
         # check lookup table
         # euler_bool_l = []
@@ -88,7 +88,5 @@ class EulerLookup:
         #         (f1, f2, f3) = eulintarray2[j, :].flatten()
         #         euler_bool_l.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
 
-        euler_bool_l = [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
-                        if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
-
-        return euler_bool_l
+        return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
+                if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
