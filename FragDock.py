@@ -56,12 +56,12 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # Get Oligomer1 Optimal Internal Translation vector
         representative_int_dof_tx_param_1 = None
         if sym_entry.is_internal_tx1():
-            representative_int_dof_tx_param_1 = [0, 0, tx_parameters[n_dof_external: n_dof_external + 1][0]]
+            representative_int_dof_tx_param_1 = [0, 0, tx_parameters[n_dof_external: n_dof_external + 1]]
 
         # Get Oligomer2 Optimal Internal Translation vector
         representative_int_dof_tx_param_2 = None
         if sym_entry.is_internal_tx2():
-            representative_int_dof_tx_param_2 = [0, 0, tx_parameters[n_dof_external + 1: n_dof_external + 2][0]]
+            representative_int_dof_tx_param_2 = [0, 0, tx_parameters[n_dof_external + 1: n_dof_external + 2]]
 
         representative_ext_dof_tx_params_1, representative_ext_dof_tx_params_2 = None, None
         ref_frame_var_is_pos, uc_dimensions = False, None
@@ -1014,7 +1014,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                        "Euler rotational space bucket\n")
 
                     # print('Set for Euler Lookup:', surf_frags_2_guide_coords_rot_and_set[:5])
-                    print('number of ghost coords pre-lookup: %d' % len(ghost_frag_guide_coords_rot_and_set))
+                    # print('number of ghost coords pre-lookup: %d' % len(ghost_frag_guide_coords_rot_and_set))
 
                     overlapping_ghost_frags, overlapping_surf_frags = \
                         zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
@@ -1025,7 +1025,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     # print('euler overlapping ghost indices:', overlapping_ghost_frag_array[:5])
                     # print('euler overlapping surface indices:', overlapping_surf_frag_array[:5])
                     print('number of matching euler angle pairs: %d' % len(overlapping_ghost_frag_array))
-                    print('matching euler angle pairs', overlap_pairs)
+                    # print('matching euler angle pairs', overlap_pairs)
 
                     # eul_lookup_true_list = eul_lookup.check_lookup_table(
                     #     ghost_frag_guide_coords_rot_and_set,
