@@ -92,11 +92,11 @@ def main():
     # get the PDB file names without '.pdb' extension
     # create name for combined crystal structure oligomers
     ref_pdb1 = PDB()
-    ref_pdb1.readfile(xtal_pdb1_path, remove_alt_location=True)
+    ref_pdb1.readfile(xtal_pdb1_path)
     xtal_pdb1_name = os.path.splitext(os.path.basename(xtal_pdb1_path))[0]
 
     ref_pdb2 = PDB()
-    ref_pdb2.readfile(xtal_pdb2_path, remove_alt_location=True)
+    ref_pdb2.readfile(xtal_pdb2_path)
     xtal_pdb2_name = os.path.splitext(os.path.basename(xtal_pdb2_path))[0]
 
     xtal_pdb_name = xtal_pdb1_name + "_" + xtal_pdb2_name

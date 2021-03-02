@@ -20,7 +20,7 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
     # Reading In PDB Structure
     pdb_id = os.path.splitext(os.path.basename(pdb_path))[0]
     pdb = PDB()
-    pdb.read_atom_list(, remove_alt_location=True)
+    pdb.read_atom_list()
     # Ensure two chains are present
     if len(pdb.chain_id_list) != 2:
         print('%s %s is missing two chains... It will be skipped!' % (module, pdb_id))
@@ -122,7 +122,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
             # Reading In PDB Structure
             pdb_id = os.path.splitext(os.path.basename(pdb_path))[0]
             pdb = PDB()
-            pdb.readfile(pdb_path, remove_alt_location=True)
+            pdb.readfile(pdb_path)
             # Ensure two chains are present
             if len(pdb.chain_id_list) != 2:
                 print('%s %s is missing two chains... It will be skipped!' % (module, pdb_id))
