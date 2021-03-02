@@ -156,6 +156,7 @@ class MonoFragment:
         if self.type not in intfrag_cluster_rep:
             return []
 
+        count_check = 0  # TOdo
         ghost_fragments = []
         for j_type, j_dictionary in intfrag_cluster_rep[self.type].items():
             for k_type, intfrag in j_dictionary.items():
@@ -180,4 +181,7 @@ class MonoFragment:
                     rmsd = intfrag_cluster_info[self.type][j_type][k_type].get_rmsd()
                     ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, rmsd,
                                                          self.get_central_res_tup()))
+                else:  # TOdo
+                    count_check += 1  # TOdo
+        print('Found %d clashing fragments' % count_check)  # TOdo
         return ghost_fragments
