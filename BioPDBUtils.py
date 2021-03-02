@@ -8,11 +8,12 @@ from Bio.PDB.Atom import PDBConstructionWarning
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
 
-def biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving):
+# def biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving):
+def biopdb_aligned_chain(pdb_fixed, pdb_moving, chain_id_moving):
     # for atom in pdb_fixed.chain(chain_id_fixed).get_ca_atoms():
     biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
-                         for atom in pdb_fixed.chain(chain_id_fixed).get_ca_atoms()]
+                         for atom in pdb_fixed.get_ca_atoms()]
     biopdb_atom_moving = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                                      " %s " % atom.type, atom.number, element=atom.element_symbol)
                           for atom in pdb_moving.chain(chain_id_moving).get_ca_atoms()]
