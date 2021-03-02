@@ -168,7 +168,7 @@ class MonoFragment:
                 # # intfrag_partner_chain_id = intfrag[3]
                 # # intfrag_partner_chain_central_res_num = intfrag[4]
 
-                aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure, self.central_res_chain_id,
+                aligned_ghost_frag_pdb = biopdb_aligned_chain(self.structure,  # self.central_res_chain_id,
                                                               frag_pdb, frag_mapped_chain)
                 # aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
                 # is this what is not working?
