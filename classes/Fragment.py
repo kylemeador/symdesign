@@ -172,7 +172,8 @@ class MonoFragment:
                     print('Atom list lengths are not equal! %d != %d' % (len(fixed), len(moving)),
                           self.get_central_res_tup(), frag_pdb.filepath)
                     continue
-                aligned_ghost_frag_pdb = biopdb_align_atom_lists(fixed, moving)  # self.central_res_chain_id,
+                rot, tr = biopdb_align_atom_lists(fixed, moving)  # self.central_res_chain_id,
+                aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=rot, translation=tr)
                 # aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
                 # is this what is not working?
 
