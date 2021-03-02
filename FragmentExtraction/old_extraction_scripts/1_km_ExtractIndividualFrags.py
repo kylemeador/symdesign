@@ -27,7 +27,7 @@ def main():
         # Reading In PDB Structure
         pdb_id = os.path.splitext(os.path.basename(pdb_path))[0][0:4]
         pdb = PDB()
-        pdb.readfile(pdb_path, remove_alt_location=True)
+        pdb.readfile(pdb_path)
 
         # Creating PDB instance for Ch1 and Ch2
         pdb_ch1_id = pdb.chain_id_list[0]

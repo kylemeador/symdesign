@@ -181,7 +181,7 @@ def main():
                     oriented_filepath = os.path.join(oriented_pdb1_outdir, pdb_filename)
                     if not os.path.exists(oriented_filepath):
                         pdb = PDB()
-                        pdb.readfile(filepath, remove_alt_location=True)
+                        pdb.readfile(filepath)
                         # pdb1 = PDB(file=pdb1_path)  # v2
                         with open(master_log_filepath, 'a+') as f:
                             try:

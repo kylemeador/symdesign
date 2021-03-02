@@ -478,7 +478,7 @@ class Structure(StructureBase):  # (Coords):
     #  self.set_atom_coordinates(self.coords) -> self.create_residues() -> self.set_length()
 
     def create_residues(self):
-        """For the Structure, create all possible Residue instances"""
+        """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
         residue_atoms, found_types = [], []
         current_residue_number = self.atoms[0].residue_number
         for atom in self.atoms:

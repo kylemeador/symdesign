@@ -620,10 +620,10 @@ def get_docked_pdb_pairs(docked_poses_dirpath):
 
                 else:
                     docked_pdb1 = PDB()
-                    docked_pdb1.readfile(docked_pdb1_filepath, remove_alt_location=True)
+                    docked_pdb1.readfile(docked_pdb1_filepath)
 
                     docked_pdb2 = PDB()
-                    docked_pdb2.readfile(docked_pdb2_filepath, remove_alt_location=True)
+                    docked_pdb2.readfile(docked_pdb2_filepath)
 
                     docked_pdb_pairs.append((design_id, docked_pdb1, docked_pdb2))
 

@@ -144,7 +144,7 @@ class PDB(Structure):
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
-    def readfile(self, filepath, remove_alt_location=True, lazy=False, **kwargs):
+    def readfile(self, filepath, lazy=False, **kwargs):
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
         formatted_filename = os.path.splitext(os.path.basename(filepath))[0].replace('pdb', '')
@@ -157,6 +157,7 @@ class PDB(Structure):
 
         chain_ids = []
         seq_res_lines = []
+        # remove_alt_location = True
         multimodel, start_of_new_model = False, False
         model_chain_id, curr_chain_id = None, None
         entity = None
@@ -165,7 +166,8 @@ class PDB(Structure):
         for line in pdb_lines:
             if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':
                 alt_location = line[16:17].strip()
-                if remove_alt_location and alt_location not in ['', 'A']:
+                # if remove_alt_location and alt_location not in ['', 'A']:
+                if alt_location not in ['', 'A']:
                     continue
                 number = int(line[6:11])  # .strip()
                 atom_type = line[12:16].strip()

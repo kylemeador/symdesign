@@ -19,7 +19,7 @@ def main():
             if filename.endswith("_representative.pdb"):
 
                 pdb = PDB()
-                pdb.readfile(top_representatives_dir + "/" + filename, remove_alt_location=True)
+                pdb.readfile(top_representatives_dir + "/" + filename)
 
                 # Get Central Residue (5 Residue Fragment => 3rd Residue) CA Coordinates
                 pdb_ca_atoms = pdb.get_ca_atoms()
