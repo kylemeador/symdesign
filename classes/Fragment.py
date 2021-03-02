@@ -159,10 +159,10 @@ class MonoFragment:
         count_check = 0  # TOdo
         ghost_fragments = []
         for j_type, j_dictionary in intfrag_cluster_rep[self.type].items():
-            for k_type, intfrag in j_dictionary.items():
+            for k_type, (frag_pdb, frag_paired_chain) in j_dictionary.items():
                 # intfrag = intfrag_cluster_rep[self.type][j_type][k_type]
-                frag_pdb = intfrag[0]
-                frag_paired_chain = intfrag[1]
+                # frag_pdb = intfrag[0]
+                # frag_paired_chain = intfrag[1]
                 # # frag_mapped_chain = intfrag[1]
                 # # intfrag_mapped_chain_central_res_num = intfrag[2]
                 # # intfrag_partner_chain_id = intfrag[3]
