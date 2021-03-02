@@ -8,21 +8,14 @@ from Bio.PDB.Atom import PDBConstructionWarning
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
 
-def biopdb_aligned_chain(pdb_fixed, pdb_moving, chain_id_moving):
-    biopdb_atom_fixed = []
-    biopdb_atom_moving = []
-
+def biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving):
     # for atom in pdb_fixed.chain(chain_id_fixed).get_ca_atoms():
-    for atom in pdb_fixed.get_ca_atoms():  # only one chain coming in, don't need a chain_id
-        biopdb_atom_fixed.append(
-            BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
-                       " %s " % atom.type, atom.number, element=atom.element_symbol))
-
-    for atom in pdb_moving.chain(chain_id_moving).get_ca_atoms():
-        biopdb_atom_moving.append(
-            BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
-                       " %s " % atom.type, atom.number, element=atom.element_symbol))
-
+    biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
+                                    " %s " % atom.type, atom.number, element=atom.element_symbol)
+                         for atom in pdb_fixed.chain(chain_id_fixed).get_ca_atoms()]
+    biopdb_atom_moving = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
+                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
+                          for atom in pdb_moving.chain(chain_id_moving).get_ca_atoms()]
     sup = Bio.PDB.Superimposer()
     sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)  # Todo remove Bio.PDB
     rot, tr = sup.rotran
