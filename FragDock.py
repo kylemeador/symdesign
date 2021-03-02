@@ -1095,41 +1095,44 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     # print('optimal shifts: %s' % optimal_shifts[:5])
                     passing_optimal_shifts = [passing_shift for passing_shift in optimal_shifts
                                               if passing_shift is not None]
-                    print('Number of passing optimal shifts: %d' % len(passing_optimal_shifts))
-                    print('passing optimal shifts: %s' % passing_optimal_shifts)
-                    passing_optimal_shifts_idx = [idx for idx, passing_shift in enumerate(optimal_shifts)
-                                                  if passing_shift is not None]
-                    passing_fragment_pairs = [overlap_pairs[idx] for idx in passing_optimal_shifts_idx]
-                    print('passing fragment pairs: %s' % passing_fragment_pairs)
-                    central_res_tuples = [ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup()
-                                          for ghost_idx, surf_idx in passing_fragment_pairs]
-                    out_string = os.path.join(frag_check,
-                                              "DEGEN_%d_%d_ROT_%d_%d"
-                                              % (degen1_count, degen2_count, rot1_count, rot2_count))
-                    if not os.path.exists(out_string):
-                        os.makedirs(out_string)
-                    central_res_tuples = [ghost_frags[ghost_idx].write(
-                        out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
-                                              % ('%s_%s_%s' % frag.get_ijk(),
-                                                 *frag.get_aligned_surf_frag_central_res_tup())))
-                                          for ghost_idx, surf_idx in passing_fragment_pairs]
-                    print('passing ghost fragment chain/residue: %s' % central_res_tuples)
+                    if len(passing_optimal_shifts) > 0:
+                        print('Number of passing optimal shifts: %d' % len(passing_optimal_shifts))
+                        print('passing optimal shifts: %s' % passing_optimal_shifts)
+                        passing_optimal_shifts_idx = [idx for idx, passing_shift in enumerate(optimal_shifts)
+                                                      if passing_shift is not None]
+                        passing_fragment_pairs = [overlap_pairs[idx] for idx in passing_optimal_shifts_idx]
+                        print('passing fragment pairs: %s' % passing_fragment_pairs)
+                        central_res_tuples = [ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup()
+                                              for ghost_idx, surf_idx in passing_fragment_pairs]
+                        print('passing ghost fragment chain/residue: %s' % central_res_tuples)
+                        out_string = os.path.join(frag_check, "DEGEN_%d_%d_ROT_%d_%d"
+                                                  % (degen1_count, degen2_count, rot1_count, rot2_count))
+                        if not os.path.exists(out_string):
+                            os.makedirs(out_string)
+                        transformed_frags = [ghost_frags[ghost_idx].return_transformed_copy(rotation=rot1_mat,
+                                                                                            translation=passing_optimal_shifts[0],
+                                                                                            rotation2=set_mat1)
+                                             for ghost_idx, surf_idx in passing_fragment_pairs]
+                        write_residue_matches = [frag.write(out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
+                                                                                  % ('%s_%s_%s' % frag.get_ijk(),
+                                                                                     *frag.get_aligned_surf_frag_central_res_tup())))
+                                                 for frag in transformed_frags]
 
-                    with open(log_file_path, "a+") as log_file:
-                        log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
-                                       % (len(passing_optimal_shifts) if passing_optimal_shifts else 'No',
-                                          'es' if len(passing_optimal_shifts) != 1 else ''))
+                        with open(log_file_path, "a+") as log_file:
+                            log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
+                                           % (len(passing_optimal_shifts) if passing_optimal_shifts else 'No',
+                                              'es' if len(passing_optimal_shifts) != 1 else ''))
 
-                    degen_subdir_out_path = os.path.join(outdir, "DEGEN_%d_%d" % (degen1_count, degen2_count))
-                    rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
-                                                       (rot1_count, rot2_count))
+                        degen_subdir_out_path = os.path.join(outdir, "DEGEN_%d_%d" % (degen1_count, degen2_count))
+                        rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
+                                                           (rot1_count, rot2_count))
 
-                    find_docked_poses(out_string, sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
-                                      complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
-                                      degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
-                                      rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
-                                      output_exp_assembly=output_exp_assembly, output_uc=output_uc,
-                                      output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                        find_docked_poses(out_string, sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
+                                          complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
+                                          degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
+                                          rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
+                                          output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+                                          output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
                 rot2_count = 0
             degen2_count = 0
         rot1_count = 0
