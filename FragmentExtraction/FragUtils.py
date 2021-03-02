@@ -18,8 +18,8 @@ module = 'Fragment Utilities:'
 
 def construct_cb_atom_tree(pdb1, pdb2, distance):
     # Get CB Atom Coordinates
-    pdb1_coords = np.array(pdb1.extract_CB_coords(InclGlyCA=True))
-    pdb2_coords = np.array(pdb2.extract_CB_coords(InclGlyCA=True))
+    pdb1_coords = np.array(pdb1.extract_cb_coords(InclGlyCA=True))
+    pdb2_coords = np.array(pdb2.extract_cb_coords(InclGlyCA=True))
 
     # Construct CB Tree for PDB1
     pdb1_tree = BallTree(pdb1_coords)

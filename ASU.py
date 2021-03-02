@@ -31,7 +31,7 @@ def make_asu(pdb_file, chain=None, out_path=os.getcwd, center=True):
     pdb = PDB.from_file(pdb_file)
     if center:
         print(pdb.center_of_mass)
-        pdb.apply(tx=-pdb.center_of_mass)
+        pdb.translate(-pdb.center_of_mass)
         pdb.find_center_of_mass()
         print(pdb.center_of_mass)
         pdb.write(out_path=os.path.join(out_path, 'expanded', 'centered' + os.path.basename(pdb.filepath)))

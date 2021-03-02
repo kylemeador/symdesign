@@ -69,12 +69,10 @@ class Structure:  # (Coords):
         #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
         if isinstance(coords, Coords):
             self._coords = coords
-            self.set_atoms_attributes(coords=self._coords)
-            # for atom in self.atoms:
-            #     atom.coords = coords
         else:
-            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+            self._coords = Coords(coords)
+
+        self.set_atoms_attributes(coords=self._coords)
 
     def translate(self, tx):
         new_coords = self.coords + tx
@@ -118,10 +116,10 @@ class Structure:  # (Coords):
         return new_structure
 
     def replace_coords(self, new_coords):
-        if not isinstance(new_coords, Coords):
-            new_coords = Coords(new_coords)
+        # if not isinstance(new_coords, Coords):
+        #     new_coords = Coords(new_coords)
         self.coords = new_coords
-        self.set_atoms_attributes(coords=self._coords)
+        # self.set_atoms_attributes(coords=self._coords)
         self.reindex_atoms()
         # self.set_residues_attributes(coords=self._coords)
         # self.renumber_atoms()
@@ -203,7 +201,6 @@ class Structure:  # (Coords):
             (Numpy.ndarray)
         """
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone()]
-        # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_backbone_and_cb_coords(self):
@@ -214,7 +211,6 @@ class Structure:  # (Coords):
             (Numpy.ndarray)
         """
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
-        # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_ca_coords(self):
@@ -224,7 +220,6 @@ class Structure:  # (Coords):
             (Numpy.ndarray)
         """
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CA()]
-        # return self._coords[index_mask]
         return self.coords[index_mask]
 
     def get_cb_coords(self, InclGlyCA=True):
@@ -234,32 +229,7 @@ class Structure:  # (Coords):
             (Numpy.ndarray)
         """
         index_mask = [atom.index for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
-        # return self._coords[index_mask]
         return self.coords[index_mask]
-
-    def extract_all_coords(self):  # compatibility
-        return self.extract_coords()
-
-    def extract_coords(self):  # compatibility
-        """Grab all the coordinates from the Structure's Coords, returns a list with views of the Coords array
-
-        Returns:
-            (list[Numpy.ndarray])
-        """
-        return [atom.coords for atom in self.get_atoms()]
-
-    def extract_backbone_coords(self):  # compatibility
-        return [atom.coords for atom in self.get_atoms() if atom.is_backbone()]
-
-    def extract_backbone_and_cb_coords(self):  # compatibility
-        # inherently gets all glycine CA's
-        return [atom.coords for atom in self.get_atoms() if atom.is_backbone() or atom.is_CB()]
-
-    def extract_CA_coords(self):  # compatibility
-        return [atom.coords for atom in self.get_atoms() if atom.is_CA()]
-
-    def extract_CB_coords(self, InclGlyCA=False):  # compatibility
-        return [atom.coords for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     # @property Todo
     def get_atoms(self, numbers=None):
@@ -446,7 +416,8 @@ class Structure:  # (Coords):
         for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
 
-    def reindex_atoms(self):  # Unused
+    def reindex_atoms(self):
+        """Reindex all Atom objects to the current index in the self.atoms attribute"""
         for idx, atom in enumerate(self.atoms):
             atom.index = idx
 
@@ -1334,22 +1305,6 @@ class Atom:  # (Coords):
         else:
             distance = (self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2
             return distance
-
-    # def translate(self, tx):
-    #     self.coords = Coords(self.coords + tx)
-    #
-    # def rotate(self, rotation):
-    #     self.coords = Coords(np.matmul(self.coords, np.transpose(rotation)))
-    #
-    # def transform(self, rotation=None, translation=None):
-    #     if rotation is not None:  # required for np.ndarray or None checks
-    #         new_coords = np.matmul(self.coords, np.transpose(rotation))
-    #     else:
-    #         new_coords = self.coords
-    #
-    #     if translation is not None:  # required for np.ndarray or None checks
-    #         new_coords += np.array(translation)
-    #     self.replace_coords(new_coords)
 
     def get_index(self):
         return self.index
