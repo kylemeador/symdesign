@@ -32,7 +32,7 @@ class Structure(StructureBase):  # (Coords):
             # self.log = start_log()
             dummy = True
 
-        if coords:
+        if coords is not None:
             self.coords = coords
         if atoms:
             if not coords:
