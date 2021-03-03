@@ -543,7 +543,7 @@ class PDB(Structure):
         #             break
         # self.renumber_atoms()  # should be unnecessary
 
-    def AddZAxis(self):
+    def AddZAxis(self):  # Todo, modernize
         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
         z_axis_b = Atom(2, "CA", " ", "GLY", "7", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.000, 0.000, -80.000, 1.00, 20.00, "C", "")
@@ -551,7 +551,7 @@ class PDB(Structure):
         axis = [z_axis_a, z_axis_b, z_axis_c]
         self.atoms.extend(axis)
 
-    def AddXYZAxes(self):
+    def AddXYZAxes(self):  # Todo, modernize
         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
         z_axis_b = Atom(2, "CA", " ", "GLY", "7", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.000, 0.000, -80.000, 1.00, 20.00, "C", "")
@@ -1103,7 +1103,7 @@ class PDB(Structure):
             atom.chain = chain_id
             atom.residue_number = residue_number
             atom.occ = 0
-            self.atoms.insert(insert_atom_idx, atom)
+            self._atoms.insert(insert_atom_idx, atom)  # Todo, doesn't modify chains or residues
 
         self.renumber_pdb()
 
@@ -1115,8 +1115,8 @@ class PDB(Structure):
         residue = chain.residue(residue_number)
         # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
         self.delete_atoms(residue.atoms())  # deletes Atoms from PDB
-        chain.residues.remove(residue)  # deletes Residue from Chain
-        self.residues.remove(residue)  # deletes Residue from PDB
+        chain._residues.remove(residue)  # deletes Residue from Chain
+        self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_pdb()
         self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
 
@@ -1125,7 +1125,7 @@ class PDB(Structure):
         # Todo find every Structure container with Atom and remove the Atom references from it. Chain, Entity, Residue,
         #  PDB. Atom may hold on in memory because of refernce to Coords.
         for atom in atoms:
-            self.atoms.remove(atom)
+            self._atoms.remove(atom)
 
     def get_ave_residue_b_factor(self, chain_id, residue_number):
         residue_atoms = self.chain(chain_id).residue(residue_number).atoms()
