@@ -49,7 +49,7 @@ def biopdb_aligned_chain_old(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_mov
         # x_transformed = pdb_moving_coords_rot_tx[atom_count][0]
         # y_transformed = pdb_moving_coords_rot_tx[atom_count][1]
         # z_transformed = pdb_moving_coords_rot_tx[atom_count][2]
-        atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
+        atom_transformed = Atom(atom.index, atom.get_number(), atom.get_type(), atom.get_alt_location(),
                                 atom.get_residue_type(), atom.get_chain(),
                                 atom.get_residue_number(),
                                 atom.get_code_for_insertion(),  # x_transformed, y_transformed, z_transformed,
