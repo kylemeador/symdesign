@@ -94,6 +94,7 @@ class Structure(StructureBase):  # (Coords):
             self._coords = Coords(coords)
 
         self.set_atoms_attributes(coords=self._coords)
+        self.set_residues_attributes(coords=self._coords)
 
     def translate(self, tx):
         new_coords = self.coords + tx
@@ -283,17 +284,17 @@ class Structure(StructureBase):  # (Coords):
         # self.update_structure(atom_list)
         # self.set_length()
 
-    def set_residues_attributes(self, numbers=None, **kwargs):  # UNUSED
+    def set_residues_attributes(self, numbers=None, **kwargs):
         """Set attributes specified by key, value pairs for all Residues in the Structure"""
-        # for kwarg, value in kwargs.items():
         for residue in self.get_residues(numbers=numbers):
-            # setattr(residue, kwarg, value)
-            residue.set_atoms_attributes(**kwargs)
+            for kwarg, value in kwargs.items():
+                setattr(residue, kwarg, value)
+            # residue.set_atoms_attributes(**kwargs)
 
-    def set_atoms_attributes(self, numbers=None, **kwargs):  # Same function as in Residue
-        """Set attributes specified by key, value pairs for all atoms in the Structure"""
-        for kwarg, value in kwargs.items():
-            for atom in self.get_atoms(numbers=numbers):
+    def set_atoms_attributes(self, numbers=None, **kwargs):  # Same function in Residue
+        """Set attributes specified by key, value pairs for all Atoms in the Structure"""
+        for atom in self.get_atoms(numbers=numbers):
+            for kwarg, value in kwargs.items():
                 setattr(atom, kwarg, value)
 
     # def update_structure(self, atom_list):  # UNUSED
@@ -499,11 +500,11 @@ class Structure(StructureBase):  # (Coords):
                 residue_atoms.append(atom)
                 found_types.append(atom.type)
             else:
-                self.residues.append(Residue(atoms=residue_atoms, coords=self._coords))
+                self.residues.append(Residue(atoms=residue_atoms))  # , coords=self._coords))
                 found_types, residue_atoms = [atom.type], [atom]
                 current_residue_number = atom.residue_number
         # ensure last residue is added after iteration is complete
-        self.residues.append(Residue(atoms=residue_atoms, coords=self._coords))
+        self.residues.append(Residue(atoms=residue_atoms))  # , coords=self._coords))
 
     def residue(self, residue_number):
         """Retrieve the Residue specified
@@ -1077,21 +1078,16 @@ class Residue:
     def set_atoms(self):
         # self.atoms = atoms
         for idx, atom in enumerate(self.atoms):
-            # if atom.is_n():
             if atom.type == 'N':
                 self.n = idx
-            # elif atom.is_h():
             elif atom.type == 'H':
                 self.h = idx
-            # elif atom.is_CA():
             elif atom.type == 'CA':
                 self.ca = idx
             elif atom.is_CB(InclGlyCA=True):
                 self.cb = idx
-            # elif atom.is_c():
             elif atom.type == 'C':
                 self.c = idx
-            # elif atom.is_o():
             elif atom.type == 'O':
                 self.o = idx
         # Todo handle if the atom is missing backbone?
