@@ -254,11 +254,11 @@ class PDB(Structure):
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-        self.coords = coords
+        # self.coords = coords
         # self.set_atoms([Atom.from_info(*info, self._coords) for info in atom_info])
         self.chain_id_list = chain_ids
         self.log.debug('Multimodel %s, Chains %s' % (True if multimodel else False, self.chain_id_list))
-        self.process_pdb(atoms=[Atom.from_info(*info, self._coords) for info in atom_info],
+        self.process_pdb(atoms=[Atom.from_info(*info) for info in atom_info], coords=coords,
                          seqres=seq_res_lines, multimodel=multimodel, lazy=lazy, **kwargs)  # coords=coords,
 
     # def process_symmetry(self):
@@ -274,10 +274,10 @@ class PDB(Structure):
         if residues:
             self.set_residues(residues)
 
-        if coords:
+        if coords is not None:
+            # inherently replace the Atom and Residue Coords
             self.coords = coords
-            # # replace the Atom and Residue Coords
-            self.set_atoms_attributes(coords=self._coords)
+            # self.set_atoms_attributes(coords=self._coords)
 
         if not lazy:
             self.renumber_pdb()
