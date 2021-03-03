@@ -272,7 +272,7 @@ class PDB(Structure):
         if atoms:  # set atoms and create residues
             self.atoms = atoms
         if residues:
-            self.set_residues(residues)
+            self.residues = residues
 
         if coords is not None:
             # inherently replace the Atom and Residue Coords
@@ -964,7 +964,7 @@ class PDB(Structure):
         for line in out_lines:
             if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
                 self.chain(line[9:10]).residue(int(line[10:15].strip())).set_secondary_structure(line[24:25])
-        self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
+        self.secondary_structure = [residue.get_secondary_structure() for residue in self.residues]
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
         #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
 
