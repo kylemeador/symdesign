@@ -86,13 +86,14 @@ class Structure(StructureBase):  # (Coords):
 
     @coords.setter
     def coords(self, coords):
-        # assert len(self.atoms) == coords.shape[0], '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
-        #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
+        """Replace the Structure, Atom, and Residue coordinates with specified Coords Object or numpy.ndarray"""
         if isinstance(coords, Coords):
             self._coords = coords
         else:
             self._coords = Coords(coords)
 
+        assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
+                                                    % (self.name, len(self.atoms), len(self.coords))
         self.set_atoms_attributes(coords=self._coords)
         self.set_residues_attributes(coords=self._coords)
 
