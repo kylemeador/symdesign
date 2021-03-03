@@ -282,7 +282,7 @@ class Structure(StructureBase):  # (Coords):
 
     def set_residues_attributes(self, numbers=None, **kwargs):
         """Set attributes specified by key, value pairs for all Residues in the Structure"""
-        for residue in self.get_residues(numbers=numbers):
+        for residue in self.get_residues(numbers=numbers, **kwargs):
             for kwarg, value in kwargs.items():
                 setattr(residue, kwarg, value)
             # residue.set_atoms_attributes(**kwargs)
@@ -825,14 +825,14 @@ class Structure(StructureBase):  # (Coords):
         for residue_number in residue_numbers:
             frag_residue_numbers = [residue_number + i for i in range(-2, 3)]  # Todo parameterize
             ca_count = 0
-            frag_residues = self.get_residues(frag_residue_numbers)
+            frag_residues = self.get_residues(numbers=frag_residue_numbers)
             for residue in frag_residues:
                 # frag_atoms.extend(residue.get_atoms)
                 if residue.get_ca():
                     ca_count += 1
 
             if ca_count == 5:
-                fragments.append(Structure.from_residues(frag_residues))
+                fragments.append(Structure.from_residues(deepcopy(frag_residues)))
 
         for structure in fragments:
             structure.chain_id_list = [structure.residues[0].chain]
@@ -1259,20 +1259,18 @@ class Atom:  # (Coords):
         # self.z = z
 
     @classmethod
-    def from_info(cls, *args):  # number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, occ, temp_fact, element_symbol, atom_charge
+    def from_info(cls, *args):
+        # number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, occ, temp_fact,
+        # element_symbol, atom_charge
         """Initialize without coordinates"""
         return cls(*args)
 
     @property
-    def coords(self):  # , transformation_operator=None):
-        """This holds the atomic coords which is a view from the Structure that created them"""
-        # if transformation_operator:
-        #     return np.matmul([self.x, self.y, self.z], transformation_operator)
-        # else:
-        # print(self.index, self.number, self.type, self.alt_location, self.residue_type, self.residue_number)
-        # print(len(self._coords.coords))
+    def coords(self):
+        """This holds the atomic Coords which is a view from the Structure that created them"""
+        # print(self._coords, len(self._coords.coords), self.index)
+        # returns self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
         return self._coords.coords[self.index]  # [self.x, self.y, self.z]
-        # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
 
     @coords.setter
     def coords(self, coords):
@@ -1280,7 +1278,7 @@ class Atom:  # (Coords):
             self._coords = coords
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     def is_backbone(self):
         """Check if the Atom is a backbone Atom
