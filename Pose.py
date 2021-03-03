@@ -1743,7 +1743,7 @@ def find_interface_residues(pdb1, pdb2, distance=8):
     return split_interface_pairs(find_interface_pairs(pdb1, pdb2, distance=distance))
 
 
-def get_fragments(pdb, chain_res_info, fragment_length=5):
+def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
     interface_frags = []
     ca_count = 0
     for residue_number in chain_res_info:
@@ -1846,9 +1846,9 @@ def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
     interface_name = interface_pdb.name
 
-    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[0]).atoms())
+    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[0]).atoms)
     entity1.update_attributes_from_pdb(interface_pdb)
-    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[-1]).atoms())
+    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[-1]).atoms)
     entity2.update_attributes_from_pdb(interface_pdb)
 
     interacting_residue_pairs = find_interface_pairs(entity1, entity2)

@@ -13,6 +13,9 @@ from SequenceProfile import SequenceProfile
 from SymDesignUtils import start_log, DesignError
 
 
+null_log = start_log(name='null', handler=3, propagate=False)
+
+
 class StructureBase:
     """Collect extra keyword arguments such as:
         chains, entities, seqres, multimodel, lazy, solve_discrepancy
@@ -32,9 +35,10 @@ class Structure(StructureBase):  # (Coords):
 
         if log:
             self.log = log
-        else:
-            # self.log = start_log()
-            dummy = True
+        elif log is None:
+            self.log = null_log
+        else:  # When log is explicitly passed as False, create a new log
+            self.log = start_log(name=self.name)
 
         if atoms:
             self.atoms = atoms
@@ -148,7 +152,7 @@ class Structure(StructureBase):  # (Coords):
         #     new_coords = Coords(new_coords)
         self.coords = new_coords
         # self.set_atoms_attributes(coords=self._coords)
-        self.reindex_atoms()
+        self.reindex_atoms()  # Todo Is this poisoning the return of return_transformed_copy ?
         # self.set_residues_attributes(coords=self._coords)
         # self.renumber_atoms()
 
@@ -836,7 +840,7 @@ class Structure(StructureBase):  # (Coords):
                     ca_count += 1
 
             if ca_count == 5:
-                fragments.append(Structure.from_residues(deepcopy(frag_residues)))
+                fragments.append(Structure.from_residues(deepcopy(frag_residues), log=None))
 
         for structure in fragments:
             structure.chain_id_list = [structure.residues[0].chain]

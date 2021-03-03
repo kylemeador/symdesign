@@ -10,7 +10,6 @@ from utils.MysqlPython import Mysql
 
 logger = start_log(name=__name__)
 index_offset = 1
-null_log = start_log(name='%s.fragments' % __name__, handler=3, propagate=False)
 
 
 class ClusterInfoFile:
@@ -76,7 +75,7 @@ class FragmentDB:
 
     def get_monofrag_cluster_rep_dict(self):
         self.reps = {os.path.splitext(file)[0]:
-                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, lazy=True, log=null_log)
+                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, lazy=True, log=None)
                      for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
@@ -94,7 +93,7 @@ class FragmentDB:
                 #     for file in filenames2:
                 for file in files:
                     ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), solve_discrepancy=False,
-                                                             lazy=True, log=null_log)
+                                                             lazy=True, log=None)
                     ijk_cluster_rep_mapped_chain = file[file.find("mappedchain") + 12:file.find("mappedchain") + 13]
                     ijk_cluster_rep_partner_chain = file[file.find("partnerchain") + 13:file.find("partnerchain") + 14]
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type][k_cluster_type] = \

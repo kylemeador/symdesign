@@ -234,8 +234,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.source = os.path.join(self.path, PUtils.asu)
                 self.set_up_design_directory()
                 # self.gather_docking_metrics()
-                # print('back to DesignDirectory Set Up')
-
             else:
                 raise DesignError('%s: %s is not an available directory_type. Choose from %s...\n'
                                   % (DesignDirectory.__name__, self.directory_type, ','.join(design_directory_modes)))
