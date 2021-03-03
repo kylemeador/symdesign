@@ -164,7 +164,7 @@ def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_f
     # Todo this section could be improved by using the fragments that live on the residues, not by checking
     ghost_frag_guide_coords, surf_frag_guide_coords = [], []
     for ghost_frag in pdb1_ghost_frag_list:
-        if ghost_frag.get_aligned_surf_frag_central_res_tup() in pdb1_unique_chain_central_resnums:
+        if ghost_frag.get_aligned_chain_and_residue() in pdb1_unique_chain_central_resnums:
             ghost_frag_guide_coords.append(ghost_frag.guide_coords)
 
     for surf_frag in pdb2_surf_frag_list:

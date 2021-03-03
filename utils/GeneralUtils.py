@@ -115,7 +115,7 @@ def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error
         out_info_file.write("MATCH %d\n" % match_number)
         out_info_file.write("z-val: %f\n" % overlap_error)
         out_info_file.write("CENTRAL RESIDUES\n")
-        out_info_file.write("oligomer1 ch, resnum: %s, %d\n" % ghost_frag.get_aligned_surf_frag_central_res_tup())
+        out_info_file.write("oligomer1 ch, resnum: %s, %d\n" % ghost_frag.get_aligned_chain_and_residue())
         out_info_file.write("oligomer2 ch, resnum: %s, %d\n" % matched_frag.get_central_res_tup())
         out_info_file.write("FRAGMENT CLUSTER\n")
         out_info_file.write("id: i%s_j%s_k%s\n" % ghost_frag.get_ijk())
