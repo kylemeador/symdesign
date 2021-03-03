@@ -480,7 +480,7 @@ class Structure(StructureBase):  # (Coords):
     @residues.setter
     def residues(self, residues):
         """Set the Structure residues to Residue objects provided in a list"""
-        self.residues = residues  # []
+        self._residues = residues
         self.atoms = [atom for residue in residues for atom in residue.atoms]
 
     def add_residues(self, residue_list):
