@@ -218,7 +218,7 @@ class MonoFragment:
                     # Only keep ghost fragments that don't clash with oligomer backbone
                     # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
                     g_frag_bb_coords = []
-                    for atom in aligned_ghost_frag_pdb.all_atoms:
+                    for atom in aligned_ghost_frag_pdb.atoms:
                         if atom.chain != "9" and atom.chain != intfrag_mapped_chain_id and atom.is_backbone():
                             g_frag_bb_coords.append([atom.x, atom.y, atom.z])
 
