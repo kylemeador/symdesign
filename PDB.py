@@ -269,7 +269,8 @@ class PDB(Structure):
                     seqres=None, multimodel=False, lazy=False, solve_discrepancy=True, **kwargs):
         #           reference_sequence=None
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
-        if atoms:  # set atoms and create residues
+        if atoms:
+            # set atoms and creates residues
             self.atoms = atoms
         if residues:
             self.residues = residues
@@ -277,7 +278,6 @@ class PDB(Structure):
         if coords is not None:
             # inherently replace the Atom and Residue Coords
             self.coords = coords
-            # self.set_atoms_attributes(coords=self._coords)
 
         if not lazy:
             self.renumber_pdb()
