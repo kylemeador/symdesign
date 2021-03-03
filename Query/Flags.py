@@ -93,7 +93,8 @@ filters = copy(global_flags)
 filters.update(filter_flags)
 all_flags = copy(design)
 all_flags.update(filters)
-flags = {'design': design, 'filter': filters, 'analysis': global_flags, 'sequence_selection': global_flags, None: all_flags}
+flags = {'design': design, None: all_flags}
+#        'analysis': global_flags, 'filter': filters, 'sequence_selection': global_flags,
 
 
 def process_design_selector_flags(design_flags):
@@ -153,7 +154,8 @@ def return_default_flags(mode):
     if mode in flags:
         return dict(zip(flags[mode].keys(), [value_format['default'] for value_format in flags[mode].values()]))
     else:
-        return dict()
+        return global_flags
+        # return dict()
 
 
 @handle_errors(errors=KeyboardInterrupt)
