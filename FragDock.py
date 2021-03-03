@@ -119,27 +119,26 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                 #                                   ref_frame_tx_dof_f,
                 #                                   ref_frame_tx_dof_g)
 
-        # Rotate, Translate and Set PDB1
+        # Rotate, Translate and Set PDB1, PDB2
+        # Todo
+        #  In theory, the rotation and setting matrix are the same for all tx_parameters, can we accelerate even though
+        #  order of operations matters?
         pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=representative_int_dof_tx_param_1,
                                                  rotation2=sym_entry.get_rot_set_mat_group1(),
                                                  translation2=representative_ext_dof_tx_params_1)
-        # print('copied PDB1')
         # pdb1_copy = rot_txint_set_txext_pdb(pdb1, rot_mat=rot_mat1,
         #                                     internal_tx_vec=representative_int_dof_tx_param_1,
         #                                     set_mat=sym_entry.get_rot_set_mat_group1(),
         #                                     ext_tx_vec=representative_ext_dof_tx_params_1)
-
-        # Rotate, Translate and Set PDB2
         pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=representative_int_dof_tx_param_2,
                                                  rotation2=sym_entry.get_rot_set_mat_group2(),
                                                  translation2=representative_ext_dof_tx_params_2)
-        pdb1_copy.write(out_path=os.path.join(out_string, 'pdb1.pdb'))
-        pdb2_copy.write(out_path=os.path.join(out_string, 'pdb2.pdb'))
-        # print('copied PDB2')
         # pdb2_copy = rot_txint_set_txext_pdb(pdb2, rot_mat=rot_mat2,
         #                                     internal_tx_vec=representative_int_dof_tx_param_2,
         #                                     set_mat=sym_entry.get_rot_set_mat_group1(),
         #                                     ext_tx_vec=representative_ext_dof_tx_params_2)
+        # pdb1_copy.write(out_path=os.path.join(out_string, 'pdb1.pdb'))
+        # pdb2_copy.write(out_path=os.path.join(out_string, 'pdb2.pdb'))
 
         copy_rot_tr_set_time_stop = time.time()
         copy_rot_tr_set_time = copy_rot_tr_set_time_stop - copy_rot_tr_set_time_start
@@ -310,10 +309,10 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         cryst1_record = None
         if optimal_ext_dof_shifts:
             cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.get_result_design_sym())
-        pdb1_fname = os.path.splitext(os.path.basename(pdb1.get_filepath()))[0]
-        pdb2_fname = os.path.splitext(os.path.basename(pdb2.get_filepath()))[0]
-        pdb1_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb1_fname, sampling_id)))
-        pdb2_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb2_fname, sampling_id)))
+        # pdb1_fname = os.path.splitext(os.path.basename(pdb1.get_filepath()))[0]
+        # pdb2_fname = os.path.splitext(os.path.basename(pdb2.get_filepath()))[0]
+        pdb1_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
+        pdb2_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
         # Todo replace with DesignDirectory? Path object?
         # Make directories to output matched fragment PDB files
