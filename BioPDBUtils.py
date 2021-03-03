@@ -45,7 +45,7 @@ def biopdb_aligned_chain_old(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_mov
     # pdb_moving_copy.set_chain_id_list(pdb_moving.get_chain_id_list())
     pdb_moving_copy_atom_list = []
     # atom_count = 0
-    for atom in pdb_moving.atoms():
+    for idx, atom in enumerate(pdb_moving.atoms):
         # x_transformed = pdb_moving_coords_rot_tx[atom_count][0]
         # y_transformed = pdb_moving_coords_rot_tx[atom_count][1]
         # z_transformed = pdb_moving_coords_rot_tx[atom_count][2]
@@ -54,11 +54,11 @@ def biopdb_aligned_chain_old(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_mov
                                 atom.get_residue_number(),
                                 atom.get_code_for_insertion(),  # x_transformed, y_transformed, z_transformed,
                                 atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-                                atom.get_atom_charge())
+                                atom.get_atom_charge(), pdb_moving_coords_rot_tx[idx])
         pdb_moving_copy_atom_list.append(atom_transformed)
         # atom_count += 1
 
-    pdb_moving_copy = PDB.from_atoms(atoms=pdb_moving_copy_atom_list, coords=pdb_moving_coords_rot_tx)
+    pdb_moving_copy = PDB.from_atoms(atoms=pdb_moving_copy_atom_list)  # , coords=pdb_moving_coords_rot_tx)
 
     return pdb_moving_copy
 
