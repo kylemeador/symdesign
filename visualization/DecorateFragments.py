@@ -57,12 +57,12 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     for fragment in ghost_frag_list:
         fragment.pdb.write(out_path=os.path.join(out_path, init_dir, 'frag%s_chain%s_res%s.pdb'
                                                  % ('%s_%s_%s' % fragment.get_ijk(),
-                                                    *fragment.get_aligned_surf_frag_central_res_tup())))
+                                                    *fragment.get_aligned_chain_and_residue())))
 
     for fragment in complete_ghost_frag_list:
         fragment.pdb.write(out_path=os.path.join(out_path, complete_dir, 'frag%s_chain%s_res%s.pdb'
                                                  % ('%s_%s_%s' % fragment.get_ijk(),
-                                                    *fragment.get_aligned_surf_frag_central_res_tup())))
+                                                    *fragment.get_aligned_chain_and_residue())))
 
 
 if __name__ == '__main__':

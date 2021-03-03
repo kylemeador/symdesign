@@ -13,14 +13,13 @@ index_offset = 1
 
 
 class GhostFragment:
-    def __init__(self, structure, i_frag_type, j_frag_type, k_frag_type, ijk_rmsd, aligned_surf_frag_central_res_tup,
-                 guide_coords=None):
+    def __init__(self, structure, i_type, j_type, k_type, ijk_rmsd, aligned_chain_residue_tuple, guide_coords=None):
         self.structure = structure
-        self.i_frag_type = i_frag_type
-        self.j_frag_type = j_frag_type
-        self.k_frag_type = k_frag_type
+        self.i_type = i_type
+        self.j_type = j_type
+        self.k_type = k_type
         self.rmsd = ijk_rmsd
-        self.aligned_surf_frag_central_res_tup = aligned_surf_frag_central_res_tup
+        self.aligned_surf_frag_central_res_tup = aligned_chain_residue_tuple
 
         if not guide_coords:
             self.guide_coords = self.structure.chain('9').get_coords()
@@ -33,22 +32,22 @@ class GhostFragment:
         Returns:
             (tuple[str, str, str]): I cluster index, J cluster index, K cluster index
         """
-        return self.i_frag_type, self.j_frag_type, self.k_frag_type
+        return self.i_type, self.j_type, self.k_type
 
-    def get_aligned_surf_frag_central_res_tup(self):
+    def get_aligned_chain_and_residue(self):
         """Return the fragment information the GhostFragment instance is aligned to
         Returns:
             (tuple[str,int]): aligned chain, aligned residue_number"""
         return self.aligned_surf_frag_central_res_tup
 
     def get_i_type(self):
-        return self.i_frag_type
+        return self.i_type
 
     def get_j_type(self):
-        return self.j_frag_type
+        return self.j_type
 
     def get_k_type(self):
-        return self.k_frag_type
+        return self.k_type
 
     def get_rmsd(self):
         return self.rmsd
@@ -72,7 +71,7 @@ class MonoFragment:
     def __init__(self, pdb=None, monofrag_representatives=None, fragment_type=None, guide_coords=None,
                  central_res_num=None, central_res_chain_id=None, rmsd_thresh=0.75):
         self.structure = pdb
-        self.type = fragment_type
+        self.i_type = fragment_type
         self.guide_coords = guide_coords
         self.central_res_num = central_res_num
         self.central_res_chain_id = central_res_chain_id
@@ -86,10 +85,10 @@ class MonoFragment:
             for cluster_type, cluster_rep in monofrag_representatives.items():
                 rmsd, rot, tx = biopdb_superimposer(frag_ca_atoms, cluster_rep.get_ca_atoms())
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
-                    self.type = cluster_type
+                    self.i_type = cluster_type
                     min_rmsd, self.rot, self.tx = rmsd, np.transpose(rot), tx
 
-            if self.type:
+            if self.i_type:
                 guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
                 # rot is returned in column major, therefore no need to transpose when transforming guide coordinates
                 self.guide_coords = np.matmul(guide_coords, rot) + self.tx
@@ -123,7 +122,7 @@ class MonoFragment:
             return None
 
     def get_i_type(self):
-        return self.type
+        return self.i_type
 
     @property
     def structure(self):
@@ -152,14 +151,14 @@ class MonoFragment:
     #     Returns:
     #         (list[GhostFragment])
     #     """
-    #     if self.type not in intfrag_cluster_rep:
+    #     if self.i_type not in intfrag_cluster_rep:
     #         return []
     #
     #     count_check = 0  # TOdo
     #     ghost_fragments = []
-    #     for j_type, j_dictionary in intfrag_cluster_rep[self.type].items():
+    #     for j_type, j_dictionary in intfrag_cluster_rep[self.i_type].items():
     #         for k_type, (frag_pdb, frag_mapped_chain, frag_paired_chain) in j_dictionary.items():
-    #             # intfrag = intfrag_cluster_rep[self.type][j_type][k_type]
+    #             # intfrag = intfrag_cluster_rep[self.i_type][j_type][k_type]
     #             # frag_pdb = intfrag[0]
     #             # frag_paired_chain = intfrag[1]
     #             # # frag_mapped_chain = intfrag[1]
@@ -184,8 +183,8 @@ class MonoFragment:
     #             cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
     #
     #             if cb_clash_count[0] == 0:
-    #                 rmsd = intfrag_cluster_info[self.type][j_type][k_type].get_rmsd()
-    #                 ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, rmsd,
+    #                 rmsd = intfrag_cluster_info[self.i_type][j_type][k_type].get_rmsd()
+    #                 ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.i_type, j_type, k_type, rmsd,
     #                                                      self.get_central_res_tup()))
     #             else:  # TOdo
     #                 count_check += 1  # TOdo
@@ -194,13 +193,13 @@ class MonoFragment:
 
     def get_ghost_fragments(self, intfrag_cluster_rep_dict, kdtree_oligomer_backbone, intfrag_cluster_info_dict,
                             clash_dist=2.2):
-        if self.type in intfrag_cluster_rep_dict:
+        if self.i_type in intfrag_cluster_rep_dict:
 
             count_check = 0  # TOdo
             ghost_fragments = []
-            for j_type in intfrag_cluster_rep_dict[self.type]:
-                for k_type in intfrag_cluster_rep_dict[self.type][j_type]:
-                    intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
+            for j_type in intfrag_cluster_rep_dict[self.i_type]:
+                for k_type in intfrag_cluster_rep_dict[self.i_type][j_type]:
+                    intfrag = intfrag_cluster_rep_dict[self.i_type][j_type][k_type]
                     intfrag_pdb = intfrag[0]
                     intfrag_mapped_chain_id = intfrag[1]
                     #                                  This has been added in Structure.get_fragments  v
@@ -217,9 +216,9 @@ class MonoFragment:
                     cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
 
                     if cb_clash_count[0] == 0:
-                        rmsd = intfrag_cluster_info_dict[self.type][j_type][k_type].get_rmsd()
+                        rmsd = intfrag_cluster_info_dict[self.i_type][j_type][k_type].get_rmsd()
                         ghost_fragments.append(
-                            GhostFragment(aligned_ghost_frag_pdb, self.type, j_type, k_type, rmsd,
+                            GhostFragment(aligned_ghost_frag_pdb, self.i_type, j_type, k_type, rmsd,
                                           self.get_central_res_tup()))  # ghostfrag_central_res_tup,
                     else:  # TOdo
                         count_check += 1  # TOdo

@@ -1074,7 +1074,7 @@ def rmsd(coords1=None, coords2=None):
     sum_difference_squared = difference_squared.sum(axis=2)
     # axis 1 gets the mean of the rows 0[1[]], 1[]]
     mean_sum_difference_squared = sum_difference_squared.mean(axis=1)
-    return math.sqrt(mean_sum_difference_squared)
+    return np.sqrt(mean_sum_difference_squared)
 
 
 def z_value_from_match_score(match_score):
