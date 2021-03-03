@@ -653,13 +653,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # additional gains in fragment reduction could be realized with modifying SASA extent by ghost fragment access
 
     # calculate the initial match type by finding the predominant surface type
-    frag_types2 = [monofrag2.get_i_type() for monofrag2 in complete_surf_frag_list]
+    frag_types2 = [monofrag2.i_type for monofrag2 in complete_surf_frag_list]
     fragment_content2 = [frag_types2.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 2 fragment content: %s' % fragment_content2)
     initial_type2 = str(np.argmax(fragment_content2) + 1)
     # print('Found fragment initial type oligomer 2: %s' % initial_type2)
-    initial_surf_frags = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.get_i_type() == initial_type2]
-    initial_surf_frags2_guide_coords = [surf_frag.get_guide_coords() for surf_frag in initial_surf_frags]
+    initial_surf_frags = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.i_type == initial_type2]
+    initial_surf_frags2_guide_coords = [surf_frag.guide_coords for surf_frag in initial_surf_frags]
     # -----------------------
     frag_check = os.path.join(os.path.dirname(log_file_path), 'frag_check')
     if not os.path.exists(frag_check):
@@ -702,15 +702,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # calculate the initial match type by finding the predominant surface type
     print('Length of surface_frags1: %d' % len(surf_frags_1))
     print('Length of complete_ghost_frags1: %d' % len(complete_ghost_frag_list))
-    frag_types1 = [ghost_frag1.get_i_type() for ghost_frag1 in complete_ghost_frag_list]
+    frag_types1 = [ghost_frag1.i_type for ghost_frag1 in complete_ghost_frag_list]
     fragment_content1 = [frag_types1.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 1 i fragment content: %s' % fragment_content1)
     # initial_type1 = str(np.argmax(fragment_content1) + 1)
     # print('Found initial fragment type oligomer 1: %s' % initial_type1)
-    frag_types1_j = [ghost_frag1.get_j_type() for ghost_frag1 in complete_ghost_frag_list]
+    frag_types1_j = [ghost_frag1.j_type for ghost_frag1 in complete_ghost_frag_list]
     fragment_content1_j = [frag_types1_j.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)
-    ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_j_type() == initial_type2]
+    ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.j_type == initial_type2]
     # -----------------------
     #
     # for idx_f, frag in enumerate(ghost_frags):
@@ -719,7 +719,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                                                % ('%s_%s_%s' % frag.get_ijk(),
     #                                                   *frag.get_aligned_chain_and_residue())))
     # -----------------------
-    ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
+    ghost_frag_guide_coords = [ghost_frag1.guide_coords for ghost_frag1 in ghost_frags]
 
     ghost_frag_np = np.array(ghost_frags)
     complete_ghost_frag_np = np.array(complete_ghost_frag_list)
