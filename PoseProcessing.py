@@ -164,7 +164,7 @@ def pose_rmsd_s(all_des_dirs):
                 # print(rmsd_residue_list)
                 pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
                                   for entity_list in rmsd_residue_list]
-                # [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
+                # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
                 # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
                 # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
 

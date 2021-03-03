@@ -544,7 +544,7 @@ def extract_xtal_interfaces(pdb_path):
             interface_atoms = list(chain.from_iterable(all_resi_atoms))
             chain_pdb.read_atom_list(interface_atoms)
             chain_pdb.apply(rot, trans)
-            interface_pdb.read_atom_list(chain_pdb.get_atoms())
+            interface_pdb.read_atom_list(chain_pdb.atoms)
         interface_pdb.write(pdb_path + interface + '.pdb')
 
 

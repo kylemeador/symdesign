@@ -1634,7 +1634,7 @@ def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2
 
         pdb2.apply(rot, tx)
 
-        pdb_out = PDB(atoms=pdb2.get_atoms())
+        pdb_out = PDB(atoms=pdb2.atoms)
 
         # pdb_out.write(out_path)
         # print ("ALIGNED!")

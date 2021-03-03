@@ -417,11 +417,11 @@ class SymmetricModel(Model):
             #                                                          (model_idx * self.asu.number_of_atoms)
             #                                                          + self.asu.number_of_atoms])
             # self.log.info('Coords copy of length %d: %s' % (len(symmetry_mate_pdb.coords), symmetry_mate_pdb.coords))
-            # self.log.info('Atom 1 coordinates: %s' % symmetry_mate_pdb.get_atoms()[0].x)
-            # self.log.info('Atom 1: %s' % str(symmetry_mate_pdb.get_atoms()[0]))
+            # self.log.info('Atom 1 coordinates: %s' % symmetry_mate_pdb.atoms[0].x)
+            # self.log.info('Atom 1: %s' % str(symmetry_mate_pdb.atoms[0]))
             self.models.append(symmetry_mate_pdb)
         # for model_idx in range(len(self.models)):
-            # self.log.info('Atom 1: %s' % str(self.models[model_idx].get_atoms()[0]))
+            # self.log.info('Atom 1: %s' % str(self.models[model_idx].atoms[0]))
 
     def find_asu_equivalent_symmetry_model(self, residue_query_number=1):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
@@ -733,7 +733,7 @@ class SymmetricModel(Model):
             for i, model in enumerate(self.models, 1):
                 f.write('{:9s}{:>4d}\n'.format('MODEL', i))
                 for chain in model.chains:
-                    chain_atoms = chain.get_atoms()
+                    chain_atoms = chain.atoms()
                     f.write('\n'.join(str(atom) for atom in chain_atoms))
                     f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_atoms[-1].number + 1,
                                                                           chain_atoms[-1].residue_type, chain.name,
@@ -912,7 +912,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
     @property
     def number_of_atoms(self):
-        return len(self.pdb.get_atoms())
+        return len(self.pdb.atoms())
     #     try:
     #         return self._number_of_atoms
     #     except AttributeError:
@@ -1104,7 +1104,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             list[tuple]: A list of interface residue numbers across the interface
         """
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
-        pdb_atoms = self.pdb.get_atoms()
+        pdb_atoms = self.pdb.atoms()
         number_of_atoms = self.pdb.number_of_atoms
         self.log.debug('Number of atoms in PDB: %s' % number_of_atoms)
 
@@ -1752,7 +1752,7 @@ def get_fragments(pdb, chain_res_info, fragment_length=5):
         frag_residue_numbers = [residue_number + i for i in range(-2, 3)]
         frag_atoms, ca_present = [], []
         for residue in pdb.residue(frag_residue_numbers):
-            frag_atoms.extend(residue.get_atoms())
+            frag_atoms.extend(residue.atoms())
             if residue.get_ca():
                 ca_count += 1
 
@@ -1848,9 +1848,9 @@ def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
     interface_name = interface_pdb.name
 
-    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[0]).get_atoms())
+    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[0]).atoms())
     entity1.update_attributes_from_pdb(interface_pdb)
-    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[-1]).get_atoms())
+    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[-1]).atoms())
     entity2.update_attributes_from_pdb(interface_pdb)
 
     interacting_residue_pairs = find_interface_pairs(entity1, entity2)

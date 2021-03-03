@@ -53,7 +53,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
     # oligomer and between oligomers).
 
     oligomer1_resnums_by_chain_dict = {}
-    for atom1 in oligomer1_pdb.get_atoms():
+    for atom1 in oligomer1_pdb.atoms:
         if atom1.is_CA():
             if atom1.get_chain() not in oligomer1_resnums_by_chain_dict:
                 oligomer1_resnums_by_chain_dict[atom1.get_chain()] = [atom1.get_residue_number()]
@@ -61,7 +61,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
                 oligomer1_resnums_by_chain_dict[atom1.get_chain()].append(atom1.get_residue_number())
 
     oligomer2_resnums_by_chain_dict = {}
-    for atom2 in oligomer2_pdb.get_atoms():
+    for atom2 in oligomer2_pdb.atoms:
         if atom2.is_CA():
             if atom2.get_chain() not in oligomer2_resnums_by_chain_dict:
                 oligomer2_resnums_by_chain_dict[atom2.get_chain()] = [atom2.get_residue_number()]
@@ -75,7 +75,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
     oligomer1_pdb_standardized = PDB()
     oligomer1_pdb_standardized_atom_list = []
     oligomer1_pdb_standardized_chid_list = []
-    for atom1 in oligomer1_pdb.get_atoms():
+    for atom1 in oligomer1_pdb.atoms:
         if atom1.get_residue_number() in resnums_in_common:
             oligomer1_pdb_standardized_atom_list.append(atom1)
             oligomer1_pdb_standardized_chid_list.append(atom1.get_chain())
@@ -86,7 +86,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
     oligomer2_pdb_standardized = PDB()
     oligomer2_pdb_standardized_atom_list = []
     oligomer2_pdb_standardized_chid_list = []
-    for atom2 in oligomer2_pdb.get_atoms():
+    for atom2 in oligomer2_pdb.atoms:
         if atom2.get_residue_number() in resnums_in_common:
             oligomer2_pdb_standardized_atom_list.append(atom2)
             oligomer2_pdb_standardized_chid_list.append(atom2.get_chain())
@@ -105,7 +105,7 @@ def standardize_intra_oligomer_chain_lengths(oligomer1_pdb):
     # The function returns the input PDB object without residues that are not present in all chains of the homo-oligomer
 
     oligomer1_resnums_by_chain_dict = {}
-    for atom1 in oligomer1_pdb.get_atoms():
+    for atom1 in oligomer1_pdb.atoms:
         if atom1.is_CA():
             if atom1.get_chain() not in oligomer1_resnums_by_chain_dict:
                 oligomer1_resnums_by_chain_dict[atom1.get_chain()] = [atom1.get_residue_number()]
@@ -119,7 +119,7 @@ def standardize_intra_oligomer_chain_lengths(oligomer1_pdb):
     oligomer1_pdb_standardized = PDB()
     oligomer1_pdb_standardized_atom_list = []
     oligomer1_pdb_standardized_chid_list = []
-    for atom1 in oligomer1_pdb.get_atoms():
+    for atom1 in oligomer1_pdb.atoms:
         if atom1.get_residue_number() in resnums_in_common:
             oligomer1_pdb_standardized_atom_list.append(atom1)
             oligomer1_pdb_standardized_chid_list.append(atom1.get_chain())
@@ -160,7 +160,7 @@ def rotated_translated_atoms(atom_list, rot, tx):
 
 
 def rotated_translated_pdb(pdb, rot, tx):
-    atoms = pdb.get_atoms()
+    atoms = pdb.atoms
 
     rot_tx_atoms = rotated_translated_atoms(atoms, rot, tx)
 
@@ -373,7 +373,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
             ref_pdb1_rot_tx = rotated_translated_pdb(ref_pdb1, min_irot, min_itx)
             ref_pdb2_rot_tx = rotated_translated_pdb(ref_pdb2, min_irot, min_itx)
             ref_pdbs_rot_tx = PDB()
-            ref_pdbs_rot_tx.set_all_atoms(ref_pdb1_rot_tx.get_atoms() + ref_pdb2_rot_tx.get_atoms())
+            ref_pdbs_rot_tx.set_all_atoms(ref_pdb1_rot_tx.atoms + ref_pdb2_rot_tx.atoms)
             return ref_pdbs_rot_tx, min_irmsd
         else:
             return min_irmsd
@@ -571,7 +571,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
             ref_pdb1_rot_tx = rotated_translated_pdb(ref_pdb1, min_irot, min_itx)
             ref_pdb2_rot_tx = rotated_translated_pdb(ref_pdb2, min_irot, min_itx)
             ref_pdbs_rot_tx = PDB()
-            ref_pdbs_rot_tx.set_all_atoms(ref_pdb1_rot_tx.get_atoms() + ref_pdb2_rot_tx.get_atoms())
+            ref_pdbs_rot_tx.set_all_atoms(ref_pdb1_rot_tx.atoms + ref_pdb2_rot_tx.atoms)
             return ref_pdbs_rot_tx, min_irmsd
 
 ########################################################################################################################

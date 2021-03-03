@@ -74,7 +74,7 @@ def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, "
 
 def get_expanded_ptgrp_pdbs(pdb1_asu, pdb2_asu, expand_matrices):
     pdb_asu = PDB()
-    pdb_asu.set_all_atoms(pdb1_asu.get_atoms() + pdb2_asu.get_atoms())
+    pdb_asu.set_all_atoms(pdb1_asu.atoms() + pdb2_asu.atoms())
 
     return get_expanded_ptgrp_pdb(pdb_asu, expand_matrices)
 
@@ -91,7 +91,7 @@ def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
         asu_sym_mate_pdb = PDB()
         asu_sym_mate_pdb_atom_list = []
         atom_count = 0
-        for atom in pdb_asu.get_atoms():
+        for atom in pdb_asu.atoms():
             x_transformed = r_asu_coords[atom_count][0]
             y_transformed = r_asu_coords[atom_count][1]
             z_transformed = r_asu_coords[atom_count][2]
@@ -219,7 +219,7 @@ def frac_to_cart(frac_coords, dimensions):
 
 def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
     pdb_asu = PDB()
-    pdb_asu.read_atom_list(pdb1.get_atoms() + pdb2.get_atoms())
+    pdb_asu.read_atom_list(pdb1.atoms() + pdb2.atoms())
 
     # pdb_asu_coords_cart = pdb_asu.extract_coords()  # TODO
     pdb_asu_coords_cart = pdb_asu.extract_all_coords()
@@ -268,7 +268,7 @@ def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
 
 def get_central_asu_pdb_3d(pdb1, pdb2, uc_dimensions):
     pdb_asu = PDB()
-    pdb_asu.read_atom_list(pdb1.get_atoms() + pdb2.get_atoms())
+    pdb_asu.read_atom_list(pdb1.atoms() + pdb2.atoms())
 
     # pdb_asu_coords_cart = pdb_asu.extract_coords()  # TODO
     pdb_asu_coords_cart = pdb_asu.extract_all_coords()
@@ -344,7 +344,7 @@ def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
         unit_cell_sym_mate_pdb = PDB()
         unit_cell_sym_mate_pdb_atom_list = []
         atom_count = 0
-        for atom in pdb_asu.get_atoms():
+        for atom in pdb_asu.atoms():
             x_transformed = tr_asu_cart_coords[atom_count][0]
             y_transformed = tr_asu_cart_coords[atom_count][1]
             z_transformed = tr_asu_cart_coords[atom_count][2]
@@ -538,7 +538,7 @@ def write_unit_cell_sym_mates(unit_cell_sym_mates, outfile_path):  # Todo integr
         end_model_line = "ENDMDL\n"
 
         f.write(model_line)
-        for atom in unit_cell_sym_mate_pdb.get_atoms():
+        for atom in unit_cell_sym_mate_pdb.atoms():
             f.write(str(atom))
         f.write(end_model_line)
     f.close()
@@ -555,7 +555,7 @@ def write_surrounding_unit_cells(surrounding_unit_cells, outfile_path):  # Todo 
             end_model_line = "ENDMDL\n"
 
             f.write(model_line)
-            for atom in unit_cell_sym_mate_pdb.get_atoms():
+            for atom in unit_cell_sym_mate_pdb.atoms():
                 f.write(str(atom))
             f.write(end_model_line)
 

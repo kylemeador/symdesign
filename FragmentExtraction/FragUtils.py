@@ -190,7 +190,7 @@ def center(bio_pdb):
     center_ca_coords = center_ca_atom.get_coord()
 
     # Center Such That Central Residue CA is at Origin
-    for atom in bio_pdb.get_atoms():
+    for atom in bio_pdb.atoms():
         atom.set_coord(np.add(atom.get_coord(), -center_ca_coords))
 
 
@@ -281,8 +281,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     num_bb_atoms = 4
 
     # Creating PDB instance for mapped and paired chains
-    pdb_mapped = PDB.from_atoms(atoms=pdb.chain(mapped_chain).get_atoms())
-    pdb_paired = PDB.from_atoms(atoms=pdb.chain(paired_chain).get_atoms())
+    pdb_mapped = PDB.from_atoms(atoms=pdb.chain(mapped_chain).atoms())
+    pdb_paired = PDB.from_atoms(atoms=pdb.chain(paired_chain).atoms())
     # pdb_mapped.read_atom_list(pdb.get_chain_atoms(mapped_chain))
     # pdb_paired.read_atom_list(pdb.get_chain_atoms(paired_chain))
 

@@ -77,7 +77,7 @@ def mp_all_to_all_rmsd(frag_db_dir, thread_count, cluster_size_limit):
                 frag_pdb_biopdb_parser = PDBParser()
                 frag_pdb_biopdb = frag_pdb_biopdb_parser.get_structure(frag_pdb_name, cluster_dir + "/" + intfrag_filename)
                 guide_atoms = []
-                for atom in frag_pdb_biopdb.get_atoms():
+                for atom in frag_pdb_biopdb.atoms():
                     if atom.get_full_id()[2] == "9":
                         guide_atoms.append(atom)
                 if len(guide_atoms) == 3:
@@ -92,7 +92,7 @@ def mp_all_to_all_rmsd(frag_db_dir, thread_count, cluster_size_limit):
                 frag_pdb_biopdb_parser = PDBParser()
                 frag_pdb_biopdb = frag_pdb_biopdb_parser.get_structure(frag_pdb_name, cluster_dir + "/" + intfrag_filename)
                 guide_atoms = []
-                for atom in frag_pdb_biopdb.get_atoms():
+                for atom in frag_pdb_biopdb.atoms():
                     if atom.get_full_id()[2] == "9":
                         guide_atoms.append(atom)
                 if len(guide_atoms) == 3:
