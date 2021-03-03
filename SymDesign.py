@@ -937,9 +937,12 @@ if __name__ == '__main__':
         logger.debug('Sorting designs according to \'%s\'' % args.metric)
         metric_design_dir_pairs = [pair for pair in metric_design_dir_pairs if pair[0]]
         sorted_metric_design_dir_pairs = sorted(metric_design_dir_pairs, key=lambda pair: (pair[0] or 0), reverse=True)
-        logger.info('Ranked Designs according to %s:\n\t%s\tDesign\n\t%s'
+        logger.info('Top ranked Designs according to %s:\n\t%s\tDesign\n\t%s'
                     % (args.metric, args.metric.title(),
-                       '\n\t'.join('%.2f\t%s' % tup for tup in sorted_metric_design_dir_pairs)))
+                       '\n\t'.join('%.2f\t%s' % tup for tup in sorted_metric_design_dir_pairs[:7995])))
+        # Todo write all to file
+        if len(design_directories) > 7995:
+            logger.info('Top ranked Designs cutoff at 7995')
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
