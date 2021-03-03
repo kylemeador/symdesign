@@ -58,7 +58,7 @@ def biopdb_aligned_chain_old(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_mov
         pdb_moving_copy_atom_list.append(atom_transformed)
         # atom_count += 1
 
-    pdb_moving_copy = PDB.from_atoms(atoms=pdb_moving_copy_atom_list, coords=pdb_moving_coords_rot_tx)
+    pdb_moving_copy = PDB.from_atoms(atoms=pdb_moving_copy_atom_list, coords=pdb_moving_coords_rot_tx, lazy=True)
 
     return pdb_moving_copy
 
