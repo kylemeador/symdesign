@@ -9,7 +9,9 @@ program_name = 'SymDesign'
 program_output = '%sOutput' % program_name
 projects = 'Projects'
 program_command = 'python $SymDesign.py'
-guide_string = '%s guide. Enter \'%s guide\'' % (program_name, program_command)
+submodule_guide = '%s --guide MODULE' % program_command
+submodule_help = '%s MODULE --help' % program_command
+guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
 nano = 'nanohedra'  # v0 'Nanohedra'  # v1?
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
@@ -164,9 +166,6 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
                     stage[7]: os.path.join(sbatch_templates, stage[6]),
                     stage[8]: os.path.join(sbatch_templates, stage[6]),
                     stage[9]: os.path.join(sbatch_templates, stage[6])}
-
-# argparse help
-submodule_help = 'python %s %s -h' % (os.path.realpath(command), 'expand_asu')
 
 
 def help(module):  # command is SymDesign.py

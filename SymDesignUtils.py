@@ -42,7 +42,7 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        # layer groups
                        # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
                        # space groups  # Todo
-                       }
+                       'cryst': 'cryst'}
 # Todo space and cryst
 all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': -1},
                       'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': -2},
