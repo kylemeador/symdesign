@@ -152,7 +152,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         kdtree_oligomer1_backbone = BallTree(pdb1_copy.get_backbone_and_cb_coords())
         asu_cb_clash_count = kdtree_oligomer1_backbone.two_point_correlation(pdb2_copy.get_backbone_and_cb_coords(),
                                                                              [clash_dist])
-        print('Checking clashes')
+        # print('Checking clashes')
         oligomer1_oligomer2_clash_time_end = time.time()
         oligomer1_oligomer2_clash_time = oligomer1_oligomer2_clash_time_end - oligomer1_oligomer2_clash_time_start
 
@@ -183,7 +183,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                            sym_entry.get_rot_set_mat_group2(),
                                            representative_ext_dof_tx_params_1,
                                            representative_ext_dof_tx_params_2)
-        print('Transformed guide_coords')
+        # print('Transformed guide_coords')
         get_int_ghost_surf_frags_time_end = time.time()
         get_int_ghost_surf_frags_time = get_int_ghost_surf_frags_time_end - get_int_ghost_surf_frags_time_start
 
@@ -204,35 +204,39 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Mono Fragment) guide coodinate pairs
         # in the same Euler rotational space bucket
         eul_lookup_start_time = time.time()
-        overlapping_ghost_frag_array, overlapping_surf_frag_array = \
-            zip(*eul_lookup.check_lookup_table(transformed_ghostfrag_guide_coords_np,
-                                               transformed_monofrag2_guide_coords_np))
-        print('Euler lookup')
+        # overlapping_ghost_frag_array, overlapping_surf_frag_array = \
+        #     zip(*eul_lookup.check_lookup_table(transformed_ghostfrag_guide_coords_np,
+        #                                        transformed_monofrag2_guide_coords_np))
+        overlapping_ghost_surf_frag_indices = eul_lookup.check_lookup_table(transformed_ghostfrag_guide_coords_np,
+                                                                            transformed_monofrag2_guide_coords_np)
+        # print('Euler lookup')
         eul_lookup_end_time = time.time()
         eul_lookup_time = eul_lookup_end_time - eul_lookup_start_time
 
         # Calculate z_value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
         overlap_score_time_start = time.time()
         # filter array by matching type for surface (i) and ghost (j) frags
-        ij_type_match = [True if complete_surf_frag_np[overlapping_surf_frag_array[idx]].get_i_type() ==
-                                 complete_ghost_frag_np[ghost_frag_idx].get_j_type() else False
-                         for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
+        ij_type_match = [True if complete_surf_frag_np[surf_idx].i_type == complete_ghost_frag_np[ghost_idx].j_type
+                         else False for ghost_idx, surf_idx in overlapping_ghost_surf_frag_indices]
+        # ij_type_match = [True if complete_surf_frag_np[overlapping_surf_frag_array[idx]].get_i_type() ==
+        #                          complete_ghost_frag_np[ghost_frag_idx].get_j_type() else False
+        #                  for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
         # get only those indices that pass ij filter and their associated coords
         # Todo numpy overlapping_ghost_frag_array so can [index] operation
         passing_ghost_indices = np.array([ghost_idx
-                                          for idx, ghost_idx in enumerate(overlapping_ghost_frag_array)
+                                          for idx, (ghost_idx, surf_idx) in enumerate(overlapping_ghost_surf_frag_indices)
                                           if ij_type_match[idx]])
         passing_ghost_coords = transformed_ghostfrag_guide_coords_np[passing_ghost_indices]
 
         passing_surf_indices = np.array([surf_idx
-                                         for idx, surf_idx in enumerate(overlapping_surf_frag_array)
+                                         for idx, (ghost_idx, surf_idx) in enumerate(overlapping_ghost_surf_frag_indices)
                                          if ij_type_match[idx]])
         passing_surf_coords = transformed_monofrag2_guide_coords_np[passing_surf_indices]
         # precalculate the reference_rmsds for each ghost fragment
-        reference_rmsds = np.array([float(max(complete_ghost_frag_np[ghost_idx].get_rmsd(), 0.01))
+        reference_rmsds = np.array([float(max(complete_ghost_frag_np[ghost_idx].rmsd, 0.01))
                                     for ghost_idx in passing_ghost_indices])
-        print('length of all coords arrays = %d, %d, %d' % (len(passing_ghost_coords), len(passing_surf_coords),
-                                                            len(reference_rmsds)))
+        # print('length of all coords arrays = %d, %d, %d' % (len(passing_ghost_coords), len(passing_surf_coords),
+        #                                                     len(reference_rmsds)))
         all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
                                                  max_z_value=max_z_val)
         print('Checking all fragment overlap at interface')
@@ -242,8 +246,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         print('Overlapping z-values: %s' % passing_z_values)
         # sorted_overlaps = np.array([passing_overlaps, passing_z_values],
         #                            dtype=[('index', int), ('z_value', float)])
-        high_qual_match_count = sum([1 for z_value in passing_z_values
-                                     if z_value <= high_quality_match_value])
+        high_qual_match_count = sum([1 for z_value in passing_z_values if z_value <= high_quality_match_value])
 
         overlap_score_time_stop = time.time()
         overlap_score_time = overlap_score_time_stop - overlap_score_time_start
@@ -254,7 +257,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                            "Calculation took %s for %d fragment pairs)\n" %
                            (len(passing_overlaps), str(eul_lookup_time),
                             len(transformed_ghostfrag_guide_coords_np), str(overlap_score_time),
-                            len(overlapping_ghost_frag_array)))
+                            len(overlapping_ghost_surf_frag_indices)))
 
         if high_qual_match_count < min_matched:
             with open(log_filepath, "a+") as log_file:
@@ -370,7 +373,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
             interface_ghost_frag_cluster_res_freq_list = \
                 ijk_frag_db.info[ghostfrag_i_type][ghostfrag_j_type][ghostfrag_k_type].get_central_residue_pair_freqs()
-            pdb1_surffrag_chain, pdb1_surffrag_central_res_num = interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
+            pdb1_surffrag_chain, pdb1_surffrag_central_res_num = interface_ghost_frag.get_aligned_chain_and_residue()
             pdb2_surffrag_chain, pdb2_surffrag_central_res_num = interface_mono_frag.get_central_res_tup()
 
             covered_residues_pdb1 = [(pdb1_surffrag_chain, pdb1_surffrag_central_res_num + j) for j in range(-2, 3)]
@@ -714,7 +717,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #     # if idx_f % 8 == 0:
     #     frag.structure.write(out_path=os.path.join(frag_check, 'ghostfrag%s_chain%s_res%s.pdb'
     #                                                % ('%s_%s_%s' % frag.get_ijk(),
-    #                                                   *frag.get_aligned_surf_frag_central_res_tup())))
+    #                                                   *frag.get_aligned_chain_and_residue())))
     # -----------------------
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
@@ -1128,7 +1131,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         # write_residue_matches = [transformed_frags[idx].write(
                         #     out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
                         #                           % ('%s_%s_%s' % ghost_frags[ghost_idx].get_ijk(),
-                        #                              *ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup())))
+                        #                              *ghost_frags[ghost_idx].get_aligned_chain_and_residue())))
                         #                          for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
 
                         with open(log_file_path, "a+") as log_file:
