@@ -492,17 +492,18 @@ def generate_sequence_template(pdb_file):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@',
-                                     description='\nControl all input/output of various %s operations including: '
-                                                 '\n\t1. Nanohedra docking '
-                                                 '\n\t2. Pose set up, sampling, assembly generation, fragment '
-                                                 'decoration'
-                                                 '\n\t3. Interface design using constrained residue profiles and '
-                                                 'Rosetta'
-                                                 '\n\t4. Analysis of all designs using interface metrics '
-                                                 '\n\t5. Sequence selection and design guided by linearly weighted '
-                                                 'interface metrics.\nAll jobs have built in features for command '
-                                                 'monitoring & distribution to computational clusters for parallel '
-                                                 'processing\n' % PUtils.program_name,
+                                     description=
+                                     '\nControl all input/output of the various %s operations including: '
+                                     '\n\t1. %s docking '
+                                     '\n\t2. Pose set up, sampling, assembly generation, fragment decoration'
+                                     '\n\t3. Interface design using constrained residue profiles and Rosetta'
+                                     '\n\t4. Analysis of all designs using interface metrics '
+                                     '\n\t5. Design selection and sequence formatting by combinatorial linear weighting'
+                                     ' of interface metrics.\n\n'
+                                     'If your a first time user, try \'%s --guide\''
+                                     '\nAll jobs have built in features for command monitoring & distribution to '
+                                     'computational clusters for parallel processing.\n'
+                                     % (PUtils.program_name, PUtils.nano.title(), PUtils.program_command),
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     # ---------------------------------------------------
     # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
@@ -515,8 +516,8 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--file', type=os.path.abspath, metavar='/path/to/file_with_directory_names.txt',
                         help='File with location(s) of %s design poses' % PUtils.program_name, default=None)
     parser.add_argument('-g', '--guide', action='store_true',
-                        help='Whether to display the %s or module specific guide.' % PUtils.program_name)
-    parser.add_argument('-m', '--directory_type', type=str, choices=['design', 'dock'],
+                        help='Access the %s guide! Display the program or module specific guide. Ex: ' % PUtils.program_name)
+    parser.add_argument('-m', '--directory_type', type=str, choices=['design', PUtils.nano],
                         help='Which directory type to process?')
     #                   , required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',  # Todo always true
@@ -525,18 +526,19 @@ if __name__ == '__main__':
                         metavar='/path/to/SymDesignOutput/Projects/your_project',
                         help='If pose names are specified by project instead of directories, which project to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
-                        help='Should commands be executed through SymDesign command? Doesn\'t mazimize cassini\'s '
-                             'computational resources and can cause long trajectories to fail on a sinlge mistake.'
-                             '\nDefault=False')
+                        help='Should commands be executed through %s command? Doesn\'t maximize cassini\'s '
+                             'computational resources and can cause long trajectories to fail on a single mistake.'
+                             '\nDefault=False' % PUtils.program_name)
     parser.add_argument('-s', '--single', type=os.path.abspath,
                         metavar='/path/to/SymDesignOutput/Projects/your_project/single_design[.pdb]',
                         help='If design name is specified by a single path instead')
-    subparsers = parser.add_subparsers(title='Modules', dest='sub_module',  # todo change sub_module
+    subparsers = parser.add_subparsers(title='Modules', dest='module',
                                        description='These are the different modes that designs can be processed',
-                                       help='Chose a Module followed by Module specific flags. To get '
-                                            'help on a Module such as specific commands and flags enter:\n%s\n\nAny'
-                                            'SubModule help can be accessed in this way'  # Todo
-                                            % PUtils.submodule_help)
+                                       help='Chose a Module followed by Module specific flags. To get help with a '
+                                            'Module such as Module algorithmic specifics or to see example commands '
+                                            'enter:\t%s\n\nTo get help with Module flags enter:\t%s\n, Any Module '
+                                            '--guide or --help can be accessed in this way.'
+                                            % (PUtils.submodule_guide, PUtils.submodule_help))
     # ---------------------------------------------------
     parser_guide = subparsers.add_parser('guide', help='Access the %s guide! Start here if your a first time user'
                                                        % PUtils.program_name)
@@ -557,13 +559,12 @@ if __name__ == '__main__':
                                choices=['score', 'fragments_matched'], required=True)
     # ---------------------------------------------------
     parser_expand = subparsers.add_parser('expand_asu', help='Filter designs based on design specific metrics.')
-    # parser_filter.add_argument('-m', '--metric', type=str, help='What metric would you like to filter Designs by?',
-    #                            choices=['score', 'fragments_matched'], required=True)
     # ---------------------------------------------------
-    parser_dock = subparsers.add_parser('dock', help='Submit jobs to %s.py\nIf a docking directory structure is set up,'
-                                                     ' provide the overall directory location with program argument '
-                                                     '-d/-f, otherwise, use the -d1 -d2 \'pose\' module arguments to '
-                                                     'specify lists of oligomers to dock' % PUtils.nano.title())
+    parser_dock = subparsers.add_parser(PUtils.nano,
+                                        help='Submit jobs to %s.py\nIf a docking directory structure is set up, provide'
+                                             ' the overall directory location with program argument -d/-f, otherwise, '
+                                             'use the Module arguments -d1/-d2 to specify directories with lists of '
+                                             'oligomers to dock' % PUtils.nano.title())
     parser_dock.add_argument('-d1', '--pdb_path1', type=os.path.abspath, required=True,
                              help='Disk location where the first oligomers are located\nREQUIRED', default=None)
     parser_dock.add_argument('-d2', '--pdb_path2', type=os.path.abspath,
@@ -624,14 +625,14 @@ if __name__ == '__main__':
                                                                                 '\nDefault=False')
     parser_sequence.add_argument('-f', '--filter', action='store_true',
                                  help='Whether to filter sequence selection using metrics from DataFrame')
-    parser_sequence.add_argument('-np', '--number_poses', type=int, default=1, metavar='integer',
-                                 help='Number of top sequences to return per design')
-    parser_sequence.add_argument('-ns', '--number_sequences', type=int, default=1, metavar='integer',
-                                 help='Number of top sequences to return per design')
+    parser_sequence.add_argument('-np', '--number_poses', type=int, default=1, metavar='INT',
+                                 help='Number of top poses to return per pool of designs.\nDefault=1')
+    parser_sequence.add_argument('-ns', '--number_sequences', type=int, default=1, metavar='INT',
+                                 help='Number of top sequences to return per pose.\nDefault=1')
     parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
                                  help='String to prepend to output for custom sequence selection name')
     parser_sequence.add_argument('-w', '--weight', action='store_true',
-                                 help='Whether to weight sequence selction using metrics from DataFrame')
+                                 help='Whether to weight sequence selection using metrics from DataFrame')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
@@ -666,8 +667,8 @@ if __name__ == '__main__':
                                                                   % PUtils.nstruct)
     # ---------------------------------------------------
     parser_modify = subparsers.add_parser('modify', help='Modify something for program testing')
-    parser_modify.add_argument('-m', '--mod', type=str, help='Which type of modification?\nChoose from '
-                                                             'consolidate_degen or pose_map')
+    parser_modify.add_argument('-m', '--mod', type=str,
+                               help='Which type of modification?\nChoose from consolidate_degen or pose_map')
     # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
 
@@ -684,9 +685,42 @@ if __name__ == '__main__':
         SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
         logger = SDUtils.start_log(name=__name__, level=2)
     # -----------------------------------------------------------------------------------------------------------------
+    # Display the program guide
+    # -----------------------------------------------------------------------------------------------------------------
+    if args.guide:
+        if not args.module:
+            with open(PUtils.readme, 'r') as f:
+                print(f.read(), end='')
+        elif args.module == 'analysis':
+            metrics_description = [(metric, metric_master[metric]) for metric in sorted(final_metrics)]
+            formatted_metrics = SDUtils.pretty_format_table(metrics_description)
+            logger.info('After running \'%s analysis\', the following metrics will be available for each pose '
+                        '(unique design configuration) selected for analysis:\n\t%s\n\nAdditionally, you can view the '
+                        'pose specific files [pose-id]_Trajectory.csv for comparison of different design trials for an '
+                        'individual pose, and [pose-id]_Residues.csv for residue specific information over the various '
+                        'trajectories. Usage of overall pose metrics '
+                        'across all poses should facilitate selection of the best configurations to move forward'
+                        ' with, while Trajectory and Residue information can inform your choice of sequence selection '
+                        'parameters. Selection of the resulting poses'
+                        ' can be accomplished through the %s module \'sequence_selection\'.\n\t'
+                        '\'%s sequence_selection -h\' will get you started.'
+                        % (PUtils.program_command, '\n\t'.join(formatted_metrics), PUtils.program_name,
+                           PUtils.program_command))
+        elif args.module == 'design':
+            logger.info()
+        elif args.module == PUtils.nano:
+            logger.info()
+        elif args.module == 'expand_asu':
+            logger.info()
+        elif args.module == 'filter':
+            logger.info()
+        elif args.module == 'sequence_selection':
+            logger.info()
+        exit()
+    # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
-    default_flags = return_default_flags(args.sub_module)
+    default_flags = return_default_flags(args.module)
     if additional_flags:
         formatted_flags = format_additional_flags(additional_flags)
     else:
@@ -701,38 +735,39 @@ if __name__ == '__main__':
     queried_flags = vars(args)
     queried_flags.update(default_flags)
     queried_flags.update(process_design_selector_flags(queried_flags))
-    if args.sub_module in ['design', 'generate_fragments', 'expand_asu'] or args.directory_type == 'design':
+    # We have to ensure that if the user has provided it, the symmetry is correct
+    if 'symmetry' in queried_flags and queried_flags['symmetry']:
+        if queried_flags['symmetry'] in SDUtils.possible_symmetries:
+            sym_entry = SDUtils.parse_symmetry_to_nanohedra_entry(queried_flags['symmetry'])
+            queried_flags['sym_entry_number'] = sym_entry
+        elif queried_flags['symmetry'].lower()[:5] == 'cryst':
+            do_something = True
+            # the symmetry information should be in the pdb headers
+        else:
+            raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
+                                      '\n\t%s\nCorrect your flags and try again'
+                                      % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
+    if args.module in ['design', 'generate_fragments', 'expand_asu'] or args.directory_type == 'design':
         # directory_type = 'design'
         queried_flags['directory_type'] = 'design'
-    elif args.sub_module in ['dock', 'filter', 'analysis', 'sequence_selection']:
-        queried_flags['directory_type'] = args.sub_module
-        if args.sub_module == 'dock':
-            queried_flags['dock'] = True
-        elif args.sub_module == 'filter':
+    elif args.module in [PUtils.nano, 'filter', 'analysis', 'sequence_selection']:
+        queried_flags['directory_type'] = args.module
+        queried_flags[args.module] = True
+        if args.module == 'filter':
             queried_flags['skip_logging'] = True
-            queried_flags['filter'] = True
-        elif args.sub_module == 'analysis':
-            queried_flags['analysis'] = True
-        elif args.sub_module == 'sequence_selection':
-            queried_flags['sequence_selection'] = True
     else:  # ['distribute', 'query', 'guide', 'flags', 'design_selector']
         queried_flags['directory_type'] = None
 
-    if args.sub_module not in ['distribute', 'query', 'guide', 'flags', 'design_selector'] and not args.guide:
+    if args.module not in ['distribute', 'query', 'guide', 'flags', 'design_selector'] and not args.guide:
         options_table = SDUtils.pretty_format_table(queried_flags.items())
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
     logger.debug('Debug mode. Verbose output')
     # -----------------------------------------------------------------------------------------------------------------
-    # Grab all Designs (DesignDirectory) to be processed from either directory name or file
+    # Grab all Designs (DesignDirectory) to be processed from either directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
     all_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
-    initial_iter, inputs_moved = None, False
-    # if args.sub_module in ['distribute', 'query', 'guide', 'flags', 'design_selector']:
-    #     pass
-    # else:
-    #     if args.sub_module in ['design', 'generate_fragments', 'expand_asu'] or args.directory_type == 'design':
-    #         directory_type = 'design'
-    #         queried_flags['directory_type'] = 'design'
+    initial_iter = None
+    # inputs_moved = False
     if queried_flags['directory_type'] == 'design':
         if not args.directory and not args.file and not args.project and not args.single:
             raise SDUtils.DesignError('No design directories/files were specified!\n'
@@ -752,36 +787,18 @@ if __name__ == '__main__':
                 all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
                                                                   single=args.single, dir_type=PUtils.nano)
                 # Todo ensure that the Nanohedra DesignDirectory has symmetry initialized properly
-                design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)  # project=args.project
-                                      for pose in all_poses]
+                design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags) for pose in all_poses]
             else:
-                # We have to ensure that if the user has provided it, the symmetry is correct
-                if 'symmetry' in queried_flags and queried_flags['symmetry']:
-                    if queried_flags['symmetry'] in SDUtils.possible_symmetries:
-                        sym_entry = SDUtils.parse_symmetry_to_nanohedra_entry(queried_flags['symmetry'])
-                        queried_flags['sym_entry_number'] = sym_entry
-                    elif queried_flags['symmetry'].lower()[:5] == 'cryst':
-                        do_something = True
-                        # the symmetry information should be in the pdb headers
-                    else:
-                        raise SDUtils.DesignError('The symmetry %s is not supported! Supported symmetries include:'
-                                                  '\n%s\nCorrect your flags file and try again'
-                                                  % (queried_flags['symmetry'],
-                                                     ', '.join(SDUtils.possible_symmetries.keys())))
                 all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
                                                                   single=args.single)
                 design_directories = [DesignDirectory.from_file(pose, **queried_flags)  # project=args.project,
                                       for pose in all_poses]
-                all_poses = [design.asu for design in design_directories]
-                inputs_moved = True
-            if args.guide:
-                pass
-            elif not design_directories:
+                # all_poses = [design.asu for design in design_directories]
+                # inputs_moved = True
+            if not design_directories:
                 raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
                                           'location. Are you sure you want to run with -%s %s'
                                           % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
-            else:
-                pass
 
             if not args.debug:  # Todo make universal
                 logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
@@ -801,20 +818,19 @@ if __name__ == '__main__':
             all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
                                                               single=args.single, dir_type=PUtils.nano)
             design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags) for pose in all_poses]
+
         else:
             all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
                                                               single=args.single)
             design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
-        if args.guide:
-            pass
-        elif not design_directories:
+        if not design_directories:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s'
                                       % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
-        else:
-            pass
-    elif queried_flags['directory_type'] == 'dock':
-        args.directory_type = 'dock'
+
+        logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
+    elif queried_flags['directory_type'] == PUtils.nano:
+        args.directory_type = PUtils.nano
         # Getting PDB1 and PDB2 File paths
         if args.pdb_path1:
             if not args.entry:
@@ -887,19 +903,19 @@ if __name__ == '__main__':
             if len(design_directories) == 0:
                 raise SDUtils.DesignError('No docking directories/files were found!\n'
                                           'Please specify --directory1, and/or --directory2 or --directory or '
-                                          '--file. See %s' % PUtils.help(args.sub_module))
+                                          '--file. See %s' % PUtils.help(args.module))
 
         logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
                                                                                        location))
     else:
         pass
         # raise SDUtils.DesignError('Error: --directory_type flag must be passed since the module is %s!'
-        # % args.sub_module)
+        # % args.module)
 
-    if args.sub_module in ['dock', 'design'] and args.run_in_shell:
+    if args.module in [PUtils.nano, 'design'] and args.run_in_shell:
         args.suspend = False
         logger.info('Modelling will occur in this process, ensure you don\'t lose connection to the shell!')
-    elif args.sub_module in ['dock', 'design']:
+    elif args.module in [PUtils.nano, 'design']:
         args.suspend = True
         logger.info('Writing modelling commands out to file only, no modelling will occur until commands are '
                     'executed.')
@@ -907,25 +923,22 @@ if __name__ == '__main__':
     # Parse SubModule specific commands
     # -----------------------------------------------------------------------------------------------------------------
     results, success, exceptions = [], [], []
-    if args.sub_module == 'guide':
-        with open(PUtils.readme, 'r') as f:
-            print(f.read(), end='')
     # ---------------------------------------------------
-    elif args.sub_module == 'query':
+    if args.module == 'query':
         query_flags = [__file__, '-query'] + additional_flags
         logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
         query_mode(query_flags)
     # ---------------------------------------------------
-    elif args.sub_module == 'flags':
+    elif args.module == 'flags':
         if args.template:
             query_user_for_flags(template=True)
         else:
             query_user_for_flags(mode=args.directory_type)
     # ---------------------------------------------------
-    elif args.sub_module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
+    elif args.module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
         distribute(**vars(args))
     # ---------------------------------------------------
-    elif args.sub_module == 'design_selector':  # Todo
+    elif args.module == 'design_selector':  # Todo
         if not args.single:
             raise SDUtils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
                                       'design_selector' % (PUtils.program_name, PUtils.program_command))
@@ -936,14 +949,14 @@ if __name__ == '__main__':
                     'Example:\n>pdb_template_sequence\nMAGHALKMLV...\n>design_selector\nMAGH----LV\n'
                     % fasta_file)
     # ---------------------------------------------------
-    elif args.sub_module == 'expand_asu':
+    elif args.module == 'expand_asu':
         for design_dir in design_directories:
             result = design_dir.expand_asu()
             results.append(result)
 
-        terminate(args.sub_module, design_directories, results=results, output=False)
+        terminate(args.module, design_directories, results=results, output=False)
     # ---------------------------------------------------
-    elif args.sub_module == 'filter':
+    elif args.module == 'filter':
         if args.metric == 'score':
             designpath_metric_tup_list = [(des_dir.score, des_dir.path) for des_dir in design_directories]
         elif args.metric == 'fragments_matched':
@@ -959,7 +972,7 @@ if __name__ == '__main__':
                     % (args.metric, args.metric.title(),
                        '\n\t'.join('%.2f\t%s' % tup for tup in designpath_metric_tup_list_sorted)))
     # ---------------------------------------------------
-    elif args.sub_module == 'dock':  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
+    elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -1016,7 +1029,7 @@ if __name__ == '__main__':
         else:
             logger.error('No \'%s\' commands were written!' % PUtils.nano)
     # ---------------------------------------------------
-    elif args.sub_module == 'generate_fragments':  # -i fragment_library, -p mpi, -x suspend
+    elif args.module == 'generate_fragments':  # -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
@@ -1030,7 +1043,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 design.generate_interface_fragments()
     # ---------------------------------------------------
-    elif args.sub_module == 'design':  # -i fragment_library, -p mpi, -x suspend
+    elif args.module == 'design':  # -i fragment_library, -p mpi, -x suspend
         if queried_flags['design_with_evolution']:
             if psutil.virtual_memory().available <= CUtils.hhblits_memory_threshold:
                 logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
@@ -1050,7 +1063,7 @@ if __name__ == '__main__':
                 result = design.interface_design()
                 results.append(result)
 
-        terminate(args.sub_module, design_directories, location=location, results=results)
+        terminate(args.module, design_directories, location=location, results=results)
 
         # if not args.run_in_shell and len(success) > 0:  # any(success): ALL success are None type
         #     design_name = os.path.basename(next(iter(design_directories)).project_designs)
@@ -1088,23 +1101,7 @@ if __name__ == '__main__':
             #            success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
             # logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design_command, command_file))
     # ---------------------------------------------------
-    elif args.sub_module == 'analysis':  # -o output, -f figures, -n no_save, -j join, -g delta_g
-        if args.guide:
-            metrics_description = [(metric, metric_master[metric]) for metric in sorted(final_metrics)]
-            formatted_metrics = SDUtils.pretty_format_table(metrics_description)
-            logger.info('After running \'%s analysis\', the following metrics will be available for each pose '
-                        '(unique design configuration) selected for analysis:\n\t%s\n\nAdditionally, you can view the '
-                        'pose specific files [pose-id]_Trajectory.csv for comparison of different design trials for an '
-                        'individual pose, and [pose-id]_Residues.csv for residue specific information over the various '
-                        'trajectories. Usage of overall pose metrics '
-                        'across all poses should facilitate selection of the best configurations to move forward'
-                        ' with, while Trajectory and Residue information can inform your choice of sequence selection '
-                        'parameters. Selection of the resulting poses'
-                        ' can be accomplished through the %s module \'sequence_selection\'.\n\t'
-                        '\'%s sequence_selection -h\' will get you started.'
-                        % (PUtils.program_command, '\n\t'.join(formatted_metrics), PUtils.program_name,
-                           PUtils.program_command))
-            exit()
+    elif args.module == 'analysis':  # -o output, -f figures, -n no_save, -j join, -g delta_g
         save = True
         if args.no_save:
             save = False
@@ -1131,9 +1128,9 @@ if __name__ == '__main__':
                 results.append(result)
                 # exceptions.append(error)  # Todo
 
-        terminate(args.sub_module, design_directories, location=location, results=results)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
-    elif args.sub_module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
+    elif args.module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
         directory_pairs, failures = None, None
         if args.directory2 or args.file2:
             # Grab all poses (directories) to be processed from either directory name or file
@@ -1152,7 +1149,7 @@ if __name__ == '__main__':
             if args.directory_type == 'design':
                 exit('No source location was specified! Use -d2 or -f2 to specify the source of poses when merging '
                      'design directories')
-            elif args.directory_type == 'dock':
+            elif args.directory_type == PUtils.nano:
                 directory_pairs, failures = pair_dock_directories(design_directories)  #  all_dock_directories)
                 for pair in directory_pairs:
                     if args.force:
@@ -1180,12 +1177,12 @@ if __name__ == '__main__':
             for directory_pair in directory_pairs:
                 merge_design_pair(directory_pair)
     # ---------------------------------------------------
-    elif args.sub_module == 'rename_scores':
+    elif args.module == 'rename_scores':
         rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
         for des_directory in design_directories:
             SDUtils.rename_decoy_protocols(des_directory, rename)
     # ---------------------------------------------------
-    elif args.sub_module == 'modify':  # -m mod
+    elif args.module == 'modify':  # -m mod
         if args.multi_processing:
             if args.mod == 'consolidate_degen':
                 exit('Operation impossible')
@@ -1220,7 +1217,7 @@ if __name__ == '__main__':
         # with open('missing_consensus_metrics', 'w') as f:
         #     f.write('\n'.join(errors))
     # ---------------------------------------------------
-    elif args.sub_module == 'status':  # -n number, -s stage
+    elif args.module == 'status':  # -n number, -s stage
         if args.number_designs:
             logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but design '
                         'stage' % args.number_designs)
@@ -1233,7 +1230,7 @@ if __name__ == '__main__':
                     logger.info('For \'%s\' stage, default settings should generate %d files'
                                 % (stage, PUtils.stage_f[stage]['len']))
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
-    elif args.sub_module == 'sequence_selection':  # -c consensus, -df dataframe, -f filters, -n number, -p pose_design_file,
+    elif args.module == 'sequence_selection':  # -c consensus, -df dataframe, -f filters, -n number, -p pose_design_file,
         program_root = next(iter(design_directories)).program_root
         if args.pose_design_file:        # -s selection_string, -w weights
             # Grab all poses (directories) to be processed from either directory name or file

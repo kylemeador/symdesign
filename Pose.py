@@ -205,10 +205,8 @@ class SymmetricModel(Model):
         elif not symmetry:
             return None  # no symmetry was provided
         elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
-            # symmetry = point_group_sdf_map[symmetry][0]
-            symmetry = possible_symmetries[symmetry]
             self.dimension = 0
-            self.expand_matrices = self.get_ptgrp_sym_op(symmetry)  # Todo numpy expand_matrices
+            self.expand_matrices = self.get_ptgrp_sym_op(possible_symmetries[symmetry])  # Todo numpy expand_matrices
             # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
         else:
             raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add to'
