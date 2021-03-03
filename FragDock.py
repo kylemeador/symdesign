@@ -23,7 +23,7 @@ from utils.SymmUtils import get_uc_dimensions
 fragment_length = 5
 
 
-def find_docked_poses(out_string, sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frag_np,
+def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frag_np,  # out_string,
                       complete_surf_frag_np, log_filepath, degen_subdir_out_path, rot_subdir_out_path, pdb1_path,
                       pdb2_path, eul_lookup, rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_exp_assembly=False,
                       output_uc=False, output_surrounding_uc=False, clash_dist=2.2, min_matched=3,
@@ -710,12 +710,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.get_j_type() == initial_type2]
     # -----------------------
-
-    for idx_f, frag in enumerate(ghost_frags):
-        # if idx_f % 8 == 0:
-        frag.structure.write(out_path=os.path.join(frag_check, 'ghostfrag%s_chain%s_res%s.pdb'
-                                                   % ('%s_%s_%s' % frag.get_ijk(),
-                                                      *frag.get_aligned_surf_frag_central_res_tup())))
+    #
+    # for idx_f, frag in enumerate(ghost_frags):
+    #     # if idx_f % 8 == 0:
+    #     frag.structure.write(out_path=os.path.join(frag_check, 'ghostfrag%s_chain%s_res%s.pdb'
+    #                                                % ('%s_%s_%s' % frag.get_ijk(),
+    #                                                   *frag.get_aligned_surf_frag_central_res_tup())))
     # -----------------------
     ghost_frag_guide_coords = [ghost_frag1.get_guide_coords() for ghost_frag1 in ghost_frags]
 
@@ -1118,19 +1118,19 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         surf_central_res_tuples = [initial_surf_frags[surf_idx].get_central_res_tup()
                                                    for ghost_idx, surf_idx in passing_fragment_pairs]
                         print('passing surface fragment chain/residue: %s' % surf_central_res_tuples)
-                        out_string = os.path.join(frag_check, "DEGEN_%d_%d_ROT_%d_%d"
-                                                  % (degen1_count, degen2_count, rot1_count, rot2_count))
-                        if not os.path.exists(out_string):
-                            os.makedirs(out_string)
-                        transformed_frags = [ghost_frags[ghost_idx].structure.return_transformed_copy(rotation=rot1_mat,
-                                                                                                      translation=[0, 0, passing_optimal_shifts[idx][0]],
-                                                                                                      rotation2=set_mat1)
-                                             for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
-                        write_residue_matches = [transformed_frags[idx].write(
-                            out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
-                                                  % ('%s_%s_%s' % ghost_frags[ghost_idx].get_ijk(),
-                                                     *ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup())))
-                                                 for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
+                        # out_string = os.path.join(frag_check, "DEGEN_%d_%d_ROT_%d_%d"
+                        #                           % (degen1_count, degen2_count, rot1_count, rot2_count))
+                        # if not os.path.exists(out_string):
+                        #     os.makedirs(out_string)
+                        # transformed_frags = [ghost_frags[ghost_idx].structure.return_transformed_copy(rotation=rot1_mat,
+                        #                                                                               translation=[0, 0, passing_optimal_shifts[idx][0]],
+                        #                                                                               rotation2=set_mat1)
+                        #                      for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
+                        # write_residue_matches = [transformed_frags[idx].write(
+                        #     out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
+                        #                           % ('%s_%s_%s' % ghost_frags[ghost_idx].get_ijk(),
+                        #                              *ghost_frags[ghost_idx].get_aligned_surf_frag_central_res_tup())))
+                        #                          for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
 
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
@@ -1141,7 +1141,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
                                                            (rot1_count, rot2_count))
 
-                        find_docked_poses(out_string, sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
+                        find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,  # out_string,
                                           complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
                                           degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
                                           rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
