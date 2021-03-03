@@ -32,16 +32,24 @@ class Structure(StructureBase):  # (Coords):
             # self.log = start_log()
             dummy = True
 
-        if coords is not None:
-            self.coords = coords
         if atoms:
-            if not coords:
-                raise DesignError('The Structure Object must have Coords passed!')
+            if coords is None:
+                try:
+                    coords = [atom.coords for atom in atoms]
+                except AttributeError:
+                    raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
+                                      'coords! Either pass Atom objects with coords or pass coords.')
             self.set_atoms(atoms)
-        if residues:  # Todo, the structure can not have Coords! if from_atoms or from_residues lacks them
-            if not coords:
-                raise DesignError('The Structure Object must have Coords passed!')
+        if residues:
+            if coords is None:
+                try:
+                    coords = [atom.coords for atom in atoms]
+                except AttributeError:
+                    raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
+                                      'coords! Either pass Atom objects with coords or pass coords.')
             self.set_residues(residues)
+        if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
+            self.coords = coords
 
         super().__init__(**kwargs)
 

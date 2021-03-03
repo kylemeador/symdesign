@@ -19,7 +19,7 @@ from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_s
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Stride import Stride
 from Structure import Structure, Chain, Atom, Coords, Entity
-from SymDesignUtils import remove_duplicates, start_log  # logger
+from SymDesignUtils import remove_duplicates, start_log, DesignError  # logger
 from utils.SymmUtils import valid_subunit_number
 
 logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
@@ -29,7 +29,8 @@ class PDB(Structure):
     """The base object for PDB file manipulation"""
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, metadata=None, log=None, lazy=False, **kwargs):  # entities=True,
+    def __init__(self, file=None, atoms=None, residues=None, coords=None, metadata=None, log=None, **kwargs):
+        # can pass lazy, coords, entities, chains
         if not log:
             log = start_log()
         super().__init__(log=log, **kwargs)  #
@@ -67,12 +68,31 @@ class PDB(Structure):
         self.dihedral_chain = None
 
         if file:
-            self.readfile(file, lazy=lazy, **kwargs)  # entities=entities,
+            self.readfile(file, **kwargs)
         if atoms:
+            if coords is None:
+                try:
+                    coords = [atom.coords for atom in atoms]
+                except AttributeError:
+                    raise DesignError('Without passing coords, can\'t initialize PDB with Atom objects lacking coords! '
+                                      'Either pass Atom objects with coords or pass coords.')
             self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
-            self.process_pdb(coords=[atom.coords for atom in atoms], atoms=atoms, **kwargs)
+            self.process_pdb(atoms=atoms, coords=coords, **kwargs)
+            # self.set_atoms(atoms)
+            # self.process_pdb(coords=[atom.coords for atom in atoms], atoms=atoms, **kwargs)
             # self.coords = Coords([atom.coords for atom in atoms])
             # self.set_atoms(atoms)
+            if metadata and isinstance(metadata, PDB):
+                self.copy_metadata(metadata)
+        if residues:
+            if coords is None:
+                try:
+                    coords = [atom.coords for atom in atoms]
+                except AttributeError:
+                    raise DesignError('Without passing coords, can\'t initialize PDB with Atom objects lacking coords! '
+                                      'Either pass Atom objects with coords or pass coords.')
+            self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
+            self.process_pdb(residues=residues, coords=coords, **kwargs)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
             # self.process_pdb(**kwargs)  # coords=[atom.coords for atom in atoms]
@@ -237,7 +257,7 @@ class PDB(Structure):
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-        self.coords = Coords(coords)
+        self.coords = coords
         # self.set_atoms([Atom.from_info(*info, self._coords) for info in atom_info])
         self.chain_id_list = chain_ids
         self.log.debug('Multimodel %s, Chains %s' % (True if multimodel else False, self.chain_id_list))
@@ -248,17 +268,19 @@ class PDB(Structure):
     #     """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
     #     return None
 
-    def process_pdb(self, coords=None, atoms=None, seqres=None, multimodel=False, lazy=False, chains=True,
-                    entities=True, solve_discrepancy=True, **kwargs):
+    def process_pdb(self, atoms=None, residues=None, coords=None, chains=True, entities=True,
+                    seqres=None, multimodel=False, lazy=False, solve_discrepancy=True, **kwargs):
         #           reference_sequence=None
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
-        if coords:
-            self.coords = Coords(coords)
-            # # replace the Atom and Residue Coords
-            self.set_atoms_attributes(coords=self._coords)
-
         if atoms:  # set atoms and create residues
             self.set_atoms(atoms)
+        if residues:
+            self.set_residues(residues)
+
+        if coords:
+            self.coords = coords
+            # # replace the Atom and Residue Coords
+            self.set_atoms_attributes(coords=self._coords)
 
         if not lazy:
             self.renumber_pdb()
