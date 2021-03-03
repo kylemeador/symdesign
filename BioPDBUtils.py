@@ -22,22 +22,23 @@ def biopdb_aligned_chain_old(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_mov
                 BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                            " %s " % atom.type, atom.number, element=atom.element_symbol))
 
-    pdb_moving_coords = []
-    for atom in pdb_moving.atoms():
-        pdb_moving_coords.append([atom.coords])
+    # pdb_moving_coords = []
+    # for atom in pdb_moving.atoms():
+    for atom in pdb_moving.get_ca_atoms():
+        # pdb_moving_coords.append([atom.coords])
         # pdb_moving_coords.append([atom.get_x(), atom.get_y(), atom.get_z()])
-        if atom.is_CA():
-            if atom.chain == chain_id_moving:
-                biopdb_atom_moving.append(
-                    BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
-                               " %s " % atom.type, atom.number, element=atom.element_symbol))
+        # if atom.is_CA():
+        if atom.chain == chain_id_moving:
+            biopdb_atom_moving.append(BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ,
+                                                 atom.alt_location, " %s " % atom.type, atom.number,
+                                                 element=atom.element_symbol))
 
     sup = Bio.PDB.Superimposer()
     sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)
     # no need to transpose rotation matrix as Bio.PDB.Superimposer() generates correct matrix to rotate using np.matmul
     rot, tr = sup.rotran[0], sup.rotran[1]
 
-    pdb_moving_coords_rot = np.matmul(pdb_moving_coords, rot)
+    pdb_moving_coords_rot = np.matmul(pdb_moving.coords, rot)
     pdb_moving_coords_rot_tx = pdb_moving_coords_rot + tr
 
     # pdb_moving_copy = PDB()
