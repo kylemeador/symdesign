@@ -91,14 +91,14 @@ def main():
             ch2_res_num_list = [ch2_center_res - 2, ch2_center_res - 1, ch2_center_res, ch2_center_res + 1, ch2_center_res + 2]
 
             frag1_ca_count = 0
-            for atom in pdb_ch1.get_atoms():
+            for atom in pdb_ch1.atoms():
                 if atom.residue_number in ch1_res_num_list:
                     int_frag_out_atom_list_ch1.append(atom)
                     if atom.is_CA():
                         frag1_ca_count += 1
 
             frag2_ca_count = 0
-            for atom in pdb_ch2.get_atoms():
+            for atom in pdb_ch2.atoms():
                 if atom.residue_number in ch2_res_num_list:
                     int_frag_out_atom_list_ch2.append(atom)
                     if atom.is_CA():

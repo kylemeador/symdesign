@@ -228,7 +228,7 @@ def main():
                             residue_frequency = np.empty((fragment_length, 2), dtype=object)
                             mapped_chain_res_count = 0
                             paired_chain_res_count = 0
-                            for atom in member_pdb.get_atoms():
+                            for atom in member_pdb.atoms():
                                 if atom.is_CA() and atom.chain == member_mapped_ch:
                                     residue_frequency[mapped_chain_res_count][0] = \
                                         IUPACData.protein_letters_3to1[atom.residue_type.title()] if \

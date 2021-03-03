@@ -270,7 +270,7 @@ class PDB(Structure):
         #           reference_sequence=None
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
         if atoms:  # set atoms and create residues
-            self.set_atoms(atoms)
+            self.atoms = atoms
         if residues:
             self.set_residues(residues)
 
@@ -378,12 +378,12 @@ class PDB(Structure):
         return self.chain_id_list[index]
 
     def extract_CB_coords_chain(self, chain, InclGlyCA=False):  # Todo Depreciate
-        return [[atom.x, atom.y, atom.z] for atom in self.get_atoms()
+        return [[atom.x, atom.y, atom.z] for atom in self.atoms
                 if atom.is_CB(InclGlyCA=InclGlyCA) and atom.chain == chain]
 
     def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):  # Todo Depreciate
         coords, cb_indices = [], []
-        for idx, atom in enumerate(self.get_atoms()):
+        for idx, atom in enumerate(self.atoms):
             if atom.is_CB(InclGlyCA=InclGlyCA):
                 coords.append([atom.x, atom.y, atom.z])
 
@@ -423,7 +423,7 @@ class PDB(Structure):
         if term == "N":
             ca_term_list = []
             chain_id = None
-            for idx, atom in enumerate(self.get_atoms()):
+            for idx, atom in enumerate(self.atoms):
                 # atom = self.atoms[i]
                 if atom.chain != chain_id and atom.type == "CA":
                     ca_term_list.append(idx)
@@ -434,7 +434,7 @@ class PDB(Structure):
             ca_term_list = []
             chain_id = self.atoms[0].chain
             current_ca_idx = None
-            for idx, atom in enumerate(self.get_atoms()):
+            for idx, atom in enumerate(self.atoms()):
                 # atom = self.atoms[i]
                 if atom.chain != chain_id:
                     ca_term_list.append(current_ca_idx)
@@ -468,13 +468,13 @@ class PDB(Structure):
         prev = self.atoms[0].chain
         c = 0
         l3 = []
-        for i in range(len(self.get_atoms())):
+        for i in range(len(self.atoms())):
             if prev != self.atoms[i].chain:
                 c += 1
             l3.append(lm[c])
             prev = self.atoms[i].chain
 
-        for i in range(len(self.get_atoms())):
+        for i in range(len(self.atoms())):
             self.atoms[i].chain = l3[i]
 
         self.chain_id_list = lm
@@ -484,7 +484,7 @@ class PDB(Structure):
     #     """Rename a single chain to a identifier of your choice.
     #     Caution, will rename to already taken chain and doesn't update self.reference_sequence chain info
     #     """
-    #     for atom in self.chain(chain_of_interest).get_atoms():
+    #     for atom in self.chain(chain_of_interest).atoms:
     #         atom.chain = new_chain
     #
     #     self.chain_id_list[self.chain_id_list.index(chain_of_interest)] = new_chain
@@ -507,14 +507,14 @@ class PDB(Structure):
         # chain_index = 0
         # l3 = []
         #
-        # for atom in self.get_atoms():
+        # for atom in self.atoms:
         #     if atom.chain != prev_chain:
         #         chain_index += 1
         #     l3.append(moved_chains[chain_index])
         #     prev_chain = atom.chain
         #
         # # Update all atom chain names
-        # for idx, atom in enumerate(self.get_atoms()):
+        # for idx, atom in enumerate(self.atoms):
         #     atom.chain = l3[idx]
 
         # Update chain_id_list
@@ -587,11 +587,11 @@ class PDB(Structure):
     #     atoms = []
     #     # for residue in self.residues:
     #     #     if residue.chain == chain_id and residue.number in residue_numbers:
-    #     #         atoms.extend(residue.get_atoms())
+    #     #         atoms.extend(residue.atoms)
     #
     #     _residues = self.chain(chain_id).get_residues(numbers=residue_numbers)
     #     for _residue in _residues:
-    #         atoms.extend(_residue.get_atoms())
+    #         atoms.extend(_residue.atoms)
     #
     #     return atoms
 
@@ -654,7 +654,7 @@ class PDB(Structure):
         atoms = []
         for chain in self.chains:
             if chain.name in chain_ids:
-                atoms.extend(chain.get_atoms())
+                atoms.extend(chain.atoms())
         return atoms
         # return [atom for atom in self.atoms if atom.chain == chain_id]
 
@@ -668,7 +668,7 @@ class PDB(Structure):
     #     with open(out_path, "w") as outfile:
     #         if cryst1 and isinstance(cryst1, str) and cryst1.startswith("CRYST1"):
     #             outfile.write(str(cryst1) + "\n")
-    #         outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
+    #         outfile.write('\n'.join(str(atom) for atom in self.atoms))
 
     def get_chain_sequences(self):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
@@ -989,7 +989,7 @@ class PDB(Structure):
         stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
         stride.run()
         stride_ss_asg = stride.ss_asg
-        for i in range(len(self.get_atoms())):
+        for i in range(len(self.atoms())):
             atom = self.atoms[i]
             if atom.is_CB():
                 if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_res:
@@ -1003,7 +1003,7 @@ class PDB(Structure):
 
         surface_atoms = []
         if chain_selection == "all":
-            for atom in self.get_atoms():
+            for atom in self.atoms():
                 if (atom.chain, atom.residue_number) in sasa_chain_res_l:
                     surface_atoms.append(atom)
         else:
@@ -1068,15 +1068,15 @@ class PDB(Structure):
             insert_atom_idx = 0
         else:
             try:
-                residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()
+                residue_atoms = self.chain(chain_id).residue(residue_number).atoms()
                 # residue_atoms = self.get_residue_atoms(chain_id, residue_number)
                 # if residue_atoms:
                 insert_atom_idx = residue_atoms[0].number - 1  # subtract 1 from first atom number to get insertion idx
             # else:  # Atom index is not an insert operation as the location is at the C-term of the chain
             except AttributeError:  # Atom index is not an insert operation as the location is at the C-term of the chain
                 # prior_index = self.getResidueAtoms(chain, residue)[0].number - 1
-                prior_chain_length = self.chain(chain_id).residues[0].get_atoms()[0].number - 1
-                # chain_atoms = self.chain(chain_id).get_atoms()
+                prior_chain_length = self.chain(chain_id).residues[0].atoms()[0].number - 1
+                # chain_atoms = self.chain(chain_id).atoms
                 # chain_atoms = self.get_chain_atoms(chain_id)
 
                 # use length of all prior chains + length of all_chain_atoms
@@ -1097,7 +1097,7 @@ class PDB(Structure):
             self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
                                                            'AAreference.pdb'),
                                               log=start_log(handler=3), entities=False)
-        insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).get_atoms())
+        insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms())
 
         for atom in reversed(insert_atoms):  # essentially a push
             atom.chain = chain_id
@@ -1114,7 +1114,7 @@ class PDB(Structure):
         chain = self.chain(chain_id)
         residue = chain.residue(residue_number)
         # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
-        self.delete_atoms(residue.get_atoms())  # deletes Atoms from PDB
+        self.delete_atoms(residue.atoms())  # deletes Atoms from PDB
         chain.residues.remove(residue)  # deletes Residue from Chain
         self.residues.remove(residue)  # deletes Residue from PDB
         self.renumber_pdb()
@@ -1128,7 +1128,7 @@ class PDB(Structure):
             self.atoms.remove(atom)
 
     def get_ave_residue_b_factor(self, chain_id, residue_number):
-        residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()
+        residue_atoms = self.chain(chain_id).residue(residue_number).atoms()
         # residue_atoms = self.get_residue_atoms(chain, residue)
         temp = 0
         for atom in residue_atoms:
@@ -1520,8 +1520,8 @@ class PDB(Structure):
         # Todo entity_from_chain returns Entity now
         unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
 
-        asu = self.chain(chain).get_atoms()
-        for atoms in [self.chain(partner_chain).get_atoms() for partner_chain in unique_chains]:
+        asu = self.chain(chain).atoms
+        for atoms in [self.chain(partner_chain).atoms for partner_chain in unique_chains]:
             asu.extend(atoms)
 
         return asu
@@ -1798,7 +1798,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         interface_chain_pdbs.append(chain_pdb)
         # interface_pdb.read_atom_list(chain_pdb.atoms)
 
-    interface_pdb = PDB.from_atoms(iter_chain.from_iterable([chain_pdb.get_atoms()
+    interface_pdb = PDB.from_atoms(iter_chain.from_iterable([chain_pdb.atoms()
                                                              for chain_pdb in interface_chain_pdbs]))
     if len(interface_pdb.chain_id_list) == 2:
         for temp_name in temp_chain_d:

@@ -270,8 +270,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain):
     interact_distance = 5
 
     # Creating PDB instance for mapped and paired chains
-    pdb_mapped = PDB.from_atoms(atoms=pdb.chain(mapped_chain).get_atoms())
-    pdb_paired = PDB.from_atoms(atoms=pdb.chain(paired_chain).get_atoms())
+    pdb_mapped = PDB.from_atoms(atoms=pdb.chain(mapped_chain).atoms())
+    pdb_paired = PDB.from_atoms(atoms=pdb.chain(paired_chain).atoms())
     # pdb_mapped.read_atom_list(pdb.get_chain_atoms(mapped_chain))
     # pdb_paired.read_atom_list(pdb.get_chain_atoms(paired_chain))
 
