@@ -26,11 +26,13 @@ logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved
 
 
 class PDB(Structure):
-    """The base object for PDB file manipulation"""
+    """The base object for PDB file manipulation
+    Can pass atoms, residues, coords, chains, entities, seqres, multimodel, lazy, solve_discrepancy
+    to initialize the Object
+    """
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, file=None, atoms=None, residues=None, coords=None, metadata=None, log=None, **kwargs):
-        # can pass lazy, coords, entities, chains
         if not log:
             log = start_log()
         super().__init__(log=log, **kwargs)  #
@@ -78,10 +80,6 @@ class PDB(Structure):
                                       'Either pass Atom objects with coords or pass coords.')
             self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
             self.process_pdb(atoms=atoms, coords=coords, **kwargs)
-            # self.set_atoms(atoms)
-            # self.process_pdb(coords=[atom.coords for atom in atoms], atoms=atoms, **kwargs)
-            # self.coords = Coords([atom.coords for atom in atoms])
-            # self.set_atoms(atoms)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
         if residues:
@@ -95,7 +93,6 @@ class PDB(Structure):
             self.process_pdb(residues=residues, coords=coords, **kwargs)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
-            # self.process_pdb(**kwargs)  # coords=[atom.coords for atom in atoms]
 
     @classmethod
     def from_file(cls, file, **kwargs):

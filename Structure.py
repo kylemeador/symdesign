@@ -14,7 +14,11 @@ from SymDesignUtils import start_log, DesignError
 
 
 class StructureBase:
-    def __init__(self, chains=None, solve_discrepancy=None, entities=None, **kwargs):
+    """Collect extra keyword arguments such as:
+        chains, entities, seqres, multimodel, lazy, solve_discrepancy
+    """
+    def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, lazy=None, solve_discrepancy=None,
+                 **kwargs):
         super().__init__(**kwargs)
 
 
