@@ -47,7 +47,7 @@ class Structure(StructureBase):  # (Coords):
         if residues:
             if coords is None:
                 try:
-                    coords = [atom.coords for atom in atoms]
+                    coords = [atom.coords for residue in residues for atom in residue.atoms]
                 except AttributeError:
                     raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
                                       'coords! Either pass Atom objects with coords or pass coords.')
@@ -477,7 +477,7 @@ class Structure(StructureBase):  # (Coords):
     def set_residues(self, residues):
         """Set the Structure residues to Residue objects provided in a list"""
         self.residues = residues
-        self.atoms = [atom for residue in residues for atom in residue.atoms]
+        self._atoms = [atom for residue in residues for atom in residue.atoms]
 
     def add_residues(self, residue_list):
         """Add Residue objects in a list to the Structure instance"""
