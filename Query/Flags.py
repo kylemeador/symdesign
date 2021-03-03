@@ -154,8 +154,7 @@ def return_default_flags(mode):
     if mode in flags:
         return dict(zip(flags[mode].keys(), [value_format['default'] for value_format in flags[mode].values()]))
     else:
-        return global_flags
-        # return dict()
+        return dict(zip(global_flags.keys(), [value_format['default'] for value_format in global_flags.values()]))
 
 
 @handle_errors(errors=KeyboardInterrupt)
