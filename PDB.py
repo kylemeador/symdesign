@@ -76,8 +76,10 @@ class PDB(Structure):
                 try:
                     coords = [atom.coords for atom in atoms]
                 except AttributeError:
-                    raise DesignError('Without passing coords, can\'t initialize PDB with Atom objects lacking coords! '
-                                      'Either pass Atom objects with coords or pass coords.')
+                    raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
+                                      'coords! Either pass Atom objects with coords or pass coords.')
+                self.reindex_atoms()
+                # self.coords = coords
             self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
             self.process_pdb(atoms=atoms, coords=coords, **kwargs)
             if metadata and isinstance(metadata, PDB):
@@ -85,10 +87,12 @@ class PDB(Structure):
         if residues:
             if coords is None:
                 try:
-                    coords = [atom.coords for atom in atoms]
+                    coords = [atom.coords for residue in residues for atom in residue.atoms]
                 except AttributeError:
-                    raise DesignError('Without passing coords, can\'t initialize PDB with Atom objects lacking coords! '
-                                      'Either pass Atom objects with coords or pass coords.')
+                    raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
+                                      'coords! Either pass Atom objects with coords or pass coords.')
+                self.reindex_atoms()
+                # self.coords = coords
             self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
             self.process_pdb(residues=residues, coords=coords, **kwargs)
             if metadata and isinstance(metadata, PDB):
@@ -273,13 +277,13 @@ class PDB(Structure):
             # set atoms and creates residues
             self.atoms = atoms
         if residues:
-            self.residues = residues
+            self.set_residues(residues)
 
         if coords is not None:
             # inherently replace the Atom and Residue Coords
             self.coords = coords
 
-        if not lazy:
+        if not lazy:  # Todo change lazy to pose
             self.renumber_pdb()
 
         if chains:
