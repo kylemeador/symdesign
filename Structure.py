@@ -37,21 +37,25 @@ class Structure(StructureBase):  # (Coords):
             dummy = True
 
         if atoms:
+            self.atoms = atoms
             if coords is None:
                 try:
                     coords = [atom.coords for atom in atoms]
                 except AttributeError:
                     raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
                                       'coords! Either pass Atom objects with coords or pass coords.')
-            self.atoms = atoms
+                self.reindex_atoms()
+                self.coords = coords
         if residues:
+            self.set_residues(residues)
             if coords is None:
                 try:
                     coords = [atom.coords for residue in residues for atom in residue.atoms]
                 except AttributeError:
                     raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
                                       'coords! Either pass Atom objects with coords or pass coords.')
-            self.set_residues(residues)
+                self.reindex_atoms()
+                self.coords = coords
         if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
             self.coords = coords
 
