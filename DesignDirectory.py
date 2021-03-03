@@ -409,7 +409,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
     def start_log(self, debug=False, level=2):
-        if self.skip_logging:
+        if self.skip_logging:  # set up null_logger
             self.log = start_log(name=self.name, handler=3, level=level)
             return None
 
