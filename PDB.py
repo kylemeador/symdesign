@@ -22,7 +22,8 @@ from Structure import Structure, Chain, Atom, Coords, Entity
 from SymDesignUtils import remove_duplicates, start_log, DesignError  # logger
 from utils.SymmUtils import valid_subunit_number
 
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)
+null_log = start_log(name='null', handler=3, propagate=False)
 
 
 class PDB(Structure):
@@ -32,9 +33,13 @@ class PDB(Structure):
     """
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, residues=None, coords=None, metadata=None, log=None, **kwargs):
-        if not log:
-            log = start_log()
+    def __init__(self, file=None, atoms=None, residues=None, coords=None, metadata=None, log=False, **kwargs):
+        if log is None:
+            log = null_log
+        else:
+            pass
+            # Pass the log that was passed to the PDB to Structure or let structure start a log if False
+            # log = start_log()
         super().__init__(log=log, **kwargs)  #
         # self.atoms = []  # from Structure
         # self.center_of_mass = None  # from Structure
@@ -1054,7 +1059,7 @@ class PDB(Structure):
                         ca_count += 1
             if ca_count == 5:
                 # surface_frags.append(PDB.from_atoms(frag_atoms, coords=self._coords, lazy=True, log=self.log))
-                surface_frags.append(Structure.from_atoms(frag_atoms, coords=self._coords))
+                surface_frags.append(Structure.from_atoms(atoms=frag_atoms, coords=self._coords, log=None))
 
         return surface_frags
 
@@ -1532,7 +1537,7 @@ class PDB(Structure):
 
     def return_asu(self, chain='A'):  # , outpath=None):
         """Returns the ASU as a new PDB object. See self.get_asu() for method"""
-        asu_pdb = PDB.from_atoms(deepcopy(self.get_asu(chain=chain)), metadata=self)
+        asu_pdb = PDB.from_atoms(atoms=deepcopy(self.get_asu(chain=chain)), metadata=self)
         # asu_pdb.copy_metadata(self)
 
         return asu_pdb

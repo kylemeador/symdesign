@@ -203,17 +203,9 @@ class MonoFragment:
                     intfrag = intfrag_cluster_rep_dict[self.type][j_type][k_type]
                     intfrag_pdb = intfrag[0]
                     intfrag_mapped_chain_id = intfrag[1]
-                    # intfrag_mapped_chain_central_res_num = intfrag[2]
-                    # intfrag_partner_chain_id = intfrag[3]
-                    # intfrag_partner_chain_central_res_num = intfrag[4]
                     #                                  This has been added in Structure.get_fragments  v
                     aligned_ghost_frag_pdb = biopdb_aligned_chain_old(self.structure, self.structure.chain_id_list[0],
                                                                       intfrag_pdb, intfrag_mapped_chain_id)
-
-                    # Ghost Fragment Mapped Chain ID, Central Residue Number and Partner Chain ID, Partner Central Residue Number
-                    # ghostfrag_central_res_tup = (
-                    #     intfrag_mapped_chain_id, intfrag_mapped_chain_central_res_num, intfrag_partner_chain_id,
-                    #     intfrag_partner_chain_central_res_num)
 
                     # Only keep ghost fragments that don't clash with oligomer backbone
                     # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
