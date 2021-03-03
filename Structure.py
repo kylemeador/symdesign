@@ -821,7 +821,7 @@ class Structure(StructureBase):  # (Coords):
                 fragments.append(Structure.from_residues(self.get_residues(frag_residue_numbers), coords=self._coords))
 
         for structure in fragments:
-            structure.chain_id_list = [structure.get_residues()[0].chain]
+            structure.chain_id_list = [structure.residues[0].chain]
 
         return fragments
 
