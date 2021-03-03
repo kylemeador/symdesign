@@ -43,7 +43,6 @@ class Structure(StructureBase):  # (Coords):
                 except AttributeError:
                     raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
                                       'coords! Either pass Atom objects with coords or pass coords.')
-            # self.set_atoms(atoms)
             self.atoms = atoms
         if residues:
             if coords is None:
@@ -52,7 +51,7 @@ class Structure(StructureBase):  # (Coords):
                 except AttributeError:
                     raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
                                       'coords! Either pass Atom objects with coords or pass coords.')
-            self.residues = residues
+            self.set_residues(residues)
         if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
             self.coords = coords
 
@@ -256,21 +255,19 @@ class Structure(StructureBase):  # (Coords):
         index_mask = [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
         return self.coords[index_mask]
 
+    # def atoms(self):
+    #     """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned
+    #     Returns:
+    #         (list[Atom])
+    #     """
+    #     if numbers and isinstance(numbers, Iterable):
+    #         return [atom for atom in self.atoms if atom.number in numbers]
+    #     else:
+    #         return self._atoms
+
     @property
     def atoms(self):
-        """Retrieve Atoms in structure. Returns all by default"""
-        # If numbers=(list) selected Atom numbers are returned
-        # Returns:
-        #     (list[Atom])
-
-        # if numbers and isinstance(numbers, Iterable):
-        #     return [atom for atom in self.atoms if atom.number in numbers]
-        # else:
         return self._atoms
-
-    # @property
-    # def _atoms(self):
-    #     return self._atoms
 
     @atoms.setter
     def atoms(self, atom_list):
@@ -467,16 +464,19 @@ class Structure(StructureBase):  # (Coords):
         if numbers and isinstance(numbers, Iterable):
             return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
         else:
-            return self.residues
+            return self._residues
 
-    @property
+    @property  # Todo remove these, no point right now
     def residues(self):
         return self._residues
 
     @residues.setter
     def residues(self, residues):
-        """Set the Structure residues to Residue objects provided in a list"""
         self._residues = residues
+
+    def set_residues(self, residues):
+        """Set the Structure residues to Residue objects provided in a list"""
+        self.residues = residues
         self.atoms = [atom for residue in residues for atom in residue.atoms]
 
     def add_residues(self, residue_list):
