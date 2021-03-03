@@ -925,7 +925,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
     @property
     def number_of_residues(self):
-        return len(self.pdb.get_residues())
+        return len(self.pdb.residues)
     #     try:
     #         return self._number_of_residues
     #     except AttributeError:

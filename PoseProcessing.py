@@ -118,7 +118,7 @@ def pose_pair_rmsd(pair):
     else:
         pdb_parser = PDBParser(QUIET=True)
         pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-        rmsd_residue_list = [[residue for residue in structure.get_residues()  # residue.get_id()[1] is res number
+        rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
                               if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
         pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
                           for entity_list in rmsd_residue_list]
@@ -151,13 +151,13 @@ def pose_rmsd_s(all_des_dirs):
 
                 # pair should be a structure...
                 # for structure in pair_structures:
-                #     for residue in structure.get_residues():
+                #     for residue in structure.residues:
                 #         print(residue)
                 #         print(residue[0])
-                rmsd_residue_list = [[residue for residue in structure.get_residues()  # residue.get_id()[1] is res number
+                rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
                                       if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
 
-                # rmsd_residue_list = [[residue for residue in structure.get_residues()
+                # rmsd_residue_list = [[residue for residue in structure.residues
                 #                       if residue.get_id()[1] in des_residue_list[n]]
                 #                      for n, structure in enumerate(pair_structures)]
 
@@ -476,7 +476,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     template_pdb.renumber_residues()
     jump = template_pdb.chain(template_pdb.chain_id_list[0]).get_terminal_residue('c').number
-    template_residues = template_pdb.get_residues()
+    template_residues = template_pdb.residues
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
     logger.info('Total number of residues is %d' % len(template_residues))

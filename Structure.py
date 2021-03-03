@@ -26,7 +26,7 @@ class Structure(StructureBase):  # (Coords):
     def __init__(self, atoms=None, residues=None, name=None, coords=None, log=None, **kwargs):
         # super().__init__(coords=coords)  # gets self.coords
         # self.atoms = []  # atoms
-        self.residues = []  # residues
+        # self.residues = []  # residues
         self.name = name
         self.secondary_structure = None
 
@@ -52,7 +52,7 @@ class Structure(StructureBase):  # (Coords):
                 except AttributeError:
                     raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
                                       'coords! Either pass Atom objects with coords or pass coords.')
-            self.set_residues(residues)
+            self.residues = residues
         if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
             self.coords = coords
 
@@ -380,7 +380,7 @@ class Structure(StructureBase):  # (Coords):
             (list[int])
         """
         h_cb_indices = []
-        for idx, residue in enumerate(self.get_residues()):
+        for idx, residue in enumerate(self.residues):
             if not residue.get_secondary_structure():
                 self.log.error('Secondary Structures must be set before finding helical CB\'s! Error at Residue %s'
                                % residue.number)
@@ -456,7 +456,6 @@ class Structure(StructureBase):  # (Coords):
     #         atom.coords = coords[idx]
     #         # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
 
-    # @property Todo
     def get_residues(self, numbers=None, pdb=False, **kwargs):
         """Retrieve Residues in Structure. Returns all by default. If a list of numbers is provided, the selected
         Residues numbers are returned
@@ -474,12 +473,15 @@ class Structure(StructureBase):  # (Coords):
         else:
             return self.residues
 
-    def set_residues(self, residue_list):
+    @property
+    def residues(self):
+        return self._residues
+
+    @residues.setter
+    def residues(self, residues):
         """Set the Structure residues to Residue objects provided in a list"""
-        self.residues = residue_list  # []
-        self.atoms = [atom for residue in residue_list for atom in residue.atoms]
-        # self.update_structure(atom_list)
-        # self.set_length()
+        self.residues = residues  # []
+        self.atoms = [atom for residue in residues for atom in residue.atoms]
 
     def add_residues(self, residue_list):
         """Add Residue objects in a list to the Structure instance"""
@@ -618,7 +620,7 @@ class Structure(StructureBase):  # (Coords):
         Returns:
             (str)
         """
-        sequence_list = [residue.type for residue in self.get_residues()]
+        sequence_list = [residue.type for residue in self.residues]
         sequence = ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
                             if k.title() in IUPACData.protein_letters_3to1_extended else '-'
                             for k in sequence_list])
@@ -785,7 +787,7 @@ class Structure(StructureBase):  # (Coords):
         if secondary_structure:
             self.secondary_structure = secondary_structure
         else:
-            self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
+            self.secondary_structure = [residue.get_secondary_structure() for residue in self.residues]
 
     def write(self, out_path=None, header=None, file_handle=None):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
@@ -817,7 +819,7 @@ class Structure(StructureBase):  # (Coords):
         if not residue_numbers:
             return None
 
-        # residues = self.get_residues()
+        # residues = self.residues
         # ca_stretches = [[residues[idx + i].ca for i in range(-2, 3)] for idx, residue in enumerate(residues)]
         # compare ca_stretches versus monofrag ca_stretches
         # monofrag_array = repeat([ca_stretch_frag_index1, ca_stretch_frag_index2, ...]
@@ -828,13 +830,14 @@ class Structure(StructureBase):  # (Coords):
         for residue_number in residue_numbers:
             frag_residue_numbers = [residue_number + i for i in range(-2, 3)]  # Todo parameterize
             ca_count = 0
-            for residue in self.get_residues(frag_residue_numbers):
+            frag_residues = self.get_residues(frag_residue_numbers)
+            for residue in frag_residues:
                 # frag_atoms.extend(residue.get_atoms)
                 if residue.get_ca():
                     ca_count += 1
-            # todo reduce duplicate calculation
+
             if ca_count == 5:
-                fragments.append(Structure.from_residues(self.get_residues(frag_residue_numbers), coords=self._coords))
+                fragments.append(Structure.from_residues(frag_residues))
 
         for structure in fragments:
             structure.chain_id_list = [structure.residues[0].chain]
@@ -901,7 +904,7 @@ class Entity(Chain, SequenceProfile):  # Structure):
         #        name=None, coords=None, log=None):
         assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
                                                   'Chain object as the representative!'
-        super().__init__(residues=representative.get_residues(), structure=self, **kwargs)  # name=name, coords=coords,
+        super().__init__(residues=representative.residues, structure=self, **kwargs)  # name=name, coords=coords,
         #                                                                                     log=log,
         self.chain_id = representative.name
         self.chains = chains  # [Chain objs]

@@ -91,7 +91,7 @@ class SequenceProfile:
         try:
             return self._entity_offset
         except AttributeError:
-            self.entity_offset = self.structure.get_residues()[0].number - 1
+            self.entity_offset = self.structure.residues[0].number - 1
             return self._entity_offset
 
     @entity_offset.setter
@@ -204,7 +204,7 @@ class SequenceProfile:
 
             if not rerun:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
-                for idx, residue in enumerate(self.structure.get_residues(), 1):
+                for idx, residue in enumerate(self.structure.residues, 1):
                     profile_residue_type = self.evolutionary_profile[idx]['type']
                     pose_residue_type = IUPACData.protein_letters_3to1[residue.type.title()]
                     if profile_residue_type != pose_residue_type:

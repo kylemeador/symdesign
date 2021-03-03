@@ -47,7 +47,7 @@ def check_for_errors(des_dir):
             template_pdb = PDB.from_file(os.path.join(des_dir.path, file))
 
     if pose_pssm and template_pdb:
-        template_residues = template_pdb.get_residues()
+        template_residues = template_pdb.residues
         pose_correct = check_pssm_v_pose(des_dir, pose_pssm, template_residues)
         return pose_correct
     else:

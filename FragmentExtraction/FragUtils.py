@@ -313,9 +313,9 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     # Create dictionary and Count all atoms in each residue sidechain
     # ex. {'A': {32: (0, 9), 33: (0, 5), ...}, 'B':...}
     res_counts_dict = {'mapped': {residue.number: [0, residue.number_of_atoms - num_bb_atoms]
-                                  for residue in pdb_mapped.get_residues()},
+                                  for residue in pdb_mapped.residues},
                        'paired': {residue.number: [0, residue.number_of_atoms - num_bb_atoms]
-                                  for residue in pdb_paired.get_residues()}}
+                                  for residue in pdb_paired.residues}}
     # res_counts_dict = {'mapped': {i.residue_number: [0, len(pdb_mapped.get_residue_atoms(mapped_chain, i.residue_number))
     #                                                  - num_bb_atoms] for i in pdb_mapped.get_ca_atoms()},
     #                    'paired': {i.residue_number: [0, len(pdb_paired.get_residue_atoms(paired_chain, i.residue_number))
