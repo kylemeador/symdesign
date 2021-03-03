@@ -280,12 +280,8 @@ class Structure(StructureBase):  # (Coords):
 
     def add_atoms(self, atom_list):
         """Add Atoms in atom_list to the structure instance"""
-        self.atoms.extend(atom_list)
-        # self.renumber_atoms()  # Todo this logic can't hold if the structure contains atoms in another structure!
-        # self.reindex_atoms()
-        self.create_residues()
-        # self.update_structure(atom_list)
-        # self.set_length()
+        self.atoms = self.atoms.extend(atom_list)
+        # Todo need to add the atoms to coords
 
     def set_residues_attributes(self, numbers=None, **kwargs):
         """Set attributes specified by key, value pairs for all Residues in the Structure"""
@@ -485,11 +481,8 @@ class Structure(StructureBase):  # (Coords):
 
     def add_residues(self, residue_list):
         """Add Residue objects in a list to the Structure instance"""
-        self.residues.extend(residue_list)
-        atom_list = [atom for atom in residue_list.atoms]
-        self.atoms.extend(atom_list)
-        # self.update_structure(atom_list)
-        # self.set_length()
+        self.residues = self.residues.extend(residue_list)
+        # Todo need to add the residues to coords
 
     # update_structure():
     #  self.reindex_atoms() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->
@@ -497,6 +490,7 @@ class Structure(StructureBase):  # (Coords):
 
     def create_residues(self):
         """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
+        new_residues = []
         residue_atoms, found_types = [], []
         current_residue_number = self.atoms[0].residue_number
         for atom in self.atoms:
@@ -505,11 +499,12 @@ class Structure(StructureBase):  # (Coords):
                 residue_atoms.append(atom)
                 found_types.append(atom.type)
             else:
-                self.residues.append(Residue(atoms=residue_atoms))  # , coords=self._coords))
+                new_residues.append(Residue(atoms=residue_atoms))  # , coords=self._coords))
                 found_types, residue_atoms = [atom.type], [atom]
                 current_residue_number = atom.residue_number
         # ensure last residue is added after iteration is complete
-        self.residues.append(Residue(atoms=residue_atoms))  # , coords=self._coords))
+        new_residues.append(Residue(atoms=residue_atoms))  # , coords=self._coords))
+        self.residues = new_residues
 
     def residue(self, residue_number):
         """Retrieve the Residue specified
@@ -610,7 +605,7 @@ class Structure(StructureBase):  # (Coords):
                 delete.append(atom)
 
         for atom in reversed(delete):
-            self.atoms.remove(atom)
+            self._atoms.remove(atom)
             residue.atoms.remove(atom)
         self.renumber_atoms()
 
