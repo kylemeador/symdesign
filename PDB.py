@@ -1727,19 +1727,11 @@ class PDB(Structure):
         space_group = cryst1_string[55:66].strip()  # not in
         return [a, b, c, ang_a, ang_b, ang_c], space_group
 
-    # @staticmethod
-    # def create_entity(representative_chain=None, chains=None, entity_name=None, uniprot_id=None):
-    #     """Create an Entity
-    #
-    #     Keyword Args:
-    #         representative_chain=None (str): The name of the chain to represent the Entity
-    #         chains=None (list): A list of all chains that match the Entity
-    #         entity_name=None (str): The name for the Entity. Typically PDB.name is used to make PDB compatible form
-    #         PDB EntryID_EntityID
-    #         uniprot_id=None (str): The unique UniProtID for the Entity
-    #     """
-    #     return Entity.from_representative(representative_chain=representative_chain, chains=chains,
-    #                                       name=entity_name, uniprot_id=uniprot_id)
+    def __copy__(self):
+        other = PDB.__new__(PDB)
+        other.__dict__ = self.__dict__.copy()
+        other.atoms = copy(self.atoms)
+        return other
 
 
 def extract_interface(pdb, chain_data_d, full_chain=True):
