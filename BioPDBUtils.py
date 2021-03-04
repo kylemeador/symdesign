@@ -4,8 +4,8 @@ import Bio.PDB.Superimposer
 import numpy as np
 from Bio.PDB.Atom import Atom as BioPDBAtom
 from Bio.PDB.Atom import PDBConstructionWarning
-from PDB import PDB
-from Structure import Atom
+# from PDB import PDB
+# from Structure import Atom
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
