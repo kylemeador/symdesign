@@ -83,6 +83,11 @@ class MonoFragment:
             self.central_res_chain_id = central_residue.chain
             min_rmsd = float('inf')
             for cluster_type, cluster_rep in monofrag_representatives.items():
+                if len(frag_ca_atoms) != len(cluster_rep.get_ca_atoms()):
+                    print('Atom list lengths are not equal! %d != %d' % (len(frag_ca_atoms),
+                                                                         len(cluster_rep.get_ca_atoms())),
+                          self.get_central_res_tup(), cluster_rep.filepath)
+                    continue
                 rmsd, rot, tx = biopdb_superimposer(frag_ca_atoms, cluster_rep.get_ca_atoms())
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     self.i_type = cluster_type
