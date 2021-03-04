@@ -836,7 +836,8 @@ class Structure(StructureBase):  # (Coords):
                     ca_count += 1
 
             if ca_count == 5:
-                fragments.append(Structure.from_residues(deepcopy(frag_residues), log=None))
+                fragments.append(Structure.from_residues(frag_residues, coords=self._coords, log=None))
+                # fragments.append(Structure.from_residues(deepcopy(frag_residues), log=None))
 
         for structure in fragments:
             structure.chain_id_list = [structure.residues[0].chain]
