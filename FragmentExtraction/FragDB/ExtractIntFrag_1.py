@@ -31,8 +31,8 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
     # Create PDB instance for Ch1 and Ch2
     pdb_ch1 = PDB()
     pdb_ch2 = PDB()
-    pdb_ch1.read_atom_list(pdb.get_chain_atoms(pdb_ch1_id))
-    pdb_ch2.read_atom_list(pdb.get_chain_atoms(pdb_ch2_id))
+    pdb_ch1.read_atom_list(pdb.chain(pdb_ch1_id).atoms)
+    pdb_ch2.read_atom_list(pdb.chain(pdb_ch2_id).atoms)
 
     # Find Pairs of Interacting Residues
     if not pdb_ch1.atoms or not pdb_ch2.atoms:
@@ -133,11 +133,11 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
             # Create PDB instance for Ch1 and Ch2
             pdb_ch1 = PDB()
             pdb_ch2 = PDB()
-            pdb_ch1.read_atom_list(pdb.get_chain_atoms(pdb_ch1_id))
-            pdb_ch2.read_atom_list(pdb.get_chain_atoms(pdb_ch2_id))
+            pdb_ch1.read_atom_list(pdb.chain(pdb_ch1_id).atoms)
+            pdb_ch2.read_atom_list(pdb.chain(pdb_ch1_id).atoms)
 
             # Find Pairs of Interacting Residues
-            if pdb_ch1.atoms() == list() or pdb_ch2.atoms() == list():
+            if pdb_ch1.atoms is not None or pdb_ch2.atoms is not None:
                 print('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb_id))
                 continue
             interacting_pairs = Frag.find_interface_pairs(pdb_ch1, pdb_ch2, interface_dist)
@@ -165,7 +165,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
 
                 frag1_ca_count = 0
                 int_frag_out_atom_list_ch1 = []
-                for atom in pdb_ch1.atoms():
+                for atom in pdb_ch1.atoms:
                     if atom.residue_number in ch1_res_num_list:
                         int_frag_out_atom_list_ch1.append(atom)
                         if atom.is_CA():
@@ -173,7 +173,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
 
                 frag2_ca_count = 0
                 int_frag_out_atom_list_ch2 = []
-                for atom in pdb_ch2.atoms():
+                for atom in pdb_ch2.atoms:
                     if atom.residue_number in ch2_res_num_list:
                         int_frag_out_atom_list_ch2.append(atom)
                         if atom.is_CA():

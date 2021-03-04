@@ -1518,7 +1518,7 @@ def offset_index(dictionary, to_zero=False):
         return {residue + index_offset: dictionary[residue] for residue in dictionary}
 
 
-def residue_object_to_number(residue_dict):  # TODO supplement with names info and pull out by names
+def residue_object_to_number(residue_dict):  # TODO DEPRECIATE
     """Convert sets of PDB.Residue objects to residue numbers
 
     Args:

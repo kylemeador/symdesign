@@ -38,9 +38,9 @@ def find_interface_pairs(pdb1, pdb2, distance):
     interface_pairs = []
     for pdb2_index in range(len(query)):
         if query[pdb2_index].tolist() != list():
-            pdb2_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_index]].residue_number
+            pdb2_res_num = pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number
             for pdb1_index in query[pdb2_index]:
-                pdb1_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_index]].residue_number
+                pdb1_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_index]].residue_number
                 interface_pairs.append((pdb1_res_num, pdb2_res_num))
 
     return interface_pairs
@@ -48,7 +48,7 @@ def find_interface_pairs(pdb1, pdb2, distance):
 
 def get_guide_atoms(frag_pdb):
     guide_atoms = []
-    for atom in frag_pdb.all_atoms:
+    for atom in frag_pdb.atoms:
         if atom.chain == "9":
             guide_atoms.append(atom)
     if len(guide_atoms) == 3:
@@ -190,7 +190,7 @@ def center(bio_pdb):
     center_ca_coords = center_ca_atom.get_coord()
 
     # Center Such That Central Residue CA is at Origin
-    for atom in bio_pdb.atoms():
+    for atom in bio_pdb.atoms():  # Todo might be wrong
         atom.set_coord(np.add(atom.get_coord(), -center_ca_coords))
 
 

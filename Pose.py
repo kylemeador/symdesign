@@ -731,7 +731,7 @@ class SymmetricModel(Model):
             for i, model in enumerate(self.models, 1):
                 f.write('{:9s}{:>4d}\n'.format('MODEL', i))
                 for chain in model.chains:
-                    chain_atoms = chain.atoms()
+                    chain_atoms = chain.atoms
                     f.write('\n'.join(str(atom) for atom in chain_atoms))
                     f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_atoms[-1].number + 1,
                                                                           chain_atoms[-1].residue_type, chain.name,
@@ -910,7 +910,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
     @property
     def number_of_atoms(self):
-        return len(self.pdb.atoms())
+        return len(self.pdb.atoms)
     #     try:
     #         return self._number_of_atoms
     #     except AttributeError:
@@ -1003,7 +1003,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             if pdb_residues:
                 atom_indices = set_function(atom_indices, self.pdb.get_residue_atom_indices(numbers=residues, pdb=True))
             if atoms:
-                atom_indices = set_function(atom_indices, self.pdb.get_atom_indices(numbers=atoms))
+                atom_indices = set_function(atom_indices, [idx for idx in self.pdb.atom_indices if idx in atoms])
 
             return entity_set, atom_indices
 
@@ -1751,7 +1751,7 @@ def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
         frag_atoms, ca_present = [], []
         for residue in pdb.residue(frag_residue_numbers):
             frag_atoms.extend(residue.atoms())
-            if residue.get_ca():
+            if residue.ca:
                 ca_count += 1
 
         if ca_count == 5:
