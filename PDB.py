@@ -76,7 +76,7 @@ class PDB(Structure):
 
         if file:
             self.readfile(file, **kwargs)
-        if atoms:
+        if atoms is not None:
             if coords is None:
                 try:
                     coords = [atom.coords for atom in atoms]
@@ -279,9 +279,10 @@ class PDB(Structure):
         #           reference_sequence=None
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
         if atoms:
-            # set atoms and creates residues
+            # set Atoms and creates Residues
             self.atoms = atoms
         if residues:
+            # sets Atoms and Residues
             self.set_residues(residues)
 
         if coords is not None:
@@ -292,6 +293,7 @@ class PDB(Structure):
             self.renumber_pdb()
 
         if chains:
+            # create Chains from Residues
             if multimodel:
                 self.create_chains(solve_discrepancy=False)
             else:
@@ -304,11 +306,9 @@ class PDB(Structure):
             self.design = True
 
         if entities and not lazy:
+            # create Entities from Chain.Residues
             self.create_entities()
         self.get_chain_sequences()
-        # or
-        # for entity in self.entity_d:
-        #     self.create_entity(entity, entity_name='%s_%s' % (self.name, entity))
 
         # if self.design:  # Todo maybe??
         #     self.process_symmetry()
@@ -443,7 +443,7 @@ class PDB(Structure):
             ca_term_list = []
             chain_id = self.atoms[0].chain
             current_ca_idx = None
-            for idx, atom in enumerate(self.atoms()):
+            for idx, atom in enumerate(self.atoms):
                 # atom = self.atoms[i]
                 if atom.chain != chain_id:
                     ca_term_list.append(current_ca_idx)
@@ -477,13 +477,13 @@ class PDB(Structure):
         prev = self.atoms[0].chain
         c = 0
         l3 = []
-        for i in range(len(self.atoms())):
+        for i in range(len(self.atoms)):
             if prev != self.atoms[i].chain:
                 c += 1
             l3.append(lm[c])
             prev = self.atoms[i].chain
 
-        for i in range(len(self.atoms())):
+        for i in range(len(self.atoms)):
             self.atoms[i].chain = l3[i]
 
         self.chain_id_list = lm
@@ -628,14 +628,13 @@ class PDB(Structure):
                     chain_id = self.chain_id_list[chain_idx]
                 else:
                     chain_id = next(available_chain_ids)
-                self.chains.append(Chain(name=chain_id, coords=self._coords, residues=residues, log=self.log))
+                self.chains.append(Chain(name=chain_id, residues=residues, coords=self._coords, log=self.log))
                 self.chains[idx].set_atoms_attributes(chain=chain_id)
             self.chain_id_list = [chain.name for chain in self.chains]
         else:
             for chain_id in self.chain_id_list:
                 self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log,
                                          residues=[residue for residue in self.residues if residue.chain == chain_id]))
-                #                        sequence = self.reference_sequence[chain_id],
 
     def get_chains(self, names=None):
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
@@ -972,8 +971,8 @@ class PDB(Structure):
 
         for line in out_lines:
             if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
-                self.chain(line[9:10]).residue(int(line[10:15].strip())).set_secondary_structure(line[24:25])
-        self.secondary_structure = [residue.get_secondary_structure() for residue in self.residues]
+                self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
+        self.secondary_structure = [residue.secondary_structure for residue in self.residues]
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
         #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
 
@@ -998,11 +997,11 @@ class PDB(Structure):
         stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
         stride.run()
         stride_ss_asg = stride.ss_asg
-        for i in range(len(self.atoms())):
-            atom = self.atoms[i]
+        for idx, atom in enumerate(self.atoms):
+            # atom = self.atoms[i]
             if atom.is_CB():
                 if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_res:
-                    h_cb_indices.append(i)
+                    h_cb_indices.append(idx)
         return h_cb_indices
 
     def get_surface_atoms(self, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
@@ -1012,7 +1011,7 @@ class PDB(Structure):
 
         surface_atoms = []
         if chain_selection == "all":
-            for atom in self.atoms():
+            for atom in self.atoms:
                 if (atom.chain, atom.residue_number) in sasa_chain_res_l:
                     surface_atoms.append(atom)
         else:
@@ -1112,7 +1111,7 @@ class PDB(Structure):
             atom.chain = chain_id
             atom.residue_number = residue_number
             atom.occ = 0
-            self._atoms.insert(insert_atom_idx, atom)  # Todo, doesn't modify chains or residues
+            self.atoms = np.concatenate((self.atoms[:insert_atom_idx], insert_atoms, self.atoms[insert_atom_idx:]))
 
         self.renumber_pdb()
 
@@ -1179,7 +1178,7 @@ class PDB(Structure):
                 return entity
         return None
 
-    def create_entities(self):  # , entity_names=None, pdb_code=None):
+    def create_entities(self):
         """Create all Entities in the PDB object searching for the required information if it was not found during
         parsing. First search the PDB API if a PDB entry_id is attached to instance, next from Atoms in instance
 
@@ -1202,13 +1201,7 @@ class PDB(Structure):
                 info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
                 info['chains'] = list(filter(None, info['chains']))
 
-        # # solve this upon chain loading...?
-        # if len(self.entity_d) > self.number_of_chains:
-        #     # the chain info is certainly messed up, flexibly solve chains using residue increment
-        #     self.log.warning('%s: Incorrect chain (%d) and entity (%d) count. Chains probably have the same id! '
-        #                      'Attempting to correct' % (self.filepath, self.number_of_chains, len(self.entity_d)))
-        #     self.create_chains(solve_discrepancy=True)
-        self.update_entity_d()  # pdb_code=pdb_code)
+        self.update_entity_d()
 
         for entity, info in self.entity_d.items():
             if isinstance(entity, int):

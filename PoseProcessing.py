@@ -977,7 +977,7 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
     return final_sequence, failures
 
 
-def residue_number_to_object(pdb, residue_dict):  # TODO supplement with names info and pull out by names
+def residue_number_to_object(pdb, residue_dict):  # TODO DEPRECIATE
     """Convert sets of residue numbers to sets of PDB.Residue objects
 
     Args:

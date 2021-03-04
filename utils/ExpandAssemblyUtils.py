@@ -74,7 +74,7 @@ def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, "
 
 def get_expanded_ptgrp_pdbs(pdb1_asu, pdb2_asu, expand_matrices):
     pdb_asu = PDB()
-    pdb_asu.set_all_atoms(pdb1_asu.atoms() + pdb2_asu.atoms())
+    pdb_asu.set_all_atoms(pdb1_asu.atoms + pdb2_asu.atoms)
 
     return get_expanded_ptgrp_pdb(pdb_asu, expand_matrices)
 
@@ -91,7 +91,7 @@ def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
         asu_sym_mate_pdb = PDB()
         asu_sym_mate_pdb_atom_list = []
         atom_count = 0
-        for atom in pdb_asu.atoms():
+        for atom in pdb_asu.atoms:
             x_transformed = r_asu_coords[atom_count][0]
             y_transformed = r_asu_coords[atom_count][1]
             z_transformed = r_asu_coords[atom_count][2]
