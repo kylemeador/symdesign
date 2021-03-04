@@ -1,21 +1,22 @@
+import os
+import sys
 import time
 
+import numpy as np
 from sklearn.neighbors import BallTree
 
-# from Structure import get_surface_fragments
-from PathUtils import frag_text_file
-from SymDesignUtils import calculate_overlap, filter_euler_lookup_by_zvalue, match_score_from_z_value
+from PDB import PDB
+from PathUtils import frag_text_file, master_log
+from SymDesignUtils import calculate_overlap, match_score_from_z_value
 from classes.EulerLookup import EulerLookup
-from classes.Fragment import *
-from classes.OptimalTx import *
-from classes.SymEntry import *
-from classes.SymEntry import get_optimal_external_tx_vector, get_rot_matrices, get_degen_rotmatrices
+from classes.OptimalTx import OptimalTx
+from classes.SymEntry import SymEntry, get_optimal_external_tx_vector, get_rot_matrices, get_degen_rotmatrices
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from interface_analysis.Database import FragmentDB
-from utils.CmdLineArgParseUtils import *
+from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info
-from utils.PDBUtils import *
+from utils.PDBUtils import get_contacting_asu, get_interface_ghost_surf_frags
 from utils.SymmUtils import get_uc_dimensions
 
 
@@ -35,8 +36,6 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
     Returns:
         None
     """
-
-    # for tx_idx in range(len(optimal_tx_params)):
     for tx_idx, tx_parameters in enumerate(optimal_tx_params):
         with open(log_filepath, "a+") as log_file:
             log_file.write("Optimal Shift %d\n" % (tx_idx + 1))
@@ -642,14 +641,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         if keep_time:
             get_complete_surf_frags_time_start = time.time()
 
-    print('pdb2 surface residues: %s' % pdb2.get_surface_residues())
-    surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
-
-    complete_surf_frag_list = []
-    for frag2 in surf_frags_2:
-        monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
-        if monofrag2.get_i_type():
-            complete_surf_frag_list.append(monofrag2)
+    # print('pdb2 surface residues: %s' % pdb2.get_surface_residues())
+    complete_surf_frag_list = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
+    # surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
+    #
+    # complete_surf_frag_list = []
+    # for frag2 in surf_frags_2:
+    #     monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
+    #     if monofrag2.get_i_type():
+    #         complete_surf_frag_list.append(monofrag2)
     # additional gains in fragment reduction could be realized with modifying SASA extent by ghost fragment access
 
     # calculate the initial match type by finding the predominant surface type
@@ -689,15 +689,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
         if keep_time:
             get_complete_ghost_frags_time_start = time.time()
 
-    print('pdb1 surface residues: %s' % pdb1.get_surface_residues())
+    # print('pdb1 surface residues: %s' % pdb1.get_surface_residues())
     surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
 
     complete_ghost_frag_list = []
-    for frag1 in surf_frags_1:
-        monofrag1 = MonoFragment(frag1, ijk_frag_db.reps)
-        if monofrag1.get_i_type():
-            complete_ghost_frag_list.extend(monofrag1.get_ghost_fragments(ijk_frag_db.paired_frags,
-                                                                          oligomer1_backbone_cb_tree, ijk_frag_db.info))
+    for frag in surf_frags_1:
+        # monofrag1 = MonoFragment(frag1, ijk_frag_db.reps)
+        # if monofrag1.i_type:
+        complete_ghost_frag_list.extend(frag.get_ghost_fragments(ijk_frag_db.paired_frags, oligomer1_backbone_cb_tree,
+                                                                 ijk_frag_db.info))
 
     # calculate the initial match type by finding the predominant surface type
     print('Length of surface_frags1: %d' % len(surf_frags_1))
