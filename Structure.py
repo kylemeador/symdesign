@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import deepcopy, copy
 from math import sqrt
 from collections.abc import Iterable
 from random import random
@@ -142,8 +142,7 @@ class Structure(StructureBase):  # (Coords):
         if translation2 is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation2)
 
-        new_structure = deepcopy(self)
-        # new_structure.replace_coords(Coords(new_coords))
+        new_structure = self.__copy__()
         new_structure.coords = new_coords
         return new_structure
 
@@ -852,10 +851,11 @@ class Structure(StructureBase):  # (Coords):
     def __key(self):
         return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
 
-    # def __copy__(self):
-    #     other = Structure.__new__(Structure)
-    #     other.__dict__ = self.__dict__.copy()
-    #     return other
+    def __copy__(self):
+        other = Structure.__new__(Structure)
+        other.__dict__ = self.__dict__.copy()
+        other.atoms = copy(self.atoms)
+        return other
 
     def __eq__(self, other):
         # return self.ca == other_residue.ca
