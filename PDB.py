@@ -666,8 +666,9 @@ class PDB(Structure):
             self.chain_id_list = [chain.name for chain in self.chains]
         else:
             for chain_id in self.chain_id_list:
-                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log,
-                                         residues=[residue for residue in self.residues if residue.chain == chain_id]))
+                self.chains.append(
+                    Chain(name=chain_id, coords=self._coords, log=self.log, residues=self._residues,
+                          residue_indices=[residue.index for residue in self.residues if residue.chain == chain_id]))
 
     def get_chains(self, names=None):
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
