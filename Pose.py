@@ -85,8 +85,7 @@ class Model:  # (PDB)
         return [pdb.chain(chain_id) for pdb in self.models]
 
     def get_coords(self):  # TODO
-        model_coords = [pdb.get_coords() for pdb in self.models]
-        return np.array(model_coords)  # arr.reshape(-1, arr.shape[-1])
+        return [pdb.coords for pdb in self.models]
 
     def get_backbone_coords(self):  # TODO
         return [pdb.get_backbone_coords() for pdb in self.models]
@@ -813,7 +812,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                     raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
             self.set_structure(self.pdb)
             # set up coordinate information for SymmetricModel
-            self.coords = Coords(self.pdb.get_coords())
+            self.coords = Coords(self.pdb.coords)
 
         self.design_selector_entities = set()
         self.design_selector_indices = set()
@@ -1863,7 +1862,7 @@ def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
 
     interface_frags1 = get_fragments(entity1, entity1_interface_residue_numbers)
     interface_frags2 = get_fragments(entity2, entity2_interface_residue_numbers)
-    entity1_coords = entity1.get_coords()
+    entity1_coords = entity1.coords
 
     ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
     # fragment_matches = find_fragment_overlap_at_interface(entity1, entity2, entity1_interface_residue_numbers,
