@@ -1510,7 +1510,9 @@ class MonoFragment:
                 if cb_clash_count[0] == 0:
                     rmsd = intfrag_cluster_info[self.i_type][j_type][k_type].get_rmsd()
                     ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.i_type, j_type, k_type, rmsd,
-                                                         self.get_central_res_tup()))
+                                                         self))
+                    # ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.i_type, j_type, k_type, rmsd,
+                    #                                      self.get_central_res_tup()))
                 else:  # TOdo
                     count_check += 1  # TOdo
         print('Found %d clashing fragments' % count_check)  # TOdo
