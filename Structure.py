@@ -182,7 +182,7 @@ class Structure(StructureBase):
     def center_of_mass(self):
         """Returns: (Numpy.ndarray)"""
         divisor = 1 / self.number_of_atoms
-        return np.matmul(np.full(self.number_of_atoms, divisor), self.get_coords())
+        return np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
         # try:
         #     return self._center_of_mass
         # except AttributeError:
@@ -194,13 +194,13 @@ class Structure(StructureBase):
     #     divisor = 1 / self.number_of_atoms
     #     self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
-    def get_coords(self):
-        """Return a view of the Coords from the Structure
-
-        Returns:
-            (Numpy.ndarray)
-        """
-        return self.coords[self.atom_indices]
+    # def get_coords(self):
+    #     """Return a view of the Coords from the Structure
+    #
+    #     Returns:
+    #         (Numpy.ndarray)
+    #     """
+    #     return self.coords[self.atom_indices]
 
     def get_backbone_coords(self):
         """Return a view of the Coords from the Structure with only backbone atom coordinates
@@ -1331,7 +1331,7 @@ class GhostFragment:
         # self.aligned_surf_frag_central_res_tup = aligned_chain_residue_tuple
 
         # if not guide_coords:
-        self.guide_coords = self.structure.chain('9').get_coords()
+        self.guide_coords = self.structure.chain('9').coords
         # else:
         #     self.guide_coords = guide_coords
 
