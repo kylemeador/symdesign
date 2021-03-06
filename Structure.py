@@ -209,7 +209,7 @@ class Structure(StructureBase):
             (Numpy.ndarray)
         """
         index_mask = [atom.index for atom in self.atoms if atom.is_backbone()]
-        return self._coords[index_mask]
+        return self._coords.coords[index_mask]
 
     def get_backbone_and_cb_coords(self):
         """Return a view of the Coords from the Structure with backbone and CB atom coordinates
@@ -219,7 +219,7 @@ class Structure(StructureBase):
             (Numpy.ndarray)
         """
         index_mask = [atom.index for atom in self.atoms if atom.is_backbone() or atom.is_CB()]
-        return self._coords[index_mask]
+        return self._coords.coords[index_mask]
 
     def get_ca_coords(self):
         """Return a view of the Coords from the Structure with CA atom coordinates
@@ -227,8 +227,9 @@ class Structure(StructureBase):
         Returns:
             (Numpy.ndarray)
         """
-        index_mask = [atom.index for atom in self.atoms if atom.is_CA()]
-        return self._coords[index_mask]
+        index_mask = [residue.ca.index for residue in self.residues]
+        # index_mask = [atom.index for atom in self.atoms if atom.is_CA()]
+        return self._coords.coords[index_mask]
 
     def get_cb_coords(self, InclGlyCA=True):
         """Return a view of the Coords from the Structure with CB atom coordinates
@@ -236,8 +237,9 @@ class Structure(StructureBase):
         Returns:
             (Numpy.ndarray)
         """
-        index_mask = [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
-        return self._coords[index_mask]
+        index_mask = [residue.cb.index for residue in self.residues]
+        # index_mask = [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
+        return self._coords.coords[index_mask]
 
     # def atoms(self):
     #     """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned
