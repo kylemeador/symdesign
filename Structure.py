@@ -820,21 +820,27 @@ class Structure(StructureBase):
     def write(self, out_path=None, header=None, file_handle=None):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written"""
+        # atom_atrings = '\n'.join(str(atom) for atom in self.atoms)
+        # '%d, %d, %d' % tuple(element.tolist())
+        # '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
+        atom_atrings = '\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
+                                 for atom, coord in zip(self.atoms.tolist(), self.coords.tolist()))
+
         def write_header(location):
             if header and isinstance(header, Iterable):
                 if isinstance(header, str):
                     location.write(header)
                 else:
-                    location.write('\n'.join(line for line in header))
+                    location.write(atom_atrings)
 
         if file_handle:
             write_header(file_handle)
-            file_handle.write('\n'.join(str(atom) for atom in self.atoms))
+            file_handle.write(atom_atrings)
 
         if out_path:
             with open(out_path, 'w') as outfile:
                 write_header(outfile)
-                outfile.write('\n'.join(str(atom) for atom in self.atoms))
+                outfile.write(atom_atrings)
 
             return out_path
 
@@ -1694,8 +1700,11 @@ class Atom:
 
     def __str__(self):
         """Represent Atom in PDB format"""
+        # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
+        # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
+        # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
         # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
                .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
                        self.residue_number, self.code_for_insertion,  # self.x, self.y, self.z,
                        self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
