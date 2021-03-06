@@ -1084,12 +1084,6 @@ class Residues:
 
 class Residue:
     def __init__(self, atom_indices=None, index=None, atoms=None, coords=None):
-        self._n = None
-        self._h = None
-        self._ca = None
-        self._cb = None
-        self._c = None
-        self._o = None
         self.index = index
         self.atom_indices = atom_indices
         self.atoms = atoms
@@ -1115,21 +1109,30 @@ class Residue:
             self._atoms = atoms
         else:
             raise AttributeError('The passed atoms are not of the class Atoms! Pass the member variable _atoms instead')
+        # Todo handle if the atom is missing backbone?
+        self._n = None
+        self._h = None
+        self._ca = None
+        self._cb = None
+        self._c = None
+        self._o = None
 
         for atom in self.atoms:
             if atom.type == 'N':
                 self.n = atom.index
-            elif atom.type == 'H':
-                self.h = atom.index
-            elif atom.is_CB(InclGlyCA=True):
-                self.cb = atom.index
+                # setattr(self, atom.type.lower(), atom.index)
             elif atom.type == 'CA':
                 self.ca = atom.index
+                if atom.residue_type == 'GLY':
+                    self.cb = atom.index
+            elif atom.type == 'CB':  # atom.is_CB(InclGlyCA=True):
+                self.cb = atom.index
             elif atom.type == 'C':
                 self.c = atom.index
             elif atom.type == 'O':
                 self.o = atom.index
-        # Todo handle if the atom is missing backbone?
+            elif atom.type == 'H':
+                self.h = atom.index
 
     # # This is the setter for all atom properties available above
     # def set_atoms_attributes(self, **kwargs):
