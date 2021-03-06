@@ -1394,7 +1394,7 @@ class MonoFragment:
         # self.central_res_chain_id = central_res_chain_id
 
         if residues and fragment_representatives:
-            frag_ca_coords = np.array(residue.ca_coords for residue in residues)
+            frag_ca_coords = np.array([residue.ca_coords for residue in residues])
             # central_residue = frag_ca_atoms[2]
             # self.central_res_num = central_residue.residue_number
             # self.central_res_chain_id = central_residue.chain
