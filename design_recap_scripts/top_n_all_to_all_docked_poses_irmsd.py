@@ -11,37 +11,11 @@ from Bio.PDB.Atom import PDBConstructionWarning
 import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-# from classes.PDB import *
+from BioPDBUtils import biopdb_superimposer
 from PDB import PDB
 from Structure import Atom
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
-
-
-################################################ BioPDB Superimposer ###################################################
-def biopdb_superimposer(atoms_fixed, atoms_moving):
-
-    biopdb_atom_fixed = []
-    for atom in atoms_fixed:
-        biopdb_atom_fixed.append(
-            BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
-                       " %s " % atom.type, atom.number, element=atom.element_symbol))
-
-    biopdb_atom_moving = []
-    for atom in atoms_moving:
-        biopdb_atom_moving.append(
-            BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
-                       " %s " % atom.type, atom.number, element=atom.element_symbol))
-
-    sup = Bio.PDB.Superimposer()
-    sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)
-
-    rmsd = sup.rms
-    rot = np.transpose(sup.rotran[0]).tolist()
-    tx = sup.rotran[1].tolist()
-
-    return rmsd, rot, tx
-########################################################################################################################
 
 
 ########################################## STANDARDIZE OLIGOMER CHAIN LENGTHS ##########################################
