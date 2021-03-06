@@ -825,7 +825,7 @@ class Structure(StructureBase):
         # '%d, %d, %d' % tuple(element.tolist())
         # '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
         atom_atrings = '\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-                                 for atom, coord in zip(self.atoms.tolist(), self.coords.tolist()))
+                                 for atom, coord in zip(self.atoms, self.coords.tolist()))
 
         def write_header(location):
             if header and isinstance(header, Iterable):
