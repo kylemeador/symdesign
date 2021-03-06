@@ -237,9 +237,10 @@ class Structure(StructureBase):
         Returns:
             (Numpy.ndarray)
         """
-        index_mask = [residue.cb.index for residue in self.residues]
+        # index_mask = [residue.cb.index for residue in self.residues]
         # index_mask = [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
-        return self._coords.coords[index_mask]
+        # return self._coords.coords[index_mask]
+        return self._coords.coords[self.get_cb_indices()]
 
     # def atoms(self):
     #     """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned
@@ -345,7 +346,8 @@ class Structure(StructureBase):
         Returns:
             (list[int])
         """
-        return [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
+        return [residue.cb.index for residue in self.residues]
+        # return [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     def get_helix_cb_indices(self):
         """Only works on secondary structure assigned structures!
@@ -1082,12 +1084,12 @@ class Residues:
 
 class Residue:
     def __init__(self, atom_indices=None, index=None, atoms=None, coords=None):
-        # self._n = None
-        # self._h = None
-        # self._ca = None
-        # self._cb = None
-        # self._c = None
-        # self._o = None
+        self._n = None
+        self._h = None
+        self._ca = None
+        self._cb = None
+        self._c = None
+        self._o = None
         self.index = index
         self.atom_indices = atom_indices
         self.atoms = atoms
@@ -1101,12 +1103,11 @@ class Residue:
 
     @atom_indices.setter
     def atom_indices(self, indices):  # in structure too
-        self._atom_indices = indices  # np.array(indices)
+        self._atom_indices = indices
 
     @property
     def atoms(self):
-        # return self._atoms
-        return self._atoms.atoms[self.atom_indices]
+        return self._atoms.atoms[self.atom_indices].tolist()
 
     @atoms.setter
     def atoms(self, atoms):
@@ -1120,10 +1121,10 @@ class Residue:
                 self.n = atom.index
             elif atom.type == 'H':
                 self.h = atom.index
-            elif atom.type == 'CA':
-                self.ca = atom.index
             elif atom.is_CB(InclGlyCA=True):
                 self.cb = atom.index
+            elif atom.type == 'CA':
+                self.ca = atom.index
             elif atom.type == 'C':
                 self.c = atom.index
             elif atom.type == 'O':
@@ -1624,11 +1625,12 @@ class Atom:
         else:
             return False
 
-    def is_CB(self, InclGlyCA=False):
+    def is_CB(self, InclGlyCA=True):
         if InclGlyCA:
-            return self.type == 'CB' or (self.type == 'CA' and self.residue_type == 'GLY')
-        else:  # When Rosetta assigns, it is this  v  but PDB assigns as this  v
-            return self.type == 'CB' or ((self.type == '2HA' or self.type == 'HA3') and self.residue_type == 'GLY')
+            return self.type == 'CB' or (self.residue_type == 'GLY' and self.type == 'CA')
+        else:
+            #                                    When Rosetta assigns, it is this  v  but PDB assigns as this  v
+            return self.type == 'CB' or (self.residue_type == 'GLY' and (self.type == '2HA' or self.type == 'HA3'))
 
     def is_CA(self):
         return self.type == 'CA'
