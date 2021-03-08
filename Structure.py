@@ -1271,6 +1271,10 @@ class Residue:
     def number_of_atoms(self):
         return len(self._atom_indices)
 
+    def get_ave_b_factor(self):
+        temp = sum(atom.temp_fact for atom in self.atoms)
+        return round(temp / float(self.number_of_atoms), 2)
+
     def distance(self, other_residue):  # Todo make for Ca to Ca
         min_dist = float('inf')
         for atom in self.atoms:

@@ -1171,15 +1171,6 @@ class PDB(Structure):
         for atom in atoms:
             self._atoms.remove(atom)
 
-    def get_ave_residue_b_factor(self, chain_id, residue_number):
-        residue_atoms = self.chain(chain_id).residue(residue_number).atoms()
-        # residue_atoms = self.get_residue_atoms(chain, residue)
-        temp = 0
-        for atom in residue_atoms:
-            temp += atom.temp_fact
-
-        return round(temp / len(residue_atoms), 2)
-
     def retrieve_pdb_info_from_api(self, pdb_code=None):  # Todo doesn't really need pdb_code currently. When would it?
         if not pdb_code:
             pdb_code = self.name
