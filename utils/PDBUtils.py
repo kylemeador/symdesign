@@ -57,45 +57,22 @@ from utils.GeneralUtils import rot_txint_set_txext_frag_coord_sets
 
 
 def get_contacting_asu(pdb1, pdb2, contact_dist=8):
-    # pdb1_ca_coords_chain_dict = {}
-    # for atom in pdb1.get_atoms():
-    #     if atom.chain not in pdb1_ca_coords_chain_dict:
-    #         pdb1_ca_coords_chain_dict[atom.chain] = [atom.coords]
-    #     else:
-    #         pdb1_ca_coords_chain_dict[atom.chain].append(atom.coords)
-    #
-    # pdb2_ca_coords_chain_dict = {}
-    # for atom in pdb2.get_atoms():
-    #     if atom.chain not in pdb2_ca_coords_chain_dict:
-    #         pdb2_ca_coords_chain_dict[atom.chain] = [atom.coords]
-    #     else:
-    #         pdb2_ca_coords_chain_dict[atom.chain].append(atom.coords)
-
     max_contact_count = 0
-    max_contact_chain1 = None
-    max_contact_chain2 = None
-    for chain1 in pdb1.chains():
-        for chain2 in pdb2.chains():
-            # pdb1_ca_coords = pdb1_ca_coords_chain_dict[chain1]
-            # pdb2_ca_coords = pdb2_ca_coords_chain_dict[chain2]
-
-            pdb1_ca_coords_kdtree = BallTree(chain1.coords)
+    max_contact_chain1, max_contact_chain2 = None, None
+    for chain1 in pdb1.chains:
+        pdb1_ca_coords_kdtree = BallTree(chain1.coords)
+        for chain2 in pdb2.chains:
             contact_count = pdb1_ca_coords_kdtree.two_point_correlation(chain2.coords, [contact_dist])[0]
 
             if contact_count > max_contact_count:
                 max_contact_count = contact_count
-                max_contact_chain1 = chain1
-                max_contact_chain2 = chain2
+                max_contact_chain1, max_contact_chain2 = chain1, chain2
 
-    if max_contact_count > 0 and max_contact_chain1 is not None and max_contact_chain2 is not None:
+    if max_contact_count > 0:  # and max_contact_chain1 is not None and max_contact_chain2 is not None:
         pdb1_asu = PDB.from_atoms(pdb1.chain(max_contact_chain1))
-        # pdb1_asu.read_atom_list(pdb1.get_chain_atoms(max_contact_chain1))
-
         pdb2_asu = PDB.from_atoms(pdb2.chain(max_contact_chain2))
-        # pdb2_asu.read_atom_list(pdb2.get_chain_atoms(max_contact_chain2))
 
         return pdb1_asu, pdb2_asu
-
     else:
         return None, None
 
