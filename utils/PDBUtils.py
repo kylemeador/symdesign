@@ -100,9 +100,7 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8):
         return None, None
 
 
-def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_frag_list, rot_mat1, rot_mat2,
-                                   internal_tx_vec1, internal_tx_vec2, set_mat1, set_mat2, ext_tx_vec1, ext_tx_vec2,
-                                   cb_distance=9.0):
+def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
     """Calculate all the residues within a cb_distance between two oligomers, identify associated ghost and surface
     fragments on each, by the chain name and residue number, translated the selected fragments to the oligomers using
     symmetry specific rotation matrix, internal translation vector, setting matrix, and external translation vector then
@@ -159,17 +157,17 @@ def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_f
 
             if (pdb2_central_chain_id, pdb2_central_res_num) not in pdb2_unique_chain_central_resnums:
                 pdb2_unique_chain_central_resnums.append((pdb2_central_chain_id, pdb2_central_res_num))
-    # Todo separate these functions like in Pose
 
+    return pdb1_unique_chain_central_resnums, pdb2_unique_chain_central_resnums
+
+
+def get_interface_frags(pdb1_ghost_frag_list, pdb2_surf_frag_list, rot_mat1, rot_mat2, internal_tx_vec1,
+                        internal_tx_vec2, set_mat1, set_mat2, ext_tx_vec1, ext_tx_vec2):  # Unused
     # Todo this section could be improved by using the fragments that live on the residues, not by checking
-    ghost_frag_guide_coords, surf_frag_guide_coords = [], []
-    for ghost_frag in pdb1_ghost_frag_list:
-        if ghost_frag.get_aligned_chain_and_residue() in pdb1_unique_chain_central_resnums:
-            ghost_frag_guide_coords.append(ghost_frag.guide_coords)
-
-    for surf_frag in pdb2_surf_frag_list:
-        if surf_frag.get_central_res_tup() in pdb2_unique_chain_central_resnums:
-            surf_frag_guide_coords.append(surf_frag.guide_coords)
+    ghost_frag_guide_coords = [ghost_frag.guide_coords for ghost_frag in pdb1_ghost_frag_list
+                               if ghost_frag.get_aligned_chain_and_residue() in pdb1_unique_chain_central_resnums]
+    surf_frag_guide_coords = [surf_frag.guide_coords for surf_frag in pdb2_surf_frag_list
+                              if surf_frag.get_central_res_tup() in pdb2_unique_chain_central_resnums]
 
     # Rotate, Translate and Set Fragment Guide Coordinates
     ghost_frag_guide_coords_transformed = rot_txint_set_txext_frag_coord_sets(ghost_frag_guide_coords, rot_mat=rot_mat1,
@@ -180,5 +178,4 @@ def get_interface_ghost_surf_frags(pdb1, pdb2, pdb1_ghost_frag_list, pdb2_surf_f
                                                                              internal_tx_vec=internal_tx_vec2,
                                                                              set_mat=set_mat2, ext_tx_vec=ext_tx_vec2)
 
-    return np.array(ghost_frag_guide_coords_transformed), np.array(surf_frag_guide_coords_transformed), \
-        len(pdb1_unique_chain_central_resnums), len(pdb2_unique_chain_central_resnums)
+    return np.array(ghost_frag_guide_coords_transformed), np.array(surf_frag_guide_coords_transformed)
