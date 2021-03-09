@@ -19,7 +19,7 @@ from sklearn.preprocessing import StandardScaler
 
 from SequenceProfile import sequence_difference
 import PathUtils as PUtils
-from DesignDirectory import DesignDirectory
+# from DesignDirectory import DesignDirectory
 from PDB import PDB
 from PoseProcessing import extract_aa_seq
 from Query.Flags import query_user_for_metrics
