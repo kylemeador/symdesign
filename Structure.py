@@ -28,12 +28,16 @@ class StructureBase:
 
 
 class Structure(StructureBase):
+    """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
+    Must pass atoms, residues, residue_indices, or coords to use most methods without issues
+    to initialize
+    """
     def __init__(self, atoms=None, residues=None, residue_indices=None, name=None, coords=None, log=None, **kwargs):
-        self.name = name
-        self.secondary_structure = None
         self._coords = None
         self._atoms = None
         self._residues = None
+        self.name = name
+        self.secondary_structure = None
 
         if log:
             self.log = log
@@ -839,7 +843,7 @@ class Structure(StructureBase):
                     location.write(atom_atrings)
 
         if file_handle:
-            write_header(file_handle)
+            # write_header(file_handle)
             file_handle.write(atom_atrings)
 
         if out_path:
