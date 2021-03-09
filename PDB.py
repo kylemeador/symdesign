@@ -27,25 +27,23 @@ null_log = start_log(name='null', handler=3, propagate=False)
 
 
 class PDB(Structure):
-    """The base object for PDB file manipulation
+    """The base object for PDB file reading and Atom manipulation
     Can pass atoms, residues, coords, chains, entities, seqres, multimodel, lazy, solve_discrepancy
-    to initialize the Object
+    to initialize
     """
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, residues=None, coords=None, metadata=None, log=False, **kwargs):
+    def __init__(self, file=None, atoms=None, residues=None, entities=None, coords=None, metadata=None, log=False,
+                 **kwargs):
         if log is None:
             log = null_log
-        else:
-            pass
-            # Pass the log that was passed to the PDB to Structure or let structure start a log if False
-            # log = start_log()
-        super().__init__(log=log, **kwargs)  #
-        # self.atoms = []  # from Structure
+        # else pass the log that was passed to the PDB to Structure or let structure start a log if log still is False
+        super().__init__(log=log, **kwargs)
+        # self.atoms = Atoms()  # from Structure
         # self.center_of_mass = None  # from Structure
-        # self.coords = []  # from Structure
+        # self.coords = Coords()  # from Structure
         # self.name = None  # from Structure
-        # self.residues = []  # from Structure
+        # self.residues = Residues()  # from Structure
         # self.secondary_structure = None  # from Structure
 
         self.api_entry = None
@@ -102,14 +100,21 @@ class PDB(Structure):
             self.process_pdb(residues=residues, coords=coords, **kwargs)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
+        if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
+            self.coords = np.concatenate([entity.coords for entity in entities])
+            self.atoms = [atom for entity in entities for atom in entity.atoms]
+            self.atom_indices = list(range(self.number_of_atoms))
+            self.residues = [residue for entity in entities for residue in entity.residues]
+            self.residue_indices = list(range(self.number_of_residues))
+            self.entities = entities
 
     @classmethod
     def from_file(cls, file, **kwargs):
         return cls(file=file, **kwargs)
 
-    # @classmethod
-    # def from_entities(cls, entities):  # Todo
-    #     return cls()
+    @classmethod
+    def from_entities(cls, entities, **kwargs):
+        return cls(entities=entities, **kwargs)
 
     @property
     def number_of_chains(self):
@@ -119,18 +124,6 @@ class PDB(Structure):
     def symmetry(self):
         return {'symmetry': self.space_group, 'uc_dimensions': self.uc_dimensions, 'cryst_record': self.cryst_record,
                 'cryst': self.cryst, 'max_symmetry': self.max_symmetry}
-
-    # def set_coords(self, coords):
-    #     super().set_coords(coords)
-    #     # self.coords = coords
-    #     self.set_structure_attributes(self.chains, coords=coords)
-    #     self.set_structure_attributes(self.entities, coords=coords)
-
-    # def set_atoms(self, atoms):
-    #     super().set_atoms(atoms)
-    #     # self._atoms = atoms
-    #     self.set_structure_attributes(self.chains, atoms=atoms)
-    #     self.set_structure_attributes(self.entities, atoms=atoms)
 
     def return_transformed_copy(self, **kwargs):
         new_pdb = super().return_transformed_copy(**kwargs)
@@ -204,12 +197,15 @@ class PDB(Structure):
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
-    def readfile(self, filepath, lazy=False, **kwargs):
+    def readfile(self, filepath, lazy=False, name=None, **kwargs):
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
-        formatted_filename = os.path.splitext(os.path.basename(filepath))[0].replace('pdb', '')
-        underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
-        self.name = formatted_filename[:underscore_idx]
+        if not name:
+            formatted_filename = os.path.splitext(os.path.basename(filepath))[0].replace('pdb', '')
+            underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
+            self.name = formatted_filename[:underscore_idx]
+        else:
+            self.name = name
 
         with open(self.filepath, 'r') as f:
             pdb_lines = f.readlines()
@@ -683,7 +679,7 @@ class PDB(Structure):
         Returns:
             (Chain)
         """
-        for chain in self.chains:
+        for chain in self.chains:   # also in Entity
             if chain.name == chain_id:
                 return chain
         return None
