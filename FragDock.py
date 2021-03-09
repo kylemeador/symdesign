@@ -1094,10 +1094,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     # print('Set for Euler Lookup:', surf_frags_2_guide_coords_rot_and_set[:5])
                     # print('number of ghost coords pre-lookup: %d' % len(ghost_frag_guide_coords_rot_and_set))
 
-                    overlapping_ghost_frags, overlapping_surf_frags = \
-                        zip(*eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
-                                                           surf_frags_2_guide_coords_rot_and_set))
-                    overlap_pairs = list(zip(overlapping_ghost_frags, overlapping_surf_frags))
+                    # overlapping_ghost_frags, overlapping_surf_frags = \
+                    overlap_pairs = eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
+                                                                  surf_frags_2_guide_coords_rot_and_set)
+                    overlapping_ghost_frags = [frag_pair[0] for frag_pair in overlap_pairs]
+                    overlapping_surf_frags = [frag_pair[1] for frag_pair in overlap_pairs]
+                    # overlap_pairs = list(zip(overlapping_ghost_frags, overlapping_surf_frags))
                     # overlapping_ghost_frag_array = np.array(overlapping_ghost_frags)
                     # overlapping_surf_frag_array = np.array(overlapping_surf_frags)
                     # print('euler overlapping ghost indices:', overlapping_ghost_frag_array[:5])
