@@ -1091,9 +1091,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         Keyword Args:
             entity1=None (Entity): First entity to measure interface between
-            # entity1=None (str): First entity name to measure interface between
             entity2=None (Entity): Second entity to measure interface between
-            # entity2=None (str): Second entity name to measure interface between
             distance=8 (int): The distance to query the interface in Angstroms
             include_glycine=True (bool): Whether glycine CA should be included in the tree
         Returns:
@@ -1177,25 +1175,22 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             return [], []
 
     def find_interface_residues(self, entity1=None, entity2=None, **kwargs):  # distance=8, include_glycine=True):
-        """Get unique residues from each pdb across an interface provide two Entity names
+        """Get unique residues from each pdb across an interface provided by two Entity names
 
         Keyword Args:
-            entity1=None (str): First entity name to measure interface between
-            entity2=None (str): Second entity name to measure interface between
+            entity1=None (Entity): First Entity to measure interface between
+            entity2=None (Entity): Second Entity to measure interface between
             distance=8 (int): The distance to query the interface in Angstroms
             include_glycine=True (bool): Whether glycine CA should be included in the tree
         Returns:
-            tuple[set]: A tuple of interface residue sets across an interface
+            (tuple[set]): A tuple of interface residue sets across an interface
         """
         entity1_residue_numbers, entity2_residue_numbers = \
             self.split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
         if not entity1_residue_numbers or not entity2_residue_numbers:
             self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
-            # if (entity1, entity2) not in self.interface_residues:
             self.interface_residues[(entity1, entity2)] = ()
-            # if entity2 not in self.interface_residues:
-            #     self.interface_residues[entity2] = []
             return None
         else:
             self.log.info('At interface Entity %s | Entity %s\t%s has interface residue numbers: %s'
@@ -1205,15 +1200,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         self.interface_residues[(entity1, entity2)] = (entity1.get_residues(numbers=entity1_residue_numbers),
                                                        entity2.get_residues(numbers=entity2_residue_numbers))
-        # if entity1 not in self.interface_residues:
-        #     self.interface_residues[entity1] = entity1.get_residues(numbers=entity1_residue_numbers)
-        # else:
-        #     self.interface_residues[entity1].extend(entity1.get_residues(numbers=entity1_residue_numbers))
-        #
-        # if entity2 not in self.interface_residues:
-        #     self.interface_residues[entity2] = entity2.get_residues(numbers=entity2_residue_numbers)
-        # else:
-        #     self.interface_residues[entity2].extend(entity2.get_residues(numbers=entity2_residue_numbers))
         entity_d = {1: entity1, 2: entity2}  # Todo clean
         self.log.debug('Added interface_residues: %s' % ['%d%s' % (residue.number, entity_d[idx].chain_id)
                        for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)], 1)
@@ -1222,9 +1208,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     def query_interface_for_fragments(self, entity1=None, entity2=None):
         # Todo identity frag type by residue, not by calculation
         surface_frags1 = entity1.get_fragments([residue.number
-                                                for residue in self.interface_residues[(entity1, entity2)][0]])
+                                                for residue in self.interface_residues[(entity1, entity2)][0]],
+                                               fragment_representatives=self.frag_db.reps)
         surface_frags2 = entity2.get_fragments([residue.number
-                                                for residue in self.interface_residues[(entity1, entity2)][1]])
+                                                for residue in self.interface_residues[(entity1, entity2)][1]],
+                                               fragment_representatives=self.frag_db.reps)
         # surface_frags1 = entity1.get_fragments([residue.number for residue in self.interface_residues[entity1]])
         # surface_frags2 = entity2.get_fragments([residue.number for residue in self.interface_residues[entity2]])
         if not surface_frags1 or not surface_frags2:
@@ -1259,6 +1247,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.calculate_fragment_query_metrics()
 
         return self.return_fragment_query_metrics(entity1=entity1, entity2=entity2, per_interface=True)
+
+    def find_and_split_interface(self):
+        # get interface residues for the designable entities
+        for entity_pair in combinations_with_replacement(self.active_entities, 2):
+            self.find_interface_residues(*entity_pair)
+
+        self.check_interface_topology()
 
     def check_interface_topology(self):
         first, second = 0, 1
@@ -1431,7 +1426,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             if query_fragments:  # search for new fragment information
                 # inherently gets interface residues for the designable entities
                 self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
-                self.check_interface_topology()
+                # self.check_interface_topology()  # already done above
             else:  # No fragment query, add existing fragment information to the pose
                 # if fragments_exist:
                 if not self.frag_db:
@@ -1529,9 +1524,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         #                       'Alternatively pass new_db=True to %s'
         #                       % (self.generate_interface_fragments.__name__,
         #                          self.generate_interface_fragments.__name__))
+        if not self.interface_residues:
+            for entity_pair in combinations_with_replacement(self.active_entities, 2):
+                self.find_interface_residues(*entity_pair)
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.find_interface_residues(*entity_pair)
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'
                            % tuple(entity.name for entity in entity_pair))
             self.query_interface_for_fragments(*entity_pair)
@@ -1771,28 +1768,17 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
         fragdb.get_intfrag_cluster_info_dict()
 
     kdtree_oligomer1_backbone = BallTree(entity1_coords)
-    # kdtree_oligomer1_backbone = BallTree(np.array(entity1.extract_backbone_coords()))
     complete_int1_ghost_frag_l, interface_ghostfrag_guide_coords_list = [], []
     for frag1 in interface_frags1:
-        complete_monofrag1 = MonoFragment(frag1, fragdb.reps)  # ijk_monofrag_cluster_rep_pdb_dict)
-        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(fragdb.paired_frags,
-                                                                                   kdtree_oligomer1_backbone,
-                                                                                   fragdb.info)
+        complete_monofrag1_ghostfrag_list = frag1.get_ghost_fragments(fragdb.paired_frags, kdtree_oligomer1_backbone,
+                                                                      fragdb.info)
         if complete_monofrag1_ghostfrag_list:
             complete_int1_ghost_frag_l.extend(complete_monofrag1_ghostfrag_list)
-            for ghost_frag in complete_monofrag1_ghostfrag_list:
-                interface_ghostfrag_guide_coords_list.append(ghost_frag.get_guide_coords())
+            interface_ghostfrag_guide_coords_list.extend(ghost_frag.guide_coords
+                                                         for ghost_frag in complete_monofrag1_ghostfrag_list)
 
-    # Get entity2 interface fragments with guide coordinates using complete fragment database
-    # interface_frags2 = get_fragments(entity2, entity2_interface_residue_numbers)
-
-    complete_int2_frag_l, interface_surf_frag_guide_coords_list = [], []
-    for frag2 in interface_frags2:
-        complete_monofrag2 = MonoFragment(frag2, fragdb.reps)
-        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()
-        if complete_monofrag2_guide_coords is not None:
-            complete_int2_frag_l.append(complete_monofrag2)
-            interface_surf_frag_guide_coords_list.append(complete_monofrag2_guide_coords)
+    # Get entity2 interface fragment guide coordinates using complete fragment database
+    interface_surf_frag_guide_coords_list = [frag2.get_guide_coords() for frag2 in interface_frags2]
 
     eul_lookup = EulerLookup()
     # Check for matching Euler angles
@@ -1811,7 +1797,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
     # passing_fragment_overlap = list(filter(None, all_fragment_overlap))
     # Todo ensure Tuple[2] is match score, now z-value
     ghostfrag_surffrag_pairs = [(complete_int1_ghost_frag_l[eul_lookup_true_list[idx][0]],
-                                 complete_int2_frag_l[eul_lookup_true_list[idx][1]], all_fragment_overlap[idx])
+                                 interface_frags2[eul_lookup_true_list[idx][1]], all_fragment_overlap[idx])
                                 for idx, boolean in enumerate(all_fragment_overlap) if boolean]
 
     return ghostfrag_surffrag_pairs

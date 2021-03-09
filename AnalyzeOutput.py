@@ -16,11 +16,9 @@ from sklearn.preprocessing import StandardScaler
 
 import AnalyzeMutatedSequences
 import PathUtils as PUtils
-# import PDB
 import SequenceProfile
-import SymDesignUtils
 import SymDesignUtils as SDUtils
-from DesignDirectory import DesignDirectory
+# from DesignDirectory import DesignDirectory
 from PDB import PDB
 
 # import CmdUtils as CUtils
@@ -856,7 +854,7 @@ def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
     return total
 
 
-@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
 def analyze_output_s(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
                      figures=True):
     return analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
@@ -869,7 +867,7 @@ def analyze_output_mp(des_dir, delta_refine=False, merge_residue_data=False, deb
         pose = analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
                               save_trajectories=save_trajectories, figures=figures)
         return pose  # , None
-    except (SymDesignUtils.DesignError, AssertionError) as e:
+    except (SDUtils.DesignError, AssertionError) as e:
         return e
     # finally:
     #     print('Error occurred in %s' % des_dir.path)
@@ -900,7 +898,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         logger = SDUtils.start_log(name=__name__, handler=2, level=2,
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     if not des_dir.info:
-        raise SymDesignUtils.DesignError('Has not been initialized for design and therefore can\'t be analyzed. '
+        raise SDUtils.DesignError('Has not been initialized for design and therefore can\'t be analyzed. '
                                          'Initialize and perform interface design if you want to measure this design.')
     # TODO add fraction_buried_atoms
     # Set up pose, ensure proper input

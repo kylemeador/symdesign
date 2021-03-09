@@ -38,12 +38,12 @@ import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output
 from PDB import PDB
 from Structure import Residue
-from Pose import Model, find_interface_residues
+from Pose import Model
 from SequenceProfile import write_fasta_file, SequenceProfile
-from SymDesignUtils import DesignError, start_log # logger,
+from SymDesignUtils import DesignError, start_log
 from utils.ExpandAssemblyUtils import expand_asu
 
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
