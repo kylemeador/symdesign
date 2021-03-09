@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 from utils.ExpandAssemblyUtils import get_ptgrp_sym_op, get_sg_sym_op
+from utils.SymmUtils import valid_subunit_number
 
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
@@ -11,7 +12,6 @@ __copyright__ = "Copyright 2020, Nanohedra"
 __version__ = "1.0"
 
 # SYMMETRY COMBINATION MATERIAL TABLE (T.O.Y and J.L, 2020)
-from utils.SymmUtils import valid_subunit_number
 
 sym_comb_dict = {
     1: [1, 'C2', 1, ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'C2', 1, ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 4, 2],
@@ -181,7 +181,7 @@ identity_matrix = RotSetDict[1]
 
 class SymEntry:
     def __init__(self, entry):
-        if type(entry) == int and entry in sym_comb_dict:
+        if entry in sym_comb_dict:
             # GETTING ENTRY INFORMATION FROM sym_comb_dict
             self.entry_number = entry
             sym_comb_info = sym_comb_dict[self.entry_number]
