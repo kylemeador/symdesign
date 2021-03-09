@@ -5,7 +5,7 @@ C		canonical orientation, for example centered at the origin and with symmetry a
 C		principle directions.
 C
 C	Limitations:
-C		Will not work in any of the inifinite situations where a PDB file is f***ed up,
+C		Will not work in any of the infinite situations where a PDB file is f***ed up,
 C		in ways such as but not limited to:
 C		equivalent residues in different chains don't have the same numbering; different subunits
 C		are all listed with the same chain ID (e.g. with incremental residue numbering) instead
@@ -35,7 +35,7 @@ C		The input PDB is read from file 'input.pdb'
 C		The output PDB is written to file 'output.pdb'
 C
 C		A short symmetry file containing specifications for the expected symmetry is read in from
-C		a file whose name is requested from the user (i.e. read from standart input).  In the example
+C		a file whose name is requested from the user (i.e. read from standard input).  In the example
 C		below for D4, that filename might be called D4_symm.txt
 C
 C		Example symmetry file for D4:
