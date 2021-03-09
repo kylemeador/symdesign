@@ -113,7 +113,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # path/to/directory/sdf/
         self.sdfs = {}
         self.oligomer_names = []
-        self.oligomers = {}
+        self.oligomers = []
 
         self.sym_entry_number = None
         self.design_symmetry = None
@@ -549,16 +549,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def get_oligomers(self):
         if self.directory_type == 'design':
             self.oligomer_names = os.path.basename(self.building_blocks).split('_')
-            for name in self.oligomer_names:
-                name_pdb_file = glob(os.path.join(self.path, '%s*_tx_*.pdb' % name))
-                assert len(name_pdb_file) == 1, 'Incorrect match [%d != 1] found using %s*_tx_*.pdb!\nCheck %s' % \
-                                                (len(name_pdb_file), name, self.__str__())
-                self.oligomers[name] = PDB.from_file(name_pdb_file[0])
-                self.oligomers[name].name = name
+            for idx, name in enumerate(self.oligomer_names):
+                pdb_files = glob(os.path.join(self.path, '%s*.pdb' % name))
+                assert len(pdb_files) == 1, 'Incorrect match [%d != 1] found using %s*.pdb!' % (len(pdb_files), name)
+                self.oligomers.append(PDB.from_file(pdb_files[0], name=name, log=self.log))
+                # self.oligomers[idx].name = name
                 # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
-                sdf_file_name = os.path.join(os.path.dirname(self.oligomers[name].filepath), self.sdf, '%s.sdf' % name)
-                self.sdfs[name] = self.oligomers[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
-                self.oligomers[name].reorder_chains()
+                # sdf_file_name = os.path.join(os.path.dirname(self.oligomers[name].filepath), self.sdf, '%s.sdf' % name)
+                # self.sdfs[name] = self.oligomers[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
+                # self.oligomers[name].reorder_chains()
             self.log.debug('%s: %d matching oligomers found' % (self.path, len(self.oligomers)))
 
     def get_fragment_metrics(self, from_file=True, from_pose=False):
@@ -650,7 +649,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         self.degen2 = int(self.degen2) + 1  # number of degens is added to the original orientation
                     else:
                         self.degen2 = 1  # No degens becomes a single degen
-        # print('closing docking metrics')
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
@@ -780,7 +778,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                               'an ASU, may be missing crucial contacts. Is this what you want?')
 
         if self.nano:
-            self.log.info('Input Oligomers: %s' % ', '.join(name for name in self.oligomers))
+            self.log.info('Input Oligomers: %s' % ', '.join(oligomer.name for oligomer in self.oligomers))
 
         chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
         self.log.info('Found the following chain breaks in the ASU:\n\t%s'
@@ -794,7 +792,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Get ASU distance parameters
         if self.nano:  # Todo adapt to self.design_dim and not nanohedra input
             max_com_dist = 0
-            for oligomer in self.oligomers.values():
+            for oligomer in self.oligomers:
                 # asu_oligomer_com_dist.append(np.linalg.norm(np.array(template_pdb.get_center_of_mass())
                 com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
                 # need to use self.pose.pdb.center+of_mass as we want ASU COM not Sym Mates COM (self.pose.center_of_mass)
@@ -965,26 +963,37 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
         # write_commands(shell_scripts, name=PUtils.interface_design_command, out_path=self.scripts)
 
-    # @handle_design_errors(errors=(DesignError, AssertionError))
     def load_pose(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
 
         Handles clash testing and writing the assembly if those options are True
         """
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
-                                       design_selector=self.design_selector, frag_db=self.frag_db,
-                                       ignore_clashes=self.ignore_clashes)
+        if self.nano:
+            self.get_oligomers()
+            self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
+                                      design_selector=self.design_selector, frag_db=self.frag_db,
+                                      ignore_clashes=self.ignore_clashes)
+            for oligomer in self.oligomers[1:]:
+                self.pose.add_pdb(oligomer)
+            self.pose.asu = self.pose.pdb  # set the asu
+            self.pose.generate_symmetric_assembly()
+        else:
+            # Todo ensure that the asu has intra-oligomeric contacts accounted for by oligomer alignment (PDB API) or
+            #  quaternion rotational sampling
+            self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
+                                           design_selector=self.design_selector, frag_db=self.frag_db,
+                                           ignore_clashes=self.ignore_clashes)
         # Save renumbered PDB to clean_asu.pdb
         self.pose.pdb.write(out_path=self.asu)
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)
-        if self.pose.symmetry and self.pose.symmetric_assembly_is_clash():
-            raise DesignError('The Symmetric Assembly contains clashes! Design (%s) is not being considered'
-                              % str(self))
-        if self.output_assembly:
-            self.pose.get_assembly_symmetry_mates()
-            self.pose.write(out_path=self.assembly)
-            self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+        if self.pose.symmetry:
+            if self.pose.symmetric_assembly_is_clash():
+                raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered')
+            if self.output_assembly:
+                self.pose.get_assembly_symmetry_mates()
+                self.pose.write(out_path=self.assembly)
+                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def expand_asu(self):
@@ -998,6 +1007,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
                                        ignore_clashes=self.ignore_clashes)
         #                              design_selector=self.design_selector)
+
         # Save renumbered PDB to clean_asu.pdb
         self.pose.pdb.write(out_path=self.asu)
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)
