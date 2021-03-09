@@ -854,6 +854,8 @@ class Structure(StructureBase):
 
         Keyword Args:
             residue_numbers=None (list): The specific residue numbers to search for
+        Returns:
+            (list[MonoFragment]): The MonoFragments found on the Structure
         """
         if not residue_numbers:
             return None
