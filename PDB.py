@@ -103,7 +103,6 @@ class PDB(Structure):
                 self.copy_metadata(metadata)
         if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
             atoms = [atom for chain in chains for atom in chain.atoms]
-            print('There are %d atoms in chain init' % len(atoms))
             self.atoms = atoms
             self.atom_indices = list(range(len(atoms)))
             self.residues = [residue for chain in chains for residue in chain.residues]
