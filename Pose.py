@@ -427,8 +427,11 @@ class SymmetricModel(Model):
             (list): The indices in the SymmetricModel where the ASU is also located
         """
         model_number = self.find_asu_equivalent_symmetry_model()
-        start_idx = self.pdb.number_of_atoms * model_number
-        end_idx = self.pdb.number_of_atoms * (model_number + 1)
+        print('Model number is %s' % model_number)
+        print('number of atoms is %s' % self.asu.number_of_atoms)
+        print('PDB number of atoms is %s' % self.pdb.number_of_atoms)
+        start_idx = self.asu.number_of_atoms * model_number
+        end_idx = self.asu.number_of_atoms * (model_number + 1)
         return list(range(start_idx, end_idx))
 
     def find_intra_oligomeric_symmetry_mate_indices(self, entity):
@@ -564,12 +567,11 @@ class SymmetricModel(Model):
         Returns:
             (bool)
         """
-        if self.symmetry:
-            if not self.number_of_models:
-                raise DesignError('[Error] Cannot check if the assembly is clashing without first calling %s'
-                                  % self.generate_symmetric_assembly.__name__)
-        else:
+        if not self.symmetry:
             raise DesignError('[Error] Cannot check if the assembly is clashing as it has no symmetry!')
+        elif not self.number_of_models:
+            raise DesignError('[Error] Cannot check if the assembly is clashing without first calling %s'
+                              % self.generate_symmetric_assembly.__name__)
 
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
         # print('ModelASU Indices: %s' % model_asu_indices)
@@ -750,8 +752,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         return self._asu
 
     @asu.setter
-    def asu(self, pdb):
-        self._asu = pdb
+    def asu(self, asu):
+        self._asu = asu
 
     @property
     def pdb(self):
