@@ -1401,37 +1401,22 @@ class GhostFragment:
 
 class MonoFragment:
     def __init__(self, residues, fragment_representatives=None, fragment_type=None, guide_coords=None,
-                 fragment_length=5, rmsd_thresh=0.75):  # central_res_num=None, central_res_chain_id=None,
-        # self.structure = pdb
+                 fragment_length=5, rmsd_thresh=0.75):
         self.i_type = fragment_type
         self.guide_coords = guide_coords
         self.central_residue = residues[int(fragment_length/2)]
-        # self.central_res_num = central_res_num
-        # self.central_res_chain_id = central_res_chain_id
 
         if residues and fragment_representatives:
             frag_ca_coords = np.array([residue.ca_coords for residue in residues])
-            # central_residue = frag_ca_atoms[2]
-            # self.central_res_num = central_residue.residue_number
-            # self.central_res_chain_id = central_residue.chain
             min_rmsd = float('inf')
             for cluster_type, cluster_rep in fragment_representatives.items():
-                # if len(frag_ca_atoms) != len(cluster_rep.get_ca_atoms()):
-                #     print('Atom list lengths are not equal! %d != %d' % (len(frag_ca_atoms),
-                #                                                          len(cluster_rep.get_ca_atoms())),
-                #           self.get_central_res_tup(), cluster_rep.filepath)
-                #     continue
-                # rmsd, rot, tx = biopdb_superimposer(frag_ca_atoms, cluster_rep.get_ca_atoms())
                 rmsd, rot, tx, rescale = superposition3d(frag_ca_coords, cluster_rep.get_ca_coords())
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     self.i_type = cluster_type
-                    # min_rmsd, self.rot, self.tx = rmsd, np.transpose(rot), tx
                     min_rmsd, self.rot, self.tx = rmsd, rot, tx
 
             if self.i_type:
                 guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
-                # rot is returned in column major, therefore no need to transpose when transforming guide coordinates
-                # self.guide_coords = np.matmul(guide_coords, rot) + self.tx
                 self.guide_coords = np.matmul(guide_coords, np.transpose(self.rot)) + self.tx
 
     # @classmethod
@@ -1456,7 +1441,7 @@ class MonoFragment:
 
     # def get_center_of_mass(self):  # UNUSED
     #     if self.guide_coords:
-    #         return np.matmul(np.array([0.33333, 0.33333, 0.33333]), self.guide_coords)
+    #         return np.matmul([0.33333, 0.33333, 0.33333], self.guide_coords)
     #     else:
     #         return None
 
@@ -1493,82 +1478,20 @@ class MonoFragment:
         if self.i_type not in intfrag_cluster_rep:
             return []
 
-        count_check = 0  # TOdo
         ghost_fragments = []
         for j_type, j_dictionary in intfrag_cluster_rep[self.i_type].items():
             for k_type, (frag_pdb, frag_mapped_chain, frag_paired_chain) in j_dictionary.items():
-                # intfrag = intfrag_cluster_rep[self.i_type][j_type][k_type]
-                # frag_pdb = intfrag[0]
-                # frag_paired_chain = intfrag[1]
-                # # frag_mapped_chain = intfrag[1]
-                # # intfrag_mapped_chain_central_res_num = intfrag[2]
-                # # intfrag_partner_chain_id = intfrag[3]
-                # # intfrag_partner_chain_central_res_num = intfrag[4]
-                # fixed = self.structure.get_ca_atoms()
-                # moving = frag_pdb.chain(frag_mapped_chain).get_ca_atoms()
-                # if len(fixed) != len(moving):
-                #     print('Atom list lengths are not equal! %d != %d' % (len(fixed), len(moving)),
-                #           self.get_central_res_tup(), frag_pdb.filepath)
-                #     continue
-                # rot, tr = biopdb_align_atom_lists(fixed, moving)  # self.central_res_chain_id,
-                # aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=rot, translation=tr)
                 aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
-                # is this what is not working?
-
-                # ghost_frag_chain = (set(frag_pdb.chain_id_list) - {'9', frag_mapped_chain}).pop()
-                g_frag_bb_coords = aligned_ghost_frag_pdb.chain(frag_paired_chain).get_backbone_coords()
+                ghost_frag_bb_coords = aligned_ghost_frag_pdb.chain(frag_paired_chain).get_backbone_coords()
                 # Only keep ghost fragments that don't clash with oligomer backbone
-                # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
-                cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
+                cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(ghost_frag_bb_coords, [clash_dist])
 
                 if cb_clash_count[0] == 0:
                     rmsd = intfrag_cluster_info[self.i_type][j_type][k_type].get_rmsd()
                     ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.i_type, j_type, k_type, rmsd,
                                                          self))
-                    # ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.i_type, j_type, k_type, rmsd,
-                    #                                      self.get_central_res_tup()))
-                else:  # TOdo
-                    count_check += 1  # TOdo
-        print('Found %d clashing fragments' % count_check)  # TOdo
-        return ghost_fragments
 
-    # def get_ghost_fragments(self, intfrag_cluster_rep_dict, kdtree_oligomer_backbone, intfrag_cluster_info_dict,
-    #                         clash_dist=2.2):
-    #     if self.i_type in intfrag_cluster_rep_dict:
-    #
-    #         count_check = 0  # TOdo
-    #         ghost_fragments = []
-    #         for j_type in intfrag_cluster_rep_dict[self.i_type]:
-    #             for k_type in intfrag_cluster_rep_dict[self.i_type][j_type]:
-    #                 intfrag = intfrag_cluster_rep_dict[self.i_type][j_type][k_type]
-    #                 intfrag_pdb = intfrag[0]
-    #                 intfrag_mapped_chain_id = intfrag[1]
-    #                 #                                  This has been added in Structure.get_fragments  v
-    #                 aligned_ghost_frag_pdb = biopdb_aligned_chain_old(self.structure, self.structure.chain_id_list[0],
-    #                                                                   intfrag_pdb, intfrag_mapped_chain_id)
-    #
-    #                 # Only keep ghost fragments that don't clash with oligomer backbone
-    #                 # Note: guide atoms, mapped chain atoms and non-backbone atoms not included
-    #                 g_frag_bb_coords = []
-    #                 for atom in aligned_ghost_frag_pdb.atoms:
-    #                     if atom.chain != "9" and atom.chain != intfrag_mapped_chain_id and atom.is_backbone():
-    #                         g_frag_bb_coords.append([atom.x, atom.y, atom.z])
-    #
-    #                 cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(g_frag_bb_coords, [clash_dist])
-    #
-    #                 if cb_clash_count[0] == 0:
-    #                     rmsd = intfrag_cluster_info_dict[self.i_type][j_type][k_type].get_rmsd()
-    #                     ghost_fragments.append(
-    #                         GhostFragment(aligned_ghost_frag_pdb, self.i_type, j_type, k_type, rmsd,
-    #                                       self.get_central_res_tup()))  # ghostfrag_central_res_tup,
-    #                 else:  # TOdo
-    #                     count_check += 1  # TOdo
-    #         print('Found %d clashing fragments' % count_check)  # TOdo
-    #
-    #         return ghost_fragments
-    #
-    #     else:
-    #         return None
+        return ghost_fragments
 
 
 class Atoms:
