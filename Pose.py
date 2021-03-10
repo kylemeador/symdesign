@@ -465,6 +465,10 @@ class SymmetricModel(Model):
             return self.return_crystal_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains,
             #                                                           surrounding_uc=surrounding_uc)
 
+    def return_point_group_symmetry_mates(self, pdb):
+        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
+        return [pdb.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]  # Todo change below as well
+
     def return_crystal_symmetry_mates(self, pdb, surrounding_uc, **kwargs):  # return_side_chains=False, surrounding_uc=False
         """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
         """
@@ -472,10 +476,6 @@ class SymmetricModel(Model):
             return self.return_surrounding_unit_cell_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains FOR Coord expansion
         else:
             return self.return_unit_cell_symmetry_mates(pdb, **kwargs)  # # return_side_chains=return_side_chains
-
-    def return_point_group_symmetry_mates(self, pdb):
-        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
-        return [pdb.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]  # Todo change below as well
 
     def return_unit_cell_coords(self, coords, fractional=False):
         """Return the cartesian unit cell coordinates from a set of coordinates for the specified SymmetricModel"""
@@ -1096,10 +1096,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # Todo identity frag type by residue, not by calculation
         surface_frags1 = entity1.get_fragments([residue.number
                                                 for residue in self.interface_residues[(entity1, entity2)][0]],
-                                               fragment_representatives=self.frag_db.reps)
+                                               representatives=self.frag_db.reps)
         surface_frags2 = entity2.get_fragments([residue.number
                                                 for residue in self.interface_residues[(entity1, entity2)][1]],
-                                               fragment_representatives=self.frag_db.reps)
+                                               representatives=self.frag_db.reps)
         # surface_frags1 = entity1.get_fragments([residue.number for residue in self.interface_residues[entity1]])
         # surface_frags2 = entity2.get_fragments([residue.number for residue in self.interface_residues[entity2]])
         if not surface_frags1 or not surface_frags2:
