@@ -389,7 +389,7 @@ class Structure(StructureBase):
         Returns:
             (list[Atom])
         """
-        return [atom for atom in self.atoms if atom.is_CA()]
+        return self.atoms[self.get_ca_indices()]
 
     def get_cb_atoms(self):
         """Return CB Atoms from the Structure
@@ -397,7 +397,7 @@ class Structure(StructureBase):
         Returns:
             (list[Atom])
         """
-        return [atom for atom in self.atoms if atom.is_CB()]
+        return self.atoms[self.get_cb_indices()]
 
     def get_backbone_atoms(self):
         """Return backbone Atoms from the Structure
@@ -405,7 +405,7 @@ class Structure(StructureBase):
         Returns:
             (list[Atom])
         """
-        return [atom for atom in self.atoms if atom.is_backbone()]
+        return self.atoms[self.get_backbone_indices()]
 
     def get_backbone_and_cb_atoms(self):
         """Return backbone and CB Atoms from the Structure
@@ -413,7 +413,7 @@ class Structure(StructureBase):
         Returns:
             (list[Atom])
         """
-        return [atom for atom in self.atoms if atom.is_backbone() or atom.is_CB()]
+        return self.atoms[self.get_backbone_and_cb_indices()]
 
     def atom(self, atom_number):
         """Retrieve the Atom specified by atom number
@@ -657,14 +657,14 @@ class Structure(StructureBase):
         # print(new_coords)
         new_structure = self.__copy__()
         # print('BEFORE', new_structure.coords)
-        # new_structure.replace_coords(new_coords)
+        # this v should replace the actual numpy array located at coords after the _coords object has been copied
+        new_structure.replace_coords(new_coords)
         # print('AFTER', new_structure.coords)
-        new_structure.set_coords(new_coords)
+        # where as this v will set the _coords object to a new Coords object thus requiring all other _coords be updated
+        # new_structure.set_coords(new_coords)
         return new_structure
 
     def replace_coords(self, new_coords):
-        # if not isinstance(new_coords, Coords):
-        #     new_coords = Coords(new_coords)
         self._coords.coords = new_coords
         # self.set_atoms_attributes(coords=self._coords)
         # self.reindex_atoms()
@@ -920,6 +920,7 @@ class Structure(StructureBase):
         for attr, value in other.__dict__.items():
             # print(attr, value)
             other.__dict__[attr] = copy(value)
+        other.set_structure_attributes(other.residues, coords=other._coords)
         # print('Residues after dict_copy: %s' % id(other._residues))
 
         # print('Residue 0 in selfafter dict_copy: %s' % id(self.residues[0]))
@@ -977,7 +978,7 @@ class Chain(Structure):
     #     self._ref_sequence = sequence
 
     def __copy__(self):
-        """Overwrite the Structure __copy__ method with standard copy()"""
+        """Overwrite Structure.__copy__() with standard copy() method"""
         # print('copying %s' % self.__class__)
         other = self.__class__.__new__(self.__class__)
         other.__dict__ = self.__dict__.copy()
@@ -1690,7 +1691,6 @@ class Coords:
             self.coords = coords
         else:
             self.coords = []
-        # self.indices = None
 
     @property
     def coords(self):
@@ -1700,15 +1700,6 @@ class Coords:
     @coords.setter
     def coords(self, coords):
         self._coords = np.array(coords)
-
-    # def set(self, coordinates):
-    #     self.coords = coordinates
-
-    # def get_indices(self, indicies=None):
-    #     if indicies.any():
-    #         return self._coords[indicies]
-    #     else:
-    #         return self.coords
 
     def __len__(self):
         return self.coords.shape[0]
