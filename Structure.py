@@ -606,11 +606,8 @@ class Structure(StructureBase):
             (str)
         """
         sequence_list = [residue.type for residue in self.residues]
-        sequence = ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
-                            if k.title() in IUPACData.protein_letters_3to1_extended else '-'
-                            for k in sequence_list])
-
-        return sequence
+        return ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
+                        if k.title() in IUPACData.protein_letters_3to1_extended else '-' for k in sequence_list])
 
     def translate(self, tx):
         new_coords = self.coords + tx

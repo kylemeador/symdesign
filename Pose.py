@@ -690,17 +690,17 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if asu and isinstance(asu, Structure):
             self.asu = asu
             self.pdb = self.asu
-            self.pdbs_d[pdb.name] = self.pdb
+            # self.pdbs_d[self.pdb.name] = self.pdb
         elif asu_file:
             self.asu = PDB.from_file(asu_file, log=self.log)
             self.pdb = self.asu
-            self.pdbs_d[pdb.name] = self.pdb
+            # self.pdbs_d[self.pdb.name] = self.pdb
         elif pdb and isinstance(pdb, Structure):
             self.pdb = pdb
-            self.pdbs_d[pdb.name] = self.pdb
+            # self.pdbs_d[self.pdb.name] = self.pdb
         elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log)
-            self.pdbs_d[pdb.name] = self.pdb
+            # self.pdbs_d[self.pdb.name] = self.pdb
             # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
             # this would be:
             # coords, atoms, residues, chains, entities, design, (host of others read from file)
@@ -766,6 +766,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.set_structure(pdb)
             # set up coordinate information for SymmetricModel
             self.coords = pdb._coords
+            self.pdbs_d[pdb.name] = pdb
 
     @property
     def name(self):
