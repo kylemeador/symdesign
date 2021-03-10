@@ -7,6 +7,7 @@ from sklearn.neighbors import BallTree
 
 from PDB import PDB
 from PathUtils import frag_text_file, master_log
+from Pose import Pose
 from SymDesignUtils import calculate_overlap, match_score_from_z_value
 from classes.EulerLookup import EulerLookup
 from classes.OptimalTx import OptimalTx
@@ -14,7 +15,7 @@ from classes.SymEntry import SymEntry, get_optimal_external_tx_vector, get_rot_m
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from interface_analysis.Database import FragmentDB
 from utils.CmdLineArgParseUtils import get_docking_parameters
-from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash
+from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash, get_central_asu
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
     rot_txint_set_txext_frag_coord_sets
 from utils.PDBUtils import get_contacting_asu, get_interface_residues
@@ -282,42 +283,45 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                "Fragment Matches\n" % (str(high_qual_match_count), str(min_matched)))
                 continue
         # else:
+
         # Get contacting PDB 1 ASU and PDB 2 ASU
-        asu_pdb_1, asu_pdb_2 = get_contacting_asu(pdb1_copy, pdb2_copy)
+        asu = get_contacting_asu(pdb1_copy, pdb2_copy)  # _pdb_1, asu_pdb_2
         print('Grabbing asu')
-        if not asu_pdb_1 and not asu_pdb_2:
+        if not asu:  # _pdb_1 and not asu_pdb_2:
             with open(log_filepath, "a+") as log_file:
                 log_file.write("\tNO Design ASU Found\n")
             continue
         # else:
+
         # Check if design has any clashes when expanded
-        # Todo replace with DesignDirectory? Path object?
-        tx_subdir_out_path = os.path.join(rot_subdir_out_path, "tx_%d" % (tx_idx + 1))
-        oligomers_subdir = rot_subdir_out_path.split(os.sep)[-3]
-        degen_subdir = rot_subdir_out_path.split(os.sep)[-2]
-        rot_subdir = rot_subdir_out_path.split(os.sep)[-1]
-        pose_id = "%s_%s_%s_TX_%d" % (oligomers_subdir, degen_subdir, rot_subdir, (tx_idx + 1))
-        sampling_id = '%s_%s_TX_%d' % (degen_subdir, rot_subdir, (tx_idx + 1))
         exp_des_clash_time_start = time.time()
-        exp_des_is_clash = expanded_design_is_clash(asu_pdb_1, asu_pdb_2, sym_entry.get_design_dim(),
-                                                    sym_entry.get_result_design_sym(),
-                                                    sym_entry.expand_matrices, uc_dimensions, tx_subdir_out_path,
-                                                    output_exp_assembly, output_uc, output_surrounding_uc)
+
+        asu.uc_dimensions = uc_dimensions
+        asu.expand_matrices = sym_entry.expand_matrices
+        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.get_result_design_sym(),
+                                           surrounding_uc=output_surrounding_uc)
+        # exp_des_is_clash = expanded_design_is_clash(asu, sym_entry.get_design_dim(),
+        #                                             sym_entry.get_result_design_sym(),
+        #                                             sym_entry.expand_matrices, uc_dimensions, tx_subdir_out_path,
+        #                                             output_exp_assembly, output_uc, output_surrounding_uc)
         print('Checked expand clash')
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
 
-        if exp_des_is_clash:
+        # if exp_des_is_clash:
+        if symmetric_material.symmetric_assembly_is_clash():
             with open(log_filepath, "a+") as log_file:
                 log_file.write("\tBackbone Clash when Designed Assembly is Expanded (took: %s s)\n"
                                % str(exp_des_clash_time))
             continue
         # else:
-        with open(log_filepath, "a+") as log_file:
-            log_file.write("\tNO Backbone Clash when Designed Assembly is Expanded (took: %s s "
-                           "including writing)\n\tSUCCESSFUL DOCKED POSE: %s\n" %
-                           (str(exp_des_clash_time), tx_subdir_out_path))
         # Todo replace with DesignDirectory? Path object?
+        tx_subdir_out_path = os.path.join(rot_subdir_out_path, 'tx_%d' % (tx_idx + 1))
+        oligomers_subdir = rot_subdir_out_path.split(os.sep)[-3]
+        degen_subdir = rot_subdir_out_path.split(os.sep)[-2]
+        rot_subdir = rot_subdir_out_path.split(os.sep)[-1]
+        pose_id = '%s_%s_%s_TX_%d' % (oligomers_subdir, degen_subdir, rot_subdir, (tx_idx + 1))
+        sampling_id = '%s_%s_TX_%d' % (degen_subdir, rot_subdir, (tx_idx + 1))
         if not os.path.exists(degen_subdir_out_path):
             os.makedirs(degen_subdir_out_path)
         if not os.path.exists(rot_subdir_out_path):
@@ -325,28 +329,36 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         if not os.path.exists(tx_subdir_out_path):
             os.makedirs(tx_subdir_out_path)
 
-        # Write PDB1 and PDB2 files
-        cryst1_record = None
-        if optimal_ext_dof_shifts:
-            cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.get_result_design_sym())
-        # pdb1_fname = os.path.splitext(os.path.basename(pdb1.get_filepath()))[0]
-        # pdb2_fname = os.path.splitext(os.path.basename(pdb2.get_filepath()))[0]
-        pdb1_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
-        pdb2_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
-
-        # Todo replace with DesignDirectory? Path object?
         # Make directories to output matched fragment PDB files
-        matched_frag_reps_outpath = os.path.join(tx_subdir_out_path, "matching_fragments")
+        matched_frag_reps_outpath = os.path.join(tx_subdir_out_path, 'matching_fragments')
         if not os.path.exists(matched_frag_reps_outpath):
             os.makedirs(matched_frag_reps_outpath)
         # high_qual_match for fragments that were matched with z values <= 1
         high_qual_matches_outpath = os.path.join(matched_frag_reps_outpath, 'high_qual_match')
-        if not os.path.exists(high_qual_matches_outpath):
-            os.makedirs(high_qual_matches_outpath)
         # low_qual_match for fragments that were matched with z values > 1
-        low_qual_matches_outpath = os.path.join(matched_frag_reps_outpath, "low_qual_match")
-        if not os.path.exists(low_qual_matches_outpath):
-            os.makedirs(low_qual_matches_outpath)
+        low_qual_matches_outpath = os.path.join(matched_frag_reps_outpath, 'low_qual_match')
+
+        # Write ASU, PDB1, PDB2, and expanded assembly files
+        cryst1_record = None
+        if optimal_ext_dof_shifts:
+            asu = get_central_asu(asu, uc_dimensions, sym_entry.get_design_dim())
+            cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.get_result_design_sym())
+        pdb1_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
+        pdb2_copy.write(os.path.join(tx_subdir_out_path, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
+        # if sym_entry.get_design_dim() != 0:
+        #
+        #     # cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.get_result_design_sym())
+        # if not os.path.exists(tx_subdir_out_path):
+        #     os.makedirs(tx_subdir_out_path)
+        if output_uc:
+            symmetric_material.write(out_path=os.path.join(tx_subdir_out_path, 'central_uc.pdb'))
+        if output_surrounding_uc:
+            symmetric_material.write(out_path=os.path.join(tx_subdir_out_path, 'surrounding_unit_cells.pdb'))
+        asu.write(out_path=os.path.join(tx_subdir_out_path, 'asu.pdb'), header=cryst1_record)
+        with open(log_filepath, "a+") as log_file:
+            log_file.write("\tNO Backbone Clash when Designed Assembly is Expanded (took: %s s "
+                           "including writing)\n\tSUCCESSFUL DOCKED POSE: %s\n" %
+                           (str(exp_des_clash_time), tx_subdir_out_path))
 
         # return the indices sorted by z_value then pull information accordingly
         sorted_fragment_indices = np.argsort(passing_z_values)
@@ -420,6 +432,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                 matched_frag_outdir_path = high_qual_matches_outpath
             else:
                 matched_frag_outdir_path = low_qual_matches_outpath
+            if not os.path.exists(matched_frag_outdir_path):
+                os.makedirs(matched_frag_outdir_path)
 
             # if write_frags:
             # write out aligned cluster representative fragment
