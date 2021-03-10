@@ -159,7 +159,7 @@ class SymmetricModel(Model):
             self._coords = coords
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
     def model_coords(self):  # Todo Model
@@ -765,7 +765,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # add structure to the SequenceProfile
             self.set_structure(pdb)
             # set up coordinate information for SymmetricModel
-            self.coords = pdb.coords
+            self.coords = pdb._coords
 
     @property
     def name(self):
