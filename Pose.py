@@ -299,10 +299,10 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         self.number_of_models = valid_subunit_number[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type # todo
-            get_pdb_coords = getattr(PDB, 'get_coords')
+            # get_pdb_coords = getattr(PDB, 'get_coords')
             self.coords_type = 'all'
         else:
-            get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+            # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
         coords_length = len(self.coords)
@@ -317,10 +317,10 @@ class SymmetricModel(Model):
         # self.models = [self.asu]
         self.number_of_models = zvalue_dict[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type  # todo
-            get_pdb_coords = getattr(PDB, 'get_coords')
+            # get_pdb_coords = getattr(PDB, 'get_coords')
             self.coords_type = 'all'
         else:
-            get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+            # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
         asu_frac_coords = self.cart_to_frac(self.coords)
@@ -371,10 +371,10 @@ class SymmetricModel(Model):
         if not self.symmetry:
             raise DesignError('%s: No symmetry set for %s! Cannot get symmetry mates'
                               % (self.get_assembly_symmetry_mates.__name__, self.asu.name))
-        if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_atoms')
-        else:
-            extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+        # if return_side_chains:  # get different function calls depending on the return type
+        #     extract_pdb_atoms = getattr(PDB, 'get_atoms')
+        # else:
+        #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
 
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
         for model_idx in range(self.number_of_models):  # range(1,
@@ -504,10 +504,10 @@ class SymmetricModel(Model):
     def return_surrounding_unit_cell_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'get_coords')
+            # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+            extract_pdb_coords = getattr(PDB, 'coords')
         else:
-            extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+            # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
             extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         # could move the next block to a get all uc frac coords and remove redundancy from here and return_uc_sym_mates
