@@ -35,52 +35,41 @@ def center_of_mass_3d(coordinates):
         return None
 
 
-def rot_txint_set_txext_frag_coord_sets(coord_sets, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):
+def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotation2=None, translation2=None):
+    """Take a set of x,y,z coordinates and transform according to rotation, translation, rotation2, then translation2
+
+    Args:
+        coord_sets (numpy.ndarray): The coordinates to transform, can be shape (number of coordinates, 3, 3)
+    Keyword Args:
+        rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
+        translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
+        rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
+        translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
+    Returns:
+        (numpy.ndarray): The transformed coordinate set with the same shape as the original
+    """
     if not coord_sets:
         return []
 
-    # Get the length of each coordinate set
-    coord_set_lens = []
-    for coord_set in coord_sets:
-        coord_set_lens.append(len(coord_set))
-
-    # Stack coordinate set arrays in sequence vertically (row wise)
-    coord_sets_vstacked = np.vstack(coord_sets)
     # in general, the np.tensordot module accomplishes this same problem without stacking
     # np.tensordot(a, b, axes=1)  <-- axes=1 performs the correct multiplication with a 3d (3,3,N) by 2d (3,3) matrix
-    # np.matmul may solve as well... due to broadcasting
+    # np.matmul may solves as well... due to broadcasting
 
-    # Rotate stacked coordinates if rotation matrix is provided
-    if rot_mat is not None:
-        coord_sets_vstacked = np.matmul(coord_sets_vstacked, np.transpose(rot_mat))
-        # coord_sets_vstacked = np.tensordot(coord_sets, np.transpose(rot_mat), axes=1)
+    if rotation is not None:
+        # coord_sets = np.tensordot(coord_sets, np.transpose(rot_mat), axes=1)
+        coord_sets = np.matmul(coord_sets, np.transpose(rotation))
 
-    # Translate stacked coordinates if internal translation vector is provided
-    if internal_tx_vec is not None:
-        coord_sets_vstacked = coord_sets_vstacked + internal_tx_vec
-        # coord_sets = coord_sets + internal_tx_vec
+    if translation is not None:
+        coord_sets = coord_sets + translation
 
-    # Set stacked coordinates if setting matrix is provided
-    if set_mat is not None:
-        coord_sets_vstacked = np.matmul(coord_sets_vstacked, np.transpose(set_mat))
-        # coord_sets_vstacked = np.tensordot(coord_sets, np.transpose(set_mat), axes=1)
+    if rotation2 is not None:
+        # coord_sets = np.tensordot(coord_sets, np.transpose(set_mat), axes=1)
+        coord_sets = np.matmul(coord_sets, np.transpose(rotation2))
 
-    # Translate stacked coordinates if external translation vector is provided
-    if ext_tx_vec is not None:
-        coord_sets_vstacked = coord_sets_vstacked + ext_tx_vec
-        # coord_sets = coord_sets + ext_tx_vec
+    if translation2 is not None:
+        coord_sets = coord_sets + translation2
 
-    # Slice stacked coordinates back into coordinate sets
-    transformed_coord_sets = []
-    slice_index_1 = 0
-    for coord_set_len in coord_set_lens:
-        slice_index_2 = slice_index_1 + coord_set_len
-
-        transformed_coord_sets.append(coord_sets_vstacked[slice_index_1:slice_index_2].tolist())
-
-        slice_index_1 += coord_set_len
-
-    return transformed_coord_sets
+    return coord_sets
 
 
 def get_last_sampling_state(log_file_path, zero=True):

@@ -17,7 +17,7 @@ from interface_analysis.Database import FragmentDB
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.ExpandAssemblyUtils import generate_cryst1_record, expanded_design_is_clash, get_central_asu
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
-    rot_txint_set_txext_frag_coord_sets
+    transform_coordinate_sets
 from utils.PDBUtils import get_contacting_asu, get_interface_residues
 from utils.SymmUtils import get_uc_dimensions
 
@@ -193,17 +193,15 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                          if surf_frag.get_central_res_tup() in interface_chain_residues_pdb2])
         surf_frag_guide_coords = [surf_frag.guide_coords for surf_frag in interface_surf_frags]
 
-        ghost_frag_guide_coords_transformed = rot_txint_set_txext_frag_coord_sets(ghost_frag_guide_coords,
-                                                                                  rot_mat=rot_mat1,
-                                                                                  internal_tx_vec=representative_int_dof_tx_param_1,
-                                                                                  set_mat=sym_entry.get_rot_set_mat_group1(),
-                                                                                  ext_tx_vec=representative_ext_dof_tx_params_1)
+        ghost_frag_guide_coords_transformed = transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
+                                                                        translation=representative_int_dof_tx_param_1,
+                                                                        rotation2=sym_entry.get_rot_set_mat_group1(),
+                                                                        translation2=representative_ext_dof_tx_params_1)
 
-        surf_frag_guide_coords_transformed = rot_txint_set_txext_frag_coord_sets(surf_frag_guide_coords,
-                                                                                 rot_mat=rot_mat2,
-                                                                                 internal_tx_vec=representative_int_dof_tx_param_2,
-                                                                                 set_mat=sym_entry.get_rot_set_mat_group2(),
-                                                                                 ext_tx_vec=representative_ext_dof_tx_params_2)
+        surf_frag_guide_coords_transformed = transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
+                                                                       translation=representative_int_dof_tx_param_2,
+                                                                       rotation2=sym_entry.get_rot_set_mat_group2(),
+                                                                       translation2=representative_ext_dof_tx_params_2)
         # Todo remove np.array() when np.tensordot is implemented
         transformed_ghostfrag_guide_coords_np = np.array(ghost_frag_guide_coords_transformed)
         transformed_monofrag2_guide_coords_np = np.array(surf_frag_guide_coords_transformed)
@@ -1186,30 +1184,30 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                               if passing_shift is not None]
                     if len(passing_optimal_shifts) > 0:
                         print('Number of passing optimal shifts: %d' % len(passing_optimal_shifts))
-                        print('passing optimal shifts: %s' % passing_optimal_shifts)
-                        passing_optimal_shifts_idx = [idx for idx, passing_shift in enumerate(optimal_shifts)
-                                                      if passing_shift is not None]
-                        passing_fragment_pairs = [overlap_pairs[idx] for idx in passing_optimal_shifts_idx]
-                        print('passing fragment pairs: %s' % passing_fragment_pairs)
-                        central_res_tuples = [ghost_frags[ghost_idx].get_aligned_chain_and_residue()
-                                              for ghost_idx, surf_idx in passing_fragment_pairs]
-                        print('passing ghost fragment chain/residue: %s' % central_res_tuples)
-                        surf_central_res_tuples = [initial_surf_frags[surf_idx].get_central_res_tup()
-                                                   for ghost_idx, surf_idx in passing_fragment_pairs]
-                        print('passing surface fragment chain/residue: %s' % surf_central_res_tuples)
-                        # out_string = os.path.join(frag_check, "DEGEN_%d_%d_ROT_%d_%d"
-                        #                           % (degen1_count, degen2_count, rot1_count, rot2_count))
-                        # if not os.path.exists(out_string):
-                        #     os.makedirs(out_string)
-                        # transformed_frags = [ghost_frags[ghost_idx].structure.return_transformed_copy(rotation=rot1_mat,
-                        #                                                                               translation=[0, 0, passing_optimal_shifts[idx][0]],
-                        #                                                                               rotation2=set_mat1)
-                        #                      for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
-                        # write_residue_matches = [transformed_frags[idx].write(
-                        #     out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
-                        #                           % ('%s_%s_%s' % ghost_frags[ghost_idx].get_ijk(),
-                        #                              *ghost_frags[ghost_idx].get_aligned_chain_and_residue())))
-                        #                          for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
+                        # print('passing optimal shifts: %s' % passing_optimal_shifts)
+                        # passing_optimal_shifts_idx = [idx for idx, passing_shift in enumerate(optimal_shifts)
+                        #                               if passing_shift is not None]
+                        # passing_fragment_pairs = [overlap_pairs[idx] for idx in passing_optimal_shifts_idx]
+                        # print('passing fragment pairs: %s' % passing_fragment_pairs)
+                        # central_res_tuples = [ghost_frags[ghost_idx].get_aligned_chain_and_residue()
+                        #                       for ghost_idx, surf_idx in passing_fragment_pairs]
+                        # print('passing ghost fragment chain/residue: %s' % central_res_tuples)
+                        # surf_central_res_tuples = [initial_surf_frags[surf_idx].get_central_res_tup()
+                        #                            for ghost_idx, surf_idx in passing_fragment_pairs]
+                        # print('passing surface fragment chain/residue: %s' % surf_central_res_tuples)
+                        # # out_string = os.path.join(frag_check, "DEGEN_%d_%d_ROT_%d_%d"
+                        # #                           % (degen1_count, degen2_count, rot1_count, rot2_count))
+                        # # if not os.path.exists(out_string):
+                        # #     os.makedirs(out_string)
+                        # # transformed_frags = [ghost_frags[ghost_idx].structure.return_transformed_copy(rotation=rot1_mat,
+                        # #                                                                               translation=[0, 0, passing_optimal_shifts[idx][0]],
+                        # #                                                                               rotation2=set_mat1)
+                        # #                      for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
+                        # # write_residue_matches = [transformed_frags[idx].write(
+                        # #     out_path=os.path.join(out_string, 'frag%s_chain%s_res%s.pdb'
+                        # #                           % ('%s_%s_%s' % ghost_frags[ghost_idx].get_ijk(),
+                        # #                              *ghost_frags[ghost_idx].get_aligned_chain_and_residue())))
+                        # #                          for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
 
                         with open(log_file_path, "a+") as log_file:
                             log_file.write("%s Initial Interface Fragment Match%s Found\n\n"

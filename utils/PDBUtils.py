@@ -4,7 +4,7 @@ from sklearn.neighbors import BallTree
 # from classes.Fragment import GhostFragment
 # from classes.Fragment import MonoFragment
 from PDB import PDB
-from utils.GeneralUtils import rot_txint_set_txext_frag_coord_sets
+from utils.GeneralUtils import transform_coordinate_sets
 
 
 # def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):
@@ -146,12 +146,12 @@ def get_interface_frags(pdb1_ghost_frag_list, pdb2_surf_frag_list, rot_mat1, rot
                               if surf_frag.get_central_res_tup() in pdb2_unique_chain_central_resnums]
 
     # Rotate, Translate and Set Fragment Guide Coordinates
-    ghost_frag_guide_coords_transformed = rot_txint_set_txext_frag_coord_sets(ghost_frag_guide_coords, rot_mat=rot_mat1,
-                                                                              internal_tx_vec=internal_tx_vec1,
-                                                                              set_mat=set_mat1, ext_tx_vec=ext_tx_vec1)
+    ghost_frag_guide_coords_transformed = transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
+                                                                    translation=internal_tx_vec1, rotation2=set_mat1,
+                                                                    translation2=ext_tx_vec1)
 
-    surf_frag_guide_coords_transformed = rot_txint_set_txext_frag_coord_sets(surf_frag_guide_coords, rot_mat=rot_mat2,
-                                                                             internal_tx_vec=internal_tx_vec2,
-                                                                             set_mat=set_mat2, ext_tx_vec=ext_tx_vec2)
+    surf_frag_guide_coords_transformed = transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
+                                                                   translation=internal_tx_vec2, rotation2=set_mat2,
+                                                                   translation2=ext_tx_vec2)
 
     return np.array(ghost_frag_guide_coords_transformed), np.array(surf_frag_guide_coords_transformed)
