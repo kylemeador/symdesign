@@ -33,8 +33,8 @@ class PDB(Structure):
     """
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, residues=None, entities=None, coords=None, metadata=None, log=False,
-                 **kwargs):
+    def __init__(self, file=None, atoms=None, residues=None, chains=None, entities=None, coords=None, metadata=None,
+                 log=False, **kwargs):
         if log is None:
             log = null_log
         # else pass the log that was passed to the PDB to Structure or let structure start a log if log still is False
@@ -76,13 +76,13 @@ class PDB(Structure):
             self.readfile(file, **kwargs)
         if atoms is not None:
             if coords is None:
-                try:
-                    coords = [atom.coords for atom in atoms]
-                except AttributeError:
-                    raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
-                                      'coords! Either pass Atom objects with coords or pass coords.')
-                self.reindex_atoms()
-                # self.coords = coords
+                # try:
+                #     coords = [atom.coords for atom in atoms]
+                # except AttributeError:
+                raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects'
+                                  '! Pass desired coords.')  # lacking coords! Either pass Atom objects with coords or
+                # self.reindex_atoms()
+                # # self.coords = coords
             self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
             self.process_pdb(atoms=atoms, coords=coords, **kwargs)
             if metadata and isinstance(metadata, PDB):
@@ -90,16 +90,24 @@ class PDB(Structure):
         if residues:
             if coords is None:
                 try:
-                    coords = [atom.coords for residue in residues for atom in residue.atoms]
+                    # coords = iter_chain.from_iterable([residue.coords for residue in residues])
+                    coords = np.concatenate([residue.coords for residue in residues])
                 except AttributeError:
-                    raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects lacking '
-                                      'coords! Either pass Atom objects with coords or pass coords.')
+                    raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects lacking'
+                                      ' coords! Either pass Residue objects with coords or pass coords.')
                 self.reindex_atoms()
                 # self.coords = coords
             self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
             self.process_pdb(residues=residues, coords=coords, **kwargs)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
+        if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
+            self.coords = np.concatenate([chain.coords for chain in chains])
+            self.atoms = [atom for chain in chains for atom in chain.atoms]
+            self.atom_indices = list(range(self.number_of_atoms))
+            self.residues = [residue for chain in chains for residue in chain.residues]
+            self.residue_indices = list(range(self.number_of_residues))
+            self.chains = chains
         if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
             self.coords = np.concatenate([entity.coords for entity in entities])
             self.atoms = [atom for entity in entities for atom in entity.atoms]
@@ -111,6 +119,10 @@ class PDB(Structure):
     @classmethod
     def from_file(cls, file, **kwargs):
         return cls(file=file, **kwargs)
+
+    @classmethod
+    def from_chains(cls, chains, **kwargs):
+        return cls(chains=chains, **kwargs)
 
     @classmethod
     def from_entities(cls, entities, **kwargs):
