@@ -845,8 +845,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
         self.ignore_clashes = ignore_clashes
-        # if design_selector:
-        self.create_design_selector(**design_selector)
+        if design_selector:
+            self.create_design_selector(**design_selector)
+        else:
+            # self.create_design_selector(selection={}, mask={}, required={})
+            self.design_selector_entities = self.design_selector_entities.union(set(self.entities))
+            self.design_selector_indices = self.design_selector_indices.union(set(self.pdb.atom_indices))
         if frag_db:
             # Attach an existing FragmentDB to the Pose
             self.attach_fragment_database(db=frag_db)
@@ -899,17 +903,23 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
             return entity_set, atom_indices
 
+        # if not selection:
+        #     entity_selection = set(self.entities)
+        #     atom_selection = set(self.pdb.atom_indices)
+        # else:
         self.log.debug('The design_selection includes: %s' % selection)
         entity_selection, atom_selection = grab_indices(**selection)
+        # if mask:
         self.log.debug('The design_mask includes: %s' % mask)
         entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
         entity_selection = entity_selection.difference(entity_mask)
         atom_selection = atom_selection.difference(atom_mask)
-        self.log.debug('The required_residues includes: %s' % required)
-        entity_required, atom_required = grab_indices(**required, start_with_none=True)
-
         self.design_selector_entities = self.design_selector_entities.union(entity_selection)
         self.design_selector_indices = self.design_selector_indices.union(atom_selection)
+
+        # if required:
+        self.log.debug('The required_residues includes: %s' % required)
+        entity_required, atom_required = grab_indices(**required, start_with_none=True)
         self.required_indices = self.required_indices.union(atom_required)
         self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
 
