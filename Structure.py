@@ -693,10 +693,10 @@ class Structure(StructureBase):
             # We might miss a clash here! It would be peculiar for the C-terminal C clashing with the N-terminus atoms
             # and vice-versa. This also allows a PDB with permuted sequence to be handled properly!
             residue_indices_and_bonded_c_and_n = \
-                np.array(residue.atom_indices + [self.residues[idx].c.index, self.residues[-number_residues + 2
-                                                                                           + idx].n.index])
+                residue.atom_indices + [self.residues[idx].c.index, self.residues[-number_residues + idx + 2].n.index]
             clashes = np.setdiff1d(all_contacts, residue_indices_and_bonded_c_and_n)
             if any(clashes):
+                print('Found the following contacts: %s' % residue_query)
                 for clash_idx in clashes:
                     if self.atoms[clash_idx].is_backbone() or self.atoms[clash_idx].is_CB():
                         backbone_clashes.append((residue, self.atoms[clash_idx], clash_idx))
@@ -1090,10 +1090,12 @@ class Residue:
 
     @property
     def atom_indices(self):  # in structure too
+        """Returns: (list[int])"""
         return self._atom_indices
 
     @atom_indices.setter
     def atom_indices(self, indices):  # in structure too
+        """Set the Structure atom indices to a list of integers"""
         self._atom_indices = indices
 
     @property
