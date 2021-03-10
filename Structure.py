@@ -35,7 +35,9 @@ class Structure(StructureBase):
     def __init__(self, atoms=None, residues=None, residue_indices=None, name=None, coords=None, log=None, **kwargs):
         self._coords = None
         self._atoms = None
+        self._atom_indices = None
         self._residues = None
+        self._residue_indices = None
         self.name = name
         self.secondary_structure = None
 
