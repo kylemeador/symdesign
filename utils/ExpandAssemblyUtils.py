@@ -48,8 +48,9 @@ def generate_cryst1_record(dimensions, spacegroup):
     else:
         raise ValueError("SPACEGROUP NOT SUPPORTED")
 
-    cryst1_fmt = "CRYST1{box[0]:9.3f}{box[1]:9.3f}{box[2]:9.3f}""{ang[0]:7.2f}{ang[1]:7.2f}{ang[2]:7.2f} ""{spacegroup:<11s}{zvalue:4d}\n"
-    return cryst1_fmt.format(box=dimensions[:3], ang=dimensions[3:], spacegroup=fmt_spacegroup, zvalue=zvalue)
+    return "CRYST1{box[0]:9.3f}{box[1]:9.3f}{box[2]:9.3f}""{ang[0]:7.2f}{ang[1]:7.2f}{ang[2]:7.2f} "\
+           "{spacegroup:<11s}{zvalue:4d}\n".format(box=dimensions[:3], ang=dimensions[3:], spacegroup=fmt_spacegroup,
+                                                   zvalue=zvalue)
 
 
 def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, "POINT_GROUP_SYMM_OPERATORS")):
@@ -232,8 +233,8 @@ def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
     for x in range(-10, 11):
         asu_com_x_shifted_coords_frac = asu_com_frac + [x, 0, 0]
         asu_com_x_shifted_coords_cart = frac_to_cart(asu_com_x_shifted_coords_frac, uc_dimensions)
-        if abs(asu_com_x_shifted_coords_cart[0]) < abs(asu_com_x_min_cart):
-            asu_com_x_min_cart = asu_com_x_shifted_coords_cart[0]
+        if abs(asu_com_x_shifted_coords_cart[0]) < asu_com_x_min_cart:
+            asu_com_x_min_cart = abs(asu_com_x_shifted_coords_cart[0])
             x_min_shift_vec_frac = [x, 0, 0]
 
     asu_com_y_min_cart = float('inf')
@@ -241,8 +242,8 @@ def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
     for y in range(-10, 11):
         asu_com_y_shifted_coords_frac = asu_com_frac + [0, y, 0]
         asu_com_y_shifted_coords_cart = frac_to_cart(asu_com_y_shifted_coords_frac, uc_dimensions)
-        if abs(asu_com_y_shifted_coords_cart[1]) < abs(asu_com_y_min_cart):
-            asu_com_y_min_cart = asu_com_y_shifted_coords_cart[1]
+        if abs(asu_com_y_shifted_coords_cart[1]) < asu_com_y_min_cart:
+            asu_com_y_min_cart = abs(asu_com_y_shifted_coords_cart[1])
             y_min_shift_vec_frac = [0, y, 0]
 
     if x_min_shift_vec_frac is not None and y_min_shift_vec_frac is not None:
@@ -322,6 +323,50 @@ def get_central_asu_pdb_3d(pdb1, pdb2, uc_dimensions):
 
     else:
         return pdb_asu
+
+
+def get_central_asu(pdb, uc_dimensions, design_dimension):
+    asu_com_frac = cart_to_frac(pdb.center_of_mass, uc_dimensions)
+
+    # array_range = np.full(21, 1)
+    # asu_com_frac_array = array_range[:, np.newaxis] * asu_com_frac
+    shift_range = np.arange(-10, 11)
+    shift_zeros = np.zeros(len(shift_range))
+    shift = np.array([shift_range, shift_range, shift_range]).T
+    # y_shift = np.array([shift_zeros, shift_range, shift_zeros]).T
+    # z_shift = np.array([shift_zeros, shift_zeros, shift_range]).T
+
+    asu_com_shifted_frac_array = asu_com_frac + shift
+    # asu_com_y_shifted_frac_array = asu_com_frac + y_shift
+    # asu_com_z_shifted_frac_array = asu_com_frac + z_shift
+    asu_com_shifted_cart_array = frac_to_cart(asu_com_shifted_frac_array, uc_dimensions)
+    # asu_com_y_shifted_cart_array = frac_to_cart(asu_com_y_shifted_frac_array, uc_dimensions)
+    # asu_com_z_shifted_cart_array = frac_to_cart(asu_com_z_shifted_frac_array, uc_dimensions)
+    min_shift_idx = abs(asu_com_shifted_cart_array).argmin(axis=0)
+    # y_min_shift_idx = abs(asu_com_y_shifted_cart_array).argmin(axis=0)[1]
+    # z_min_shift_idx = abs(asu_com_z_shifted_cart_array).argmin(axis=0)[2]
+
+    xyz_min_shift_vec_frac = asu_com_shifted_frac_array[min_shift_idx]
+    #                        asu_com_y_shifted_frac_array[y_min_shift_idx],
+    #                        asu_com_z_shifted_frac_array[z_min_shift_idx]]
+
+    if design_dimension == 2:
+        xyz_min_shift_vec_frac[2] = 0
+
+    if xyz_min_shift_vec_frac == [0, 0, 0]:
+        return pdb
+    else:
+        # xyz_min_shifted_pdb_asu_coords_frac = cart_to_frac(pdb.coords, uc_dimensions) + xyz_min_shift_vec_frac
+        # xyz_min_shifted_pdb_asu_coords_cart = frac_to_cart(xyz_min_shifted_pdb_asu_coords_frac, uc_dimensions)
+        # xyz_min_shifted_asu_pdb = copy.copy(pdb)
+        # xyz_min_shifted_asu_pdb.set_coords(xyz_min_shifted_pdb_asu_coords_cart)
+
+        xyz_min_shifted_cart_tx = frac_to_cart(xyz_min_shift_vec_frac, uc_dimensions)
+        # xyz_min_shifted_asu_pdb = copy.copy(pdb)
+        # xyz_min_shifted_asu_pdb.set_coords(pdb.coords + xyz_min_shifted_cart_tx)
+        return pdb.return_transformed_copy(translation=xyz_min_shifted_cart_tx)
+        # xyz_min_shifted_asu_pdb.set_atom_coordinates(xyz_min_shifted_pdb_asu_coords_cart)
+        # return xyz_min_shifted_asu_pdb
 
 
 def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
