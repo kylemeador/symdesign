@@ -107,7 +107,7 @@ class PDB(Structure):
             self.atoms = atoms
             self.atom_indices = list(range(len(atoms)))
             self.residues = [residue for chain in chains for residue in chain.residues]
-            self.residue_indices = list(range(self.number_of_residues))
+            self.residue_indices = list(range(self.residues))
             self.coords = self.set_coords(np.concatenate([chain.coords for chain in chains]))
             self.chains = chains
         if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
@@ -115,7 +115,7 @@ class PDB(Structure):
             self.atoms = atoms
             self.atom_indices = list(range(len(atoms)))
             self.residues = [residue for entity in entities for residue in entity.residues]
-            self.residue_indices = list(range(self.number_of_residues))
+            self.residue_indices = list(range(self.residues))
             self.coords = self.set_coords(np.concatenate([entity.coords for entity in entities]))
             self.entities = entities
 
