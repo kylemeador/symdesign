@@ -711,8 +711,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             get_complete_surf_frags_time_start = time.time()
 
     # print('pdb2 surface residues: %s' % pdb2.get_surface_residues())
-    complete_surf_frags = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(),
-                                                 fragment_representatives=ijk_frag_db.reps)
+    complete_surf_frags = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(), representatives=ijk_frag_db.reps)
     # surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
     #
     # complete_surf_frags = []
@@ -760,15 +759,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             get_complete_ghost_frags_time_start = time.time()
 
     # print('pdb1 surface residues: %s' % pdb1.get_surface_residues())
-    surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues(),
-                                      fragment_representatives=ijk_frag_db.reps)
+    surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues(), representatives=ijk_frag_db.reps)
 
     complete_ghost_frags = []
     for frag in surf_frags_1:
         # monofrag1 = MonoFragment(frag1, ijk_frag_db.reps)
         # if monofrag1.i_type:
         complete_ghost_frags.extend(frag.get_ghost_fragments(ijk_frag_db.paired_frags, oligomer1_backbone_cb_tree,
-                                                                 ijk_frag_db.info))
+                                                             ijk_frag_db.info))
 
     # calculate the initial match type by finding the predominant surface type
     print('Length of surface_frags1: %d' % len(surf_frags_1))
