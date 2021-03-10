@@ -132,7 +132,7 @@ class Structure(StructureBase):
 
     @property
     def atoms(self):
-        """Returns: (numpy.ndarray)"""
+        """Returns: (list[Atom])"""
         return self._atoms.atoms[self.atom_indices].tolist()
 
     @atoms.setter
@@ -168,7 +168,7 @@ class Structure(StructureBase):
 
     @property
     def residues(self):
-        """Returns: (numpy.ndarray)"""
+        """Returns: (list[Residue])"""
         return self._residues.residues[self._residue_indices].tolist()
 
     @residues.setter
