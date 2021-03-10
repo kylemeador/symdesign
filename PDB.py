@@ -108,7 +108,7 @@ class PDB(Structure):
             self.atom_indices = list(range(len(atoms)))
             self.residues = [residue for chain in chains for residue in chain.residues]
             self.residue_indices = list(range(len(self.residues)))
-            self.coords = self.set_coords(np.concatenate([chain.coords for chain in chains]))
+            self.set_coords(np.concatenate([chain.coords for chain in chains]))
             self.chains = chains
         if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
             atoms = [atom for entity in entities for atom in entity.atoms]
@@ -116,7 +116,7 @@ class PDB(Structure):
             self.atom_indices = list(range(len(atoms)))
             self.residues = [residue for entity in entities for residue in entity.residues]
             self.residue_indices = list(range(len(self.residues)))
-            self.coords = self.set_coords(np.concatenate([entity.coords for entity in entities]))
+            self.set_coords(np.concatenate([entity.coords for entity in entities]))
             self.entities = entities
 
     @classmethod
@@ -140,13 +140,15 @@ class PDB(Structure):
         return {'symmetry': self.space_group, 'uc_dimensions': self.uc_dimensions, 'cryst_record': self.cryst_record,
                 'cryst': self.cryst, 'max_symmetry': self.max_symmetry}
 
-    def return_transformed_copy(self, **kwargs):
-        new_pdb = super().return_transformed_copy(**kwargs)
-        new_pdb.update_attributes(coords=new_pdb._coords)
-
-        return new_pdb
+    # def return_transformed_copy(self, **kwargs):
+    #     new_pdb = super().return_transformed_copy(**kwargs)
+    #     # this shouldn't be required as the set of self._coords.coords updates all coords references
+    #     # new_pdb.update_attributes(coords=new_pdb._coords)
+    #
+    #     return new_pdb
 
     def update_attributes(self, **kwargs):
+        # super().update_attributes(**kwargs)  # this is required to set the base Structure with the kwargs
         self.set_structure_attributes(self.chains, **kwargs)
         self.set_structure_attributes(self.entities, **kwargs)
 
@@ -1773,7 +1775,9 @@ class PDB(Structure):
         structures = [other.chains, other.entities]
         other.copy_structures(structures)
         # these were updated in the super().__copy__, now need to set attributes in copied chains and entities
-        other.update_attributes(residues=copy(self._residues), coords=copy(self._coords))
+        # other.update_attributes(residues=copy(self._residues), coords=copy(self._coords))
+        # This style v accomplishes the update that the super().__copy__() started
+        other.update_attributes(residues=other._residues, coords=other._coords)
 
         return other
 
