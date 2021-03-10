@@ -763,10 +763,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def pdb(self, pdb):
         self._pdb = pdb
         if isinstance(pdb, Structure):
-            if pdb.is_clash():
-                if self.ignore_clashes:
-                    pass
-                else:
+            if self.ignore_clashes:
+                pass
+            else:
+                if pdb.is_clash():
                     raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
             # add structure to the SequenceProfile
             self.set_structure(pdb)
@@ -1114,7 +1114,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if self.symmetry:
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary
-            # Todo the surface_frags are now list[MonoFragments]
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
             surface_frags2 = list(chain.from_iterable(surface_frags2_nested))
             self.log.debug('Entity 2 Symmetry expanded fragment count: %d' % len(surface_frags2))
