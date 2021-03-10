@@ -303,17 +303,20 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #                                             sym_entry.get_result_design_sym(),
         #                                             sym_entry.expand_matrices, uc_dimensions, tx_subdir_out_path,
         #                                             output_exp_assembly, output_uc, output_surrounding_uc)
-        print('Checked expand clash')
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
 
         # if exp_des_is_clash:
+        print('Checked expand clash')
         if symmetric_material.symmetric_assembly_is_clash():
             with open(log_filepath, "a+") as log_file:
                 log_file.write("\tBackbone Clash when Designed Assembly is Expanded (took: %s s)\n"
                                % str(exp_des_clash_time))
             continue
         # else:
+        with open(log_filepath, "a+") as log_file:
+            log_file.write("\tNO Backbone Clash when Designed Assembly is Expanded (took: %s s)\n"
+                           % str(exp_des_clash_time))
         # Todo replace with DesignDirectory? Path object?
         tx_subdir_out_path = os.path.join(rot_subdir_out_path, 'tx_%d' % (tx_idx + 1))
         oligomers_subdir = rot_subdir_out_path.split(os.sep)[-3]
@@ -355,9 +358,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             symmetric_material.write(out_path=os.path.join(tx_subdir_out_path, 'surrounding_unit_cells.pdb'))
         asu.write(out_path=os.path.join(tx_subdir_out_path, 'asu.pdb'), header=cryst1_record)
         with open(log_filepath, "a+") as log_file:
-            log_file.write("\tNO Backbone Clash when Designed Assembly is Expanded (took: %s s "
-                           "including writing)\n\tSUCCESSFUL DOCKED POSE: %s\n" %
-                           (str(exp_des_clash_time), tx_subdir_out_path))
+            log_file.write("\tSUCCESSFUL DOCKED POSE: %s\n" % tx_subdir_out_path)
 
         # return the indices sorted by z_value then pull information accordingly
         sorted_fragment_indices = np.argsort(passing_z_values)
@@ -700,7 +701,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                            % (pdb1_name, pdb2_name, pdb1_path, pdb2_path, outdir))
 
     # Get PDB2 Symmetric Building Block
-    pdb2 = PDB.from_file(pdb2_path)
+    pdb2 = PDB.from_file(pdb2_path, log=None)  # Todo change when logging set up
 
     # Get Oligomer 2 Surface (Mono) Fragments With Guide Coordinates Using COMPLETE Fragment Database
     if not resume:
@@ -710,24 +711,24 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             get_complete_surf_frags_time_start = time.time()
 
     # print('pdb2 surface residues: %s' % pdb2.get_surface_residues())
-    complete_surf_frag_list = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(),
+    complete_surf_frags = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(),
                                                  fragment_representatives=ijk_frag_db.reps)
     # surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
     #
-    # complete_surf_frag_list = []
+    # complete_surf_frags = []
     # for frag2 in surf_frags_2:
     #     monofrag2 = MonoFragment(frag2, ijk_frag_db.reps)
     #     if monofrag2.get_i_type():
-    #         complete_surf_frag_list.append(monofrag2)
+    #         complete_surf_frags.append(monofrag2)
     # additional gains in fragment reduction could be realized with modifying SASA extent by ghost fragment access
 
     # calculate the initial match type by finding the predominant surface type
-    frag_types2 = [monofrag2.i_type for monofrag2 in complete_surf_frag_list]
+    frag_types2 = [monofrag2.i_type for monofrag2 in complete_surf_frags]
     fragment_content2 = [frag_types2.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 2 fragment content: %s' % fragment_content2)
     initial_type2 = str(np.argmax(fragment_content2) + 1)
     # print('Found fragment initial type oligomer 2: %s' % initial_type2)
-    initial_surf_frags = [monofrag2 for monofrag2 in complete_surf_frag_list if monofrag2.i_type == initial_type2]
+    initial_surf_frags = [monofrag2 for monofrag2 in complete_surf_frags if monofrag2.i_type == initial_type2]
     initial_surf_frags2_guide_coords = [surf_frag.guide_coords for surf_frag in initial_surf_frags]
     # -----------------------
     frag_check = os.path.join(os.path.dirname(log_file_path), 'frag_check')
@@ -738,8 +739,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #         frag.structure.write(out_path=os.path.join(frag_check, 'surffrag%s_chain%s_res%s.pdb'
     #                                                    % (frag.get_i_type(), *frag.get_central_res_tup())))
     # -----------------------
-    surf_frag_np = np.array(initial_surf_frags)
-    complete_surf_frag_np = np.array(complete_surf_frag_list)
+    # surf_frag_np = np.array(initial_surf_frags)
+    # complete_surf_frags = np.array(complete_surf_frags)
 
     if not resume and keep_time:
         get_complete_surf_frags_time_stop = time.time()
@@ -748,7 +749,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             log_file.write(" (took: %s s)\n\n" % str(get_complete_surf_frags_time))
 
     # Get PDB1 Symmetric Building Block
-    pdb1 = PDB.from_file(pdb1_path)
+    pdb1 = PDB.from_file(pdb1_path, log=None)  # Todo change when logging set up
     oligomer1_backbone_cb_tree = BallTree(pdb1.get_backbone_and_cb_coords())
 
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
@@ -762,25 +763,25 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     surf_frags_1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues(),
                                       fragment_representatives=ijk_frag_db.reps)
 
-    complete_ghost_frag_list = []
+    complete_ghost_frags = []
     for frag in surf_frags_1:
         # monofrag1 = MonoFragment(frag1, ijk_frag_db.reps)
         # if monofrag1.i_type:
-        complete_ghost_frag_list.extend(frag.get_ghost_fragments(ijk_frag_db.paired_frags, oligomer1_backbone_cb_tree,
+        complete_ghost_frags.extend(frag.get_ghost_fragments(ijk_frag_db.paired_frags, oligomer1_backbone_cb_tree,
                                                                  ijk_frag_db.info))
 
     # calculate the initial match type by finding the predominant surface type
     print('Length of surface_frags1: %d' % len(surf_frags_1))
-    print('Length of complete_ghost_frags1: %d' % len(complete_ghost_frag_list))
-    frag_types1 = [ghost_frag1.i_type for ghost_frag1 in complete_ghost_frag_list]
+    print('Length of complete_ghost_frags1: %d' % len(complete_ghost_frags))
+    frag_types1 = [ghost_frag1.i_type for ghost_frag1 in complete_ghost_frags]
     fragment_content1 = [frag_types1.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 1 i fragment content: %s' % fragment_content1)
     # initial_type1 = str(np.argmax(fragment_content1) + 1)
     # print('Found initial fragment type oligomer 1: %s' % initial_type1)
-    frag_types1_j = [ghost_frag1.j_type for ghost_frag1 in complete_ghost_frag_list]
+    frag_types1_j = [ghost_frag1.j_type for ghost_frag1 in complete_ghost_frags]
     fragment_content1_j = [frag_types1_j.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)
-    ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frag_list if ghost_frag1.j_type == initial_type2]
+    ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frags if ghost_frag1.j_type == initial_type2]
     # -----------------------
     #
     # for idx_f, frag in enumerate(ghost_frags):
@@ -790,9 +791,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                                                   *frag.get_aligned_chain_and_residue())))
     # -----------------------
     ghost_frag_guide_coords = [ghost_frag1.guide_coords for ghost_frag1 in ghost_frags]
-
-    ghost_frag_np = np.array(ghost_frags)
-    complete_ghost_frag_np = np.array(complete_ghost_frag_list)
+    # ghost_frag_np = np.array(ghost_frags)
+    # complete_ghost_frags = np.array(complete_ghost_frags)
 
     if not resume and keep_time:
         get_complete_ghost_frags_time_stop = time.time()
@@ -866,7 +866,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                                        (rot1_count, rot2_count))
     #
     #     find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
-    #                       complete_ghost_frag_list, complete_surf_frag_list, log_file_path, degen_subdir_out_path,
+    #                       complete_ghost_frags, complete_surf_frags, log_file_path, degen_subdir_out_path,
     #                       rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
     #                       max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly, output_uc=output_uc,
     #                       output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
@@ -950,7 +950,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                                                (rot1_count, rot2_count))
     #
     #             find_docked_poses(sym_entry, ijk_intfrag_cluster_info_dict, pdb1, pdb2, passing_optimal_shifts,
-    #                               complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
+    #                               complete_ghost_frags, complete_surf_frags, log_file_path,
     #                               degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
     #                               rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
     #                               output_exp_assembly=output_exp_assembly, output_uc=output_uc,
@@ -1033,7 +1033,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                                                (rot1_count, rot2_count))
     #
     #             find_docked_poses(sym_entry, ijk_intfrag_cluster_info_dict, pdb1, pdb2, passing_optimal_shifts,
-    #                               complete_ghost_frag_list, complete_surf_frag_list, log_file_path,
+    #                               complete_ghost_frags, complete_surf_frags, log_file_path,
     #                               degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
     #                               rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
     #                               output_exp_assembly=output_exp_assembly, output_uc=output_uc,
@@ -1219,7 +1219,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                            (rot1_count, rot2_count))
 
                         find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,  # out_string,
-                                          complete_ghost_frag_np, complete_surf_frag_np, log_file_path,
+                                          complete_ghost_frags, complete_surf_frags, log_file_path,
                                           degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
                                           rot_mat1=rot1_mat, rot_mat2=rot2_mat, max_z_val=subseq_max_z_val,
                                           output_exp_assembly=output_exp_assembly, output_uc=output_uc,

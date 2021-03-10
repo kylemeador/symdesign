@@ -69,7 +69,7 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8):
                 max_contact_chain1, max_contact_chain2 = chain1, chain2
 
     if max_contact_count > 0:  # and max_contact_chain1 is not None and max_contact_chain2 is not None:
-        return PDB.from_chains([max_contact_chain1, max_contact_chain2])
+        return PDB.from_chains([max_contact_chain1, max_contact_chain2], log=None)  # add when logger set up
         # pdb2_asu = PDB.from_atoms(max_contact_chain2.atoms)
         # return asu  # , pdb2_asu
     else:
