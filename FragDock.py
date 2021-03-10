@@ -251,7 +251,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                          if ij_type_match[idx]])
         passing_surf_coords = transformed_monofrag2_guide_coords_np[passing_surf_indices]
         # precalculate the reference_rmsds for each ghost fragment
-        reference_rmsds = np.array([float(max(interface_ghost_frags[ghost_idx].rmsd, 0.01))
+        reference_rmsds = np.array([interface_ghost_frags[ghost_idx].rmsd
+                                    if interface_ghost_frags[ghost_idx].rmsd > 0 else 0.01
                                     for ghost_idx in passing_ghost_indices])
         # print('length of all coords arrays = %d, %d, %d' % (len(passing_ghost_coords), len(passing_surf_coords),
         #                                                     len(reference_rmsds)))

@@ -13,7 +13,7 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile, calculate_match_metrics
 from Structure import Coords, Structure
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
-    start_log, possible_symmetries  # filter_euler_lookup_by_zvalue,
+    start_log, possible_symmetries, match_score_from_z_value  # filter_euler_lookup_by_zvalue,
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDB, FragmentDatabase
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
@@ -1628,9 +1628,6 @@ def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
 def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2, fragdb=None, max_z_value=2):
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From a Structure Entity, score the interface between them according to Nanohedra's fragment matching"""
-    # Get entity1 interface fragments with guide coordinates using fragment database
-    # interface_frags1 = get_fragments(entity1, entity1_interface_residue_numbers)
-
     if not fragdb:
         fragdb = FragmentDB()
         fragdb.get_monofrag_cluster_rep_dict()
@@ -1638,39 +1635,46 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
         fragdb.get_intfrag_cluster_info_dict()
 
     kdtree_oligomer1_backbone = BallTree(entity1_coords)
-    complete_int1_ghost_frag_l, interface_ghostfrag_guide_coords_list = [], []
+    interface_ghost_frags1 = []
     for frag1 in interface_frags1:
-        complete_monofrag1_ghostfrag_list = frag1.get_ghost_fragments(fragdb.paired_frags, kdtree_oligomer1_backbone,
-                                                                      fragdb.info)
-        if complete_monofrag1_ghostfrag_list:
-            complete_int1_ghost_frag_l.extend(complete_monofrag1_ghostfrag_list)
-            interface_ghostfrag_guide_coords_list.extend(ghost_frag.guide_coords
-                                                         for ghost_frag in complete_monofrag1_ghostfrag_list)
+        ghostfrags = frag1.get_ghost_fragments(fragdb.paired_frags, kdtree_oligomer1_backbone, fragdb.info)
+        if ghostfrags:
+            interface_ghost_frags1.extend(ghostfrags)
 
-    # Get entity2 interface fragment guide coordinates using complete fragment database
-    interface_surf_frag_guide_coords_list = [frag2.get_guide_coords() for frag2 in interface_frags2]
+    # Get fragment guide coordinates
+    interface_ghostfrag_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in interface_ghost_frags1])
+    interface_surf_frag_guide_coords = np.array([frag2.get_guide_coords() for frag2 in interface_frags2])
 
     eul_lookup = EulerLookup()
     # Check for matching Euler angles
     # TODO update to modern version
-    eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_list,
-                                                               interface_surf_frag_guide_coords_list)
-    eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if true_tup[2]]
-    # Todo make like FragDock routine with i/j type true array
-    all_fragment_overlap = calculate_overlap(interface_ghostfrag_guide_coords_list,
-                                             interface_surf_frag_guide_coords_list, rmsd_reference,
-                                             max_z_value=max_z_value)
-    # all_fragment_overlap = filter_euler_lookup_by_zvalue(eul_lookup_true_list, complete_int1_ghost_frag_l,
-    #                                                          interface_ghostfrag_guide_coords_list,
-    #                                                          complete_int2_frag_l, interface_surf_frag_guide_coords_list,
-    #                                                          z_value_func=calculate_overlap, max_z_value=max_z_value)
-    # passing_fragment_overlap = list(filter(None, all_fragment_overlap))
-    # Todo ensure Tuple[2] is match score, now z-value
-    ghostfrag_surffrag_pairs = [(complete_int1_ghost_frag_l[eul_lookup_true_list[idx][0]],
-                                 interface_frags2[eul_lookup_true_list[idx][1]], all_fragment_overlap[idx])
-                                for idx, boolean in enumerate(all_fragment_overlap) if boolean]
+    overlapping_ghost_surf_frag_indices = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords,
+                                                                        interface_surf_frag_guide_coords)
+    ij_type_match = [True if interface_frags2[surf_idx].i_type == interface_ghost_frags1[ghost_idx].j_type
+                     else False for ghost_idx, surf_idx in overlapping_ghost_surf_frag_indices]
+    passing_ghost_indices = np.array([ghost_idx
+                                      for idx, (ghost_idx, surf_idx) in enumerate(overlapping_ghost_surf_frag_indices)
+                                      if ij_type_match[idx]])
+    passing_ghost_coords = interface_ghostfrag_guide_coords[passing_ghost_indices]
 
-    return ghostfrag_surffrag_pairs
+    passing_surf_indices = np.array([surf_idx
+                                     for idx, (ghost_idx, surf_idx) in enumerate(overlapping_ghost_surf_frag_indices)
+                                     if ij_type_match[idx]])
+    passing_surf_coords = interface_surf_frag_guide_coords[passing_surf_indices]
+    # precalculate the reference_rmsds for each ghost fragment
+    reference_rmsds = np.array([interface_ghost_frags1[ghost_idx].rmsd
+                                if interface_ghost_frags1[ghost_idx].rmsd > 0 else 0.01
+                                for ghost_idx in passing_ghost_indices])
+
+    all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
+                                             max_z_value=max_z_value)
+    passing_overlaps = [idx for idx, overlap in enumerate(all_fragment_overlap) if overlap]
+    passing_z_values = all_fragment_overlap[passing_overlaps]
+    match_scores = match_score_from_z_value(passing_z_values)
+
+    interface_ghostfrags = interface_ghost_frags1[passing_ghost_indices[passing_overlaps]]
+    interface_monofrags2 = interface_frags2[passing_surf_indices[passing_overlaps]]
+    return [zip(interface_ghostfrags, interface_monofrags2, match_scores)]
 
 
 def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
