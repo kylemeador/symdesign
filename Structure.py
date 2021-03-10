@@ -671,67 +671,50 @@ class Structure(StructureBase):
         # self.set_residues_attributes(coords=self._coords)
         # self.renumber_atoms()
 
-    def is_clash(self, clash_distance=2.1):
+    def is_clash(self, distance=2.1):
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms
 
+        Keyword Args:
+            distance=2.1 (float): The distance which clashes should be checked
         Returns:
             (bool)
         """
         all_atom_tree = KDTree(self.coords)
-        # all_atom_tree = KDTree(self.get_backbone_and_cb_coords())
-        number_of_residues = self.number_of_residues
-        # non_residue_indices = np.ones(self.number_of_atoms, dtype=bool)
+        number_residues = self.number_of_residues
         backbone_clashes, side_chain_clashes = [], []
         for idx, residue in enumerate(self.residues, -1):
             # return a np.array((residue length, all_atom coords)) KDTree
-            # residue_query = all_atom_tree.query_radius(residue.coords, clash_distance)
-            residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, clash_distance)
+            residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, distance)
             # reduce the dimensions and format as a single array
             all_contacts = np.concatenate(residue_query).ravel()  # .reshape(-1)
-
             # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
             # For the edge cases (N- & C-term), use other termini C & N atoms.
             # We might miss a clash here! It would be peculiar for the C-terminal C clashing with the N-terminus atoms
             # and vice-versa. This also allows a PDB with permuted sequence to be handled properly!
-            residue_indices_and_bonded_c_and_n = np.array(residue.atom_indices +
-                                                          [self.residues[idx].c.index,
-                                                           self.residues[-number_of_residues + 2 + idx].n.index])
-            # non_residue_indices[residue_indices_and_bonded_c_and_n] = False
-            # clashes = residue_query[residue_indices_and_bonded_c_and_n].flatten()
-            # clashes = residue_query[:, non_residue_indices].flatten()
-            # all_contacts = residue_query.ravel()
-            # for all_clashing_indices in residue_query:
-            #     atom_clash = list(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
+            residue_indices_and_bonded_c_and_n = \
+                np.array(residue.atom_indices + [self.residues[idx].c.index, self.residues[-number_residues + 2
+                                                                                           + idx].n.index])
             clashes = np.setdiff1d(all_contacts, residue_indices_and_bonded_c_and_n)
-            # clashes = list(set(all_contacts).difference(residue_indices_and_bonded_c_and_n))
             if any(clashes):
-                # atom_clash = list(set(all_clashing_indices).difference(residue_indices_and_bonded_c_and_n))
-                # if atom_clash:
-                for clash in clashes:
-                    if self.atoms[clash].is_backbone() or self.atoms[clash].is_CB():
-                        backbone_clashes.append((residue, self.atoms[clash]))
+                for clash_idx in clashes:
+                    if self.atoms[clash_idx].is_backbone() or self.atoms[clash_idx].is_CB():
+                        backbone_clashes.append((residue, self.atoms[clash_idx], clash_idx))
                     else:
-                        side_chain_clashes.append((residue, self.atoms[clash]))
-                # backbone_clashes.extend([(residue, self.atoms[clash]) for clash in clashes if self.atoms[clash].is_backbone()
-                #                     or self.atoms[clash].is_CB()])
-                # raise DesignError('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
-                #                   'permitted. See:\n%s'
-                #                   % (self.name, len(clashes), residue.number, self.atoms[clash]))
-                # self.log.critical('%s contains %d clashing atoms at Residue %d! Backbone clashes are not '
-                #                   'permitted. See:\n%s'
-                #                   % (self.name, len(clashes), residue.number, str(self.atoms[clash])))
-                # self.log.warning('%s contains %d clashing atoms at residue %d! See:\n\t%s'
-                #                  % (self.name, len(clashes), residue.number,
-                #                     '\n\t'.join(str(self.atoms[clash]) for clash in clashes)))
+                        side_chain_clashes.append((residue, self.atoms[clash_idx], clash_idx))
+
         if side_chain_clashes:
             self.log.warning('%s contains %d side-chain clashes at the following Residues!\n\t%s'
-                             % (self.name, len(backbone_clashes), '\n\t'.join('Residue %d: %s' % (residue.number, atom)
-                                                                         for residue, atom in backbone_clashes)))
+                             % (self.name, len(side_chain_clashes),
+                                '\n\t'.join('Residue %d: %s' % (residue.number, atom)
+                                            % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(self.coords[idx]))
+                                            for residue, atom, idx in side_chain_clashes)))
         if backbone_clashes:
             self.log.critical('%s contains %d backbone clashes at the following Residues!\n\t%s'
-                              % (self.name, len(backbone_clashes), '\n\t'.join('Residue %d: %s' % (residue.number, atom)
-                                                                          for residue, atom in backbone_clashes)))
+                              % (self.name, len(backbone_clashes),
+                                 '\n\t'.join('Residue %d: %s' % (residue.number, atom)
+                                             % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(self.coords[idx]))
+                                             for residue, atom, idx in backbone_clashes)))
             return True
         else:
             return False
