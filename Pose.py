@@ -179,34 +179,38 @@ class SymmetricModel(Model):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required"""
-        if not expand_matrices or not self.symmetry:
-            if cryst1:
-                uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1_string=cryst1)
+        # if not expand_matrices:  # or not self.symmetry:
+        if cryst1:
+            uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1_string=cryst1)
 
-            if uc_dimensions and symmetry:
+        if symmetry:
+            if uc_dimensions:
                 self.uc_dimensions = uc_dimensions
-                # self.symmetry = ''.join(symmetry.split())  # ensure the symmetry is NO SPACES Hermann–Mauguin notation
-                if symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
-                    self.dimension = 2
-                elif symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
-                    self.dimension = 3
-                else:
-                    raise DesignError('Symmetry %s is not available yet! You likely set the symmetry from a PDB file. '
-                                      'Get the symmetry operations from international'
-                                      ' tables and add to the pickled operators if this displeases you!' % symmetry)
-                self.expand_matrices = self.get_sg_sym_op(''.join(symmetry.split()))
-                # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
-            elif not symmetry:
-                return None  # no symmetry was provided
+
+            if symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
+                self.dimension = 2
+            elif symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
+                self.dimension = 3
             elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
                 self.dimension = 0
-                self.expand_matrices = self.get_ptgrp_sym_op(possible_symmetries[symmetry])  # Todo numpy expand_matrices
-                # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
+
+            elif self.uc_dimensions:
+                raise DesignError('Symmetry %s is not available yet! If you didn\'t provide it, the symmetry was likely'
+                                  'set from a PDB file. Get the symmetry operations from the international'
+                                  ' tables and add to the pickled operators if this displeases you!' % symmetry)
             else:
                 raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add '
                                   'to the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
             self.symmetry = symmetry
+        elif not symmetry:
+            return None  # no symmetry was provided
 
+        if expand_matrices:
+            self.expand_matrices = expand_matrices
+        else:
+            self.expand_matrices = self.get_ptgrp_sym_op(possible_symmetries[symmetry]) if self.dimension == 0 \
+                else self.get_sg_sym_op(''.join(symmetry.split()))  # ensure symmetry is Hermann–Mauguin notation
+            # Todo numpy expand_matrices
         if self.asu and generate_assembly:
             self.generate_symmetric_assembly()  # **kwargs
             if generate_symmetry_mates:
@@ -389,9 +393,6 @@ class SymmetricModel(Model):
         Returns:
             (int): The index of the number of models where the ASU can be found
         """
-        if not self.symmetry:
-            return None
-
         template_atom_coords = self.asu.residues[0].ca_coords
         template_atom_index = self.asu.residues[0].ca.index
         for model_number in range(self.number_of_models):
@@ -563,9 +564,12 @@ class SymmetricModel(Model):
         Returns:
             (bool)
         """
-        if not self.number_of_models:
-            raise DesignError('Cannot check if the assembly is clashing without first calling %s'
-                              % self.generate_symmetric_assembly.__name__)
+        if self.symmetry:
+            if not self.number_of_models:
+                raise DesignError('[Error] Cannot check if the assembly is clashing without first calling %s'
+                                  % self.generate_symmetric_assembly.__name__)
+        else:
+            raise DesignError('[Error] Cannot check if the assembly is clashing as it has no symmetry!')
 
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
         # print('ModelASU Indices: %s' % model_asu_indices)
