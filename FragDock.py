@@ -297,7 +297,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         asu.uc_dimensions = uc_dimensions
         asu.expand_matrices = sym_entry.expand_matrices
-        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.get_result_design_sym(),
+        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.get_result_design_sym(), ignore_clashes=True,
                                            surrounding_uc=output_surrounding_uc)
         # exp_des_is_clash = expanded_design_is_clash(asu, sym_entry.get_design_dim(),
         #                                             sym_entry.get_result_design_sym(),
