@@ -102,16 +102,16 @@ class PDB(Structure):
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
         if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
-            self.coords = np.concatenate([chain.coords for chain in chains])
             self.atoms = [atom for chain in chains for atom in chain.atoms]
             self.atom_indices = list(range(self.number_of_atoms))
+            self.coords = np.concatenate([chain.coords for chain in chains])
             self.residues = [residue for chain in chains for residue in chain.residues]
             self.residue_indices = list(range(self.number_of_residues))
             self.chains = chains
         if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
-            self.coords = np.concatenate([entity.coords for entity in entities])
             self.atoms = [atom for entity in entities for atom in entity.atoms]
             self.atom_indices = list(range(self.number_of_atoms))
+            self.coords = np.concatenate([entity.coords for entity in entities])
             self.residues = [residue for entity in entities for residue in entity.residues]
             self.residue_indices = list(range(self.number_of_residues))
             self.entities = entities
