@@ -684,44 +684,33 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, **kwargs):
         #        symmetry=None, log=None,
         super().__init__(**kwargs)  # log=None,
-        # if log:  # from SymmetricModel
-        #     self.log = log
-        # else:
-        #     self.log = start_log()
         # the member pdbs which make up the pose. todo, combine with self.models?
         # self.pdbs = []
-        self.ignore_clashes = False
         self.pdbs_d = {}
-        # self.pose_pdb_accession_map = {}
 
         if asu and isinstance(asu, Structure):
             self.asu = asu
             self.pdb = self.asu
-            # self.pdbs_d[self.pdb.name] = self.pdb
         elif asu_file:
             self.asu = PDB.from_file(asu_file, log=self.log)
             self.pdb = self.asu
-            # self.pdbs_d[self.pdb.name] = self.pdb
         elif pdb and isinstance(pdb, Structure):
             self.pdb = pdb
-            # self.pdbs_d[self.pdb.name] = self.pdb
         elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log)
-            # self.pdbs_d[self.pdb.name] = self.pdb
-            # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
-            # this would be:
-            # coords, atoms, residues, chains, entities, design, (host of others read from file)
-            # self.set_pdb(pdb)
-        # else:
-        #     nothing = True
 
+        self.fragment_observations = []
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.required_indices = set()
         self.required_residues = None
+        self.ignore_clashes = False
         self.interface_residues = {}
         self.interface_split = {}
-        self.fragment_observations = []
+        self.handle_flags(**kwargs)
+        if not self.ignore_clashes:  # Todo should be called when new PDB is added as well
+            if pdb.is_clash():
+                raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
 
         symmetry_kwargs = self.pdb.symmetry
         symmetry_kwargs.update(kwargs)
@@ -729,7 +718,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if an ASU is present
         # self.initialize_symmetry(symmetry=symmetry)
 
-        self.handle_flags(**kwargs)
 
     @classmethod
     def from_pdb(cls, pdb, **kwargs):  # symmetry=None,
@@ -763,11 +751,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def pdb(self, pdb):
         self._pdb = pdb
         if isinstance(pdb, Structure):
-            if self.ignore_clashes:
-                pass
-            else:
-                if pdb.is_clash():
-                    raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
             # add structure to the SequenceProfile
             self.set_structure(pdb)
             # set up coordinate information for SymmetricModel
