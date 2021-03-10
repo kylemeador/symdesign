@@ -69,12 +69,11 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8):
                 max_contact_chain1, max_contact_chain2 = chain1, chain2
 
     if max_contact_count > 0:  # and max_contact_chain1 is not None and max_contact_chain2 is not None:
-        pdb1_asu = PDB.from_atoms(pdb1.chain(max_contact_chain1))
-        pdb2_asu = PDB.from_atoms(pdb2.chain(max_contact_chain2))
-
-        return pdb1_asu, pdb2_asu
+        return PDB.from_chains([max_contact_chain1, max_contact_chain2])
+        # pdb2_asu = PDB.from_atoms(max_contact_chain2.atoms)
+        # return asu  # , pdb2_asu
     else:
-        return None, None
+        return None  # , None
 
 
 def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
