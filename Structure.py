@@ -843,7 +843,7 @@ class Structure(StructureBase):
 
             return out_path
 
-    def get_fragments(self, residue_numbers=None, fragment_representatives=None, fragment_length=5):
+    def get_fragments(self, residue_numbers=None, representatives=None, fragment_length=5):
         """From the Structure, find Residues with a matching fragment type as identified in a fragment library
 
         Keyword Args:
@@ -872,7 +872,7 @@ class Structure(StructureBase):
                     ca_count += 1
 
             if ca_count == 5:
-                fragment = MonoFragment(residues=frag_residues, fragment_representatives=fragment_representatives,
+                fragment = MonoFragment(residues=frag_residues, fragment_representatives=representatives,
                                         fragment_length=fragment_length)
                 if fragment.i_type:
                     fragments.append(fragment)
@@ -1426,6 +1426,14 @@ class MonoFragment:
     #     return cls(residues=residues, fragment_type=fragment_type, guide_coords=guide_coords,
     #                central_res_num=central_res_num, central_res_chain_id=central_res_chain_id)
 
+    @property
+    def coords(self):  # this makes compatible with pose symmetry operations
+        return self.guide_coords
+
+    @coords.setter
+    def coords(self, coords):
+        self.guide_coords = coords
+
     def get_central_res_tup(self):
         return self.central_residue.chain, self.central_residue.number
 
@@ -1454,6 +1462,29 @@ class MonoFragment:
 
     def get_central_res_chain_id(self):  # Todo rename to chain?
         return self.central_residue.chain
+
+    def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
+        """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space
+        Returns:
+            (Structure)
+        """
+        if rotation is not None:  # required for np.ndarray or None checks
+            new_coords = np.matmul(self.guide_coords, np.transpose(rotation))
+        else:
+            new_coords = self.guide_coords
+
+        if translation is not None:  # required for np.ndarray or None checks
+            new_coords += np.array(translation)
+
+        if rotation2 is not None:  # required for np.ndarray or None checks
+            new_coords = np.matmul(new_coords, np.transpose(rotation2))
+
+        if translation2 is not None:  # required for np.ndarray or None checks
+            new_coords += np.array(translation2)
+
+        new_structure = copy(self)
+        new_structure.guide_coords = new_coords
+        return new_structure
 
     def get_ghost_fragments(self, intfrag_cluster_rep, kdtree_oligomer_backbone, intfrag_cluster_info, clash_dist=2.2):
         """Find all the GhostFragments associated with the MonoFragment that don't clash with the original structure
