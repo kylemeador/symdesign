@@ -174,44 +174,46 @@ class SymmetricModel(Model):
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    def set_symmetry(self, symmetry=None, cryst1=None, uc_dimensions=None, generate_assembly=True,
+    def set_symmetry(self, expand_matrices=None, symmetry=None, cryst1=None, uc_dimensions=None, generate_assembly=True,
                      generate_symmetry_mates=False, **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required"""
-        if cryst1:
-            uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1_string=cryst1)
+        if not expand_matrices or not self.symmetry:
+            if cryst1:
+                uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1_string=cryst1)
 
-        if uc_dimensions and symmetry:
-            self.uc_dimensions = uc_dimensions
-            # self.symmetry = ''.join(symmetry.split())  # ensure the symmetry is NO SPACES Hermann–Mauguin notation
-            if symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
-                self.dimension = 2
-            elif symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
-                self.dimension = 3
+            if uc_dimensions and symmetry:
+                self.uc_dimensions = uc_dimensions
+                # self.symmetry = ''.join(symmetry.split())  # ensure the symmetry is NO SPACES Hermann–Mauguin notation
+                if symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
+                    self.dimension = 2
+                elif symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
+                    self.dimension = 3
+                else:
+                    raise DesignError('Symmetry %s is not available yet! You likely set the symmetry from a PDB file. '
+                                      'Get the symmetry operations from international'
+                                      ' tables and add to the pickled operators if this displeases you!' % symmetry)
+                self.expand_matrices = self.get_sg_sym_op(''.join(symmetry.split()))
+                # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
+            elif not symmetry:
+                return None  # no symmetry was provided
+            elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
+                self.dimension = 0
+                self.expand_matrices = self.get_ptgrp_sym_op(possible_symmetries[symmetry])  # Todo numpy expand_matrices
+                # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
             else:
-                raise DesignError('Symmetry %s is not available yet! You likely set the symmetry from a PDB file. '
-                                  'Get the symmetry operations from international'
-                                  ' tables and add to the pickled operators if this displeases you!' % symmetry)
-            self.expand_matrices = self.get_sg_sym_op(''.join(symmetry.split()))
-            # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
-        elif not symmetry:
-            return None  # no symmetry was provided
-        elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
-            self.dimension = 0
-            self.expand_matrices = self.get_ptgrp_sym_op(possible_symmetries[symmetry])  # Todo numpy expand_matrices
-            # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
-        else:
-            raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add to'
-                              ' the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
+                raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add '
+                                  'to the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
+            self.symmetry = symmetry
 
-        self.symmetry = symmetry
         if self.asu and generate_assembly:
-            self.generate_symmetric_assembly()
+            self.generate_symmetric_assembly()  # **kwargs
             if generate_symmetry_mates:
                 self.get_assembly_symmetry_mates()
 
-    def generate_symmetric_assembly(self, return_side_chains=True, surrounding_uc=False, generate_symmetry_mates=False):
+    def generate_symmetric_assembly(self, return_side_chains=True, surrounding_uc=False, generate_symmetry_mates=False,
+                                    **kwargs):
         """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
         dimensions if self.dimension > 0. Expands assembly to complete point group, or the unit cell
 
@@ -222,7 +224,7 @@ class SymmetricModel(Model):
         if self.dimension == 0:  # symmetry in ['T', 'O', 'I']: Todo add other point groups
             self.get_point_group_coords(return_side_chains=return_side_chains)
         else:
-            self.expand_uc_coords(return_side_chains=return_side_chains, surrounding_uc=surrounding_uc)
+            self.expand_uc_coords(surrounding_uc=surrounding_uc, return_side_chains=return_side_chains)
 
         self.log.info('Generated %d Symmetric Models' % self.number_of_models)
         if generate_symmetry_mates:
@@ -303,15 +305,11 @@ class SymmetricModel(Model):
             get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
-        # self.coords = Coords(get_pdb_coords(self.asu))
-        self.log.debug('Coords length at symmetry coordinate expansion: %d' % len(self.coords))
-        # self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
-        model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
-        self.log.debug('model coords length at coord expansion: %d' % len(model_coords))
-        # self.model_coords[:len(self.coords)] = self.coords
+        coords_length = len(self.coords)
+        model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
         for idx, rot in enumerate(self.expand_matrices):
             r_asu_coords = np.matmul(self.coords, np.transpose(rot))
-            model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = r_asu_coords
+            model_coords[idx * coords_length: (idx + 1) * coords_length] = r_asu_coords
         self.model_coords = Coords(model_coords)
 
     def get_unit_cell_coords(self, return_side_chains=True):
@@ -326,10 +324,11 @@ class SymmetricModel(Model):
             self.coords_type = 'bb_cb'
 
         asu_frac_coords = self.cart_to_frac(self.coords)
-        model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
+        coords_length = len(self.coords)
+        model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
         for idx, (rot, tx) in enumerate(self.expand_matrices):
             rt_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + tx
-            model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = rt_asu_frac_coords
+            model_coords[idx * coords_length: (idx + 1) * coords_length] = rt_asu_frac_coords
         self.model_coords = Coords(self.frac_to_cart(model_coords))
 
     def get_surrounding_unit_cell_coords(self):
@@ -343,14 +342,14 @@ class SymmetricModel(Model):
             return None
 
         central_uc_frac_coords = self.cart_to_frac(self.model_coords)
-        uc_coord_len = len(self.model_coords)
-        model_coords = np.empty((uc_coord_len * uc_number, 3), dtype=float)
+        coords_length = len(self.model_coords)
+        model_coords = np.empty((coords_length * uc_number, 3), dtype=float)
         idx = 0
         for x_shift in [-1, 0, 1]:
             for y_shift in [-1, 0, 1]:
                 for z_shift in z_shifts:
                     # add central uc_coords to the model coords after applying the correct tx of frac coords & convert
-                    model_coords[idx * uc_coord_len: (idx + 1) * uc_coord_len] = \
+                    model_coords[idx * coords_length: (idx + 1) * coords_length] = \
                         central_uc_frac_coords + [x_shift, y_shift, z_shift]
                     idx += 1
         self.model_coords = Coords(self.frac_to_cart(model_coords))
