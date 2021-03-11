@@ -647,7 +647,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                 if pose_state == 'unbound' and offset:  # 'oligomer'
                     res += offset[metadata[-3]]  # get oligomer chain offset
                 if res not in residue_dict:
-                    residue_dict[res] = copy.deepcopy(dict_template)
+                    residue_dict[res] = copy.deepcopy(dict_template)  # todo copy()
                 if r_type == 'sasa':
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     polarity = metadata[3]
