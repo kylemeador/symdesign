@@ -587,6 +587,9 @@ class SymmetricModel(Model):
             # Need to only select the coords that are BB or CB from the model coords
             number_asu_atoms = self.asu.number_of_atoms
             asu_indices = self.asu.get_backbone_and_cb_indices()
+            print('number of asu_residues: %d' % len(self.asu.residues))
+            print('asu_indices: %s' % asu_indices)
+            print('length asu', len(asu_indices))
             # We have all the BB/CB indices from ASU now need to multiply this by every integer in self.number_of_models
             # to get every BB/CB coord in the model
             # Finally we take out those indices that are inclusive of the model_asu_indices like below
@@ -604,8 +607,7 @@ class SymmetricModel(Model):
         model_indices_without_asu = model_indices_filter[without_asu_mask]
         print(model_indices_without_asu)
         print('length model_indices_without_asu', len(model_indices_without_asu))
-        print(asu_indices)
-        print('length asu', len(asu_indices))
+        # print(asu_indices)
         selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
         all_assembly_coords_length = len(asu_indices) * self.number_of_models
         assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue indexing.  ' \
