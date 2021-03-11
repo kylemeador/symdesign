@@ -318,7 +318,7 @@ class SymmetricModel(Model):
             # r_asu_coords = np.matmul(self.coords, np.transpose(rot))
             model_coords[idx * coords_length: (idx + 1) * coords_length] = np.matmul(self.coords, np.transpose(rot))
         self.model_coords = Coords(model_coords)
-        print('Length of Model Coords: %d' % self.model_coords)
+        print('Length of Model Coords: %d' % len(self.model_coords))
 
     def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
