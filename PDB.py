@@ -678,7 +678,7 @@ class PDB(Structure):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues"""
         if solve_discrepancy:
             chain_idx = 0
-            chain_residues = {chain_idx: [self.residues[0].index]}  # should always be zero
+            chain_residues = {chain_idx: [0]}  # self.residues[0].index]}  <- should always be zero
             for prior_idx, residue in enumerate(self.residues[1:]):  # start at the second index to avoid off by one
                 if residue.number_pdb < self.residues[prior_idx].number_pdb \
                         or residue.chain != self.residues[prior_idx].chain:
