@@ -257,13 +257,15 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
                                                  max_z_value=max_z_val)
         print('Checking all fragment overlap at interface')
-        passing_overlaps = [idx for idx, overlap in enumerate(all_fragment_overlap) if overlap]
+        # passing_overlaps = [idx for idx, overlap in enumerate(all_fragment_overlap) if overlap]
+        passing_overlaps = all_fragment_overlap.nonzero()[0]
         # passing_z_values = [overlap for overlap in all_fragment_overlap if overlap]
         passing_z_values = all_fragment_overlap[passing_overlaps]
         print('Overlapping z-values: %s' % passing_z_values)
         # sorted_overlaps = np.array([passing_overlaps, passing_z_values],
         #                            dtype=[('index', int), ('z_value', float)])
-        high_qual_match_count = sum([1 for z_value in passing_z_values if z_value <= high_quality_match_value])
+        # high_qual_match_count = sum([1 for z_value in passing_z_values if z_value <= high_quality_match_value])
+        high_qual_match_count = np.where(passing_z_values < 1)[0].size
 
         overlap_score_time_stop = time.time()
         overlap_score_time = overlap_score_time_stop - overlap_score_time_start
