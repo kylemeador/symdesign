@@ -1025,8 +1025,10 @@ class PDB(Structure):
         # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
 
         # try:
-            # with open(os.devnull, 'w') as devnull:
-        stride_cmd = [stride_exe_path, '%s' % self.filepath]
+        # with open(os.devnull, 'w') as devnull:
+        # stride_cmd = [stride_exe_path, '%s' % self.filepath]
+        current_pdb_file = self.write(out_path='stride_input.pdb')
+        stride_cmd = [stride_exe_path, current_pdb_file]
         #   -rId1Id2..  Read only chains Id1, Id2 ...
         #   -cId1Id2..  Process only Chains Id1, Id2 ...
         if chain:
@@ -1040,11 +1042,15 @@ class PDB(Structure):
 
         # if stride_out is not None:
         #     lines = stride_out.split('\n')
+        os.system('rm %s' % current_pdb_file)
 
+        residue_idx = 0
         for line in out_lines:
             if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
-                self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
-        self.secondary_structure = [residue.secondary_structure for residue in self.residues]
+                # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
+                self.residues[residue_idx].secondary_structure = line[24:25]
+                residue_idx += 1
+        self.secondary_structure = [residue.secondary_structure for residue in self.residues]  # Todo make index access
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
         #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
 
