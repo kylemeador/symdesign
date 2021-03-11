@@ -102,7 +102,7 @@ class Structure(StructureBase):
         Returns:
             (Numpy.ndarray)
         """
-        return self._coords.coords[self.atom_indices]
+        return self._coords.coords[self._atom_indices]
 
     @coords.setter
     def coords(self, coords):
@@ -129,10 +129,17 @@ class Structure(StructureBase):
         """Set the Structure atom indices to a list of integers"""
         self._atom_indices = indices
 
+    def start_indices(self, dtype=None, at=0):
+        """Modify the Structure container indices by a set integer amount"""
+        indices = getattr(self, '%s_indices' % dtype)
+        first_index = indices[0]
+        setattr(self, '%s_indices' % dtype, [at + first_index - idx for idx in indices])
+        # setattr(self, '%s_indices' % dtype, [idx + integer for idx in indices])  # modify my integer
+
     @property
     def atoms(self):
         """Returns: (list[Atom])"""
-        return self._atoms.atoms[self.atom_indices].tolist()
+        return self._atoms.atoms[self._atom_indices].tolist()
 
     @atoms.setter
     def atoms(self, atoms):
@@ -953,7 +960,6 @@ class Chain(Structure):
 
     def __copy__(self):
         """Overwrite Structure.__copy__() with standard copy() method"""
-        # print('copying %s' % self.__class__)
         other = self.__class__.__new__(self.__class__)
         other.__dict__ = self.__dict__.copy()
         # for attr, value in other.__dict__.items():
@@ -1041,7 +1047,6 @@ class Residues:
         self.residues = np.array(residues)
 
     def __copy__(self):
-        # print('copying %s' % self.__class__)
         other = self.__class__.__new__(self.__class__)
         # other.__dict__ = self.__dict__.copy()
         other.residues = self.residues.copy()
@@ -1053,12 +1058,21 @@ class Residues:
 
 class Residue:
     def __init__(self, atom_indices=None, index=None, atoms=None, coords=None):
-        self.index = index
+        # self.index = index
         self.atom_indices = atom_indices
         self.atoms = atoms
         if coords:
             self.coords = coords
         self.secondary_structure = None
+
+    @property
+    def start_index(self):
+        return self._start_index
+
+    @start_index.setter
+    def start_index(self, index):
+        self._start_index = index
+        self.atom_indices = list(range(index, index + self.number_of_atoms))
 
     @property
     def atom_indices(self):  # in structure too
@@ -1069,10 +1083,11 @@ class Residue:
     def atom_indices(self, indices):  # in structure too
         """Set the Structure atom indices to a list of integers"""
         self._atom_indices = indices
+        self._start_index = indices[0]
 
     @property
     def atoms(self):
-        return self._atoms.atoms[self.atom_indices].tolist()
+        return self._atoms.atoms[self._atom_indices].tolist()
 
     @atoms.setter
     def atoms(self, atoms):
@@ -1088,21 +1103,28 @@ class Residue:
         # self._c = None
         # self._o = None
 
-        for atom in self.atoms:
+        for idx, atom in enumerate(self.atoms):
             if atom.type == 'N':
-                self.n = atom.index
+                self.n = idx
+                # self.n = atom.index
             elif atom.type == 'CA':
-                self.ca = atom.index
+                self.ca = idx
+                # self.ca = atom.index
                 if atom.residue_type == 'GLY':
-                    self.cb = atom.index
+                    self.cb = idx
+                    # self.cb = atom.index
             elif atom.type == 'CB':  # atom.is_CB(InclGlyCA=True):
-                self.cb = atom.index
+                self.cb = idx
+                # self.cb = atom.index
             elif atom.type == 'C':
-                self.c = atom.index
+                self.c = idx
+                # self.c = atom.index
             elif atom.type == 'O':
-                self.o = atom.index
+                self.o = idx
+                # self.o = atom.index
             elif atom.type == 'H':
-                self.h = atom.index
+                self.h = idx
+                # self.h = atom.index
 
     # # This is the setter for all atom properties available above
     # def set_atoms_attributes(self, **kwargs):
@@ -1124,7 +1146,7 @@ class Residue:
             # bb_indices = [self._n, self._ca, self._cb, self._c, self._o]
         bb_indices = [getattr(self, '_n', None), getattr(self, '_ca', None), getattr(self, '_cb', None),
                       getattr(self, '_o', None), getattr(self, '_o', None)]
-        return self._coords.coords[[index for index in bb_indices if index]]
+        return self._coords.coords[[self._atom_indices[index] for index in bb_indices if index]]
         # except AttributeError:
         #     return self._coords.coords[[index for index in if index]]
 
@@ -1144,7 +1166,7 @@ class Residue:
     @property
     def n(self):
         try:
-            return self._atoms.atoms[self._n]
+            return self._atoms.atoms[self._atom_indices[self._n]]
         except AttributeError:
             return None
 
@@ -1155,7 +1177,7 @@ class Residue:
     @property
     def h(self):
         try:
-            return self._atoms.atoms[self._h]
+            return self._atoms.atoms[self._atom_indices[self._h]]
         except AttributeError:
             return None
 
@@ -1166,14 +1188,14 @@ class Residue:
     @property
     def ca_coords(self):
         try:
-            return self._coords.coords[self._ca]
+            return self._coords.coords[self._atom_indices[self._ca]]
         except AttributeError:
             return None
 
     @property
     def ca(self):
         try:
-            return self._atoms.atoms[self._ca]
+            return self._atoms.atoms[self._atom_indices[self._ca]]
         except AttributeError:
             return None
 
@@ -1184,14 +1206,14 @@ class Residue:
     @property
     def cb_coords(self):
         try:
-            return self._coords.coords[self._cb]
+            return self._coords.coords[self._atom_indices[self._cb]]
         except AttributeError:
             return None
 
     @property
     def cb(self):
         try:
-            return self._atoms.atoms[self._cb]
+            return self._atoms.atoms[self._atom_indices[self._cb]]
         except AttributeError:
             return None
 
@@ -1202,7 +1224,7 @@ class Residue:
     @property
     def c(self):
         try:
-            return self._atoms.atoms[self._c]
+            return self._atoms.atoms[self._atom_indices[self._c]]
         except AttributeError:
             return None
 
@@ -1213,7 +1235,7 @@ class Residue:
     @property
     def o(self):
         try:
-            return self._atoms.atoms[self._o]
+            return self._atoms.atoms[self._atom_indices[self._o]]
         except AttributeError:
             return None
 
@@ -1508,6 +1530,15 @@ class Atoms:
     # @atoms.setter
     # def atoms(self, atoms):
     #     self._atoms = np.array(atoms, dtype=Atom)
+
+    def __copy__(self):
+        other = self.__class__.__new__(self.__class__)
+        # other.__dict__ = self.__dict__.copy()
+        other.atoms = self.atoms.copy()
+        for idx, atom in enumerate(other.atoms):
+            other.atoms[idx] = copy(atom)
+
+        return other
 
 
 class Atom:
