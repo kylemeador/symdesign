@@ -673,8 +673,9 @@ if __name__ == '__main__':
         logger = SDUtils.start_log(name='', level=1)
         logger.debug('Debug mode. Verbose output')
     else:
+        logger = SDUtils.start_log(name='', level=3)
         # SymDesign main logs to stream with level info
-        logger = SDUtils.start_log(name=__name__, level=2)
+        logger = SDUtils.start_log(name=__name__)
         # All Designs log to specific file with info level, total to single file with info level
         SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
     # -----------------------------------------------------------------------------------------------------------------
