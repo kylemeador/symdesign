@@ -702,8 +702,10 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     reference_chains_and_residues_d = {}
     for i, des_dir in enumerate(design_directories):
         des_dir.get_oligomers()
-        docked_pdb1 = des_dir.oligomers[des_dir.oligomer_names[0]]
-        docked_pdb2 = des_dir.oligomers[des_dir.oligomer_names[1]]
+        # docked_pdb1 = des_dir.oligomers[des_dir.oligomer_names[0]]
+        docked_pdb1 = des_dir.oligomers[0]
+        # docked_pdb2 = des_dir.oligomers[des_dir.oligomer_names[1]]
+        docked_pdb2 = des_dir.oligomers[1]
         reference_chains_and_residues_d[str(des_dir)] = interface_chains_and_resnums(docked_pdb1, docked_pdb2,
                                                                                      cb_distance=9.0)
         # ref1_int_chain_residue_d, ref2_int_chain_residue_d = interface_chains_and_resnums(docked_pdb1, docked_pdb2,
