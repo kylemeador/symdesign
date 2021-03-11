@@ -24,7 +24,8 @@ from utils.SymmUtils import valid_subunit_number
 
 
 # Globals
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
+null_log = start_log(name='null', handler=3, propagate=False)
 
 # # Initialize Euler Lookup Class
 # eul_lookup = EulerLookup()
@@ -64,9 +65,10 @@ class Model:  # (PDB)
         self.number_of_models = len(self.models)
         if log:
             self.log = log
-        else:
-            print('Model starting log')
-            self.log = start_log()
+        elif log is None:
+            self.log = null_log
+        else:  # When log is explicitly passed as False, create a new log
+            self.log = logger  # start_log(name=self.name)
 
     def set_models(self, models):
         self.models = models
@@ -583,13 +585,13 @@ class SymmetricModel(Model):
 
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
         if self.coords_type != 'bb_cb':
-            print('reducing coords to bb_cb')
+            # print('reducing coords to bb_cb')
             # Need to only select the coords that are BB or CB from the model coords
             number_asu_atoms = self.asu.number_of_atoms
             asu_indices = self.asu.get_backbone_and_cb_indices()
-            print('number of asu_residues: %d' % len(self.asu.residues))
-            print('asu_indices: %s' % asu_indices)
-            print('length asu', len(asu_indices))
+            # print('number of asu_residues: %d' % len(self.asu.residues))
+            # print('asu_indices: %s' % asu_indices)
+            # print('length asu', len(asu_indices))
             # We have all the BB/CB indices from ASU now need to multiply this by every integer in self.number_of_models
             # to get every BB/CB coord in the model
             # Finally we take out those indices that are inclusive of the model_asu_indices like below
@@ -605,8 +607,8 @@ class SymmetricModel(Model):
                                          model_indices_filter > model_asu_indices[-1])
         # take the boolean mask and filter the model indices mask to leave only symmetry mate bb/cb indices, NOT asu
         model_indices_without_asu = model_indices_filter[without_asu_mask]
-        print(model_indices_without_asu)
-        print('length model_indices_without_asu', len(model_indices_without_asu))
+        # print(model_indices_without_asu)
+        # print('length model_indices_without_asu', len(model_indices_without_asu))
         # print(asu_indices)
         selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
         all_assembly_coords_length = len(asu_indices) * self.number_of_models
@@ -997,11 +999,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             if entity2 == entity1:
                 # the queried entity is the same, however we don't want interactions with the same symmetry mate or
-                # Todo TEST intra-oligomeric contacts
+                # Todo TEST intra-oligomeric contacts. Both should be removed from symmetry mate coords
                 remove_indices = self.find_asu_equivalent_symmetry_mate_indices()
                 # entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
                 remove_indices += self.find_intra_oligomeric_symmetry_mate_indices(entity2)
-                entity2_indices = [set(entity2_indices) - set(remove_indices)]
+                entity2_indices = list(set(entity2_indices) - set(remove_indices))
                 # self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
             entity2_coords = self.model_coords[entity2_indices]  # only get the coordinate indices we want
         elif entity1 == entity2:
