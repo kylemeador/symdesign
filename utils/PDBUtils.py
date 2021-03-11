@@ -87,17 +87,13 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
         transformed surface guide coordinates, number of interface residues on pdb1 where fragments are possible, number
         on pdb2 where fragments are possible
     """
-    pdb1_cb_coords = pdb1.get_cb_coords()
     pdb1_cb_indices = pdb1.get_cb_indices()
-    # pdb1_cb_coords, pdb1_cb_indices = pdb1.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
-    pdb2_cb_coords = pdb2.get_cb_coords()
     pdb2_cb_indices = pdb2.get_cb_indices()
-    # pdb2_cb_coords, pdb2_cb_indices = pdb2.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
 
-    pdb1_cb_kdtree = BallTree(pdb1_cb_coords)
+    pdb1_cb_kdtree = BallTree(pdb1.get_cb_coords())
 
     # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
-    query = pdb1_cb_kdtree.query_radius(pdb2_cb_coords, cb_distance)
+    query = pdb1_cb_kdtree.query_radius(pdb2.get_cb_coords(), cb_distance)
 
     # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
     interacting_pairs = []
@@ -119,13 +115,6 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
 
         frag1_length = len(pdb1.chain(pdb1_central_chain_id).get_residues(numbers=pdb1_res_num_list))
         frag2_length = len(pdb2.chain(pdb2_central_chain_id).get_residues(numbers=pdb2_res_num_list))
-
-        # frag2_ca_count = 0
-        # for atom in pdb2.all_atoms:
-        #     if atom.chain == pdb2_central_chain_id:
-        #         if atom.residue_number in pdb2_res_num_list:
-        #             if atom.is_CA():
-        #                 frag2_ca_count += 1
 
         if frag1_length == 5 and frag2_length == 5:
             if (pdb1_central_chain_id, pdb1_central_res_num) not in pdb1_unique_chain_central_resnums:

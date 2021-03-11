@@ -711,7 +711,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             get_complete_surf_frags_time_start = time.time()
 
     # print('pdb2 surface residues: %s' % pdb2.get_surface_residues())
-    complete_surf_frags = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(), representatives=ijk_frag_db.reps)
+    complete_surf_frags = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(),
+                                             representatives=ijk_frag_db.reps)
     # surf_frags_2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues())
     #
     # complete_surf_frags = []
