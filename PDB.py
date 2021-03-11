@@ -104,12 +104,35 @@ class PDB(Structure):
         if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
             atoms = [atom for chain in chains for atom in chain.atoms]
             self.atoms = atoms
+            # self._atoms = copy(self._atoms)
             self.atom_indices = list(range(len(atoms)))
-            self.residues = [residue for chain in chains for residue in chain.residues]
+            self.residues = [copy(residue) for chain in chains for residue in chain.residues]
+            # self._residues = copy(self._residues)
             self.residue_indices = list(range(len(self.residues)))
             self.set_coords(np.concatenate([chain.coords for chain in chains]))
+
+            # self.set_residues_attributes()
+            # set residue indices according to new Atoms/Coords index
+            prior_residue = self.residues[0]
+            prior_residue.start_index = 0
+            for residue in self.residues[1:]:
+                residue.start_index = prior_residue.atom_indices[-1]
+                prior_residue = residue
+
             self.chains = copy(chains)
+            self.copy_structures([self.chains])
+            self.chains[0].start_indices(dtype='atom', at=0)
+            self.chains[0].start_indices(dtype='residue', at=0)
+            for prior_idx, chain in enumerate(self.chains[1:]):
+                # if prior_idx == -1:
+                #     chain.start_indices(dtype='atom', at=0)
+                #     chain.start_indices(dtype='residue', at=0)
+                # else:
+                chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
+                chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
+            # set the arrayed attributes for all PDB containers
             self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
+
         if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
             atoms = [atom for entity in entities for atom in entity.atoms]
             self.atoms = atoms
@@ -661,10 +684,10 @@ class PDB(Structure):
                         or residue.chain != self.residues[prior_idx].chain:
                     # Decreased number should only happen with new chain therefore this SHOULD satisfy a malformed PDB
                     chain_idx += 1
-                    chain_residues[chain_idx] = [residue.index]
+                    chain_residues[chain_idx] = [prior_idx + 1]  # residue.index]
                     # chain_residues[chain_idx] = [residue]
                 else:
-                    chain_residues[chain_idx].append(residue.index)
+                    chain_residues[chain_idx].append(prior_idx + 1)  # residue.index)
                     # chain_residues[chain_idx].append(residue)
             available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
                                    for first in PDB.available_letters)
@@ -682,7 +705,8 @@ class PDB(Structure):
             for chain_id in self.chain_id_list:
                 self.chains.append(
                     Chain(name=chain_id, coords=self._coords, log=self.log, residues=self._residues,
-                          residue_indices=[residue.index for residue in self.residues if residue.chain == chain_id]))
+                          residue_indices=[idx for idx, residue in enumerate(self.residues)
+                                           if residue.chain == chain_id]))
 
     def get_chains(self, names=None):
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
