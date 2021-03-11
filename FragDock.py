@@ -372,8 +372,11 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # interface_monofrags2 = complete_surf_frags[passing_surf_indices[sorted_overlaps[0]]]
         # interface_ghostfrags = complete_ghost_frags[passing_ghost_indices[passing_overlaps]]
         # interface_monofrags2 = complete_surf_frags[passing_surf_indices[passing_overlaps]]
-        interface_ghostfrags = interface_ghost_frags[passing_ghost_indices[passing_overlaps[sorted_fragment_indices]]]
+        interface_ghostfrags = interface_ghost_frags[passing_ghost_indices[passing_overlaps[sorted_fragment_indices]]].tolist()
         interface_monofrags2 = interface_surf_frags[passing_surf_indices[passing_overlaps[sorted_fragment_indices]]]
+        print('array', interface_monofrags2)
+        interface_monofrags2 = interface_surf_frags[passing_surf_indices[passing_overlaps[sorted_fragment_indices]]].tolist()
+        print('tolist()', interface_monofrags2)
         ghostfrag_surffrag_pairs = [zip(interface_ghostfrags, interface_monofrags2)]
 
         # Write out initial match interface fragment
