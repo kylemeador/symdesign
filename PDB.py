@@ -116,8 +116,8 @@ class PDB(Structure):
             # self._residues = copy(self._residues)
             # print(self.residues)
             self.residue_indices = list(range(len(residues)))
-            print('residues length', len(self.residues))
-            print('residue_indices length', len(self.residue_indices))
+            # print('residues length', len(self.residues))
+            # print('residue_indices length', len(self.residue_indices))
             # # print('number of residues length', len(self.number_of_residues))
             # # self.residue_indices = list(range(self.number_of_residues))
             self.set_coords(np.concatenate([chain.coords for chain in chains]))
@@ -130,7 +130,7 @@ class PDB(Structure):
             # print('AFTER', prior_residue.start_index)
             for residue in self.residues[1:]:
                 residue.start_index = prior_residue.atom_indices[-1]
-                print('New start index:', prior_residue.atom_indices[-1])
+                # print('New start index:', prior_residue.atom_indices[-1])
                 prior_residue = residue
 
             self.chains = copy(chains)
