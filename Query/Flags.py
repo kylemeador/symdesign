@@ -15,6 +15,7 @@ global_flags = {'symmetry': {'type': str, 'default': None,
                                'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
                 'nanohedra_output': {'type': bool, 'default': False,
                                      'description': 'Whether the design targets are a %s output' % nano.title()},
+                'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
                 }
 design_flags = {
     'design_with_evolution': {'type': bool, 'default': True,
