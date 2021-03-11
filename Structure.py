@@ -1123,7 +1123,7 @@ class Residue:
                 self.h = idx
                 # self.h = atom.index
         self.backbone_indices = [getattr(self, index, None) for index in ['_n', '_ca', '_c', '_o']]
-        self.backbone_cb_indices = getattr(self, '_cb', None)
+        self.backbone_and_cb_indices = getattr(self, '_cb', None)
     # # This is the setter for all atom properties available above
     # def set_atoms_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all atoms in the Residue"""
