@@ -364,7 +364,8 @@ class Structure(StructureBase):
         Returns:
             (list[int])
         """
-        return [residue.ca.index for residue in self.residues]
+        # return [residue.ca.index for residue in self.residues]
+        return [residue.ca_index for residue in self.residues if residue.ca_index]
 
     def get_cb_indices(self):  # , InclGlyCA=True):
         """Return CB Atom indices from the Structure. Inherently gets glycine CA's
@@ -372,7 +373,8 @@ class Structure(StructureBase):
         Returns:
             (list[int])
         """
-        return [residue.cb.index for residue in self.residues]
+        # return [residue.cb.index for residue in self.residues]
+        return [residue.cb_index for residue in self.residues if residue.cb_index]
 
     def get_helix_cb_indices(self):
         """Only works on secondary structure assigned structures!
@@ -782,42 +784,44 @@ class Structure(StructureBase):
     #     #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
     #
     def is_n_term_helical(self, window=5):
-        """Using assigned secondary structure, probe for a helical N-termini using a sequence seqment of five residues
+        """Using assigned secondary structure, probe for a helical N-termini using a sequence segment of 'window' residues
 
         Keyword Args:
             window=5 (int): The segment size to search
         Returns:
             (bool): Whether the termini has a stretch of helical residues with length of the window
         """
-        if self.secondary_structure and len(self.secondary_structure) >= 2 * window:
-            for idx, residue_secondary_structure in enumerate(self.secondary_structure):
-                temp_window = ''.join(self.secondary_structure[idx + j] for j in range(window))
-                # res_number = self.secondary_structure[0 + i:5 + i][0][0]
-                if 'H' * window in temp_window:
-                    return True  # , res_number
-                if idx == window:
-                    break
-        return False  # , None
+        # if self.secondary_structure and len(self.secondary_structure) >= 2 * window:
+            # for idx, residue_secondary_structure in enumerate(self.secondary_structure):
+            # for idx, residue in enumerate(self.residues[:window * 2]):
+            #     temp_window = ''.join(self.secondary_structure[idx + j] for j in range(window))
+            #     # res_number = self.secondary_structure[0 + i:5 + i][0][0]
+        n_term_window = [residue.secondary_structure for residue in self.residues[:window * 2]]
+        if 'H' * window in n_term_window:
+            return True
+        else:
+            return False
 
     def is_c_term_helical(self, window=5):
-        """Using assigned secondary structure, probe for a helical C-termini using a sequence seqment of five residues
+        """Using assigned secondary structure, probe for a helical C-termini using a sequence segment of 'window' residues
 
         Keyword Args:
             window=5 (int): The segment size to search
         Returns:
             (bool): Whether the termini has a stretch of helical residues with length of the window
         """
-        if self.secondary_structure and len(self.secondary_structure) >= 2 * window:
-            # for i in range(5):
-            for idx, residue_secondary_structure in enumerate(reversed(self.secondary_structure)):
-                # reverse_ss_asg = self.secondary_structure[::-1]
-                temp_window = ''.join(self.secondary_structure[idx + j] for j in range(-window + 1, 1))
-                # res_number = reverse_ss_asg[0+i:5+i][4][0]
-                if 'H' * window in temp_window:
-                    return True  # , res_number
-                if idx == window:
-                    break
-        return False  # ,
+        # if self.secondary_structure and len(self.secondary_structure) >= 2 * window:
+        #     # for i in range(5):
+        #     # for idx, residue_secondary_structure in enumerate(reversed(self.secondary_structure)):
+        #     for idx, residue in enumerate(reversed(self.residues)):
+        #         # reverse_ss_asg = self.secondary_structure[::-1]
+        #         temp_window = ''.join(self.secondary_structure[idx + j] for j in range(-window + 1, 1))
+        #         # res_number = reverse_ss_asg[0+i:5+i][4][0]
+        c_term_window = [residue.secondary_structure for residue in reversed(self.residues)[:window * 2]]
+        if 'H' * window in c_term_window:
+            return True
+        else:
+            return False
 
     def get_secondary_structure(self):
         if self.secondary_structure:
@@ -1139,7 +1143,7 @@ class Residue:
     @property
     def backbone_indices(self):
         """Returns: (list[int])"""
-        return self._bb_indices
+        return [self._atom_indices[index] for index in self._bb_indices]
 
     @backbone_indices.setter
     def backbone_indices(self, indices):
@@ -1149,7 +1153,7 @@ class Residue:
     @property
     def backbone_and_cb_indices(self):
         """Returns: (list[int])"""
-        return self._bb_cb_indices
+        return [self._atom_indices[index] for index in self._bb_cb_indices]
 
     @backbone_and_cb_indices.setter
     def backbone_and_cb_indices(self, index):
@@ -1210,6 +1214,13 @@ class Residue:
             return None
 
     @property
+    def ca_index(self):
+        try:
+            return self._atom_indices[self._ca]
+        except AttributeError:
+            return None
+
+    @property
     def ca(self):
         try:
             return self._atoms.atoms[self._atom_indices[self._ca]]
@@ -1224,6 +1235,13 @@ class Residue:
     def cb_coords(self):
         try:
             return self._coords.coords[self._atom_indices[self._cb]]
+        except AttributeError:
+            return None
+
+    @property
+    def cb_index(self):
+        try:
+            return self._atom_indices[self._cb]
         except AttributeError:
             return None
 
