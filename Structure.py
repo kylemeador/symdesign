@@ -1,9 +1,8 @@
-from copy import deepcopy, copy
-from math import sqrt
+from copy import copy  # , deepcopy
 from collections.abc import Iterable
 from random import random
 
-from sklearn.neighbors import KDTree
+from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
 import numpy as np
 from Bio.SeqUtils import IUPACData
@@ -63,7 +62,7 @@ class Structure(StructureBase):
                 self.residue_indices = residue_indices
                 self.set_residues(residues)
                 if coords is None:
-                    self.coords = residues[0]._coords
+                    self.coords = self.residues[0]._coords
                 #     try:
                 #         coords = [atom.coords for residue in residues for atom in residue.atoms]
                 #     except AttributeError:
@@ -680,22 +679,34 @@ class Structure(StructureBase):
         Returns:
             (bool)
         """
-        all_atom_tree = KDTree(self.coords)
+        # all_atom_tree = KDTree(self.coords)  # slower 134 msec/loop
+        all_atom_tree = BallTree(self.coords)  # faster 131 msec/loop
+        # all_atom_tree = NearestNeighbors(algorithm='brute', radius=distance)  # slowest 267 msec/loop
+        # all_atom_tree.fit(self.coords)
+        # residue_query = all_atom_tree.radius_neighbors(residue.backbone_and_cb_coords,  # distance,
+        #                                                return_distance=False)
         number_residues = self.number_of_residues
         backbone_clashes, side_chain_clashes = [], []
-        for idx, residue in enumerate(self.residues, -1):
-            # return a np.array((residue length, all_atom coords)) KDTree
+        for prior_idx, residue in enumerate(self.residues, -1):
+            # return a np.array((residue length, all_atom coords))
             residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, distance)
             # reduce the dimensions and format as a single array
-            all_contacts = np.concatenate(residue_query).ravel()  # .reshape(-1)
+            # all_contacts = np.concatenate(residue_query).ravel()  # .reshape(-1)
+            all_contacts = set(np.concatenate(residue_query).ravel().tolist())
             # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
             # For the edge cases (N- & C-term), use other termini C & N atoms.
             # We might miss a clash here! It would be peculiar for the C-terminal C clashing with the N-terminus atoms
             # and vice-versa. This also allows a PDB with permuted sequence to be handled properly!
             residue_indices_and_bonded_c_and_n = \
-                residue.atom_indices + [self.residues[idx].c.index, self.residues[-number_residues + idx + 2].n.index]
-            clashes = np.setdiff1d(all_contacts, residue_indices_and_bonded_c_and_n)
+                residue.atom_indices + [getattr(self.residues[prior_idx].c, 'index', None),
+                                        getattr(self.residues[prior_idx].o, 'index', None),
+                                        getattr(self.residues[-number_residues + prior_idx + 2].n, 'index', None)]
+
+            # clashes = np.setdiff1d(all_contacts, residue_indices_and_bonded_c_and_n)
+            # clashes = set(all_contacts) - set(residue_indices_and_bonded_c_and_n)
+            clashes = all_contacts - set(residue_indices_and_bonded_c_and_n)
             if any(clashes):
+                print('Found the following contacts (unraveled.tolist): %s' % all_contacts)
                 print('Found the following contacts: %s' % residue_query)
                 for clash_idx in clashes:
                     if self.atoms[clash_idx].is_backbone() or self.atoms[clash_idx].is_CB():
@@ -834,12 +845,12 @@ class Structure(StructureBase):
 
         if file_handle:
             # write_header(file_handle)
-            file_handle.write(atom_atrings)
+            file_handle.write('%s\n' % atom_atrings)
 
         if out_path:
             with open(out_path, 'w') as outfile:
                 write_header(outfile)
-                outfile.write(atom_atrings)
+                outfile.write('%s\n' % atom_atrings)
 
             return out_path
 
@@ -890,40 +901,19 @@ class Structure(StructureBase):
             for idx, instance in enumerate(structure):
                 structure[idx] = copy(instance)
 
-
     def __key(self):
-        return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
+        return (self.name, *self._residue_indices)
+        # return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
 
     def __copy__(self):
-        # print('copying %s: coords and residues' % self.__class__)
-        # print('Residue 0 in self: %s' % id(self.residues[0]))
         other = self.__class__.__new__(self.__class__)
         other.__dict__ = self.__dict__.copy()
-        # print('Residues before dict_copy: %s' % id(other._residues))
         for attr, value in other.__dict__.items():
-            # print(attr, value)
             other.__dict__[attr] = copy(value)
         other.set_structure_attributes(other.residues, coords=other._coords)
-        # print('Residues after dict_copy: %s' % id(other._residues))
-
-        # print('Residue 0 in selfafter dict_copy: %s' % id(self.residues[0]))
-        # print('Residue 0 other after dict_copy: %s' % id(other.residues[0]))
-        # print('Residue 0 self: %s' % id(self.residues[0]))
-        # structures = [other._residues.residues]  # , other.atoms]
-        # other.copy_structures(structures)  # not working?!
-        # print('Residue 0 other after: %s' % id(other.residues[0]))
-        # print('Residue 0 self after: %s' % id(self.residues[0]))
-
-        # other.atoms = copy(self._atoms)
-        # other.coords = copy(self._coords)  # these are required?
-        # other._residues = copy(self._residues)  # these are required?
-        # print('Residue 0 after: %s' % id(other.residues[0]))
-        # other.update_attributes(coords=deepcopy(self._coords), residues=deepcopy(self._residues))  # ,
-        #                         atoms=deepcopy(self._atoms))
         return other
 
     def __eq__(self, other):
-        # return self.ca == other_residue.ca
         if isinstance(other, Structure):
             return self.__key() == other.__key()
         return NotImplemented
@@ -937,7 +927,7 @@ class Structure(StructureBase):
 
 class Chain(Structure):
     def __init__(self, **kwargs):  # name=None, residues=None,  residue_indices=None, coords=None, log=None
-        super().__init__(**kwargs)  # name=name, residues=residues, residue_indices=resdiue_indices, coords=coords,
+        super().__init__(**kwargs)  # name=name, residues=residues, residue_indices=residue_indices, coords=coords,
         # log=log
 
     @property
@@ -960,6 +950,9 @@ class Chain(Structure):
     # def reference_sequence(self, sequence):
     #     self._ref_sequence = sequence
 
+    # def __key(self):
+    #     return (self.name, self._residue_indices)
+
     def __copy__(self):
         """Overwrite Structure.__copy__() with standard copy() method"""
         # print('copying %s' % self.__class__)
@@ -969,16 +962,6 @@ class Chain(Structure):
         #     other.__dict__[attr] = copy(value)
 
         return other
-
-    def __eq__(self, other):
-        """Test if one chain is equal to another
-
-        Args:
-            other (Chain):
-        Returns:
-            (bool)
-        """
-        return self.name == other.name and all(self.residues == other.residues)
 
 
 class Entity(Chain, SequenceProfile):  # Structure):
@@ -996,7 +979,7 @@ class Entity(Chain, SequenceProfile):  # Structure):
 
         # assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
         #                                           'Chain object as the representative!'
-        super().__init__(residues=representative.residues, residue_indices=representative.residue_indices,
+        super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          structure=self, **kwargs)
         self.chain_id = representative.name
         self.chains = chains  # [Chain objs]
@@ -1050,18 +1033,9 @@ class Entity(Chain, SequenceProfile):  # Structure):
 
     # Todo set up captain chain and mate chain dependency
 
-    def __key(self):
-        return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
-        # return self.uniprot_id
-
-    # def __eq__(self, other):
-    #     # return self.ca == other_residue.ca
-    #     if isinstance(other, Entity):
-    #         return self.__key() == other.__key()
-    #     return NotImplemented
-
-    # def __hash__(self):
-    #     return hash(self.__key())
+    # def __key(self):
+    #     return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
+    #     # return self.uniprot_id
 
 
 class Residues:
@@ -1109,17 +1083,16 @@ class Residue:
         else:
             raise AttributeError('The passed atoms are not of the class Atoms! Pass the member variable _atoms instead')
         # Todo handle if the atom is missing backbone?
-        self._n = None
-        self._h = None
-        self._ca = None
-        self._cb = None
-        self._c = None
-        self._o = None
+        # self._n = None
+        # self._h = None
+        # self._ca = None
+        # self._cb = None
+        # self._c = None
+        # self._o = None
 
         for atom in self.atoms:
             if atom.type == 'N':
                 self.n = atom.index
-                # setattr(self, atom.type.lower(), atom.index)
             elif atom.type == 'CA':
                 self.ca = atom.index
                 if atom.residue_type == 'GLY':
@@ -1144,12 +1117,20 @@ class Residue:
     def coords(self):  # in structure too
         """This holds the atomic coords which is a view from the Structure that created them"""
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
-        return self._coords.coords[self.atom_indices]
+        return self._coords.coords[self._atom_indices]
 
     @property
     def backbone_and_cb_coords(self):  # in structure too
         """This holds the atomic coords which is a view from the Structure that created them"""
-        return self._coords.coords[[atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]]
+        # try:
+            # bb_indices = [self._n, self._ca, self._cb, self._c, self._o]
+        bb_indices = [getattr(self, '_n', None), getattr(self, '_ca', None), getattr(self, '_cb', None),
+                      getattr(self, '_o', None), getattr(self, '_o', None)]
+        return self._coords.coords[[index for index in bb_indices if index]]
+        # except AttributeError:
+        #     return self._coords.coords[[index for index in if index]]
+
+        # return self._coords.coords[[atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]]
         # return self._coords.coords[np.array(bb_cb_indices)]
         # return self._coords.coords[np.array([self._n, self._ca, self._cb, self._c, self._o])]
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
@@ -1166,7 +1147,7 @@ class Residue:
     def n(self):
         try:
             return self._atoms.atoms[self._n]
-        except TypeError:
+        except AttributeError:
             return None
 
     @n.setter
@@ -1177,7 +1158,7 @@ class Residue:
     def h(self):
         try:
             return self._atoms.atoms[self._h]
-        except TypeError:
+        except AttributeError:
             return None
 
     @h.setter
@@ -1188,14 +1169,14 @@ class Residue:
     def ca_coords(self):
         try:
             return self._coords.coords[self._ca]
-        except TypeError:
+        except AttributeError:
             return None
 
     @property
     def ca(self):
         try:
             return self._atoms.atoms[self._ca]
-        except TypeError:
+        except AttributeError:
             return None
 
     @ca.setter
@@ -1206,14 +1187,14 @@ class Residue:
     def cb_coords(self):
         try:
             return self._coords.coords[self._cb]
-        except TypeError:
+        except AttributeError:
             return None
 
     @property
     def cb(self):
         try:
             return self._atoms.atoms[self._cb]
-        except TypeError:
+        except AttributeError:
             return None
 
     @cb.setter
@@ -1224,7 +1205,7 @@ class Residue:
     def c(self):
         try:
             return self._atoms.atoms[self._c]
-        except TypeError:
+        except AttributeError:
             return None
 
     @c.setter
@@ -1235,7 +1216,7 @@ class Residue:
     def o(self):
         try:
             return self._atoms.atoms[self._o]
-        except TypeError:
+        except AttributeError:
             return None
 
     @o.setter
