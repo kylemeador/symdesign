@@ -342,18 +342,18 @@ class Structure(StructureBase):
         Returns:
             (list[int])
         """
-        return [atom.index for atom in self.atoms if atom.is_backbone()]
+        return [residue.backbone_indices for residue in self.residues]
 
     def get_backbone_and_cb_indices(self):
-        """Return backbone and CB Atom indices from the Structure inherently gets all glycine CA's
+        """Return backbone and CB Atom indices from the Structure. Inherently gets glycine CA's
 
         Returns:
             (list[int])
         """
-        return [atom.index for atom in self.atoms if atom.is_backbone() or atom.is_CB()]
+        return [residue.backbone_and_cb_indices for residue in self.residues]
 
     def get_ca_indices(self):
-        """Return CB Atom indices from the Structure. By default, inherently gets all glycine CA's
+        """Return CB Atom indices from the Structure
 
         Returns:
             (list[int])
@@ -361,13 +361,12 @@ class Structure(StructureBase):
         return [residue.ca.index for residue in self.residues]
 
     def get_cb_indices(self):  # , InclGlyCA=True):
-        """Return CB Atom indices from the Structure. By default, inherently gets all glycine CA's
+        """Return CB Atom indices from the Structure. Inherently gets glycine CA's
 
         Returns:
             (list[int])
         """
         return [residue.cb.index for residue in self.residues]
-        # return [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
 
     def get_helix_cb_indices(self):
         """Only works on secondary structure assigned structures!
@@ -385,9 +384,6 @@ class Structure(StructureBase):
                 h_cb_indices.append(residue.cb)
 
         return h_cb_indices
-
-    # def get_CA_atoms(self):  # compatibility
-    #     return self.get_ca_atoms()
 
     def get_ca_atoms(self):
         """Return CA Atoms from the Structure
@@ -1126,13 +1122,33 @@ class Residue:
             elif atom.type == 'H':
                 self.h = idx
                 # self.h = atom.index
-
+        self.backbone_indices = [getattr(self, index, None) for index in ['_n', '_ca', '_c', '_o']]
+        self.backbone_cb_indices = getattr(self, '_cb', None)
     # # This is the setter for all atom properties available above
     # def set_atoms_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all atoms in the Residue"""
     #     for kwarg, value in kwargs.items():
     #         for atom in self.atoms:
     #             setattr(atom, kwarg, value)
+    @property
+    def backbone_indices(self):
+        """Returns: (list[int])"""
+        return self._bb_indices
+
+    @backbone_indices.setter
+    def backbone_indices(self, indices):
+        """Returns: (list[int])"""
+        self._bb_indices = [index for index in indices if index]
+
+    @property
+    def backbone_and_cb_indices(self):
+        """Returns: (list[int])"""
+        return self._bb_cb_indices
+
+    @backbone_and_cb_indices.setter
+    def backbone_and_cb_indices(self, index):
+        """Returns: (list[int])"""
+        self._bb_cb_indices = self._bb_indices + [index] if index else []
 
     @property
     def coords(self):  # in structure too
@@ -1141,20 +1157,14 @@ class Residue:
         return self._coords.coords[self._atom_indices]
 
     @property
+    def backbone_coords(self):
+        """This holds the atomic coords which is a view from the Structure that created them"""
+        return self._coords.coords[[self._atom_indices[index] for index in self._bb_indices]]
+
+    @property
     def backbone_and_cb_coords(self):  # in structure too
         """This holds the atomic coords which is a view from the Structure that created them"""
-        # try:
-            # bb_indices = [self._n, self._ca, self._cb, self._c, self._o]
-        bb_indices = [getattr(self, '_n', None), getattr(self, '_ca', None), getattr(self, '_cb', None),
-                      getattr(self, '_o', None), getattr(self, '_o', None)]
-        return self._coords.coords[[self._atom_indices[index] for index in bb_indices if index]]
-        # except AttributeError:
-        #     return self._coords.coords[[index for index in if index]]
-
-        # return self._coords.coords[[atom.index for atom in [self.n, self.ca, self.cb, self.c, self.o] if atom]]
-        # return self._coords.coords[np.array(bb_cb_indices)]
-        # return self._coords.coords[np.array([self._n, self._ca, self._cb, self._c, self._o])]
-        # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
+        return self._coords.coords[[self._atom_indices[index] for index in self._bb_cb_indices]]
 
     @coords.setter
     def coords(self, coords):  # in structure too
