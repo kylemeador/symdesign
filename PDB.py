@@ -103,7 +103,7 @@ class PDB(Structure):
                 self.copy_metadata(metadata)
         if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
             print(chains)
-            print(chain.residues for chain in chains)
+            print([chain.residues for chain in chains])
             atoms = []
             for chain in chains:
                 atoms.extend(chain.atoms)
