@@ -293,10 +293,10 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # else:
 
         # Check if design has any clashes when expanded
-        exp_des_clash_time_start = time.time()
 
         asu.uc_dimensions = uc_dimensions
         asu.expand_matrices = sym_entry.expand_matrices
+        exp_des_clash_time_start = time.time()
         symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.get_result_design_sym(), ignore_clashes=True,
                                            surrounding_uc=output_surrounding_uc)
         # exp_des_is_clash = expanded_design_is_clash(asu, sym_entry.get_design_dim(),
@@ -309,13 +309,13 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # if exp_des_is_clash:
         print('Checked expand clash')
         if symmetric_material.symmetric_assembly_is_clash():
-            with open(log_filepath, "a+") as log_file:
-                log_file.write("\tBackbone Clash when Designed Assembly is Expanded (took: %s s)\n"
+            with open(log_filepath, 'a+') as log_file:
+                log_file.write('\tBackbone Clash when Designed Assembly is Expanded (took: %s s)\n'
                                % str(exp_des_clash_time))
             continue
         # else:
-        with open(log_filepath, "a+") as log_file:
-            log_file.write("\tNO Backbone Clash when Designed Assembly is Expanded (took: %s s)\n"
+        with open(log_filepath, 'a+') as log_file:
+            log_file.write('\tNO Backbone Clash when Designed Assembly is Expanded (took: %s s)\n'
                            % str(exp_des_clash_time))
         # Todo replace with DesignDirectory? Path object?
         tx_subdir_out_path = os.path.join(rot_subdir_out_path, 'tx_%d' % (tx_idx + 1))
@@ -1207,13 +1207,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         # #                              *ghost_frags[ghost_idx].get_aligned_chain_and_residue())))
                         # #                          for idx, (ghost_idx, surf_idx) in enumerate(passing_fragment_pairs)]
 
-                        with open(log_file_path, "a+") as log_file:
-                            log_file.write("%s Initial Interface Fragment Match%s Found\n\n"
+                        with open(log_file_path, 'a+') as log_file:
+                            log_file.write('%s Initial Interface Fragment Match%s Found\n\n'
                                            % (len(passing_optimal_shifts) if passing_optimal_shifts else 'No',
                                               'es' if len(passing_optimal_shifts) != 1 else ''))
 
-                        degen_subdir_out_path = os.path.join(outdir, "DEGEN_%d_%d" % (degen1_count, degen2_count))
-                        rot_subdir_out_path = os.path.join(degen_subdir_out_path, "ROT_%d_%d" %
+                        degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
+                        rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' %
                                                            (rot1_count, rot2_count))
 
                         find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,  # out_string,
@@ -1229,8 +1229,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
             degen2_count = 0
         rot1_count = 0
 
-    with open(master_log_filepath, "a+") as master_log_file:
-        master_log_file.write("COMPLETE ==> %s\n\n" % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
+    with open(master_log_filepath, 'a+') as master_log_file:
+        master_log_file.write('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
 
 
 if __name__ == '__main__':
