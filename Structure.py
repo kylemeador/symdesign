@@ -491,20 +491,21 @@ class Structure(StructureBase):
         new_residues = []
         residue_indices, found_types = [], []
         current_residue_number = self.atoms[0].residue_number
-        residue_idx = 0
+        # residue_idx = 0
         for idx, atom in enumerate(self.atoms):
             # if the current residue number is the same as the prior number and the atom.type is not already present
             if atom.residue_number == current_residue_number and atom.type not in found_types:
                 residue_indices.append(idx)
                 found_types.append(atom.type)
             else:
-                new_residues.append(Residue(atom_indices=residue_indices, index=residue_idx, atoms=self._atoms,
-                                            coords=self._coords))
-                residue_idx += 1
+                new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords))
+                #                           index=residue_idx,
+                # residue_idx += 1
                 found_types, residue_indices = [atom.type], [idx]
                 current_residue_number = atom.residue_number
         # ensure last residue is added after iteration is complete
-        new_residues.append(Residue(atom_indices=residue_indices, index=residue_idx, atoms=self._atoms, coords=self._coords))
+        new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords))
+        #                           index=residue_idx,
         self.residues = new_residues
         self.residue_indices = list(range(residue_idx + 1))
 
