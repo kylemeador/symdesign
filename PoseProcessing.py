@@ -29,16 +29,15 @@ from Bio.SeqUtils import IUPACData
 # from scipy.spatial.distance import euclidean, pdist
 from sklearn.cluster import DBSCAN
 
+# import DesignDirectory
 import CmdUtils as CUtils
-import DesignDirectory
 import PathUtils as PUtils
-import SequenceProfile
-import SymDesignUtils
 import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output
 from PDB import PDB
 from Structure import Residue
 from Pose import Model
+import SequenceProfile
 from SequenceProfile import write_fasta_file, SequenceProfile
 from SymDesignUtils import DesignError, start_log
 from utils.ExpandAssemblyUtils import expand_asu
@@ -263,7 +262,7 @@ def cluster_poses(pose_map):
     return pose_cluster_map
 
 
-@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
 def initialization_s(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
     return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
 
@@ -273,7 +272,7 @@ def initialization_mp(des_dir, frag_db, sym, script=False, mpi=False, suspend=Fa
         pose = initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
         # return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug), None
         return pose, None
-    except (SymDesignUtils.DesignError, AssertionError) as e:
+    except (SDUtils.DesignError, AssertionError) as e:
         return None, (des_dir.path, e)
     # finally:
     #     print('Error occurred in %s' % des_dir.path)
@@ -439,7 +438,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 int_residue_objects[name].append(template_pdb.chain(names[name](k)).get_residue(residue))
                 # int_residue_objects[name].append(template_pdb.get_residue(names[name](k), residue))
             except IndexError:
-                raise SymDesignUtils.DesignError('Oligomeric and ASU chains do not match. Interface likely involves '
+                raise SDUtils.DesignError('Oligomeric and ASU chains do not match. Interface likely involves '
                                           'missing density at oligomer \'%s\', chain \'%s\', residue \'%d\'. Resolve '
                                           'this error and make sure that all input oligomers are symmetrized for '
                                           'optimal script performance.' % (name, names[name](k), residue))
@@ -572,7 +571,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
                 if not pdb_seq_file[name]:
                     logger.critical('%s: Unable to parse sequence. Check if PDB \'%s\' is valid' % (des_dir.path, name))
-                    raise SymDesignUtils.DesignError('Unable to parse sequence')
+                    raise SDUtils.DesignError('Unable to parse sequence')
                     # raise SDUtils.DesignError('%s: Unable to parse sequence' % des_dir.path)
             else:
                 pdb_seq_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
@@ -641,7 +640,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         if rerun:
             if second:
                 logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                raise SymDesignUtils.DesignError('Profile Generation got stuck, design aborted')
+                raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
                 # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
             pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
             rerun, second = False, True
@@ -892,7 +891,7 @@ def gather_profile_info(pdb, des_dir, names):
                                               outpath=des_dir.sequences)
         if not pdb_seq_file[name]:
             logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
-            raise SymDesignUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
+            raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
 
     # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
     for name in names:
@@ -957,7 +956,7 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
                     temp_pdb = PDB.from_file(file=pdb.filepath)
                     fail = True
                 else:
-                    raise SymDesignUtils.DesignError('Invalid PDB input, no SEQRES record found')
+                    raise SDUtils.DesignError('Invalid PDB input, no SEQRES record found')
         if aa_code == 1:
             final_sequence = sequence
             for i in range(len(sequence)):
@@ -972,7 +971,7 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
         else:
             logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
     else:
-        raise SymDesignUtils.DesignError('Invalid sequence input')
+        raise SDUtils.DesignError('Invalid sequence input')
 
     return final_sequence, failures
 

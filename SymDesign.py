@@ -20,11 +20,9 @@ import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import AnalyzeMutatedSequences
 import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
 import PathUtils as PUtils
-import SequenceProfile
 import SymDesignUtils as SDUtils
 from interface_analysis.Database import FragmentDatabase
 from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, final_metrics
@@ -36,7 +34,7 @@ from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
 from Query.Flags import query_user_for_flags, return_default_flags, process_design_selector_flags, \
     query_user_for_metrics
-from SequenceProfile import write_fasta
+from SequenceProfile import write_fasta, write_fasta_file, generate_mutations, find_orf_offset
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
 
@@ -1390,16 +1388,15 @@ if __name__ == '__main__':
                 #                                                 for chain in design_sequences]))
                 # print('Source SEQRES Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_seqres[chain])
                 #                                                   for chain in source_seqres]))
-                pose_offset_d = AnalyzeMutatedSequences.pdb_to_pose_num(source_seqres)
+                pose_offset_d = Ams.pdb_to_pose_num(source_seqres)
                 # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
                 #                                                                  seqres_pose.seqres_sequences[chain],
                 #                                                                  offset=True, only_gaps=True)
                 #                           for chain in design_sequences}
 
                 # Find all gaps between the SEQRES and ATOM record
-                all_missing_residues_d = {chain: SequenceProfile.generate_mutations(source_pose.atom_sequences[chain],
-                                                                                    source_seqres[chain], offset=True,
-                                                                                    only_gaps=True)
+                all_missing_residues_d = {chain: generate_mutations(source_pose.atom_sequences[chain],
+                                                                    source_seqres[chain], offset=True, only_gaps=True)
                                           for chain in source_seqres}
                 # pose_insert_offset_d = Ams.pdb_to_pose_num(all_missing_residues_d)
 
@@ -1438,16 +1435,14 @@ if __name__ == '__main__':
 
                 # I need the source sequence as mutations to get the mutation index on the design sequence
                 # grabs the mutated residues from design in the index of the seqres sequence
-                # mutations = {chain: SequenceProfile.generate_mutations(source_seqres[chain], design_sequences[chain])
-                mutations = {chain: SequenceProfile.generate_mutations(source_pose.atom_sequences[chain],  # Todo test
-                                                                       design_sequences[chain])
-                             for chain in design_sequences}
+                # mutations = {chain: generate_mutations(source_seqres[chain], design_sequences[chain])
+                mutations = {chain: generate_mutations(source_pose.atom_sequences[chain], design_sequences[chain])
+                             for chain in design_sequences}  # Todo TEST
                 # print('Mutations:\n%s' %
                 #       '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
 
                 # Next find the correct start MET using the modified (residue inserted) design sequence
-                coding_offset = {chain: SequenceProfile.find_orf_offset(design_sequences_disordered[chain],
-                                                                        mutations[chain])
+                coding_offset = {chain: find_orf_offset(design_sequences_disordered[chain], mutations[chain])
                                  for chain in design_sequences_disordered}
                 # print('Coding Offset:\n%s'
                 #       % '\n'.join(['%s: %s' % (chain, coding_offset[chain]) for chain in coding_offset]))
@@ -1503,8 +1498,7 @@ if __name__ == '__main__':
                     full_insertions = {residue: {'to': aa}
                                        for residue, aa in enumerate(final_sequences[design_string], 1)}
                     full_insertions.update(
-                        SequenceProfile.generate_mutations(design_sequences[chain], final_sequences[design_string],
-                                                           blanks=True))
+                        generate_mutations(design_sequences[chain], final_sequences[design_string], blanks=True))
                     # Reduce to sequence only
                     inserted_sequences[design_string] = '%s\n%s' % (''.join([full_insertions[idx]['to']
                                                                              for idx in full_insertions]),
@@ -1526,13 +1520,12 @@ if __name__ == '__main__':
         # Write output sequences to fasta file
         additions_sequence = os.path.join(outdir, '%sSelectedSequencesExpressionAdditions.fasta'
                                           % args.selection_string)
-        seq_comparison_file = SequenceProfile.write_fasta_file(inserted_sequences,
-                                                               '%sSelectedSequencesExpressionAdditions' %
-                                                               args.selection_string, outpath=outdir)
+        seq_comparison_file = write_fasta_file(inserted_sequences, '%sSelectedSequencesExpressionAdditions'
+                                               % args.selection_string, outpath=outdir)
         logger.info('Design insertions for expression comparison written to %s' % additions_sequence)
         final_sequence = os.path.join(outdir, '%sSelectedSequences.fasta' % args.selection_string)
         logger.info('Final Design sequences written to %s' % final_sequence)
-        seq_file = SequenceProfile.write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
+        seq_file = write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
                                                     outpath=outdir)
     # -----------------------------------------------------------------------------------------------------------------
     # Format the designs passing output and report program exceptions
