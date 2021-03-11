@@ -706,8 +706,6 @@ class Structure(StructureBase):
             # clashes = set(all_contacts) - set(residue_indices_and_bonded_c_and_n)
             clashes = all_contacts - set(residue_indices_and_bonded_c_and_n)
             if any(clashes):
-                print('Found the following contacts (unraveled.tolist): %s' % all_contacts)
-                print('Found the following contacts: %s' % residue_query)
                 for clash_idx in clashes:
                     if self.atoms[clash_idx].is_backbone() or self.atoms[clash_idx].is_CB():
                         backbone_clashes.append((residue, self.atoms[clash_idx], clash_idx))

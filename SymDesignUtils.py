@@ -964,7 +964,7 @@ def collect_directories(directory, file=None, project=None, single=None, dir_typ
         if not os.path.exists(file):
             _file = os.path.join(os.getcwd(), file)
             if not os.path.exists(_file):
-                logger.critical('No %s file found in \'%s\'! Please ensure correct location/name!' % (file, directory))
+                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
                 exit()
         with open(_file, 'r') as f:
             all_paths = [location.strip() for location in f.readlines() if location.strip() != '']
