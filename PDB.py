@@ -28,7 +28,7 @@ null_log = start_log(name='null', handler=3, propagate=False)
 
 class PDB(Structure):
     """The base object for PDB file reading and Atom manipulation
-    Can pass atoms, residues, coords, chains, entities, seqres, multimodel, lazy, solve_discrepancy
+    Can pass atoms, residues, chains, entities, coords, metadata, name, seqres, multimodel, lazy, solve_discrepancy
     to initialize
     """
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
