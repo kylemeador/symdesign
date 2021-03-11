@@ -108,7 +108,8 @@ class PDB(Structure):
             self.residues = [residue for chain in chains for residue in chain.residues]
             self.residue_indices = list(range(len(self.residues)))
             self.set_coords(np.concatenate([chain.coords for chain in chains]))
-            self.chains = chains
+            self.chains = copy(chains)
+            self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
         if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
             atoms = [atom for entity in entities for atom in entity.atoms]
             self.atoms = atoms
@@ -116,7 +117,8 @@ class PDB(Structure):
             self.residues = [residue for entity in entities for residue in entity.residues]
             self.residue_indices = list(range(len(self.residues)))
             self.set_coords(np.concatenate([entity.coords for entity in entities]))
-            self.entities = entities
+            self.entities = copy(entities)
+            self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
 
     @classmethod
     def from_file(cls, file, **kwargs):
