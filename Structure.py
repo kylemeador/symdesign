@@ -507,7 +507,7 @@ class Structure(StructureBase):
         new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords))
         #                           index=residue_idx,
         self.residues = new_residues
-        self.residue_indices = list(range(residue_idx + 1))
+        self.residue_indices = list(range(len(new_residues)))
 
     def residue(self, residue_number):
         """Retrieve the Residue specified
