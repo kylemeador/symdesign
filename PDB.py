@@ -115,11 +115,11 @@ class PDB(Structure):
             self.residues = residues
             # self._residues = copy(self._residues)
             # print(self.residues)
+            self.residue_indices = list(range(len(residues)))
             print('residues length', len(self.residues))
             print('residue_indices length', len(self.residue_indices))
             # # print('number of residues length', len(self.number_of_residues))
             # # self.residue_indices = list(range(self.number_of_residues))
-            self.residue_indices = list(range(len(residues)))
             self.set_coords(np.concatenate([chain.coords for chain in chains]))
 
             # self.set_residues_attributes()
