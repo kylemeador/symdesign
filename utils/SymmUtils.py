@@ -1,5 +1,5 @@
 valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10, "D6": 12,
-                        "I": 60, "O": 24, "T": 12}
+                        "T": 12, "O": 24, "I": 60}
 
 
 def parse_uc_str_to_tuples(uc_string):
