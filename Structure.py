@@ -8,8 +8,8 @@ import numpy as np
 from Bio.SeqUtils import IUPACData
 from numpy.linalg import eigh, LinAlgError
 
-from BioPDBUtils import biopdb_superimposer, biopdb_aligned_chain_old
-from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entry, query_entity_id, get_pdb_info_by_entity
+# from BioPDBUtils import biopdb_superimposer, biopdb_aligned_chain_old
+from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
 from SymDesignUtils import start_log, DesignError
 
@@ -1209,13 +1209,6 @@ class Residue:
     def ca_coords(self):
         try:
             return self._coords.coords[self._atom_indices[self._ca]]
-        except AttributeError:
-            return None
-
-    @property
-    def ca_index(self):
-        try:
-            return self._atom_indices[self._ca]
         except AttributeError:
             return None
 
