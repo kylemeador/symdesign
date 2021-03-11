@@ -1102,7 +1102,6 @@ class Residue:
             self._atoms = atoms
         else:
             raise AttributeError('The passed atoms are not of the class Atoms! Pass the member variable _atoms instead')
-        # Todo handle if the atom is missing backbone?
         # self._n = None
         # self._h = None
         # self._ca = None
@@ -1210,6 +1209,13 @@ class Residue:
     def ca_coords(self):
         try:
             return self._coords.coords[self._atom_indices[self._ca]]
+        except AttributeError:
+            return None
+
+    @property
+    def ca_index(self):
+        try:
+            return self._atom_indices[self._ca]
         except AttributeError:
             return None
 
