@@ -102,6 +102,8 @@ class PDB(Structure):
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
         if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
+            print(chains)
+            print(chain.residues for chain in chains)
             atoms = []
             for chain in chains:
                 atoms.extend(chain.atoms)
@@ -116,7 +118,9 @@ class PDB(Structure):
             # self.set_residues_attributes()
             # set residue indices according to new Atoms/Coords index
             prior_residue = self.residues[0]
+            print('BEFORE', prior_residue.start_index)
             prior_residue.start_index = 0
+            print('AFTER', prior_residue.start_index)
             for residue in self.residues[1:]:
                 residue.start_index = prior_residue.atom_indices[-1]
                 print('New start index:', prior_residue.atom_indices[-1])
