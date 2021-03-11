@@ -583,6 +583,7 @@ class SymmetricModel(Model):
 
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
         if self.coords_type != 'bb_cb':
+            print('reducing coords to bb_cb')
             # Need to only select the coords that are BB or CB from the model coords
             number_asu_atoms = self.asu.number_of_atoms
             asu_indices = self.asu.get_backbone_and_cb_indices()
@@ -601,10 +602,13 @@ class SymmetricModel(Model):
                                          model_indices_filter > model_asu_indices[-1])
         # take the boolean mask and filter the model indices mask to leave only symmetry mate bb/cb indices, NOT asu
         model_indices_without_asu = model_indices_filter[without_asu_mask]
-
+        print(model_indices_without_asu)
+        print('length model_indices_without_asu', len(model_indices_without_asu))
+        print(asu_indices)
+        print('length asu', len(asu_indices))
         selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
         all_assembly_coords_length = len(asu_indices) * self.number_of_models
-        assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue with indexing.' \
+        assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue indexing.  ' \
                                                                        % self.symmetric_assembly_is_clash.__name__
 
         asu_coord_tree = BallTree(self.coords[asu_indices])
