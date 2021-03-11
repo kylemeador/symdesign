@@ -304,25 +304,28 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         self.number_of_models = valid_subunit_number[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type # todo
-            # get_pdb_coords = getattr(PDB, 'get_coords')
+            # get_pdb_coords = getattr(PDB, 'coords')
             self.coords_type = 'all'
         else:
             # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
         coords_length = len(self.coords)
+        print('Length of Coords: %d' % coords_length)
+        print('Number of Models: %d' % self.number_of_models)
         model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
         for idx, rot in enumerate(self.expand_matrices):
-            r_asu_coords = np.matmul(self.coords, np.transpose(rot))
-            model_coords[idx * coords_length: (idx + 1) * coords_length] = r_asu_coords
+            # r_asu_coords = np.matmul(self.coords, np.transpose(rot))
+            model_coords[idx * coords_length: (idx + 1) * coords_length] = np.matmul(self.coords, np.transpose(rot))
         self.model_coords = Coords(model_coords)
+        print('Length of Model Coords: %d' % self.model_coords)
 
     def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
         # self.models = [self.asu]
         self.number_of_models = zvalue_dict[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type  # todo
-            # get_pdb_coords = getattr(PDB, 'get_coords')
+            # get_pdb_coords = getattr(PDB, 'coords')
             self.coords_type = 'all'
         else:
             # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
@@ -347,18 +350,22 @@ class SymmetricModel(Model):
         else:
             return None
 
-        central_uc_frac_coords = self.cart_to_frac(self.model_coords)
-        coords_length = len(self.model_coords)
-        model_coords = np.empty((coords_length * uc_number, 3), dtype=float)
-        idx = 0
-        for x_shift in [-1, 0, 1]:
-            for y_shift in [-1, 0, 1]:
-                for z_shift in z_shifts:
-                    # add central uc_coords to the model coords after applying the correct tx of frac coords & convert
-                    model_coords[idx * coords_length: (idx + 1) * coords_length] = \
-                        central_uc_frac_coords + [x_shift, y_shift, z_shift]
-                    idx += 1
-        self.model_coords = Coords(self.frac_to_cart(model_coords))
+        uc_frac_coords = self.cart_to_frac(self.model_coords)
+        # coords_length = len(self.model_coords)
+        # model_coords = np.empty((coords_length * uc_number, 3), dtype=float)
+        # idx = 0
+        # for x_shift in [-1, 0, 1]:
+        #     for y_shift in [-1, 0, 1]:
+        #         for z_shift in z_shifts:
+        #             add central uc_coords to the model coords after applying the correct tx of frac coords & convert
+        #             model_coords[idx * coords_length: (idx + 1) * coords_length] = \
+        #                 uc_frac_coords + [x_shift, y_shift, z_shift]
+        #             idx += 1
+        # self.model_coords = Coords(self.frac_to_cart(model_coords))
+
+        surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [-1, 0, 1]
+                                   for y_shift in [-1, 0, 1] for z_shift in z_shifts]
+        self.model_coords = Coords(self.frac_to_cart(surrounding_frac_coords))
         self.number_of_models = zvalue_dict[self.symmetry] * uc_number
 
     def return_assembly_symmetry_mates(self):
@@ -541,11 +548,12 @@ class SymmetricModel(Model):
 
         pdb_coords = extract_pdb_coords(pdb)
         uc_frac_coords = self.return_unit_cell_coords(pdb_coords, fractional=True)
-        coords_length = len(uc_frac_coords)
         surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [-1, 0, 1]
                                    for y_shift in [-1, 0, 1] for z_shift in z_shifts]
 
         surrounding_cart_coords = self.frac_to_cart(surrounding_frac_coords)
+
+        coords_length = len(uc_frac_coords)
         sym_mates = []
         for coord_set in surrounding_cart_coords:
             for model in self.number_of_models:
@@ -575,28 +583,29 @@ class SymmetricModel(Model):
 
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
         if self.coords_type != 'bb_cb':
-            asu_indices = self.asu.get_backbone_and_cb_indices()
-            # Need to only select the coords that are not BB or CB from the model coords.
-            # We have all the BB/CB indices from ASU now need to multiply this by every integer in self.number_of_models
-            # to get every BB/CB coord.
-            # Finally we take out those indices that are inclusive of the model_asu_indices like below
+            # Need to only select the coords that are BB or CB from the model coords
             number_asu_atoms = self.asu.number_of_atoms
+            asu_indices = self.asu.get_backbone_and_cb_indices()
+            # We have all the BB/CB indices from ASU now need to multiply this by every integer in self.number_of_models
+            # to get every BB/CB coord in the model
+            # Finally we take out those indices that are inclusive of the model_asu_indices like below
             model_indices_filter = np.array([idx + (model_number * number_asu_atoms)
                                              for model_number in range(self.number_of_models)
                                              for idx in asu_indices])
-        else:  # we will frag every coord in the model
-            model_indices_filter = np.array([idx for idx in range(len(self.model_coords))])
+        else:  # we will grab every coord in the model
+            model_indices_filter = np.array(list(range(len(self.model_coords))))
             asu_indices = None
 
+        # make a boolean mask where the model indices of interest are True
         without_asu_mask = np.logical_or(model_indices_filter < model_asu_indices[0],
                                          model_indices_filter > model_asu_indices[-1])
         # take the boolean mask and filter the model indices mask to leave only symmetry mate bb/cb indices, NOT asu
         model_indices_without_asu = model_indices_filter[without_asu_mask]
 
-        selected_assembly_coords = len(self.model_coords[model_indices_without_asu]) + len(self.coords[asu_indices])
+        selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
         all_assembly_coords_length = len(asu_indices) * self.number_of_models
         assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue with indexing.' \
-                                                                       % self.symmetric_assembly_is_clash()
+                                                                       % self.symmetric_assembly_is_clash.__name__
 
         asu_coord_tree = BallTree(self.coords[asu_indices])
         clash_count = asu_coord_tree.two_point_correlation(self.model_coords[model_indices_without_asu], [distance])
