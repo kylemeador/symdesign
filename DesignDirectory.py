@@ -36,15 +36,15 @@ from interface_analysis.Database import FragmentDatabase
 
 
 # Globals
-# logger = start_log(name=__name__)
+logger = start_log(name=__name__)
 index_offset = 1
 design_directory_modes = ['design', 'dock', 'filter']
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, directory_type='design', project=None, pose_id=None, root=None,
-                 debug=False, **kwargs):
+    def __init__(self, design_path, nano=False, directory_type='design', pose_id=None, root=None, debug=False,
+                 **kwargs):  # project=None,
         if pose_id:  # Todo may not be compatible P432
             self.program_root = root
             self.directory_string_to_path(pose_id)
@@ -167,20 +167,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     if ('DEGEN', 'ROT', 'tx') in self.path:
         #         self.nano = True
         if self.nano:
-            # if project:
-            #     self.program_root = project.rstrip(os.sep)
-            #     if pose_id:  # Todo may not be compatible P432
-            #         self.directory_string_to_path(pose_id)
-            #     else:
-            #         self.path = os.path.join(project, design_path)
-            # else:
             self.path = design_path
-            #     design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
-
+            # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
             if not os.path.exists(self.path):
                 raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.path)
-
-            # self.start_log(debug=debug)
             # v used in dock_dir set up
             self.building_block_logs = []
             self.building_block_dirs = []
@@ -214,29 +204,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.fragment_cluster_freq_d = {}
             self.transform_d = {}  # dict[pdb# (1, 2)] = {'transform_type': matrix/vector}
 
-            if self.directory_type == 'design':
-                self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
-                # design_symmetry (P432)
-                self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
-                self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
-                # design_symmetry/building_blocks (P432/4ftd_5tch)
-                self.source = os.path.join(self.path, PUtils.asu)
-                self.set_up_design_directory()
-                # self.get_oligomers()
-                # self.gather_pose_metrics()
-                # self.gather_fragment_info()
-                self.gather_docking_metrics()
-            elif self.directory_type == 'dock':
+            if self.directory_type == 'dock':
                 # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
                 # using typical directory structuring
-
                 # self.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implementation?
                 self.program_root = self.path  # Assuming that the output directory (^ or v) of Nanohedra passed as the path
                 # v for design_recap
                 # self.program_root = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s' % str(program_root or '')))
-
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
-                self.gather_docking_metrics()
                 # self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.program_root]
                 # for k, _sym in enumerate(self.program_root):
                 # for k, _sym in enumerate(next(os.walk(self.program_root))):
@@ -244,14 +219,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self.building_block_logs.append(list())
                 # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
                 # for bb_dir in next(os.walk(_sym))[1]:
-                for bb_dir in next(os.walk(self.program_root))[1]:  # grab directories from os.walk, yielding only top level
+                for bb_dir in next(os.walk(self.program_root))[1]:  # [1] grabs dirs from os.walk, yields only top level
                     if os.path.exists(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
                         self.building_block_dirs.append(bb_dir)
                         # self.building_block_dirs[k].append(bb_dir)
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-            elif self.directory_type == 'filter':
-                self.skip_logging = True
+            elif self.directory_type in ['design', 'filter']:
+                # May have issues with the number of open log files
+                if self.directory_type == 'filter':
+                    self.skip_logging = True
+                # else:
+                #     self.skip_logging = True
                 self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
                 # design_symmetry (P432)
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
@@ -259,7 +238,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.path, PUtils.asu)
                 self.set_up_design_directory()
-                # self.gather_docking_metrics()
             else:
                 raise DesignError('%s: %s is not an available directory_type. Choose from %s...\n'
                                   % (DesignDirectory.__name__, self.directory_type, ','.join(design_directory_modes)))
@@ -268,6 +246,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('%s: No %s found for this directory! Cannot perform material design without it.\n'
                                   'Ensure you have the file \'%s\' located properly before trying this Design!'
                                   % (self.__str__(), PUtils.master_log, self.nano_master_log))
+            self.gather_docking_metrics()
+
         else:
             if '.pdb' in design_path:  # set up /program_root/projects/project/design
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
@@ -297,13 +277,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
                     except IndexError:
                         self.source = None
-                print(self.path)
                 self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])  # symmetry.rstrip(os.sep)
                 self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
                 self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
 
             self.set_up_design_directory()
-            # self.design_from_file(symmetry=symmetry)
         self.start_log(debug=debug)
 
     @classmethod
@@ -367,7 +345,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Returns:
             (dict): {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
         """
-        return self.transform_d  # Todo enable with pdbDB
+        return self.transform_d  # Todo enable transforms with pdbDB
 
     def pdb_input_parameters(self):
         return self.pdb_dir1_path, self.pdb_dir2_path
@@ -390,8 +368,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return int(number_steps1), int(number_steps2)
 
-    def add_flags(self, flags_file):  # UNUSED
-        self.set_flags(**load_flags(flags_file))
+    # def add_flags(self, flags_file):  # UNUSED
+    #     self.set_flags(**load_flags(flags_file))
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
@@ -445,7 +423,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             propagate = True
             handler = 2
-        self.log = start_log(name=self.name, handler=handler, level=level, location=os.path.join(self.path, self.name),
+        self.log = start_log(name=str(self), handler=handler, level=level, location=os.path.join(self.path, self.name),
                              propagate=propagate)
 
     def connect_db(self, frag_db=None, design_db=None, score_db=None):
@@ -656,7 +634,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
-        """Gather fragment metrics from Nanohedra output"""
+        """Gather observed fragment metrics from Nanohedra output"""
         fragment_observations = set()
         with open(self.frag_file, 'r') as f:
             lines = f.readlines()
@@ -690,7 +668,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_pose_metrics(self):
-        """Gather docking metrics from Nanohedra output"""
+        """Gather information for the docked Pose from Nanohedra output. Includes coarse fragment metrics"""
         with open(self.pose_file, 'r') as f:
             pose_info_file_lines = f.readlines()
             for line in pose_info_file_lines:
