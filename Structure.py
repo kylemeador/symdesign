@@ -342,7 +342,10 @@ class Structure(StructureBase):
         Returns:
             (list[int])
         """
-        return [residue.backbone_indices for residue in self.residues]
+        indices = []
+        for residue in self.residues:
+            indices.extend(residue.backbone_indices)
+        return indices
 
     def get_backbone_and_cb_indices(self):
         """Return backbone and CB Atom indices from the Structure. Inherently gets glycine CA's
@@ -350,7 +353,10 @@ class Structure(StructureBase):
         Returns:
             (list[int])
         """
-        return [residue.backbone_and_cb_indices for residue in self.residues]
+        indices = []
+        for residue in self.residues:
+            indices.extend(residue.backbone_and_cb_indices)
+        return indices
 
     def get_ca_indices(self):
         """Return CB Atom indices from the Structure

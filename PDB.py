@@ -1866,8 +1866,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         interface_chain_pdbs.append(chain_pdb)
         # interface_pdb.read_atom_list(chain_pdb.atoms)
 
-    interface_pdb = PDB.from_atoms(iter_chain.from_iterable([chain_pdb.atoms()
-                                                             for chain_pdb in interface_chain_pdbs]))
+    interface_pdb = PDB.from_atoms(iter_chain.from_iterable([chain_pdb.atoms for chain_pdb in interface_chain_pdbs]))
     if len(interface_pdb.chain_id_list) == 2:
         for temp_name in temp_chain_d:
             interface_pdb.chain(temp_name).set_atoms_attributes(chain=temp_chain_d[temp_name])
