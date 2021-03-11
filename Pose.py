@@ -186,12 +186,14 @@ class SymmetricModel(Model):
         if symmetry:
             if uc_dimensions:
                 self.uc_dimensions = uc_dimensions
+                self.symmetry = ''.join(symmetry.split())
 
             if symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
                 self.dimension = 2
             elif symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
                 self.dimension = 3
             elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
+                self.symmetry = possible_symmetries[symmetry]
                 self.dimension = 0
 
             elif self.uc_dimensions:
@@ -201,15 +203,14 @@ class SymmetricModel(Model):
             else:
                 raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add '
                                   'to the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
-            self.symmetry = symmetry
         elif not symmetry:
             return None  # no symmetry was provided
 
         if expand_matrices:
             self.expand_matrices = expand_matrices
         else:
-            self.expand_matrices = self.get_ptgrp_sym_op(possible_symmetries[symmetry]) if self.dimension == 0 \
-                else self.get_sg_sym_op(''.join(symmetry.split()))  # ensure symmetry is Hermann–Mauguin notation
+            self.expand_matrices = self.get_ptgrp_sym_op(self.symmetry) if self.dimension == 0 \
+                else self.get_sg_sym_op(self.symmetry)  # ensure symmetry is Hermann–Mauguin notation
             # Todo numpy expand_matrices
         if self.asu and generate_assembly:
             self.generate_symmetric_assembly()  # **kwargs
@@ -384,8 +385,10 @@ class SymmetricModel(Model):
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
         for model_idx in range(self.number_of_models):  # range(1,
             symmetry_mate_pdb = copy.copy(self.asu)
-            symmetry_mate_pdb.coords = self.model_coords[(model_idx * self.asu.number_of_atoms):
-                                                         ((model_idx + 1) * self.asu.number_of_atoms)]
+            symmetry_mate_pdb.replace_coords(self.model_coords[(model_idx * self.asu.number_of_atoms):
+                                                               ((model_idx + 1) * self.asu.number_of_atoms)])
+            # symmetry_mate_pdb.coords = self.model_coords[(model_idx * self.asu.number_of_atoms):
+            #                                              ((model_idx + 1) * self.asu.number_of_atoms)]
             self.models.append(symmetry_mate_pdb)
 
     def find_asu_equivalent_symmetry_model(self):
@@ -428,9 +431,6 @@ class SymmetricModel(Model):
             (list): The indices in the SymmetricModel where the ASU is also located
         """
         model_number = self.find_asu_equivalent_symmetry_model()
-        print('Model number is %s' % model_number)
-        print('number of atoms is %s' % self.asu.number_of_atoms)
-        print('PDB number of atoms is %s' % self.pdb.number_of_atoms)
         start_idx = self.asu.number_of_atoms * model_number
         end_idx = self.asu.number_of_atoms * (model_number + 1)
         return list(range(start_idx, end_idx))
@@ -558,11 +558,11 @@ class SymmetricModel(Model):
                                                                 zvalue_dict[self.symmetry])
         return sym_mates
 
-    def symmetric_assembly_is_clash(self, clash_distance=2.2):  # Todo design_selector
+    def symmetric_assembly_is_clash(self, distance=2.1):  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
 
         Keyword Args:
-            clash_distance=2.2 (float): The cutoff distance for the coordinate overlap
+            distance=2.2 (float): The cutoff distance for the coordinate overlap
 
         Returns:
             (bool)
@@ -574,13 +574,8 @@ class SymmetricModel(Model):
                               % self.generate_symmetric_assembly.__name__)
 
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
-        # print('ModelASU Indices: %s' % model_asu_indices)
-        # print('Equivalent ModelASU: %d' % self.find_asu_equivalent_symmetry_model())
         if self.coords_type != 'bb_cb':
             asu_indices = self.asu.get_backbone_and_cb_indices()
-            # model_indices_filter = np.array(asu_indices * self.number_of_models)
-            # print('BB/CB ASU Indices: %s' % asu_indices)
-
             # Need to only select the coords that are not BB or CB from the model coords.
             # We have all the BB/CB indices from ASU now need to multiply this by every integer in self.number_of_models
             # to get every BB/CB coord.
@@ -589,33 +584,22 @@ class SymmetricModel(Model):
             model_indices_filter = np.array([idx + (model_number * number_asu_atoms)
                                              for model_number in range(self.number_of_models)
                                              for idx in asu_indices])
-            # print('Model indices factor: %s' % model_indices_factor)
-            # print('Model ASU indices[0] & [-1]: %d & %d' % (model_asu_indices[0], model_asu_indices[-1]))
         else:  # we will frag every coord in the model
             model_indices_filter = np.array([idx for idx in range(len(self.model_coords))])
             asu_indices = None
 
-        # print('Model indices filter length: %d' % len(model_indices_filter))
-        # print('Model indices filter: %s' % model_indices_filter)
-        asu_coord_kdtree = BallTree(self.coords[asu_indices])
         without_asu_mask = np.logical_or(model_indices_filter < model_asu_indices[0],
                                          model_indices_filter > model_asu_indices[-1])
-        # print('Model without asu mask length: %d' % len(without_asu_mask))
-        # print('Asu filter length: %d' % number_asu_indices)
         # take the boolean mask and filter the model indices mask to leave only symmetry mate bb/cb indices, NOT asu
         model_indices_without_asu = model_indices_filter[without_asu_mask]
 
-        # print('Model Coord length: %d' % len(self.model_coords))
-        # print('Model minus ASU indices: %s' % model_indices_without_asu)
-        # print('Model Coord filtered length: %d' % len(self.model_coords[model_indices_without_asu]))
-        # print('Model Coord filtered: %s' % self.model_coords[model_indices_without_asu])
         selected_assembly_coords = len(self.model_coords[model_indices_without_asu]) + len(self.coords[asu_indices])
         all_assembly_coords_length = len(asu_indices) * self.number_of_models
         assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue with indexing.' \
                                                                        % self.symmetric_assembly_is_clash()
 
-        clash_count = asu_coord_kdtree.two_point_correlation(self.model_coords[model_indices_without_asu],
-                                                             [clash_distance])
+        asu_coord_tree = BallTree(self.coords[asu_indices])
+        clash_count = asu_coord_tree.two_point_correlation(self.model_coords[model_indices_without_asu], [distance])
         if clash_count[0] > 0:
             self.log.warning('%s: Found %d clashing sites! Pose is not a viable symmetric assembly'
                              % (self.pdb.name, clash_count[0]))
@@ -623,7 +607,7 @@ class SymmetricModel(Model):
         else:
             return False  # no clash
 
-    def write(self, out_path=os.getcwd()):  #, cryst1=None):  # Todo write model, write symmetry.    name, location
+    def write(self, out_path=os.getcwd()):  # , cryst1=None):  # Todo write symmetry, name, location
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written"""
         with open(out_path, 'w') as f:
@@ -635,7 +619,7 @@ class SymmetricModel(Model):
                     chain_atoms = chain.atoms
                     chain.write(file_handle=f)
                     # f.write('\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-                    #                   for atom, coord in zip(chain.atoms, chain.coords.tolist())))
+                    #                   for atom, coord in zip(chain.atoms, self.model_coords.tolist())))
                     f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_atoms[-1].number + 1,
                                                                           chain_atoms[-1].residue_type, chain.name,
                                                                           chain_atoms[-1].residue_number))
@@ -681,7 +665,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
-    def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, **kwargs):
+    def __init__(self, asu=None, asu_file=None, pdb=None, pdb_file=None, **kwargs):
         #        symmetry=None, log=None,
         super().__init__(**kwargs)  # log=None,
         # the member pdbs which make up the pose. todo, combine with self.models?
@@ -709,7 +693,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.interface_split = {}
         self.handle_flags(**kwargs)
         if not self.ignore_clashes:  # Todo should be called when new PDB is added as well
-            if pdb.is_clash():
+            if self.pdb.is_clash():
                 raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
 
         symmetry_kwargs = self.pdb.symmetry
@@ -1119,7 +1103,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         return self.return_fragment_query_metrics(entity1=entity1, entity2=entity2, per_interface=True)
 
     def find_and_split_interface(self):
-        # get interface residues for the designable entities
+        """Locate the interface residues for the designable entities and split into two interfaces
+
+        Sets:
+            self.interface_split (dict): Residue/Entity id of each residue at the interface identified by interface id
+            as split by topology
+        """
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.find_interface_residues(*entity_pair)
 
@@ -1287,10 +1276,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.set_symmetry(**symmetry)
 
         # get interface residues for the designable entities
-        for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.find_interface_residues(*entity_pair)
-
-        self.check_interface_topology()
+        self.find_and_split_interface()
+        # for entity_pair in combinations_with_replacement(self.active_entities, 2):
+        #     self.find_interface_residues(*entity_pair)
+        #
+        # self.check_interface_topology()
 
         if fragments:
             if query_fragments:  # search for new fragment information
