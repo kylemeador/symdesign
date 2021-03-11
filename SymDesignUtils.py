@@ -1083,7 +1083,7 @@ def z_value_from_match_score(match_score):
 
 def match_score_from_z_value(z_value):
     """Return the match score from a fragment z-value. Bounded between 0 and 1"""
-    return 1 / float(1 + (z_value ** 2))
+    return 1 / (1 + (z_value ** 2))
 
 
 def filter_euler_lookup_by_zvalue(coords_l1, coords_l2, reference_coords, z_value_func=None,
