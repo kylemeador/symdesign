@@ -102,25 +102,32 @@ class PDB(Structure):
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
         if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
-            print(chains)
-            print([chain.residues for chain in chains])
+            # print(chains)
+            # print([chain.residues for chain in chains])
             atoms = []
             for chain in chains:
                 atoms.extend(chain.atoms)
             self.atoms = atoms
             # self._atoms = copy(self._atoms)
             self.atom_indices = list(range(len(atoms)))
-            self.residues = [copy(residue) for chain in chains for residue in chain.residues]
+            residues = [copy(residue) for chain in chains for residue in chain.residues]
+            # print(residues)
+            self.residues = residues
             # self._residues = copy(self._residues)
-            self.residue_indices = list(range(len(self.residues)))
+            # print(self.residues)
+            print('residues length', len(self.residues))
+            print('residue_indices length', len(self.residue_indices))
+            # # print('number of residues length', len(self.number_of_residues))
+            # # self.residue_indices = list(range(self.number_of_residues))
+            self.residue_indices = list(range(len(residues)))
             self.set_coords(np.concatenate([chain.coords for chain in chains]))
 
             # self.set_residues_attributes()
             # set residue indices according to new Atoms/Coords index
             prior_residue = self.residues[0]
-            print('BEFORE', prior_residue.start_index)
+            # print('BEFORE', prior_residue.start_index)
             prior_residue.start_index = 0
-            print('AFTER', prior_residue.start_index)
+            # print('AFTER', prior_residue.start_index)
             for residue in self.residues[1:]:
                 residue.start_index = prior_residue.atom_indices[-1]
                 print('New start index:', prior_residue.atom_indices[-1])
