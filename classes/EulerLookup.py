@@ -31,11 +31,12 @@ class EulerLookup:
         # for third vector, set equal to the arctan of the v3_a array or 0
         e3_v = np.where(~third_angle_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
 
-        eulint1 = (np.rint(e1_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36
-        eulint2 = np.rint(e2_v * 180. / np.pi * 0.1 * 0.999999)
-        eulint3 = (np.rint(e3_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36
+        eulint1 = ((np.rint(e1_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36).astype(int)
+        eulint2 = np.rint(e2_v * 180. / np.pi * 0.1 * 0.999999).astype(int)
+        eulint3 = ((np.rint(e3_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36).astype(int)
 
-        return np.column_stack([eulint1, eulint2, eulint3]).astype(int)
+        return eulint1, eulint2, eulint3
+        # return np.column_stack([eulint1, eulint2, eulint3]).astype(int)
 
     # @staticmethod
     # def get_eulerint10_from_rot(rot):
@@ -113,20 +114,27 @@ class EulerLookup:
         """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
         overlap
         """
-        eulintarray1 = self.get_eulint_from_guides(guide_coords1)
-        eulintarray2 = self.get_eulint_from_guides(guide_coords2)
+        # eulintarray1 = self.get_eulint_from_guides(guide_coords1)
+        # eulintarray2 = self.get_eulint_from_guides(guide_coords2)
+        eulintarray1_1, eulintarray1_2, eulintarray1_3 = self.get_eulint_from_guides(guide_coords1)
+        eulintarray2_1, eulintarray2_2, eulintarray2_3 = self.get_eulint_from_guides(guide_coords2)
 
         # check lookup table
-        result = np.hstack([np.repeat(eulintarray1, eulintarray2.shape[0], axis=0),
-                            np.tile(eulintarray2, (eulintarray1.shape[0], 1))])
-        i_indices = np.arange(len(eulintarray1))
-        j_indices = np.arange(len(eulintarray2))
-        index_array = np.hstack([np.repeat(i_indices, eulintarray2.shape[0], axis=0),
-                                 np.tile(j_indices, eulintarray1.shape[0])])
-        print('40', self.eul_lookup_40[:5])
-        print('40 query result', self.eul_lookup_40[result])
+        # result = np.hstack([np.repeat(eulintarray1, eulintarray2.shape[0], axis=0),
+        #                     np.tile(eulintarray2, (eulintarray1.shape[0], 1))])
+        # result_t = np.transpose(result)
+        i_indices = np.arange(len(guide_coords1))
+        j_indices = np.arange(len(guide_coords2))
+        index_array = np.column_stack([np.repeat(i_indices, j_indices.shape[0]),
+                                       np.tile(j_indices, i_indices.shape[0])])
         print('index_array', index_array[:5], index_array[5:])
-        overlap = self.eul_lookup_40[result]
+        # print('40', self.eul_lookup_40[:5])
+        # print('40 query result', self.eul_lookup_40[result_t])
+        # Need to make these columns from the eulintarray1/2 hstack for the multidimensional indexing
+        overlap = self.eul_lookup_40[eulintarray1_1, eulintarray1_2, eulintarray1_3,
+                                     eulintarray2_1, eulintarray2_2, eulintarray2_3]
+        # overlap = self.eul_lookup_40[result]
+        # overlap = np.take_along_axis(self.eul_lookup_40, result,)
         print('overlap', overlap[:30])
         true_overlap_i_j_pairs = index_array[overlap]
         print('true pairs', true_overlap_i_j_pairs[:5])
