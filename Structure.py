@@ -306,13 +306,13 @@ class Structure(StructureBase):
     #     # self.create_residues()
     #     # self.set_length()
 
-    def get_atoms_by_indices(self, indices=None):  # Todo overlap with self.atom_indices above...
-        """Retrieve Atoms in the Structure specified by indices. Returns all by default
-
-        Returns:
-            (list[Atom])
-        """
-        return [self.atoms[index] for index in indices]
+    # def get_atoms_by_indices(self, indices=None):  # UNUSED
+    #     """Retrieve Atoms in the Structure specified by indices. Returns all by default
+    #
+    #     Returns:
+    #         (list[Atom])
+    #     """
+    #     return [self.atoms[index] for index in indices]
 
     def get_residue_atom_indices(self, numbers=None, **kwargs):
         """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
@@ -329,8 +329,10 @@ class Structure(StructureBase):
         Returns:
             (list[Residue])
         """
-        # atoms = self.get_atoms_by_indices(indices)
-        atoms = self._atoms.atoms[indices]
+        if indices:
+            atoms = self._atoms.atoms[indices]
+        else:
+            atoms = self.atoms
         residue_numbers = [atom.residue_number for atom in atoms]
         if residue_numbers:
             return self.get_residues(numbers=residue_numbers)
