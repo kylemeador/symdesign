@@ -2,7 +2,7 @@ import copy
 import os
 import pickle
 from glob import glob
-from itertools import chain, combinations_with_replacement
+from itertools import chain as iter_chain, combinations_with_replacement
 from math import sqrt, cos, sin
 
 import numpy as np
@@ -313,14 +313,14 @@ class SymmetricModel(Model):
             self.coords_type = 'bb_cb'
 
         coords_length = len(self.coords)
-        print('Length of Coords: %d' % coords_length)
-        print('Number of Models: %d' % self.number_of_models)
+        # print('Length of Coords: %d' % coords_length)
+        # print('Number of Models: %d' % self.number_of_models)
         model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
         for idx, rot in enumerate(self.expand_matrices):
             # r_asu_coords = np.matmul(self.coords, np.transpose(rot))
             model_coords[idx * coords_length: (idx + 1) * coords_length] = np.matmul(self.coords, np.transpose(rot))
         self.model_coords = Coords(model_coords)
-        print('Length of Model Coords: %d' % len(self.model_coords))
+        # print('Length of Model Coords: %d' % len(self.model_coords))
 
     def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
@@ -346,7 +346,7 @@ class SymmetricModel(Model):
         """Generates a grid of unit cell coordinates for a symmetry group. Modifies model_coords from a unit cell
         representation to a grid of unit cells, either 3x3 for a layer group or 3x3x3 for a space group"""
         if self.dimension == 3:
-            z_shifts, uc_number = [-1, 0, 1], 9
+            z_shifts, uc_number = [0, 1, -1], 9
         elif self.dimension == 2:
             z_shifts, uc_number = [0], 27
         else:
@@ -365,15 +365,16 @@ class SymmetricModel(Model):
         #             idx += 1
         # self.model_coords = Coords(self.frac_to_cart(model_coords))
 
-        surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [-1, 0, 1]
-                                   for y_shift in [-1, 0, 1] for z_shift in z_shifts]
+        surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
+                                   for y_shift in [0, 1, -1] for z_shift in z_shifts]
         self.model_coords = Coords(self.frac_to_cart(surrounding_frac_coords))
         self.number_of_models = zvalue_dict[self.symmetry] * uc_number
 
-    def return_assembly_symmetry_mates(self):
+    def return_assembly_symmetry_mates(self, **kwargs):
+        """Return all symmetry mates in self.models (list[Structure]). Chain names will match the ASU"""
         count = 0
         while len(self.models) != self.number_of_models:  # Todo clarify we haven't generated the mates yet
-            self.get_assembly_symmetry_mates()
+            self.get_assembly_symmetry_mates(**kwargs)
             if count == 1:
                 raise DesignError('%s: The assembly couldn\'t be returned'
                                   % self.return_assembly_symmetry_mates.__name__)
@@ -381,9 +382,11 @@ class SymmetricModel(Model):
 
         return self.models
 
-    def get_assembly_symmetry_mates(self, return_side_chains=True):  # For getting PDB copies
-        """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
+    def get_assembly_symmetry_mates(self, surrounding_uc=False):  # , return_side_chains=True):
+        """Set all symmetry mates in self.models (list[Structure]). Chain names will match the ASU"""
         if not self.symmetry:
+            # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
+            #                   % (self.get_assembly_symmetry_mates.__name__, self.asu.name))
             raise DesignError('%s: No symmetry set for %s! Cannot get symmetry mates'
                               % (self.get_assembly_symmetry_mates.__name__, self.asu.name))
         # if return_side_chains:  # get different function calls depending on the return type
@@ -392,12 +395,15 @@ class SymmetricModel(Model):
         #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
 
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
-        for model_idx in range(self.number_of_models):  # range(1,
+        if not surrounding_uc and self.symmetry in zvalue_dict:
+            number_of_models = zvalue_dict[self.symmetry]  # set to the uc only
+        else:
+            number_of_models = self.number_of_models
+
+        for model_idx in range(number_of_models):
             symmetry_mate_pdb = copy.copy(self.asu)
             symmetry_mate_pdb.replace_coords(self.model_coords[(model_idx * self.asu.number_of_atoms):
                                                                ((model_idx + 1) * self.asu.number_of_atoms)])
-            # symmetry_mate_pdb.coords = self.model_coords[(model_idx * self.asu.number_of_atoms):
-            #                                              ((model_idx + 1) * self.asu.number_of_atoms)]
             self.models.append(symmetry_mate_pdb)
 
     def find_asu_equivalent_symmetry_model(self):
@@ -420,8 +426,8 @@ class SymmetricModel(Model):
         Entity atom index"""
         equivalent_models = []
         template_atom_index = entity.residues[0].ca.index
-        for _chain in entity.chains:
-            template_atom_coords = _chain.residues[0].ca_coords
+        for chain in entity.chains:
+            template_atom_coords = chain.residues[0].ca_coords
             for model_number in range(self.number_of_models):
                 if (template_atom_coords ==
                         self.model_coords[(model_number * len(self.coords)) + template_atom_index]).all():
@@ -542,7 +548,7 @@ class SymmetricModel(Model):
             extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         if self.dimension == 3:
-            z_shifts, uc_number = [-1, 0, 1], 9
+            z_shifts, uc_number = [0, 1, -1], 9
         elif self.dimension == 2:
             z_shifts, uc_number = [0], 27
         else:
@@ -550,8 +556,8 @@ class SymmetricModel(Model):
 
         pdb_coords = extract_pdb_coords(pdb)
         uc_frac_coords = self.return_unit_cell_coords(pdb_coords, fractional=True)
-        surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [-1, 0, 1]
-                                   for y_shift in [-1, 0, 1] for z_shift in z_shifts]
+        surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
+                                   for y_shift in [0, 1, -1] for z_shift in z_shifts]
 
         surrounding_cart_coords = self.frac_to_cart(surrounding_frac_coords)
 
@@ -564,8 +570,7 @@ class SymmetricModel(Model):
                 sym_mates.append(symmetry_mate_pdb)
 
         assert len(sym_mates) == uc_number * zvalue_dict[self.symmetry], \
-            'Number of models %d is incorrect! Should be %d' % (len(sym_mates), uc_number *
-                                                                zvalue_dict[self.symmetry])
+            'Number of models %d is incorrect! Should be %d' % (len(sym_mates), uc_number * zvalue_dict[self.symmetry])
         return sym_mates
 
     def symmetric_assembly_is_clash(self, distance=2.1):  # Todo design_selector
@@ -624,12 +629,15 @@ class SymmetricModel(Model):
         else:
             return False  # no clash
 
-    def write(self, out_path=os.getcwd()):  # , cryst1=None):  # Todo write symmetry, name, location
+    def write(self, out_path=os.getcwd(), header=None):  # , cryst1=None):  # Todo write symmetry, name, location
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written"""
         with open(out_path, 'w') as f:
-            # if cryst1 and isinstance(cryst1, str) and cryst1.startswith('CRYST1'):
-            #     f.write('%s\n' % cryst1)
+            if header:
+                if isinstance(header, str):
+                    f.write(header)
+                # if isinstance(header, Iterable):
+
             for model_number, model in enumerate(self.models, 1):
                 f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
                 for chain in model.chains:
@@ -779,11 +787,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     @property
     def chains(self):
-        return [_chain for entity in self.pdb.entities for _chain in entity.chains]
+        return [chain for entity in self.pdb.entities for chain in entity.chains]
 
     @property
     def active_chains(self):
-        return [_chain for entity in self.active_entities for _chain in entity.chains]
+        return [chain for entity in self.active_entities for chain in entity.chains]
 
     @property
     def number_of_atoms(self):
@@ -830,8 +838,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def entity(self, entity):
         return self.pdb.entity(entity)
 
-    def chain(self, _chain):  # _chain to not mess with chain.from_iterable namespace
-        return self.pdb.entity_from_chain(_chain)
+    def chain(self, chain):
+        return self.pdb.entity_from_chain(chain)
 
     def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
         self.ignore_clashes = ignore_clashes
@@ -873,14 +881,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 # atom_selection = set(self.pdb.get_residue_atom_indices(numbers=residues))
                 raise DesignError('Can\'t select residues by PDB yet!')
             if entities:
-                atom_indices = set_function(atom_indices, chain.from_iterable([self.entity(entity).atom_indices
-                                                                               for entity in entities]))
+                atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.entity(entity).atom_indices
+                                                                                   for entity in entities]))
                 entity_set = set_function(entity_set, [self.entity(entity) for entity in entities])
             if chains:
                 # vv This is for the intersectional model
-                atom_indices = set_function(atom_indices, chain.from_iterable([self.chain(chain_id).atom_indices
-                                                                               for chain_id in chains]))
-                # atom_indices.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
+                atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.chain(chain_id).atom_indices
+                                                                                   for chain_id in chains]))
+                # atom_indices.union(iter_chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
                 entity_set = set_function(entity_set, [self.chain(chain_id) for chain_id in chains])
@@ -1099,7 +1107,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
-            surface_frags2 = list(chain.from_iterable(surface_frags2_nested))
+            surface_frags2 = list(iter_chain.from_iterable(surface_frags2_nested))
             self.log.debug('Entity 2 Symmetry expanded fragment count: %d' % len(surface_frags2))
 
         entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
@@ -1292,12 +1300,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
 
-        # get interface residues for the designable entities
-        self.find_and_split_interface()
-        # for entity_pair in combinations_with_replacement(self.active_entities, 2):
-        #     self.find_interface_residues(*entity_pair)
-        #
-        # self.check_interface_topology()
+        # # get interface residues for the designable entities
+        # self.find_and_split_interface()
+        # # for entity_pair in combinations_with_replacement(self.active_entities, 2):
+        # #     self.find_interface_residues(*entity_pair)
+        # #
+        # # self.check_interface_topology()
 
         if fragments:
             if query_fragments:  # search for new fragment information
