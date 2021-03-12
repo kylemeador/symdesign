@@ -329,7 +329,8 @@ class Structure(StructureBase):
         Returns:
             (list[Residue])
         """
-        atoms = self.get_atoms_by_indices(indices)
+        # atoms = self.get_atoms_by_indices(indices)
+        atoms = self._atoms.atoms[indices]
         residue_numbers = [atom.residue_number for atom in atoms]
         if residue_numbers:
             return self.get_residues(numbers=residue_numbers)
