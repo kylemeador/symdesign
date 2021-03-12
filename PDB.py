@@ -102,8 +102,6 @@ class PDB(Structure):
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
         if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
-            # print(chains)
-            # print([chain.residues for chain in chains])
             atoms = []
             for chain in chains:
                 atoms.extend(chain.atoms)
@@ -111,26 +109,15 @@ class PDB(Structure):
             # self._atoms = copy(self._atoms)
             self.atom_indices = list(range(len(atoms)))
             residues = [copy(residue) for chain in chains for residue in chain.residues]
-            # print(residues)
             self.residues = residues
             # self._residues = copy(self._residues)
-            # print(self.residues)
             self.residue_indices = list(range(len(residues)))
-            # print('residues length', len(self.residues))
-            # print('residue_indices length', len(self.residue_indices))
-            # # print('number of residues length', len(self.number_of_residues))
-            # # self.residue_indices = list(range(self.number_of_residues))
             self.set_coords(np.concatenate([chain.coords for chain in chains]))
-
-            # self.set_residues_attributes()
             # set residue indices according to new Atoms/Coords index
             prior_residue = self.residues[0]
-            # print('BEFORE', prior_residue.start_index)
             prior_residue.start_index = 0
-            # print('AFTER', prior_residue.start_index)
             for residue in self.residues[1:]:
                 residue.start_index = prior_residue.atom_indices[-1]
-                # print('New start index:', prior_residue.atom_indices[-1])
                 prior_residue = residue
 
             self.chains = copy(chains)
@@ -138,23 +125,36 @@ class PDB(Structure):
             self.chains[0].start_indices(dtype='atom', at=0)
             self.chains[0].start_indices(dtype='residue', at=0)
             for prior_idx, chain in enumerate(self.chains[1:]):
-                # if prior_idx == -1:
-                #     chain.start_indices(dtype='atom', at=0)
-                #     chain.start_indices(dtype='residue', at=0)
-                # else:
                 chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
                 chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
             # set the arrayed attributes for all PDB containers
             self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
 
         if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
-            atoms = [atom for entity in entities for atom in entity.atoms]
+            atoms = []
+            for entity in entities:
+                atoms.extend(entity.atoms)
             self.atoms = atoms
             self.atom_indices = list(range(len(atoms)))
-            self.residues = [residue for entity in entities for residue in entity.residues]
-            self.residue_indices = list(range(len(self.residues)))
+            residues = [residue for entity in entities for residue in entity.residues]
+            self.residues = residues
+            self.residue_indices = list(range(len(residues)))
             self.set_coords(np.concatenate([entity.coords for entity in entities]))
+            # set residue indices according to new Atoms/Coords index
+            prior_residue = self.residues[0]
+            prior_residue.start_index = 0
+            for residue in self.residues[1:]:
+                residue.start_index = prior_residue.atom_indices[-1]
+                prior_residue = residue
+
             self.entities = copy(entities)
+            self.copy_structures([self.entities])
+            self.entities[0].start_indices(dtype='atom', at=0)
+            self.entities[0].start_indices(dtype='residue', at=0)
+            for prior_idx, chain in enumerate(self.entities[1:]):
+                chain.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
+                chain.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
+            # set the arrayed attributes for all PDB containers
             self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
 
     @classmethod
