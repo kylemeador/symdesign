@@ -105,6 +105,7 @@ class EulerLookup:
         v2_a = (guide_ats[:, 2, :] - guide_ats[:, 0, :]) * normalization
         v3_a = np.cross(v1_a, v2_a)
         eulintarray2 = self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
+        eulintarray2.dtype = int
         print(eulintarray2[:5], eulintarray2.dtype, eulintarray.shape)
         return eulintarray2
 
@@ -137,5 +138,6 @@ class EulerLookup:
         #         if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
         except IndexError as e:
             print(e)
+            print(type(i))
             print('i is:', i, 'j is:', j)
             print(eulintarray1[0, :])
