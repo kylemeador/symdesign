@@ -28,8 +28,8 @@ null_log = start_log(name='null', handler=3, propagate=False)
 
 class PDB(Structure):
     """The base object for PDB file reading and Atom manipulation
-    Can pass atoms, residues, chains, entities, coords, metadata, name, seqres, multimodel, lazy, solve_discrepancy
-    to initialize
+    Can pass atoms, residues, chains, entities, coords, metadata (PDB), name, seqres, multimodel, lazy,
+    and solve_discrepancy to initialize
     """
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
@@ -74,88 +74,87 @@ class PDB(Structure):
 
         if file:
             self.readfile(file, **kwargs)
-        if atoms is not None:
-            if coords is None:
-                # try:
-                #     coords = [atom.coords for atom in atoms]
-                # except AttributeError:
-                raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects'
-                                  '! Pass desired coords.')  # lacking coords! Either pass Atom objects with coords or
-                # self.reindex_atoms()
-                # # self.coords = coords
-            self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
-            self.process_pdb(atoms=atoms, coords=coords, **kwargs)
+        else:
+            if atoms is not None:
+                if coords is None:
+                    # try:
+                    #     coords = [atom.coords for atom in atoms]
+                    # except AttributeError:
+                    raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects! Pass '
+                                      'desired coords.')
+                    # self.reindex_atoms()
+                    # # self.coords = coords
+                self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
+                self.process_pdb(atoms=atoms, coords=coords, **kwargs)
+            elif residues:
+                if coords is None:
+                    try:
+                        # coords = iter_chain.from_iterable([residue.coords for residue in residues])
+                        coords = np.concatenate([residue.coords for residue in residues])
+                    except AttributeError:
+                        raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects '
+                                          'lacking coords! Either pass Residue objects with coords or pass coords.')
+                    self.reindex_atoms()  # Todo is this correct?
+                    # self.coords = coords
+                self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
+                self.process_pdb(residues=residues, coords=coords, **kwargs)
+            elif isinstance(chains, list):  # Todo overloaded, may not function properly without process_pdb
+                atoms = []
+                for chain in chains:
+                    atoms.extend(chain.atoms)
+                self.atoms = atoms
+                # self._atoms = copy(self._atoms)
+                self.atom_indices = list(range(len(atoms)))
+                residues = [copy(residue) for chain in chains for residue in chain.residues]
+                self.residues = residues
+                # self._residues = copy(self._residues)
+                self.residue_indices = list(range(len(residues)))
+                self.set_coords(np.concatenate([chain.coords for chain in chains]))
+                # set residue indices according to new Atoms/Coords index
+                prior_residue = self.residues[0]
+                prior_residue.start_index = 0
+                for residue in self.residues[1:]:
+                    residue.start_index = prior_residue.atom_indices[-1]
+                    prior_residue = residue
+
+                self.chains = copy(chains)
+                self.copy_structures([self.chains])
+                self.chains[0].start_indices(dtype='atom', at=0)
+                self.chains[0].start_indices(dtype='residue', at=0)
+                for prior_idx, chain in enumerate(self.chains[1:]):
+                    chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
+                    chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
+                # set the arrayed attributes for all PDB containers
+                self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
+
+            elif isinstance(entities, list):  # Todo overloaded, may not function properly without process_pdb
+                atoms = []
+                for entity in entities:
+                    atoms.extend(entity.atoms)
+                self.atoms = atoms
+                self.atom_indices = list(range(len(atoms)))
+                residues = [residue for entity in entities for residue in entity.residues]
+                self.residues = residues
+                self.residue_indices = list(range(len(residues)))
+                self.set_coords(np.concatenate([entity.coords for entity in entities]))
+                # set residue indices according to new Atoms/Coords index
+                prior_residue = self.residues[0]
+                prior_residue.start_index = 0
+                for residue in self.residues[1:]:
+                    residue.start_index = prior_residue.atom_indices[-1]
+                    prior_residue = residue
+
+                self.entities = copy(entities)
+                self.copy_structures([self.entities])
+                self.entities[0].start_indices(dtype='atom', at=0)
+                self.entities[0].start_indices(dtype='residue', at=0)
+                for prior_idx, chain in enumerate(self.entities[1:]):
+                    chain.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
+                    chain.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
+                # set the arrayed attributes for all PDB containers
+                self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
-        if residues:
-            if coords is None:
-                try:
-                    # coords = iter_chain.from_iterable([residue.coords for residue in residues])
-                    coords = np.concatenate([residue.coords for residue in residues])
-                except AttributeError:
-                    raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects lacking'
-                                      ' coords! Either pass Residue objects with coords or pass coords.')
-                self.reindex_atoms()
-                # self.coords = coords
-            self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
-            self.process_pdb(residues=residues, coords=coords, **kwargs)
-            if metadata and isinstance(metadata, PDB):
-                self.copy_metadata(metadata)
-        if isinstance(chains, list):  # Todo, currently overloaded, may not function properly without process_pdb
-            atoms = []
-            for chain in chains:
-                atoms.extend(chain.atoms)
-            self.atoms = atoms
-            # self._atoms = copy(self._atoms)
-            self.atom_indices = list(range(len(atoms)))
-            residues = [copy(residue) for chain in chains for residue in chain.residues]
-            self.residues = residues
-            # self._residues = copy(self._residues)
-            self.residue_indices = list(range(len(residues)))
-            self.set_coords(np.concatenate([chain.coords for chain in chains]))
-            # set residue indices according to new Atoms/Coords index
-            prior_residue = self.residues[0]
-            prior_residue.start_index = 0
-            for residue in self.residues[1:]:
-                residue.start_index = prior_residue.atom_indices[-1]
-                prior_residue = residue
-
-            self.chains = copy(chains)
-            self.copy_structures([self.chains])
-            self.chains[0].start_indices(dtype='atom', at=0)
-            self.chains[0].start_indices(dtype='residue', at=0)
-            for prior_idx, chain in enumerate(self.chains[1:]):
-                chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
-                chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
-            # set the arrayed attributes for all PDB containers
-            self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
-
-        if isinstance(entities, list):  # Todo, currently overloaded, may not function properly without process_pdb
-            atoms = []
-            for entity in entities:
-                atoms.extend(entity.atoms)
-            self.atoms = atoms
-            self.atom_indices = list(range(len(atoms)))
-            residues = [residue for entity in entities for residue in entity.residues]
-            self.residues = residues
-            self.residue_indices = list(range(len(residues)))
-            self.set_coords(np.concatenate([entity.coords for entity in entities]))
-            # set residue indices according to new Atoms/Coords index
-            prior_residue = self.residues[0]
-            prior_residue.start_index = 0
-            for residue in self.residues[1:]:
-                residue.start_index = prior_residue.atom_indices[-1]
-                prior_residue = residue
-
-            self.entities = copy(entities)
-            self.copy_structures([self.entities])
-            self.entities[0].start_indices(dtype='atom', at=0)
-            self.entities[0].start_indices(dtype='residue', at=0)
-            for prior_idx, chain in enumerate(self.entities[1:]):
-                chain.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
-                chain.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
-            # set the arrayed attributes for all PDB containers
-            self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
 
     @classmethod
     def from_file(cls, file, **kwargs):
@@ -217,16 +216,24 @@ class PDB(Structure):
     def get_uc_dimensions(self):
         return list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
 
-    def copy_metadata(self, other_pdb):
-        temp_metadata = {'api_entry': other_pdb.__dict__['api_entry'],
-                         'cryst_record': other_pdb.__dict__['cryst_record'],
-                         'cryst': other_pdb.__dict__['cryst'],
-                         'design': other_pdb.__dict__['design'],
-                         'entity_d': other_pdb.__dict__['entity_d'],  # Todo
-                         'name': other_pdb.__dict__['name'],
-                         'space_group': other_pdb.__dict__['space_group'],
-                         'uc_dimensions': other_pdb.__dict__['uc_dimensions']}
-        # temp_metadata = copy(other_pdb.__dict__)
+    def copy_metadata(self, other):
+        temp_metadata = \
+            {'api_entry': other.__dict__['api_entry'],
+             'cryst_record': other.__dict__['cryst_record'],
+             'cryst': other.__dict__['cryst'],
+             'design': other.__dict__['design'],
+             'entity_d': other.__dict__['entity_d'],  # Todo
+             'name': other.__dict__['name'],
+             'space_group': other.__dict__['space_group'],
+             'uc_dimensions': other.__dict__['uc_dimensions'],
+             'header': other.__dict__['header'],
+             'reference_aa': other.__dict__['reference_aa'],
+             'resolution': other.__dict__['resolution'],
+             'rotation_d': other.__dict__['rotation_d'],
+             'max_symmetry': other.__dict__['max_symmetry'],
+             'dihedral_chain': other.__dict__['dihedral_chain'],
+             }
+        # temp_metadata = copy(other.__dict__)
         # temp_metadata.pop('atoms')
         # temp_metadata.pop('residues')
         # temp_metadata.pop('secondary_structure')
