@@ -545,18 +545,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
     def get_oligomers(self):
-        if self.directory_type == 'design':
-            self.oligomer_names = os.path.basename(self.building_blocks).split('_')
-            for idx, name in enumerate(self.oligomer_names):
-                pdb_files = glob(os.path.join(self.path, '%s*.pdb' % name))
-                assert len(pdb_files) == 1, 'Incorrect match [%d != 1] found using %s*.pdb!' % (len(pdb_files), name)
-                self.oligomers.append(PDB.from_file(pdb_files[0], name=name, log=self.log))
-                # self.oligomers[idx].name = name
-                # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
-                # sdf_file_name = os.path.join(os.path.dirname(self.oligomers[name].filepath), self.sdf, '%s.sdf' % name)
-                # self.sdfs[name] = self.oligomers[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
-                # self.oligomers[name].reorder_chains()
-            self.log.debug('%s: %d matching oligomers found' % (self.path, len(self.oligomers)))
+        # if self.directory_type == 'design':
+        self.oligomer_names = os.path.basename(self.building_blocks).split('_')
+        for idx, name in enumerate(self.oligomer_names):
+            pdb_files = glob(os.path.join(self.path, '%s*.pdb' % name))
+            assert len(pdb_files) == 1, 'Incorrect match [%d != 1] found using %s*.pdb!' % (len(pdb_files), name)
+            self.oligomers.append(PDB.from_file(pdb_files[0], name=name, log=self.log))
+            # self.oligomers[idx].name = name
+            # TODO Chains must be symmetrized on input before SDF creation, currently raise DesignError
+            # sdf_file_name = os.path.join(os.path.dirname(self.oligomers[name].filepath), self.sdf, '%s.sdf' % name)
+            # self.sdfs[name] = self.oligomers[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
+            # self.oligomers[name].reorder_chains()
+        self.log.debug('%s: %d matching oligomers found' % (self.path, len(self.oligomers)))
 
     def get_fragment_metrics(self, from_file=True, from_pose=False):
         """Set the design fragment metrics for all fragment observations"""

@@ -64,7 +64,7 @@ def parse_symmetry_to_nanohedra_entry(symmetry_string):
     else:  # C2, D6, C34
         raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
 
-    logger.debug('Symmetry parsing split: %s' % clean_split)
+    # logger.debug('Symmetry parsing split: %s' % clean_split)
     try:
         sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
     except KeyError:
@@ -72,7 +72,7 @@ def parse_symmetry_to_nanohedra_entry(symmetry_string):
         sym_entry = symmetry_string
         raise ValueError('%s is not a supported symmetry!' % symmetry_string)
 
-    logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
+    # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
     return sym_entry
 
 
