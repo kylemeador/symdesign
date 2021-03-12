@@ -792,7 +792,7 @@ if __name__ == '__main__':
             # inputs_moved = True
         if not design_directories:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
-                                      'location. Are you sure you want to run with -%s %s'
+                                      'location. Are you sure you want to run with -%s %s?'
                                       % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
 
         if not args.debug and not queried_flags['skip_logging']:
