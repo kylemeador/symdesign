@@ -561,13 +561,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def get_fragment_metrics(self):  # , from_file=True, from_pose=False):
         """Set the design fragment metrics for all fragment observations"""
         # if from_file and self.fragment_observations:
+        self.log.debug('Starting fragment metric collection')
         if self.fragment_observations:
+            self.log.debug('Found fragment observations')
             design_metrics = return_fragment_interface_metrics(calculate_match_metrics(self.fragment_observations))
         # if from_pose and self.pose:
         elif self.pose:
+            self.log.debug('No fragment observations, getting info from Pose')
             design_metrics = self.pose.return_fragment_query_metrics(total=True)
         else:
-            self.generate_interface_fragments
+            self.generate_interface_fragments()
             self.log.warning('%s: There are no fragment observations associated with this Design! Have you scored '
                              'it yet? See \'Scoring Interfaces\' in the %s' % (self.path, PUtils.guide_string))
             return None
