@@ -290,8 +290,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     query = construct_cb_atom_tree(pdb_mapped, pdb_paired, interaction_dist)
 
     # Map Coordinates to Atoms
-    # pdb_map_cb_indices = pdb1.get_cb_indices(InclGlyCA=True)
-    # pdb_partner_cb_indices = pdb2.get_cb_indices(InclGlyCA=True)
+    # pdb_map_cb_indices = pdb1.get_cb_indices()  # InclGlyCA=True)
+    # pdb_partner_cb_indices = pdb2.get_cb_indices()  # InclGlyCA=True)
 
     # Map Coordinates to Atoms
     interacting_pairs = []
