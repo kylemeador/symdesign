@@ -696,6 +696,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # the member pdbs which make up the pose. todo, combine with self.models?
         # self.pdbs = []
         self.pdbs_d = {}
+        self.fragment_observations = []
+        self.design_selector = {}
+        self.design_selector_entities = set()
+        self.design_selector_indices = set()
+        self.required_indices = set()
+        self.required_residues = None
+        self.ignore_clashes = False
+        self.interface_residues = {}
+        self.interface_split = {}
+        self.handle_flags(**kwargs)
 
         if asu and isinstance(asu, Structure):
             self.asu = asu
@@ -708,24 +718,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log)
 
-        self.fragment_observations = []
-        self.design_selector_entities = set()
-        self.design_selector_indices = set()
-        self.required_indices = set()
-        self.required_residues = None
-        self.ignore_clashes = False
-        self.interface_residues = {}
-        self.interface_split = {}
-        self.handle_flags(**kwargs)
-        if not self.ignore_clashes:  # Todo should be called when new PDB is added as well
-            if self.pdb.is_clash():
-                raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
-
-        symmetry_kwargs = self.pdb.symmetry
+        symmetry_kwargs = self.pdb.symmetry.copy()
         symmetry_kwargs.update(kwargs)
-        # self.log.debug('Pose symmetry_kwargs: %s' % symmetry_kwargs)
         self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if an ASU is present
-        # self.initialize_symmetry(symmetry=symmetry)
 
     @classmethod
     def from_pdb(cls, pdb, **kwargs):  # symmetry=None,
@@ -759,11 +754,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def pdb(self, pdb):
         self._pdb = pdb
         if isinstance(pdb, Structure):
+            if not self.ignore_clashes:
+                if self.pdb.is_clash():
+                    raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
             # add structure to the SequenceProfile
             self.set_structure(pdb)
             # set up coordinate information for SymmetricModel
             self.coords = pdb._coords
             self.pdbs_d[pdb.name] = pdb
+            self.create_design_selector(**self.design_selector)
 
     @property
     def name(self):
@@ -832,7 +831,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         for idx, entity in enumerate(pdb.entities):
             current_pdb_entities.append(entity)
 
-        self.pdb = PDB.from_entities(current_pdb_entities)
+        self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb)
 
     def entity(self, entity):
         return self.pdb.entity(entity)
@@ -842,12 +841,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
         self.ignore_clashes = ignore_clashes
-        if design_selector:
-            self.create_design_selector(**design_selector)
-        else:
-            # self.create_design_selector(selection={}, mask={}, required={})
-            self.design_selector_entities = self.design_selector_entities.union(set(self.entities))
-            self.design_selector_indices = self.design_selector_indices.union(set(self.pdb.atom_indices))
+        self.design_selector = design_selector
+        # if design_selector:
+        #     self.create_design_selector(**design_selector)
+        # else:
+        #     # self.create_design_selector(selection={}, mask={}, required={})
+        #     self.design_selector_entities = self.design_selector_entities.union(set(self.entities))
+        #     self.design_selector_indices = self.design_selector_indices.union(set(self.pdb.atom_indices))
         if frag_db:
             # Attach an existing FragmentDB to the Pose
             self.attach_fragment_database(db=frag_db)
@@ -900,35 +900,33 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
             return entity_set, atom_indices
 
-        # if not selection:
-        #     entity_selection = set(self.entities)
-        #     atom_selection = set(self.pdb.atom_indices)
-        # else:
-        self.log.debug('The design_selection includes: %s' % selection)
-        entity_selection, atom_selection = grab_indices(**selection)
-        # if mask:
-        self.log.debug('The design_mask includes: %s' % mask)
-        entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
+        if not selection:
+            entity_selection = set(self.entities)
+            atom_selection = set(self.pdb.atom_indices)
+        else:
+            self.log.debug('The design_selection includes: %s' % selection)
+            entity_selection, atom_selection = grab_indices(**selection)
+        if mask:
+            self.log.debug('The design_mask includes: %s' % mask)
+            entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
+        else:
+            entity_mask, atom_mask = set(), set()
         entity_selection = entity_selection.difference(entity_mask)
         atom_selection = atom_selection.difference(atom_mask)
-        self.design_selector_entities = self.design_selector_entities.union(entity_selection)
-        self.design_selector_indices = self.design_selector_indices.union(atom_selection)
+        self.design_selector_entities = entity_selection
+        self.design_selector_indices = atom_selection
+        # self.design_selector_entities = self.design_selector_entities.union(entity_selection)
+        # self.design_selector_indices = self.design_selector_indices.union(atom_selection)
 
-        # if required:
-        self.log.debug('The required_residues includes: %s' % required)
-        entity_required, atom_required = grab_indices(**required, start_with_none=True)
-        self.required_indices = self.required_indices.union(atom_required)
+        if required:
+            self.log.debug('The required_residues includes: %s' % required)
+            entity_required, atom_required = grab_indices(**required, start_with_none=True)
+        else:
+            entity_required, atom_required = set(), set()
+        self.required_indices = atom_required
         self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
-
-    # def initialize_symmetry(self, symmetry=None):  # Unused
-    #     if symmetry:
-    #         self.set_symmetry(symmetry=symmetry)
-    #     elif self.pdb.space_group and self.pdb.uc_dimensions:
-    #         self.set_symmetry(symmetry=self.pdb.space_group, uc_dimensions=self.pdb.uc_dimensions)
-    #     elif self.pdb.cryst_record:
-    #         self.set_symmetry(cryst1=self.pdb.cryst_record)
-    #     else:
-    #         self.log.info('No symmetry present in the Pose PDB')
+        # self.required_indices = self.required_indices.union(atom_required)
+        # self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
 
     def construct_cb_atom_tree(self, entity1, entity2, distance=8):  # TODO UNUSED
         """Create a atom tree using CB atoms from two PDB's
