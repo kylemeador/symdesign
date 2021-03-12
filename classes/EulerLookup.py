@@ -26,20 +26,18 @@ class EulerLookup:
         v3_a2 = np.maximum(-1, v3_a2)
         v3_a2 = np.minimum(1, v3_a2)
 
+        third_angle_degenerate = np.logical_or(v3_a2 > 1. - tolerance, v3_a2 < -(1. - tolerance))
         # for the if statements below
         # e1_v = np.empty((len(v3_a), 3), dtype=int)
-        e1_v = np.where(np.logical_or(v3_a2 > 1. - tolerance, v3_a2 < -(1. - tolerance)),
-                        np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
-
         # e2_v = np.empty((len(v3_a), 3), dtype=int)
-        e2_v = np.where(np.logical_or(v3_a2 < 1. - tolerance, v3_a2 > -(1. - tolerance)),
-                        np.arccos(v3_a[:, 2]), 0)
+        # e3_v = np.empty((len(v3_a), 3), dtype=int)
+        e1_v = np.where(third_angle_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
+
+        e2_v = np.where(~third_angle_degenerate, v3_a2, 0)  # np.arccos(v3_a[:, 2]), 0)
         e2_v = np.where(v3_a2 < -(1. - tolerance), np.pi, e2_v)
 
-        # for the third condition below, set equal to the arctan along the v3_a array or 0
-        # e3_v = np.empty((len(v3_a), 3), dtype=int)
-        e3_v = np.where(np.logical_or(v3_a2 < 1. - tolerance, v3_a2 > -(1. - tolerance)),
-                        np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
+        # for the third condition, set equal to the arctan of the v3_a array or 0
+        e3_v = np.where(~third_angle_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
 
         eulint1 = (np.rint(e1_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36
         eulint2 = np.rint(e2_v * 180. / np.pi * 0.1 * 0.999999)
