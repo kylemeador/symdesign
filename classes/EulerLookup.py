@@ -123,19 +123,26 @@ class EulerLookup:
         # result = np.hstack([np.repeat(eulintarray1, eulintarray2.shape[0], axis=0),
         #                     np.tile(eulintarray2, (eulintarray1.shape[0], 1))])
         # result_t = np.transpose(result)
-        i_indices = np.arange(len(guide_coords1))
-        j_indices = np.arange(len(guide_coords2))
-        index_array = np.column_stack([np.repeat(i_indices, j_indices.shape[0]),
-                                       np.tile(j_indices, i_indices.shape[0])])
-        print('index_array', index_array[:5], index_array[5:])
+        indices1 = np.arange(len(guide_coords1))
+        indices2 = np.arange(len(guide_coords2))
+        eulintarray1_1_r = np.repeat(eulintarray1_1, indices2.shape[0])
+        eulintarray1_2_r = np.repeat(eulintarray1_2, indices2.shape[0])
+        eulintarray1_3_r = np.repeat(eulintarray1_3, indices2.shape[0])
+        eulintarray2_1_r = np.tile(eulintarray2_1, indices1.shape[0])
+        eulintarray2_2_r = np.tile(eulintarray2_2, indices1.shape[0])
+        eulintarray2_3_r = np.tile(eulintarray2_3, indices1.shape[0])
+
         # print('40', self.eul_lookup_40[:5])
         # print('40 query result', self.eul_lookup_40[result_t])
         # Need to make these columns from the eulintarray1/2 hstack for the multidimensional indexing
-        overlap = self.eul_lookup_40[eulintarray1_1, eulintarray1_2, eulintarray1_3,
-                                     eulintarray2_1, eulintarray2_2, eulintarray2_3]
+        overlap = self.eul_lookup_40[eulintarray1_1_r, eulintarray1_2_r, eulintarray1_3_r,
+                                     eulintarray2_1_r, eulintarray2_2_r, eulintarray2_3_r]
         # overlap = self.eul_lookup_40[result]
         # overlap = np.take_along_axis(self.eul_lookup_40, result,)
         print('overlap', overlap[:30])
+        index_array = np.column_stack([np.repeat(indices1, indices2.shape[0]),
+                                       np.tile(indices2, indices1.shape[0])])
+        print('index_array', index_array[:5], index_array[5:])
         true_overlap_i_j_pairs = index_array[overlap]
         print('true pairs', true_overlap_i_j_pairs[:5])
         # guide_indices = [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))]
