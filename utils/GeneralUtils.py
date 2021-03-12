@@ -96,15 +96,17 @@ def get_last_sampling_state(log_file_path, zero=True):
 
 
 def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error=None, match_number=None,
-                               central_frequencies=None, out_path=os.getcwd(), pose_id=None, is_initial_match=False):
+                               central_frequencies=None, out_path=os.getcwd(), pose_id=None):  # , is_initial_match=False):
 
     # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
     #     raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
 
     with open(os.path.join(out_path, frag_text_file), "a+") as out_info_file:
-        if is_initial_match:
+        # if is_initial_match:
+        if match_number == 1:
             out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
-            out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
+            out_info_file.write("***** ALL FRAGMENT MATCHES *****\n\n")
+            # out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
 
         out_info_file.write("MATCH %d\n" % match_number)
         out_info_file.write("z-val: %f\n" % overlap_error)
@@ -117,8 +119,8 @@ def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error
         out_info_file.write("aligned rep: int_frag_%s_%d.pdb\n" % ('i%s_j%s_k%s' % ghost_frag.get_ijk(), match_number))
         out_info_file.write("central res pair freqs:\n%s\n\n" % str(central_frequencies))
 
-        if is_initial_match:
-            out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
+        # if is_initial_match:
+        #     out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
 
 
 def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count,
