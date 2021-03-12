@@ -727,7 +727,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if an ASU is present
         # self.initialize_symmetry(symmetry=symmetry)
 
-
     @classmethod
     def from_pdb(cls, pdb, **kwargs):  # symmetry=None,
         return cls(pdb=pdb, **kwargs)  # symmetry=None,
@@ -864,8 +863,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.required_indices (set[int])
         """
         if self.pdb != self.asu:  # Todo
-            self.log.critical('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
-                              'files. Proceed with caution if this is not was you expected!')
+            self.log.warning('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
+                             'files. Proceed with caution if this is not was you expected!')
         def grab_indices(pdbs=None, entities=None, chains=None, residues=None, pdb_residues=None, atoms=None,
                          start_with_none=False):
             if start_with_none:
@@ -1134,6 +1133,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.interface_split (dict): Residue/Entity id of each residue at the interface identified by interface id
             as split by topology
         """
+        print(self.active_entities)
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.find_interface_residues(*entity_pair)
 
@@ -1143,6 +1143,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         first, second = 0, 1
         interface_residue_d = {first: {}, second: {}, 'self': [False, False]}
         terminate = False
+        self.log.debug('Pose contains interface residues: %s' % self.interface_residues)
         for entity_pair, entity_residues in self.interface_residues.items():
             if not entity_residues:
                 continue
