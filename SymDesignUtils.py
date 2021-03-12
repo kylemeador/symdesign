@@ -13,6 +13,7 @@ from itertools import chain
 from json import loads, dumps
 
 import numpy as np
+from Bio import SeqIO
 from Bio.PDB import PDBParser, Superimposer
 from sklearn.neighbors import BallTree
 
@@ -1115,3 +1116,63 @@ def filter_euler_lookup_by_zvalue(coords_l1, coords_l2, reference_coords, z_valu
     #         overlap_results.append(False)
 
     return overlap_results
+
+
+def read_fasta_file(file_name):
+    """Returns an iterator of SeqRecords. Ex. [record1, record2, ...]"""
+    return SeqIO.parse(file_name, 'fasta')
+
+
+def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
+    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
+    if not file_name:
+        return None
+    if '.fasta' in file_name:
+        file_name = file_name.rstrip('.fasta')
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
+
+    return '%s.fasta' % file_name
+
+
+def concatenate_fasta_files(file_names, output='concatenated_fasta'):
+    """Take multiple fasta files and concatenate into a single file"""
+    seq_records = [read_fasta_file(file) for file in file_names]
+    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
+
+
+def write_fasta_file(sequence, name, outpath=os.getcwd()):
+    """Write a fasta file from sequence(s)
+
+    Args:
+        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(name, sequence),
+            list of lists, etc. Smart solver using object type
+        name (str): The name of the file to output
+    Keyword Args:
+        path=os.getcwd() (str): The location on disk to output file
+    Returns:
+        (str): The name of the output file
+    """
+    file_name = os.path.join(outpath, name + '.fasta')
+    with open(file_name, 'w') as outfile:
+        if type(sequence) is list:
+            if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
+                for idx, seq in enumerate(sequence):
+                    outfile.write('>%s_%d\n' % (name, idx))  # header
+                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
+                        outfile.write(' '.join(aa for aa in seq))
+                    else:
+                        outfile.write(''.join(aa for aa in seq))
+            elif isinstance(sequence[0], str):
+                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
+            elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
+                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
+            else:
+                raise DesignError('Cannot parse data to make fasta')
+        elif isinstance(sequence, dict):
+            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
+        elif isinstance(sequence, str):
+            outfile.write('>%s\n%s\n' % (name, sequence))
+        else:
+            raise DesignError('Cannot parse data to make fasta')
+
+    return file_name

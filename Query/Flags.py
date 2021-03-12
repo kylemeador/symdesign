@@ -5,10 +5,10 @@ import pandas as pd
 from PathUtils import program_command, nano, program_name, nstruct, filter_and_sort
 from Query.PDB import input_string, format_string, confirmation_string, \
     bool_d, invalid_string, header_string
-from SequenceProfile import read_fasta_file
-from SymDesignUtils import pretty_format_table, DesignError, handle_errors
+from SymDesignUtils import pretty_format_table, DesignError, handle_errors, read_fasta_file
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
+generate_frags = 'generate_fragments'
 # Todo separate into types of options, aka fragments, residue selection, symmetry
 global_flags = {'symmetry': {'type': str, 'default': None,
                 'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '

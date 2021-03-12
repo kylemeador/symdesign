@@ -38,8 +38,8 @@ from PDB import PDB
 from Structure import Residue
 from Pose import Model
 import SequenceProfile
-from SequenceProfile import write_fasta_file, SequenceProfile
-from SymDesignUtils import DesignError, start_log
+from SequenceProfile import SequenceProfile
+from SymDesignUtils import DesignError, start_log, write_fasta_file
 from utils.ExpandAssemblyUtils import expand_asu
 
 logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
