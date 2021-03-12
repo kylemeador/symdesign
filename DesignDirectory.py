@@ -227,8 +227,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
             elif self.directory_type in ['design', 'filter']:
                 # May have issues with the number of open log files
-                if self.directory_type == 'filter':
-                    self.skip_logging = True
+                # if self.directory_type == 'filter':
+                #     self.skip_logging = True
                 # else:
                 #     self.skip_logging = True
                 self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
@@ -283,6 +283,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             self.set_up_design_directory()
         self.start_log(debug=debug)
+        self.log.info('fragment_observations: %s' % self.fragment_observations)
 
     @classmethod
     def from_nanohedra(cls, design_path, mode=None, project=None, nano=True, **kwargs):
@@ -429,7 +430,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def start_log(self, debug=False, level=2):
         if self.skip_logging:  # set up null_logger
-            self.log = start_log(name=self.name, handler=3, level=level)
+            self.log = start_log(name=str(self), handler=3, level=level)
             return None
 
         if debug:
