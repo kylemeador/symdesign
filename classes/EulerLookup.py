@@ -26,7 +26,7 @@ class EulerLookup:
         third_angle_degenerate = np.logical_or(v3_a2 > 1. - tolerance, v3_a2 < -(1. - tolerance))
 
         e1_v = np.where(third_angle_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
-        e2_v = np.where(~third_angle_degenerate, v3_a2, 0)  # np.arccos(v3_a[:, 2]), 0)
+        e2_v = np.where(~third_angle_degenerate, np.arccos(v3_a2), 0)
         e2_v = np.where(v3_a2 < -(1. - tolerance), np.pi, e2_v)
         # for third vector, set equal to the arctan of the v3_a array or 0
         e3_v = np.where(~third_angle_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
@@ -94,7 +94,7 @@ class EulerLookup:
 
             # get the euler indices
             eulintarray[i, :] = self.get_eulerint10_from_rot(rot)
-        print(eulintarray[:5])
+        print(eulintarray[:5], eulintarray.dtype, eulintarray.shape)
 
         # return eulintarray
 
@@ -105,8 +105,8 @@ class EulerLookup:
         v2_a = (guide_ats[:, 2, :] - guide_ats[:, 0, :]) * normalization
         v3_a = np.cross(v1_a, v2_a)
         eulintarray2 = self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
-        print(eulintarray2[:5])
-        return eulintarray
+        print(eulintarray2[:5], eulintarray2.dtype, eulintarray.shape)
+        return eulintarray2
 
     def check_lookup_table(self, guide_coords1, guide_coords2):
         """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
