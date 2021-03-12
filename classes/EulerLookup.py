@@ -135,6 +135,7 @@ class EulerLookup:
 
         # return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
         #         if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
-        except IndexError:
+        except IndexError as e:
+            print(e)
             print('i is:', i, 'j is:', j)
             print(eulintarray1[0, :])

@@ -753,16 +753,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     @pdb.setter
     def pdb(self, pdb):
         self._pdb = pdb
-        if isinstance(pdb, Structure):
-            if not self.ignore_clashes:
-                if self.pdb.is_clash():
-                    raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
-            # add structure to the SequenceProfile
-            self.set_structure(pdb)
-            # set up coordinate information for SymmetricModel
-            self.coords = pdb._coords
-            self.pdbs_d[pdb.name] = pdb
-            self.create_design_selector(**self.design_selector)
+        pdb.write(out_path=os.path.join(os.getcwd(), 'entity_concatenation.pdb'))  #TODO TEST THIS
+        if not self.ignore_clashes:
+            if pdb.is_clash():
+                raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
+        # add structure to the SequenceProfile
+        self.set_structure(pdb)
+        # set up coordinate information for SymmetricModel
+        self.coords = pdb._coords
+        self.pdbs_d[pdb.name] = pdb
+        self.create_design_selector(**self.design_selector)
 
     @property
     def name(self):
