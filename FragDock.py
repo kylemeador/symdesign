@@ -1186,9 +1186,8 @@ if __name__ == '__main__':
     cmd_line_in_params = sys.argv
     if len(cmd_line_in_params) > 1:
         # Parsing Command Line Input
-        sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_exp_assembly, \
-            output_uc, output_surrounding_uc, min_matched, timer, initial = \
-            get_docking_parameters(cmd_line_in_params)
+        sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
+            output_surrounding_uc, min_matched, timer, initial = get_docking_parameters(cmd_line_in_params)
 
         # Master Log File
         master_log_filepath = os.path.join(master_outdir, master_log)
@@ -1201,16 +1200,15 @@ if __name__ == '__main__':
             #     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
         else:
             time.sleep(1)  # ensure that the first file was able to write before adding below log
-            with open(master_log_filepath, "a+") as master_log_file:
-                master_log_file.write("Docking %s / %s \n" % (os.path.basename(os.path.splitext(pdb1_path)[0]),
+            with open(master_log_filepath, 'a+') as master_log_file:
+                master_log_file.write('Docking %s / %s \n' % (os.path.basename(os.path.splitext(pdb1_path)[0]),
                                                               os.path.basename(os.path.splitext(pdb2_path)[0])))
 
         try:
             nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir,
-                      output_exp_assembly, output_uc, output_surrounding_uc, min_matched,
-                      keep_time=timer, main_log=initial)
+                      output_assembly, output_surrounding_uc, min_matched, keep_time=timer, main_log=initial)
 
         except KeyboardInterrupt:
-            with open(master_log_filepath, "a+") as master_log:
-                master_log.write("\nRun Ended By KeyboardInterrupt\n")
+            with open(master_log_filepath, 'a+') as master_log:
+                master_log.write('\nRun Ended By KeyboardInterrupt\n')
             sys.exit()
