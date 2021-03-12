@@ -85,8 +85,10 @@ class EulerLookup:
         # form the 2 difference vectors (N or O - CA), normalize by vector scale, then cross product
         normalization = 1. / self.scale
         for i in range(nfrags):
-            v1 = (guide_ats[i, :, 1] - guide_ats[i, :, 0]) * normalization
-            v2 = (guide_ats[i, :, 2] - guide_ats[i, :, 0]) * normalization
+            # v1 = (guide_ats[i, :, 1] - guide_ats[i, :, 0]) * normalization
+            # v2 = (guide_ats[i, :, 2] - guide_ats[i, :, 0]) * normalization
+            v1 = (guide_ats[i, 1, :] - guide_ats[i, 0, :]) * normalization
+            v2 = (guide_ats[i, 2, :] - guide_ats[i, 0, :]) * normalization
             v3 = np.cross(v1, v2)
             rot = np.array([v1, v2, v3])
 
@@ -102,8 +104,8 @@ class EulerLookup:
         v1_a = (guide_ats[:, 1, :] - guide_ats[:, 0, :]) * normalization
         v2_a = (guide_ats[:, 2, :] - guide_ats[:, 0, :]) * normalization
         v3_a = np.cross(v1_a, v2_a)
-        eulintarray = self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
-        print(eulintarray[:5])
+        eulintarray2 = self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
+        print(eulintarray2[:5])
         return eulintarray
 
     def check_lookup_table(self, guide_coords1, guide_coords2):
