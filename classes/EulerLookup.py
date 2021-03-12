@@ -26,12 +26,12 @@ class EulerLookup:
 
         # for the if statements below
         # e1_v = np.empty((len(v3_a), 3), dtype=int)
-        e1_v = np.where(np.logical_or(v3_a2 > 1. - tolerance, v3_a2 < -(1. - tolerance),
-                        np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2])))
+        e1_v = np.where(np.logical_or(v3_a2 > 1. - tolerance, v3_a2 < -(1. - tolerance)),
+                        np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
 
         # e2_v = np.empty((len(v3_a), 3), dtype=int)
-        e2_v = np.where(np.logical_or(v3_a2 < 1. - tolerance, v3_a2 > -(1. - tolerance),
-                        np.arccos(v3_a[:, 2]), 0))
+        e2_v = np.where(np.logical_or(v3_a2 < 1. - tolerance, v3_a2 > -(1. - tolerance)),
+                        np.arccos(v3_a[:, 2]), 0)
         e2_v = np.where(v3_a < -(1. - tolerance), np.pi, e2_v)
 
         # for the third condition below, set equal to the arctan along the v3_a array or 0
