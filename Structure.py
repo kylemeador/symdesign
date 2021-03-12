@@ -852,8 +852,8 @@ class Structure(StructureBase):
             if header and isinstance(header, Iterable):
                 if isinstance(header, str):
                     location.write(header)
-                else:
-                    location.write(atom_atrings)
+                # else:
+                #     location.write('\n'.join(header))
 
         if file_handle:
             # write_header(file_handle)
