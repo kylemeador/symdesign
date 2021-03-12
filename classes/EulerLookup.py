@@ -21,8 +21,10 @@ class EulerLookup:
 
         # this should replace the min() and max()
         v3_a2 = v3_a[:, 2]
-        v3_a2 = np.where(v3_a2 < -1, -1, v3_a2)
-        v3_a2 = np.where(v3_a2 > 1, 1, v3_a2)
+        # v3_a2 = np.where(v3_a2 < -1, -1, v3_a2)
+        # v3_a2 = np.where(v3_a2 > 1, 1, v3_a2)
+        v3_a2 = np.maximum(-1, v3_a2)
+        v3_a2 = np.minimum(1, v3_a2)
 
         # for the if statements below
         # e1_v = np.empty((len(v3_a), 3), dtype=int)
@@ -100,6 +102,8 @@ class EulerLookup:
         #
         #     # get the euler indices
         #     eulintarray[i, :] = self.get_eulerint10_from_rot(rot)
+        #
+        # return eulintarray
 
         # the transpose done in the check_lookup_table is unnecessary if indexed as below
         # for fast array multiplication
@@ -107,9 +111,7 @@ class EulerLookup:
         v1_a = (guide_ats[:, 1, :] - guide_ats[:, 0, :]) * normalization
         v2_a = (guide_ats[:, 2, :] - guide_ats[:, 0, :]) * normalization
         v3_a = np.cross(v1_a, v2_a)
-        eulintarray = self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
-
-        return eulintarray
+        return self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
 
     def check_lookup_table(self, guide_coords1, guide_coords2):
         """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
@@ -121,10 +123,10 @@ class EulerLookup:
         # guide_list_2_np = np.array(guide_coords2)  # required to take the transpose
         # guide_list_2_np_t = np.array([atoms_coords_2.T for atoms_coords_2 in guide_list_2_np])
 
-        eulintarray1 = self.get_eulint_from_guides(guide_coords1)
         # eulintarray1 = self.get_eulint_from_guides(guide_coords1.swapaxes(1, 2))  # swapaxes takes the inner transpose
-        eulintarray2 = self.get_eulint_from_guides(guide_coords2)
         # eulintarray2 = self.get_eulint_from_guides(guide_coords2.swapaxes(1, 2))  # swapaxes takes the inner transpose
+        eulintarray1 = self.get_eulint_from_guides(guide_coords1)
+        eulintarray2 = self.get_eulint_from_guides(guide_coords2)
 
         # check lookup table
         # euler_bool_l = []
