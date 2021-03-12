@@ -43,6 +43,7 @@ class EulerLookup:
         eulint2 = np.rint(e2_v * 180. / np.pi * 0.1 * 0.999999)
         eulint3 = (np.rint(e3_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36
 
+        print(np.concatenate([eulint1, eulint2, eulint3]).reshape((len(v3_a), 3))[:5])
         return np.concatenate([eulint1, eulint2, eulint3]).reshape((len(v3_a), 3))
 
     @staticmethod
