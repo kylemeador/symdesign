@@ -43,7 +43,7 @@ class EulerLookup:
         eulint2 = np.rint(e2_v * 180. / np.pi * 0.1 * 0.999999)
         eulint3 = (np.rint(e3_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36
 
-        print(np.concatenate([eulint1, eulint2, eulint3]).reshape((len(v3_a), 3))[:5])
+        # print(np.concatenate([eulint1, eulint2, eulint3]).reshape((len(v3_a), 3))[:5])
         return np.concatenate([eulint1, eulint2, eulint3]).reshape((len(v3_a), 3))
 
     @staticmethod
@@ -134,6 +134,8 @@ class EulerLookup:
         #         (e1, e2, e3) = eulintarray1[i, :].flatten()
         #         (f1, f2, f3) = eulintarray2[j, :].flatten()
         #         euler_bool_l.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
-
-        return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
-                if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
+        try:
+            return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
+                    if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
+        except IndexError:
+            print('i is:', i, 'j is:', j)
