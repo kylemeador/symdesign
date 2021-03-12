@@ -85,7 +85,7 @@ class EulerLookup:
         # form the 2 difference vectors (N or O - CA), normalize by vector scale, then cross product
         normalization = 1. / self.scale
         for i in range(nfrags):
-            # v1 = (guide_ats[i, :, 1] - guide_ats[i, :, 0]) * normalization
+            # v1 = (guide_ats[i, :, 1] - guide_ats[i, :, 0]) * normalization  # from np.transpose/swapaxes
             # v2 = (guide_ats[i, :, 2] - guide_ats[i, :, 0]) * normalization
             v1 = (guide_ats[i, 1, :] - guide_ats[i, 0, :]) * normalization
             v2 = (guide_ats[i, 2, :] - guide_ats[i, 0, :]) * normalization
@@ -112,12 +112,12 @@ class EulerLookup:
         """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
         overlap
         """
-        # guide_list_1_np = np.array(guide_coords1)  # required to take the transpose, could use Fortan order...
-        # guide_list_1_np_t = np.array([atoms_coords_1.T for atoms_coords_1 in guide_list_1_np])
-
-        # guide_list_2_np = np.array(guide_coords2)  # required to take the transpose
-        # guide_list_2_np_t = np.array([atoms_coords_2.T for atoms_coords_2 in guide_list_2_np])
-
+        # # guide_list_1_np = np.array(guide_coords1)  # required to take the transpose, could use Fortran order...
+        # # guide_list_1_np_t = np.array([atoms_coords_1.T for atoms_coords_1 in guide_list_1_np])
+        #
+        # # guide_list_2_np = np.array(guide_coords2)  # required to take the transpose
+        # # guide_list_2_np_t = np.array([atoms_coords_2.T for atoms_coords_2 in guide_list_2_np])
+        #
         # eulintarray1 = self.get_eulint_from_guides(guide_coords1.swapaxes(1, 2))  # swapaxes takes the inner transpose
         # eulintarray2 = self.get_eulint_from_guides(guide_coords2.swapaxes(1, 2))  # swapaxes takes the inner transpose
         eulintarray1 = self.get_eulint_from_guides(guide_coords1)
