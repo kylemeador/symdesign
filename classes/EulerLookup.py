@@ -128,14 +128,15 @@ class EulerLookup:
         eulintarray2 = self.get_eulint_from_guides(guide_coords2)
 
         # check lookup table
-        # euler_bool_l = []
-        # for i in range(len(eulintarray1)):
-        #     for j in range(len(eulintarray2)):
-        #         (e1, e2, e3) = eulintarray1[i, :].flatten()
-        #         (f1, f2, f3) = eulintarray2[j, :].flatten()
-        #         euler_bool_l.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
         try:
-            return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
-                    if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
+            euler_bool_l = []
+            for i in range(len(eulintarray1)):
+                for j in range(len(eulintarray2)):
+                    (e1, e2, e3) = eulintarray1[i, :].flatten()
+                    (f1, f2, f3) = eulintarray2[j, :].flatten()
+                    euler_bool_l.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
+
+        # return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
+        #         if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
         except IndexError:
             print('i is:', i, 'j is:', j)
