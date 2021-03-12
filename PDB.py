@@ -223,7 +223,7 @@ class PDB(Structure):
              'cryst': other.__dict__['cryst'],
              'design': other.__dict__['design'],
              'entity_d': other.__dict__['entity_d'],  # Todo
-             'name': other.__dict__['name'],
+             'name': other.__dict__['_name'],
              'space_group': other.__dict__['space_group'],
              'uc_dimensions': other.__dict__['uc_dimensions'],
              'header': other.__dict__['header'],
