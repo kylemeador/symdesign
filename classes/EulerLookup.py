@@ -21,8 +21,8 @@ class EulerLookup:
 
         # this should replace the min() and max()
         v3_a2 = v3_a[:, 2]
-        v3_a2 = np.where(v3_a2 < -1, -1, v3_a)
-        v3_a2 = np.where(v3_a2 > 1, 1, v3_a)
+        v3_a2 = np.where(v3_a2 < -1, -1, v3_a2)
+        v3_a2 = np.where(v3_a2 > 1, 1, v3_a2)
 
         # for the if statements below
         # e1_v = np.empty((len(v3_a), 3), dtype=int)
