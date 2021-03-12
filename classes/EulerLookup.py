@@ -35,7 +35,7 @@ class EulerLookup:
         eulint2 = np.rint(e2_v * 180. / np.pi * 0.1 * 0.999999)
         eulint3 = (np.rint(e3_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36
 
-        return np.column_stack([eulint1, eulint2, eulint3])
+        return np.column_stack([eulint1, eulint2, eulint3]).astype(int)
 
     @staticmethod
     def get_eulerint10_from_rot(rot):
@@ -105,7 +105,7 @@ class EulerLookup:
         v2_a = (guide_ats[:, 2, :] - guide_ats[:, 0, :]) * normalization
         v3_a = np.cross(v1_a, v2_a)
         eulintarray2 = self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
-        eulintarray2.dtype = int
+        # eulintarray2.dtype = int
         print(eulintarray2[:5], eulintarray2.dtype, eulintarray.shape)
         return eulintarray2
 
@@ -126,18 +126,18 @@ class EulerLookup:
         print(len(eulintarray2), eulintarray2.shape)
         print(eulintarray2[1, :])
         # check lookup table
-        try:
-            euler_bool_l = []
-            for i in range(len(eulintarray1)):
-                for j in range(len(eulintarray2)):
-                    (e1, e2, e3) = eulintarray1[i, :]  # .flatten()
-                    (f1, f2, f3) = eulintarray2[j, :]  # .flatten()
-                    euler_bool_l.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
+        # try:
+        euler_bool_l = []
+        for i in range(len(eulintarray1)):
+            for j in range(len(eulintarray2)):
+                (e1, e2, e3) = eulintarray1[i, :]  # .flatten()
+                (f1, f2, f3) = eulintarray2[j, :]  # .flatten()
+                euler_bool_l.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
 
         # return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
         #         if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
-        except IndexError as e:
-            print(e)
-            print(type(i))
-            print('i is:', i, 'j is:', j)
-            print(eulintarray1[0, :])
+        # except IndexError as e:
+        #     print(e)
+        #     print(type(i))
+        #     print('i is:', i, 'j is:', j)
+        #     print(eulintarray1[0, :])
