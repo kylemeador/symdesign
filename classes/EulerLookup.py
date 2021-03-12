@@ -122,7 +122,7 @@ class EulerLookup:
         i_indices = np.arange(len(eulintarray1))
         j_indices = np.arange(len(eulintarray2))
         index_array = np.hstack([np.repeat(i_indices, eulintarray2.shape[0], axis=0),
-                                 np.tile(j_indices, (eulintarray1.shape[0], 1))])
+                                 np.tile(j_indices, eulintarray1.shape[0])])
         print('40', self.eul_lookup_40[:5])
         print('40 query result', self.eul_lookup_40[result])
         print('index_array', index_array[:5], index_array[5:])
