@@ -16,39 +16,26 @@ class EulerLookup:
         """Convert rotation matrix to euler angles in the form of an integer triplet (integer values are degrees
         divided by 10; these become indices for a lookup table)
         """
-        # for array calculation implementation
         tolerance = 1.e-6
-
-        # this should replace the min() and max()
         v3_a2 = v3_a[:, 2]
-        # v3_a2 = np.where(v3_a2 < -1, -1, v3_a2)
-        # v3_a2 = np.where(v3_a2 > 1, 1, v3_a2)
+
         v3_a2 = np.maximum(-1, v3_a2)
         v3_a2 = np.minimum(1, v3_a2)
 
+        # for the np.where statements below
         third_angle_degenerate = np.logical_or(v3_a2 > 1. - tolerance, v3_a2 < -(1. - tolerance))
-        # for the if statements below
-        # e1_v = np.empty((len(v3_a), 3), dtype=int)
-        # e2_v = np.empty((len(v3_a), 3), dtype=int)
-        # e3_v = np.empty((len(v3_a), 3), dtype=int)
-        e1_v = np.where(third_angle_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
 
+        e1_v = np.where(third_angle_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
         e2_v = np.where(~third_angle_degenerate, v3_a2, 0)  # np.arccos(v3_a[:, 2]), 0)
         e2_v = np.where(v3_a2 < -(1. - tolerance), np.pi, e2_v)
-
-        # for the third condition, set equal to the arctan of the v3_a array or 0
+        # for third vector, set equal to the arctan of the v3_a array or 0
         e3_v = np.where(~third_angle_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
 
         eulint1 = (np.rint(e1_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36
         eulint2 = np.rint(e2_v * 180. / np.pi * 0.1 * 0.999999)
         eulint3 = (np.rint(e3_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36
 
-        eulint_array = np.column_stack([eulint1, eulint2, eulint3])  # .reshape((len(v3_a), 3))
-        print(eulint1[:5], eulint1.shape)
-        print(eulint2[:5], eulint2.shape)
-        print(eulint3[:5], eulint3.shape)
-        print(eulint_array[:5], eulint_array.shape)
-        return eulint_array
+        return np.column_stack([eulint1, eulint2, eulint3])
 
     @staticmethod
     def get_eulerint10_from_rot(rot):
@@ -92,20 +79,21 @@ class EulerLookup:
         if guide_ats.ndim != 3 or guide_ats.shape[1] != 3 or guide_ats.shape[2] != 3:
             print('ERROR: Guide atom array with wrong dimensions. Calculation failed!!!')
 
-        # nfrags = guide_ats.shape[0]
-        # eulintarray = np.zeros((nfrags, 3), dtype=int)
-        #
-        # # form the 2 difference vectors (N or O - CA), normalize by vector scale, then cross product
-        # normalization = 1. / self.scale
-        # for i in range(nfrags):
-        #     v1 = (guide_ats[i, :, 1] - guide_ats[i, :, 0]) * normalization
-        #     v2 = (guide_ats[i, :, 2] - guide_ats[i, :, 0]) * normalization
-        #     v3 = np.cross(v1, v2)
-        #     rot = np.array([v1, v2, v3])
-        #
-        #     # get the euler indices
-        #     eulintarray[i, :] = self.get_eulerint10_from_rot(rot)
-        #
+        nfrags = guide_ats.shape[0]
+        eulintarray = np.zeros((nfrags, 3), dtype=int)
+
+        # form the 2 difference vectors (N or O - CA), normalize by vector scale, then cross product
+        normalization = 1. / self.scale
+        for i in range(nfrags):
+            v1 = (guide_ats[i, :, 1] - guide_ats[i, :, 0]) * normalization
+            v2 = (guide_ats[i, :, 2] - guide_ats[i, :, 0]) * normalization
+            v3 = np.cross(v1, v2)
+            rot = np.array([v1, v2, v3])
+
+            # get the euler indices
+            eulintarray[i, :] = self.get_eulerint10_from_rot(rot)
+        print(eulintarray[:5])
+
         # return eulintarray
 
         # the transpose done in the check_lookup_table is unnecessary if indexed as below
@@ -114,7 +102,9 @@ class EulerLookup:
         v1_a = (guide_ats[:, 1, :] - guide_ats[:, 0, :]) * normalization
         v2_a = (guide_ats[:, 2, :] - guide_ats[:, 0, :]) * normalization
         v3_a = np.cross(v1_a, v2_a)
-        return self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
+        eulintarray = self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
+        print(eulintarray[:5])
+        return eulintarray
 
     def check_lookup_table(self, guide_coords1, guide_coords2):
         """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
@@ -136,8 +126,8 @@ class EulerLookup:
             euler_bool_l = []
             for i in range(len(eulintarray1)):
                 for j in range(len(eulintarray2)):
-                    (e1, e2, e3) = eulintarray1[i, :].flatten()
-                    (f1, f2, f3) = eulintarray2[j, :].flatten()
+                    (e1, e2, e3) = eulintarray1[i, :]  # .flatten()
+                    (f1, f2, f3) = eulintarray2[j, :]  # .flatten()
                     euler_bool_l.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
 
         # return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
