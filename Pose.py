@@ -960,7 +960,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
         return entity1_tree.query_radius(entity2_coords, distance)
 
-    def find_interface_pairs(self, entity1=None, entity2=None, distance=8, include_glycine=True):
+    def find_interface_pairs(self, entity1=None, entity2=None, distance=8):  # , include_glycine=True):
         """Get pairs of residue numbers that have CB atoms within a certain distance (in contact) between two named
         Entities.
         Caution!: Pose must have Coords representing all atoms as residue pairs are found using CB indices from all atoms
@@ -983,10 +983,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure
-        entity1_indices = entity1.get_cb_indices(InclGlyCA=include_glycine)
+        entity1_indices = entity1.get_cb_indices()  # InclGlyCA=include_glycine)
 
         # entity2_atoms = entity2.get_atoms()  # if passing by Structure
-        entity2_indices = entity2.get_cb_indices(InclGlyCA=include_glycine)
+        entity2_indices = entity2.get_cb_indices()  # InclGlyCA=include_glycine)
 
         if self.design_selector_indices:  # subtract the masked atom indices from the entity indices
             before = len(entity1_indices) + len(entity2_indices)
@@ -1575,7 +1575,7 @@ def construct_cb_atom_tree(pdb1, pdb2, distance=8):
     return pdb1_tree.query_radius(pdb2_coords, distance)
 
 
-def find_interface_pairs(pdb1, pdb2, distance=8, gly_ca=True):
+def find_interface_pairs(pdb1, pdb2, distance=8):  # , gly_ca=True):
     """Get pairs of residues across an interface within a certain distance
 
         Args:
@@ -1589,8 +1589,8 @@ def find_interface_pairs(pdb1, pdb2, distance=8, gly_ca=True):
     query = construct_cb_atom_tree(pdb1, pdb2, distance=distance)
 
     # Map Coordinates to Atoms
-    pdb1_cb_indices = pdb1.get_cb_indices(InclGlyCA=gly_ca)
-    pdb2_cb_indices = pdb2.get_cb_indices(InclGlyCA=gly_ca)
+    pdb1_cb_indices = pdb1.get_cb_indices()  # InclGlyCA=gly_ca)
+    pdb2_cb_indices = pdb2.get_cb_indices()  # InclGlyCA=gly_ca)
 
     # Map Coordinates to Residue Numbers
     interface_pairs = []
