@@ -751,7 +751,7 @@ if __name__ == '__main__':
     elif args.module in [PUtils.nano, 'filter', 'analysis', 'sequence_selection']:
         queried_flags['directory_type'] = args.module
         queried_flags[args.module] = True
-        if args.module == 'filter':
+        if args.module == 'filter' and not args.debug:
             queried_flags['skip_logging'] = True
     else:  # ['distribute', 'query', 'guide', 'flags', 'design_selector']
         queried_flags['directory_type'] = None
