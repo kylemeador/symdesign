@@ -16,12 +16,12 @@ from sklearn.preprocessing import StandardScaler
 
 import PathUtils as PUtils
 from CmdUtils import reference_average_residue_weight, script_cmd, run_cmds, flag_options, rosetta_flags
+from Query import Flags
 from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, clean_dictionary, all_vs_all, \
     condensed_to_square
 from PDB import PDB
 from Pose import Pose
-from Query.Flags import load_flags
 from AnalyzeMutatedSequences import generate_all_design_mutations, generate_sequences, multi_chain_alignment, \
     compute_jsd
 from AnalyzeOutput import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
@@ -505,7 +505,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if os.path.exists(self.frag_file):
             # if self.info['fragments']:
             self.gather_fragment_info()
-            self.get_fragment_metrics(from_file=True)
+            # self.get_fragment_metrics(from_file=True)
 
     def get_wildtype_file(self):
         """Retrieve the wild-type file name from Design Directory"""
@@ -558,26 +558,29 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.oligomers[name].reorder_chains()
         self.log.debug('%s: %d matching oligomers found' % (self.path, len(self.oligomers)))
 
-    def get_fragment_metrics(self, from_file=True, from_pose=False):
+    def get_fragment_metrics(self):  # , from_file=True, from_pose=False):
         """Set the design fragment metrics for all fragment observations"""
-        if from_file and self.fragment_observations:
-            total_design_metrics = return_fragment_interface_metrics(calculate_match_metrics(self.fragment_observations))
-        elif from_pose and self.pose:
-            total_design_metrics = self.pose.return_fragment_query_metrics(total=True)
+        # if from_file and self.fragment_observations:
+        if self.fragment_observations:
+            design_metrics = return_fragment_interface_metrics(calculate_match_metrics(self.fragment_observations))
+        # if from_pose and self.pose:
+        elif self.pose:
+            design_metrics = self.pose.return_fragment_query_metrics(total=True)
         else:
+            self.generate_interface_fragments
             self.log.warning('%s: There are no fragment observations associated with this Design! Have you scored '
                              'it yet? See \'Scoring Interfaces\' in the %s' % (self.path, PUtils.guide_string))
             return None
 
-        self.all_residue_score = total_design_metrics['nanohedra_score']
-        self.center_residue_score = total_design_metrics['nanohedra_score_central']
-        self.fragment_residues_total = total_design_metrics['number_fragment_residues_total']
-        self.central_residues_with_fragment_overlap = total_design_metrics['number_fragment_residues_central']
-        self.multiple_frag_ratio = total_design_metrics['multiple_fragment_ratio']
-        self.helical_fragment_content = total_design_metrics['percent_fragment_helix']
-        self.strand_fragment_content = total_design_metrics['percent_fragment_strand']
-        self.coil_fragment_content = total_design_metrics['percent_fragment_coil']
-        # self.number_of_fragments = total_design_metrics['number_fragments']  # Now a DesignDirectory property
+        self.all_residue_score = design_metrics['nanohedra_score']
+        self.center_residue_score = design_metrics['nanohedra_score_central']
+        self.fragment_residues_total = design_metrics['number_fragment_residues_total']
+        self.central_residues_with_fragment_overlap = design_metrics['number_fragment_residues_central']
+        self.multiple_frag_ratio = design_metrics['multiple_fragment_ratio']
+        self.helical_fragment_content = design_metrics['percent_fragment_helix']
+        self.strand_fragment_content = design_metrics['percent_fragment_strand']
+        self.coil_fragment_content = design_metrics['percent_fragment_coil']
+        # self.number_of_fragments = design_metrics['number_fragments']  # Now a DesignDirectory property
 
         # Todo need to limit by the SASA accessible residues
         if 'design_residues' not in self.info:  # and self.pose:
@@ -1017,6 +1020,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         self.load_pose()
         self.make_path(self.frags)
+        if not self.frag_db:
+            self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
+                             'requested. Each design will load a separate instance which takes time. If you wish to '
+                             'speed up processing pass the flag -%s' % Flags.generate_frags)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=True)  # Todo parameterize
         self.info['fragments'] = self.frag_file
         self.pickle_info()
@@ -1088,8 +1095,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         wt_pdb = PDB.from_file(self.get_wildtype_file())
         wt_sequence = wt_pdb.atom_sequences
 
-        int_b_factor = sum(wt_pdb.residue(residue).get_ave_b_factor() for residue in interface_residues)
-        other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
+        design_residues = [int(residue[:-1]) for residue in self.info['design_residues'].split(',')]
+        int_b_factor = sum(wt_pdb.residue(residue).get_ave_b_factor() for residue in design_residues)
+        other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(design_residues), 2)
 
         idx_slice = pd.IndexSlice
         if not os.path.exists(self.scores_file):
@@ -1257,7 +1265,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             other_pose_metrics['percent_fragment'] = len(issm_residues) / len(interface_residues)
             scores_df['total_interface_residues'] = len(interface_residues)
             # 'design_residues' coming in as 234B (residue_number|chain)
-            design_residues = [int(residue[:-1]) for residue in self.info['design_residues'].split(',')]
             if set(interface_residues) != set(design_residues):
                 self.log.info('Residues %s are located in the interior' %
                               ', '.join(map(str, set(design_residues) - set(interface_residues))))

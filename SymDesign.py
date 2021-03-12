@@ -32,9 +32,9 @@ from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_r
 from PDB import PDB
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
-from Query.Flags import query_user_for_flags, return_default_flags, process_design_selector_flags, \
-    query_user_for_metrics
-from SequenceProfile import write_fasta, write_fasta_file, generate_mutations, find_orf_offset
+from Query import Flags
+from SequenceProfile import generate_mutations, find_orf_offset
+from SymDesignUtils import write_fasta, write_fasta_file
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import query_mode
 
@@ -714,7 +714,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
-    default_flags = return_default_flags(args.module)
+    default_flags = Flags.return_default_flags(args.module)
     if additional_flags:
         formatted_flags = format_additional_flags(additional_flags)
     else:
@@ -728,7 +728,7 @@ if __name__ == '__main__':
     # Add additional program flags to queried_flags
     queried_flags = vars(args)
     queried_flags.update(default_flags)
-    queried_flags.update(process_design_selector_flags(queried_flags))
+    queried_flags.update(Flags.process_design_selector_flags(queried_flags))
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags['symmetry']:
         if queried_flags['symmetry'] in SDUtils.possible_symmetries:
@@ -886,7 +886,7 @@ if __name__ == '__main__':
             args.suspend = True
             logger.info('Writing modelling commands out to file, no modelling will occur until commands are executed.')
 
-    if 'generate_fragments' in queried_flags and queried_flags['generate_fragments']:
+    if Flags.generate_frags in queried_flags and queried_flags[Flags.generate_frags]:
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
         fragment_db = FragmentDatabase(source='directory', location=interface_type, init_db=True)
@@ -904,9 +904,9 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == 'flags':
         if args.template:
-            query_user_for_flags(template=True)
+            Flags.query_user_for_flags(template=True)
         else:
-            query_user_for_flags(mode=queried_flags['directory_type'])
+            Flags.query_user_for_flags(mode=queried_flags['directory_type'])
     # ---------------------------------------------------
     elif args.module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
         distribute(**vars(args))
@@ -1274,7 +1274,7 @@ if __name__ == '__main__':
                     sample_trajectory = next(iter(design_directories)).trajectories
                     trajectory_df = pd.read_csv(sample_trajectory, index_col=0, header=[0])
                     sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
-                    sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
+                    sequence_weights = Flags.query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
             elif args.consensus:
                 results.append(zip(design_directories, repeat('consensus')))
 
