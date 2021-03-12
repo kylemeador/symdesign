@@ -32,7 +32,7 @@ class EulerLookup:
         # e2_v = np.empty((len(v3_a), 3), dtype=int)
         e2_v = np.where(np.logical_or(v3_a2 < 1. - tolerance, v3_a2 > -(1. - tolerance)),
                         np.arccos(v3_a[:, 2]), 0)
-        e2_v = np.where(v3_a < -(1. - tolerance), np.pi, e2_v)
+        e2_v = np.where(v3_a2 < -(1. - tolerance), np.pi, e2_v)
 
         # for the third condition below, set equal to the arctan along the v3_a array or 0
         # e3_v = np.empty((len(v3_a), 3), dtype=int)
