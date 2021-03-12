@@ -122,7 +122,8 @@ class EulerLookup:
         # eulintarray2 = self.get_eulint_from_guides(guide_coords2.swapaxes(1, 2))  # swapaxes takes the inner transpose
         eulintarray1 = self.get_eulint_from_guides(guide_coords1)
         eulintarray2 = self.get_eulint_from_guides(guide_coords2)
-        # print(eulintarray2[:5])
+        print(len(eulintarray2), eulintarray2.shape)
+        print(eulintarray2[1, :])
         # check lookup table
         try:
             euler_bool_l = []
@@ -136,3 +137,4 @@ class EulerLookup:
         #         if self.eul_lookup_40[(*eulintarray1[i, :].flatten(), *eulintarray2[j, :].flatten())]]
         except IndexError:
             print('i is:', i, 'j is:', j)
+            print(eulintarray1[:, :])
