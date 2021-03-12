@@ -26,11 +26,10 @@ from utils.SymmUtils import get_uc_dimensions
 fragment_length = 5
 
 
-def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frags,  # out_string,
-                      complete_surf_frags, log_filepath, degen_subdir_out_path, rot_subdir_out_path, pdb1_path,
-                      pdb2_path, eul_lookup, rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_exp_assembly=False,
-                      output_uc=False, output_surrounding_uc=False, clash_dist=2.2, min_matched=3,
-                      high_quality_match_value=1):
+def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frags, complete_surf_frags,
+                      log_filepath, degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
+                      rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_assembly=False, output_surrounding_uc=False,
+                      clash_dist=2.2, min_matched=3, high_quality_match_value=1):
     """
 
     Keyword Args:
@@ -252,7 +251,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                             len(overlapping_ghost_surf_frag_indices)))
         
         # check if the pose has enough high quality fragment matches
-        high_qual_match_count = np.where(passing_z_values < 1)[0].size
+        high_qual_match_count = np.where(passing_z_values < high_quality_match_value)[0].size
         if high_qual_match_count < min_matched:
             with open(log_filepath, 'a+') as log_file:
                 log_file.write('\t%d < %d Which is Set as the Minimal Required Amount of High Quality '
@@ -319,7 +318,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
-        if output_exp_assembly:
+        if output_assembly:
             symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
             if optimal_ext_dof_shifts:  # 2, 3 dimensions
                 symmetric_material.write(out_path=os.path.join(tx_dir, 'central_uc.pdb'), header=cryst1_record)
@@ -437,7 +436,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 # KM TODO ijk_intfrag_cluster_info_dict contains all info in init_intfrag_cluster_info_dict. init info could be deleted,
 #     This doesn't take up much extra memory, but makes future maintanence bad, for porting frags to fragDB say...
 def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_step_deg_pdb2, master_outdir,
-              output_exp_assembly, output_uc, output_surrounding_uc, min_matched, keep_time=True,
+              output_assembly, output_surrounding_uc, min_matched, keep_time=True,
               main_log=False):
 
     # Fragment Database Directory Paths
@@ -584,13 +583,13 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
 
     nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val, subseq_max_z_val,
                    rot_step_deg_pdb1=rot_step_deg_pdb1, rot_step_deg_pdb2=rot_step_deg_pdb2,
-                   output_exp_assembly=output_exp_assembly, output_uc=output_uc,
-                   output_surrounding_uc=output_surrounding_uc, min_matched=min_matched, keep_time=keep_time)
+                   output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
+                   min_matched=min_matched, keep_time=keep_time)
 
 
 def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
-                   subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_exp_assembly=False,
-                   output_uc=False, output_surrounding_uc=False, min_matched=3, keep_time=True):
+                   subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_assembly=False,
+                   output_surrounding_uc=False, min_matched=3, keep_time=True):
     # Output Directory  # Todo DesignDirectory
     pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
     pdb2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
@@ -815,7 +814,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #     find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
     #                       complete_ghost_frags, complete_surf_frags, log_file_path, degen_subdir_out_path,
     #                       rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup, rot1_mat, rot2_mat,
-    #                       max_z_val=subseq_max_z_val, output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+    #                       max_z_val=subseq_max_z_val, output_assembly=output_assembly, output_uc=output_uc,
     #                       output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
     #
     # elif (sym_entry.degeneracy_matrices_1 is not None or has_int_rot_dof_1) \
@@ -900,7 +899,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                               complete_ghost_frags, complete_surf_frags, log_file_path,
     #                               degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
     #                               rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
-    #                               output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+    #                               output_assembly=output_assembly, output_uc=output_uc,
     #                               output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
     #         rot1_count = 0
     #
@@ -983,7 +982,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     #                               complete_ghost_frags, complete_surf_frags, log_file_path,
     #                               degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
     #                               rot1_mat, rot2_mat, max_z_val=subseq_max_z_val,
-    #                               output_exp_assembly=output_exp_assembly, output_uc=output_uc,
+    #                               output_assembly=output_assembly, output_uc=output_uc,
     #                               output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
     #         rot2_count = 0
     #
@@ -1166,12 +1165,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                         rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' %
                                                            (rot1_count, rot2_count))
 
-                        find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,  # out_string,
+                        find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
                                           complete_ghost_frags, complete_surf_frags, log_file_path,
                                           degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
                                           rot_mat1=rot1_mat, rot_mat2=rot2_mat, max_z_val=subseq_max_z_val,
-                                          output_exp_assembly=output_exp_assembly, output_uc=output_uc,
-                                          output_surrounding_uc=output_surrounding_uc, min_matched=min_matched)
+                                          output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
+                                          min_matched=min_matched)
                         iteration += 1  # Todo
                         if iteration == 5:  # Todo
                             exit()
