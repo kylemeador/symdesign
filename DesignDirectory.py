@@ -327,13 +327,28 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      'percent_fragment_coil': , 'unique_fragments': }
         """
         return {'nanohedra_score_per_res': self.score,
+                'nanohedra_score': self.all_residue_score,
+                'nanohedra_score_central': self.center_residue_score,
                 'number_fragment_residues_total': self.fragment_residues_total,
                 'number_fragment_residues_central': self.central_residues_with_fragment_overlap,
                 'multiple_fragment_ratio': self.multiple_frag_ratio,
                 'percent_fragment_helix': self.helical_fragment_content,
                 'percent_fragment_strand': self.strand_fragment_content,
                 'percent_fragment_coil': self.coil_fragment_content,
-                'unique_fragments': self.number_of_fragments}
+                'unique_fragments': self.number_of_fragments,
+                'total_interface_residues': self.total_interface_residues,
+                'percent_residues_fragment_all': self.percent_residues_fragment_all,  # TODO metrics name
+                'percent_residues_fragment_center': self.percent_residues_fragment_center,  # TODO name
+                'design_dimensions': self.design_dimensions,  # TODO name and implement
+                'component1_symmetry': self.sym_entry_number,  # TODO name and implement
+                'component1_length': self.sym_entry_number,  # TODO name and implement
+                'component1_n_terminal_helix': self.sym_entry_number,  # TODO name and implement
+                'component1_c_terminal_helix': self.sym_entry_number,  # TODO name and implement
+                'component2_n_terminal_helix': self.sym_entry_number,  # TODO name and implement
+                'component2_c_terminal_helix': self.sym_entry_number,  # TODO name and implement
+                'component2_length': self.sym_entry_number,  # TODO name and implement
+                'component2_symmetry': self.sym_entry_number,  # TODO name and implement
+                }
 
     def pose_fragments(self):
         """Returns:
@@ -565,6 +580,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.number_of_fragments = total_design_metrics['number_fragments']  # Now a DesignDirectory property
 
         # Todo need to limit by the SASA accessible residues
+        if 'design_residues' not in self.info:  # and self.pose:
+            self.identify_interface()
+        # if 'design_residues' not in self.info:  # and self.pose:
+        #     print('find_interface is failing?')
+        #     print(self.pose.interface_split.items(), self.interface_residue_d)
+        #     print(self.info)
         self.total_interface_residues = len(self.info['design_residues'].split(','))
         self.percent_residues_fragment_all = self.fragment_residues_total / self.total_interface_residues
         self.percent_residues_fragment_center = \
@@ -956,15 +977,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                            design_selector=self.design_selector, frag_db=self.frag_db,
                                            ignore_clashes=self.ignore_clashes)
         # Save renumbered PDB to clean_asu.pdb
-        self.pose.pdb.write(out_path=self.asu)
-        self.log.info('Cleaned PDB: \'%s\'' % self.asu)
-        if self.pose.symmetry:
-            if self.pose.symmetric_assembly_is_clash():
-                raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered')
-            if self.output_assembly:
-                self.pose.get_assembly_symmetry_mates()
-                self.pose.write(out_path=self.assembly)
-                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+        if not os.path.exists(self.asu):
+            self.pose.pdb.write(out_path=self.asu)
+            self.log.info('Cleaned PDB: \'%s\'' % self.asu)
+        # if self.pose.symmetry:
+        #     if self.pose.symmetric_assembly_is_clash():
+        #         raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered')
+        #     if self.output_assembly:
+        #         self.pose.get_assembly_symmetry_mates()
+        #         self.pose.write(out_path=self.assembly)
+        #         self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def expand_asu(self):
@@ -974,20 +996,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         Reports on clash testing
         """
-        self.log.info('Expanding PDB: %s' % self.source)
-        self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
-                                       ignore_clashes=self.ignore_clashes)
-        #                              design_selector=self.design_selector)
-
-        # Save renumbered PDB to clean_asu.pdb
-        self.pose.pdb.write(out_path=self.asu)
-        self.log.info('Cleaned PDB: \'%s\'' % self.asu)
-        self.pose.get_assembly_symmetry_mates()
-        if self.pose.symmetric_assembly_is_clash():
-            self.log.critical('The Symmetric Assembly contains clashes! %s is not viable. Writing out assembly anyway'
-                              % self.asu)
-        self.pose.write(out_path=os.path.join(self.path, PUtils.assembly))
-        self.log.info('Expanded Assembly PDB: \'%s\'' % os.path.join(self.path, PUtils.assembly))
+        if not self.pose:
+            self.load_pose()
+        if self.pose.symmetry:
+            if self.pose.symmetric_assembly_is_clash():
+                if self.ignore_clashes:
+                    self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu)
+                else:
+                    raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered')
+            if self.output_assembly:  # True by default when expand_asu module is used
+                self.pose.get_assembly_symmetry_mates()
+                self.pose.write(out_path=self.assembly)
+                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
@@ -1002,6 +1022,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pickle_info()
 
     def identify_interface(self):
+        if not self.pose:
+            self.load_pose()
         self.pose.find_and_split_interface()
         self.interface_residue_d = {'interface%d' % interface: residues
                                     for interface, residues in self.pose.interface_split.items()}
@@ -1016,9 +1038,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         interfacial redesign between between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
-        self.load_pose()
-        # if self.info:  # Todo
-        #     return None  # pose has already been initialized for design
+        # self.load_pose()
+        self.identify_interface()
         self.make_path(self.data)
         self.pose.interface_design(design_dir=self,
                                    evolution=self.evolution, symmetry=self.design_symmetry,
