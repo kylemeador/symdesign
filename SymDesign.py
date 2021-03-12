@@ -743,6 +743,11 @@ if __name__ == '__main__':
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
     if args.module in ['design', 'generate_fragments', 'expand_asu']:
         queried_flags['directory_type'] = 'design'
+        if args.module == 'expand_asu' and queried_flags['symmetry']:
+            queried_flags['output_assembly'] = True
+        else:
+            logger.critical('Cannot expand_asu without providing symmetry! Provide the symmetry with \'--symmetry\'')
+            exit(1)
     elif args.module in [PUtils.nano, 'filter', 'analysis', 'sequence_selection']:
         queried_flags['directory_type'] = args.module
         queried_flags[args.module] = True
@@ -873,12 +878,13 @@ if __name__ == '__main__':
         logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
                                                                                        location))
 
-    if args.module in [PUtils.nano, 'design'] and args.run_in_shell:
-        args.suspend = False
-        logger.info('Modelling will occur in this process, ensure you don\'t lose connection to the shell!')
-    elif args.module in [PUtils.nano, 'design']:
-        args.suspend = True
-        logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed.')
+    if args.module in [PUtils.nano, 'design']:
+        if args.run_in_shell:
+            args.suspend = False
+            logger.info('Modelling will occur in this process, ensure you don\'t lose connection to the shell!')
+        else:
+            args.suspend = True
+            logger.info('Writing modelling commands out to file, no modelling will occur until commands are executed.')
 
     if 'generate_fragments' in queried_flags and queried_flags['generate_fragments']:
         interface_type = 'biological_interfaces'  # Todo parameterize
