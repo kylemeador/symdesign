@@ -56,18 +56,17 @@ def get_docking_parameters(arg_list):
         if outdir_index < len(arg_list):
             outdir = arg_list[outdir_index]
         else:
-            log_filepath = os.getcwd() + "/Nanohedra_log.txt"
-            logfile = open(log_filepath, "a+")
+            master_log_filepath = os.path.join(os.getcwd(), 'Nanohedra_log.txt')
+            logfile = open(master_log_filepath, "a+")
             logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
             logfile.close()
             sys.exit()
     else:
-        log_filepath = os.getcwd() + "/Nanohedra_log.txt"
-        logfile = open(log_filepath, "a+")
-        logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
-        logfile.close()
+        master_log_filepath = os.path.join(os.getcwd(), 'Nanohedra_log.txt')
+        master_logfile = open(master_log_filepath, "a+")
+        master_logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
+        master_logfile.close()
         sys.exit()
-
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -78,7 +77,7 @@ def get_docking_parameters(arg_list):
     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
 
     valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
-                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly",
+                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-output_assembly",
                    '-no_time', '-initial']  # "-cores", '-resume', "-init_match_type"
 
     # CHECK INPUT FLAGS
@@ -201,15 +200,11 @@ def get_docking_parameters(arg_list):
     else:
         rot_step_deg2 = None
 
+    output_assembly = False
     if "-output_exp_assembly" in arg_list:
-        output_exp_assembly = True
-    else:
-        output_exp_assembly = False
-
+        output_assembly = True
     if "-output_uc" in arg_list:
-        output_uc = True
-    else:
-        output_uc = False
+        output_assembly = True
 
     if "-output_surrounding_uc" in arg_list:
         output_surrounding_uc = True
@@ -250,8 +245,8 @@ def get_docking_parameters(arg_list):
     else:
         initial = False
 
-    return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_exp_assembly, \
-        output_uc, output_surrounding_uc, min_matched, keep_time, initial  # init_match_type, cores, resume
+    return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_assembly, \
+        output_surrounding_uc, min_matched, keep_time, initial  # init_match_type, cores, resume
 
 
 def postprocess_mode(arg_list):

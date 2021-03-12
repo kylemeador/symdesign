@@ -373,8 +373,8 @@ def main():
 
                 nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val,
                                subseq_max_z_val, rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
-                               output_exp_assembly=output_exp_assembly, output_uc=output_uc,
-                               output_surrounding_uc=output_surrounding_uc, min_matched=min_matched, keep_time=timer)
+                               output_assembly=output_exp_assembly, output_surrounding_uc=output_surrounding_uc,
+                               min_matched=min_matched, keep_time=timer)
 
             master_log_file = open(master_log_filepath, "a+")
             master_log_file.write("\nCOMPLETED FRAGMENT-BASED SYMMETRY DOCKING PROTOCOL\n\n")
