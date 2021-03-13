@@ -288,12 +288,12 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             log_file.write('\tNO Backbone Clash when Designed Assembly is Expanded (took: %s s)\n'
                            % str(exp_des_clash_time))
         # Todo replace with DesignDirectory? Path object?
-        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % (tx_idx))
+        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)
         oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
         degen_dir = rot_subdir_out_path.split(os.sep)[-2]
         rot_dir = rot_subdir_out_path.split(os.sep)[-1]
-        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, (tx_idx))
-        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, (tx_idx))
+        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, tx_idx)
+        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, tx_idx)
         if not os.path.exists(degen_subdir_out_path):
             os.makedirs(degen_subdir_out_path)
         if not os.path.exists(rot_subdir_out_path):
