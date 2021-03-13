@@ -141,7 +141,7 @@ class PDB(Structure):
                 prior_residue = self.residues[0]
                 prior_residue.start_index = 0
                 for residue in self.residues[1:]:
-                    residue.start_index = prior_residue.atom_indices[-1]
+                    residue.start_index = prior_residue.atom_indices[-1] + 1
                     prior_residue = residue
 
                 self.entities = copy(entities)
