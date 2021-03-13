@@ -424,72 +424,25 @@ class SymmetricModel(Model):
         self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_model.__name__)
 
     def find_intra_oligomeric_equivalent_symmetry_models(self, entity):
-        """From the Chains that an Entity represents, find the SymmetricModel equivalent models using Chain Coords and
-        Entity atom index"""
-        equivalent_models = []
-        # want to find the same atom index in all entity chains to query against the model coords
-        # using the atom index of entire structure is tricky because of reindexing from the entity/chain
-        # hybrid set up
-        # sym_model_idx = entity.residues[0].ca_index
-        # sym_model_idx = entity.atom_indices[0]
-        chain_idx = 0
-        print(entity.name)
-        # print(entity.chains)
-        print([chain.name for chain in entity.chains])
-        coords_length = len(self.coords)
-        entity_start = entity.atom_indices[0]
-        entity_end = entity.atom_indices[-1]
-        # print(entity.atom_indices)
-        print(entity_start, entity_end)
+        """From an Entities Chain members, find the SymmetricModel equivalent models using Chain center or mass
+        compared to the symmetric model center of mass"""
+        asu_length = len(self.coords)
+        entity_start, entity_end = entity.atom_indices[0], entity.atom_indices[-1]
         entity_length = entity.number_of_atoms
-        # entity_divisor = 1 / entity_length
         entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
+        equivalent_models = []
         for chain in entity.chains:
-            entity_start = entity.atom_indices[0]
-            entity_end = entity.atom_indices[-1]
             chain_length = chain.number_of_atoms
-            chain_center_of_mass_divisor = np.full(chain_length, 1 / chain_length)
-            # template_atom_coords = chain.residues[0].ca_coords
-            # template_atom_coords = chain.coords[chain_idx]
-            # template_atom = chain.atoms[chain_idx]
-            # print(len(chain.coords))
-            # print(chain.name)  # , id(chain.coords))
-            # print(template_atom_coords, str(template_atom))
+            chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
             for model in range(self.number_of_models):
-                chain_center_of_mass = np.matmul(chain_center_of_mass_divisor, chain.coords)
-                sym_center_of_mass = np.matmul(entity_center_of_mass_divisor,
-                                               self.model_coords[(model * coords_length) + entity_start:
-                                                                 (model * coords_length) + entity_end + 1])
-                if np.allclose(chain_center_of_mass.astype(int), sym_center_of_mass.astype(int)):
+                sym_model_center_of_mass = np.matmul(entity_center_of_mass_divisor,
+                                                     self.model_coords[(model * asu_length) + entity_start:
+                                                                       (model * asu_length) + entity_end + 1])
+                if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
                     equivalent_models.append(model)
-                    print(chain.name)
-                    # prior_chains_length += chain.number_of_atoms
                     break
+
         return equivalent_models
-        # sym_model_idx = entity.atom_indices[0]
-        # chain_idx = 0
-        # print(entity.name)
-        # print(entity.chains)
-        # print([chain.name for chain in entity.chains])
-        # coords_length = len(self.coords)
-        # for chain in entity.chains:
-        # template_atom_coords = chain.residues[0].ca_coords
-        # template_atom_coords = chain.coords[chain_idx]
-        # template_atom = chain.atoms[chain_idx]
-        # print(chain.name, id(chain.coords))
-        # print(template_atom_coords, str(template_atom))
-        # for model in range(self.number_of_models):
-        #     print(self.model_coords[(model * coords_length) + sym_model_idx])
-        #     if np.allclose((template_atom_coords * 100).astype(int),
-        #                    (self.model_coords[(model * coords_length) + sym_model_idx] * 100).astype(int)):
-        #         equivalent_models.append(model)
-        #         print(chain.name)
-        # prior_chains_length += chain.number_of_atoms
-        # break
-        # if len(equivalent_models) != len(entity.chains):
-        #     raise DesignError('The number of models found (%d) doesn\'t match the number of chains expected (%d)!'
-        #                       % (len(equivalent_models), len(entity.chains)))
-        # return equivalent_models
 
     def find_asu_equivalent_symmetry_mate_indices(self):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
