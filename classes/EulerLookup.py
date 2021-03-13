@@ -8,7 +8,7 @@ class EulerLookup:
         nanohedra_dirpath = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
         binary_lookup_table_path = os.path.join(nanohedra_dirpath, 'euler_lookup', 'euler_lookup_40.npz')
 
-        self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']
+        self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
         self.scale = scale
 
     @staticmethod
