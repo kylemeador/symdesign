@@ -63,7 +63,8 @@ class Model:  # (PDB)
         else:  # When log is explicitly passed as False, create a new log
             self.log = logger  # start_log(name=self.name)
 
-        self.pdb = pdb
+        if pdb:
+            self.pdb = pdb
         if models and isinstance(models, list):
             self.models = models
         else:
