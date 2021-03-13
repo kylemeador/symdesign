@@ -1,15 +1,13 @@
 import argparse
 import os
-import sys
 import time
-
-import requests
-
+from copy import deepcopy
+from json import dumps, load
+import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
-from copy import deepcopy
-from json import dumps, load
+import requests
 
 from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError
 
@@ -139,7 +137,7 @@ def find_matching_entities_by_sequence(sequence=None, return_type='polymer_entit
     if sequence_query_results:
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
-        print('[WARNING]: Sequence not found in PDB API!:\n%s' % sequence)  # Todo logger
+        logger.warning('Sequence not found in PDB API!:\n%s' % sequence)
         # raise DesignError('Sequence not found in PDB API!:\n%s' % sequence)
 
 
@@ -161,6 +159,7 @@ def query_pdb(_query):
             query_response = requests.get(pdb_query_url, params={'json': dumps(_query)})
             break
         except requests.exceptions.ConnectionError:
+            logger.debug('Requests ran into a connection error')
             time.sleep(1)
             iteration += 1
             if iteration > 5:
@@ -170,7 +169,7 @@ def query_pdb(_query):
     if query_response.status_code == 200:
         return query_response.json()
     elif query_response.status_code == 204:
-        print('[WARNING]: No response was returned. Your query likely found no matches!')
+        logger.warning('No response was returned. Your query likely found no matches!')
     else:
         return None
 
