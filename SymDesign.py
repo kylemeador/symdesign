@@ -673,11 +673,13 @@ if __name__ == '__main__':
         logger = SDUtils.start_log(name='', level=1)
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = SDUtils.start_log(name='', level=3)
+        # Root logs to stream with level warning
+        SDUtils.start_log(name='', level=3)
+        # Set root logger to log all logs to single file with info level, stream from above still emits at warning
+        SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
         # SymDesign main logs to stream with level info
         logger = SDUtils.start_log(name=__name__)
-        # All Designs log to specific file with info level, total to single file with info level
-        SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
+        # All Designs will log to specific file with level info unless -skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide
     # -----------------------------------------------------------------------------------------------------------------
@@ -940,7 +942,7 @@ if __name__ == '__main__':
             raise SDUtils.DesignError('The metric \'%s\' is not supported!' % args.metric)
 
         logger.debug('Sorting designs according to \'%s\'' % args.metric)
-        metric_design_dir_pairs = [pair for pair in metric_design_dir_pairs if pair[0]]
+        metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
         sorted_metric_design_dir_pairs = sorted(metric_design_dir_pairs, key=lambda pair: (pair[0] or 0), reverse=True)
         logger.info('Top ranked Designs according to %s:\n\t%s\tDesign\n\t%s'
                     % (args.metric, args.metric.title(),
