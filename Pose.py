@@ -711,12 +711,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.asu = asu
             self.pdb = self.asu
         elif asu_file:
-            self.asu = PDB.from_file(asu_file, log=self.log)
+            self.asu = PDB.from_file(asu_file, log=self.log)  # **kwargs
             self.pdb = self.asu
         elif pdb and isinstance(pdb, Structure):
             self.pdb = pdb
         elif pdb_file:
-            self.pdb = PDB.from_file(pdb_file, log=self.log)
+            self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
 
         symmetry_kwargs = self.pdb.symmetry.copy()
         symmetry_kwargs.update(kwargs)
@@ -752,6 +752,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     @pdb.setter
     def pdb(self, pdb):
+        self.log.debug('Adding PDB \'%s\' to pose' % pdb.name)
         self._pdb = pdb
         pdb.write(out_path=os.path.join(os.getcwd(), 'entity_concatenation.pdb'))  #TODO TEST THIS
         if not self.ignore_clashes:
