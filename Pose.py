@@ -56,6 +56,13 @@ class Model:  # (PDB)
         # self.models = pdb  # list or dict of PDB objects
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
+        if log:
+            self.log = log
+        elif log is None:
+            self.log = null_log
+        else:  # When log is explicitly passed as False, create a new log
+            self.log = logger  # start_log(name=self.name)
+
         self.pdb = pdb
         if models and isinstance(models, list):
             self.models = models
@@ -63,12 +70,6 @@ class Model:  # (PDB)
             self.models = []
 
         self.number_of_models = len(self.models)
-        if log:
-            self.log = log
-        elif log is None:
-            self.log = null_log
-        else:  # When log is explicitly passed as False, create a new log
-            self.log = logger  # start_log(name=self.name)
 
     def set_models(self, models):
         self.models = models
@@ -752,7 +753,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     @pdb.setter
     def pdb(self, pdb):
-        self.log.debug('Adding PDB \'%s\' to pose' % pdb.name)
+        # self.log.debug('Adding PDB \'%s\' to pose' % pdb.name)
         self._pdb = pdb
         pdb.write(out_path=os.path.join(os.getcwd(), 'entity_concatenation.pdb'))  #TODO TEST THIS
         if not self.ignore_clashes:
