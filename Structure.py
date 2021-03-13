@@ -133,7 +133,7 @@ class Structure(StructureBase):
         """Modify the Structure container indices by a set integer amount"""
         indices = getattr(self, '%s_indices' % dtype)
         first_index = indices[0]
-        setattr(self, '%s_indices' % dtype, [at + first_index - idx for idx in indices])
+        setattr(self, '%s_indices' % dtype, [at + idx - first_index for idx in indices])
         # setattr(self, '%s_indices' % dtype, [idx + integer for idx in indices])  # modify my integer
 
     @property
