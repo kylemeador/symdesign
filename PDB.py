@@ -1280,19 +1280,22 @@ class PDB(Structure):
             will increment from order identified in ATOM records
             pdb_code=None (str): The four character code specifying the entry ID from the PDB
         """
-        if not self.entity_d:  # we didn't find information from the PDB file
-            self.get_entity_info_from_api()  # pdb_code=pdb_code)
-        if not self.entity_d:  # API didn't work for pdb_name
+        # if not self.entity_d:  # we didn't find information from the PDB file
+        #     if not self.design:  # this is analogous to above
+        #         self.get_entity_info_from_api()  # pdb_code=pdb_code)
+        if not self.entity_d:  # no information in PDB file  # # API didn't work for pdb_name
             self.get_entity_info_from_atoms()
-            for entity, atom_info in self.entity_d.items():
+            for entity, atom_info in list(self.entity_d.items()):
                 pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
                 if pdb_api_name:
                     self.entity_d[pdb_api_name] = self.entity_d.pop(entity)
             self.log.info('Found Entities \'%s\' by PDB API sequence search' % ', '.join(self.entity_d.keys()))
         else:
             for entity, info in self.entity_d.items():
-                info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
-                info['chains'] = list(filter(None, info['chains']))
+                self.log.debug('Found chains %s' % ', '.join(info['chains']))
+                # make chain names Chain objects
+                info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]
+                info['chains'] = [chain for chain in info['chains'] if chain]
 
         self.update_entity_d()
 
@@ -1323,7 +1326,6 @@ class PDB(Structure):
         """Update a complete entity_d with the required information
         Todo choose the most symmetrically average chain if Entity is symmetric!
         For each Entity, gather the sequence of the chain representative"""
-        self.log.debug('Entity Dictionary: %s' % self.entity_d)
         for entity, info in self.entity_d.items():
             info['representative'] = info['chains'][0]  # We may get an index error someday. If so, fix upstream logic
             info['seq'] = info['representative'].sequence
@@ -1351,8 +1353,7 @@ class PDB(Structure):
                 self.log.debug('Chain %s has match score of %f' % (chain.name,
                                                                    score / len(self.entity_d[entity]['seq'])))
                 if score / len(self.entity_d[entity]['seq']) > 0.9:  # if score/length is > 90% similar, entity exists
-                    # rmsd = Bio.Superimposer()
-                    # if rmsd > 1:
+                    # rmsd = Bio.Superimposer()  # Todo implement structure check only?
                     self.entity_d[entity]['chains'].append(chain)
                     new_entity = False  # The entity is not unique, do not add
                     break
@@ -1362,12 +1363,10 @@ class PDB(Structure):
         self.log.info('Entities were generated from ATOM records.')
 
     def get_entity_info_from_api(self, pdb_code=None):
-        """Query the PDB API for the PDB entry_ID to find the corresponding Enitity information"""
+        """Query the PDB API for the PDB entry_ID to find the corresponding Entity information"""
         if self.retrieve_pdb_info_from_api(pdb_code=pdb_code):
             self.entity_d = {entity: {'chains': self.api_entry['entity'][entity]} for entity in
                              self.api_entry['entity']}
-        # else:
-        #     self.get_entity_info_from_atoms()
 
     # def update_entity_representatives(self):
     #     """For each Entity, gather the chain representative by choosing the first chain in the file
