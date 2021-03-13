@@ -18,12 +18,12 @@ from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_s
     orient_log_file, orient_dir
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Stride import Stride
-from Structure import Structure, Chain, Atom, Coords, Entity
-from SymDesignUtils import remove_duplicates, start_log, DesignError  # logger
+from Structure import Structure, Chain, Entity, Atom
+from SymDesignUtils import remove_duplicates, start_log, null_log, DesignError
 from utils.SymmUtils import valid_subunit_number
 
 logger = start_log(name=__name__)
-null_log = start_log(name='null', handler=3, propagate=False)
+# null_log = start_log(name='null', handler=3, propagate=False)
 
 
 class PDB(Structure):
