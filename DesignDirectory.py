@@ -17,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 import PathUtils as PUtils
 from CmdUtils import reference_average_residue_weight, script_cmd, run_cmds, flag_options, rosetta_flags
 from Query import Flags
-from SymDesignUtils import unpickle, start_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError,\
     match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, clean_dictionary, all_vs_all, \
     condensed_to_square
 from PDB import PDB
@@ -37,6 +37,7 @@ from interface_analysis.Database import FragmentDatabase
 
 # Globals
 logger = start_log(name=__name__)
+# null_log = start_log(name='null', handler=3, propagate=False)
 index_offset = 1
 design_directory_modes = ['design', 'dock', 'filter']
 
@@ -283,7 +284,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             self.set_up_design_directory()
         self.start_log(debug=debug)
-        self.log.info('fragment_observations: %s' % self.fragment_observations)
+        # self.log.debug('fragment_observations: %s' % self.fragment_observations)
 
     @classmethod
     def from_nanohedra(cls, design_path, mode=None, project=None, nano=True, **kwargs):
@@ -310,8 +311,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.get_fragment_metrics()
                 if self.center_residue_score and self.central_residues_with_fragment_overlap:
                     return self.center_residue_score / self.central_residues_with_fragment_overlap
-        except (ZeroDivisionError,) as e:  # AttributeError,
-            print(e)
+        except ZeroDivisionError:
             self.log.error('No fragment information available! Design cannot be scored.')
         return 0.0
 
@@ -431,7 +431,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def start_log(self, debug=False, level=2):
         if self.skip_logging:  # set up null_logger
-            self.log = start_log(name=str(self), handler=3, level=level)
+            self.log = null_log
             return None
 
         if debug:
@@ -572,9 +572,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('No fragment observations, getting info from Pose')
             design_metrics = self.pose.return_fragment_query_metrics(total=True)
         else:
-            self.generate_interface_fragments()
             self.log.warning('%s: There are no fragment observations associated with this Design! Have you scored '
                              'it yet? See \'Scoring Interfaces\' in the %s' % (self.path, PUtils.guide_string))
+            self.generate_interface_fragments()
             return None
 
         self.all_residue_score = design_metrics['nanohedra_score']

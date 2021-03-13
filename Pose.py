@@ -13,7 +13,7 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile, calculate_match_metrics
 from Structure import Coords, Structure
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
-    start_log, possible_symmetries, match_score_from_z_value  # filter_euler_lookup_by_zvalue,
+    start_log, null_log, possible_symmetries, match_score_from_z_value  # filter_euler_lookup_by_zvalue,
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDB, FragmentDatabase
 from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
@@ -25,7 +25,7 @@ from utils.SymmUtils import valid_subunit_number
 
 # Globals
 logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
-null_log = start_log(name='null', handler=3, propagate=False)
+# null_log = start_log(name='null', handler=3, propagate=False)
 
 # # Initialize Euler Lookup Class
 # eul_lookup = EulerLookup()
@@ -881,7 +881,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.design_selector_entities (set[Entity])
             self.required_indices (set[int])
         """
-        if self.pdb != self.asu:  # Todo
+        if len(self.pdbs_d) > 1:
             self.log.warning('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
                              'files. Proceed with caution if this is not was you expected!')
         def grab_indices(pdbs=None, entities=None, chains=None, residues=None, pdb_residues=None, atoms=None,
@@ -1010,6 +1010,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             return None
 
         if self.symmetry:
+            sym_string = 'symmetric '
             # get all symmetric indices
             entity2_indices = [idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
                                for idx in entity2_indices]
@@ -1029,6 +1030,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             return None
         else:
+            sym_string = ' '
             entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
 
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
@@ -1037,8 +1039,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates
-        self.log.info('Querying %d CB residues in Entity %s versus, %d CB residues in Entity %s'
-                      % (len(entity1_indices), entity1.name, len(entity2_indices), entity2.name))
+        self.log.info('Querying %d CB residues in Entity %s versus, %d CB residues in %sEntity %s'
+                      % (len(entity1_indices), entity1.name, len(entity2_indices), sym_string, entity2.name))
         # self.log.debug('Entity2 Query size: %d' % entity2_query.size)
         contacting_pairs = [(pdb_atoms[entity1_indices[entity1_idx]].residue_number,
                              pdb_atoms[entity2_indices[entity2_idx]].residue_number)

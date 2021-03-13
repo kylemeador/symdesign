@@ -224,7 +224,8 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
     return _logger
 
 
-logger = start_log(name=__name__, handler=3, level=1)
+logger = start_log(name=__name__)
+null_log = start_log(name='null', handler=3, propagate=False)
 
 
 def pretty_format_table(rows, justifications=None):
