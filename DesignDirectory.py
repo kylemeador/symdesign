@@ -310,7 +310,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.get_fragment_metrics()
                 if self.center_residue_score and self.central_residues_with_fragment_overlap:
                     return self.center_residue_score / self.central_residues_with_fragment_overlap
-        except (AttributeError, ZeroDivisionError):
+        except (AttributeError, ZeroDivisionError) as e:
+            print(e)
             self.log.error('No fragment information available! Design cannot be scored.')
         return 0.0
 
@@ -972,7 +973,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.get_oligomers()
             self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
                                       design_selector=self.design_selector, frag_db=self.frag_db,
-                                      ignore_clashes=self.ignore_clashes)
+                                      ignore_clashes=self.ignore_clashes)  # self.fragment_observations
             for oligomer in self.oligomers[1:]:
                 self.pose.add_pdb(oligomer)
             self.pose.asu = self.pose.pdb  # set the asu
