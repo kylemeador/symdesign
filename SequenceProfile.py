@@ -30,6 +30,7 @@ add_fragment_profile_instructions = 'To add fragment information, call Pose.gene
 
 class SequenceProfile:
     idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
+
     def __init__(self, structure=None, log=None, **kwargs):
         super().__init__(**kwargs)  # log=log,
         # if log:
