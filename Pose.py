@@ -765,7 +765,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # set up coordinate information for SymmetricModel
         self.coords = pdb._coords
         self.pdbs_d[pdb.name] = pdb
-        self.create_design_selector(**self.design_selector)
+        self.create_design_selector()  # **self.design_selector)
 
     @property
     def name(self):
@@ -857,7 +857,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             for entity in self.entities:
                 entity.attach_fragment_database(db=frag_db)
 
-    def create_design_selector(self, selection=None, mask=None, required=None):
+    def create_design_selector(self):  # , selection=None, mask=None, required=None):
         """Set up a design selector for the Pose including selctions, masks, and required Entities and Atoms
 
         Sets:
@@ -903,33 +903,28 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
             return entity_set, atom_indices
 
-        if not selection:
-            entity_selection = set(self.entities)
-            atom_selection = set(self.pdb.atom_indices)
-        else:
+        if 'selection' in self.design_selector:
             self.log.debug('The design_selection includes: %s' % selection)
-            entity_selection, atom_selection = grab_indices(**selection)
-        if mask:
+            entity_selection, atom_selection = grab_indices(**self.design_selector['selection'])
+        else:
+            entity_selection, atom_selection = set(self.entities), set(self.pdb.atom_indices)
+
+        if 'mask' in self.design_selector:
             self.log.debug('The design_mask includes: %s' % mask)
-            entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
+            entity_mask, atom_mask = grab_indices(**self.design_selector['mask'], start_with_none=True)
         else:
             entity_mask, atom_mask = set(), set()
-        entity_selection = entity_selection.difference(entity_mask)
-        atom_selection = atom_selection.difference(atom_mask)
-        self.design_selector_entities = entity_selection
-        self.design_selector_indices = atom_selection
-        # self.design_selector_entities = self.design_selector_entities.union(entity_selection)
-        # self.design_selector_indices = self.design_selector_indices.union(atom_selection)
 
-        if required:
+        self.design_selector_entities = entity_selection.difference(entity_mask)
+        self.design_selector_indices = atom_selection.difference(atom_mask)
+
+        if 'required' in self.design_selector:
             self.log.debug('The required_residues includes: %s' % required)
-            entity_required, atom_required = grab_indices(**required, start_with_none=True)
+            entity_required, atom_required = grab_indices(**self.design_selector['required'], start_with_none=True)
         else:
             entity_required, atom_required = set(), set()
         self.required_indices = atom_required
         self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
-        # self.required_indices = self.required_indices.union(atom_required)
-        # self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
 
     def construct_cb_atom_tree(self, entity1, entity2, distance=8):  # TODO UNUSED
         """Create a atom tree using CB atoms from two PDB's
