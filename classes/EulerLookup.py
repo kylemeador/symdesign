@@ -139,12 +139,13 @@ class EulerLookup:
                                      eulintarray2_1_r, eulintarray2_2_r, eulintarray2_3_r]
         # overlap = self.eul_lookup_40[result]
         # overlap = np.take_along_axis(self.eul_lookup_40, result,)
-        print('overlap', overlap[:30])
+        # print('overlap', overlap[:30])
         index_array = np.column_stack([np.repeat(indices1, indices2.shape[0]),
                                        np.tile(indices2, indices1.shape[0])])
-        print('index_array', index_array[:5], index_array[5:])
+        # print('index_array', index_array[:5], index_array[5:])
         true_overlap_i_j_pairs = index_array[overlap]
-        print('true pairs', true_overlap_i_j_pairs[:5])
+        return true_overlap_i_j_pairs
+        # print('true pairs', true_overlap_i_j_pairs[:5])
         # guide_indices = [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))]
         # return [(i, j) for i in range(len(eulintarray1)) for j in range(len(eulintarray2))
         #         if self.eul_lookup_40[(*eulintarray1[i, :], *eulintarray2[j, :])]]
