@@ -427,18 +427,69 @@ class SymmetricModel(Model):
         """From the Chains that an Entity represents, find the SymmetricModel equivalent models using Chain Coords and
         Entity atom index"""
         equivalent_models = []
-        template_atom_index = entity.residues[0].ca.index
+        # want to find the same atom index in all entity chains to query against the model coords
+        # using the atom index of entire structure is tricky because of reindexing from the entity/chain
+        # hybrid set up
+        # sym_model_idx = entity.residues[0].ca_index
+        # sym_model_idx = entity.atom_indices[0]
+        chain_idx = 0
+        print(entity.name)
+        # print(entity.chains)
+        print([chain.name for chain in entity.chains])
+        coords_length = len(self.coords)
+        entity_start = entity.atom_indices[0]
+        entity_end = entity.atom_indices[-1]
+        # print(entity.atom_indices)
+        print(entity_start, entity_end)
+        entity_length = entity.number_of_atoms
+        # entity_divisor = 1 / entity_length
+        entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
         for chain in entity.chains:
-            template_atom_coords = chain.residues[0].ca_coords
-            for model_number in range(self.number_of_models):
-                if (template_atom_coords ==
-                        self.model_coords[(model_number * len(self.coords)) + template_atom_index]).all():
-                    equivalent_models.append(model_number)
+            entity_start = entity.atom_indices[0]
+            entity_end = entity.atom_indices[-1]
+            chain_length = chain.number_of_atoms
+            chain_center_of_mass_divisor = np.full(chain_length, 1 / chain_length)
+            # template_atom_coords = chain.residues[0].ca_coords
+            # template_atom_coords = chain.coords[chain_idx]
+            # template_atom = chain.atoms[chain_idx]
+            # print(len(chain.coords))
+            # print(chain.name)  # , id(chain.coords))
+            # print(template_atom_coords, str(template_atom))
+            for model in range(self.number_of_models):
+                chain_center_of_mass = np.matmul(chain_center_of_mass_divisor, chain.coords)
+                sym_center_of_mass = np.matmul(entity_center_of_mass_divisor,
+                                               self.model_coords[(model * coords_length) + entity_start:
+                                                                 (model * coords_length) + entity_end + 1])
+                if np.allclose(chain_center_of_mass.astype(int), sym_center_of_mass.astype(int)):
+                    equivalent_models.append(model)
+                    print(chain.name)
+                    # prior_chains_length += chain.number_of_atoms
                     break
-        if len(equivalent_models) != len(entity.chains):
-            raise DesignError('The number of models found (%d) doesn\'t match the number of chains expected (%d)!'
-                              % (len(equivalent_models), len(entity.chains)))
         return equivalent_models
+        # sym_model_idx = entity.atom_indices[0]
+        # chain_idx = 0
+        # print(entity.name)
+        # print(entity.chains)
+        # print([chain.name for chain in entity.chains])
+        # coords_length = len(self.coords)
+        # for chain in entity.chains:
+        # template_atom_coords = chain.residues[0].ca_coords
+        # template_atom_coords = chain.coords[chain_idx]
+        # template_atom = chain.atoms[chain_idx]
+        # print(chain.name, id(chain.coords))
+        # print(template_atom_coords, str(template_atom))
+        # for model in range(self.number_of_models):
+        #     print(self.model_coords[(model * coords_length) + sym_model_idx])
+        #     if np.allclose((template_atom_coords * 100).astype(int),
+        #                    (self.model_coords[(model * coords_length) + sym_model_idx] * 100).astype(int)):
+        #         equivalent_models.append(model)
+        #         print(chain.name)
+        # prior_chains_length += chain.number_of_atoms
+        # break
+        # if len(equivalent_models) != len(entity.chains):
+        #     raise DesignError('The number of models found (%d) doesn\'t match the number of chains expected (%d)!'
+        #                       % (len(equivalent_models), len(entity.chains)))
+        # return equivalent_models
 
     def find_asu_equivalent_symmetry_mate_indices(self):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
@@ -804,20 +855,32 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     @property
     def center_of_mass(self):
-        try:
-            return self._center_of_mass
-        except AttributeError:
-            self.find_center_of_mass()
-            return self._center_of_mass
+        """Returns: (Numpy.ndarray)"""
+        return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
 
-    def find_center_of_mass(self):
-        """Retrieve the center of mass for the specified Structure"""
+    @property
+    def symmetric_centers_of_mass(self):
+        """Returns: (Numpy.ndarray)"""
         if self.symmetry:
-            divisor = 1 / len(self.model_coords)
-            self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.model_coords)
-        else:
-            divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
-            self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
+            return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms),
+                             np.split(self.model_coords, self.number_of_models))
+            # for model in self.number_of_models:
+            #     np.matmul(np.full(coords_length, divisor),
+            #               self.model_coords[model * coords_length: (model + 1) * coords_length])
+        # try:
+        #     return self._center_of_mass
+        # except AttributeError:
+        #     self.find_center_of_mass()
+        #     return self._center_of_mass
+
+    # def find_center_of_mass(self):
+    #     """Retrieve the center of mass for the specified Structure"""
+    #     if self.symmetry:
+    #         divisor = 1 / len(self.model_coords)
+    #         self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.model_coords)
+    #     else:
+    #         divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
+    #         self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
 
     def add_pdb(self, pdb):
         """Add a PDB to the Pose PDB as well as the member PDB container"""
@@ -904,13 +967,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             return entity_set, atom_indices
 
         if 'selection' in self.design_selector:
-            self.log.debug('The design_selection includes: %s' % selection)
+            self.log.debug('The design_selection includes: %s' % self.design_selector['selection'])
             entity_selection, atom_selection = grab_indices(**self.design_selector['selection'])
         else:
             entity_selection, atom_selection = set(self.entities), set(self.pdb.atom_indices)
 
         if 'mask' in self.design_selector:
-            self.log.debug('The design_mask includes: %s' % mask)
+            self.log.debug('The design_mask includes: %s' % self.design_selector['mask'])
             entity_mask, atom_mask = grab_indices(**self.design_selector['mask'], start_with_none=True)
         else:
             entity_mask, atom_mask = set(), set()
@@ -919,7 +982,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.design_selector_indices = atom_selection.difference(atom_mask)
 
         if 'required' in self.design_selector:
-            self.log.debug('The required_residues includes: %s' % required)
+            self.log.debug('The required_residues includes: %s' % self.design_selector['required'])
             entity_required, atom_required = grab_indices(**self.design_selector['required'], start_with_none=True)
         else:
             entity_required, atom_required = set(), set()
@@ -1129,7 +1192,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.interface_split (dict): Residue/Entity id of each residue at the interface identified by interface id
             as split by topology
         """
-        print(self.active_entities)
+        self.log.debug('Find and split interface using active_entities: %s' %
+                       [entity.name for entity in self.active_entities])
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.find_interface_residues(*entity_pair)
 
