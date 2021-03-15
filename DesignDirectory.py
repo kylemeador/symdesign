@@ -985,6 +985,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('No source file was found for this design! Cannot initialize pose without a source.')
             # Todo ensure that the asu has intra-oligomeric contacts accounted for by oligomer alignment (PDB API) or
             #  quaternion rotational sampling
+            print(self.source)
             self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
                                            design_selector=self.design_selector, frag_db=self.frag_db,
                                            ignore_clashes=self.ignore_clashes)
