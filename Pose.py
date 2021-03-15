@@ -16,34 +16,13 @@ from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_ov
     start_log, null_log, possible_symmetries, match_score_from_z_value  # filter_euler_lookup_by_zvalue,
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDB, FragmentDatabase
-from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from utils.GeneralUtils import write_frag_match_info_file
-from utils.SymmUtils import valid_subunit_number
-
-# import ipdb
-
+from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 
 # Globals
-logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
-# null_log = start_log(name='null', handler=3, propagate=False)
-
-# # Initialize Euler Lookup Class
-# eul_lookup = EulerLookup()
-
+logger = start_log(name=__name__)
 config_directory = PUtils.pdb_db
 sym_op_location = PUtils.sym_op_location
-# sg_cryst1_fmt_dict = {'F222': 'F 2 2 2', 'P6222': 'P 62 2 2', 'I4132': 'I 41 3 2', 'P432': 'P 4 3 2',
-#                       'P6322': 'P 63 2 2', 'I4122': 'I 41 2 2', 'I213': 'I 21 3', 'I422': 'I 4 2 2',
-#                       'I432': 'I 4 3 2', 'P4222': 'P 42 2 2', 'F23': 'F 2 3', 'P23': 'P 2 3', 'P213': 'P 21 3',
-#                       'F432': 'F 4 3 2', 'P622': 'P 6 2 2', 'P4232': 'P 42 3 2', 'F4132': 'F 41 3 2',
-#                       'P4132': 'P 41 3 2', 'P422': 'P 4 2 2', 'P312': 'P 3 1 2', 'R32': 'R 3 2'}
-# pg_cryst1_fmt_dict = {'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': 'P 4', 'p222': 'P 2 2 2',
-#                       'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
-# zvalue_dict = {'P 2 3': 12, 'P 42 2 2': 8, 'P 3 2 1': 6, 'P 63 2 2': 12, 'P 3 1 2': 12, 'P 6 2 2': 12, 'F 2 3': 48,
-#                'F 2 2 2': 16, 'P 62 2 2': 12, 'I 4 2 2': 16, 'I 21 3': 24, 'R 3 2': 6, 'P 4 21 2': 8, 'I 4 3 2': 48,
-#                'P 41 3 2': 24, 'I 41 3 2': 48, 'P 3': 3, 'P 6': 6, 'I 41 2 2': 16, 'P 4': 4, 'C 2 2 2': 8,
-#                'P 2 2 2': 4, 'P 21 3': 12, 'F 41 3 2': 96, 'P 4 2 2': 8, 'P 4 3 2': 24, 'F 4 3 2': 96,
-#                'P 42 3 2': 24}
 
 
 class Model:  # (PDB)

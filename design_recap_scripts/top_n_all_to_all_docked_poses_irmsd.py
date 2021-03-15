@@ -5,13 +5,12 @@ from itertools import permutations, combinations
 import Bio.PDB.Superimposer
 import numpy as np
 import sklearn.neighbors
-from Bio.PDB.Atom import Atom as BioPDBAtom
 from Bio.PDB.Atom import PDBConstructionWarning
 
 import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from BioPDBUtils import biopdb_superimposer
+from utils.BioPDBUtils import biopdb_superimposer
 from PDB import PDB
 from Structure import Atom
 
@@ -344,8 +343,8 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
         if return_aligned_ref_pdbs:
             # Create a new PDB object that includes both reference pdb1 and reference pdb2
             # rotated and translated using min_rot and min_tx
-            ref_pdb1_rot_tx = rotated_translated_pdb(ref_pdb1, min_irot, min_itx)
-            ref_pdb2_rot_tx = rotated_translated_pdb(ref_pdb2, min_irot, min_itx)
+            ref_pdb1_rot_tx = rotated_translated_pdb(ref_pdb1, np.transpose(min_irot), min_itx)
+            ref_pdb2_rot_tx = rotated_translated_pdb(ref_pdb2, np.transpose(min_irot), min_itx)
             ref_pdbs_rot_tx = PDB()
             ref_pdbs_rot_tx.set_all_atoms(ref_pdb1_rot_tx.atoms + ref_pdb2_rot_tx.atoms)
             return ref_pdbs_rot_tx, min_irmsd
@@ -552,91 +551,91 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
 
 
 ############################################### Crystal VS Docked ######################################################
-def get_docked_pdb_pairs(docked_poses_dirpath):
+# def get_docked_pdb_pairs(docked_poses_dirpath):
+#
+#     docked_pdb_pairs = []
+#
+#     for root1, dirs1, files1 in os.walk(docked_poses_dirpath):
+#         for file1 in files1:
+#             if "frag_match_info_file.txt" in file1:
+#                 info_file_filepath = root1 + "/" + file1
+#
+#                 tx_filepath = os.path.dirname(root1)
+#                 rot_filepath = os.path.dirname(tx_filepath)
+#                 degen_filepath = os.path.dirname(rot_filepath)
+#                 design_filepath = os.path.dirname(degen_filepath)
+#
+#                 tx_filename = tx_filepath.split("/")[-1]
+#                 rot_filename = rot_filepath.split("/")[-1]
+#                 degen_filename = degen_filepath.split("/")[-1]
+#                 design_filename = design_filepath.split("/")[-1]
+#
+#                 # design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
+#                 design_id = degen_filename + "_" + rot_filename + "_" + tx_filename
+#
+#                 docked_pdb1_filepath = None
+#                 docked_pdb2_filepath = None
+#                 info_file = open(info_file_filepath, 'r')
+#                 for line in info_file.readlines():
+#                     if line.startswith("Original PDB 1 Path:"):
+#                         docked_pdb1_filename = os.path.splitext(os.path.basename(line))[0] + "_%s.pdb" % tx_filename
+#                         docked_pdb1_filepath = tx_filepath + "/" + docked_pdb1_filename
+#                     if line.startswith("Original PDB 2 Path:"):
+#                         docked_pdb2_filename = os.path.splitext(os.path.basename(line))[0] + "_%s.pdb" % tx_filename
+#                         docked_pdb2_filepath = tx_filepath + "/" + docked_pdb2_filename
+#                 info_file.close()
+#
+#                 if docked_pdb1_filepath is None or docked_pdb2_filepath is None:
+#                     raise Exception('cannot find docked pdb file path(s)\n')
+#
+#                 elif not os.path.exists(docked_pdb1_filepath) or not os.path.exists(docked_pdb2_filepath):
+#                     raise Exception('docked pdb file path(s) do not exist\n')
+#
+#                 else:
+#                     docked_pdb1 = PDB()
+#                     docked_pdb1.readfile(docked_pdb1_filepath)
+#
+#                     docked_pdb2 = PDB()
+#                     docked_pdb2.readfile(docked_pdb2_filepath)
+#
+#                     docked_pdb_pairs.append((design_id, docked_pdb1, docked_pdb2))
+#
+#     return docked_pdb_pairs
 
-    docked_pdb_pairs = []
 
-    for root1, dirs1, files1 in os.walk(docked_poses_dirpath):
-        for file1 in files1:
-            if "frag_match_info_file.txt" in file1:
-                info_file_filepath = root1 + "/" + file1
-
-                tx_filepath = os.path.dirname(root1)
-                rot_filepath = os.path.dirname(tx_filepath)
-                degen_filepath = os.path.dirname(rot_filepath)
-                design_filepath = os.path.dirname(degen_filepath)
-
-                tx_filename = tx_filepath.split("/")[-1]
-                rot_filename = rot_filepath.split("/")[-1]
-                degen_filename = degen_filepath.split("/")[-1]
-                design_filename = design_filepath.split("/")[-1]
-
-                # design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
-                design_id = degen_filename + "_" + rot_filename + "_" + tx_filename
-
-                docked_pdb1_filepath = None
-                docked_pdb2_filepath = None
-                info_file = open(info_file_filepath, 'r')
-                for line in info_file.readlines():
-                    if line.startswith("Original PDB 1 Path:"):
-                        docked_pdb1_filename = os.path.splitext(os.path.basename(line))[0] + "_%s.pdb" % tx_filename
-                        docked_pdb1_filepath = tx_filepath + "/" + docked_pdb1_filename
-                    if line.startswith("Original PDB 2 Path:"):
-                        docked_pdb2_filename = os.path.splitext(os.path.basename(line))[0] + "_%s.pdb" % tx_filename
-                        docked_pdb2_filepath = tx_filepath + "/" + docked_pdb2_filename
-                info_file.close()
-
-                if docked_pdb1_filepath is None or docked_pdb2_filepath is None:
-                    raise Exception('cannot find docked pdb file path(s)\n')
-
-                elif not os.path.exists(docked_pdb1_filepath) or not os.path.exists(docked_pdb2_filepath):
-                    raise Exception('docked pdb file path(s) do not exist\n')
-
-                else:
-                    docked_pdb1 = PDB()
-                    docked_pdb1.readfile(docked_pdb1_filepath)
-
-                    docked_pdb2 = PDB()
-                    docked_pdb2.readfile(docked_pdb2_filepath)
-
-                    docked_pdb_pairs.append((design_id, docked_pdb1, docked_pdb2))
-
-    return docked_pdb_pairs
-
-
-def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, docked_poses_dirpath):
-    # get all (docked_pdb1, docked_pdb2) pairs
-    docked_pdb_pairs = get_docked_pdb_pairs(docked_poses_dirpath)
-
-    return_list = []
-    for (design_id, docked_pdb1, docked_pdb2) in docked_pdb_pairs:
-
-        # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
-        # of CA atoms and only contains residues (based on residue number) that are present in all 'symmetry related'
-        # subunits. Also, standardize oligomer chain lengths such that oligomers being compared have the same number of CA
-        # atoms and only contain residues (based on residue number) that are present in all chains of both oligomers.
-        stand_docked_pdb1, stand_xtal_pdb_1 = standardize_oligomer_chain_lengths(docked_pdb1, xtal_pdb1)
-        stand_docked_pdb2, stand_xtal_pdb_2 = standardize_oligomer_chain_lengths(docked_pdb2, xtal_pdb2)
-
-        # store residue number(s) of amino acid(s) that constitute the interface between xtal_pdb_1 and xtal_pdb_2
-        # (i.e. 'reference interface') by their chain id in two dictionaries. One for xtal_pdb_1 and one for xtal_pdb_2.
-        # {'chain_id': [residue_number(s)]}
-        xtal1_int_chids_resnums_dict, xtal2_int_chids_resnums_dict = interface_chains_and_resnums(stand_xtal_pdb_1,
-                                                                                                  stand_xtal_pdb_2,
-                                                                                                  cb_distance=9.0)
-
-        # find correct chain mapping between crystal structure and docked pose
-        # perform a structural alignment of xtal_pdb_1 onto docked_pdb1 using correct chain mapping
-        # transform xtal_pdb_2 using the rotation and translation obtained from the alignment above
-        # calculate RMSD between xtal_pdb_2 and docked_pdb2 using only 'reference interface' CA atoms from xtal_pdb_2
-        # and corresponding mapped CA atoms in docked_pdb2 ==> interface RMSD or iRMSD
-        aligned_xtal_pdb, irmsd = map_align_interface_chains(stand_docked_pdb1, stand_docked_pdb2, stand_xtal_pdb_1,
-                                                             stand_xtal_pdb_2, xtal1_int_chids_resnums_dict,
-                                                             xtal2_int_chids_resnums_dict)
-
-        return_list.append((design_id, aligned_xtal_pdb, irmsd))
-
-    return return_list
+# def crystal_vs_docked_irmsd(xtal_pdb1, xtal_pdb2, docked_poses_dirpath):
+#     # get all (docked_pdb1, docked_pdb2) pairs
+#     docked_pdb_pairs = get_docked_pdb_pairs(docked_poses_dirpath)
+#
+#     return_list = []
+#     for (design_id, docked_pdb1, docked_pdb2) in docked_pdb_pairs:
+#
+#         # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
+#         # of CA atoms and only contains residues (based on residue number) that are present in all 'symmetry related'
+#         # subunits. Also, standardize oligomer chain lengths such that oligomers being compared have the same number of CA
+#         # atoms and only contain residues (based on residue number) that are present in all chains of both oligomers.
+#         stand_docked_pdb1, stand_xtal_pdb_1 = standardize_oligomer_chain_lengths(docked_pdb1, xtal_pdb1)
+#         stand_docked_pdb2, stand_xtal_pdb_2 = standardize_oligomer_chain_lengths(docked_pdb2, xtal_pdb2)
+#
+#         # store residue number(s) of amino acid(s) that constitute the interface between xtal_pdb_1 and xtal_pdb_2
+#         # (i.e. 'reference interface') by their chain id in two dictionaries. One for xtal_pdb_1 and one for xtal_pdb_2.
+#         # {'chain_id': [residue_number(s)]}
+#         xtal1_int_chids_resnums_dict, xtal2_int_chids_resnums_dict = interface_chains_and_resnums(stand_xtal_pdb_1,
+#                                                                                                   stand_xtal_pdb_2,
+#                                                                                                   cb_distance=9.0)
+#
+#         # find correct chain mapping between crystal structure and docked pose
+#         # perform a structural alignment of xtal_pdb_1 onto docked_pdb1 using correct chain mapping
+#         # transform xtal_pdb_2 using the rotation and translation obtained from the alignment above
+#         # calculate RMSD between xtal_pdb_2 and docked_pdb2 using only 'reference interface' CA atoms from xtal_pdb_2
+#         # and corresponding mapped CA atoms in docked_pdb2 ==> interface RMSD or iRMSD
+#         aligned_xtal_pdb, irmsd = map_align_interface_chains(stand_docked_pdb1, stand_docked_pdb2, stand_xtal_pdb_1,
+#                                                              stand_xtal_pdb_2, xtal1_int_chids_resnums_dict,
+#                                                              xtal2_int_chids_resnums_dict)
+#
+#         return_list.append((design_id, aligned_xtal_pdb, irmsd))
+#
+#     return return_list
 ########################################################################################################################
 
 

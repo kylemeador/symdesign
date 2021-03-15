@@ -6,7 +6,7 @@ from interface_analysis.Database import FragmentDB
 from SymDesignUtils import get_all_pdb_file_paths
 from classes.SymEntry import *
 from utils.CmdLineArgParseUtils import *
-from utils.ExpandAssemblyUtils import *
+# from utils.ExpandAssemblyUtils import *
 from utils.NanohedraManualUtils import *
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.

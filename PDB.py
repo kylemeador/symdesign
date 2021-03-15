@@ -20,7 +20,7 @@ from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Stride import Stride
 from Structure import Structure, Chain, Entity, Atom
 from SymDesignUtils import remove_duplicates, start_log, null_log, DesignError
-from utils.SymmUtils import valid_subunit_number
+from utils.SymmetryUtils import valid_subunit_number
 
 logger = start_log(name=__name__)
 # null_log = start_log(name='null', handler=3, propagate=False)

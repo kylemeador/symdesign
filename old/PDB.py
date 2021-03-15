@@ -9,7 +9,7 @@ import numpy
 from PathUtils import free_sasa_exe_path, orient_dir, orient_exe_path, orient_log_file
 from classes.Atom import Atom
 from classes.Stride import Stride
-from utils.SymmUtils import valid_subunit_number
+from utils.SymmetryUtils import valid_subunit_number
 
 
 class PDB:
