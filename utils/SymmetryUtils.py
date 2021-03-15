@@ -417,6 +417,7 @@ def expand_uc(pdb_asu, expand_matrices, uc_dimensions, dimension, return_side_ch
     """
     unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions)
     if dimension in [2, 3]:
+        dummy = True
         # all_surrounding_unit_cells = get_surrounding_unit_cells(unit_cell_pdbs, uc_dimensions, dimension=dimension, return_side_chains=return_side_chains)
         # all_surrounding_unit_cells = get_surrounding_unit_cells_2d(unit_cell_pdbs, uc_dimensions)
     # elif dimension == 3:
