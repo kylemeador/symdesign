@@ -704,7 +704,12 @@ class Structure(StructureBase):
         backbone_clashes, side_chain_clashes = [], []
         for prior_idx, residue in enumerate(self.residues, -1):
             # return a np.array((residue length, all_atom coords))
-            residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, distance)
+            try:
+                residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, distance)
+            except ValueError:
+                print('There were no atoms found for %s at residue %d backbone atoms' % (self.name, residue.number))
+                print('Check %s for details' % self.filepath)
+                residue_query = np.array([])
             # reduce the dimensions and format as a single array
             # all_contacts = np.concatenate(residue_query).ravel()  # .reshape(-1)
             all_contacts = set(np.concatenate(residue_query).ravel().tolist())
@@ -1142,6 +1147,7 @@ class Residue:
     #     for kwarg, value in kwargs.items():
     #         for atom in self.atoms:
     #             setattr(atom, kwarg, value)
+
     @property
     def backbone_indices(self):
         """Returns: (list[int])"""
@@ -1175,7 +1181,7 @@ class Residue:
 
     @property
     def backbone_and_cb_coords(self):  # in structure too
-        """This holds the atomic coords which is a view from the Structure that created them"""
+        """The backbone and CB atomic coords. Provides a view from the Structure that the Residue belongs too"""
         return self._coords.coords[[self._atom_indices[index] for index in self._bb_cb_indices]]
 
     @coords.setter
