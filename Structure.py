@@ -707,6 +707,8 @@ class Structure(StructureBase):
             try:
                 residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, distance)
             except ValueError:
+                print(residue.backbone_indices, residue.cb_index, residue.backbone_and_cb_indices)
+                print(residue._bb_indices, residue._cb, residue._bb_and_cb_indices)
                 print('There were no atoms found for %s at residue %d backbone atoms' % (self.name, residue.number))
                 print('Check %s for details' % self.filepath)
                 residue_query = np.array([])
@@ -1170,13 +1172,13 @@ class Residue:
 
     @property
     def coords(self):  # in structure too
-        """This holds the atomic coords which is a view from the Structure that created them"""
+        """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
         return self._coords.coords[self._atom_indices]
 
     @property
     def backbone_coords(self):
-        """This holds the atomic coords which is a view from the Structure that created them"""
+        """The backbone atomic coords. Provides a view from the Structure that the Residue belongs too"""
         return self._coords.coords[[self._atom_indices[index] for index in self._bb_indices]]
 
     @property
