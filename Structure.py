@@ -1168,7 +1168,7 @@ class Residue:
     @backbone_and_cb_indices.setter
     def backbone_and_cb_indices(self, index):
         """Returns: (list[int])"""
-        self._bb_cb_indices = self._bb_indices + [index] if index else []
+        self._bb_cb_indices = self._bb_indices + ([index] if index else [])
 
     @property
     def coords(self):  # in structure too
