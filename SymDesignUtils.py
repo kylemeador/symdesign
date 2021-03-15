@@ -6,22 +6,19 @@ import operator
 import os
 import pickle
 import subprocess
-import sys
 from functools import reduce
 from glob import glob
 from itertools import chain
 from json import loads, dumps
 
 import numpy as np
+from sklearn.neighbors import BallTree
 from Bio import SeqIO
 from Bio.PDB import PDBParser, Superimposer
-from sklearn.neighbors import BallTree
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-from utils.GeneralUtils import euclidean_squared_3d
 
-# logging.getLogger().setLevel(logging.INFO)
 
 # Globals
 index_offset = 1
