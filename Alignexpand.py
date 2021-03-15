@@ -1,14 +1,14 @@
 import sys
 
 from Align import align
-from utils.ExpandAssemblyUtils import expand_asu
+from utils.SymmetryUtils import expand_asu
 
 # sys.argv = list
-#python rogers_magic.py file darpin start2 end2 chain2
+# python rogers_magic.py file darpin start2 end2 chain2
 sys.argv = ['../AlphaHelix-newcenter.pdb', '../DARP_GFP.pdb', 164, 168, 'Z']
 
-file = sys.argv[0] #AlphaHelix
-aligned_file = sys.argv[1] #TargetProtein
+file = sys.argv[0]  # AlphaHelix
+aligned_file = sys.argv[1]  # TargetProtein
 start2 = sys.argv[2]
 end2 = sys.argv[3]
 chain2 = sys.argv[4]
@@ -20,9 +20,9 @@ for i in range(15):
     chain = "N"
     out = align(file, start, end, chain, aligned_file, start2, end2, chain2)
 #    os.mkdir("../Expandedfiles/config"+str(i))
-    newfile="../Expandedfiles/aligned"+str(i)+".pdb"
+    newfile = "../Expandedfiles/aligned"+str(i)+".pdb"
     out.write(newfile)
-    expand_asu(newfile, "T",out_path="../Expandedfiles/")
+    expand_asu(newfile, "T", out_path="../Expandedfiles/")
     
 
 
