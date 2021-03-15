@@ -708,7 +708,7 @@ class Structure(StructureBase):
                 residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, distance)
             except ValueError:
                 print(residue.backbone_indices, residue.cb_index, residue.backbone_and_cb_indices)
-                print(residue._bb_indices, residue._bb_and_cb_indices)  # residue._cb,
+                print(residue._bb_indices, residue._bb_cb_indices)  # residue._cb,
                 print('There were no atoms found for %s at residue %d backbone atoms' % (self.name, residue.number))
                 print('Check %s for details' % self.filepath)
                 residue_query = np.array([])
