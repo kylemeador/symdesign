@@ -2,9 +2,7 @@ import math
 
 import numpy as np
 
-from utils.ExpandAssemblyUtils import get_ptgrp_sym_op, get_sg_sym_op
-from utils.SymmUtils import valid_subunit_number
-
+from utils.SymmetryUtils import valid_subunit_number, get_ptgrp_sym_op, get_sg_sym_op
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"

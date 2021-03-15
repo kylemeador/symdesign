@@ -8,13 +8,9 @@ import numpy as np
 from Bio.SeqUtils import IUPACData
 from numpy.linalg import eigh, LinAlgError
 
-# from BioPDBUtils import biopdb_superimposer, biopdb_aligned_chain_old
 from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
 from SymDesignUtils import start_log, null_log, DesignError
-
-
-# null_log = start_log(name='null', handler=3, propagate=False)
 
 
 class StructureBase:

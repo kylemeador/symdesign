@@ -29,7 +29,6 @@ from Bio.SeqUtils import IUPACData
 # from scipy.spatial.distance import euclidean, pdist
 from sklearn.cluster import DBSCAN
 
-# import DesignDirectory
 import CmdUtils as CUtils
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
@@ -40,9 +39,8 @@ from Pose import Model
 import SequenceProfile
 from SequenceProfile import SequenceProfile
 from SymDesignUtils import DesignError, start_log, write_fasta_file
-from utils.ExpandAssemblyUtils import expand_asu
 
-logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -422,7 +420,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # TODO Make chain number independent. Low priority
     int_residues = Pose.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
     # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.get_uc_dimensions() is None
-    symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
+    # symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
     symmetrized_model_chain1 = symmetrized_model.select_chain(oligomer[pdb_codes[0]])
     symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_cb_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
     symmetrized_model_chain2 = symmetrized_model.select_chain(oligomer[pdb_codes[1]])

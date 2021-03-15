@@ -3,7 +3,7 @@ import os
 
 from PDB import PDB
 from SymDesignUtils import start_log, to_iterable
-from utils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb, write_expanded_ptgrp
+from utils.SymmetryUtils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb, write_expanded_ptgrp
 
 
 def expand_asu(file, symmetry, out_path=None):
