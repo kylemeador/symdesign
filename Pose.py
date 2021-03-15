@@ -860,7 +860,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
         self.ignore_clashes = ignore_clashes
-        self.design_selector = design_selector
+        if design_selector:
+            self.design_selector = design_selector
+        else:
+            self.design_selector = {}
         # if design_selector:
         #     self.create_design_selector(**design_selector)
         # else:
