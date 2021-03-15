@@ -760,7 +760,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def pdb(self, pdb):
         # self.log.debug('Adding PDB \'%s\' to pose' % pdb.name)
         self._pdb = pdb
-        pdb.write(out_path=os.path.join(os.getcwd(), 'entity_concatenation.pdb'))  #TODO TEST THIS
+        print(self._pdb, 'is set')
         if not self.ignore_clashes:
             if pdb.is_clash():
                 raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
