@@ -10,7 +10,7 @@ from Bio.PDB.Atom import PDBConstructionWarning
 import DesignDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from utils.BioPDBUtils import biopdb_superimposer
+from utils.PDBUtils import biopdb_superimposer
 from PDB import PDB
 from Structure import Atom
 

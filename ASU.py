@@ -13,7 +13,7 @@ import SymDesignUtils as SDUtils
 # sys.path.append(PUtils.nanohedra_source)
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
-from utils.BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
+from utils.PDBUtils import biopdb_aligned_chain
 from PDB import PDB
 from Pose import Pose
 
