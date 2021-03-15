@@ -8,7 +8,7 @@ import os
 program_name = 'SymDesign'
 program_output = '%sOutput' % program_name
 projects = 'Projects'
-program_command = 'python $SymDesign.py'
+program_command = 'python SymDesign.py'
 submodule_guide = '%s --guide MODULE' % program_command
 submodule_help = '%s MODULE --help' % program_command
 guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
