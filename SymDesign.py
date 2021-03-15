@@ -31,7 +31,7 @@ from DesignDirectory import DesignDirectory, set_up_directory_objects
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
 from PDB import PDB
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
-from ProteinExpression import find_all_matching_pdb_expression_tags, add_expression_tag, find_expression_tags
+from ProteinExpression import find_expression_tags
 from Query import Flags
 from SequenceProfile import generate_mutations, find_orf_offset
 from SymDesignUtils import write_fasta, write_fasta_file
@@ -40,6 +40,7 @@ from utils.CmdLineArgParseUtils import query_mode
 
 
 # logging.getLogger()
+from utils.PDBUtils import orient_pdb_file
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -339,25 +340,6 @@ def fix_files_mp(des_dir):
             j = False
 
     return j, None
-
-
-def orient_pdb_file(pdb_path, log_path, sym=None, out_dir=None):
-    pdb_filename = os.path.basename(pdb_path)
-    oriented_file_path = os.path.join(out_dir, pdb_filename)
-    if not os.path.exists(oriented_file_path):
-        pdb = PDB.from_file(pdb_path)
-        with open(log_path, 'a+') as f:
-            try:
-                pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True)
-                f.write("oriented: %s\n" % pdb_filename)
-                return oriented_file_path
-            except ValueError as val_err:
-                f.write(str(val_err))
-            except RuntimeError as rt_err:
-                f.write(str(rt_err))
-            return None
-    else:
-        return oriented_file_path
 
 
 def format_additional_flags(flags):

@@ -1,11 +1,14 @@
+import os
+import warnings
+
 import numpy as np
 from sklearn.neighbors import BallTree
-
-# from classes.Fragment import GhostFragment
-# from classes.Fragment import MonoFragment
+import Bio.PDB
+from Bio.PDB.Atom import Atom as BioPDBAtom, PDBConstructionWarning
 from PDB import PDB
-from utils.GeneralUtils import transform_coordinate_sets
 
+
+warnings.simplefilter('ignore', PDBConstructionWarning)
 
 # def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):
 #     # pdb_coords = np.array(pdb.extract_coords())
@@ -56,6 +59,25 @@ from utils.GeneralUtils import transform_coordinate_sets
 #         return []
 
 
+def orient_pdb_file(pdb_path, log_path, sym=None, out_dir=None):
+    pdb_filename = os.path.basename(pdb_path)
+    oriented_file_path = os.path.join(out_dir, pdb_filename)
+    if not os.path.exists(oriented_file_path):
+        pdb = PDB.from_file(pdb_path)
+        with open(log_path, 'a+') as f:
+            try:
+                pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True)
+                f.write("oriented: %s\n" % pdb_filename)
+                return oriented_file_path
+            except ValueError as val_err:
+                f.write(str(val_err))
+            except RuntimeError as rt_err:
+                f.write(str(rt_err))
+            return None
+    else:
+        return oriented_file_path
+
+
 def get_contacting_asu(pdb1, pdb2, contact_dist=8):
     max_contact_count = 0
     max_contact_chain1, max_contact_chain2 = None, None
@@ -74,6 +96,25 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8):
         # return asu  # , pdb2_asu
     else:
         return None  # , None
+
+
+# def get_interface_frags(pdb1_ghost_frag_list, pdb2_surf_frag_list, rot_mat1, rot_mat2, internal_tx_vec1,
+#                         internal_tx_vec2, set_mat1, set_mat2, ext_tx_vec1, ext_tx_vec2):  # Unused
+#     ghost_frag_guide_coords = [ghost_frag.guide_coords for ghost_frag in pdb1_ghost_frag_list
+#                                if ghost_frag.get_aligned_chain_and_residue() in pdb1_unique_chain_central_resnums]
+#     surf_frag_guide_coords = [surf_frag.guide_coords for surf_frag in pdb2_surf_frag_list
+#                               if surf_frag.get_central_res_tup() in pdb2_unique_chain_central_resnums]
+#
+#     # Rotate, Translate and Set Fragment Guide Coordinates
+#     ghost_frag_guide_coords_transformed = transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
+#                                                                     translation=internal_tx_vec1, rotation2=set_mat1,
+#                                                                     translation2=ext_tx_vec1)
+#
+#     surf_frag_guide_coords_transformed = transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
+#                                                                    translation=internal_tx_vec2, rotation2=set_mat2,
+#                                                                    translation2=ext_tx_vec2)
+#
+#     return np.array(ghost_frag_guide_coords_transformed), np.array(surf_frag_guide_coords_transformed)
 
 
 def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
@@ -126,21 +167,44 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
     return pdb1_unique_chain_central_resnums, pdb2_unique_chain_central_resnums
 
 
-def get_interface_frags(pdb1_ghost_frag_list, pdb2_surf_frag_list, rot_mat1, rot_mat2, internal_tx_vec1,
-                        internal_tx_vec2, set_mat1, set_mat2, ext_tx_vec1, ext_tx_vec2):  # Unused
-    # Todo this section could be improved by using the fragments that live on the residues, not by checking
-    ghost_frag_guide_coords = [ghost_frag.guide_coords for ghost_frag in pdb1_ghost_frag_list
-                               if ghost_frag.get_aligned_chain_and_residue() in pdb1_unique_chain_central_resnums]
-    surf_frag_guide_coords = [surf_frag.guide_coords for surf_frag in pdb2_surf_frag_list
-                              if surf_frag.get_central_res_tup() in pdb2_unique_chain_central_resnums]
+def biopdb_aligned_chain(pdb_fixed, pdb_moving, chain_id_moving):
+    # for atom in pdb_fixed.chain(chain_id_fixed).get_ca_atoms():
+    biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
+                                    " %s " % atom.type, atom.number, element=atom.element_symbol)
+                         for atom in pdb_fixed.get_ca_atoms()]
+    biopdb_atom_moving = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
+                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
+                          for atom in pdb_moving.chain(chain_id_moving).get_ca_atoms()]
+    sup = Bio.PDB.Superimposer()
+    sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)  # Todo remove Bio.PDB
+    rot, tr = sup.rotran
+    # return np.transpose(rot), tr
+    # transpose rotation matrix as Bio.PDB.Superimposer() returns correct matrix to rotate using np.matmul
+    return pdb_moving.return_transformed_copy(rotation=np.transpose(rot), translation=tr)
 
-    # Rotate, Translate and Set Fragment Guide Coordinates
-    ghost_frag_guide_coords_transformed = transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
-                                                                    translation=internal_tx_vec1, rotation2=set_mat1,
-                                                                    translation2=ext_tx_vec1)
 
-    surf_frag_guide_coords_transformed = transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
-                                                                   translation=internal_tx_vec2, rotation2=set_mat2,
-                                                                   translation2=ext_tx_vec2)
+def biopdb_superimposer(atoms_fixed, atoms_moving):
+    """
 
-    return np.array(ghost_frag_guide_coords_transformed), np.array(surf_frag_guide_coords_transformed)
+    Args:
+        atoms_fixed:
+        atoms_moving:
+
+    Returns:
+        (tuple[float, numpy.ndarray, numpy.ndarray]): RMSD, Rotation matrix(BioPDB format), Translation vector
+    """
+    biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
+                                    " %s " % atom.type, atom.number, element=atom.element_symbol)
+                         for atom in atoms_fixed]
+    biopdb_atom_moving = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
+                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
+                          for atom in atoms_moving]
+
+    sup = Bio.PDB.Superimposer()
+    sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)
+
+    # rmsd = sup.rms
+    # rot = np.transpose(sup.rotran[0]).tolist()
+    # tx = sup.rotran[1].tolist()
+
+    return (sup.rms, *sup.rotran)

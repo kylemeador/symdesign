@@ -6,33 +6,33 @@ import numpy as np
 from PathUtils import frag_text_file
 
 
-def euclidean_squared_3d(coordinates_1, coordinates_2):
-    if len(coordinates_1) != 3 or len(coordinates_2) != 3:
-        raise ValueError("len(coordinate list) != 3")
+# def euclidean_squared_3d(coordinates_1, coordinates_2):
+#     if len(coordinates_1) != 3 or len(coordinates_2) != 3:
+#         raise ValueError("len(coordinate list) != 3")
+#
+#     # KM removed as a tuple would suffice
+#     # elif type(coordinates_1) is not list or type(coordinates_2) is not list:
+#     #     raise TypeError("input parameters are not of type list")
+#
+#     else:
+#         x1, y1, z1 = coordinates_1[0], coordinates_1[1], coordinates_1[2]
+#         x2, y2, z2 = coordinates_2[0], coordinates_2[1], coordinates_2[2]
+#         return (x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2
 
-    # KM removed as a tuple would suffice
-    # elif type(coordinates_1) is not list or type(coordinates_2) is not list:
-    #     raise TypeError("input parameters are not of type list")
 
-    else:
-        x1, y1, z1 = coordinates_1[0], coordinates_1[1], coordinates_1[2]
-        x2, y2, z2 = coordinates_2[0], coordinates_2[1], coordinates_2[2]
-        return (x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2
-
-
-def center_of_mass_3d(coordinates):
-    n = len(coordinates)
-    if n != 0:
-        cm = [0. for j in range(3)]
-        for i in range(n):
-            for j in range(3):
-                cm[j] = cm[j] + coordinates[i][j]
-        for j in range(3):
-            cm[j] = cm[j] / n
-        return cm
-    else:
-        print("ERROR CALCULATING CENTER OF MASS")
-        return None
+# def center_of_mass_3d(coordinates):
+#     n = len(coordinates)
+#     if n != 0:
+#         cm = [0. for j in range(3)]
+#         for i in range(n):
+#             for j in range(3):
+#                 cm[j] = cm[j] + coordinates[i][j]
+#         for j in range(3):
+#             cm[j] = cm[j] / n
+#         return cm
+#     else:
+#         print("ERROR CALCULATING CENTER OF MASS")
+#         return None
 
 
 def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotation2=None, translation2=None):
