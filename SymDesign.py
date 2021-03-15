@@ -745,11 +745,12 @@ if __name__ == '__main__':
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
     if args.module in ['design', 'generate_fragments', 'expand_asu']:
         queried_flags['directory_type'] = 'design'
-        if args.module == 'expand_asu' and queried_flags['symmetry']:
-            queried_flags['output_assembly'] = True
-        else:
-            logger.critical('Cannot expand_asu without providing symmetry! Provide the symmetry with \'--symmetry\'')
-            exit(1)
+        if args.module == 'expand_asu':
+            if queried_flags['symmetry']:
+                queried_flags['output_assembly'] = True
+            else:
+                logger.critical('Cannot expand_asu without providing symmetry! Provide the symmetry with \'--symmetry\'')
+                exit(1)
     elif args.module in [PUtils.nano, 'filter', 'analysis', 'sequence_selection']:
         queried_flags['directory_type'] = args.module
         queried_flags[args.module] = True
