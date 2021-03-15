@@ -7,31 +7,31 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.extend([parent_dir])
 from DesignDirectory import set_up_directory_objects
 from SymDesignUtils import collect_directories
-# from classes.PDB import PDB
+from PDB import PDB
 
 
 def frag_match_count_filter(master_design_dirpath, min_frag_match_count, master_design_outdir_path):
     for root1, dirs1, files1 in os.walk(master_design_dirpath):
         for file1 in files1:
-            if "frag_match_info_file.txt" in file1:
-                info_file_filepath = root1 + "/" + file1
+            if "docked_pose_info_file.txt" in file1:
+                info_file_filepath = root1 + os.sep + file1
 
                 tx_filepath = os.path.dirname(root1)
                 rot_filepath = os.path.dirname(tx_filepath)
                 degen_filepath = os.path.dirname(rot_filepath)
                 design_filepath = os.path.dirname(degen_filepath)
 
-                tx_filename = tx_filepath.split("/")[-1]
-                rot_filename = rot_filepath.split("/")[-1]
-                degen_filename = degen_filepath.split("/")[-1]
-                design_filename = design_filepath.split("/")[-1]
+                tx_filename = tx_filepath.split(os.sep)[-1]
+                rot_filename = rot_filepath.split(os.sep)[-1]
+                degen_filename = degen_filepath.split(os.sep)[-1]
+                design_filename = design_filepath.split(os.sep)[-1]
 
-                outdir = master_design_outdir_path + "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
+                outdir = master_design_outdir_path + os.sep + design_filename + os.sep + degen_filename + os.sep + rot_filename + os.sep + tx_filename
 
                 info_file = open(info_file_filepath, 'r')
                 for line in info_file.readlines():
-                    if "Unique Interface Fragment Match Count:" in line:
-                        frag_match_count = int(line[38:])
+                    if "Unique Mono Fragments Matched:" in line:
+                        frag_match_count = int(line[30:])
                         if frag_match_count >= min_frag_match_count:
                             shutil.copytree(tx_filepath, outdir)
                 info_file.close()
@@ -40,20 +40,20 @@ def frag_match_count_filter(master_design_dirpath, min_frag_match_count, master_
 def score_filter(master_design_dirpath, min_score, master_design_outdir_path):
     for root1, dirs1, files1 in os.walk(master_design_dirpath):
         for file1 in files1:
-            if "frag_match_info_file.txt" in file1:
-                info_file_filepath = root1 + "/" + file1
+            if "docked_pose_info_file.txt" in file1:
+                info_file_filepath = root1 + os.sep + file1
 
                 tx_filepath = os.path.dirname(root1)
                 rot_filepath = os.path.dirname(tx_filepath)
                 degen_filepath = os.path.dirname(rot_filepath)
                 design_filepath = os.path.dirname(degen_filepath)
 
-                tx_filename = tx_filepath.split("/")[-1]
-                rot_filename = rot_filepath.split("/")[-1]
-                degen_filename = degen_filepath.split("/")[-1]
-                design_filename = design_filepath.split("/")[-1]
+                tx_filename = tx_filepath.split(os.sep)[-1]
+                rot_filename = rot_filepath.split(os.sep)[-1]
+                degen_filename = degen_filepath.split(os.sep)[-1]
+                design_filename = design_filepath.split(os.sep)[-1]
 
-                outdir = master_design_outdir_path + "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
+                outdir = master_design_outdir_path + os.sep + design_filename + os.sep + degen_filename + os.sep + rot_filename + os.sep + tx_filename
 
                 info_file = open(info_file_filepath, 'r')
                 for line in info_file.readlines():
@@ -68,20 +68,20 @@ def score_and_frag_match_count_filter(master_design_dirpath, min_score, min_frag
                                       master_design_outdir_path):
     for root1, dirs1, files1 in os.walk(master_design_dirpath):
         for file1 in files1:
-            if "frag_match_info_file.txt" in file1:
-                info_file_filepath = root1 + "/" + file1
+            if "docked_pose_info_file.txt" in file1:
+                info_file_filepath = root1 + os.sep + file1
 
-                tx_filepath = os.path.dirname(root1)
+                tx_filepath = root1
                 rot_filepath = os.path.dirname(tx_filepath)
                 degen_filepath = os.path.dirname(rot_filepath)
                 design_filepath = os.path.dirname(degen_filepath)
 
-                tx_filename = tx_filepath.split("/")[-1]
-                rot_filename = rot_filepath.split("/")[-1]
-                degen_filename = degen_filepath.split("/")[-1]
-                design_filename = design_filepath.split("/")[-1]
+                tx_filename = tx_filepath.split(os.sep)[-1]
+                rot_filename = rot_filepath.split(os.sep)[-1]
+                degen_filename = degen_filepath.split(os.sep)[-1]
+                design_filename = design_filepath.split(os.sep)[-1]
 
-                outdir = master_design_outdir_path + "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
+                outdir = master_design_outdir_path + os.sep + design_filename + os.sep + degen_filename + os.sep + rot_filename + os.sep + tx_filename
 
                 score = None
                 frag_match_count = None
@@ -89,8 +89,8 @@ def score_and_frag_match_count_filter(master_design_dirpath, min_score, min_frag
                 for line in info_file.readlines():
                     if "Nanohedra Score:" in line:
                         score = float(line[17:])
-                    if "Unique Interface Fragment Match Count:" in line:
-                        frag_match_count = int(line[38:])
+                    if "Unique Mono Fragments Matched:" in line:
+                        frag_match_count = int(line[30:])
                 info_file.close()
 
                 if score is not None and frag_match_count is not None:
@@ -99,57 +99,51 @@ def score_and_frag_match_count_filter(master_design_dirpath, min_score, min_frag
 
 
 def rank(master_design_dirpath, metric, outdir):
+
     if metric == 'score':
         metric_str = "Nanohedra Score:"
     elif metric == 'matched':
         metric_str = "Unique Mono Fragments Matched:"
     else:
-        raise ValueError('\n%s is not a recognized ranking metric. Recognized ranking metrics are: score and matched.\n'
-                         % str(metric))
+        raise ValueError('\n%s is not a recognized ranking metric. '
+                         'Recognized ranking metrics are: score and matched.\n' %str(metric))
 
-    # designpath_metric_tup_list = []
-    print('Finding all Nanohedra directories')
-    all_design_directories, location = collect_directories(master_design_dirpath, dir_type='nanohedra')
-    # print('Setting up directory objects')
-    all_design_directories = set_up_directory_objects(all_design_directories)
-    # for root1, dirs1, files1 in os.walk(master_design_dirpath):
-    #     for file1 in files1:
-    #         if "frag_match_info_file.txt" in file1:
-    #             info_file_filepath = root1 + "/" + file1
-    #
-    #             tx_filepath = os.path.dirname(root1)
-    #             rot_filepath = os.path.dirname(tx_filepath)
-    #             degen_filepath = os.path.dirname(rot_filepath)
-    #             design_filepath = os.path.dirname(degen_filepath)
-    #
-    #             tx_filename = tx_filepath.split("/")[-1]
-    #             rot_filename = rot_filepath.split("/")[-1]
-    #             degen_filename = degen_filepath.split("/")[-1]
-    #             design_filename = design_filepath.split("/")[-1]
-    #
-    #             design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
-    print('Gathering scores')
-    designpath_metric_tup_list = [(des_dir.path, des_dir.pose_score())
-                                  for des_dir in all_design_directories]
-    print('Sorting')
-    # if metric == 'score':
-    #     info_file = open(info_file_filepath, 'r')
-    #     for line in info_file.readlines():
-    #         if metric_str in line:
-    #             # score = float(line[17:])
-    #             score = float(line[30:])
-    #             designpath_metric_tup_list.append((design_path, score))
-    #     info_file.close()
-    #
-    # elif metric == 'matched':
-    #     info_file = open(info_file_filepath, 'r')
-    #     for line in info_file.readlines():
-    #         if metric_str in line:
-    #             frag_match_count = int(line[38:])
-    #             designpath_metric_tup_list.append((design_path, frag_match_count))
-    #     info_file.close()
+    designpath_metric_tup_list = []
 
-    designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0), reverse=True)
+    for root1, dirs1, files1 in os.walk(master_design_dirpath):
+        for file1 in files1:
+            if "docked_pose_info_file.txt" in file1:
+                info_file_filepath = root1 + "/" + file1
+
+                tx_filepath = root1
+                rot_filepath = os.path.dirname(tx_filepath)
+                degen_filepath = os.path.dirname(rot_filepath)
+                design_filepath = os.path.dirname(degen_filepath)
+
+                tx_filename = tx_filepath.split(os.sep)[-1]
+                rot_filename = rot_filepath.split(os.sep)[-1]
+                degen_filename = degen_filepath.split(os.sep)[-1]
+                design_filename = design_filepath.split(os.sep)[-1]
+
+                design_path = os.sep + design_filename + os.sep + degen_filename + os.sep + rot_filename + os.sep + tx_filename
+
+            if metric == 'score':
+                info_file = open(info_file_filepath, 'r')
+                for line in info_file.readlines():
+                    if metric_str in line:
+                        score = float(line[17:])
+                        designpath_metric_tup_list.append((design_path, score))
+                info_file.close()
+
+            elif metric == 'matched':
+                info_file = open(info_file_filepath, 'r')
+                for line in info_file.readlines():
+                    if metric_str in line:
+                        frag_match_count = int(line[30:])
+                        designpath_metric_tup_list.append((design_path, frag_match_count))
+                info_file.close()
+
+    designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: tup[1], reverse=True)
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -160,6 +154,68 @@ def rank(master_design_dirpath, metric, outdir):
     outfile.close()
 
 
+# unreleased rank
+# def rank(master_design_dirpath, metric, outdir):
+#     if metric == 'score':
+#         metric_str = "Nanohedra Score:"
+#     elif metric == 'matched':
+#         metric_str = "Unique Mono Fragments Matched:"
+#     else:
+#         raise ValueError('\n%s is not a recognized ranking metric. Recognized ranking metrics are: score and matched.\n'
+#                          % str(metric))
+#
+#     # designpath_metric_tup_list = []
+#     # print('Finding all Nanohedra directories')
+#     all_design_directories, location = collect_directories(master_design_dirpath, dir_type='nanohedra')
+#     # print('Setting up directory objects')
+#     all_design_directories = set_up_directory_objects(all_design_directories)
+#     # for root1, dirs1, files1 in os.walk(master_design_dirpath):
+#     #     for file1 in files1:
+#     #         if "frag_match_info_file.txt" in file1:
+#     #             info_file_filepath = root1 + "/" + file1
+#     #
+#     #             tx_filepath = os.path.dirname(root1)
+#     #             rot_filepath = os.path.dirname(tx_filepath)
+#     #             degen_filepath = os.path.dirname(rot_filepath)
+#     #             design_filepath = os.path.dirname(degen_filepath)
+#     #
+#     #             tx_filename = tx_filepath.split("/")[-1]
+#     #             rot_filename = rot_filepath.split("/")[-1]
+#     #             degen_filename = degen_filepath.split("/")[-1]
+#     #             design_filename = design_filepath.split("/")[-1]
+#     #
+#     #             design_path = "/" + design_filename + "/" + degen_filename + "/" + rot_filename + "/" + tx_filename
+#     # print('Gathering scores')
+#     designpath_metric_tup_list = [(des_dir.path, des_dir.pose_score())
+#                                   for des_dir in all_design_directories]
+#     # print('Sorting')
+#     # if metric == 'score':
+#     #     info_file = open(info_file_filepath, 'r')
+#     #     for line in info_file.readlines():
+#     #         if metric_str in line:
+#     #             # score = float(line[17:])
+#     #             score = float(line[30:])
+#     #             designpath_metric_tup_list.append((design_path, score))
+#     #     info_file.close()
+#     #
+#     # elif metric == 'matched':
+#     #     info_file = open(info_file_filepath, 'r')
+#     #     for line in info_file.readlines():
+#     #         if metric_str in line:
+#     #             frag_match_count = int(line[38:])
+#     #             designpath_metric_tup_list.append((design_path, frag_match_count))
+#     #     info_file.close()
+#
+#     designpath_metric_tup_list_sorted = sorted(designpath_metric_tup_list, key=lambda tup: (tup[1] or 0), reverse=True)
+#
+#     if not os.path.exists(outdir):
+#         os.makedirs(outdir)
+#
+#     with open(outdir + "/ranked_designs_%s.txt" % metric, 'w') as outfile:
+#         for p, m in designpath_metric_tup_list_sorted:
+#             outfile.write("%s\t%s\n" % (str(p), str(m)))
+
+# unreleased rank
 def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_design_outdir_path):
     # get original oligomer 1 and oligomer 2 PDB file paths
     original_oligomer_1_pdb_path = ""
@@ -184,8 +240,7 @@ def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_desi
     # get the residue secondary structure type
     # and the number of the secondary structure element it belongs to
     ss_res_info_dict_1 = {}
-    pdb_oligomer_1 = PDB()
-    pdb_oligomer_1.readfile(original_oligomer_1_pdb_path)
+    pdb_oligomer_1 = PDB.from_file(original_oligomer_1_pdb_path)
     ch_id_oligomer_1 = pdb_oligomer_1.get_chain_id_list()[0]
     ss_asg_oligomer_1 = pdb_oligomer_1.get_secondary_structure(chain_id=ch_id_oligomer_1)
     ss_num_1 = 0
@@ -200,8 +255,7 @@ def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_desi
     # get the residue secondary structure type and
     # the number of the secondary structure element it belongs to
     ss_res_info_dict_2 = {}
-    pdb_oligomer_2 = PDB()
-    pdb_oligomer_2.readfile(original_oligomer_2_pdb_path)
+    pdb_oligomer_2 = PDB.from_file(original_oligomer_2_pdb_path)
     ch_id_oligomer_2 = pdb_oligomer_2.get_chain_id_list()[0]
     ss_asg_oligomer_2 = pdb_oligomer_2.get_secondary_structure(chain_id=ch_id_oligomer_2)
     ss_num_2 = 0
