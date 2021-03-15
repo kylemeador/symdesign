@@ -271,7 +271,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
                 self.path = design_path
                 self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean))
-                print(self.asu)
                 if os.path.exists(self.asu):
                     self.source = self.asu
                 else:
@@ -279,7 +278,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
                     except IndexError:
                         self.source = None
-                print('SOURCE: ', self.source)
                 self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])  # symmetry.rstrip(os.sep)
                 self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
                 self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
@@ -973,6 +971,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         if self.nano:
             self.get_oligomers()
+            if not self.oligomers:
+                raise DesignError('No oligomers were found for this design! Cannot initialize pose without oligomers.')
             self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
                                       design_selector=self.design_selector, frag_db=self.frag_db,
                                       ignore_clashes=self.ignore_clashes)  # self.fragment_observations
@@ -981,6 +981,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose.asu = self.pose.pdb  # set the asu
             self.pose.generate_symmetric_assembly()
         else:
+            if not self.source:
+                raise DesignError('No source file was found for this design! Cannot initialize pose without a source.')
             # Todo ensure that the asu has intra-oligomeric contacts accounted for by oligomer alignment (PDB API) or
             #  quaternion rotational sampling
             self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
