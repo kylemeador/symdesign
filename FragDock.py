@@ -232,7 +232,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                                  max_z_value=max_z_val)
         # print('Checking all fragment overlap at interface')  # Todo debug
         # get the passing_overlap indices and associated z-values
-        passing_overlaps_indices = all_fragment_overlap.flatnonzero()  # .nonzero()[0]
+        passing_overlaps_indices = np.flatnonzero(all_fragment_overlap)  # .nonzero()[0]
         passing_z_values = all_fragment_overlap[passing_overlaps_indices]
         # print('Overlapping z-values: %s' % passing_z_values)  # Todo debug
 

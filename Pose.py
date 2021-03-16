@@ -1718,7 +1718,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
 
     all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
                                              max_z_value=max_z_value)
-    passing_overlap_indices = all_fragment_overlap.flatnonzero()
+    passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
 
     interface_ghostfrags = interface_ghost_frags1[passing_ghost_indices[passing_overlap_indices]]
     interface_monofrags2 = interface_frags2[passing_surf_indices[passing_overlap_indices]]
