@@ -605,25 +605,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_docking_metrics(self):
-        print('gathering docking run from %s' % self.nano_master_log)
         with open(self.nano_master_log, 'r') as master_log:
-            print('open')
             parameters = master_log.readlines()
             for line in parameters:
-                if "PDB 1 Directory Path: " or 'Oligomer 1 Input Directory: ' in line:
+                if 'Oligomer 1 Input Directory: ' in line:  # "PDB 1 Directory Path: " or
                     self.pdb_dir1_path = line.split(':')[-1].strip()
-                elif "PDB 2 Directory Path: " or 'Oligomer 2 Input Directory: 'in line:
+                elif 'Oligomer 2 Input Directory: 'in line:  #  "PDB 2 Directory Path: " or '
                     self.pdb_dir2_path = line.split(':')[-1].strip()
                 elif 'Master Output Directory: ' in line:
                     self.master_outdir = line.split(':')[-1].strip()
-                elif "Symmetry Entry Number: " or 'Nanohedra Entry Number: ' in line:
+                elif 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
                     self.sym_entry_number = int(line.split(':')[-1].strip())
                     print(self.sym_entry_number)
-                elif "Oligomer 1 Symmetry: " or 'Oligomer 1 Point Group Symmetry: ' in line:
+                elif 'Oligomer 1 Point Group Symmetry: ' in line:  # "Oligomer 1 Symmetry: "
                     self.oligomer_symmetry_1 = line.split(':')[-1].strip()
-                elif "Oligomer 2 Symmetry: " or 'Oligomer 2 Point Group Symmetry: ' in line:
+                elif 'Oligomer 2 Point Group Symmetry: ' in line:  # "Oligomer 2 Symmetry: " or
                     self.oligomer_symmetry_2 = line.split(':')[-1].strip()
-                elif "Design Point Group Symmetry: " or 'SCM Point Group Symmetry: ' in line:  # underlying point group
+                elif 'SCM Point Group Symmetry: ' in line:  # underlying point group # "Design Point Group Symmetry: "
                     self.design_symmetry_pg = line.split(':')[-1].strip()
                 elif "Oligomer 1 Internal ROT DOF: " in line:  # ,
                     self.internal_rot1 = line.split(':')[-1].strip()
@@ -641,11 +639,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     self.ref_frame_tx_dof1 = line.split(':')[-1].strip()
                 elif "Oligomer 2 Reference Frame Tx DOF: " in line:  # ,
                     self.ref_frame_tx_dof2 = line.split(':')[-1].strip()
-                elif "Resulting Design Symmetry: " or 'Resulting SCM Symmetry: ' in line:  # program_root for total design
+                elif 'Resulting SCM Symmetry: ' in line:  # "Resulting Design Symmetry: " or
                     self.design_symmetry = line.split(':')[-1].strip()
-                elif "Design Dimension: " or 'SCM Dimension: ' in line:
+                elif 'SCM Dimension: ' in line:  # "Design Dimension: " or
                     self.design_dim = int(line.split(':')[-1].strip())
-                elif "Unit Cell Specification: " or 'SCM Unit Cell Specification: ' in line:
+                elif 'SCM Unit Cell Specification: ' in line:  # "Unit Cell Specification: " or
                     self.uc_spec_string = line.split(':')[-1].strip()
                 elif "Oligomer 1 ROT Sampling Range: " in line:
                     self.rot_range_deg_pdb1 = int(line.split(':')[-1].strip())
