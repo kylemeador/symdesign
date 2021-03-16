@@ -85,10 +85,10 @@ if __name__ == "__main__":
                 master_log_file.write("Oligomer 1 Setting Matrix: %s\n" % sym_entry.get_rot_set_mat_group1())
                 master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % sym_entry.get_rot_set_mat_group2())
                 master_log_file.write("Oligomer 1 Reference Frame Tx DOF: %s\n"
-                                      % sym_entry.get_ref_frame_tx_dof_group1()
+                                      % (sym_entry.get_ref_frame_tx_dof_group1())
                                       if sym_entry.is_ref_frame_tx_dof1() else str(None))
                 master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n"
-                                      % sym_entry.get_ref_frame_tx_dof_group2()
+                                      % (sym_entry.get_ref_frame_tx_dof_group2())
                                       if sym_entry.is_ref_frame_tx_dof2() else str(None))
                 master_log_file.write("Resulting SCM Symmetry: %s\n" % sym_entry.get_result_design_sym())
                 master_log_file.write("SCM Dimension: %d\n" % sym_entry.get_design_dim())
