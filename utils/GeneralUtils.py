@@ -107,16 +107,16 @@ def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error
             out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
             out_info_file.write("***** ALL FRAGMENT MATCHES *****\n\n")
             # out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
-
+        cluster_id = 'i%d_j%d_k%d' % ghost_frag.get_ijk()
         out_info_file.write("MATCH %d\n" % match_number)
         out_info_file.write("z-val: %f\n" % overlap_error)
         out_info_file.write("CENTRAL RESIDUES\n")
         out_info_file.write("oligomer1 ch, resnum: %s, %d\n" % ghost_frag.get_aligned_chain_and_residue())
         out_info_file.write("oligomer2 ch, resnum: %s, %d\n" % matched_frag.get_central_res_tup())
         out_info_file.write("FRAGMENT CLUSTER\n")
-        out_info_file.write("id: i%s_j%s_k%s\n" % ghost_frag.get_ijk())
+        out_info_file.write('id: %s\n' % cluster_id)
         out_info_file.write("mean rmsd: %f\n" % ghost_frag.get_rmsd())
-        out_info_file.write("aligned rep: int_frag_%s_%d.pdb\n" % ('i%s_j%s_k%s' % ghost_frag.get_ijk(), match_number))
+        out_info_file.write("aligned rep: int_frag_%s_%d.pdb\n" % (cluster_id, match_number))
         out_info_file.write("central res pair freqs:\n%s\n\n" % str(central_frequencies))
 
         # if is_initial_match:
