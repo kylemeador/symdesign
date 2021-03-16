@@ -48,8 +48,8 @@ if __name__ == "__main__":
             # SymEntry Parameters
             sym_entry = SymEntry(sym_entry_number)
 
-            write_docking_parameters(pdb1_path, pdb2_path, sym_entry, master_outdir, master_log_filepath)
-            rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2)
+            write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
+                                     master_log_filepath)
 
             # Get PDB1 and PDB2 File paths
             with open(master_log_filepath, 'a+') as master_log_file:
