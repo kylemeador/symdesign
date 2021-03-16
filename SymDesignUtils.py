@@ -1085,35 +1085,35 @@ def match_score_from_z_value(z_value):
     return 1 / (1 + (z_value ** 2))
 
 
-def filter_euler_lookup_by_zvalue(coords_l1, coords_l2, reference_coords, z_value_func=None,
-                                  max_z_value=2):
-    """Filter an EulerLookup by a specified z-value, where the z-value is calculated by a passed function which has
-    two sets of coordinates and and rmsd as args
-
-    Returns:
-        (list[tuple]): (Function overlap parameter, z-value of function)
-    """
-    overlap_results = [z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
-                       for coords1, coords2 in zip(coords_l1, coords_l2)]
-    # for index_pair in index_pairs:
-    # for coords1, coords2 in zip(coords_l1, coords_l2):
-    #     ghost_frag = ghost_frags[index_pair[0]]
-    #     coords1 = coords_l1[index_pair[0]]
-    #     or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
-    #     coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
-    #     surf_frag = surface_frags[index_pair[1]]
-    #     coords2 = coords_l2[index_pair[1]]
-    #     surf_frag.get_guide_coords()
-    #     if surf_frag.get_i_type() == ghost_frag.get_j_type():  # Todo remove frags to a mask outside
-    #     result = z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
-    #     if z_value <= max_z_value:
-    #         overlap_results.append((result, z_value))
-    #     else:
-    #         overlap_results.append(False)
-    #     else:
-    #         overlap_results.append(False)
-
-    return overlap_results
+# def filter_euler_lookup_by_zvalue(coords_l1, coords_l2, reference_coords, z_value_func=None,
+#                                   max_z_value=2):
+#     """Filter an EulerLookup by a specified z-value, where the z-value is calculated by a passed function which has
+#     two sets of coordinates and and rmsd as args
+#
+#     Returns:
+#         (list[tuple]): (Function overlap parameter, z-value of function)
+#     """
+#     overlap_results = [z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
+#                        for coords1, coords2 in zip(coords_l1, coords_l2)]
+#     # for index_pair in index_pairs:
+#     # for coords1, coords2 in zip(coords_l1, coords_l2):
+#     #     ghost_frag = ghost_frags[index_pair[0]]
+#     #     coords1 = coords_l1[index_pair[0]]
+#     #     or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
+#     #     coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
+#     #     surf_frag = surface_frags[index_pair[1]]
+#     #     coords2 = coords_l2[index_pair[1]]
+#     #     surf_frag.get_guide_coords()
+#     #     if surf_frag.get_i_type() == ghost_frag.get_j_type():  # Todo remove frags to a mask outside
+#     #     result = z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
+#     #     if z_value <= max_z_value:
+#     #         overlap_results.append((result, z_value))
+#     #     else:
+#     #         overlap_results.append(False)
+#     #     else:
+#     #         overlap_results.append(False)
+#
+#     return overlap_results
 
 
 def read_fasta_file(file_name):
