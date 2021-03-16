@@ -434,11 +434,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 # KM TODO ijk_intfrag_cluster_info_dict contains all info in init_intfrag_cluster_info_dict. init info could be deleted,
 #     This doesn't take up much extra memory, but makes future maintanence bad, for porting frags to fragDB say...
 def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_step_deg_pdb2, master_outdir,
-              output_assembly, output_surrounding_uc, min_matched, keep_time=True,
-              main_log=False):
-
-    # Fragment Database Directory Paths
-    # frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamic at startup or use all fragDB
+              output_assembly, output_surrounding_uc, min_matched, keep_time=True, main_log=False):
 
     # SymEntry Parameters
     sym_entry = SymEntry(sym_entry_number)
