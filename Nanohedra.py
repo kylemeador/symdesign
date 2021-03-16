@@ -86,10 +86,10 @@ if __name__ == "__main__":
                 master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % sym_entry.get_rot_set_mat_group2())
                 master_log_file.write("Oligomer 1 Reference Frame Tx DOF: %s\n"
                                       % sym_entry.get_ref_frame_tx_dof_group1()
-                                      if sym_entry.is_ref_frame_tx_dof1() else None)
+                                      if sym_entry.is_ref_frame_tx_dof1() else str(None))
                 master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n"
                                       % sym_entry.get_ref_frame_tx_dof_group2()
-                                      if sym_entry.is_ref_frame_tx_dof2() else None)
+                                      if sym_entry.is_ref_frame_tx_dof2() else str(None))
                 master_log_file.write("Resulting SCM Symmetry: %s\n" % sym_entry.get_result_design_sym())
                 master_log_file.write("SCM Dimension: %d\n" % sym_entry.get_design_dim())
                 master_log_file.write("SCM Unit Cell Specification: %s\n\n" % sym_entry.get_uc_spec_string())
@@ -103,10 +103,10 @@ if __name__ == "__main__":
                     if sym_entry.is_internal_rot2() else str(None))
                 master_log_file.write(
                     "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg_pdb1) if sym_entry.is_internal_rot1()
-                                                            else None))
+                                                            else str(None)))
                 master_log_file.write(
                     "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg_pdb2) if sym_entry.is_internal_rot2()
-                                                              else None))
+                                                              else str(None)))
 
                 # Get PDB1 and PDB2 File paths
                 if '.pdb' in pdb1_path:  # files are not in pdb_dir, for Nanohedra_wrap generated commands...
