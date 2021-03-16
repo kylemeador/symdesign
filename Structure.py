@@ -1355,10 +1355,9 @@ class Residue:
         return None
 
     def __key(self):
-        return self.ca  # Uses CA atom. # self.number, self.chain, self.type
+        return self._start_index, self.number_of_atoms, self.type  # self.ca  # Uses CA atom.
 
     def __eq__(self, other):
-        # return self.ca == other_residue.ca
         if isinstance(other, Residue):
             return self.__key() == other.__key()
         return NotImplemented
