@@ -5,7 +5,6 @@ import time
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from Nanohedra import write_docking_parameters, get_rotation_step
 from PDB import PDB
 from PathUtils import frag_text_file, master_log
 from Pose import Pose
@@ -17,7 +16,7 @@ from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from interface_analysis.Database import FragmentDB
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
-    transform_coordinate_sets
+    transform_coordinate_sets, get_rotation_step, write_docking_parameters
 from utils.PDBUtils import get_contacting_asu, get_interface_residues
 from utils.SymmetryUtils import get_uc_dimensions, generate_cryst1_record, get_central_asu
 
