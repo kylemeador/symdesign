@@ -169,7 +169,7 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
         out_info_file.write('Canonical Orientation PDB2 Path: %s\n\n' % pdb2_path)
 
 
-def get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2):
+def get_rotation_step(sym_entry, rot_step_deg1=None, rot_step_deg2=None, initial=False, log=None):
     """Set up the rotation step from the input arguments
 
     Returns:
@@ -179,17 +179,24 @@ def get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2):
         if not rot_step_deg1:
             rot_step_deg1 = 3  # set rotation step to default
     else:
+        if rot_step_deg1 and initial:
+            log.write("Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have Internal Rotational "
+                      "DOF\n\n")
         rot_step_deg1 = 1
+
     if sym_entry.is_internal_rot2():  # if rotation step required
         if not rot_step_deg2:
             rot_step_deg2 = 3  # set rotation step to default
     else:
+        if rot_step_deg2 and initial:
+            log.write("Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have Internal Rotational "
+                      "DOF\n\n")
         rot_step_deg2 = 1
 
     return rot_step_deg1, rot_step_deg2
 
 
-def write_docking_parameters(pdb1_path, pdb2_path, sym_entry, master_outdir, master_log_filepath):
+def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir, master_log_filepath):
     # Todo logger
     with open(master_log_filepath, "a+") as master_log_file:
         master_log_file.write("NANOHEDRA PROJECT INFORMATION\n")
@@ -219,6 +226,8 @@ def write_docking_parameters(pdb1_path, pdb2_path, sym_entry, master_outdir, mas
         master_log_file.write("SCM Dimension: %d\n" % sym_entry.get_design_dim())
         master_log_file.write("SCM Unit Cell Specification: %s\n\n" % sym_entry.get_uc_spec_string())
 
+        rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2, initial=True,
+                                                         log=master_log_file)
         # Default Rotation Step
         if sym_entry.is_internal_rot1():  # if rotation step required
             if not rot_step_deg1:
