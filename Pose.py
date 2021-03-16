@@ -682,15 +682,20 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # self.pdbs = []
         self.pdbs_d = {}
         self.fragment_observations = []
-        self.design_selector = {}
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.required_indices = set()
         self.required_residues = None
-        self.ignore_clashes = False
         self.interface_residues = {}
         self.interface_split = {}
-        self.handle_flags(**kwargs)
+        # self.handle_flags(**kwargs)
+        # self.ignore_clashes = False
+        self.ignore_clashes = kwargs.get('ignore_clashes', False)
+        # self.design_selector = {}
+        # if kwargs.get('design_selector'):
+        self.design_selector = kwargs.get('design_selector', {})
+        # else:
+        #     self.design_selector = {}
 
         if asu and isinstance(asu, Structure):
             self.asu = asu
@@ -702,6 +707,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.pdb = pdb
         elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
+
+        frag_db = kwargs.get('frag_db')
+        if frag_db:
+            # Attach existing FragmentDB to the Pose
+            self.attach_fragment_database(db=frag_db)
+            for entity in self.entities:
+                entity.attach_fragment_database(db=frag_db)
 
         symmetry_kwargs = self.pdb.symmetry.copy()
         symmetry_kwargs.update(kwargs)
@@ -836,23 +848,23 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def chain(self, chain):
         return self.pdb.entity_from_chain(chain)
 
-    def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
-        self.ignore_clashes = ignore_clashes
-        if design_selector:
-            self.design_selector = design_selector
-        else:
-            self.design_selector = {}
-        # if design_selector:
-        #     self.create_design_selector(**design_selector)
-        # else:
-        #     # self.create_design_selector(selection={}, mask={}, required={})
-        #     self.design_selector_entities = self.design_selector_entities.union(set(self.entities))
-        #     self.design_selector_indices = self.design_selector_indices.union(set(self.pdb.atom_indices))
-        if frag_db:
-            # Attach an existing FragmentDB to the Pose
-            self.attach_fragment_database(db=frag_db)
-            for entity in self.entities:
-                entity.attach_fragment_database(db=frag_db)
+    # def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
+    #     self.ignore_clashes = ignore_clashes
+    #     if design_selector:
+    #         self.design_selector = design_selector
+    #     else:
+    #         self.design_selector = {}
+    #     # if design_selector:
+    #     #     self.create_design_selector(**design_selector)
+    #     # else:
+    #     #     # self.create_design_selector(selection={}, mask={}, required={})
+    #     #     self.design_selector_entities = self.design_selector_entities.union(set(self.entities))
+    #     #     self.design_selector_indices = self.design_selector_indices.union(set(self.pdb.atom_indices))
+    #     if frag_db:
+    #         # Attach an existing FragmentDB to the Pose
+    #         self.attach_fragment_database(db=frag_db)
+    #         for entity in self.entities:
+    #             entity.attach_fragment_database(db=frag_db)
 
     def create_design_selector(self):  # , selection=None, mask=None, required=None):
         """Set up a design selector for the Pose including selctions, masks, and required Entities and Atoms
@@ -1313,7 +1325,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 # if fragments_exist:
                 if not self.frag_db:
                     self.connect_fragment_database(init=False)  # location='biological_interfaces' inherent in call
-                    self.handle_flags(frag_db=self.frag_db)  # attach to all entities
+                    # Attach an existing FragmentDB to the Pose
+                    self.attach_fragment_database(db=frag_db)
+                    for entity in self.entities:
+                        entity.attach_fragment_database(db=frag_db)
+                    # self.handle_flags(frag_db=self.frag_db)  # attach to all entities
 
                 fragment_source = design_dir.fragment_observations
                 if not fragment_source:
