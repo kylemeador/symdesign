@@ -657,7 +657,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # fragment_content1 = [frag_types1.count(frag_type) for frag_type in range(1, fragment_length + 1)]
     # print('Found oligomer 1 i fragment content: %s' % fragment_content1)  # Todo debug
     frag_types1_j = [ghost_frag1.j_type for ghost_frag1 in complete_ghost_frags]
-    fragment_content1_j = [frag_types1_j.count(str(frag_type)) for frag_type in range(1, fragment_length + 1)]
+    fragment_content1_j = [frag_types1_j.count(frag_type) for frag_type in range(1, fragment_length + 1)]
     print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)  # Todo debug
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frags if ghost_frag1.j_type == initial_type2]
     ghost_frag_guide_coords = [ghost_frag1.guide_coords for ghost_frag1 in ghost_frags]
@@ -753,7 +753,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     #                  initial_surf_frags[overlapping_surf_frag_array[idx]].get_i_type() else False
                     #                  for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
 
-                    if not overlapping_ghost_frags:
+                    if overlapping_ghost_frags.any():
                         print('No overlapping ij fragments pairs, starting next sampling')  # Todo debug
                         continue
 
