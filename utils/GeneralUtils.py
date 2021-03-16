@@ -229,23 +229,23 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
 
         rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2, initial=True,
                                                          log=master_log_file)
-        # Default Rotation Step
-        if sym_entry.is_internal_rot1():  # if rotation step required
-            if not rot_step_deg1:
-                rot_step_deg_pdb1 = 3  # set rotation step to default
-        else:
-            rot_step_deg_pdb1 = 1
-            if rot_step_deg_pdb1:
-                master_log_file.write("Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have"
-                                      " Internal Rotational DOF\n\n")
-        if sym_entry.is_internal_rot2():  # if rotation step required
-            if not rot_step_deg2:
-                rot_step_deg_pdb2 = 3  # set rotation step to default
-        else:
-            rot_step_deg_pdb2 = 1
-            if rot_step_deg_pdb2:
-                master_log_file.write("Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have"
-                                      " Internal Rotational DOF\n\n")
+        # # Default Rotation Step
+        # if sym_entry.is_internal_rot1():  # if rotation step required
+        #     if not rot_step_deg1:
+        #         rot_step_deg_pdb1 = 3  # set rotation step to default
+        # else:
+        #     rot_step_deg_pdb1 = 1
+        #     if rot_step_deg_pdb1:
+        #         master_log_file.write("Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have"
+        #                               " Internal Rotational DOF\n\n")
+        # if sym_entry.is_internal_rot2():  # if rotation step required
+        #     if not rot_step_deg2:
+        #         rot_step_deg_pdb2 = 3  # set rotation step to default
+        # else:
+        #     rot_step_deg_pdb2 = 1
+        #     if rot_step_deg_pdb2:
+        #         master_log_file.write("Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have"
+        #                               " Internal Rotational DOF\n\n")
 
         master_log_file.write("ROTATIONAL SAMPLING INFORMATION\n")
         master_log_file.write(
@@ -255,10 +255,10 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
             "Oligomer 2 ROT Sampling Range: %s\n" % (str(sym_entry.get_rot_range_deg_2())
                                                      if sym_entry.is_internal_rot2() else str(None)))
         master_log_file.write(
-            "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg_pdb1) if sym_entry.is_internal_rot1()
+            "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg1) if sym_entry.is_internal_rot1()
                                                     else str(None)))
         master_log_file.write(
-            "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg_pdb2) if sym_entry.is_internal_rot2()
+            "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg2) if sym_entry.is_internal_rot2()
                                                       else str(None)))
         # Get Degeneracy Matrices
         master_log_file.write("Searching For Possible Degeneracies" + "\n")
