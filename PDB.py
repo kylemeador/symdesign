@@ -129,12 +129,12 @@ class PDB(Structure):
 
             elif isinstance(entities, list):  # Todo overloaded, may not function properly without process_pdb
                 atoms, residues = [], []
-                for entity in entities:
+                for entity in entities:  # grab only the Atom and Residue objects representing the Entity
                     atoms.extend(entity.atoms)
                     residues.extend(entity.residues)
                 self.atoms = atoms
-                self.atom_indices = list(range(len(atoms)))
                 self.residues = residues
+                self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
                 # set residue indices according to new Atoms/Coords index
