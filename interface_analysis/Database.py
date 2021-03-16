@@ -65,7 +65,7 @@ class ClusterInfoFile:
 
 
 class FragmentDB:
-    def __init__(self):  # , monofrag_representatives_path, cluster_representatives_path, cluster_info_path):
+    def __init__(self):
         self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
         self.cluster_representatives_path = intfrag_cluster_rep_dirpath
         self.cluster_info_path = intfrag_cluster_info_dirpath
@@ -74,7 +74,7 @@ class FragmentDB:
         self.info = None
 
     def get_monofrag_cluster_rep_dict(self):
-        self.reps = {os.path.splitext(file)[0]:
+        self.reps = {int(os.path.splitext(file)[0]):
                      PDB.from_file(os.path.join(root, file), solve_discrepancy=False, lazy=True, log=None)
                      for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
 
@@ -82,20 +82,18 @@ class FragmentDB:
         ijk_cluster_representatives = {}
         for root, dirs, files in os.walk(self.cluster_representatives_path):
             if not dirs:
-                i_cluster_type, j_cluster_type, k_cluster_type = root.split(os.sep)[-1].split('_')
+                i_cluster_type, j_cluster_type, k_cluster_type = map(int, root.split(os.sep)[-1].split('_'))
 
                 if i_cluster_type not in ijk_cluster_representatives:
                     ijk_cluster_representatives[i_cluster_type] = {}
                 if j_cluster_type not in ijk_cluster_representatives[i_cluster_type]:
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type] = {}
 
-                # for dirpath2, dirnames2, filenames2 in os.walk(root):
-                #     for file in filenames2:
                 for file in files:
                     ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), solve_discrepancy=False,
                                                              lazy=True, log=None)
-                    ijk_cluster_rep_mapped_chain = file[file.find("mappedchain") + 12:file.find("mappedchain") + 13]
-                    ijk_cluster_rep_partner_chain = file[file.find("partnerchain") + 13:file.find("partnerchain") + 14]
+                    ijk_cluster_rep_mapped_chain = file[file.find('mappedchain') + 12:file.find('mappedchain') + 13]
+                    ijk_cluster_rep_partner_chain = file[file.find('partnerchain') + 13:file.find('partnerchain') + 14]
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type][k_cluster_type] = \
                         (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_mapped_chain, ijk_cluster_rep_partner_chain)
 
@@ -105,7 +103,7 @@ class FragmentDB:
         intfrag_cluster_info_dict = {}
         for root, dirs, files in os.walk(self.cluster_info_path):
             if not dirs:
-                i_cluster_type, j_cluster_type, k_cluster_type = root.split(os.sep)[-1].split('_')
+                i_cluster_type, j_cluster_type, k_cluster_type = map(int, root.split(os.sep)[-1].split('_'))
 
                 if i_cluster_type not in intfrag_cluster_info_dict:
                     intfrag_cluster_info_dict[i_cluster_type] = {}
