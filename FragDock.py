@@ -483,10 +483,10 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
             master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % sym_entry.get_rot_set_mat_group2())
             master_log_file.write("Oligomer 1 Reference Frame Tx DOF: %s\n"
                                   % sym_entry.get_ref_frame_tx_dof_group1()
-                                  if sym_entry.is_ref_frame_tx_dof1() else None)
+                                  if sym_entry.is_ref_frame_tx_dof1() else str(None))
             master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n"
                                   % sym_entry.get_ref_frame_tx_dof_group2()
-                                  if sym_entry.is_ref_frame_tx_dof2() else None)
+                                  if sym_entry.is_ref_frame_tx_dof2() else str(None))
             master_log_file.write("Resulting SCM Symmetry: %s\n" % sym_entry.get_result_design_sym())
             master_log_file.write("SCM Dimension: %d\n" % sym_entry.get_design_dim())
             master_log_file.write("SCM Unit Cell Specification: %s\n\n" % sym_entry.get_uc_spec_string())
@@ -500,10 +500,10 @@ def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_ste
                 if sym_entry.is_internal_rot2() else str(None))
             master_log_file.write(
                 "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg_pdb1) if sym_entry.is_internal_rot1()
-                                                        else None))
+                                                        else str(None)))
             master_log_file.write(
                 "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg_pdb2) if sym_entry.is_internal_rot2()
-                                                          else None))
+                                                          else str(None)))
 
             # Get Degeneracy Matrices
             master_log_file.write("Searching For Possible Degeneracies\n")
@@ -826,4 +826,4 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             with open(master_log_filepath, 'a+') as master_log:
                 master_log.write('\nRun Ended By KeyboardInterrupt\n')
-            sys.exit()
+            exit(2)
