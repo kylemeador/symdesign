@@ -104,10 +104,8 @@ class SequenceProfile:
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
 
-    def attach_fragment_database(self, db=None, **kwargs):
-        """Attach an existing Fragment Database to the SequenceProfile or generate a new connection. Initialize the
-        representative library by passing init=True"""
-        #                        source='directory', location='biological_interfaces', length=5, init_db=True):
+    def attach_fragment_database(self, db=None):
+        """Attach an existing Fragment Database to the SequenceProfile"""
         if db:
             self.frag_db = db
         else:
