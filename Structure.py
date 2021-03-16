@@ -1287,19 +1287,19 @@ class Residue:
         self._o = index
 
     @property
-    def number(self):
+    def number(self):  # Todo make property of residue
         return self.ca.residue_number
 
     @property
-    def number_pdb(self):
+    def number_pdb(self):  # Todo make property of residue
         return self.ca.pdb_residue_number
 
     @property
-    def chain(self):
+    def chain(self):  # Todo make property of residue
         return self.ca.chain
 
     @property
-    def type(self):
+    def type(self):  # Todo make property of residue
         return self.ca.residue_type
 
     @property
@@ -1365,7 +1365,9 @@ class Residue:
         return NotImplemented
 
     def __str__(self):
-        return '\n'.join(str(atom) for atom in self.atoms)
+        return '\n'.join(str(atom) % ('{:5d}'.format(idx + 1), '{:3s}'.format(self.type), self.chain,
+                                      '{:4d}'.format(self.number), '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
+                         for atom, idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
 
     def __hash__(self):
         return hash(self.__key())
@@ -1740,6 +1742,7 @@ class Atom:
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
         # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
         # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        # return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
         return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
                .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
                        self.residue_number, self.code_for_insertion,  # self.x, self.y, self.z,
