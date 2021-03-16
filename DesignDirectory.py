@@ -605,8 +605,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_docking_metrics(self):
-        print('gathering docking run')
+        print('gathering docking run from %s' % self.nano_master_log)
         with open(self.nano_master_log, 'r') as master_log:
+            print('open')
             parameters = master_log.readlines()
             for line in parameters:
                 if "PDB 1 Directory Path: " or 'Oligomer 1 Input Directory: ' in line:
