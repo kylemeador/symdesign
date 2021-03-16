@@ -107,7 +107,7 @@ class Structure(StructureBase):
             self._coords = coords
         else:
             self._coords = Coords(coords)
-        assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) > number of Coords (%d)!' \
+        assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
                                                     % (self.name, len(self.atoms), len(self.coords))
 
     def set_coords(self, coords):
