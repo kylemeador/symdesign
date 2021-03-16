@@ -63,8 +63,10 @@ class EulerLookup:
 
         indices1 = np.arange(len(guide_coords1))
         indices2 = np.arange(len(guide_coords2))
-        index_array = np.column_stack([np.repeat(indices1, indices2.shape[0]),
-                                       np.tile(indices2, indices1.shape[0])])
+        # index_array = np.column_stack([np.repeat(indices1, indices2.shape[0]),
+        #                                np.tile(indices2, indices1.shape[0])])
+        index_array1 = np.repeat(indices1, indices2.shape[0])
+        index_array2 = np.tile(indices2, indices1.shape[0])
 
         # Construct the correctly sized arrays to lookup euler space matching pairs from the all to all guide_coords
         eulintarray1_1_r = np.repeat(eulintarray1_1, indices2.shape[0])
@@ -77,4 +79,4 @@ class EulerLookup:
         overlap = self.eul_lookup_40[eulintarray1_1_r, eulintarray1_2_r, eulintarray1_3_r,
                                      eulintarray2_1_r, eulintarray2_2_r, eulintarray2_3_r]
 
-        return index_array[overlap]  # these are the overlapping ij pairs
+        return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs

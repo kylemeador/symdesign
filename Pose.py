@@ -13,7 +13,7 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile, calculate_match_metrics
 from Structure import Coords, Structure
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
-    start_log, null_log, possible_symmetries, match_score_from_z_value  # filter_euler_lookup_by_zvalue,
+    start_log, null_log, possible_symmetries, match_score_from_z_value
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDB, FragmentDatabase
 from utils.GeneralUtils import write_frag_match_info_file
@@ -1698,32 +1698,31 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
 
     # Check for matching Euler angles
     # TODO create a stand alone function
-    overlapping_ghost_surf_frag_indices = euler_lookup.check_lookup_table(interface_ghostfrag_guide_coords,
-                                                                          interface_surf_frag_guide_coords)
-    ij_type_match = [True if interface_frags2[surf_idx].i_type == interface_ghost_frags1[ghost_idx].j_type
-                     else False for ghost_idx, surf_idx in overlapping_ghost_surf_frag_indices]
-    passing_ghost_indices = np.array([ghost_idx
-                                      for idx, (ghost_idx, surf_idx) in enumerate(overlapping_ghost_surf_frag_indices)
-                                      if ij_type_match[idx]])
+    overlapping_ghost_indices, overlapping_surf_indices = \
+        euler_lookup.check_lookup_table(interface_ghostfrag_guide_coords, interface_surf_frag_guide_coords)
+    # filter array by matching type for surface (i) and ghost (j) frags
+    surface_type_i_array = np.array([interface_frags2[idx].i_type for idx in overlapping_surf_indices.tolist()])
+    ghost_type_j_array = np.array([interface_ghost_frags1[idx].j_type for idx in overlapping_ghost_indices.tolist()])
+    ij_type_match = np.where(surface_type_i_array == ghost_type_j_array, True, False)
+
+    passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
     passing_ghost_coords = interface_ghostfrag_guide_coords[passing_ghost_indices]
 
-    passing_surf_indices = np.array([surf_idx
-                                     for idx, (ghost_idx, surf_idx) in enumerate(overlapping_ghost_surf_frag_indices)
-                                     if ij_type_match[idx]])
+    passing_surf_indices = overlapping_surf_indices[ij_type_match]
     passing_surf_coords = interface_surf_frag_guide_coords[passing_surf_indices]
     # precalculate the reference_rmsds for each ghost fragment
-    reference_rmsds = np.array([interface_ghost_frags1[ghost_idx].rmsd
-                                if interface_ghost_frags1[ghost_idx].rmsd > 0 else 0.01
-                                for ghost_idx in passing_ghost_indices])
+    reference_rmsds = np.array([interface_ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
+    reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
 
     all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
                                              max_z_value=max_z_value)
     passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
 
-    interface_ghostfrags = interface_ghost_frags1[passing_ghost_indices[passing_overlap_indices]]
-    interface_monofrags2 = interface_frags2[passing_surf_indices[passing_overlap_indices]]
+    interface_ghostfrags = [interface_ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
+    interface_monofrags2 = [interface_frags2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
     passing_z_values = all_fragment_overlap[passing_overlap_indices]
     match_scores = match_score_from_z_value(passing_z_values)
+
     return list(zip(interface_ghostfrags, interface_monofrags2, match_scores))
 
 
@@ -1740,7 +1739,7 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
         entity1_surffrag_ch, entity1_surffrag_resnum = interface_ghost_frag.get_aligned_chain_and_residue()
         entity2_surffrag_ch, entity2_surffrag_resnum = interface_mono_frag.get_central_res_tup()
         fragment_matches.append({'mapped': entity1_surffrag_resnum, 'match': match_score,
-                                 'paired': entity2_surffrag_resnum, 'cluster': '%s_%s_%s'
+                                 'paired': entity2_surffrag_resnum, 'cluster': '%d_%d_%d'
                                                                                % interface_ghost_frag.get_ijk()})
     logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
@@ -1750,7 +1749,7 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
 
 def write_fragment_pairs(ghostfrag_surffrag_pairs, out_path=os.getcwd()):
     for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs):
-        interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%s_%s_%s_fragment_overlap_match_%d.pdb'
+        interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_overlap_match_%d.pdb'
                                                                    % (*interface_ghost_frag.get_ijk(), idx)))
 
 
