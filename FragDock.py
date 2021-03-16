@@ -739,7 +739,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     overlapping_ghost_frags, overlapping_surf_frags = \
                         eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
                                                       surf_frags_2_guide_coords_rot_and_set)
-
+                    print(overlapping_ghost_frags[:10])
                     print('number of matching euler angle pairs: %d' % len(overlapping_ghost_frags))  # Todo debug
 
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coodinate pairs
