@@ -5,6 +5,7 @@ import time
 import numpy as np
 from sklearn.neighbors import BallTree
 
+from Nanohedra import write_docking_parameters, get_rotation_step
 from PDB import PDB
 from PathUtils import frag_text_file, master_log
 from Pose import Pose
@@ -435,114 +436,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                pdb1_path, pdb2_path, pose_id)
 
 
-# KM TODO ijk_intfrag_cluster_info_dict contains all info in init_intfrag_cluster_info_dict. init info could be deleted,
-#     This doesn't take up much extra memory, but makes future maintanence bad, for porting frags to fragDB say...
-def nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg_pdb1, rot_step_deg_pdb2, master_outdir,
-              output_assembly, output_surrounding_uc, min_matched, keep_time=True, main_log=False):
-
-    # SymEntry Parameters
-    sym_entry = SymEntry(sym_entry_number)
-
-    # Todo move all of this logging to logger and use a propogate=True flag to pass this info to the master log
-    #  This will allow the variable unpacked above to be unpacked in the docking section
-    if main_log:
-        with open(master_log_filepath, "a+") as master_log_file:
-            if sym_entry.is_internal_rot1():  # if rotation step required
-                if not rot_step_deg_pdb1:
-                    rot_step_deg_pdb1 = 3  # set rotation step to default
-            else:
-                rot_step_deg_pdb1 = 1
-                if rot_step_deg_pdb1:
-                    master_log_file.write("Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have"
-                                          " Internal Rotational DOF\n\n")
-            if sym_entry.is_internal_rot2():  # if rotation step required
-                if not rot_step_deg_pdb2:
-                    rot_step_deg_pdb2 = 3  # set rotation step to default
-            else:
-                rot_step_deg_pdb2 = 1
-                if rot_step_deg_pdb2:
-                    master_log_file.write("Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have"
-                                          " Internal Rotational DOF\n\n")
-
-            master_log_file.write("NANOHEDRA PROJECT INFORMATION\n")
-            master_log_file.write("Oligomer 1 Input Directory: %s\n" % pdb1_path)
-            master_log_file.write("Oligomer 2 Input Directory: %s\n" % pdb2_path)
-            master_log_file.write("Master Output Directory: %s\n\n" % master_outdir)
-
-            master_log_file.write("SYMMETRY COMBINATION MATERIAL INFORMATION\n")
-            master_log_file.write("Nanohedra Entry Number: %d\n" % sym_entry_number)
-            master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % sym_entry.get_group1_sym())
-            master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % sym_entry.get_group2_sym())
-            master_log_file.write("SCM Point Group Symmetry: %s\n" % sym_entry.get_pt_grp_sym())
-
-            master_log_file.write("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))
-            master_log_file.write("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
-            master_log_file.write("Oligomer 1 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx1()))
-            master_log_file.write("Oligomer 2 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx2()))
-            master_log_file.write("Oligomer 1 Setting Matrix: %s\n" % sym_entry.get_rot_set_mat_group1())
-            master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % sym_entry.get_rot_set_mat_group2())
-            master_log_file.write("Oligomer 1 Reference Frame Tx DOF: %s\n"
-                                  % (sym_entry.get_ref_frame_tx_dof_group1())
-                                  if sym_entry.is_ref_frame_tx_dof1() else str(None))
-            master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n"
-                                  % (sym_entry.get_ref_frame_tx_dof_group2())
-                                  if sym_entry.is_ref_frame_tx_dof2() else str(None))
-            master_log_file.write("Resulting SCM Symmetry: %s\n" % sym_entry.get_result_design_sym())
-            master_log_file.write("SCM Dimension: %d\n" % sym_entry.get_design_dim())
-            master_log_file.write("SCM Unit Cell Specification: %s\n\n" % sym_entry.get_uc_spec_string())
-
-            master_log_file.write("ROTATIONAL SAMPLING INFORMATION\n")
-            master_log_file.write(
-                "Oligomer 1 ROT Sampling Range: %s\n" % str(sym_entry.get_rot_range_deg_1())
-                if sym_entry.is_internal_rot1() else str(None))
-            master_log_file.write(
-                "Oligomer 2 ROT Sampling Range: %s\n" % str(sym_entry.get_rot_range_deg_2())
-                if sym_entry.is_internal_rot2() else str(None))
-            master_log_file.write(
-                "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg_pdb1) if sym_entry.is_internal_rot1()
-                                                        else str(None)))
-            master_log_file.write(
-                "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg_pdb2) if sym_entry.is_internal_rot2()
-                                                          else str(None)))
-
-            # Get Degeneracy Matrices
-            master_log_file.write("Searching For Possible Degeneracies\n")
-            if sym_entry.degeneracy_matrices_1:
-                num_degens = len(sym_entry.degeneracy_matrices_1)
-                master_log_file.write("%d Degenerac%s Found for Oligomer 1\n"
-                                      % (num_degens, 'ies' if num_degens > 1 else 'y'))
-            else:
-                master_log_file.write("No Degeneracies Found for Oligomer 1\n")
-
-            if sym_entry.degeneracy_matrices_2:
-                num_degens = len(sym_entry.degeneracy_matrices_2)
-                master_log_file.write("%d Degenerac%s Found for Oligomer 2\n"
-                                      % (num_degens, 'ies' if num_degens > 1 else 'y'))
-            else:
-                master_log_file.write("No Degeneracies Found for Oligomer 2\n")
-
-            # Get Fragment Database
-            master_log_file.write("Retrieving Database of Complete Interface Fragment Cluster Representatives\n")
-
-    # Create fragment database for all ijk cluster representatives
-    # Todo move to inside loop for single iteration docking
-    ijk_frag_db = FragmentDB()
-
-    # Get complete IJK fragment representatives database dictionaries
-    ijk_frag_db.get_monofrag_cluster_rep_dict()
-    ijk_frag_db.get_intfrag_cluster_rep_dict()
-    ijk_frag_db.get_intfrag_cluster_info_dict()
-
-    with open(master_log_filepath, 'a+') as master_log_file:
-        master_log_file.write('Docking %s / %s \n' % (os.path.basename(os.path.splitext(pdb1_path)[0]),
-                                                      os.path.basename(os.path.splitext(pdb2_path)[0])))
-
-    nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path,
-                   rot_step_deg_pdb1=rot_step_deg_pdb1, rot_step_deg_pdb2=rot_step_deg_pdb2,
-                   output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                   min_matched=min_matched, keep_time=keep_time)
-
-
+# Todo move all logging to logger and use a propogate=True flag to pass this info to the master log
+#  This will allow the variable unpacked above to be unpacked in the docking section
 def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
                    subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_assembly=False,
                    output_surrounding_uc=False, min_matched=3, keep_time=True):
@@ -798,31 +693,45 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
 
 if __name__ == '__main__':
-    cmd_line_in_params = sys.argv
-    if len(cmd_line_in_params) > 1:
+    if len(sys.argv) > 1:
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
-            output_surrounding_uc, min_matched, timer, initial = get_docking_parameters(cmd_line_in_params)
+            output_surrounding_uc, min_matched, timer, initial = get_docking_parameters(sys.argv)
 
         # Master Log File
         master_log_filepath = os.path.join(master_outdir, master_log)
+        # SymEntry Parameters
+        sym_entry = SymEntry(sym_entry_number)
 
         if initial:
-            # Making Master Output Directory
+            # make master output directory
             if not os.path.exists(master_outdir):
                 os.makedirs(master_outdir)
+            write_docking_parameters(pdb1_path, pdb2_path, sym_entry, master_outdir, master_log_filepath)
             # with open(master_log_filepath, "w") as master_logfile:
             #     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
         else:
-            time.sleep(1)  # ensure that the first file was able to write before adding below log
+            # ensure that the first file was able to write before adding below log
+            time.sleep(1)
+            rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2)
             with open(master_log_filepath, 'a+') as master_log_file:
                 master_log_file.write('Docking %s / %s \n' % (os.path.basename(os.path.splitext(pdb1_path)[0]),
                                                               os.path.basename(os.path.splitext(pdb2_path)[0])))
 
-        try:
-            nanohedra(sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir,
-                      output_assembly, output_surrounding_uc, min_matched, keep_time=timer, main_log=initial)
+        # Create fragment database for all ijk cluster representatives
+        # Todo move to inside loop for single iteration docking
+        ijk_frag_db = FragmentDB()
 
+        # Get complete IJK fragment representatives database dictionaries
+        ijk_frag_db.get_monofrag_cluster_rep_dict()
+        ijk_frag_db.get_intfrag_cluster_rep_dict()
+        ijk_frag_db.get_intfrag_cluster_info_dict()
+
+        try:
+            nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path,
+                           rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
+                           output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
+                           min_matched=min_matched, keep_time=timer)
         except KeyboardInterrupt:
             with open(master_log_filepath, 'a+') as master_log:
                 master_log.write('\nRun Ended By KeyboardInterrupt\n')
