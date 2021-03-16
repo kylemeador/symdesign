@@ -1070,9 +1070,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def split_interface_pairs(interface_pairs):
         if interface_pairs:
             residues1, residues2 = zip(*interface_pairs)
-            return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
+            return sorted(set(residues1), key=lambda residue: residue.number), \
+                sorted(set(residues2), key=lambda residue: residue.number)
         else:
             return [], []
+
+    # for residue numbers
+    # @staticmethod
+    # def split_interface_pairs(interface_pairs):
+    #     if interface_pairs:
+    #         residues1, residues2 = zip(*interface_pairs)
+    #         return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
+    #     else:
+    #         return [], []
 
     def find_interface_residues(self, entity1=None, entity2=None, **kwargs):  # distance=8, include_glycine=True):
         """Get unique residues from each pdb across an interface provided by two Entity names
