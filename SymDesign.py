@@ -24,6 +24,7 @@ import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
+from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDatabase
 from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, final_metrics
 from CommandDistributer import distribute
@@ -875,8 +876,10 @@ if __name__ == '__main__':
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
         fragment_db = FragmentDatabase(source='directory', location=interface_type, init_db=True)
+        euler_lookup = EulerLookup()
         for design in design_directories:
             design.connect_db(frag_db=fragment_db)
+            design.euler_lookup = euler_lookup
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands
     # -----------------------------------------------------------------------------------------------------------------
