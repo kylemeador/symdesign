@@ -2,8 +2,6 @@ import os
 
 import numpy as np
 
-# from SymDesignUtils import DesignError
-from Nanohedra import rot_step_deg1, rot_step_deg2
 from PathUtils import frag_text_file
 
 
