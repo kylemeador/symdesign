@@ -133,11 +133,11 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         # Check if PDB1 and PDB2 backbones clash
         oligomer1_oligomer2_clash_time_start = time.time()
-        # Todo @profile and move to KDTree
+        # Todo @profile for KDTree or Neighbors 'brute'
         kdtree_oligomer1_backbone = BallTree(pdb1_copy.get_backbone_and_cb_coords())
         asu_cb_clash_count = kdtree_oligomer1_backbone.two_point_correlation(pdb2_copy.get_backbone_and_cb_coords(),
                                                                              [clash_dist])
-        # print('Checking clashes')
+
         oligomer1_oligomer2_clash_time_end = time.time()
         oligomer1_oligomer2_clash_time = oligomer1_oligomer2_clash_time_end - oligomer1_oligomer2_clash_time_start
 
@@ -176,18 +176,17 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                          if surf_frag.get_central_res_tup() in interface_chain_residues_pdb2])
         surf_frag_guide_coords = [surf_frag.guide_coords for surf_frag in interface_surf_frags]
 
-        ghost_frag_guide_coords_transformed = transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
-                                                                        translation=representative_int_dof_tx_param_1,
-                                                                        rotation2=sym_entry.get_rot_set_mat_group1(),
-                                                                        translation2=representative_ext_dof_tx_params_1)
+        transformed_ghostfrag_guide_coords_np = transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
+                                                                          translation=representative_int_dof_tx_param_1,
+                                                                          rotation2=sym_entry.get_rot_set_mat_group1(),
+                                                                          translation2=representative_ext_dof_tx_params_1)
 
-        surf_frag_guide_coords_transformed = transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
-                                                                       translation=representative_int_dof_tx_param_2,
-                                                                       rotation2=sym_entry.get_rot_set_mat_group2(),
-                                                                       translation2=representative_ext_dof_tx_params_2)
-        # Todo remove np.array() when np.tensordot is implemented
-        transformed_ghostfrag_guide_coords_np = np.array(ghost_frag_guide_coords_transformed)
-        transformed_monofrag2_guide_coords_np = np.array(surf_frag_guide_coords_transformed)
+        transformed_monofrag2_guide_coords_np = transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
+                                                                          translation=representative_int_dof_tx_param_2,
+                                                                          rotation2=sym_entry.get_rot_set_mat_group2(),
+                                                                          translation2=representative_ext_dof_tx_params_2)
+        # transformed_ghostfrag_guide_coords_np = np.array(ghost_frag_guide_coords_transformed)
+        # transformed_monofrag2_guide_coords_np = np.array(surf_frag_guide_coords_transformed)
 
         # print('Transformed guide_coords')  # Todo debug
         get_int_ghost_surf_frags_time_end = time.time()
@@ -233,7 +232,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                                  max_z_value=max_z_val)
         # print('Checking all fragment overlap at interface')  # Todo debug
         # get the passing_overlap indices and associated z-values
-        passing_overlaps_indices = all_fragment_overlap.nonzero()[0]
+        passing_overlaps_indices = all_fragment_overlap.flatnonzero()  # .nonzero()[0]
         passing_z_values = all_fragment_overlap[passing_overlaps_indices]
         # print('Overlapping z-values: %s' % passing_z_values)  # Todo debug
 

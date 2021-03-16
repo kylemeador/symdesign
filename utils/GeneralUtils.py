@@ -39,7 +39,7 @@ def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotat
     """Take a set of x,y,z coordinates and transform according to rotation, translation, rotation2, then translation2
 
     Args:
-        coord_sets (numpy.ndarray): The coordinates to transform, can be shape (number of coordinates, 3, 3)
+        coord_sets (union[numpy.ndarray,list]): The coordinates to transform, can be shape (number of coordinates, 3, 3)
     Keyword Args:
         rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
         translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
