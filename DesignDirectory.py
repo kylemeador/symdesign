@@ -151,6 +151,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.write_frags = True
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
+        self.euler_lookup = None
         self.frag_db = None
         self.design_db = None
         self.score_db = None
@@ -975,7 +976,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('No oligomers were found for this design! Cannot initialize pose without oligomers.')
             self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
                                       design_selector=self.design_selector, frag_db=self.frag_db,
-                                      ignore_clashes=self.ignore_clashes)  # self.fragment_observations
+                                      ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
+            #                         self.fragment_observations
             for oligomer in self.oligomers[1:]:
                 self.pose.add_pdb(oligomer)
             self.pose.asu = self.pose.pdb  # set the asu

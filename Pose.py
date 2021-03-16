@@ -712,8 +712,17 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if frag_db:
             # Attach existing FragmentDB to the Pose
             self.attach_fragment_database(db=frag_db)
+            # self.frag_db = frag_db  # Todo property
             for entity in self.entities:
                 entity.attach_fragment_database(db=frag_db)
+
+        euler_lookup = kwargs.get('euler_lookup')
+        if euler_lookup:
+            self.euler_lookup = euler_lookup
+        else:
+            self.euler_lookup = None
+            # for entity in self.entities:  # No need to attach to entities
+            #     entity.euler_lookup = euler_lookup
 
         symmetry_kwargs = self.pdb.symmetry.copy()
         symmetry_kwargs.update(kwargs)
@@ -1075,7 +1084,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if not entity1_residue_numbers or not entity2_residue_numbers:
             self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
-            self.interface_residues[(entity1, entity2)] = ()
+            self.interface_residues[(entity1, entity2)] = ([], [])
             return None
         else:
             self.log.info('At Entity %s | Entity %s interface:\t%s found residue numbers: %s'
@@ -1091,15 +1100,24 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                        for residue in entity_residues])
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
-        # Todo identity frag type by residue, not by calculation
-        surface_frags1 = entity1.get_fragments([residue.number
-                                                for residue in self.interface_residues[(entity1, entity2)][0]],
+        """For all found interface residues in a Entity/Entity interface, search for corresponding fragment pairs
+
+        Keyword Args:
+            entity1=None (Structure): The first Entity to measure for an interface
+            entity2=None (Structure): The second Entity to measure for an interface
+        Sets:
+            self.fragment_queries (dict[mapping[tuple, dict]])
+        """
+        entity1_residues, entity2_residues = self.interface_residues.get((entity1, entity2))
+        # if not self.interface_residues[(entity1, entity2)]:
+        #     self.log.debug('At interface Entity %s | Entity %s\tMISSING interface residues'
+        #                    % (entity1.name, entity2.name))
+        #     return None
+        surface_frags1 = entity1.get_fragments([residue.number for residue in entity1_residues],
                                                representatives=self.frag_db.reps)
-        surface_frags2 = entity2.get_fragments([residue.number
-                                                for residue in self.interface_residues[(entity1, entity2)][1]],
+        surface_frags2 = entity2.get_fragments([residue.number for residue in entity2_residues],
                                                representatives=self.frag_db.reps)
-        # surface_frags1 = entity1.get_fragments([residue.number for residue in self.interface_residues[entity1]])
-        # surface_frags2 = entity2.get_fragments([residue.number for residue in self.interface_residues[entity2]])
+
         if not surface_frags1 or not surface_frags2:
             self.log.debug('At interface Entity %s | Entity %s\tMISSING interface residues with matching fragments'
                            % (entity1.name, entity2.name))
@@ -1118,12 +1136,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, surface_frags1, surface_frags2,
-                                                                         fragdb=self.frag_db)
+                                                                         fragdb=self.frag_db,
+                                                                         euler_lookup=self.euler_lookup)
         self.log.info('Found %d overlapping fragment pairs at the %s | %s interface.'
                       % (len(ghostfrag_surfacefrag_pairs), entity1.name, entity2.name))
-        self.fragment_observations.extend(ghostfrag_surfacefrag_pairs)  # Todo, change so not same as DesignDirectory
         fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
+        # add newly found fragment pairs to the existing fragment observations
+        self.fragment_observations.extend(ghostfrag_surfacefrag_pairs)  # Todo, change so not same as DesignDirectory
 
     def score_interface(self, entity1=None, entity2=None):
         if (entity1, entity2) not in self.fragment_queries and (entity2, entity1) not in self.fragment_queries:
@@ -1653,7 +1673,8 @@ def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
     return interface_frags
 
 
-def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2, fragdb=None, max_z_value=2):
+def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2, fragdb=None,
+                                       euler_lookup=None, max_z_value=2):
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From a Structure Entity, score the interface between them according to Nanohedra's fragment matching"""
     if not fragdb:
@@ -1661,6 +1682,8 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
         fragdb.get_monofrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_info_dict()
+    if not euler_lookup:
+        euler_lookup = EulerLookup()
 
     kdtree_oligomer1_backbone = BallTree(entity1_coords)
     interface_ghost_frags1 = []
@@ -1673,11 +1696,10 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
     interface_ghostfrag_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in interface_ghost_frags1])
     interface_surf_frag_guide_coords = np.array([frag2.get_guide_coords() for frag2 in interface_frags2])
 
-    eul_lookup = EulerLookup()
     # Check for matching Euler angles
-    # TODO update to modern version
-    overlapping_ghost_surf_frag_indices = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords,
-                                                                        interface_surf_frag_guide_coords)
+    # TODO create a stand alone function
+    overlapping_ghost_surf_frag_indices = euler_lookup.check_lookup_table(interface_ghostfrag_guide_coords,
+                                                                          interface_surf_frag_guide_coords)
     ij_type_match = [True if interface_frags2[surf_idx].i_type == interface_ghost_frags1[ghost_idx].j_type
                      else False for ghost_idx, surf_idx in overlapping_ghost_surf_frag_indices]
     passing_ghost_indices = np.array([ghost_idx
@@ -1696,16 +1718,23 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
 
     all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
                                              max_z_value=max_z_value)
-    passing_overlaps = [idx for idx, overlap in enumerate(all_fragment_overlap) if overlap]
-    passing_z_values = all_fragment_overlap[passing_overlaps]
-    match_scores = match_score_from_z_value(passing_z_values)
+    passing_overlap_indices = all_fragment_overlap.flatnonzero()
 
-    interface_ghostfrags = interface_ghost_frags1[passing_ghost_indices[passing_overlaps]]
-    interface_monofrags2 = interface_frags2[passing_surf_indices[passing_overlaps]]
-    return [zip(interface_ghostfrags, interface_monofrags2, match_scores)]
+    interface_ghostfrags = interface_ghost_frags1[passing_ghost_indices[passing_overlap_indices]]
+    interface_monofrags2 = interface_frags2[passing_surf_indices[passing_overlap_indices]]
+    passing_z_values = all_fragment_overlap[passing_overlap_indices]
+    match_scores = match_score_from_z_value(passing_z_values)
+    return list(zip(interface_ghostfrags, interface_monofrags2, match_scores))
 
 
 def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
+    """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
+    information
+    Args:
+        ghostfrag_surffrag_pairs (list[tuple]): Observed ghost and surface fragment overlaps and their match score
+    Returns:
+        (list[dict])
+    """
     fragment_matches = []
     for interface_ghost_frag, interface_mono_frag, match_score in ghostfrag_surffrag_pairs:
         entity1_surffrag_ch, entity1_surffrag_resnum = interface_ghost_frag.get_aligned_chain_and_residue()
@@ -1713,9 +1742,6 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
         fragment_matches.append({'mapped': entity1_surffrag_resnum, 'match': match_score,
                                  'paired': entity2_surffrag_resnum, 'cluster': '%s_%s_%s'
                                                                                % interface_ghost_frag.get_ijk()})
-    # if log:
-    #     log.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
-    #     log.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
 
