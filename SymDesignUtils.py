@@ -256,7 +256,7 @@ def get_table_column_widths(rows):
 
 
 @handle_errors_f(errors=(FileNotFoundError, ))
-def unpickle(file_name):
+def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name:
         file_name = '%s.pkl' % file_name

@@ -254,7 +254,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             else:
                 asu.write(out_path=os.path.join(asu_path, '%s_asu.pdb' % design))
 
-            # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
+            # {1_Sym1: PDB1, 2_Sym2: PDB2, 'final_symmetry': I}
             sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
             sym_d['final_symmetry'] = design_file_input[design]['final_sym']
             # 10/6/20 removed _vflip
