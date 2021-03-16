@@ -212,7 +212,8 @@ class SymEntry:
             self.degeneracy_matrices_1, self.degeneracy_matrices_2 = self.get_degeneracy_matrices()
 
         else:
-            raise ValueError("\nINVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: %d to %d\n" % (1, len(sym_comb_dict)))
+            raise ValueError("\nINVALID SYMMETRY ENTRY \'%s\'. SUPPORTED VALUES ARE: %d to %d\n"
+                             % (entry, 1, len(sym_comb_dict)))
 
     def get_group1_sym(self):
         return self.group1
