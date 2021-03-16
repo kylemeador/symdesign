@@ -111,6 +111,7 @@ class Structure(StructureBase):
                                                     % (self.name, len(self.atoms), len(self.coords))
 
     def set_coords(self, coords):
+        """Set the Atoms Coords for the Structure. Updates all Residues with the Coords object accordingly"""
         self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
