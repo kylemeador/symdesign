@@ -32,6 +32,7 @@ from AnalyzeOutput import columns_to_remove, columns_to_rename, read_scores, rem
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, pos_specific_jsd, \
     remove_non_mutations, sequence_difference
+from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 
 
@@ -249,6 +250,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   'Ensure you have the file \'%s\' located properly before trying this Design!'
                                   % (self.__str__(), PUtils.master_log, self.nano_master_log))
             self.gather_docking_metrics()
+            self.sym_entry = SymEntry(self.sym_entry_number)
+            self.design_symmetry = self.sym_entry.get_result_design_sym()
 
         else:
             if '.pdb' in design_path:  # set up /program_root/projects/project/design
@@ -602,7 +605,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_docking_metrics(self):
-        with open(self.nano_master_log, 'r') as master_log:  # os.path.join(base_directory, 'master_log.txt')
+        with open(self.nano_master_log, 'r') as master_log:
             parameters = master_log.readlines()
             for line in parameters:
                 if "PDB 1 Directory Path: " or 'Oligomer 1 Input Directory: ' in line:
