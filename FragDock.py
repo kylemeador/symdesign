@@ -706,9 +706,8 @@ if __name__ == '__main__':
             # make master output directory
             if not os.path.exists(master_outdir):
                 os.makedirs(master_outdir)
-            write_docking_parameters(pdb1_path, pdb2_path, sym_entry, master_outdir, master_log_filepath)
-            # with open(master_log_filepath, "w") as master_logfile:
-            #     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
+            write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
+                                     master_log_filepath)
         else:
             # ensure that the first file was able to write before adding below log
             time.sleep(1)

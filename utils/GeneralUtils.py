@@ -196,7 +196,8 @@ def get_rotation_step(sym_entry, rot_step_deg1=None, rot_step_deg2=None, initial
     return rot_step_deg1, rot_step_deg2
 
 
-def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir, master_log_filepath):
+def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
+                             master_log_filepath):
     # Todo logger
     with open(master_log_filepath, "a+") as master_log_file:
         master_log_file.write("NANOHEDRA PROJECT INFORMATION\n")
