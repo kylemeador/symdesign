@@ -137,7 +137,11 @@ class PDB(Structure):
                 self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
-                # set residue indices according to new Atoms/Coords index
+                # set residue attributes
+                self.residues = copy(self._residues)  # have to copy the Residues (Residue's) to set new attributes
+                self.set_structure_attributes(self.residues, atoms=self._atoms)
+                #                                       done in set_coords -> , coords=self._coords)
+                # indices according to new Atoms/Coords index
                 prior_residue = self.residues[0]
                 prior_residue.start_index = 0
                 for residue in self.residues[1:]:
@@ -151,7 +155,7 @@ class PDB(Structure):
                 for prior_idx, entity in enumerate(self.entities[1:]):
                     entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
                     entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
-                # set the arrayed attributes for all PDB containers
+                # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
@@ -1822,7 +1826,6 @@ class PDB(Structure):
 
     def __copy__(self):
         other = super().__copy__()
-        # print('copying %s' % self.__class__)
         # create a copy of all the chains and all the entities
         structures = [other.chains, other.entities]
         other.copy_structures(structures)
