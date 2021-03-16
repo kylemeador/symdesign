@@ -1106,10 +1106,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             return None
         else:
             self.log.info('At Entity %s | Entity %s interface:\t%s found residue numbers: %s'
-                          % (entity1.name, entity2.name, entity1.name, ', '.join(res.number for res in entity1_residues)))
+                          % (entity1.name, entity2.name, entity1.name, ', '.join(str(res.number)
+                                                                                 for res in entity1_residues)))
                           # % (entity1.name, entity2.name, entity1.name, entity1_residue_numbers))
             self.log.info('At Entity %s | Entity %s interface:\t%s found residue numbers: %s'
-                          % (entity1.name, entity2.name, entity2.name, ', '.join(res.number for res in entity2_residues)))
+                          % (entity1.name, entity2.name, entity2.name, ', '.join(str(res.number)
+                                                                                 for res in entity2_residues)))
                           # % (entity1.name, entity2.name, entity2.name, entity2_residue_numbers))
 
         self.interface_residues[(entity1, entity2)] = (entity1_residues, entity2_residues)
