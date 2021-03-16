@@ -605,6 +605,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_docking_metrics(self):
+        print('gathering docking run')
         with open(self.nano_master_log, 'r') as master_log:
             parameters = master_log.readlines()
             for line in parameters:
@@ -616,6 +617,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     self.master_outdir = line.split(':')[-1].strip()
                 elif "Symmetry Entry Number: " or 'Nanohedra Entry Number: ' in line:
                     self.sym_entry_number = int(line.split(':')[-1].strip())
+                    print(self.sym_entry_number)
                 elif "Oligomer 1 Symmetry: " or 'Oligomer 1 Point Group Symmetry: ' in line:
                     self.oligomer_symmetry_1 = line.split(':')[-1].strip()
                 elif "Oligomer 2 Symmetry: " or 'Oligomer 2 Point Group Symmetry: ' in line:
