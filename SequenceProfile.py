@@ -205,12 +205,12 @@ class SequenceProfile:
             if not rerun:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
                 for idx, residue in enumerate(self.structure.residues, 1):
-                    profile_residue_type = self.evolutionary_profile[idx]['type']
-                    pose_residue_type = IUPACData.protein_letters_3to1[residue.type.title()]
-                    if profile_residue_type != pose_residue_type:
+                    profile_res_type = self.evolutionary_profile[idx]['type']
+                    pose_res_type = IUPACData.protein_letters_3to1[residue.type.title()]
+                    if profile_res_type != pose_res_type:
                         self.log.warning(
-                            'Profile (%s) and Pose sequences mismatched!\nResidue %d: Profile=%s, Pose=%s'
-                            % (self.pssm_file, residue.number, profile_residue_type, pose_residue_type))
+                            'Profile (%s) and Pose (%s) sequences mismatched!\n\tResidue %d: Profile=%s, Pose=%s'
+                            % (self.pssm_file, self.sequence_file, residue.number, profile_res_type, pose_res_type))
                         rerun = True
                         break
 
