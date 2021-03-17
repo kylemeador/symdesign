@@ -139,7 +139,7 @@ class PDB(Structure):
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
                 # set residue attributes
                 self.residues = copy(self._residues)  # have to copy the Residues (Residue's) to set new attributes
-                self.set_structure_attributes(self.residues, atoms=self._atoms)
+                self.set_structure_attributes(self.residues, _atoms=self._atoms)
                 #                                       done in set_coords -> , coords=self._coords)
                 # indices according to new Atoms/Coords index
                 prior_residue = self.residues[0]
