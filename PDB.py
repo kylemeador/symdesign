@@ -103,17 +103,19 @@ class PDB(Structure):
                     atoms.extend(chain.atoms)
                     residues.extend(chain.residues)
                 self.atoms = atoms
-                # self._atoms = copy(self._atoms)
-                self.atom_indices = list(range(len(atoms)))
                 self.residues = residues
-                # self._residues = copy(self._residues)
+                self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([chain.coords for chain in chains]))
-                # set residue indices according to new Atoms/Coords index
+                # set residue attributes
+                self.residues = copy(self._residues)  # have to copy the Residues (Residue's) to set new attributes
+                self.set_structure_attributes(self.residues, _atoms=self._atoms)
+                #                                       done in set_coords -> , coords=self._coords)
+                # indices according to new Atoms/Coords index
                 prior_residue = self.residues[0]
                 prior_residue.start_index = 0
                 for residue in self.residues[1:]:
-                    residue.start_index = prior_residue.atom_indices[-1]
+                    residue.start_index = prior_residue.atom_indices[-1] + 1
                     prior_residue = residue
 
                 self.chains = copy(chains)
