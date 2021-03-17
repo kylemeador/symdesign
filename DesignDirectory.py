@@ -1097,16 +1097,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         rename_columns = columns_to_rename
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
-        profile_dict = {'combined': parse_pssm(self.info['design_profile'])}
-        if 'evolutionary_profile' in self.info:
-            profile_dict['evolution'] = parse_pssm(self.info['evolutionary_profile'])
-        if 'fragment_profile' in self.info:
-            profile_dict['fragment'] = unpickle(self.info['fragment_profile'])
+        profile_dict = {}
+        design_profile = self.info.get('design_profile', None)
+        evolutionary_profile = self.info.get('evolutionary_profile', None)
+        fragment_profile = self.info.get('fragment_profile', None)
+        if design_profile:
+            profile_dict['design'] = parse_pssm(design_profile)
+        if evolutionary_profile:
+            profile_dict['evolution'] = parse_pssm(evolutionary_profile)
+        if fragment_profile:
+            profile_dict['fragment'] = unpickle(fragment_profile)
             issm_residues = list(set(profile_dict['fragment'].keys()))
         else:
             issm_residues = []
             self.log.info('Design has no fragment information')
-        interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[self.info['fragment_database']])
+        if self.info.get('fragment_database', None):
+            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[self.info['fragment_database']])
 
         # Gather miscellaneous pose specific metrics
         self.load_pose()  # to ensure oligomers are present and if so, their metrics are pulled out
@@ -1139,7 +1145,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.log.debug('Design Files: %s' % ', '.join(self.get_designs()))
             sequence_mutations = generate_all_design_mutations(self.get_designs(), self.get_wildtype_file())  # TODO
             # self.log.debug('Design Files: %s' % ', '.join(sequence_mutations))
-            # offset_dict = AnalyzeMutatedSequences.pdb_to_pose_num(sequence_mutations['ref'])  # Removed on 01/2021 metrics.xml
             # self.log.debug('Chain offset: %s' % str(offset_dict))
 
             # Remove wt sequence and find all designs which have corresponding pdb files
@@ -1201,7 +1206,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Check proper input
             metric_set = necessary_metrics.copy() - set(scores_df.columns)
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
-            # assert metric_set == set(), self.log.critical('%s: Missing required metrics: %s' % (self.path, metric_set))
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
             # TODO protocol switch or no_design switch?
             protocol_s = scores_df[groups]
@@ -1263,7 +1267,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Process H-bond and Residue metrics to dataframe
             residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
-            # residue_df - returns multi-index column with residue number as first (top) column index, metric as second index
+            # returns multi-index column with residue number as first (top) column index, metric as second index
             # during residue_df unstack, all residues with missing dicts are copied as nan
             number_hbonds = {entry: len(interface_hbonds[entry]) for entry in interface_hbonds}
             # number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
@@ -1364,7 +1368,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 protocol_alignment = multi_chain_alignment(sequences_by_protocol[protocol])
                 protocol_mutation_freq = remove_non_mutations(protocol_alignment['counts'], interface_residues)
                 protocol_res_dict = {'divergence_%s' % profile: pos_specific_jsd(protocol_mutation_freq,
-                                                                                                 profile_dict[profile])
+                                                                                 profile_dict[profile])
                                      for profile in profile_dict}  # both prot_freq and profile_dict[profile] are 0-idx
                 protocol_res_dict['divergence_interface'] = compute_jsd(protocol_mutation_freq, interface_bkgd)
 
