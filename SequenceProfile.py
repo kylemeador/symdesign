@@ -41,7 +41,7 @@ class SequenceProfile:
 
         # self.sequence = None
         self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
-        self.structure_sequence = None
+        # self.structure_sequence = None
         self.sequence_source = None
         self.sequence_file = None
         self.pssm_file = None
