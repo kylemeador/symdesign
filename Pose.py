@@ -1031,7 +1031,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             if entity2 == entity1:
                 # the queried entity is the same, however we don't want interactions with the same symmetry mate or
-                # Todo TEST intra-oligomeric contacts. Both should be removed from symmetry mate coords
+                # intra-oligomeric contacts. Both should be removed from symmetry mate coords
                 remove_indices = self.find_asu_equivalent_symmetry_mate_indices()
                 # entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
                 remove_indices += self.find_intra_oligomeric_symmetry_mate_indices(entity2)
