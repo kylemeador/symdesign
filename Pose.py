@@ -9,15 +9,15 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
+from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
+    start_log, null_log, possible_symmetries, match_score_from_z_value
+from utils.GeneralUtils import write_frag_match_info_file
+from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
+from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile, calculate_match_metrics
 from Structure import Coords, Structure
-from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
-    start_log, null_log, possible_symmetries, match_score_from_z_value
-from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDB, FragmentDatabase
-from utils.GeneralUtils import write_frag_match_info_file
-from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 
 # Globals
 logger = start_log(name=__name__)
@@ -39,8 +39,8 @@ class Model:  # (PDB)
             self.log = log
         elif log is None:
             self.log = null_log
-        else:  # When log is explicitly passed as False, create a new log
-            self.log = logger  # start_log(name=self.name)
+        else:  # When log is explicitly passed as False, use the module logger
+            self.log = logger
 
         if pdb:
             self.pdb = pdb

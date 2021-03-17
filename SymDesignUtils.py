@@ -1,9 +1,8 @@
-# import pickle5 as pickle  # python 3.8 pickling protocol compatible
+import os
 import logging
 import math
 import multiprocessing as mp
 import operator
-import os
 import pickle
 import subprocess
 from functools import reduce
@@ -200,7 +199,7 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
     """
     # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
     log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
-    log_format = logging.Formatter('[%(levelname)s] %(module)s: %(message)s')
+    log_format = logging.Formatter('%(name)s[%(levelname)s] %(module)s: %(message)s')
 
     _logger = logging.getLogger(name)
     _logger.setLevel(log_level[level])

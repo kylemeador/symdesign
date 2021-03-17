@@ -1,5 +1,5 @@
-import math
 import os
+import math
 
 from PDB import PDB
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \

@@ -1,4 +1,3 @@
-#!/home/kmeador/miniconda3/bin/python
 import copy
 import math
 import os
@@ -10,21 +9,19 @@ from random import random
 from shutil import move
 
 import numpy as np
+from sklearn.neighbors import BallTree
 from Bio import pairwise2
 from Bio.SeqUtils import IUPACData
-# from Bio.Alphabet import IUPAC
-from sklearn.neighbors import BallTree
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_symmdef, orient_exe_path, \
     orient_log_file, orient_dir
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Stride import Stride
 from Structure import Structure, Chain, Entity, Atom
-from SymDesignUtils import remove_duplicates, start_log, null_log, DesignError
+from SymDesignUtils import remove_duplicates, start_log, DesignError
 from utils.SymmetryUtils import valid_subunit_number
 
 logger = start_log(name=__name__)
-# null_log = start_log(name='null', handler=3, propagate=False)
 
 
 class PDB(Structure):
@@ -36,8 +33,9 @@ class PDB(Structure):
 
     def __init__(self, file=None, atoms=None, residues=None, chains=None, entities=None, coords=None, metadata=None,
                  log=False, **kwargs):
-        if log is None:
-            log = null_log
+        # in structure
+        # if log is None:
+        #     log = null_log
         # else pass the log that was passed to the PDB to Structure or let structure start a log if log still is False
         super().__init__(log=log, **kwargs)
         # self.atoms = Atoms()  # from Structure

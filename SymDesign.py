@@ -20,12 +20,15 @@ import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import AnalyzeMutatedSequences as Ams
 import CmdUtils as CUtils
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
+from utils.CmdLineArgParseUtils import query_mode
+from utils.PDBUtils import orient_pdb_file
+from classes.SymEntry import SymEntry
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDatabase
+import AnalyzeMutatedSequences as Ams
 from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, final_metrics
 from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects
@@ -35,13 +38,6 @@ from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
 from ProteinExpression import find_expression_tags
 from Query import Flags
 from SequenceProfile import generate_mutations, find_orf_offset
-from SymDesignUtils import write_fasta, write_fasta_file
-from classes.SymEntry import SymEntry
-from utils.CmdLineArgParseUtils import query_mode
-
-
-# logging.getLogger()
-from utils.PDBUtils import orient_pdb_file
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -468,7 +464,7 @@ def generate_sequence_template(pdb_file):
     sequence_mask = copy.copy(sequence)
     sequence_mask.id = 'design_selector'
     sequences = [sequence, sequence_mask]
-    return write_fasta(sequences, file_name='%s_design_selector_sequence' % os.path.splitext(pdb.filepath)[0])
+    return SDUtils.write_fasta(sequences, file_name='%s_design_selector_sequence' % os.path.splitext(pdb.filepath)[0])
 
 
 if __name__ == '__main__':
@@ -653,13 +649,13 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     if args.debug:
         # Root logs to stream with level debug
-        logger = SDUtils.start_log(name='', level=1)
+        logger = SDUtils.start_log(level=1)
         logger.debug('Debug mode. Verbose output')
     else:
         # Root logs to stream with level warning
-        SDUtils.start_log(name='', level=3)
+        SDUtils.start_log(level=3)
         # Set root logger to log all logs to single file with info level, stream from above still emits at warning
-        SDUtils.start_log(name='', handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
+        SDUtils.start_log(handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
         # SymDesign main logs to stream with level info
         logger = SDUtils.start_log(name=__name__)
         # All Designs will log to specific file with level info unless -skip_logging is passed
@@ -1515,13 +1511,13 @@ if __name__ == '__main__':
         # Write output sequences to fasta file
         additions_sequence = os.path.join(outdir, '%sSelectedSequencesExpressionAdditions.fasta'
                                           % args.selection_string)
-        seq_comparison_file = write_fasta_file(inserted_sequences, '%sSelectedSequencesExpressionAdditions'
-                                               % args.selection_string, outpath=outdir)
+        seq_comparison_file = SDUtils.write_fasta_file(inserted_sequences, '%sSelectedSequencesExpressionAdditions'
+                                                       % args.selection_string, outpath=outdir)
         logger.info('Design insertions for expression comparison written to %s' % additions_sequence)
         final_sequence = os.path.join(outdir, '%sSelectedSequences.fasta' % args.selection_string)
         logger.info('Final Design sequences written to %s' % final_sequence)
-        seq_file = write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
-                                                    outpath=outdir)
+        seq_file = SDUtils.write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
+                                            outpath=outdir)
     # -----------------------------------------------------------------------------------------------------------------
     # Format the designs passing output and report program exceptions
     # -----------------------------------------------------------------------------------------------------------------

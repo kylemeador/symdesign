@@ -2,15 +2,19 @@ from copy import copy  # , deepcopy
 from collections.abc import Iterable
 from random import random
 
+import numpy as np
+from numpy.linalg import eigh, LinAlgError
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
-import numpy as np
 from Bio.SeqUtils import IUPACData
-from numpy.linalg import eigh, LinAlgError
 
+from SymDesignUtils import start_log, null_log, DesignError
 from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
-from SymDesignUtils import start_log, null_log, DesignError
+
+
+# globals
+logger = start_log(name=__name__)
 
 
 class StructureBase:
@@ -40,8 +44,8 @@ class Structure(StructureBase):
             self.log = log
         elif log is None:
             self.log = null_log
-        else:  # When log is explicitly passed as False, create a new log
-            self.log = start_log(name=self.name)
+        else:  # When log is explicitly passed as False, use the module logger
+            self.log = logger
 
         if atoms is not None:
             self.atoms = atoms
