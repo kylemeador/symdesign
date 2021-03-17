@@ -316,7 +316,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     return self.center_residue_score / self.central_residues_with_fragment_overlap
         except ZeroDivisionError:
             self.log.error('No fragment information available! Design cannot be scored.')
-        return 0.0
+        return None  # 0.0
 
     def pose_score(self):  # Todo merge with above
         """Returns:
@@ -334,6 +334,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      'percent_fragment_coil': , 'unique_fragments': }
         """
         score = self.score  # inherently calls self.get_fragment_metrics()
+        if not score:
+            return {}
+
         metrics = {'nanohedra_score_per_res': score,
                    'nanohedra_score': self.all_residue_score,
                    'nanohedra_score_central': self.center_residue_score,
@@ -586,8 +589,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('No fragment observations, getting info from Pose')
             design_metrics = self.pose.return_fragment_query_metrics(total=True)
         else:
-            self.log.warning('%s: There are no fragment observations associated with this Design! Have you scored '
-                             'it yet? See \'Scoring Interfaces\' in the %s' % (self.path, PUtils.guide_string))
+            self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet? Trying'
+                             ' %s now...'
+                             % (self.path, PUtils.generate_fragments, PUtils.generate_fragments))
             self.generate_interface_fragments()
             return None
 
@@ -970,10 +974,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 _header = True
             pose_s.to_csv(outpath, mode='a', header=_header)
 
-        write_shell_script('', name=PUtils.interface_design_command, out_path=self.scripts,
+        write_shell_script('', name=PUtils.interface_design, out_path=self.scripts,
                            additional=['bash %s' % design_script for design_script in shell_scripts])
         self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
-        # write_commands(shell_scripts, name=PUtils.interface_design_command, out_path=self.scripts)
+        # write_commands(shell_scripts, name=PUtils.interface_design, out_path=self.scripts)
 
     def load_pose(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
@@ -1056,10 +1060,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pose.find_and_split_interface()
         self.interface_residue_d = {'interface%d' % interface: residues
                                     for interface, residues in self.pose.interface_split.items()}
-        self.info['design_residues'] = '%s,%s' % (self.interface_residue_d['interface1'],
-                                                  self.interface_residue_d['interface2'])
-        self.log.info('Interface Residues:\n\t%s' % '\n\t'.join('%s : %s' % (interface, res)
-                                                                for interface, res in self.interface_residue_d.items()))
+        if 'interface1' in self.interface_residue_d and 'interface2' in self.interface_residue_d:
+            self.info['design_residues'] = '%s,%s' % (self.interface_residue_d['interface1'],
+                                                      self.interface_residue_d['interface2'])
+            self.log.info('Interface Residues:\n\t%s'
+                          % '\n\t'.join('%s : %s' % (interface, res)
+                                        for interface, res in self.interface_residue_d.items()))
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
@@ -1115,15 +1121,25 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[self.info['fragment_database']])
 
         # Gather miscellaneous pose specific metrics
-        self.load_pose()  # to ensure oligomers are present and if so, their metrics are pulled out
+        # ensure oligomers are present and if so, their metrics are pulled out. Happens when pose is scored.
+        # self.load_pose()
         other_pose_metrics = self.pose_metrics()  # these are initialized with DesignDirectory init
+        if not other_pose_metrics:
+            raise DesignError('Scoring this design encountered problems. Check the log (%s) for any errors which may '
+                              'have caused this and fix' % self.log.handlers[0].baseFilename)
 
         # Todo fold these into Model and attack these metrics from a Pose object
         #  This will get rid of the self.log
         wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
         wt_sequence = wt_pdb.atom_sequences
 
-        design_residues = [int(residue[:-1]) for residue in self.info['design_residues'].split(',')]
+        design_residues = self.info.get('design_residues', None)
+        if design_residues:
+            design_residues = [int(residue[:-1]) for residue in design_residues.split(',')]  # remove chain, change type
+        else:  # This should never happen as we catch at other_pose_metrics
+            raise DesignError('No residues were marked for design. Have you run -%s or -%s?'
+                              % (PUtils.generate_fragments, PUtils.interface_design))
+
         int_b_factor = sum(wt_pdb.residue(residue).get_ave_b_factor() for residue in design_residues)
         other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(design_residues), 2)
 
