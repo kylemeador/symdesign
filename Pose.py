@@ -31,8 +31,6 @@ class Model:  # (PDB)
     """
     def __init__(self, pdb=None, models=None, log=None, **kwargs):
         super().__init__()  # **kwargs
-        # if isinstance(pdb, list):
-        # self.models = pdb  # list or dict of PDB objects
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
         if log:
@@ -402,7 +400,7 @@ class SymmetricModel(Model):
 
         self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_model.__name__)
 
-    def find_intra_oligomeric_equivalent_symmetry_models(self, entity, distance=0.75):  # may be too lenient
+    def find_intra_oligomeric_equivalent_symmetry_models(self, entity, distance=3):  # too lenient, put back to 0.5 soon
         """From an Entities Chain members, find the SymmetricModel equivalent models using Chain center or mass
         compared to the symmetric model center of mass"""
         asu_length = len(self.coords)
@@ -632,14 +630,15 @@ class SymmetricModel(Model):
 
             for model_number, model in enumerate(self.models, 1):
                 f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-                for chain in model.chains:
-                    chain_atoms = chain.atoms
-                    chain.write(file_handle=f)
+                for entity in model.entities:
+                    chain_terminal_atom = entity.atoms[-1]
+                    entity.write(file_handle=f)
                     # f.write('\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
                     #                   for atom, coord in zip(chain.atoms, self.model_coords.tolist())))
-                    f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_atoms[-1].number + 1,
-                                                                          chain_atoms[-1].residue_type, chain.name,
-                                                                          chain_atoms[-1].residue_number))
+                    f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
+                                                                          chain_terminal_atom.residue_type,
+                                                                          entity.chain_id,
+                                                                          chain_terminal_atom.residue_number))
                 f.write('ENDMDL\n')
 
     @staticmethod
