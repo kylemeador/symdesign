@@ -868,7 +868,7 @@ if __name__ == '__main__':
             args.suspend = True
             logger.info('Writing modelling commands out to file, no modelling will occur until commands are executed.')
 
-    if Flags.generate_frags in queried_flags and queried_flags[Flags.generate_frags]:
+    if queried_flags.get(Flags.generate_frags, None) or args.module == 'generate_fragments':
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
         fragment_db = FragmentDatabase(source='directory', location=interface_type, init_db=True)
