@@ -718,15 +718,16 @@ class Structure(StructureBase):
             # We might miss a clash here! It would be peculiar for the C-terminal C clashing with the N-terminus atoms
             # and vice-versa. This also allows a PDB with permuted sequence to be handled properly!
             residue_indices_and_bonded_c_and_n = \
-                residue.atom_indices + [getattr(self.residues[prior_idx].c, 'index', None),
-                                        getattr(self.residues[prior_idx].o, 'index', None),
-                                        getattr(self.residues[-number_residues + prior_idx + 2].n, 'index', None)]
+                residue.atom_indices + [self.residues[prior_idx].c_index, self.residues[prior_idx].o_index,
+                                        self.residues[-number_residues + prior_idx + 2].n_index]
 
             # clashes = np.setdiff1d(all_contacts, residue_indices_and_bonded_c_and_n)
             # clashes = set(all_contacts) - set(residue_indices_and_bonded_c_and_n)
             clashes = all_contacts - set(residue_indices_and_bonded_c_and_n)
             if any(clashes):
                 for clash_idx in clashes:
+                    # print('Residue indices: %s\nFound clashes at indices: %s' % (residue_indices_and_bonded_c_and_n, clashes))
+                    # self.log.info('Residue indices: %s\nFound clashes at indices: %s' % (residue_indices_and_bonded_c_and_n, clashes))
                     if self.atoms[clash_idx].is_backbone() or self.atoms[clash_idx].is_CB():
                         backbone_clashes.append((residue, self.atoms[clash_idx], clash_idx))
                     else:
@@ -1087,7 +1088,7 @@ class Residue:
     @start_index.setter
     def start_index(self, index):
         self._start_index = index
-        self.atom_indices = list(range(index, index + self.number_of_atoms))
+        self._atom_indices = list(range(index, index + self.number_of_atoms))
 
     @property
     def atom_indices(self):  # in structure too
@@ -1199,6 +1200,13 @@ class Residue:
         except AttributeError:
             return None
 
+    @property
+    def n_index(self):
+        try:
+            return self._atom_indices[self._n]
+        except AttributeError:
+            return None
+
     @n.setter
     def n(self, index):
         self._n = index
@@ -1207,6 +1215,13 @@ class Residue:
     def h(self):
         try:
             return self._atoms.atoms[self._atom_indices[self._h]]
+        except AttributeError:
+            return None
+
+    @property
+    def h_index(self):
+        try:
+            return self._atom_indices[self._h]
         except AttributeError:
             return None
 
@@ -1271,6 +1286,13 @@ class Residue:
         except AttributeError:
             return None
 
+    @property
+    def c_index(self):
+        try:
+            return self._atom_indices[self._c]
+        except AttributeError:
+            return None
+
     @c.setter
     def c(self, index):
         self._c = index
@@ -1279,6 +1301,13 @@ class Residue:
     def o(self):
         try:
             return self._atoms.atoms[self._atom_indices[self._o]]
+        except AttributeError:
+            return None
+
+    @property
+    def o_index(self):
+        try:
+            return self._atom_indices[self._o]
         except AttributeError:
             return None
 
