@@ -870,7 +870,7 @@ class Structure(StructureBase):
             return self.secondary_structure
         else:
             self.fill_secondary_structure()
-            if list(filter(None, self.secondary_structure)):  # check if there is at least 1 secondary struc assignment
+            if self.secondary_structure:  # check if there is at least 1 secondary struc assignment
                 return self.secondary_structure
             else:
                 return None

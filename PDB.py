@@ -1035,7 +1035,12 @@ class PDB(Structure):
     def stride(self, chain=None):
         """Use Stride to calculate the secondary structure of a PDB.
 
-        Must be run with the self.filepath attribute. Entities/chains could have this, but don't currently"""
+        Must be run with the self.filepath attribute.
+        Todo Entities/chains could have this, but don't currently
+
+        Sets:
+            Residue.secondary_structure
+        """
         # REM  -------------------- Secondary structure summary -------------------  XXXX
         # REM                .         .         .         .         .               XXXX
         # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
@@ -1059,7 +1064,7 @@ class PDB(Structure):
         # stride_cmd = [stride_exe_path, '%s' % self.filepath]
         current_pdb_file = self.write(out_path='stride_input.pdb')
         stride_cmd = [stride_exe_path, current_pdb_file]
-        #   -rId1Id2..  Read only chains Id1, Id2 ...
+        #   -rId1Id2..  Read only Chains Id1, Id2 ...
         #   -cId1Id2..  Process only Chains Id1, Id2 ...
         if chain:
             stride_cmd.append('-c%s' % chain)
@@ -1075,16 +1080,17 @@ class PDB(Structure):
         os.system('rm %s' % current_pdb_file)
 
         residue_idx = 0
+        residues = self.residues
         for line in out_lines:
             if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
                 # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
-                self.residues[residue_idx].secondary_structure = line[24:25]
+                residues[residue_idx].secondary_structure = line[24:25]
                 residue_idx += 1
         self.secondary_structure = [residue.secondary_structure for residue in self.residues]  # Todo make index access
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
         #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
 
-    def calculate_secondary_structure(self, chain=None):  # different from Josh PDB
+    def calculate_secondary_structure(self, chain=None):
         self.stride(chain=chain)
 
     def get_secondary_structure_chain(self, chain=None):
