@@ -1492,14 +1492,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Returns:
             (dict): {symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
         """
-        temp_dict = copy.copy(self.__dict__)
-        temp_dict.pop('models')
-        temp_dict.pop('pdb')
-        temp_dict.pop('asu')
-        temp_dict.pop('coords_type')
-        temp_dict.pop('number_of_models')
-
-        return temp_dict
+        return {'symmetry': self.__dict__['symmetry'],
+                'uc_dimensions': self.__dict__['uc_dimensions'],
+                'expand_matrices': self.__dict__['expand_matrices'],
+                'dimension': self.__dict__['dimension']}
 
     # def get_interface_surface_area(self):
     #     # pdb1_interface_sa = entity1.get_surface_area_residues(entity1_residue_numbers)
