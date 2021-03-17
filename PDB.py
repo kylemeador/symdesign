@@ -6,6 +6,7 @@ import subprocess
 from collections.abc import Iterable
 from copy import copy, deepcopy
 from itertools import repeat, chain as iter_chain
+from random import random
 from shutil import move
 
 import numpy as np
@@ -1006,7 +1007,8 @@ class PDB(Structure):
         # SEQ A    8 LYS :    0.87
         # SEQ A    9 ASP :    1.30
         # SEQ A   10 PHE :   64.55
-        current_pdb_file = self.write(out_path='sasa_input.pdb')
+        random_file_name = 'sasa_input-%d.pdb' % int(random() * 1000)
+        current_pdb_file = self.write(out_path=random_file_name)
         self.log.debug(current_pdb_file)
         p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius),
                               current_pdb_file], stdout=subprocess.PIPE)
