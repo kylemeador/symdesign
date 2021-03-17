@@ -468,7 +468,6 @@ class Structure(StructureBase):
                 number_source = 'number_pdb'
             else:
                 number_source = 'number'
-                print([getattr(residue, number_source) for residue in self.residues])
             return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
         else:
             return self.residues
