@@ -164,29 +164,32 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         unique_interface_frag_count_pdb1 = len(interface_chain_residues_pdb1)
         unique_total_monofrags_count = unique_interface_frag_count_pdb1 + unique_interface_frag_count_pdb2
 
-        if unique_total_monofrags_count == 0:
+        # if unique_total_monofrags_count == 0:
+        if not interface_chain_residues_pdb1 or not interface_chain_residues_pdb2:
             with open(log_filepath, 'a+') as log_file:
                 log_file.write('\tNO Interface Mono Fragments Found\n')
             continue
         # else:
         interface_ghost_frags = [ghost_frag for ghost_frag in complete_ghost_frags
                                  if ghost_frag.get_aligned_chain_and_residue() in interface_chain_residues_pdb1]
-        ghost_frag_guide_coords = [ghost_frag.guide_coords for ghost_frag in interface_ghost_frags]
         interface_surf_frags = [surf_frag for surf_frag in complete_surf_frags
                                 if surf_frag.get_central_res_tup() in interface_chain_residues_pdb2]
-        surf_frag_guide_coords = [surf_frag.guide_coords for surf_frag in interface_surf_frags]
+        # if interface_ghost_frags and interface_surf_frags:
+        ghost_frag_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in interface_ghost_frags])
+        surf_frag_guide_coords = np.array([surf_frag.guide_coords for surf_frag in interface_surf_frags])
+        # else:
+        #     continue
+        transformed_ghostfrag_guide_coords_np = \
+            transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
+                                      translation=representative_int_dof_tx_param_1,
+                                      rotation2=sym_entry.get_rot_set_mat_group1(),
+                                      translation2=representative_ext_dof_tx_params_1)
 
-        transformed_ghostfrag_guide_coords_np = transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
-                                                                          translation=representative_int_dof_tx_param_1,
-                                                                          rotation2=sym_entry.get_rot_set_mat_group1(),
-                                                                          translation2=representative_ext_dof_tx_params_1)
-
-        transformed_monofrag2_guide_coords_np = transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
-                                                                          translation=representative_int_dof_tx_param_2,
-                                                                          rotation2=sym_entry.get_rot_set_mat_group2(),
-                                                                          translation2=representative_ext_dof_tx_params_2)
-        # transformed_ghostfrag_guide_coords_np = np.array(ghost_frag_guide_coords_transformed)
-        # transformed_monofrag2_guide_coords_np = np.array(surf_frag_guide_coords_transformed)
+        transformed_monofrag2_guide_coords_np = \
+            transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
+                                      translation=representative_int_dof_tx_param_2,
+                                      rotation2=sym_entry.get_rot_set_mat_group2(),
+                                      translation2=representative_ext_dof_tx_params_2)
 
         # print('Transformed guide_coords')  # Todo debug
         get_int_ghost_surf_frags_time_end = time.time()
@@ -215,19 +218,11 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         surface_type_i_array = np.array([interface_surf_frags[idx].i_type for idx in overlapping_surf_indices.tolist()])
         ghost_type_j_array = np.array([interface_ghost_frags[idx].j_type for idx in overlapping_ghost_indices.tolist()])
         ij_type_match = np.where(surface_type_i_array == ghost_type_j_array, True, False)
-        # ij_type_match = [True if interface_surf_frags[surf_idx].i_type == interface_ghost_frags[ghost_idx].j_type
-        #                  else False for ghost_idx, surf_idx in overlapping_ghost_surf_frag_indices]
+
         # get only fragment indices that pass ij filter and their associated coords
         passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
-        # passing_ghost_indices = np.array([ghost_idx
-        #                                   for idx, (ghost_idx, surf_idx) in enumerate(overlapping_ghost_surf_frag_indices)
-        #                                   if ij_type_match[idx]])
         passing_ghost_coords = transformed_ghostfrag_guide_coords_np[passing_ghost_indices]
-
         passing_surf_indices = overlapping_surf_indices[ij_type_match]
-        # passing_surf_indices = np.array([surf_idx
-        #                                  for idx, (ghost_idx, surf_idx) in enumerate(overlapping_ghost_surf_frag_indices)
-        #                                  if ij_type_match[idx]])
         passing_surf_coords = transformed_monofrag2_guide_coords_np[passing_surf_indices]
 
         # precalculate the reference_rmsds for each ghost fragment
