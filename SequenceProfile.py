@@ -13,10 +13,10 @@ from Bio.SeqUtils import IUPACData
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log  # logger,
+from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log
 
 
-logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)
 
 # Globals
 index_offset = 1
