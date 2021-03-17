@@ -12,7 +12,9 @@ program_command = 'python SymDesign.py'
 submodule_guide = '%s --guide MODULE' % program_command
 submodule_help = '%s MODULE --help' % program_command
 guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
-nano = 'nanohedra'  # v0 'Nanohedra'  # v1?
+nano = 'nanohedra'
+interface_design = 'interface_design'
+generate_fragments = 'generate_fragments'
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
@@ -21,7 +23,6 @@ nstruct = 20  # Todo back to 50?
 stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
          11: 'all_to_cluster'}
-interface_design_command = 'interface_design'
 stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
            stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
            stage[5]: {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
@@ -58,7 +59,8 @@ scripts = 'scripts'
 scores_file = 'design_scores.sc'  # was all_scores.sc 1/25/21
 pose_metrics_file = 'pose_scores.sc'  # UNUSED
 analysis_file = 'AllDesignPoseMetrics.csv'
-directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\nEx:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
+directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\n' \
+                      'Ex:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
                       '\nIn design directory \'tx_c/\', output is located in \'%s\' and \'%s\'.' \
                       '\nTotal design_symmetry_pg score are located in ./design_symmetry_pg/building_blocks/%s' \
                       % (pdbs_outdir, scores_outdir, scores_outdir)
