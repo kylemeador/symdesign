@@ -1097,7 +1097,7 @@ class SequenceProfile:
         self.log.debug('Consensus:\n%s' % consensus)
         for n, name in enumerate(names):
             for residue in int_res_numbers[name]:  # one-indexed
-                mutated_pdb.mutate_residue(names[name](n), residue)
+                mutated_pdb.mutate_residue(number=residue)
         mutated_pdb.write(des_dir.consensus_pdb)
         # mutated_pdb.write(consensus_pdb)
         # mutated_pdb.write(consensus_pdb, cryst1=cryst)

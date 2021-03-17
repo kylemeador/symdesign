@@ -492,7 +492,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         for residue_obj in int_residue_objects[name]:
             total_int_residue_objects.append(residue_obj)
             int_res_numbers[name].append(residue_obj.number)  # Todo ensure .number is accessor to residue.ca Atom obj
-            mutated_pdb.mutate_residue(residue_obj.number)
+            mutated_pdb.mutate_residue(number=residue_obj.number)
             # mutated_pdb.mutate_to(names[name](c), residue_obj.number)
             # Todo no mutation from GLY to ALA
 
@@ -753,7 +753,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Consensus:\n%s' % consensus)
     for n, name in enumerate(names):
         for residue in int_res_numbers[name]:  # one-indexed
-            mutated_pdb.mutate_residue(residue, to=IUPACData.protein_letters_1to3[consensus[residue]].upper())
+            mutated_pdb.mutate_residue(number=residue, to=IUPACData.protein_letters_1to3[consensus[residue]].upper())
             # mutated_pdb.mutate_to(names[name](n), residue, res_id=IUPACData.protein_letters_1to3[consensus[residue]].upper())
     mutated_pdb.write(out_path=des_dir.consensus_pdb)
     # mutated_pdb.write(consensus_pdb)
