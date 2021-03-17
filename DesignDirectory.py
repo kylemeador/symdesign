@@ -227,7 +227,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_dirs[k].append(bb_dir)
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-            elif self.directory_type in ['design', 'filter']:
+            else:  # if self.directory_type in ['design', 'filter']:
                 # May have issues with the number of open log files
                 # if self.directory_type == 'filter':
                 #     self.skip_logging = True
@@ -240,9 +240,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.path, PUtils.asu)
                 self.set_up_design_directory()
-            else:
-                raise DesignError('%s: %s is not an available directory_type. Choose from %s...\n'
-                                  % (DesignDirectory.__name__, self.directory_type, ','.join(design_directory_modes)))
+            # else:
+            #     raise DesignError('%s: %s is not an available directory_type. Choose from %s...\n'
+            #                       % (DesignDirectory.__name__, self.directory_type, ','.join(design_directory_modes)))
 
             if not os.path.exists(self.nano_master_log):
                 raise DesignError('%s: No %s found for this directory! Cannot perform material design without it.\n'
