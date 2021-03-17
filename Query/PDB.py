@@ -12,6 +12,7 @@ import requests
 from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError
 
 # Globals
+logger = start_log(name=__name__)
 # General Formatting
 header_string = '%s %s %s\n' % ('-' * 20, '%s', '-' * 20)
 format_string = '\t%s\t\t%s'
@@ -838,7 +839,5 @@ if __name__ == '__main__':
                         help='Should information be retrieved from the web?')
     parser.add_argument('-db', '--database', type=str, help='Should a database be connected?')
     args = parser.parse_args()
-
-    logger = start_log(name=os.path.basename(__file__), level=2)
 
     retrieve_pdb_entries_by_advanced_query()
