@@ -605,26 +605,52 @@ class Structure(StructureBase):
                     break
         # self.renumber_atoms()  # should be unnecessary
 
-    def mutate_residue(self, residue_number, to='ALA'):
-        """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format"""
+    def reindex_residues(self, start_at=0):
+        # indices according to new Atoms/Coords index
+        # prior_residue = self.residues[start_at]
+        prior_residue = self.residues[0]
+        prior_residue.start_index = 0
+        for residue in self.residues[1:]:
+            residue.start_index = prior_residue._atom_indices[-1] + 1
+            prior_residue = residue
+
+    def mutate_residue(self, residue=None, number=None, to='ALA'):
+        """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format
+
+        Returns:
+            (list[int]): The indices of the Atoms being removed from the Structure
+        """
+        # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         if to.upper() in IUPACData.protein_letters_1to3:
             to = IUPACData.protein_letters_1to3[to.upper()]
 
-        residue = self.residue(residue_number)
-        delete = []
-        for atom in residue.atoms:
-            if atom.is_backbone():
-                self.atoms[atom.index].residue_type = to.upper()
-            else:  # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
-                # delete.append(i)
-                delete.append(atom.index)
-        raise DesignError('This function (mutate_residue) is currently broken')  # TODO BROKEN
-        self.atoms = np.delete(self.atoms, delete)  # todo delete atoms
-        # for atom in reversed(delete):
-        #     self._atoms.remove(atom)
-        #     residue.atoms.remove(atom)
-        self.renumber_atoms()
-        self.reindex_atoms()
+        if not residue:
+            if not number:
+                raise DesignError('Cannot mutate Residue without residue object or number!')
+            else:
+                residue = self.residue(number)
+        # for idx, atom in zip(residue.backbone_indices, residue.backbone_atoms):
+        for atom in residue.backbone_atoms:
+            atom.residue_type = to.upper()
+
+        # Delete the corresponding residues
+        delete = residue.sidechain_indices
+        # Atoms() should handle all Atoms containers for the object
+        self._atoms.atoms = np.delete(self._atoms.atoms, delete)
+
+        # Residue.atom_indices should handle all references to these atoms in the specified Residue
+        residue_delete_index = residue._atom_indices.index(delete[0])
+        for iteration in range(len(delete)):
+            residue._atom_indices.pop(residue_delete_index)
+        # must re-index all succeeding residues
+        self.reindex_residues()
+
+        # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
+        atom_delete_index = self._atom_indices.index(delete[0])
+        for iteration in range(len(delete)):
+            self._atom_indices.pop(atom_delete_index)
+
+        return delete
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
@@ -1125,6 +1151,7 @@ class Residue:
         # self._c = None
         # self._o = None
 
+        side_chain = []
         for idx, atom in enumerate(self.atoms):
             if atom.type == 'N':
                 self.n = idx
@@ -1147,8 +1174,11 @@ class Residue:
             elif atom.type == 'H':
                 self.h = idx
                 # self.h = atom.index
+            else:
+                side_chain.append(idx)
         self.backbone_indices = [getattr(self, index, None) for index in ['_n', '_ca', '_c', '_o']]
         self.backbone_and_cb_indices = getattr(self, '_cb', None)
+        self.sidechain_indices = side_chain
     # # This is the setter for all atom properties available above
     # def set_atoms_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all atoms in the Residue"""
@@ -1177,6 +1207,16 @@ class Residue:
         self._bb_cb_indices = self._bb_indices + ([index] if index else [])
 
     @property
+    def sidechain_indices(self):
+        """Returns: (list[int])"""
+        return self._atom_indices[self._sc_indices]
+
+    @sidechain_indices.setter
+    def sidechain_indices(self, indices):
+        """Returns: (list[int])"""
+        self._sc_indices = indices
+
+    @property
     def coords(self):  # in structure too
         """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
@@ -1192,6 +1232,11 @@ class Residue:
         """The backbone and CB atomic coords. Provides a view from the Structure that the Residue belongs too"""
         return self._coords.coords[[self._atom_indices[index] for index in self._bb_cb_indices]]
 
+    @property
+    def sidechain_coords(self):
+        """The backbone and CB atomic coords. Provides a view from the Structure that the Residue belongs too"""
+        return self._coords.coords[[self._atom_indices[index] for index in self._sc_indices]]
+
     @coords.setter
     def coords(self, coords):  # in structure too
         if isinstance(coords, Coords):
@@ -1199,6 +1244,21 @@ class Residue:
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Structure, use the private attribute _coords')
+
+    @property
+    def backbone_atoms(self):
+        """Returns: (list[int])"""
+        return self._atoms.atoms[[self._atom_indices[index] for index in self._bb_indices]]
+
+    @property
+    def backbone_and_cb_atoms(self):
+        """Returns: (list[int])"""
+        return self._atoms.atoms[[self._atom_indices[index] for index in self._bb_cb_indices]]
+
+    @property
+    def sidechain_atoms(self):
+        """Returns: (list[int])"""
+        return self._atoms.atoms[[self._atom_indices[index] for index in self._sc_indices]]
 
     @property
     def n(self):

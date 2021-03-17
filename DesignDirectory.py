@@ -871,7 +871,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
                 for residue in entity_residues:
                     if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
-                        mutated_pdb.mutate_residue(residue.number, to='A')
+                        mutated_pdb.mutate_residue(residue=residue, to='A')
 
         mutated_pdb.write(out_path=self.refine_pdb)
         self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)

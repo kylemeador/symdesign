@@ -112,11 +112,12 @@ class PDB(Structure):
                 self.set_structure_attributes(self.residues, _atoms=self._atoms)
                 #                                       done in set_coords -> , coords=self._coords)
                 # indices according to new Atoms/Coords index
-                prior_residue = self.residues[0]
-                prior_residue.start_index = 0
-                for residue in self.residues[1:]:
-                    residue.start_index = prior_residue.atom_indices[-1] + 1
-                    prior_residue = residue
+                self.reindex_residues()
+                # prior_residue = self.residues[0]
+                # prior_residue.start_index = 0
+                # for residue in self.residues[1:]:
+                #     residue.start_index = prior_residue.atom_indices[-1] + 1
+                #     prior_residue = residue
 
                 self.chains = copy(chains)
                 self.copy_structures([self.chains])
@@ -143,11 +144,12 @@ class PDB(Structure):
                 self.set_structure_attributes(self.residues, _atoms=self._atoms)
                 #                                       done in set_coords -> , coords=self._coords)
                 # indices according to new Atoms/Coords index
-                prior_residue = self.residues[0]
-                prior_residue.start_index = 0
-                for residue in self.residues[1:]:
-                    residue.start_index = prior_residue.atom_indices[-1] + 1
-                    prior_residue = residue
+                self.reindex_residues()
+                # prior_residue = self.residues[0]
+                # prior_residue.start_index = 0
+                # for residue in self.residues[1:]:
+                #     residue.start_index = prior_residue.atom_indices[-1] + 1
+                #     prior_residue = residue
 
                 self.entities = copy(entities)
                 self.copy_structures([self.entities])
@@ -1167,6 +1169,23 @@ class PDB(Structure):
                 surface_frags.append(Structure.from_atoms(atoms=frag_atoms, coords=self._coords, log=None))
 
         return surface_frags
+
+    def mutate_residue(self, residue=None, number=None, to='ALA'):
+        """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format
+        Todo Residue Number must be in Pose numbering
+        Returns:
+            (list[int]): The indices of the Atoms being removed from the Structure
+        """
+        delete = super().mutate_residue(residue=residue, number=number, to=to)
+        # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
+        for structures in [self.chains, self.entities]:
+            for structure in structures:
+                try:
+                    atom_delete_index = structure._atom_indices.index(delete[0])
+                    for iteration in range(len(delete)):
+                        structure._atom_indices.pop(atom_delete_index)
+                except ValueError:
+                    continue
 
     def insert_residue(self, chain_id, residue_number, residue_type):  # Todo Chain compatible
         """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
