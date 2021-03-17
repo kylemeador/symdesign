@@ -176,8 +176,8 @@ def query_pdb(_query):
 
 
 def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):  # Todo set up by kwargs
-    if sequence:  # scaled identity_cutoff to 80% due to orient modifications
-        return {'evalue_cutoff': 0.1, 'identity_cutoff': 0.8, 'target': 'pdb_protein_sequence', 'value': sequence}
+    if sequence:  # scaled identity_cutoff to 50% due to scoring function and E-value usage
+        return {'evalue_cutoff': 0.0001, 'identity_cutoff': 0.5, 'target': 'pdb_protein_sequence', 'value': sequence}
     else:
         return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
 
