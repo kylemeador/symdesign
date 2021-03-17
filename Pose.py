@@ -941,11 +941,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if 'required' in self.design_selector:
             self.log.debug('The required_residues includes: %s' % self.design_selector['required'])
-            entity_required, atom_required = grab_indices(**self.design_selector['required'], start_with_none=True)
+            entity_required, self.required_indices = grab_indices(**self.design_selector['required'], start_with_none=True)
+            self.required_residues = self.pdb.get_residues_by_atom_indices(indices=self.required_indices)
         else:
-            entity_required, atom_required = set(), set()
-        self.required_indices = atom_required
-        self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
+            entity_required, self.required_indices = set(), set()
 
     def construct_cb_atom_tree(self, entity1, entity2, distance=8):  # TODO UNUSED
         """Create a atom tree using CB atoms from two PDB's
