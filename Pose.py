@@ -402,7 +402,7 @@ class SymmetricModel(Model):
 
         self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_model.__name__)
 
-    def find_intra_oligomeric_equivalent_symmetry_models(self, entity, distance=0.5):
+    def find_intra_oligomeric_equivalent_symmetry_models(self, entity, distance=0.75):  # may be too lenient
         """From an Entities Chain members, find the SymmetricModel equivalent models using Chain center or mass
         compared to the symmetric model center of mass"""
         asu_length = len(self.coords)
