@@ -50,6 +50,9 @@ def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotat
     # in general, the np.tensordot module accomplishes this same problem without stacking
     # np.tensordot(a, b, axes=1)  <-- axes=1 performs the correct multiplication with a 3d (3,3,N) by 2d (3,3) matrix
     # np.matmul may solves as well... due to broadcasting
+    set_length = getattr(coord_sets, 'shape', None)
+    if not set_length or set_length[0] < 1:
+        return coord_sets
 
     if rotation is not None:
         # coord_sets = np.tensordot(coord_sets, np.transpose(rot_mat), axes=1)

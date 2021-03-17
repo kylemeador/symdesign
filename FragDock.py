@@ -160,20 +160,20 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #  Store all the ghost/surface frags in a chain/residue dictionary?
         get_int_ghost_surf_frags_time_start = time.time()
         interface_chain_residues_pdb1, interface_chain_residues_pdb2 = get_interface_residues(pdb1_copy, pdb2_copy)
-        unique_interface_frag_count_pdb2 = len(interface_chain_residues_pdb2)
         unique_interface_frag_count_pdb1 = len(interface_chain_residues_pdb1)
+        unique_interface_frag_count_pdb2 = len(interface_chain_residues_pdb2)
         unique_total_monofrags_count = unique_interface_frag_count_pdb1 + unique_interface_frag_count_pdb2
 
-        # if unique_total_monofrags_count == 0:
-        if not interface_chain_residues_pdb1 or not interface_chain_residues_pdb2:
-            with open(log_filepath, 'a+') as log_file:
-                log_file.write('\tNO Interface Mono Fragments Found\n')
-            continue
         # else:
         interface_ghost_frags = [ghost_frag for ghost_frag in complete_ghost_frags
                                  if ghost_frag.get_aligned_chain_and_residue() in interface_chain_residues_pdb1]
         interface_surf_frags = [surf_frag for surf_frag in complete_surf_frags
                                 if surf_frag.get_central_res_tup() in interface_chain_residues_pdb2]
+        # if unique_total_monofrags_count == 0:
+        if not interface_ghost_frags or not interface_surf_frags:
+            with open(log_filepath, 'a+') as log_file:
+                log_file.write('\tNO Interface Mono Fragments Found\n')
+            continue
         # if interface_ghost_frags and interface_surf_frags:
         ghost_frag_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in interface_ghost_frags])
         surf_frag_guide_coords = np.array([surf_frag.guide_coords for surf_frag in interface_surf_frags])
