@@ -1083,9 +1083,10 @@ if __name__ == '__main__':
             # results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
-            for des_directory in design_directories:
-                result = analyze_output_s(des_directory, delta_refine=args.delta_g, merge_residue_data=args.join,
-                                          debug=args.debug, save_trajectories=save, figures=args.figures)
+
+            for design in design_directories:
+                result = design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
+                                                figures=args.figures)
                 results.append(result)
                 # exceptions.append(error)  # Todo
 
