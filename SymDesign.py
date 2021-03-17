@@ -1052,15 +1052,15 @@ if __name__ == '__main__':
         # WHEN ONE FILE RUNS ALL THREE MODES
         # all_commands = []
         # for des_directory in design_directories:
-        #     all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % interface_design_command))
-        # command_file = SDUtils.write_commands(all_commands, name=interface_design_command, out_path=args.directory)
+        #     all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % interface_design))
+        # command_file = SDUtils.write_commands(all_commands, name=interface_design, out_path=args.directory)
         # args.success_file = None
         # args.failure_file = None
         # args.max_jobs = 80
-        # TODO add interface_design_command to PUtils.stage_f
-        # distribute(stage=interface_design_command, directory=args.directory, file=command_file,
+        # TODO add interface_design to PUtils.stage_f
+        # distribute(stage=interface_design, directory=args.directory, file=command_file,
         #            success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
-        # logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design_command, command_file))
+        # logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design, command_file))
     # ---------------------------------------------------
     elif args.module == 'analysis':  # -o output, -f figures, -n no_save, -j join, -g delta_g
         save = True
