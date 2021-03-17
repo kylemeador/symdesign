@@ -322,7 +322,11 @@ class Structure(StructureBase):
         Returns:
             (list[int])
         """
-        return [atom.index for atom in self.get_residue_atoms(numbers=numbers, **kwargs)]
+        # return [atom.index for atom in self.get_residue_atoms(numbers=numbers, **kwargs)]
+        atom_indices = []
+        for residue in self.get_residues(numbers=numbers, **kwargs):
+            atom_indices.extend(residue.atom_indices)
+        return atom_indices
 
     def get_residues_by_atom_indices(self, indices=None):
         """Retrieve Residues in the Structure specified by Atom indices.
@@ -334,7 +338,7 @@ class Structure(StructureBase):
             atoms = self._atoms.atoms[indices]
         else:
             atoms = self.atoms
-        residue_numbers = [atom.residue_number for atom in atoms]
+        residue_numbers = [atom.residue_number for atom in atoms if atom.is_CB()]  # Todo update on atom info removal
         if residue_numbers:
             return self.get_residues(numbers=residue_numbers)
         else:
