@@ -1622,7 +1622,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                            [protocol_stat_s[stat] for stat in protocol_stat_s]
                            + protocol_stats_s + [other_metrics_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
-        pose_s.drop([groups, ], level=2, inplace=True)
+        pose_s.drop([groups, ], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
