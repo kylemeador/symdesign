@@ -325,35 +325,43 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return self.all_residue_score
 
     def pose_metrics(self):
-        """Returns:
+        """Gather all metrics relating to the Pose and the interfaces within the Pose
+
+        Returns:
             (dict): {'nanohedra_score_per_res': , 'number_fragment_residues_total': ,
                      'number_fragment_residues_central': , 'multiple_fragment_ratio': ,
                      'percent_fragment_helix': , 'percent_fragment_strand': ,
                      'percent_fragment_coil': , 'unique_fragments': }
         """
-        return {'nanohedra_score_per_res': self.score,
-                'nanohedra_score': self.all_residue_score,
-                'nanohedra_score_central': self.center_residue_score,
-                'number_fragment_residues_total': self.fragment_residues_total,
-                'number_fragment_residues_central': self.central_residues_with_fragment_overlap,
-                'multiple_fragment_ratio': self.multiple_frag_ratio,
-                'percent_fragment_helix': self.helical_fragment_content,
-                'percent_fragment_strand': self.strand_fragment_content,
-                'percent_fragment_coil': self.coil_fragment_content,
-                'unique_fragments': self.number_of_fragments,
-                'total_interface_residues': self.total_interface_residues,
-                'percent_residues_fragment_all': self.percent_residues_fragment_all,  # TODO metrics name
-                'percent_residues_fragment_center': self.percent_residues_fragment_center,  # TODO name
-                'design_dimensions': self.design_dimensions,  # TODO name and implement
-                'component1_symmetry': self.sym_entry_number,  # TODO name and implement
-                'component1_length': self.sym_entry_number,  # TODO name and implement
-                'component1_n_terminal_helix': self.sym_entry_number,  # TODO name and implement
-                'component1_c_terminal_helix': self.sym_entry_number,  # TODO name and implement
-                'component2_n_terminal_helix': self.sym_entry_number,  # TODO name and implement
-                'component2_c_terminal_helix': self.sym_entry_number,  # TODO name and implement
-                'component2_length': self.sym_entry_number,  # TODO name and implement
-                'component2_symmetry': self.sym_entry_number,  # TODO name and implement
-                }
+        score = self.score  # inherently calls self.get_fragment_metrics()
+        metrics = {'nanohedra_score_per_res': score,
+                   'nanohedra_score': self.all_residue_score,
+                   'nanohedra_score_central': self.center_residue_score,
+                   'number_fragment_residues_total': self.fragment_residues_total,
+                   'number_fragment_residues_central': self.central_residues_with_fragment_overlap,
+                   'multiple_fragment_ratio': self.multiple_frag_ratio,
+                   'percent_fragment_helix': self.helical_fragment_content,
+                   'percent_fragment_strand': self.strand_fragment_content,
+                   'percent_fragment_coil': self.coil_fragment_content,
+                   'unique_fragments': self.number_of_fragments,
+                   'total_interface_residues': self.total_interface_residues,
+                   'percent_residues_fragment_all': self.percent_residues_fragment_all,
+                   'percent_residues_fragment_center': self.percent_residues_fragment_center}
+        if self.sym_entry:
+            metrics.update(
+                {'design_dimension': self.sym_entry.get_design_dim(),
+                 'component_1_symmetry': self.sym_entry.get_group1_sym(),
+                 # TODO clean oligomers[].entities mechanism
+                 'component_1_number_of_residues': self.oligomers[0].entities[0].number_of_residues,
+                 'component_2_symmetry': self.sym_entry.get_group2_sym(),
+                 'component_2_number_of_residues': self.oligomers[1].entities[0].number_of_residues,
+                 # 'component_1_n_terminal_helix': self.oligomers[0].entities[0].is_n_term_helical(),
+                 # 'component_1_c_terminal_helix': self.oligomers[0].entities[0].is_c_term_helical(),
+                 # 'component_2_n_terminal_helix': self.oligomers[1].entities[0].is_n_term_helical(),
+                 # 'component_2_c_terminal_helix': self.oligomers[1].entities[0].is_c_term_helical(),
+                 })
+
+        return metrics
 
     def pose_fragments(self):
         """Returns:
@@ -564,7 +572,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.log.debug('%s: %d matching oligomers found' % (self.path, len(self.oligomers)))
 
     def get_fragment_metrics(self):  # , from_file=True, from_pose=False):
-        """Set the design fragment metrics for all fragment observations"""
+        """Set/get fragment metrics for all fragment observations in the design"""
         # if from_file and self.fragment_observations:
         self.log.debug('Starting fragment metric collection')
         if self.fragment_observations:
@@ -588,15 +596,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.helical_fragment_content = design_metrics['percent_fragment_helix']
         self.strand_fragment_content = design_metrics['percent_fragment_strand']
         self.coil_fragment_content = design_metrics['percent_fragment_coil']
-        # self.number_of_fragments = design_metrics['number_fragments']  # Now a DesignDirectory property
+        # self.number_of_fragments = design_metrics['number_fragments']  # Now @property self.number_of_fragments
 
-        # Todo need to limit by the SASA accessible residues
+        # Todo limit by the SASA accessible residues
         if 'design_residues' not in self.info:  # and self.pose:
             self.identify_interface()
-        # if 'design_residues' not in self.info:  # and self.pose:
-        #     print('find_interface is failing?')
-        #     print(self.pose.interface_split.items(), self.interface_residue_d)
-        #     print(self.info)
+
         self.total_interface_residues = len(self.info['design_residues'].split(','))
         self.percent_residues_fragment_all = self.fragment_residues_total / self.total_interface_residues
         self.percent_residues_fragment_center = \
@@ -1059,7 +1064,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         interfacial redesign between between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
-        # self.load_pose()
         self.identify_interface()
         self.make_path(self.data)
         self.pose.interface_design(design_dir=self,
@@ -1102,6 +1106,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[self.info['fragment_database']])
 
         # Gather miscellaneous pose specific metrics
+        self.load_pose()  # to ensure oligomers are present and if so, their metrics are pulled out
         other_pose_metrics = self.pose_metrics()  # these are initialized with DesignDirectory init
 
         # Todo fold these into Model and attack these metrics from a Pose object
@@ -1337,8 +1342,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Get unique protocols for protocol specific metrics and drop unneeded protocol values
             unique_protocols = protocol_s.unique().tolist()
-            for value in [
-                'refine']:  # TODO TEST if remove '' is fixed ## after P432 MinMatch6 upon future script deployment
+            for value in ['refine']:
+                # TODO TEST if remove '' is fixed ## after P432 MinMatch6 upon future script deployment
                 try:
                     unique_protocols.remove(value)
                 except ValueError:
@@ -1434,7 +1439,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # Compute sequence differences between each protocol
                 residue_energy_df = \
                     clean_residue_df.loc[:,
-                    idx_slice[:, clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
+                                         idx_slice[:, clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
 
                 res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
                 residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
