@@ -139,7 +139,7 @@ def find_matching_entities_by_sequence(sequence=None, return_type='polymer_entit
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
         logger.warning('Sequence not found in PDB API!:\n%s' % sequence)
-        # raise DesignError('Sequence not found in PDB API!:\n%s' % sequence)
+        return [None]
 
 
 def parse_pdb_response_for_ids(response):
@@ -177,7 +177,7 @@ def query_pdb(_query):
 
 def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):  # Todo set up by kwargs
     if sequence:  # scaled identity_cutoff to 80% due to orient modifications
-        return {'evalue_cutoff': 1, 'identity_cutoff': 0.80, 'target': 'pdb_protein_sequence', 'value': sequence}
+        return {'evalue_cutoff': 0.1, 'identity_cutoff': 0.8, 'target': 'pdb_protein_sequence', 'value': sequence}
     else:
         return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
 
