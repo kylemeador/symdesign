@@ -1142,7 +1142,7 @@ class PDB(Structure):
 
         return total_sasa
 
-    def get_surface_fragments(self):
+    def get_surface_fragments(self):  # Todo combine with structure get_fragments
         """Using Sasa, return the 5 residue surface fragments for each surface residue on each chain"""
         surface_frags = []
         # for (chain, res_num) in self.get_surface_residues():
