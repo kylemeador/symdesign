@@ -348,6 +348,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                    'percent_residues_fragment_all': self.percent_residues_fragment_all,
                    'percent_residues_fragment_center': self.percent_residues_fragment_center}
         if self.sym_entry:
+            # if self.pose:  # Todo test
+            #     for oligomer in self.oligomers:
+            #         oligomer.calculate_secondary_structure()
             metrics.update(
                 {'design_dimension': self.sym_entry.get_design_dim(),
                  'component_1_symmetry': self.sym_entry.get_group1_sym(),
