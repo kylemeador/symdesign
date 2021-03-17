@@ -576,7 +576,7 @@ if __name__ == '__main__':
                                                              'available after analysis')
     parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
                                  help='Name to output .csv files.\nDefault=%s' % PUtils.analysis_file)
-    parser_analysis.add_argument('-n', '--no_save', action='store_true',
+    parser_analysis.add_argument('-N', '--no_save', action='store_true',
                                  help='Don\'t save trajectory information.\nDefault=False')
     parser_analysis.add_argument('-f', '--figures', action='store_true',
                                  help='Create and save figures for all poses?\nDefault=False')
