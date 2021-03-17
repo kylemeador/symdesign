@@ -402,7 +402,7 @@ class SymmetricModel(Model):
 
         self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_model.__name__)
 
-    def find_intra_oligomeric_equivalent_symmetry_models(self, entity):
+    def find_intra_oligomeric_equivalent_symmetry_models(self, entity, distance=0.5):
         """From an Entities Chain members, find the SymmetricModel equivalent models using Chain center or mass
         compared to the symmetric model center of mass"""
         asu_length = len(self.coords)
@@ -413,14 +413,18 @@ class SymmetricModel(Model):
         for chain in entity.chains:
             chain_length = chain.number_of_atoms
             chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
+            # print('Chain', chain_center_of_mass.astype(int))
             for model in range(self.number_of_models):
                 sym_model_center_of_mass = np.matmul(entity_center_of_mass_divisor,
                                                      self.model_coords[(model * asu_length) + entity_start:
                                                                        (model * asu_length) + entity_end + 1])
-                if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
+                # print('Sym Model', sym_model_center_of_mass)
+                # if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
+                # if np.allclose(chain_center_of_mass, sym_model_center_of_mass):  # using np.rint()
+                if np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass) < distance:
                     equivalent_models.append(model)
                     break
-        assert len(equivalent_models) == len(entity.chains), 'The number of equivalent models (%d) does not equal the ' \
+        assert len(equivalent_models) == len(entity.chains), 'The number of equivalent models (%d) does not equal the '\
                                                              'expected number of chains (%d)!' \
                                                              % (len(equivalent_models), len(entity.chains))
 
