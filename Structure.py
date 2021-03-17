@@ -267,7 +267,7 @@ class Structure(StructureBase):
 
     def add_atoms(self, atom_list):
         """Add Atoms in atom_list to the Structure instance"""
-        raise DesignError('This function is currently broken')  # TODO BROKEN
+        raise DesignError('This function (add_atoms) is currently broken')  # TODO BROKEN
         atoms = self.atoms.tolist()
         atoms.extend(atom_list)
         self.atoms = atoms
@@ -618,7 +618,7 @@ class Structure(StructureBase):
             else:  # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
                 # delete.append(i)
                 delete.append(atom.index)
-        raise DesignError('This function is currently broken')  # TODO BROKEN
+        raise DesignError('This function (mutate_residue) is currently broken')  # TODO BROKEN
         self.atoms = np.delete(self.atoms, delete)  # todo delete atoms
         # for atom in reversed(delete):
         #     self._atoms.remove(atom)

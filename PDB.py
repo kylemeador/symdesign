@@ -1213,7 +1213,7 @@ class PDB(Structure):
                                               log=start_log(handler=3), entities=False)
         insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms())
 
-        raise DesignError('This function is currently broken')  # TODO BROKEN
+        raise DesignError('This function (insert_residue) is currently broken')  # TODO BROKEN
         for atom in reversed(insert_atoms):  # essentially a push
             atom.chain = chain_id
             atom.residue_number = residue_number
