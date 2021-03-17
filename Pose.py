@@ -1001,12 +1001,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure
         entity1_indices = entity1.get_cb_indices()  # InclGlyCA=include_glycine)
-        print('PDB CB indices: %s' % self.pdb.get_cb_indices())
-        print('Number of PDB residues: %d' % len(pdb_residues))
-        print('Entity1 CB indices: %s' % entity1_indices)
+        # print('PDB CB indices: %s' % self.pdb.get_cb_indices())
+        # print('Number of PDB residues: %d' % len(pdb_residues))
+        # print('Entity1 CB indices: %s' % entity1_indices)
         # entity2_atoms = entity2.get_atoms()  # if passing by Structure
         entity2_indices = entity2.get_cb_indices()  # InclGlyCA=include_glycine)
-        print('Entity2 CB indices: %s' % entity2_indices)
+        # print('Entity2 CB indices: %s' % entity2_indices)
 
         if self.design_selector_indices:  # subtract the masked atom indices from the entity indices
             before = len(entity1_indices) + len(entity2_indices)
@@ -1025,7 +1025,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                for idx in entity2_indices]
             pdb_atoms = [atom for model in range(self.number_of_models) for atom in pdb_atoms]
             self.log.debug('Number of atoms in expanded assembly PDB: %s' % len(pdb_atoms))
-            pdb_residues = [residue for model in range(self.number_of_models) for residue in pdb_residues]
+            # pdb_residues = [residue for model in range(self.number_of_models) for residue in pdb_residues]
             # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             if entity2 == entity1:
                 # the queried entity is the same, however we don't want interactions with the same symmetry mate or
