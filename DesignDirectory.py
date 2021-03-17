@@ -744,6 +744,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     self.cannonical_pdb2 = line[:31].strip()
 
     def pickle_info(self):
+        self.make_path(self.data)
         pickle_object(self.info, self.info_pickle, out_path='')
 
     def prepare_rosetta_flags(self, flag_variables, stage, out_path=os.getcwd()):
