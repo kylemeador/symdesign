@@ -30,20 +30,17 @@ from Bio.SeqUtils import IUPACData
 from sklearn.cluster import DBSCAN
 
 import CmdUtils as CUtils
-import DesignDirectory
 import PathUtils as PUtils
-import SequenceProfile
-import SymDesignUtils
 import SymDesignUtils as SDUtils
 from AnalyzeOutput import analyze_output
 from PDB import PDB
 from Structure import Residue
-from Pose import Model, find_interface_residues
-from SequenceProfile import write_fasta_file, SequenceProfile
-from SymDesignUtils import DesignError, start_log # logger,
-from utils.ExpandAssemblyUtils import expand_asu
+from Pose import Model
+import SequenceProfile
+from SequenceProfile import SequenceProfile
+from SymDesignUtils import DesignError, start_log, write_fasta_file
 
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -118,7 +115,7 @@ def pose_pair_rmsd(pair):
     else:
         pdb_parser = PDBParser(QUIET=True)
         pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-        rmsd_residue_list = [[residue for residue in structure.get_residues()  # residue.get_id()[1] is res number
+        rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
                               if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
         pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
                           for entity_list in rmsd_residue_list]
@@ -151,20 +148,20 @@ def pose_rmsd_s(all_des_dirs):
 
                 # pair should be a structure...
                 # for structure in pair_structures:
-                #     for residue in structure.get_residues():
+                #     for residue in structure.residues:
                 #         print(residue)
                 #         print(residue[0])
-                rmsd_residue_list = [[residue for residue in structure.get_residues()  # residue.get_id()[1] is res number
+                rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
                                       if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
 
-                # rmsd_residue_list = [[residue for residue in structure.get_residues()
+                # rmsd_residue_list = [[residue for residue in structure.residues
                 #                       if residue.get_id()[1] in des_residue_list[n]]
                 #                      for n, structure in enumerate(pair_structures)]
 
                 # print(rmsd_residue_list)
                 pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
                                   for entity_list in rmsd_residue_list]
-                # [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
+                # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
                 # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
                 # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
 
@@ -263,7 +260,7 @@ def cluster_poses(pose_map):
     return pose_cluster_map
 
 
-@SDUtils.handle_design_errors(errors=(SymDesignUtils.DesignError, AssertionError))
+@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
 def initialization_s(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
     return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
 
@@ -273,7 +270,7 @@ def initialization_mp(des_dir, frag_db, sym, script=False, mpi=False, suspend=Fa
         pose = initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
         # return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug), None
         return pose, None
-    except (SymDesignUtils.DesignError, AssertionError) as e:
+    except (SDUtils.DesignError, AssertionError) as e:
         return None, (des_dir.path, e)
     # finally:
     #     print('Error occurred in %s' % des_dir.path)
@@ -423,9 +420,9 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # TODO Make chain number independent. Low priority
     int_residues = Pose.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
     # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.get_uc_dimensions() is None
-    symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
+    # symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
     symmetrized_model_chain1 = symmetrized_model.select_chain(oligomer[pdb_codes[0]])
-    symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_CB_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
+    symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_cb_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
     symmetrized_model_chain2 = symmetrized_model.select_chain(oligomer[pdb_codes[1]])
     # should I split this into the oligomeric component parts?
     oligomer_symmetry_int_residues = Pose.find_interface_residues(oligomer[pdb_codes[0]], symmetrized_model_chain1_coords)
@@ -439,7 +436,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 int_residue_objects[name].append(template_pdb.chain(names[name](k)).get_residue(residue))
                 # int_residue_objects[name].append(template_pdb.get_residue(names[name](k), residue))
             except IndexError:
-                raise SymDesignUtils.DesignError('Oligomeric and ASU chains do not match. Interface likely involves '
+                raise SDUtils.DesignError('Oligomeric and ASU chains do not match. Interface likely involves '
                                           'missing density at oligomer \'%s\', chain \'%s\', residue \'%d\'. Resolve '
                                           'this error and make sure that all input oligomers are symmetrized for '
                                           'optimal script performance.' % (name, names[name](k), residue))
@@ -476,7 +473,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     template_pdb.renumber_residues()
     jump = template_pdb.chain(template_pdb.chain_id_list[0]).get_terminal_residue('c').number
-    template_residues = template_pdb.get_residues()
+    template_residues = template_pdb.residues
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
     logger.info('Total number of residues is %d' % len(template_residues))
@@ -503,7 +500,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
     interface = PDB.from_atoms([atom for residue in total_int_residue_objects for atom in residue.atoms])
     interface_tree = SDUtils.residue_interaction_graph(interface)
-    interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
+    interface_cb_indices = interface.get_cb_indices()  # InclGlyCA=True)
 
     interface_residue_edges = {}
     for idx, residue_contacts in enumerate(interface_tree):
@@ -572,7 +569,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
                 if not pdb_seq_file[name]:
                     logger.critical('%s: Unable to parse sequence. Check if PDB \'%s\' is valid' % (des_dir.path, name))
-                    raise SymDesignUtils.DesignError('Unable to parse sequence')
+                    raise SDUtils.DesignError('Unable to parse sequence')
                     # raise SDUtils.DesignError('%s: Unable to parse sequence' % des_dir.path)
             else:
                 pdb_seq_file[name] = os.path.join(des_dir.sequences, name + '.fasta')
@@ -641,7 +638,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         if rerun:
             if second:
                 logger.error('%s: Profile Generation got stuck, design aborted' % des_dir.path)
-                raise SymDesignUtils.DesignError('Profile Generation got stuck, design aborted')
+                raise SDUtils.DesignError('Profile Generation got stuck, design aborted')
                 # raise SDUtils.DesignError('%s: Profile Generation got stuck, design aborted' % des_dir.path)
             pssm_file, full_pssm = gather_profile_info(template_pdb, des_dir, names)
             rerun, second = False, True
@@ -892,7 +889,7 @@ def gather_profile_info(pdb, des_dir, names):
                                               outpath=des_dir.sequences)
         if not pdb_seq_file[name]:
             logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
-            raise SymDesignUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
+            raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
 
     # Make PSSM of PDB sequence POST-SEQUENCE EXTRACTION
     for name in names:
@@ -957,7 +954,7 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
                     temp_pdb = PDB.from_file(file=pdb.filepath)
                     fail = True
                 else:
-                    raise SymDesignUtils.DesignError('Invalid PDB input, no SEQRES record found')
+                    raise SDUtils.DesignError('Invalid PDB input, no SEQRES record found')
         if aa_code == 1:
             final_sequence = sequence
             for i in range(len(sequence)):
@@ -972,12 +969,12 @@ def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
         else:
             logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
     else:
-        raise SymDesignUtils.DesignError('Invalid sequence input')
+        raise SDUtils.DesignError('Invalid sequence input')
 
     return final_sequence, failures
 
 
-def residue_number_to_object(pdb, residue_dict):  # TODO supplement with names info and pull out by names
+def residue_number_to_object(pdb, residue_dict):  # TODO DEPRECIATE
     """Convert sets of residue numbers to sets of PDB.Residue objects
 
     Args:

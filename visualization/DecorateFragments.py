@@ -9,7 +9,8 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 from SymDesignUtils import start_log, collect_directories
-from classes.Fragment import MonoFragment, FragmentDB
+from Structure import MonoFragment
+from interface_analysis.Database import FragmentDB
 from PDB import PDB
 
 
@@ -29,8 +30,8 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     pdb1.renumber_residues()
 
     # Get Oligomer 1 Ghost Fragments With Guide Coordinates Using Initial Match Fragment Database
-    kdtree_oligomer1_backbone = BallTree(np.array(pdb1.extract_backbone_coords()))
-    surface_residues = pdb1.get_surface_residue_info()
+    kdtree_oligomer1_backbone = BallTree(np.array(pdb1.get_backbone_coords()))
+    surface_residues = pdb1.get_surface_residues()
     surf_frags_1 = pdb1.get_fragments(surface_residues)
 
     ghost_frag_list = []
@@ -55,13 +56,13 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
 
     for fragment in ghost_frag_list:
         fragment.pdb.write(out_path=os.path.join(out_path, init_dir, 'frag%s_chain%s_res%s.pdb'
-                                                 % ('%s_%s_%s' % fragment.get_ijk(),
-                                                    *fragment.get_aligned_surf_frag_central_res_tup())))
+                                                 % ('%d_%d_%d' % fragment.get_ijk(),
+                                                    *fragment.get_aligned_chain_and_residue())))
 
     for fragment in complete_ghost_frag_list:
         fragment.pdb.write(out_path=os.path.join(out_path, complete_dir, 'frag%s_chain%s_res%s.pdb'
-                                                 % ('%s_%s_%s' % fragment.get_ijk(),
-                                                    *fragment.get_aligned_surf_frag_central_res_tup())))
+                                                 % ('%d_%d_%d' % fragment.get_ijk(),
+                                                    *fragment.get_aligned_chain_and_residue())))
 
 
 if __name__ == '__main__':

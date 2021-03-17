@@ -2,7 +2,8 @@ import copy
 import os
 import pickle
 from glob import glob
-from itertools import chain, combinations_with_replacement
+from itertools import chain as iter_chain, combinations_with_replacement
+from math import sqrt, cos, sin
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -11,37 +12,17 @@ import PathUtils as PUtils
 from PDB import PDB
 from SequenceProfile import SequenceProfile, calculate_match_metrics
 from Structure import Coords, Structure
-# Globals
-from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, \
-    filter_euler_lookup_by_zvalue, z_value_from_match_score, start_log, possible_symmetries  # logger,
+from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
+    start_log, null_log, possible_symmetries, match_score_from_z_value
 from classes.EulerLookup import EulerLookup
-from classes.Fragment import MonoFragment, FragmentDB
-from utils.ExpandAssemblyUtils import sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
+from interface_analysis.Database import FragmentDB, FragmentDatabase
 from utils.GeneralUtils import write_frag_match_info_file
-from utils.SymmUtils import valid_subunit_number
+from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 
-# import ipdb
-
-
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
-
-# # Initialize Euler Lookup Class
-# eul_lookup = EulerLookup()
-
+# Globals
+logger = start_log(name=__name__)
 config_directory = PUtils.pdb_db
 sym_op_location = PUtils.sym_op_location
-# sg_cryst1_fmt_dict = {'F222': 'F 2 2 2', 'P6222': 'P 62 2 2', 'I4132': 'I 41 3 2', 'P432': 'P 4 3 2',
-#                       'P6322': 'P 63 2 2', 'I4122': 'I 41 2 2', 'I213': 'I 21 3', 'I422': 'I 4 2 2',
-#                       'I432': 'I 4 3 2', 'P4222': 'P 42 2 2', 'F23': 'F 2 3', 'P23': 'P 2 3', 'P213': 'P 21 3',
-#                       'F432': 'F 4 3 2', 'P622': 'P 6 2 2', 'P4232': 'P 42 3 2', 'F4132': 'F 41 3 2',
-#                       'P4132': 'P 41 3 2', 'P422': 'P 4 2 2', 'P312': 'P 3 1 2', 'R32': 'R 3 2'}
-# pg_cryst1_fmt_dict = {'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': 'P 4', 'p222': 'P 2 2 2',
-#                       'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
-# zvalue_dict = {'P 2 3': 12, 'P 42 2 2': 8, 'P 3 2 1': 6, 'P 63 2 2': 12, 'P 3 1 2': 12, 'P 6 2 2': 12, 'F 2 3': 48,
-#                'F 2 2 2': 16, 'P 62 2 2': 12, 'I 4 2 2': 16, 'I 21 3': 24, 'R 3 2': 6, 'P 4 21 2': 8, 'I 4 3 2': 48,
-#                'P 41 3 2': 24, 'I 41 3 2': 48, 'P 3': 3, 'P 6': 6, 'I 41 2 2': 16, 'P 4': 4, 'C 2 2 2': 8,
-#                'P 2 2 2': 4, 'P 21 3': 12, 'F 41 3 2': 96, 'P 4 2 2': 8, 'P 4 3 2': 24, 'F 4 3 2': 96,
-#                'P 42 3 2': 24}
 
 
 class Model:  # (PDB)
@@ -54,18 +35,21 @@ class Model:  # (PDB)
         # self.models = pdb  # list or dict of PDB objects
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
-        self.pdb = pdb
+        if log:
+            self.log = log
+        elif log is None:
+            self.log = null_log
+        else:  # When log is explicitly passed as False, create a new log
+            self.log = logger  # start_log(name=self.name)
+
+        if pdb:
+            self.pdb = pdb
         if models and isinstance(models, list):
             self.models = models
         else:
             self.models = []
 
         self.number_of_models = len(self.models)
-        if log:
-            self.log = log
-        else:
-            print('Model starting log')
-            self.log = start_log()
 
     def set_models(self, models):
         self.models = models
@@ -84,27 +68,23 @@ class Model:  # (PDB)
     def chain(self, chain_id):
         return [pdb.chain(chain_id) for pdb in self.models]
 
-    def extract_all_coords(self):  # TODO
-        model_coords = [pdb.extract_coords() for pdb in self.models]
-        return np.array(model_coords)  # arr.reshape(-1, arr.shape[-1])
+    def get_coords(self):  # TODO
+        return [pdb.coords for pdb in self.models]
 
-    def extract_backbone_coords(self):  # TODO
-        return [pdb.extract_backbone_coords() for pdb in self.models]
+    def get_backbone_coords(self):  # TODO
+        return [pdb.get_backbone_coords() for pdb in self.models]
 
-    def extract_backbone_and_cb_coords(self):  # TODO
-        return [pdb.extract_backbone_and_cb_coords() for pdb in self.models]
+    def get_backbone_and_cb_coords(self):  # TODO
+        return [pdb.get_backbone_and_cb_coords() for pdb in self.models]
 
-    def extract_CA_coords(self):  # TODO
-        return [pdb.extract_CA_coords() for pdb in self.models]
+    def get_ca_coords(self):  # TODO
+        return [pdb.get_ca_coords() for pdb in self.models]
 
-    def extract_CB_coords(self, InclGlyCA=False):  # TODO
-        return [pdb.extract_CB_coords(InclGlyCA=InclGlyCA) for pdb in self.models]
+    def get_cb_coords(self, InclGlyCA=False):  # TODO
+        return [pdb.get_cb_coords(InclGlyCA=InclGlyCA) for pdb in self.models]
 
-    def extract_CB_coords_chain(self, chain_id, InclGlyCA=False):  # TODO
+    def extract_cb_coords_chain(self, chain_id, InclGlyCA=False):  # TODO
         return [pdb.extract_CB_coords_chain(chain_id, InclGlyCA=InclGlyCA) for pdb in self.models]
-
-    def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):  # TODO
-        return [pdb.get_CB_coords(ReturnWithCBIndices=ReturnWithCBIndices, InclGlyCA=InclGlyCA) for pdb in self.models]
 
     def set_atom_coordinates(self, new_coords):  # Todo
         for i, pdb in enumerate(self.models):
@@ -152,77 +132,76 @@ class SymmetricModel(Model):
         return cls(models=assembly, **symmetry)
 
     @property
-    def coords(self):
-        """Return a view of the Coords from the Model"""
-        return self._coords.coords  # [self.atom_indices]
-        # return self._coords.get_indices(self.atom_indices)
+    def coords(self):  # Todo Model
+        """Return a view of the representative Coords from the Model. These may be the ASU if a SymmetricModel"""
+        return self._coords.coords
 
     @coords.setter
     def coords(self, coords):
-        # assert len(self.atoms) == coords.shape[0], '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
-        #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
         if isinstance(coords, Coords):
             self._coords = coords
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
-    def model_coords(self):
-        """Return a view of the Coords from the Model"""
-        return self._model_coords.coords  # [self.atom_indices]
-        # return self._coords.get_indices(self.atom_indices)
+    def model_coords(self):  # Todo Model
+        """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
+        return self._model_coords.coords
 
     @model_coords.setter
     def model_coords(self, coords):
-        # assert len(self.atoms) == coords.shape[0], '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
-        #                                                 % (self.name, len(self.atoms), self.coords.shape[0])
         if isinstance(coords, Coords):
             self._model_coords = coords
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    def set_symmetry(self, symmetry=None, cryst1=None, uc_dimensions=None, generate_assembly=True,
+    def set_symmetry(self, expand_matrices=None, symmetry=None, cryst1=None, uc_dimensions=None, generate_assembly=True,
                      generate_symmetry_mates=False, **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required"""
+        # if not expand_matrices:  # or not self.symmetry:
         if cryst1:
             uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1_string=cryst1)
 
-        if uc_dimensions and symmetry:
-            self.uc_dimensions = uc_dimensions
-            # self.symmetry = ''.join(symmetry.split())  # ensure the symmetry is NO SPACES Hermann–Mauguin notation
+        if symmetry:
+            if uc_dimensions:
+                self.uc_dimensions = uc_dimensions
+                self.symmetry = ''.join(symmetry.split())
+
             if symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
                 self.dimension = 2
             elif symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
                 self.dimension = 3
-            else:
-                raise DesignError('Symmetry %s is not available yet! You likely set the symmetry from a PDB file. '
-                                  'Get the symmetry operations from international'
+            elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
+                self.symmetry = possible_symmetries[symmetry]
+                self.dimension = 0
+
+            elif self.uc_dimensions:
+                raise DesignError('Symmetry %s is not available yet! If you didn\'t provide it, the symmetry was likely'
+                                  'set from a PDB file. Get the symmetry operations from the international'
                                   ' tables and add to the pickled operators if this displeases you!' % symmetry)
-            self.expand_matrices = self.get_sg_sym_op(''.join(symmetry.split()))
-            # self.expand_matrices = np.array(self.get_sg_sym_op(self.symmetry))  # Todo numpy expand_matrices
+            else:
+                raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add '
+                                  'to the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
         elif not symmetry:
             return None  # no symmetry was provided
-        elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
-            # symmetry = point_group_sdf_map[symmetry][0]
-            symmetry = possible_symmetries[symmetry]
-            self.dimension = 0
-            self.expand_matrices = self.get_ptgrp_sym_op(symmetry)  # Todo numpy expand_matrices
-            # self.expand_matrices = np.array(self.get_ptgrp_sym_op(self.symmetry))
-        else:
-            raise DesignError('Symmetry %s is not available yet! Get the cannonical symm operators from %s and add to'
-                              ' the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
 
-        self.symmetry = symmetry
+        if expand_matrices:
+            self.expand_matrices = expand_matrices
+        else:
+            self.expand_matrices = self.get_ptgrp_sym_op(self.symmetry) if self.dimension == 0 \
+                else self.get_sg_sym_op(self.symmetry)  # ensure symmetry is Hermann–Mauguin notation
+            # Todo numpy expand_matrices
         if self.asu and generate_assembly:
-            self.generate_symmetric_assembly()
+            self.generate_symmetric_assembly()  # **kwargs
             if generate_symmetry_mates:
                 self.get_assembly_symmetry_mates()
 
-    def generate_symmetric_assembly(self, return_side_chains=True, surrounding_uc=False, generate_symmetry_mates=False):
+    def generate_symmetric_assembly(self, return_side_chains=True, surrounding_uc=False, generate_symmetry_mates=False,
+                                    **kwargs):
         """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
         dimensions if self.dimension > 0. Expands assembly to complete point group, or the unit cell
 
@@ -233,7 +212,7 @@ class SymmetricModel(Model):
         if self.dimension == 0:  # symmetry in ['T', 'O', 'I']: Todo add other point groups
             self.get_point_group_coords(return_side_chains=return_side_chains)
         else:
-            self.expand_uc_coords(return_side_chains=return_side_chains, surrounding_uc=surrounding_uc)
+            self.expand_uc_coords(surrounding_uc=surrounding_uc, return_side_chains=return_side_chains)
 
         self.log.info('Generated %d Symmetric Models' % self.number_of_models)
         if generate_symmetry_mates:
@@ -248,7 +227,7 @@ class SymmetricModel(Model):
             # self.get_surrounding_unit_cell_coords()  # return_side_chains=return_side_chains FOR PDB expansion
 
     def cart_to_frac(self, cart_coords):
-        """Takes a numpy array of coordinates (and finds the fractional coordinates from cartesian coordinates
+        """Takes a numpy array of coordinates and finds the fractional coordinates from cartesian coordinates
         From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
 
         Returns:
@@ -264,17 +243,17 @@ class SymmetricModel(Model):
         gamma *= a2r
 
         # unit cell volume
-        v = a * b * c * np.sqrt((1 - np.cos(alpha) ** 2 - np.cos(beta) ** 2 - np.cos(gamma) ** 2 +
-                                 2 * (np.cos(alpha) * np.cos(beta) * np.cos(gamma))))
+        v = a * b * c * \
+            sqrt((1 - cos(alpha) ** 2 - cos(beta) ** 2 - cos(gamma) ** 2 + 2 * (cos(alpha) * cos(beta) * cos(gamma))))
 
         # deorthogonalization matrix M
-        m0 = [1 / a, -(np.cos(gamma) / float(a * np.sin(gamma))),
-              (((b * np.cos(gamma) * c * (np.cos(alpha) - (np.cos(beta) * np.cos(gamma)))) / float(np.sin(gamma))) -
-               (b * c * np.cos(beta) * np.sin(gamma))) * (1 / float(v))]
+        m0 = [1 / a, -(cos(gamma) / float(a * sin(gamma))),
+              (((b * cos(gamma) * c * (cos(alpha) - (cos(beta) * cos(gamma)))) / float(sin(gamma))) -
+               (b * c * cos(beta) * sin(gamma))) * (1 / float(v))]
         m1 = [0, 1 / (b * np.sin(gamma)),
-              -((a * c * (np.cos(alpha) - (np.cos(beta) * np.cos(gamma)))) / float(v * np.sin(gamma)))]
-        m2 = [0, 0, (a * b * np.sin(gamma)) / float(v)]
-        m = np.array([m0, m1, m2])
+              -((a * c * (cos(alpha) - (cos(beta) * cos(gamma)))) / float(v * sin(gamma)))]
+        m2 = [0, 0, (a * b * sin(gamma)) / float(v)]
+        m = [m0, m1, m2]
 
         return np.matmul(cart_coords, np.transpose(m))
 
@@ -292,15 +271,15 @@ class SymmetricModel(Model):
         gamma *= a2r
 
         # unit cell volume
-        v = a * b * c * np.sqrt((1 - np.cos(alpha) ** 2 - np.cos(beta) ** 2 - np.cos(gamma) ** 2 +
-                                 2 * (np.cos(alpha) * np.cos(beta) * np.cos(gamma))))
+        v = a * b * c * \
+            sqrt((1 - cos(alpha) ** 2 - cos(beta) ** 2 - cos(gamma) ** 2 + 2 * (cos(alpha) * cos(beta) * cos(gamma))))
 
         # orthogonalization matrix m_inv
-        m_inv_0 = [a, b * np.cos(gamma), c * np.cos(beta)]
-        m_inv_1 = [0, b * np.sin(gamma),
-                   (c * (np.cos(alpha) - (np.cos(beta) * np.cos(gamma)))) / float(np.sin(gamma))]
-        m_inv_2 = [0, 0, v / float(a * b * np.sin(gamma))]
-        m_inv = np.array([m_inv_0, m_inv_1, m_inv_2])
+        m_inv_0 = [a, b * cos(gamma), c * cos(beta)]
+        m_inv_1 = [0, b * sin(gamma),
+                   (c * (cos(alpha) - (cos(beta) * cos(gamma)))) / float(sin(gamma))]
+        m_inv_2 = [0, 0, v / float(a * b * sin(gamma))]
+        m_inv = [m_inv_0, m_inv_1, m_inv_2]
 
         return np.matmul(frac_coords, np.transpose(m_inv))
 
@@ -308,85 +287,75 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         self.number_of_models = valid_subunit_number[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type # todo
-            get_pdb_coords = getattr(PDB, 'get_coords')
+            # get_pdb_coords = getattr(PDB, 'coords')
             self.coords_type = 'all'
         else:
-            get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+            # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
-        # self.coords = Coords(get_pdb_coords(self.asu))
-        self.log.debug('Coords length at symmetry coordinate expansion: %d' % len(self.coords))
-        # self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
-        model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
-        self.log.debug('model coords length at coord expansion: %d' % len(model_coords))
-        # self.model_coords[:len(self.coords)] = self.coords
-        for idx, rot in enumerate(self.expand_matrices):  # Todo numpy incomming expand_matrices
-            r_mat = np.transpose(np.array(rot))
-            r_asu_coords = np.matmul(self.coords, r_mat)
-            model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = r_asu_coords
+        coords_length = len(self.coords)
+        # print('Length of Coords: %d' % coords_length)
+        # print('Number of Models: %d' % self.number_of_models)
+        model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
+        for idx, rot in enumerate(self.expand_matrices):
+            # r_asu_coords = np.matmul(self.coords, np.transpose(rot))
+            model_coords[idx * coords_length: (idx + 1) * coords_length] = np.matmul(self.coords, np.transpose(rot))
         self.model_coords = Coords(model_coords)
+        # print('Length of Model Coords: %d' % len(self.model_coords))
 
     def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
         # self.models = [self.asu]
         self.number_of_models = zvalue_dict[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type  # todo
-            get_pdb_coords = getattr(PDB, 'get_coords')
+            # get_pdb_coords = getattr(PDB, 'coords')
             self.coords_type = 'all'
         else:
-            get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+            # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
-        # self.coords = Coords(get_pdb_coords(self.asu))
-        # asu_cart_coords = get_pdb_coords(self.pdb)
-        # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
-        # asu_frac_coords = self.cart_to_frac(np.array(asu_cart_coords))
-        asu_frac_coords = self.cart_to_frac(self.coords)
-        # self.model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
-        model_coords = np.empty((len(self.coords) * self.number_of_models, 3), dtype=float)
-        for idx, (rot, tx) in enumerate(self.expand_matrices):
-            t_vec = np.array(tx)  # Todo numpy incomming expand_matrices
-            # t_vec = t
-            r_mat = np.transpose(np.array(rot))
-            # r_mat = np.transpose(r)
-
-            r_asu_frac_coords = np.matmul(asu_frac_coords, r_mat)
-            rt_asu_frac_coords = r_asu_frac_coords + t_vec
-            model_coords[idx * len(self.coords): (idx + 1) * len(self.coords)] = self.frac_to_cart(rt_asu_frac_coords)
-
-            # self.model_coords.extend(self.frac_to_cart(rt_asu_frac_coords).tolist())
-        self.model_coords = Coords(model_coords)
+        # asu_frac_coords = self.cart_to_frac(self.coords)
+        # coords_length = len(self.coords)
+        # model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
+        # for idx, (rot, tx) in enumerate(self.expand_matrices):
+        #     rt_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + tx
+        #     model_coords[idx * coords_length: (idx + 1) * coords_length] = rt_asu_frac_coords
+        uc_coords = self.return_unit_cell_coords(self.coords)
+        self.model_coords = Coords(uc_coords)
 
     def get_surrounding_unit_cell_coords(self):
         """Generates a grid of unit cell coordinates for a symmetry group. Modifies model_coords from a unit cell
         representation to a grid of unit cells, either 3x3 for a layer group or 3x3x3 for a space group"""
         if self.dimension == 3:
-            z_shifts, uc_number = [-1, 0, 1], 9
+            z_shifts, uc_number = [0, 1, -1], 9
         elif self.dimension == 2:
             z_shifts, uc_number = [0], 27
         else:
             return None
 
-        central_uc_frac_coords = self.cart_to_frac(self.model_coords)
-        # uc_coord_length = self.model_coords.shape[0]
-        uc_coord_length = len(self.model_coords)
-        # self.model_coords = np.empty((uc_coord_length * uc_number, 3), dtype=float)
-        model_coords = np.empty((uc_coord_length * uc_number, 3), dtype=float)
-        idx = 0
-        for x_shift in [-1, 0, 1]:
-            for y_shift in [-1, 0, 1]:
-                for z_shift in z_shifts:
-                    # add central uc_coords to the model coords after applying the correct tx of frac coords & convert
-                    model_coords[idx * uc_coord_length: (idx + 1) * uc_coord_length] = \
-                        self.frac_to_cart(central_uc_frac_coords + [x_shift, y_shift, z_shift])
-                    idx += 1
-        self.model_coords = Coords(model_coords)
+        uc_frac_coords = self.cart_to_frac(self.model_coords)
+        # coords_length = len(self.model_coords)
+        # model_coords = np.empty((coords_length * uc_number, 3), dtype=float)
+        # idx = 0
+        # for x_shift in [-1, 0, 1]:
+        #     for y_shift in [-1, 0, 1]:
+        #         for z_shift in z_shifts:
+        #             add central uc_coords to the model coords after applying the correct tx of frac coords & convert
+        #             model_coords[idx * coords_length: (idx + 1) * coords_length] = \
+        #                 uc_frac_coords + [x_shift, y_shift, z_shift]
+        #             idx += 1
+        # self.model_coords = Coords(self.frac_to_cart(model_coords))
+
+        surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
+                                   for y_shift in [0, 1, -1] for z_shift in z_shifts]
+        self.model_coords = Coords(self.frac_to_cart(surrounding_frac_coords))
         self.number_of_models = zvalue_dict[self.symmetry] * uc_number
 
-    def return_assembly_symmetry_mates(self):
+    def return_assembly_symmetry_mates(self, **kwargs):
+        """Return all symmetry mates in self.models (list[Structure]). Chain names will match the ASU"""
         count = 0
         while len(self.models) != self.number_of_models:  # Todo clarify we haven't generated the mates yet
-            self.get_assembly_symmetry_mates()
+            self.get_assembly_symmetry_mates(**kwargs)
             if count == 1:
                 raise DesignError('%s: The assembly couldn\'t be returned'
                                   % self.return_assembly_symmetry_mates.__name__)
@@ -394,48 +363,38 @@ class SymmetricModel(Model):
 
         return self.models
 
-    def get_assembly_symmetry_mates(self, return_side_chains=True):  # For getting PDB copies
-        """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
+    def get_assembly_symmetry_mates(self, surrounding_uc=False):  # , return_side_chains=True):
+        """Set all symmetry mates in self.models (list[Structure]). Chain names will match the ASU"""
         if not self.symmetry:
+            # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
+            #                   % (self.get_assembly_symmetry_mates.__name__, self.asu.name))
             raise DesignError('%s: No symmetry set for %s! Cannot get symmetry mates'
                               % (self.get_assembly_symmetry_mates.__name__, self.asu.name))
-        if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_atoms')
-            # extract_pdb_coords = getattr(PDB, 'extract_coords')
-        else:
-            extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            # extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+        # if return_side_chains:  # get different function calls depending on the return type
+        #     extract_pdb_atoms = getattr(PDB, 'get_atoms')
+        # else:
+        #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
 
-        # self.models.append(copy.copy(self.asu))
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
-        for model_idx in range(self.number_of_models):  # range(1,
-            symmetry_mate_pdb = copy.deepcopy(self.asu)
-            # self.log.info(len(self.model_coords[(model_idx * self.asu.number_of_atoms):
-            #                             ((model_idx + 1) * self.asu.number_of_atoms)]))
-            # self.log.info('Asu ATOM number: %d' % self.asu.number_of_atoms)
-            symmetry_mate_pdb.coords = Coords(self.model_coords[(model_idx * self.asu.number_of_atoms):
-                                                                ((model_idx + 1) * self.asu.number_of_atoms)])
-            # symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
-            #                                                          (model_idx * self.asu.number_of_atoms)
-            #                                                          + self.asu.number_of_atoms])
-            # self.log.info('Coords copy of length %d: %s' % (len(symmetry_mate_pdb.coords), symmetry_mate_pdb.coords))
-            # self.log.info('Atom 1 coordinates: %s' % symmetry_mate_pdb.get_atoms()[0].x)
-            # self.log.info('Atom 1: %s' % str(symmetry_mate_pdb.get_atoms()[0]))
-            self.models.append(symmetry_mate_pdb)
-        # for model_idx in range(len(self.models)):
-            # self.log.info('Atom 1: %s' % str(self.models[model_idx].get_atoms()[0]))
+        if not surrounding_uc and self.symmetry in zvalue_dict:
+            number_of_models = zvalue_dict[self.symmetry]  # set to the uc only
+        else:
+            number_of_models = self.number_of_models
 
-    def find_asu_equivalent_symmetry_model(self, residue_query_number=1):
+        for model_idx in range(number_of_models):
+            symmetry_mate_pdb = copy.copy(self.asu)
+            symmetry_mate_pdb.replace_coords(self.model_coords[(model_idx * self.asu.number_of_atoms):
+                                                               ((model_idx + 1) * self.asu.number_of_atoms)])
+            self.models.append(symmetry_mate_pdb)
+
+    def find_asu_equivalent_symmetry_model(self):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
 
         Returns:
             (int): The index of the number of models where the ASU can be found
         """
-        if not self.symmetry:
-            return None
-
-        template_atom_coords = self.asu.residue(residue_query_number).ca.coords
-        template_atom_index = self.asu.residue(residue_query_number).ca.index
+        template_atom_coords = self.asu.residues[0].ca_coords
+        template_atom_index = self.asu.residues[0].ca.index
         for model_number in range(self.number_of_models):
             if (template_atom_coords ==
                     self.model_coords[(model_number * len(self.coords)) + template_atom_index]).all():
@@ -443,18 +402,57 @@ class SymmetricModel(Model):
 
         self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_model.__name__)
 
+    def find_intra_oligomeric_equivalent_symmetry_models(self, entity):
+        """From an Entities Chain members, find the SymmetricModel equivalent models using Chain center or mass
+        compared to the symmetric model center of mass"""
+        asu_length = len(self.coords)
+        entity_start, entity_end = entity.atom_indices[0], entity.atom_indices[-1]
+        entity_length = entity.number_of_atoms
+        entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
+        equivalent_models = []
+        for chain in entity.chains:
+            chain_length = chain.number_of_atoms
+            chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
+            for model in range(self.number_of_models):
+                sym_model_center_of_mass = np.matmul(entity_center_of_mass_divisor,
+                                                     self.model_coords[(model * asu_length) + entity_start:
+                                                                       (model * asu_length) + entity_end + 1])
+                if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
+                    equivalent_models.append(model)
+                    break
+        assert len(equivalent_models) == len(entity.chains), 'The number of equivalent models (%d) does not equal the ' \
+                                                             'expected number of chains (%d)!' \
+                                                             % (len(equivalent_models), len(entity.chains))
+
+        return equivalent_models
+
     def find_asu_equivalent_symmetry_mate_indices(self):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
 
-        model_coords must be from all atoms which by default is True
+        self.model_coords must be from all atoms which by default is True
         Returns:
-            (list): The index of the number of models where the ASU can be found
+            (list): The indices in the SymmetricModel where the ASU is also located
         """
         model_number = self.find_asu_equivalent_symmetry_model()
-        start_idx = self.pdb.number_of_atoms * model_number
-        end_idx = self.pdb.number_of_atoms * (model_number + 1)
-        # Todo test logic, we offset the index by 1 from the end_idx values (0 to 100 -> 0:99 or 100 to 200 -> 100:199)
-        return [idx for idx in range(start_idx, end_idx)]
+        start_idx = self.asu.number_of_atoms * model_number
+        end_idx = self.asu.number_of_atoms * (model_number + 1)
+        return list(range(start_idx, end_idx))
+
+    def find_intra_oligomeric_symmetry_mate_indices(self, entity):
+        """Find the intra-oligomeric equivalent models in the SymmetricModel. Zero-indexed
+
+        self.model_coords must be from all atoms which by default is True
+        Returns:
+            (list): The indices in the SymmetricModel where the intra-oligomeric contacts are located
+        """
+        model_numbers = self.find_intra_oligomeric_equivalent_symmetry_models(entity)
+        oligomeric_indices = []
+        for model_number in model_numbers:
+            start_idx = self.pdb.number_of_atoms * model_number
+            end_idx = self.pdb.number_of_atoms * (model_number + 1)
+            oligomeric_indices.extend(list(range(start_idx, end_idx)))
+
+        return oligomeric_indices
 
     def return_symmetry_mates(self, pdb, **kwargs):  # return_side_chains=False, surrounding_uc=False):
         """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
@@ -465,10 +463,14 @@ class SymmetricModel(Model):
             surrounding_uc=False (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         if self.dimension == 0:
-            return self.return_point_group_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains)
+            return self.return_point_group_symmetry_mates(pdb)
         else:
             return self.return_crystal_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains,
             #                                                           surrounding_uc=surrounding_uc)
+
+    def return_point_group_symmetry_mates(self, pdb):
+        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
+        return [pdb.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]  # Todo change below as well
 
     def return_crystal_symmetry_mates(self, pdb, surrounding_uc, **kwargs):  # return_side_chains=False, surrounding_uc=False
         """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
@@ -478,167 +480,136 @@ class SymmetricModel(Model):
         else:
             return self.return_unit_cell_symmetry_mates(pdb, **kwargs)  # # return_side_chains=return_side_chains
 
-    # @staticmethod
-    def return_point_group_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
-        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
-        # if return_side_chains:  # get different function calls depending on the return type
-        #     extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-        #     extract_pdb_coords = getattr(PDB, 'extract_coords')
-        # else:
-        #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-        #     extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-        # ipdb.set_trace()
-        return [pdb.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]  # Todo change below as well
-        # asu_symm_mates = []
-        # pdb_coords = np.array(extract_pdb_coords(pdb))
-        # for rot in self.expand_matrices:
-        #     r_mat = np.transpose(np.array(rot))
-        #     r_asu_coords = np.matmul(pdb_coords, r_mat)
-        #     symmetry_mate_pdb = pdb.return_transformed_copy(rotation=rot)
-        #     symmetry_mate_pdb = copy.deepcopy(pdb)
-        #     symmetry_mate_pdb.coords = Coords(r_asu_coords)
-        #     # symmetry_mate_pdb.set_atom_coordinates(r_asu_coords)
-        #     asu_symm_mates.append(symmetry_mate_pdb)
-        #
-        # return asu_symm_mates
+    def return_unit_cell_coords(self, coords, fractional=False):
+        """Return the cartesian unit cell coordinates from a set of coordinates for the specified SymmetricModel"""
+        asu_frac_coords = self.cart_to_frac(coords)
+        coords_length = len(coords)
+        model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
+        for idx, (rot, tx) in enumerate(self.expand_matrices):
+            rt_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + tx
+            model_coords[idx * coords_length: (idx + 1) * coords_length] = rt_asu_frac_coords
+        if fractional:
+            return model_coords
+        else:
+            return self.frac_to_cart(model_coords)
 
     def return_unit_cell_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'extract_coords')
+            # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+            extract_pdb_coords = getattr(PDB, 'coords')
         else:
-            extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
+            # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+            extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
-        # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
-        asu_cart_coords = extract_pdb_coords(pdb)
-        # asu_frac_coords = self.cart_to_frac(np.array(asu_cart_coords))
-        asu_frac_coords = self.cart_to_frac(asu_cart_coords)
-        asu_symm_mates = []
-        for r, t in self.expand_matrices:
-            t_vec = np.array(t)  # Todo numpy incomming expand_matrices
-            r_mat = np.transpose(np.array(r))
+        # # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
+        # asu_cart_coords = extract_pdb_coords(pdb)
+        # # asu_frac_coords = self.cart_to_frac(np.array(asu_cart_coords))
+        # asu_frac_coords = self.cart_to_frac(asu_cart_coords)
+        # sym_frac_coords = []
+        # for rot, tx in self.expand_matrices:
+        #     r_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot))
+        #     tr_asu_frac_coords = r_asu_frac_coords + tx
+        #     sym_frac_coords.extend(tr_asu_frac_coords)
+        #     # tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords)
+        # sym_cart_coords = self.frac_to_cart(sym_frac_coords)
+        pdb_coords = extract_pdb_coords(pdb)
+        sym_cart_coords = self.return_unit_cell_coords(pdb_coords)
 
-            r_asu_frac_coords = np.matmul(asu_frac_coords, r_mat)
-            tr_asu_frac_coords = r_asu_frac_coords + t_vec
-            tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords)  # We want numpy array, not .tolist()
-
+        coords_length = len(pdb_coords)
+        sym_mates = []
+        # for coord_set in sym_cart_coords:
+        for model in self.number_of_models:
             symmetry_mate_pdb = copy.copy(pdb)
-            symmetry_mate_pdb.coords = Coords(tr_asu_cart_coords)
-            # symmetry_mate_pdb.set_atom_coordinates(tr_asu_cart_coords)
-            asu_symm_mates.append(symmetry_mate_pdb)
+            symmetry_mate_pdb.replace_coords(sym_cart_coords[model * coords_length: (model + 1) * coords_length])
+            sym_mates.append(symmetry_mate_pdb)
 
-        return asu_symm_mates
+        return sym_mates
 
-    def return_surrounding_unit_cell_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
+    def return_surrounding_unit_cell_symmetry_mates(self, pdb, return_side_chains=True, **kwargs):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
-            extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'extract_coords')
+            # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+            extract_pdb_coords = getattr(PDB, 'coords')
         else:
-            extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-
-        # could move the next block to a get all uc frac coords and remove redundancy from here and return_uc_sym_mates
-        asu_cart_coords = extract_pdb_coords(pdb)
-        asu_frac_coords = self.cart_to_frac(asu_cart_coords)
-        all_uc_frac_coords = []
-        for r, t in self.expand_matrices:
-            t_vec = np.array(t)  # Todo numpy incomming expand_matrices
-            r_mat = np.transpose(np.array(r))
-
-            r_asu_frac_coords = np.matmul(asu_frac_coords, r_mat)
-            tr_asu_frac_coords = r_asu_frac_coords + t_vec
-            all_uc_frac_coords.extend(tr_asu_frac_coords)
-            # tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords)  # We want numpy array, not .tolist()
+            # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+            extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
 
         if self.dimension == 3:
-            z_shifts, uc_number = [-1, 0, 1], 9
+            z_shifts, uc_number = [0, 1, -1], 9
         elif self.dimension == 2:
             z_shifts, uc_number = [0], 27
         else:
             return None
 
-        number_coords = len(asu_frac_coords)
-        asu_symm_mates = []
-        uc_idx = 0
-        for x_shift in [-1, 0, 1]:
-            for y_shift in [-1, 0, 1]:
-                for z_shift in z_shifts:
-                    symmetry_mate_pdb = copy.copy(pdb)
-                    symmetry_mate_pdb.coords = Coords(self.frac_to_cart(all_uc_frac_coords
-                                                                        [(uc_idx * number_coords):
-                                                                         ((uc_idx + 1) * number_coords)]
-                                                                        + [x_shift, y_shift, z_shift]))
-                    # symmetry_mate_pdb.set_atom_coordinates(self.frac_to_cart(all_uc_frac_coords
-                    #                                                          [(uc_idx * number_coords):
-                    #                                                           (uc_idx * number_coords) + number_coords]
-                    #                                                          + [x_shift, y_shift, z_shift]))
-                    asu_symm_mates.append(symmetry_mate_pdb)
+        pdb_coords = extract_pdb_coords(pdb)
+        uc_frac_coords = self.return_unit_cell_coords(pdb_coords, fractional=True)
+        surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
+                                   for y_shift in [0, 1, -1] for z_shift in z_shifts]
 
-        assert len(asu_symm_mates) == uc_number * zvalue_dict[self.symmetry], \
-            'Number of models %d is incorrect! Should be %d' % (len(asu_symm_mates), uc_number *
-                                                                zvalue_dict[self.symmetry])
+        surrounding_cart_coords = self.frac_to_cart(surrounding_frac_coords)
 
-        return asu_symm_mates
+        coords_length = len(uc_frac_coords)
+        sym_mates = []
+        for coord_set in surrounding_cart_coords:
+            for model in self.number_of_models:
+                symmetry_mate_pdb = copy.copy(pdb)
+                symmetry_mate_pdb.replace_coords(coord_set[(model * coords_length): ((model + 1) * coords_length)])
+                sym_mates.append(symmetry_mate_pdb)
 
-    def symmetric_assembly_is_clash(self, clash_distance=2.2):  # Todo design_selector
+        assert len(sym_mates) == uc_number * zvalue_dict[self.symmetry], \
+            'Number of models %d is incorrect! Should be %d' % (len(sym_mates), uc_number * zvalue_dict[self.symmetry])
+        return sym_mates
+
+    def symmetric_assembly_is_clash(self, distance=2.1):  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
 
         Keyword Args:
-            clash_distance=2.2 (float): The cutoff distance for the coordinate overlap
+            distance=2.2 (float): The cutoff distance for the coordinate overlap
 
         Returns:
             (bool)
         """
-        if not self.number_of_models:
-            raise DesignError('Cannot check if the assembly is clashing without first calling %s'
+        if not self.symmetry:
+            raise DesignError('[Error] Cannot check if the assembly is clashing as it has no symmetry!')
+        elif not self.number_of_models:
+            raise DesignError('[Error] Cannot check if the assembly is clashing without first calling %s'
                               % self.generate_symmetric_assembly.__name__)
 
         model_asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
-        # print('ModelASU Indices: %s' % model_asu_indices)
-        # print('Equivalent ModelASU: %d' % self.find_asu_equivalent_symmetry_model())
         if self.coords_type != 'bb_cb':
-            asu_indices = self.asu.get_backbone_and_cb_indices()
-            # model_indices_filter = np.array(asu_indices * self.number_of_models)
-            # print('BB/CB ASU Indices: %s' % asu_indices)
-
-            # Need to only select the coords that are not BB or CB from the model coords.
-            # We have all the BB/CB indices from ASU now need to multiply this by every integer in self.number_of_models
-            # to get every BB/CB coord.
-            # Finally we take out those indices that are inclusive of the model_asu_indices like below
+            # print('reducing coords to bb_cb')
+            # Need to only select the coords that are BB or CB from the model coords
             number_asu_atoms = self.asu.number_of_atoms
+            asu_indices = self.asu.get_backbone_and_cb_indices()
+            # print('number of asu_residues: %d' % len(self.asu.residues))
+            # print('asu_indices: %s' % asu_indices)
+            # print('length asu', len(asu_indices))
+            # We have all the BB/CB indices from ASU now need to multiply this by every integer in self.number_of_models
+            # to get every BB/CB coord in the model
+            # Finally we take out those indices that are inclusive of the model_asu_indices like below
             model_indices_filter = np.array([idx + (model_number * number_asu_atoms)
                                              for model_number in range(self.number_of_models)
                                              for idx in asu_indices])
-            # print('Model indices factor: %s' % model_indices_factor)
-            # print('Model ASU indices[0] & [-1]: %d & %d' % (model_asu_indices[0], model_asu_indices[-1]))
-        else:  # we will frag every coord in the model
-            model_indices_filter = np.array([idx for idx in range(len(self.model_coords))])
+        else:  # we will grab every coord in the model
+            model_indices_filter = np.array(list(range(len(self.model_coords))))
             asu_indices = None
 
-        # print('Model indices filter length: %d' % len(model_indices_filter))
-        # print('Model indices filter: %s' % model_indices_filter)
-        asu_coord_kdtree = BallTree(self.coords[asu_indices])
+        # make a boolean mask where the model indices of interest are True
         without_asu_mask = np.logical_or(model_indices_filter < model_asu_indices[0],
                                          model_indices_filter > model_asu_indices[-1])
-        # print('Model without asu mask length: %d' % len(without_asu_mask))
-        # print('Asu filter length: %d' % number_asu_indices)
         # take the boolean mask and filter the model indices mask to leave only symmetry mate bb/cb indices, NOT asu
         model_indices_without_asu = model_indices_filter[without_asu_mask]
-
-        # print('Model Coord length: %d' % len(self.model_coords))
-        # print('Model minus ASU indices: %s' % model_indices_without_asu)
-        # print('Model Coord filtered length: %d' % len(self.model_coords[model_indices_without_asu]))
-        # print('Model Coord filtered: %s' % self.model_coords[model_indices_without_asu])
-        selected_assembly_coords = len(self.model_coords[model_indices_without_asu]) + len(self.coords[asu_indices])
+        # print(model_indices_without_asu)
+        # print('length model_indices_without_asu', len(model_indices_without_asu))
+        # print(asu_indices)
+        selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
         all_assembly_coords_length = len(asu_indices) * self.number_of_models
-        assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue with indexing.' \
-                                                                       % self.symmetric_assembly_is_clash()
+        assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue indexing.  ' \
+                                                                       % self.symmetric_assembly_is_clash.__name__
 
-        clash_count = asu_coord_kdtree.two_point_correlation(self.model_coords[model_indices_without_asu],
-                                                             [clash_distance])
+        asu_coord_tree = BallTree(self.coords[asu_indices])
+        clash_count = asu_coord_tree.two_point_correlation(self.model_coords[model_indices_without_asu], [distance])
         if clash_count[0] > 0:
             self.log.warning('%s: Found %d clashing sites! Pose is not a viable symmetric assembly'
                              % (self.pdb.name, clash_count[0]))
@@ -646,122 +617,25 @@ class SymmetricModel(Model):
         else:
             return False  # no clash
 
-    # def get_point_group_symmetry_mates(self, return_side_chains=False):  # For getting PDB copies
-    #     """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
-    #     if return_side_chains:  # get different function calls depending on the return type
-    #         extract_pdb_atoms = getattr(PDB, 'get_atoms')
-    #         # extract_pdb_coords = getattr(PDB, 'extract_coords')
-    #     else:
-    #         extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-    #         # extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-    #
-    #     self.models.append(copy.copy(self.asu))
-    #     prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
-    #     for model in range(1, self.number_of_models):
-    #         symmetry_mate_pdb = copy.copy(self.asu)
-    #         symmetry_mate_pdb.set_atom_coordinates(self.model_coords[prior_idx: prior_idx + self.asu.number_of_atoms])
-    #         self.models.append(symmetry_mate_pdb)
-    #
-    # def get_unit_cell_symmetry_mates(self, return_side_chains=False):  # For getting PDB copies # TODO model after PG ^
-    #     """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
-    #     if return_side_chains:  # get different function calls depending on the return type
-    #         extract_pdb_atoms = getattr(PDB, 'get_atoms')
-    #         # extract_pdb_coords = getattr(PDB, 'extract_coords')
-    #     else:
-    #         extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-    #         # extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-    #
-    #     # self.models.append(copy.copy(self.asu))
-    #     # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
-    #     for model_idx in range(self.number_of_models):  # range(1,
-    #         symmetry_mate_pdb = copy.copy(self.asu)
-    #         symmetry_mate_pdb.set_atom_coordinates(self.model_coords[(model_idx * self.asu.number_of_atoms):
-    #                                                                  (model_idx * self.asu.number_of_atoms)
-    #                                                                  + self.asu.number_of_atoms])
-    #         self.models.append(symmetry_mate_pdb)
-    #
-    # def get_surrounding_unit_cell_symmetry_mates(self):  # For getting PDB copies  # TODO model after UC ^
-    #     """Returns a grid of unit cells for a symmetry group. Each unit cell is a list of ASU's in total grid list"""
-    #     # self.number_of_models = zvalue_dict[self.symmetry] * uc_number  # Todo this figure out in context
-    #     if self.dimension == 3:
-    #         z_shifts, uc_number = [-1, 0, 1], 9
-    #     elif self.dimension == 2:
-    #         z_shifts, uc_number = [0], 27
-    #     else:
-    #         return None
-    #
-    #     # if return_side_chains:  # get different function calls depending on the return type
-    #     #     extract_pdb_atoms = getattr(PDB, 'get_atoms')
-    #     #     extract_pdb_coords = getattr(PDB, 'extract_coords')
-    #     # else:
-    #     #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-    #     #     extract_pdb_coords = getattr(PDB, 'extract_backbone_and_cb_coords')
-    #
-    #     asu_atom_template = PDB.from_atoms(self.models[0].get_atoms())  # Todo may need some other mods with return_side_chains gone
-    #     # asu_atom_template = extract_pdb_atoms(self.pdb)
-    #     # asu_bb_atom_template = uc_sym_mates[0].get_backbone_atoms()
-    #
-    #     central_uc_cart_coords = extract_pdb_coords(self.models)
-    #     # central_uc_cart_coords = []
-    #     # for unit_cell_sym_mate_pdb in self.uc_sym_mates:
-    #     #     central_uc_cart_coords.extend(extract_pdb_coords(unit_cell_sym_mate_pdb))
-    #     #     # central_uc_bb_cart_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
-    #     central_uc_frac_coords = self.cart_to_frac(central_uc_cart_coords)  # Todo flatten list?
-    #     # central_uc_frac_coords = self.cart_to_frac(np.array(central_uc_cart_coords))
-    #
-    #     all_surrounding_uc_frac_coords = []
-    #     for x_shift in [-1, 0, 1]:
-    #         for y_shift in [-1, 0, 1]:
-    #             for z_shift in z_shifts:
-    #                 if [x_shift, y_shift, z_shift] != [0, 0, 0]:
-    #                     all_surrounding_uc_frac_coords.extend(central_uc_frac_coords + [x_shift, y_shift, z_shift])
-    #
-    #     all_surrounding_uc_cart_coords = np.split(self.frac_to_cart(np.array(all_surrounding_uc_frac_coords)),
-    #                                               number_of_models)
-    #     # all_surrounding_uc_cart_coords = np.split(all_surrounding_uc_cart_coords, number_of_models)
-    #
-    #     for surrounding_uc_cart_coords in all_surrounding_uc_cart_coords:
-    #         all_uc_sym_mates_cart_coords = np.split(surrounding_uc_cart_coords, len(self.models))
-    #         # one_surrounding_unit_cell = []
-    #         for uc_sym_mate_cart_coords in all_uc_sym_mates_cart_coords:
-    #             uc_sym_mate_pdb = copy.copy(asu_atom_template)
-    #             uc_sym_mate_pdb.set_atom_coordinates(uc_sym_mate_cart_coords)
-    #
-    #             # uc_sym_mate_atoms = []
-    #             # for atom_count, atom in enumerate(asu_atom_template):
-    #             #     x_transformed = uc_sym_mate_cart_coords[atom_count][0]
-    #             #     y_transformed = uc_sym_mate_cart_coords[atom_count][1]
-    #             #     z_transformed = uc_sym_mate_cart_coords[atom_count][2]
-    #             #     atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
-    #             #                             atom.get_residue_type(), atom.get_chain(),
-    #             #                             atom.get_residue_number(),
-    #             #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
-    #             #                             z_transformed,
-    #             #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-    #             #                             atom.get_atom_charge())
-    #             #     uc_sym_mate_atoms.append(atom_transformed)
-    #
-    #             # uc_sym_mate_pdb = PDB(atoms=uc_sym_mate_atoms)
-    #             # one_surrounding_unit_cell.append(uc_sym_mate_pdb)
-    #
-    #             self.models.extend(uc_sym_mate_pdb)
-    #         # self.models.extend(one_surrounding_unit_cell)
-
-    def write(self, out_path=os.getcwd()):  #, cryst1=None):  # Todo write model, write symmetry.    name, location
-        # out_path = os.path.join(location, '%s.pdb' % name)
+    def write(self, out_path=os.getcwd(), header=None):  # , cryst1=None):  # Todo write symmetry, name, location
+        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
+        one was written"""
         with open(out_path, 'w') as f:
-            # if cryst1 and isinstance(cryst1, str) and cryst1.startswith('CRYST1'):
-            #     f.write('%s\n' % cryst1)
-            for i, model in enumerate(self.models, 1):
-                f.write('{:9s}{:>4d}\n'.format('MODEL', i))
+            if header:
+                if isinstance(header, str):
+                    f.write(header)
+                # if isinstance(header, Iterable):
+
+            for model_number, model in enumerate(self.models, 1):
+                f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
                 for chain in model.chains:
-                    chain_atoms = chain.get_atoms()
-                    f.write('\n'.join(str(atom) for atom in chain_atoms))
+                    chain_atoms = chain.atoms
+                    chain.write(file_handle=f)
+                    # f.write('\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
+                    #                   for atom, coord in zip(chain.atoms, self.model_coords.tolist())))
                     f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_atoms[-1].number + 1,
                                                                           chain_atoms[-1].residue_type, chain.name,
                                                                           chain_atoms[-1].residue_number))
-                # f.write(''.join(str(atom) for atom in model.atoms))
-                # f.write('\n'.join(str(atom) for atom in model.atoms))
                 f.write('ENDMDL\n')
 
     @staticmethod
@@ -799,65 +673,63 @@ class SymmetricModel(Model):
         return sg_sym_op
 
 
-class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
-    """A Pose is made of multiple PDB objects all sharing a common feature such as symmetric copies or modifications to
-    the PDB sequence
+class Pose(SymmetricModel, SequenceProfile):  # Model
+    """A Pose is made of single or multiple PDB objects such as Entities, Chains, or other tsructures.
+    All objects share a common feature such as the same symmetric system or the same general atom configuration in
+    separate models across the Structure or sequence.
     """
-    def __init__(self, asu=None, pdb=None, pdb_file=None, asu_file=None, ignore_clashes=False, **kwargs):  # symmetry=None, log=None,
+    def __init__(self, asu=None, asu_file=None, pdb=None, pdb_file=None, **kwargs):
+        #        symmetry=None, log=None,
         super().__init__(**kwargs)  # log=None,
-        # super().__init__(log=log)
-        # if log:  # from Super SymmetricModel
-        #     self.log = log
-        # else:
-        #     self.log = start_log()
-
-        if asu and isinstance(asu, Structure):
-            self.asu = asu
-            self.pdb = self.asu
-        elif asu_file:
-            self.asu = PDB.from_file(asu_file, log=self.log)
-            self.pdb = self.asu
-        elif pdb and isinstance(asu, Structure):
-            self.pdb = pdb
-            # self.set_pdb(pdb)
-        elif pdb_file:
-            self.pdb = PDB.from_file(pdb_file, log=self.log)
-            # Depending on the extent of PDB class initialization, I could copy the PDB info into self.pdb
-            # this would be:
-            # coords, atoms, residues, chains, entities, design, (host of others read from file)
-            # self.set_pdb(pdb)
-        # else:
-        #     nothing = True
-        self.ignore_clashes = ignore_clashes
-        if self.pdb:
-            # add structure to the SequenceProfile
-            if self.pdb.is_clash():
-                if self.ignore_clashes:
-                    pass
-                else:
-                    raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
-            self.set_structure(self.pdb)
-            # set up coordinate information for SymmetricModel
-            self.coords = Coords(self.pdb.get_coords())
-
+        # the member pdbs which make up the pose. todo, combine with self.models?
+        # self.pdbs = []
+        self.pdbs_d = {}
+        self.fragment_observations = []
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.required_indices = set()
         self.required_residues = None
         self.interface_residues = {}
         self.interface_split = {}
-        self.fragment_observations = []
+        # self.handle_flags(**kwargs)
+        # self.ignore_clashes = False
+        self.ignore_clashes = kwargs.get('ignore_clashes', False)
+        # self.design_selector = {}
+        # if kwargs.get('design_selector'):
+        self.design_selector = kwargs.get('design_selector', {})
+        # else:
+        #     self.design_selector = {}
 
-        symmetry_kwargs = self.pdb.symmetry
+        if asu and isinstance(asu, Structure):
+            self.asu = asu
+            self.pdb = self.asu
+        elif asu_file:
+            self.asu = PDB.from_file(asu_file, log=self.log)  # **kwargs
+            self.pdb = self.asu
+        elif pdb and isinstance(pdb, Structure):
+            self.pdb = pdb
+        elif pdb_file:
+            self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
+
+        frag_db = kwargs.get('frag_db')
+        if frag_db:
+            # Attach existing FragmentDB to the Pose
+            self.attach_fragment_database(db=frag_db)
+            # self.frag_db = frag_db  # Todo property
+            for entity in self.entities:
+                entity.attach_fragment_database(db=frag_db)
+
+        euler_lookup = kwargs.get('euler_lookup')
+        if euler_lookup:
+            self.euler_lookup = euler_lookup
+        else:
+            self.euler_lookup = None
+            # for entity in self.entities:  # No need to attach to entities
+            #     entity.euler_lookup = euler_lookup
+
+        symmetry_kwargs = self.pdb.symmetry.copy()
         symmetry_kwargs.update(kwargs)
-        # self.log.debug('Pose symmetry_kwargs: %s' % symmetry_kwargs)
-        self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if the ASU was passed
-        # self.initialize_symmetry(symmetry=symmetry)
-
-        self.handle_flags(**kwargs)
-        self.pdbs = []  # the member pdbs which make up the pose
-        self.pdbs_d = {}
-        self.pose_pdb_accession_map = {}
+        self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if an ASU is present
 
     @classmethod
     def from_pdb(cls, pdb, **kwargs):  # symmetry=None,
@@ -875,21 +747,31 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     def from_asu_file(cls, asu_file, **kwargs):  # symmetry=None,
         return cls(asu_file=asu_file, **kwargs)  # symmetry=None,
 
-    # @property
-    # def asu(self):
-    #     return self._asu
-    #
-    # @asu.setter
-    # def asu(self, pdb):
-    #     self_.asu = pdb
-    #
-    # @property
-    # def pdb(self):
-    #     return self._pdb
-    #
-    # @pdb.setter
-    # def pdb(self, pdb):
-    #     self._pdb = pdb
+    @property
+    def asu(self):
+        return self._asu
+
+    @asu.setter
+    def asu(self, asu):
+        self._asu = asu
+
+    @property
+    def pdb(self):
+        return self._pdb
+
+    @pdb.setter
+    def pdb(self, pdb):
+        # self.log.debug('Adding PDB \'%s\' to pose' % pdb.name)
+        self._pdb = pdb
+        if not self.ignore_clashes:
+            if pdb.is_clash():
+                raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
+        # add structure to the SequenceProfile
+        self.set_structure(pdb)
+        # set up coordinate information for SymmetricModel
+        self.coords = pdb._coords
+        self.pdbs_d[pdb.name] = pdb
+        self.create_design_selector()  # **self.design_selector)
 
     @property
     def name(self):
@@ -910,85 +792,93 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
     def entities(self):
         return self.pdb.entities
 
-    # @entities.setter
-    # def entities(self, entities):
-    #     self.pdb.entities = entities
-
     @property
     def chains(self):
-        return self.pdb.chains
+        return [chain for entity in self.pdb.entities for chain in entity.chains]
 
     @property
     def active_chains(self):
-        return [_chain for entity in self.active_entities for _chain in entity.chains]
+        return [chain for entity in self.active_entities for chain in entity.chains]
 
-    # @chains.setter
-    # def chains(self, chains):
-    #     self.pdb.chains = chains
+    @property
+    def number_of_atoms(self):
+        return self.pdb.number_of_atoms
+
+    @property
+    def number_of_residues(self):
+        return self.pdb.number_of_residues
+
+    @property
+    def center_of_mass(self):
+        """Returns: (Numpy.ndarray)"""
+        return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
+
+    @property
+    def symmetric_centers_of_mass(self):
+        """Returns: (Numpy.ndarray)"""
+        if self.symmetry:
+            return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms),
+                             np.split(self.model_coords, self.number_of_models))
+            # for model in self.number_of_models:
+            #     np.matmul(np.full(coords_length, divisor),
+            #               self.model_coords[model * coords_length: (model + 1) * coords_length])
+        # try:
+        #     return self._center_of_mass
+        # except AttributeError:
+        #     self.find_center_of_mass()
+        #     return self._center_of_mass
+
+    # def find_center_of_mass(self):
+    #     """Retrieve the center of mass for the specified Structure"""
+    #     if self.symmetry:
+    #         divisor = 1 / len(self.model_coords)
+    #         self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.model_coords)
+    #     else:
+    #         divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
+    #         self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
+
+    def add_pdb(self, pdb):
+        """Add a PDB to the Pose PDB as well as the member PDB container"""
+        # self.pdbs.append(pdb)
+        self.pdbs_d[pdb.name] = pdb
+        self.add_entities_to_pose(pdb)
+
+    def add_entities_to_pose(self, pdb):
+        """Add each unique Entity in a PDB to the Pose PDB. Multiple PDB's become one PDB representative"""
+        # self.pose_pdb_accession_map[pdb.name] = pdb.entity_accession_map
+        # self.pose_pdb_accession_map[pdb.name] = pdb.entity_d
+        # for entity in pdb.accession_entity_map:
+        current_pdb_entities = self.entities
+        for idx, entity in enumerate(pdb.entities):
+            current_pdb_entities.append(entity)
+
+        self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb)
 
     def entity(self, entity):
         return self.pdb.entity(entity)
 
-    def chain(self, _chain):  # To not mess with chain.from_iterable namespace
-        return self.pdb.entity_from_chain(_chain)
+    def chain(self, chain):
+        return self.pdb.entity_from_chain(chain)
 
-    @property
-    def number_of_atoms(self):
-        return len(self.pdb.get_atoms())
-    #     try:
-    #         return self._number_of_atoms
-    #     except AttributeError:
-    #         self.set_length()
-    #         return self._number_of_atoms
-    #
-    # @number_of_atoms.setter
-    # def number_of_atoms(self, length):
-    #     self._number_of_atoms = length
+    # def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
+    #     self.ignore_clashes = ignore_clashes
+    #     if design_selector:
+    #         self.design_selector = design_selector
+    #     else:
+    #         self.design_selector = {}
+    #     # if design_selector:
+    #     #     self.create_design_selector(**design_selector)
+    #     # else:
+    #     #     # self.create_design_selector(selection={}, mask={}, required={})
+    #     #     self.design_selector_entities = self.design_selector_entities.union(set(self.entities))
+    #     #     self.design_selector_indices = self.design_selector_indices.union(set(self.pdb.atom_indices))
+    #     if frag_db:
+    #         # Attach an existing FragmentDB to the Pose
+    #         self.attach_fragment_database(db=frag_db)
+    #         for entity in self.entities:
+    #             entity.attach_fragment_database(db=frag_db)
 
-    @property
-    def number_of_residues(self):
-        return len(self.pdb.get_residues())
-    #     try:
-    #         return self._number_of_residues
-    #     except AttributeError:
-    #         self.set_length()
-    #         return self._number_of_residues
-    #
-    # @number_of_residues.setter
-    # def number_of_residues(self, length):
-    #     self._number_of_residues = length
-
-    @property
-    def center_of_mass(self):
-        try:
-            return self._center_of_mass
-        except AttributeError:
-            self.find_center_of_mass()
-            return self._center_of_mass
-
-    # def set_length(self):
-    #     self.number_of_atoms = len(self.pdb.get_atoms())
-    #     self.number_of_residues = len(self.pdb.get_residues())
-
-    def find_center_of_mass(self):
-        """Retrieve the center of mass for the specified Structure"""
-        if self.symmetry:
-            divisor = 1 / len(self.model_coords)
-            self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.model_coords)
-        else:
-            divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
-            self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
-
-    def handle_flags(self, design_selector=None, frag_db=None, **kwargs):
-        if design_selector:
-            self.create_design_selector(**design_selector)
-        if frag_db:
-            # Attach an existing FragmentDB to the Pose
-            self.attach_fragment_database(db=frag_db)
-            for entity in self.entities:
-                entity.attach_fragment_database(db=frag_db)
-
-    def create_design_selector(self, selection=None, mask=None, required=None):
+    def create_design_selector(self):  # , selection=None, mask=None, required=None):
         """Set up a design selector for the Pose including selctions, masks, and required Entities and Atoms
 
         Sets:
@@ -996,6 +886,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             self.design_selector_entities (set[Entity])
             self.required_indices (set[int])
         """
+        if len(self.pdbs_d) > 1:
+            self.log.warning('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
+                             'files. Proceed with caution if this is not was you expected!')
         def grab_indices(pdbs=None, entities=None, chains=None, residues=None, pdb_residues=None, atoms=None,
                          start_with_none=False):
             if start_with_none:
@@ -1011,14 +904,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
                 # atom_selection = set(self.pdb.get_residue_atom_indices(numbers=residues))
                 raise DesignError('Can\'t select residues by PDB yet!')
             if entities:
-                atom_indices = set_function(atom_indices, chain.from_iterable([self.entity(entity).atom_indices
-                                                                               for entity in entities]))
+                atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.entity(entity).atom_indices
+                                                                                   for entity in entities]))
                 entity_set = set_function(entity_set, [self.entity(entity) for entity in entities])
             if chains:
                 # vv This is for the intersectional model
-                atom_indices = set_function(atom_indices, chain.from_iterable([self.chain(chain_id).atom_indices
-                                                                               for chain_id in chains]))
-                # atom_indices.union(chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
+                atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.chain(chain_id).atom_indices
+                                                                                   for chain_id in chains]))
+                # atom_indices.union(iter_chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
                 entity_set = set_function(entity_set, [self.chain(chain_id) for chain_id in chains])
@@ -1027,56 +920,32 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             if pdb_residues:
                 atom_indices = set_function(atom_indices, self.pdb.get_residue_atom_indices(numbers=residues, pdb=True))
             if atoms:
-                atom_indices = set_function(atom_indices, self.pdb.get_atom_indices(numbers=atoms))
+                atom_indices = set_function(atom_indices, [idx for idx in self.pdb.atom_indices if idx in atoms])
 
             return entity_set, atom_indices
 
-        self.log.debug('The design_selection includes: %s' % selection)
-        entity_selection, atom_selection = grab_indices(**selection)
-        self.log.debug('The design_mask includes: %s' % mask)
-        entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
-        entity_selection = entity_selection.difference(entity_mask)
-        atom_selection = atom_selection.difference(atom_mask)
-        self.log.debug('The required_residues includes: %s' % required)
-        entity_required, atom_required = grab_indices(**required, start_with_none=True)
-
-        self.design_selector_entities = self.design_selector_entities.union(entity_selection)
-        self.design_selector_indices = self.design_selector_indices.union(atom_selection)
-        self.required_indices = self.required_indices.union(atom_required)
-        self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
-
-    # def add_pdb(self, pdb):  # Todo
-    #     """Add a PDB to the PosePDB as well as the member PDB list"""
-    #     self.pdbs.append(pdb)
-    #     self.pdbs_d[pdb.name] = pdb
-    #     # self.pdbs_d[id(pdb)] = pdb
-    #     self.add_entities_to_pose(self, pdb)
-    #     # Todo turn multiple PDB's into one structure representative
-    #     # self.pdb.add_atoms(pdb.get_atoms())
-    #
-    # def add_entities_to_pose(self, pdb):  # Unused Todo
-    #     """Add each unique entity in a pdb to the pose, updating all metadata"""
-    #     # self.pose_pdb_accession_map[pdb.name] = pdb.entity_accession_map
-    #     self.pose_pdb_accession_map[pdb.name] = pdb.entity_d
-    #     # for entity in pdb.accession_entity_map:
-    #     for idx, entity in enumerate(pdb.entities):
-    #         self.add_entity(entity, name='%s_%d' % (pdb.name, idx))
-    #
-    # def add_entity(self, entity, name=None):  # Unused
-    #     # Todo Fix this garbage... Entity()
-    #     self.entities = None
-    #     entity_chain = pdb.entities[entity]['representative']
-    #     self.asu.add_atoms(entity.get_atoms())
-
-    def initialize_symmetry(self, symmetry=None):  # Unused
-        if symmetry:
-            self.set_symmetry(symmetry=symmetry)
-        elif self.pdb.space_group and self.pdb.uc_dimensions:  # Todo from ASU has the old symmetry indicators attached!
-            self.set_symmetry(symmetry=self.pdb.space_group, uc_dimensions=self.pdb.uc_dimensions)
-        elif self.pdb.cryst_record:
-            self.set_symmetry(cryst1=self.pdb.cryst_record)
+        if 'selection' in self.design_selector:
+            self.log.debug('The design_selection includes: %s' % self.design_selector['selection'])
+            entity_selection, atom_selection = grab_indices(**self.design_selector['selection'])
         else:
-            self.log.info('No symmetry present in the Pose PDB')
+            entity_selection, atom_selection = set(self.entities), set(self.pdb.atom_indices)
+
+        if 'mask' in self.design_selector:
+            self.log.debug('The design_mask includes: %s' % self.design_selector['mask'])
+            entity_mask, atom_mask = grab_indices(**self.design_selector['mask'], start_with_none=True)
+        else:
+            entity_mask, atom_mask = set(), set()
+
+        self.design_selector_entities = entity_selection.difference(entity_mask)
+        self.design_selector_indices = atom_selection.difference(atom_mask)
+
+        if 'required' in self.design_selector:
+            self.log.debug('The required_residues includes: %s' % self.design_selector['required'])
+            entity_required, atom_required = grab_indices(**self.design_selector['required'], start_with_none=True)
+        else:
+            entity_required, atom_required = set(), set()
+        self.required_indices = atom_required
+        self.required_residues = self.pdb.get_residues_by_atom_indices(self.required_indices)
 
     def construct_cb_atom_tree(self, entity1, entity2, distance=8):  # TODO UNUSED
         """Create a atom tree using CB atoms from two PDB's
@@ -1107,7 +976,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
         return entity1_tree.query_radius(entity2_coords, distance)
 
-    def find_interface_pairs(self, entity1=None, entity2=None, distance=8, include_glycine=True):
+    def find_interface_pairs(self, entity1=None, entity2=None, distance=8):  # , include_glycine=True):
         """Get pairs of residue numbers that have CB atoms within a certain distance (in contact) between two named
         Entities.
         Caution!: Pose must have Coords representing all atoms as residue pairs are found using CB indices from all atoms
@@ -1117,29 +986,27 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         Keyword Args:
             entity1=None (Entity): First entity to measure interface between
-            # entity1=None (str): First entity name to measure interface between
             entity2=None (Entity): Second entity to measure interface between
-            # entity2=None (str): Second entity name to measure interface between
             distance=8 (int): The distance to query the interface in Angstroms
             include_glycine=True (bool): Whether glycine CA should be included in the tree
         Returns:
             list[tuple]: A list of interface residue numbers across the interface
         """
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
-        pdb_atoms = self.pdb.get_atoms()
-        number_of_atoms = self.pdb.number_of_atoms
+        pdb_atoms = self.pdb.atoms
+        pdb_residues = self.pdb.residues
+        number_of_atoms = self.number_of_atoms
         self.log.debug('Number of atoms in PDB: %s' % number_of_atoms)
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure
-        entity1_indices = entity1.get_cb_indices(InclGlyCA=include_glycine)
-        # entity1_atoms = self.pdb.entity(entity1).get_atoms()  # if passing by name
-        # entity1_indices = np.array(self.pdb.entity(entity1).get_cb_indices(InclGlyCA=include_glycine))
-
+        entity1_indices = entity1.get_cb_indices()  # InclGlyCA=include_glycine)
+        print('PDB CB indices: %s' % self.pdb.get_cb_indices())
+        print('Number of PDB residues: %d' % len(pdb_residues))
+        print('Entity1 CB indices: %s' % entity1_indices)
         # entity2_atoms = entity2.get_atoms()  # if passing by Structure
-        entity2_indices = entity2.get_cb_indices(InclGlyCA=include_glycine)
-        # entity2_atoms = self.pdb.entity(entity2).get_atoms()  # if passing by name
-        # entity2_indices = self.pdb.entity(entity2).get_cb_indices(InclGlyCA=include_glycine)
+        entity2_indices = entity2.get_cb_indices()  # InclGlyCA=include_glycine)
+        print('Entity2 CB indices: %s' % entity2_indices)
 
         if self.design_selector_indices:  # subtract the masked atom indices from the entity indices
             before = len(entity1_indices) + len(entity2_indices)
@@ -1152,33 +1019,43 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             return None
 
         if self.symmetry:
+            sym_string = 'symmetric '
             # get all symmetric indices
             entity2_indices = [idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
                                for idx in entity2_indices]
-            pdb_atoms = [atom for model_number in range(self.number_of_models) for atom in pdb_atoms]
+            pdb_atoms = [atom for model in range(self.number_of_models) for atom in pdb_atoms]
             self.log.debug('Number of atoms in expanded assembly PDB: %s' % len(pdb_atoms))
+            pdb_residues = [residue for model in range(self.number_of_models) for residue in pdb_residues]
             # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             if entity2 == entity1:
-                # the queried entity is the same, however we don't want interactions with the same symmetry mate
-                asu_indices = self.find_asu_equivalent_symmetry_mate_indices()
-                entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
+                # the queried entity is the same, however we don't want interactions with the same symmetry mate or
+                # Todo TEST intra-oligomeric contacts. Both should be removed from symmetry mate coords
+                remove_indices = self.find_asu_equivalent_symmetry_mate_indices()
+                # entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
+                remove_indices += self.find_intra_oligomeric_symmetry_mate_indices(entity2)
+                entity2_indices = list(set(entity2_indices) - set(remove_indices))
                 # self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
-            entity2_coords = self.model_coords[np.array(entity2_indices)]  # only get the coordinate indices we want
+            entity2_coords = self.model_coords[entity2_indices]  # only get the coordinate indices we want
         elif entity1 == entity2:
-            # without symmetry, we can't measure this
+            # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             return None
         else:
-            entity2_coords = self.coords[np.array(entity2_indices)]  # only get the coordinate indices we want
+            sym_string = ' '
+            entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
 
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
-        entity1_coords = self.coords[np.array(entity1_indices)]  # only get the coordinate indices we want
+        entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want
         entity1_tree = BallTree(entity1_coords)
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates
-        self.log.info('Querying %d CB residues in Entity %s versus, %d CB residues in Entity %s'
-                      % (len(entity1_indices), entity1.name, len(entity2_indices), entity2.name))
+        self.log.info('Querying %d CB residues in Entity %s versus, %d CB residues in %sEntity %s'
+                      % (len(entity1_indices), entity1.name, len(entity2_indices), sym_string, entity2.name))
         # self.log.debug('Entity2 Query size: %d' % entity2_query.size)
+        # contacting_pairs = [(pdb_residues[entity1_indices[entity1_idx]],
+        #                      pdb_residues[entity2_indices[entity2_idx]])
+        #                     for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
+
         contacting_pairs = [(pdb_atoms[entity1_indices[entity1_idx]].residue_number,
                              pdb_atoms[entity2_indices[entity2_idx]].residue_number)
                             for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
@@ -1186,14 +1063,25 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             return contacting_pairs
         else:  # solve symmetric results for asymmetric contacts
             asymmetric_contacting_pairs, found_pairs = [], []
-            for possible_pair in contacting_pairs:
-                if possible_pair not in found_pairs or (possible_pair[1], possible_pair[0]) not in found_pairs:
-                    # only add if we have never observed either pair orientation
-                    asymmetric_contacting_pairs.append(possible_pair)
-                found_pairs.append(possible_pair)  # always add, regardless
-                found_pairs.append((possible_pair[1], possible_pair[0]))  # always add, regardless
+            for pair1, pair2 in contacting_pairs:
+                # add both pair orientations (1, 2) or (2, 1) regardless
+                found_pairs.extend([(pair1, pair2), (pair2, pair1)])
+                # only add to contacting pair if we have never observed either
+                if (pair1, pair2) not in found_pairs or (pair2, pair1) not in found_pairs:
+                    asymmetric_contacting_pairs.append((pair1, pair2))
+
             return asymmetric_contacting_pairs
 
+    # @staticmethod
+    # def split_interface_pairs(interface_pairs):
+    #     if interface_pairs:
+    #         residues1, residues2 = zip(*interface_pairs)
+    #         return sorted(set(residues1), key=lambda residue: residue.number), \
+    #             sorted(set(residues2), key=lambda residue: residue.number)
+    #     else:
+    #         return [], []
+
+    # for residue numbers
     @staticmethod
     def split_interface_pairs(interface_pairs):
         if interface_pairs:
@@ -1203,56 +1091,62 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             return [], []
 
     def find_interface_residues(self, entity1=None, entity2=None, **kwargs):  # distance=8, include_glycine=True):
-        """Get unique residues from each pdb across an interface provide two Entity names
+        """Get unique residues from each pdb across an interface provided by two Entity names
 
         Keyword Args:
-            entity1=None (str): First entity name to measure interface between
-            entity2=None (str): Second entity name to measure interface between
+            entity1=None (Entity): First Entity to measure interface between
+            entity2=None (Entity): Second Entity to measure interface between
             distance=8 (int): The distance to query the interface in Angstroms
             include_glycine=True (bool): Whether glycine CA should be included in the tree
         Returns:
-            tuple[set]: A tuple of interface residue sets across an interface
+            (tuple[set]): A tuple of interface residue sets across an interface
         """
+        # entity1_residues, entity2_residues = \
         entity1_residue_numbers, entity2_residue_numbers = \
             self.split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
         if not entity1_residue_numbers or not entity2_residue_numbers:
+        # if not entity1_residues or not entity2_residues:
             self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
-            # if (entity1, entity2) not in self.interface_residues:
-            self.interface_residues[(entity1, entity2)] = ()
-            # if entity2 not in self.interface_residues:
-            #     self.interface_residues[entity2] = []
+            self.interface_residues[(entity1, entity2)] = ([], [])
             return None
         else:
-            self.log.info('At interface Entity %s | Entity %s\t%s has interface residue numbers: %s'
+            self.log.info('At Entity %s | Entity %s interface:\t%s found residue numbers: %s'
+                          # % (entity1.name, entity2.name, entity1.name, ', '.join(str(res.number)
+                          #                                                        for res in entity1_residues)))
                           % (entity1.name, entity2.name, entity1.name, entity1_residue_numbers))
-            self.log.info('At interface Entity %s | Entity %s\t%s has interface residue numbers: %s'
+            self.log.info('At Entity %s | Entity %s interface:\t%s found residue numbers: %s'
+                          # % (entity1.name, entity2.name, entity2.name, ', '.join(str(res.number)
+                          #                                                        for res in entity2_residues)))
                           % (entity1.name, entity2.name, entity2.name, entity2_residue_numbers))
 
+        # self.interface_residues[(entity1, entity2)] = (entity1_residues, entity2_residues)
         self.interface_residues[(entity1, entity2)] = (entity1.get_residues(numbers=entity1_residue_numbers),
                                                        entity2.get_residues(numbers=entity2_residue_numbers))
-        # if entity1 not in self.interface_residues:
-        #     self.interface_residues[entity1] = entity1.get_residues(numbers=entity1_residue_numbers)
-        # else:
-        #     self.interface_residues[entity1].extend(entity1.get_residues(numbers=entity1_residue_numbers))
-        #
-        # if entity2 not in self.interface_residues:
-        #     self.interface_residues[entity2] = entity2.get_residues(numbers=entity2_residue_numbers)
-        # else:
-        #     self.interface_residues[entity2].extend(entity2.get_residues(numbers=entity2_residue_numbers))
         entity_d = {1: entity1, 2: entity2}  # Todo clean
         self.log.debug('Added interface_residues: %s' % ['%d%s' % (residue.number, entity_d[idx].chain_id)
                        for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)], 1)
                        for residue in entity_residues])
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
-        # Todo identity frag type by residue, not by calculation
-        surface_frags1 = entity1.get_fragments([residue.number
-                                                for residue in self.interface_residues[(entity1, entity2)][0]])
-        surface_frags2 = entity2.get_fragments([residue.number
-                                                for residue in self.interface_residues[(entity1, entity2)][1]])
-        # surface_frags1 = entity1.get_fragments([residue.number for residue in self.interface_residues[entity1]])
-        # surface_frags2 = entity2.get_fragments([residue.number for residue in self.interface_residues[entity2]])
+        """For all found interface residues in a Entity/Entity interface, search for corresponding fragment pairs
+
+        Keyword Args:
+            entity1=None (Structure): The first Entity to measure for an interface
+            entity2=None (Structure): The second Entity to measure for an interface
+        Sets:
+            self.fragment_queries (dict[mapping[tuple, dict]])
+        """
+        entity1_residues, entity2_residues = self.interface_residues.get((entity1, entity2))
+        # if not self.interface_residues[(entity1, entity2)]:
+        #     self.log.debug('At interface Entity %s | Entity %s\tMISSING interface residues'
+        #                    % (entity1.name, entity2.name))
+        #     return None
+        surface_frags1 = entity1.get_fragments([residue.number for residue in entity1_residues],
+                                               representatives=self.frag_db.reps)
+        surface_frags2 = entity2.get_fragments([residue.number for residue in entity2_residues],
+                                               representatives=self.frag_db.reps)
+
         if not surface_frags1 or not surface_frags2:
             self.log.debug('At interface Entity %s | Entity %s\tMISSING interface residues with matching fragments'
                            % (entity1.name, entity2.name))
@@ -1266,17 +1160,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
-            surface_frags2 = list(chain.from_iterable(surface_frags2_nested))
+            surface_frags2 = list(iter_chain.from_iterable(surface_frags2_nested))
             self.log.debug('Entity 2 Symmetry expanded fragment count: %d' % len(surface_frags2))
 
         entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, surface_frags1, surface_frags2,
-                                                                         fragdb=self.frag_db)
+                                                                         fragdb=self.frag_db,
+                                                                         euler_lookup=self.euler_lookup)
         self.log.info('Found %d overlapping fragment pairs at the %s | %s interface.'
                       % (len(ghostfrag_surfacefrag_pairs), entity1.name, entity2.name))
-        self.fragment_observations.extend(ghostfrag_surfacefrag_pairs)  # Todo, change so not same as DesignDirectory
         fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
+        # add newly found fragment pairs to the existing fragment observations
+        self.fragment_observations.extend(ghostfrag_surfacefrag_pairs)  # Todo, change so not same as DesignDirectory
 
     def score_interface(self, entity1=None, entity2=None):
         if (entity1, entity2) not in self.fragment_queries and (entity2, entity1) not in self.fragment_queries:
@@ -1286,10 +1182,25 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
 
         return self.return_fragment_query_metrics(entity1=entity1, entity2=entity2, per_interface=True)
 
+    def find_and_split_interface(self):
+        """Locate the interface residues for the designable entities and split into two interfaces
+
+        Sets:
+            self.interface_split (dict): Residue/Entity id of each residue at the interface identified by interface id
+            as split by topology
+        """
+        self.log.debug('Find and split interface using active_entities: %s' %
+                       [entity.name for entity in self.active_entities])
+        for entity_pair in combinations_with_replacement(self.active_entities, 2):
+            self.find_interface_residues(*entity_pair)
+
+        self.check_interface_topology()
+
     def check_interface_topology(self):
         first, second = 0, 1
         interface_residue_d = {first: {}, second: {}, 'self': [False, False]}
         terminate = False
+        self.log.debug('Pose contains interface residues: %s' % self.interface_residues)
         for entity_pair, entity_residues in self.interface_residues.items():
             if not entity_residues:
                 continue
@@ -1447,22 +1358,27 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
 
-        # get interface residues for the designable entities
-        for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.find_interface_residues(*entity_pair)
-
-        self.check_interface_topology()
+        # # get interface residues for the designable entities
+        # self.find_and_split_interface()
+        # # for entity_pair in combinations_with_replacement(self.active_entities, 2):
+        # #     self.find_interface_residues(*entity_pair)
+        # #
+        # # self.check_interface_topology()
 
         if fragments:
             if query_fragments:  # search for new fragment information
                 # inherently gets interface residues for the designable entities
                 self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
-                self.check_interface_topology()
+                # self.check_interface_topology()  # already done above
             else:  # No fragment query, add existing fragment information to the pose
                 # if fragments_exist:
                 if not self.frag_db:
                     self.connect_fragment_database(init=False)  # location='biological_interfaces' inherent in call
-                    self.handle_flags(frag_db=self.frag_db)  # attach to all entities
+                    # Attach an existing FragmentDB to the Pose
+                    self.attach_fragment_database(db=frag_db)
+                    for entity in self.entities:
+                        entity.attach_fragment_database(db=frag_db)
+                    # self.handle_flags(frag_db=self.frag_db)  # attach to all entities
 
                 fragment_source = design_dir.fragment_observations
                 if not fragment_source:
@@ -1531,6 +1447,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         # self.solve_consensus()  # Todo
         # -------------------------------------------------------------------------
 
+    def connect_fragment_database(self, location=None, init=False, **kwargs):  # Todo Clean up
+        """Generate a new connection. Initialize the representative library by passing init=True"""
+        if not location:  # Todo fix once multiple are available
+            location = 'biological_interfaces'
+        self.frag_db = FragmentDatabase(location=location, init_db=init)
+        #                               source=source, location=location, init_db=init_db)
+
     def generate_interface_fragments(self, write_fragments=True, out_path=None, new_db=False):
         """Using the attached fragment database, generate interface fragments between the Pose interfaces
 
@@ -1548,9 +1471,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model, PDB
         #                       'Alternatively pass new_db=True to %s'
         #                       % (self.generate_interface_fragments.__name__,
         #                          self.generate_interface_fragments.__name__))
+        if not self.interface_residues:
+            for entity_pair in combinations_with_replacement(self.active_entities, 2):
+                self.find_interface_residues(*entity_pair)
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.find_interface_residues(*entity_pair)
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'
                            % tuple(entity.name for entity in entity_pair))
             self.query_interface_for_fragments(*entity_pair)
@@ -1702,8 +1627,8 @@ def construct_cb_atom_tree(pdb1, pdb2, distance=8):
         pdb2_cb_indices (list): List of all CB indices from pdb2
     """
     # Get CB Atom Coordinates including CA coordinates for Gly residues
-    pdb1_coords = np.array(pdb1.extract_CB_coords(InclGlyCA=gly_ca))
-    pdb2_coords = np.array(pdb2.extract_CB_coords(InclGlyCA=gly_ca))
+    pdb1_coords = np.array(pdb1.extract_cb_coords(InclGlyCA=gly_ca))
+    pdb2_coords = np.array(pdb2.extract_cb_coords(InclGlyCA=gly_ca))
 
     # Construct CB Tree for PDB1
     pdb1_tree = BallTree(pdb1_coords)
@@ -1712,7 +1637,7 @@ def construct_cb_atom_tree(pdb1, pdb2, distance=8):
     return pdb1_tree.query_radius(pdb2_coords, distance)
 
 
-def find_interface_pairs(pdb1, pdb2, distance=8, gly_ca=True):
+def find_interface_pairs(pdb1, pdb2, distance=8):  # , gly_ca=True):
     """Get pairs of residues across an interface within a certain distance
 
         Args:
@@ -1726,8 +1651,8 @@ def find_interface_pairs(pdb1, pdb2, distance=8, gly_ca=True):
     query = construct_cb_atom_tree(pdb1, pdb2, distance=distance)
 
     # Map Coordinates to Atoms
-    pdb1_cb_indices = pdb1.get_cb_indices(InclGlyCA=gly_ca)
-    pdb2_cb_indices = pdb2.get_cb_indices(InclGlyCA=gly_ca)
+    pdb1_cb_indices = pdb1.get_cb_indices()  # InclGlyCA=gly_ca)
+    pdb2_cb_indices = pdb2.get_cb_indices()  # InclGlyCA=gly_ca)
 
     # Map Coordinates to Residue Numbers
     interface_pairs = []
@@ -1760,15 +1685,15 @@ def find_interface_residues(pdb1, pdb2, distance=8):
     return split_interface_pairs(find_interface_pairs(pdb1, pdb2, distance=distance))
 
 
-def get_fragments(pdb, chain_res_info, fragment_length=5):
+def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
     interface_frags = []
     ca_count = 0
     for residue_number in chain_res_info:
         frag_residue_numbers = [residue_number + i for i in range(-2, 3)]
         frag_atoms, ca_present = [], []
         for residue in pdb.residue(frag_residue_numbers):
-            frag_atoms.extend(residue.get_atoms())
-            if residue.get_ca():
+            frag_atoms.extend(residue.atoms())
+            if residue.ca:
                 ca_count += 1
 
         if ca_count == 5:
@@ -1777,72 +1702,74 @@ def get_fragments(pdb, chain_res_info, fragment_length=5):
     return interface_frags
 
 
-def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2, fragdb=None, max_z_value=2):
+def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2, fragdb=None,
+                                       euler_lookup=None, max_z_value=2):
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From a Structure Entity, score the interface between them according to Nanohedra's fragment matching"""
-    # Get entity1 interface fragments with guide coordinates using fragment database
-    # interface_frags1 = get_fragments(entity1, entity1_interface_residue_numbers)
-
     if not fragdb:
         fragdb = FragmentDB()
         fragdb.get_monofrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_info_dict()
+    if not euler_lookup:
+        euler_lookup = EulerLookup()
 
     kdtree_oligomer1_backbone = BallTree(entity1_coords)
-    # kdtree_oligomer1_backbone = BallTree(np.array(entity1.extract_backbone_coords()))
-    complete_int1_ghost_frag_l, interface_ghostfrag_guide_coords_list = [], []
+    interface_ghost_frags1 = []
     for frag1 in interface_frags1:
-        complete_monofrag1 = MonoFragment(frag1, fragdb.reps)  # ijk_monofrag_cluster_rep_pdb_dict)
-        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(fragdb.paired_frags,
-                                                                                   kdtree_oligomer1_backbone,
-                                                                                   fragdb.info)
-        if complete_monofrag1_ghostfrag_list:
-            complete_int1_ghost_frag_l.extend(complete_monofrag1_ghostfrag_list)
-            for ghost_frag in complete_monofrag1_ghostfrag_list:
-                interface_ghostfrag_guide_coords_list.append(ghost_frag.get_guide_coords())
+        ghostfrags = frag1.get_ghost_fragments(fragdb.paired_frags, kdtree_oligomer1_backbone, fragdb.info)
+        if ghostfrags:
+            interface_ghost_frags1.extend(ghostfrags)
 
-    # Get entity2 interface fragments with guide coordinates using complete fragment database
-    # interface_frags2 = get_fragments(entity2, entity2_interface_residue_numbers)
+    # Get fragment guide coordinates
+    interface_ghostfrag_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in interface_ghost_frags1])
+    interface_surf_frag_guide_coords = np.array([frag2.get_guide_coords() for frag2 in interface_frags2])
 
-    complete_int2_frag_l, interface_surf_frag_guide_coords_list = [], []
-    for frag2 in interface_frags2:
-        complete_monofrag2 = MonoFragment(frag2, fragdb.reps)
-        complete_monofrag2_guide_coords = complete_monofrag2.get_guide_coords()
-        if complete_monofrag2_guide_coords is not None:
-            complete_int2_frag_l.append(complete_monofrag2)
-            interface_surf_frag_guide_coords_list.append(complete_monofrag2_guide_coords)
-
-    eul_lookup = EulerLookup()
     # Check for matching Euler angles
-    # Todo prefilter guide_coords_list with i/j type true array
-    eul_lookup_all_to_all_list = eul_lookup.check_lookup_table(interface_ghostfrag_guide_coords_list,
-                                                               interface_surf_frag_guide_coords_list)
-    eul_lookup_true_list = [(true_tup[0], true_tup[1]) for true_tup in eul_lookup_all_to_all_list if true_tup[2]]
+    # TODO create a stand alone function
+    overlapping_ghost_indices, overlapping_surf_indices = \
+        euler_lookup.check_lookup_table(interface_ghostfrag_guide_coords, interface_surf_frag_guide_coords)
+    # filter array by matching type for surface (i) and ghost (j) frags
+    surface_type_i_array = np.array([interface_frags2[idx].i_type for idx in overlapping_surf_indices.tolist()])
+    ghost_type_j_array = np.array([interface_ghost_frags1[idx].j_type for idx in overlapping_ghost_indices.tolist()])
+    ij_type_match = np.where(surface_type_i_array == ghost_type_j_array, True, False)
 
-    all_fragment_overlap = filter_euler_lookup_by_zvalue(eul_lookup_true_list, complete_int1_ghost_frag_l,
-                                                         interface_ghostfrag_guide_coords_list,
-                                                         complete_int2_frag_l, interface_surf_frag_guide_coords_list,
-                                                         z_value_func=calculate_overlap, max_z_value=max_z_value)
-    # passing_fragment_overlap = list(filter(None, all_fragment_overlap))
-    ghostfrag_surffrag_pairs = [(complete_int1_ghost_frag_l[eul_lookup_true_list[idx][0]],
-                                 complete_int2_frag_l[eul_lookup_true_list[idx][1]], all_fragment_overlap[idx][0])
-                                for idx, boolean in enumerate(all_fragment_overlap) if boolean]
+    passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
+    passing_ghost_coords = interface_ghostfrag_guide_coords[passing_ghost_indices]
 
-    return ghostfrag_surffrag_pairs
+    passing_surf_indices = overlapping_surf_indices[ij_type_match]
+    passing_surf_coords = interface_surf_frag_guide_coords[passing_surf_indices]
+    # precalculate the reference_rmsds for each ghost fragment
+    reference_rmsds = np.array([interface_ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
+    reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
+
+    all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
+                                             max_z_value=max_z_value)
+    passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
+
+    interface_ghostfrags = [interface_ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
+    interface_monofrags2 = [interface_frags2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
+    passing_z_values = all_fragment_overlap[passing_overlap_indices]
+    match_scores = match_score_from_z_value(passing_z_values)
+
+    return list(zip(interface_ghostfrags, interface_monofrags2, match_scores))
 
 
 def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
+    """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
+    information
+    Args:
+        ghostfrag_surffrag_pairs (list[tuple]): Observed ghost and surface fragment overlaps and their match score
+    Returns:
+        (list[dict])
+    """
     fragment_matches = []
     for interface_ghost_frag, interface_mono_frag, match_score in ghostfrag_surffrag_pairs:
-        entity1_surffrag_ch, entity1_surffrag_resnum = interface_ghost_frag.get_aligned_surf_frag_central_res_tup()
+        entity1_surffrag_ch, entity1_surffrag_resnum = interface_ghost_frag.get_aligned_chain_and_residue()
         entity2_surffrag_ch, entity2_surffrag_resnum = interface_mono_frag.get_central_res_tup()
         fragment_matches.append({'mapped': entity1_surffrag_resnum, 'match': match_score,
-                                 'paired': entity2_surffrag_resnum, 'cluster': '%s_%s_%s'
+                                 'paired': entity2_surffrag_resnum, 'cluster': '%d_%d_%d'
                                                                                % interface_ghost_frag.get_ijk()})
-    # if log:
-    #     log.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
-    #     log.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
 
@@ -1851,17 +1778,17 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
 
 def write_fragment_pairs(ghostfrag_surffrag_pairs, out_path=os.getcwd()):
     for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs):
-        interface_ghost_frag.pdb.write(out_path=os.path.join(out_path, '%s_%s_%s_fragment_overlap_match_%d.pdb'
-                                                             % (*interface_ghost_frag.get_ijk(), idx)))
+        interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_overlap_match_%d.pdb'
+                                                                   % (*interface_ghost_frag.get_ijk(), idx)))
 
 
 def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
     interface_name = interface_pdb.name
 
-    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[0]).get_atoms())
+    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[0]).atoms)
     entity1.update_attributes_from_pdb(interface_pdb)
-    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[-1]).get_atoms())
+    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[-1]).atoms)
     entity2.update_attributes_from_pdb(interface_pdb)
 
     interacting_residue_pairs = find_interface_pairs(entity1, entity2)
@@ -1877,7 +1804,7 @@ def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
 
     interface_frags1 = get_fragments(entity1, entity1_interface_residue_numbers)
     interface_frags2 = get_fragments(entity2, entity2_interface_residue_numbers)
-    entity1_coords = entity1.extract_coords()
+    entity1_coords = entity1.coords
 
     ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
     # fragment_matches = find_fragment_overlap_at_interface(entity1, entity2, entity1_interface_residue_numbers,

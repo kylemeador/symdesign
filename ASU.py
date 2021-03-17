@@ -13,7 +13,7 @@ import SymDesignUtils as SDUtils
 # sys.path.append(PUtils.nanohedra_source)
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
-from BioPDBUtils import biopdb_aligned_chain  # removed for rmsd because of path issues
+from utils.PDBUtils import biopdb_aligned_chain
 from PDB import PDB
 from Pose import Pose
 
@@ -31,8 +31,8 @@ def make_asu(pdb_file, chain=None, out_path=os.getcwd, center=True):
     pdb = PDB.from_file(pdb_file)
     if center:
         print(pdb.center_of_mass)
-        pdb.apply(tx=-pdb.center_of_mass)
-        pdb.find_center_of_mass()
+        pdb.translate(-pdb.center_of_mass)
+        pdb.center_of_mass
         print(pdb.center_of_mass)
         pdb.write(out_path=os.path.join(out_path, 'expanded', 'centered' + os.path.basename(pdb.filepath)))
     # asu = pdb.return_asu(chain)  # no chain needed, just use the default
@@ -68,10 +68,11 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd):
     moved_oligomer = {}
     for pdb in chain_map:
         asu_chain = chain_map[pdb]['asu_chain']
-        oriented_oligomer = PDB(file=chain_map[pdb]['path'])
+        oriented_oligomer = PDB.from_file(chain_map[pdb]['path'])
         # oriented_oligomer = SDUtils.read_pdb(chain_map[pdb]['path'])
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
-        moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
+        moved_oligomer[pdb] = biopdb_aligned_chain(asu.chain(asu_chain), oriented_oligomer, oligomer_chain)
+        # moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
     final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))[0]}
     for pdb in moved_oligomer:
@@ -253,7 +254,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             else:
                 asu.write(out_path=os.path.join(asu_path, '%s_asu.pdb' % design))
 
-            # {1_Sym: PDB1, 1_Sym2: PDB2, 'final_symmetry': I}
+            # {1_Sym1: PDB1, 2_Sym2: PDB2, 'final_symmetry': I}
             sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
             sym_d['final_symmetry'] = design_file_input[design]['final_sym']
             # 10/6/20 removed _vflip

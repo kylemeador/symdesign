@@ -5,13 +5,11 @@ import os
 import subprocess
 from collections.abc import Iterable
 from copy import copy, deepcopy
-from itertools import repeat
+from itertools import repeat, chain as iter_chain
 from shutil import move
 
 import numpy as np
 from Bio import pairwise2
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
 # from Bio.Alphabet import IUPAC
 from sklearn.neighbors import BallTree
@@ -19,40 +17,43 @@ from sklearn.neighbors import BallTree
 from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_symmdef, orient_exe_path, \
     orient_log_file, orient_dir
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
-from SequenceProfile import write_fasta
 from Stride import Stride
-from Structure import Structure, Chain, Atom, Coords, Entity
-from SymDesignUtils import remove_duplicates, start_log  # logger
+from Structure import Structure, Chain, Entity, Atom
+from SymDesignUtils import remove_duplicates, start_log, null_log, DesignError
+from utils.SymmetryUtils import valid_subunit_number
 
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)
+# null_log = start_log(name='null', handler=3, propagate=False)
 
 
 class PDB(Structure):
-    """The base object for PDB file manipulation"""
+    """The base object for PDB file reading and Atom manipulation
+    Can pass atoms, residues, chains, entities, coords, metadata (PDB), name, seqres, multimodel, lazy,
+    and solve_discrepancy to initialize
+    """
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, file=None, atoms=None, metadata=None, log=None, no_entities=None, **kwargs):
-        if not log:
-            log = start_log()
-        super().__init__(log=log, **kwargs)  #
-        self.log.debug('Initializing PDB')
-        # if log:  # from Super Structure
-        #     self.log = log
-        # else:
-        #     self.log = start_log()
+    def __init__(self, file=None, atoms=None, residues=None, chains=None, entities=None, coords=None, metadata=None,
+                 log=False, **kwargs):
+        if log is None:
+            log = null_log
+        # else pass the log that was passed to the PDB to Structure or let structure start a log if log still is False
+        super().__init__(log=log, **kwargs)
+        # self.atoms = Atoms()  # from Structure
+        # self.center_of_mass = None  # from Structure
+        # self.coords = Coords()  # from Structure
+        # self.name = None  # from Structure
+        # self.residues = Residues()  # from Structure
+        # self.secondary_structure = None  # from Structure
 
-        # self.accession_entity_map = {}
-        # self.atoms = []  # captured from Structure
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
-        self.bb_coords = []
-        self.cb_coords = []
-        # self.center_of_mass = None  # captured from Structure
+        self.bb_coords = []  # Todo DEPRECIATE
+        self.cb_coords = []  # Todo DEPRECIATE
         self.chain_id_list = []  # unique chain IDs in PDB Todo refactor
         self.chains = []
-        # self.coords = []  # captured from Structure
         self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.cryst_record = None
         self.dbref = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
@@ -60,16 +61,11 @@ class PDB(Structure):
         self.entities = []
         self.entity_d = {}  # {1: {'chains': [Chain objs], 'seq': 'GHIPLF...', 'representative': 'A'}
         # ^ ZERO-indexed for recap project!!!
-        # self.entity_accession_map = {}
         self.filepath = None  # PDB filepath if instance is read from PDB file
         self.header = []
-        # self.name = None  # captured from Structure
-        self.profile = {}
         self.reference_aa = None
         self.resolution = None
-        # self.residues = []  # captured from Structure
         self.rotation_d = {}
-        # self.secondary_structure = None  # captured from Structure
         self.reference_sequence = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         self.space_group = None
         self.uc_dimensions = []
@@ -77,21 +73,104 @@ class PDB(Structure):
         self.dihedral_chain = None
 
         if file:
-            self.readfile(file, no_entities=no_entities)
-        if atoms:
-            self.set_atoms(atoms)  # sets all atoms and residues in PDB
-            self.chain_id_list = remove_duplicates([residue.chain for residue in self.residues])
+            self.readfile(file, **kwargs)
+        else:
+            if atoms is not None:
+                if coords is None:
+                    # try:
+                    #     coords = [atom.coords for atom in atoms]
+                    # except AttributeError:
+                    raise DesignError('Without passing coords, can\'t initialize Structure with Atom objects! Pass '
+                                      'desired coords.')
+                    # self.reindex_atoms()
+                    # # self.coords = coords
+                self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
+                self.process_pdb(atoms=atoms, coords=coords, **kwargs)
+            elif residues:
+                if coords is None:
+                    try:
+                        # coords = iter_chain.from_iterable([residue.coords for residue in residues])
+                        coords = np.concatenate([residue.coords for residue in residues])
+                    except AttributeError:
+                        raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects '
+                                          'lacking coords! Either pass Residue objects with coords or pass coords.')
+                    self.reindex_atoms()  # Todo is this correct?
+                    # self.coords = coords
+                self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
+                self.process_pdb(residues=residues, coords=coords, **kwargs)
+            elif isinstance(chains, list):  # Todo overloaded, may not function properly without process_pdb
+                atoms, residues = [], []
+                for chain in chains:
+                    atoms.extend(chain.atoms)
+                    residues.extend(chain.residues)
+                self.atoms = atoms
+                # self._atoms = copy(self._atoms)
+                self.atom_indices = list(range(len(atoms)))
+                self.residues = residues
+                # self._residues = copy(self._residues)
+                self.residue_indices = list(range(len(residues)))
+                self.set_coords(np.concatenate([chain.coords for chain in chains]))
+                # set residue indices according to new Atoms/Coords index
+                prior_residue = self.residues[0]
+                prior_residue.start_index = 0
+                for residue in self.residues[1:]:
+                    residue.start_index = prior_residue.atom_indices[-1]
+                    prior_residue = residue
+
+                self.chains = copy(chains)
+                self.copy_structures([self.chains])
+                self.chains[0].start_indices(dtype='atom', at=0)
+                self.chains[0].start_indices(dtype='residue', at=0)
+                for prior_idx, chain in enumerate(self.chains[1:]):
+                    chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
+                    chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
+                # set the arrayed attributes for all PDB containers
+                self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
+
+            elif isinstance(entities, list):  # Todo overloaded, may not function properly without process_pdb
+                atoms, residues = [], []
+                for entity in entities:  # grab only the Atom and Residue objects representing the Entity
+                    atoms.extend(entity.atoms)
+                    residues.extend(entity.residues)
+                self.atoms = atoms
+                self.residues = residues
+                self.atom_indices = list(range(len(atoms)))
+                self.residue_indices = list(range(len(residues)))
+                self.set_coords(np.concatenate([entity.coords for entity in entities]))
+                # set residue attributes
+                self.residues = copy(self._residues)  # have to copy the Residues (Residue's) to set new attributes
+                self.set_structure_attributes(self.residues, _atoms=self._atoms)
+                #                                       done in set_coords -> , coords=self._coords)
+                # indices according to new Atoms/Coords index
+                prior_residue = self.residues[0]
+                prior_residue.start_index = 0
+                for residue in self.residues[1:]:
+                    residue.start_index = prior_residue.atom_indices[-1] + 1
+                    prior_residue = residue
+
+                self.entities = copy(entities)
+                self.copy_structures([self.entities])
+                self.entities[0].start_indices(dtype='atom', at=0)
+                self.entities[0].start_indices(dtype='residue', at=0)
+                for prior_idx, entity in enumerate(self.entities[1:]):
+                    entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
+                    entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
+                # set the arrayed attributes for all PDB containers (chains, entities)
+                self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
-            self.process_pdb(coords=[atom.coords for atom in atoms])
 
     @classmethod
     def from_file(cls, file, **kwargs):
         return cls(file=file, **kwargs)
 
-    # @classmethod
-    # def from_entities(cls, entities):  # Todo
-    #     return cls()
+    @classmethod
+    def from_chains(cls, chains, **kwargs):
+        return cls(chains=chains, **kwargs)
+
+    @classmethod
+    def from_entities(cls, entities, **kwargs):
+        return cls(entities=entities, **kwargs)
 
     @property
     def number_of_chains(self):
@@ -101,6 +180,31 @@ class PDB(Structure):
     def symmetry(self):
         return {'symmetry': self.space_group, 'uc_dimensions': self.uc_dimensions, 'cryst_record': self.cryst_record,
                 'cryst': self.cryst, 'max_symmetry': self.max_symmetry}
+
+    # def return_transformed_copy(self, **kwargs):
+    #     new_pdb = super().return_transformed_copy(**kwargs)
+    #     # this shouldn't be required as the set of self._coords.coords updates all coords references
+    #     # new_pdb.update_attributes(coords=new_pdb._coords)
+    #
+    #     return new_pdb
+
+    def update_attributes(self, **kwargs):
+        """Update PDB attributes for all member containers specified by keyword args"""
+        # super().update_attributes(**kwargs)  # this is required to set the base Structure with the kwargs
+        self.set_structure_attributes(self.chains, **kwargs)
+        self.set_structure_attributes(self.entities, **kwargs)
+
+    # def set_chain_attributes(self, **kwargs):
+    #     """Set attributes specified by key, value pairs for all Chains in the Structure"""
+    #     for chain in self.chains:
+    #         for kwarg, value in kwargs.items():
+    #             setattr(chain, kwarg, value)
+    #
+    # def set_entity_attributes(self, **kwargs):
+    #     """Set attributes specified by key, value pairs for all Chains in the Structure"""
+    #     for chain in self.chains:
+    #         for kwarg, value in kwargs.items():
+    #             setattr(chain, kwarg, value)
 
     def set_chain_id_list(self, chain_id_list):
         self.chain_id_list = chain_id_list
@@ -117,16 +221,24 @@ class PDB(Structure):
     def get_uc_dimensions(self):
         return list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
 
-    def copy_metadata(self, other_pdb):
-        temp_metadata = {'api_entry': other_pdb.__dict__['api_entry'],
-                         'cryst_record': other_pdb.__dict__['cryst_record'],
-                         'cryst': other_pdb.__dict__['cryst'],
-                         'design': other_pdb.__dict__['design'],
-                         'entity_d': other_pdb.__dict__['entity_d'],  # Todo
-                         'name': other_pdb.__dict__['name'],
-                         'space_group': other_pdb.__dict__['space_group'],
-                         'uc_dimensions': other_pdb.__dict__['uc_dimensions']}
-        # temp_metadata = copy(other_pdb.__dict__)
+    def copy_metadata(self, other):
+        temp_metadata = \
+            {'api_entry': other.__dict__['api_entry'],
+             'cryst_record': other.__dict__['cryst_record'],
+             'cryst': other.__dict__['cryst'],
+             'design': other.__dict__['design'],
+             'entity_d': other.__dict__['entity_d'],  # Todo
+             'name': other.__dict__['_name'],
+             'space_group': other.__dict__['space_group'],
+             'uc_dimensions': other.__dict__['uc_dimensions'],
+             'header': other.__dict__['header'],
+             'reference_aa': other.__dict__['reference_aa'],
+             'resolution': other.__dict__['resolution'],
+             'rotation_d': other.__dict__['rotation_d'],
+             'max_symmetry': other.__dict__['max_symmetry'],
+             'dihedral_chain': other.__dict__['dihedral_chain'],
+             }
+        # temp_metadata = copy(other.__dict__)
         # temp_metadata.pop('atoms')
         # temp_metadata.pop('residues')
         # temp_metadata.pop('secondary_structure')
@@ -152,79 +264,73 @@ class PDB(Structure):
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
-    def readfile(self, filepath, remove_alt_location=True, **kwargs):
+    def readfile(self, filepath, lazy=False, name=None, **kwargs):
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
-        formatted_filename = os.path.splitext(os.path.basename(filepath))[0].rstrip('pdb').lstrip('pdb')
-        underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != 1 else None
-        self.name = formatted_filename[:underscore_idx]
+        if not name:
+            formatted_filename = os.path.splitext(os.path.basename(filepath))[0].replace('pdb', '')
+            underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
+            self.name = formatted_filename[:underscore_idx]
+        else:
+            self.name = name
 
         with open(self.filepath, 'r') as f:
             pdb_lines = f.readlines()
-            pdb_lines = list(map(str.rstrip, pdb_lines))
-        available_chain_ids = [sec + first for sec in [''] + [PDB.available_letters] for first in PDB.available_letters]
+            # pdb_lines = list(map(str.rstrip, pdb_lines))
+
         chain_ids = []
         seq_res_lines = []
+        # remove_alt_location = True
         multimodel, start_of_new_model = False, False
         model_chain_id, curr_chain_id = None, None
-        model_chain_index = 0
         entity = None
-        atom_idx = 0
         coords, atom_info = [], []
+        atom_idx = 0
         for line in pdb_lines:
-            if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':  # KM modified 2/10/20 for MSE
-                number = int(line[6:11].strip())
-                atom_type = line[12:16].strip()
+            if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':
                 alt_location = line[16:17].strip()
-                if line[17:20] == 'MSE':  # KM added 2/10/20
-                    residue_type = 'MET'  # KM added 2/10/20
+                # if remove_alt_location and alt_location not in ['', 'A']:
+                if alt_location not in ['', 'A']:
+                    continue
+                number = int(line[6:11])  # .strip()
+                atom_type = line[12:16].strip()
+                if line[17:20] == 'MSE':
+                    residue_type = 'MET'
                     if atom_type == 'SE':
                         atom_type = 'SD'  # change type from Selenium to Sulfur delta
-                else:  # KM added 2/10/20
+                else:
                     residue_type = line[17:20].strip()
                 if multimodel:
-                    if start_of_new_model or line[21:22].strip() != curr_chain_id:
-                        curr_chain_id = line[21:22].strip()
-                        model_chain_id = available_chain_ids[model_chain_index]
-                        model_chain_index += 1
+                    if start_of_new_model or line[21:22] != curr_chain_id:  # .strip()
+                        curr_chain_id = line[21:22]  # .strip()
+                        model_chain_id = next(available_chain_ids)
                         start_of_new_model = False
                     chain = model_chain_id
                 else:
-                    chain = line[21:22].strip()
-                residue_number = int(line[22:26].strip())
+                    chain = line[21:22]  # .strip()
+                residue_number = int(line[22:26])  # .strip()
                 code_for_insertion = line[26:27].strip()
-                occ = float(line[54:60].strip())
-                temp_fact = float(line[60:66].strip())
+                occ = float(line[54:60])  # .strip()
+                temp_fact = float(line[60:66])  # .strip()
                 element_symbol = line[76:78].strip()
                 atom_charge = line[78:80].strip()
-                _atom = (atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
-                         code_for_insertion, occ, temp_fact, element_symbol, atom_charge)
-                if remove_alt_location:
-                    if alt_location == '' or alt_location == 'A':
-                        if chain not in chain_ids:
-                            chain_ids.append(chain)
-                        # Store the atomic coordinates in a numpy array
-                        coords.append(
-                            [float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())])
-                        atom_info.append(_atom)
-                        atom_idx += 1
-                else:
-                    if chain not in chain_ids:  # Todo move this outside of the alt_location? Might be some weird files
-                        chain_ids.append(chain)
-                    # Store the atomic coordinates in a numpy array
-                    coords.append([float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())])
-                    atom_info.append(_atom)
-                    atom_idx += 1
-
+                if chain not in chain_ids:
+                    chain_ids.append(chain)
+                # prepare the atomic coordinates for addition to numpy array
+                coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+                atom_info.append((atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
+                                  code_for_insertion, occ, temp_fact, element_symbol, atom_charge))
+                atom_idx += 1
             elif line[0:5] == 'MODEL':
-                multimodel = True
-                start_of_new_model = True  # signifies that the next line comes after a new model
-                # model_chain_id = available_chain_ids[model_chain_index]
-                # model_chain_index += 1
+                # start_of_new_model signifies that the next line comes after a new model
+                multimodel, start_of_new_model = True, True
+                available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
+                                       for first in PDB.available_letters)
+            elif lazy:
+                continue
             elif line[0:6] == 'SEQRES':
                 seq_res_lines.append(line[11:])
             elif line[0:5] == 'DBREF':
-                # line = line.strip()
                 chain = line[12:14].strip().upper()
                 if line[5:6] == '2':
                     db_accession_id = line[18:40].strip()
@@ -246,86 +352,58 @@ class PDB(Structure):
                 self.entity_d[entity] = {'chains': line[line.rfind(':') + 1:].strip().rstrip(';').split(',')}
                 entity = None
             elif line[0:5] == 'SCALE':
-                self.header.append(line)
+                self.header.append(line.strip())
             elif line[0:6] == 'CRYST1':
-                self.header.append(line)
+                self.header.append(line.strip())
                 self.cryst_record = line.strip()
                 self.uc_dimensions, self.space_group = self.parse_cryst_record(self.cryst_record)
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-                # try:
-                #     a = float(line[6:15].strip())
-                #     b = float(line[15:24].strip())
-                #     c = float(line[24:33].strip())
-                #     ang_a = float(line[33:40].strip())
-                #     ang_b = float(line[40:47].strip())
-                #     ang_c = float(line[47:54].strip())
-                # except ValueError:
-                #     a, b, c = 0.0, 0.0, 0.0
-                #     ang_a, ang_b, ang_c = a, b, c
-                # space_group = line[55:66].strip()
 
-        self.coords = Coords(coords)
-        # todo set atom coords
-        self.set_atoms([Atom.from_info(*info) for info in atom_info])
-        # self.atoms = [Atom.from_info(*info) for info in atom_info]
-        # self.renumber_atoms()
         self.chain_id_list = chain_ids
         self.log.debug('Multimodel %s, Chains %s' % (True if multimodel else False, self.chain_id_list))
-        # self.coords = Coords(coords)  # np.array(coords)
-        # self.set_atom_coordinates(self.coords)
-        # assert len(self.atoms) == self.coords.shape[0], '%s: ERROR parseing Atoms (%d) and Coords (%d). Wrong size!' \
-        #                                                 % (self.filepath, len(self.atoms), self.coords.shape[0])
-        # for atom_idx, atom in enumerate(self.atoms):
-        #     atom.coords = self.coords[atom_idx]
-        self.process_pdb(coords=coords, seqres=seq_res_lines, multimodel=multimodel, **kwargs)
+        self.process_pdb(atoms=[Atom.from_info(*info) for info in atom_info], coords=coords,
+                         seqres=seq_res_lines, multimodel=multimodel, lazy=lazy, **kwargs)
 
-        # if seq_res_lines:
-        #     self.parse_seqres(seq_res_lines)
-        # else:
-        #     self.reference_sequence = {chain_id: None for chain_id in self.chain_id_list}
-        #     self.design = True
-            # entity.retrieve_sequence_from_api(entity_id=None)
+    # def process_symmetry(self):
+    #     """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
+    #     return None
 
-        # self.get_chain_sequences()
-        # self.generate_entity_accession_map()
-        # if not self.entity_d:
-        #     self.update_entities(source='atom')  # pulls entities from the Atom records not RCSB API ('pdb')
-        # else:
-        #     self.update_entity_d()
-
-    def process_symmetry(self):
-        """Find symmetric copies in the PDB and tether Residues and Entities to a single ASU (One chain)"""
-        return None
-
-    def process_pdb(self, coords=None, reference_sequence=None, seqres=None, multimodel=False, no_entities=False):
+    def process_pdb(self, atoms=None, residues=None, coords=None, chains=True, entities=True,
+                    seqres=None, multimodel=False, lazy=False, solve_discrepancy=True, **kwargs):
+        #           reference_sequence=None
         """Process all Structure Atoms and Residues to PDB, Chain, and Entity compliant objects"""
-        if coords:
-            self.coords = Coords(coords)
-            # replace the Atom and Residue Coords
-            self.set_residues_attributes(coords=self._coords)
+        if atoms:
+            # create Atoms object and Residue objects
+            self.set_atoms(atoms)
+        if residues:
+            # sets Atoms and Residues
+            self.set_residues(residues)
 
-        self.renumber_pdb()
-        # self.renumber_atoms()
-        # self.renumber_residues()
-        # self.find_center_of_mass()
-        # self.create_residues()
+        if coords is not None:
+            # inherently replace the Atom and Residue Coords
+            self.set_coords(coords)
+
+        if not lazy:  # Todo change lazy to pose
+            self.renumber_pdb()
+
+        if chains:
+            # create Chains from Residues
+            if multimodel:
+                self.create_chains(solve_discrepancy=False)
+            else:
+                self.create_chains(solve_discrepancy=solve_discrepancy)
+
         if seqres:
             self.parse_seqres(seqres)
         else:  # elif reference_sequence:
             self.reference_sequence = {chain_id: None for chain_id in self.chain_id_list}
             self.design = True
 
-        if multimodel:
-            self.create_chains(solve_discrepancy=False)
-        else:
-            self.create_chains()
-        if not no_entities:
+        if entities and not lazy:
+            # create Entities from Chain.Residues
             self.create_entities()
         self.get_chain_sequences()
-        # or
-        # for entity in self.entity_d:
-        #     self.create_entity(entity, entity_name='%s_%s' % (self.name, entity))
 
         # if self.design:  # Todo maybe??
         #     self.process_symmetry()
@@ -403,35 +481,13 @@ class PDB(Structure):
         """Return the chain name associated with a set of Atoms when the chain name for those Atoms is changed"""
         return self.chain_id_list[index]
 
-    # def get_entity_atoms(self, entity_id):
-    #     """Return list of Atoms containing the subset of Atoms that belong to the selected Entity"""
-    #     return [atom for atom in self.get_atoms() if atom.chain in self.entity_d[entity_id]['chains']]
-
-    # def extract_coords(self):
-    #     """Grab all the coordinates from the PDB object"""
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms()]
-    #
-    # def extract_backbone_coords(self):
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms() if atom.is_backbone()]
-    #
-    # def extract_backbone_and_cb_coords(self):
-    #     # inherently gets all glycine CA's
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms() if atom.is_backbone() or
-    #             atom.is_CB()]
-    #
-    # def extract_CA_coords(self):
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms() if atom.is_CA()]
-    #
-    # def extract_CB_coords(self, InclGlyCA=False):
-    #     return [[atom.x, atom.y, atom.z] for atom in self.get_atoms() if atom.is_CB(InclGlyCA=InclGlyCA)]
-
-    def extract_CB_coords_chain(self, chain, InclGlyCA=False):
-        return [[atom.x, atom.y, atom.z] for atom in self.get_atoms()
+    def extract_CB_coords_chain(self, chain, InclGlyCA=False):  # Todo Depreciate
+        return [[atom.x, atom.y, atom.z] for atom in self.atoms
                 if atom.is_CB(InclGlyCA=InclGlyCA) and atom.chain == chain]
 
-    def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):
+    def get_CB_coords(self, ReturnWithCBIndices=False, InclGlyCA=False):  # Todo Depreciate
         coords, cb_indices = [], []
-        for idx, atom in enumerate(self.get_atoms()):
+        for idx, atom in enumerate(self.atoms):
             if atom.is_CB(InclGlyCA=InclGlyCA):
                 coords.append([atom.x, atom.y, atom.z])
 
@@ -444,7 +500,7 @@ class PDB(Structure):
         else:
             return coords
 
-    def extract_coords_subset(self, res_start, res_end, chain_index, CA):
+    def extract_coords_subset(self, res_start, res_end, chain_index, CA):  # Todo Depreciate
         if CA:
             selected_atoms = []
             for atom in self.chain(self.chain_id_list[chain_index]):
@@ -467,20 +523,11 @@ class PDB(Structure):
                 out_coords.append([x, y, z])
             return out_coords
 
-    # def set_atom_coordinates(self, coords):
-    #     """Replate all Atom coords with coords specified. Ensure the coords are the same length"""
-    #     assert len(self.atoms) == coords.shape[0], '%s: ERROR setting Atom coordinates, # Atoms (%d) !=  # Coords (%d)'\
-    #                                                % (self.filepath, len(self.atoms), coords.shape[0])
-    #     self.coords = coords
-    #     for idx, atom in enumerate(self.get_atoms()):
-    #         atom.coords = coords[idx]
-    #         # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
-
     def get_term_ca_indices(self, term):  # Todo DEPRECIATE
         if term == "N":
             ca_term_list = []
             chain_id = None
-            for idx, atom in enumerate(self.get_atoms()):
+            for idx, atom in enumerate(self.atoms):
                 # atom = self.atoms[i]
                 if atom.chain != chain_id and atom.type == "CA":
                     ca_term_list.append(idx)
@@ -491,7 +538,7 @@ class PDB(Structure):
             ca_term_list = []
             chain_id = self.atoms[0].chain
             current_ca_idx = None
-            for idx, atom in enumerate(self.get_atoms()):
+            for idx, atom in enumerate(self.atoms):
                 # atom = self.atoms[i]
                 if atom.chain != chain_id:
                     ca_term_list.append(current_ca_idx)
@@ -505,139 +552,10 @@ class PDB(Structure):
             self.log.error('Select N or C Term')
             return []
 
-    def mat_vec_mul3(self, a, b):
-        c = [0. for i in range(3)]
-        for i in range(3):
-            c[i] = 0.
-            for j in range(3):
-                c[i] += a[i][j] * b[j]
-        return c
-
-    def rotate_translate(self, rot, tx):  # Todo Depreciate
-        for atom in self.get_atoms():
-            coord = [atom.x, atom.y, atom.z]
-            coord_rot = self.mat_vec_mul3(rot, coord)
-            newX = coord_rot[0] + tx[0]
-            newY = coord_rot[1] + tx[1]
-            newZ = coord_rot[2] + tx[2]
-            atom.x, atom.y, atom.z = newX, newY, newZ
-
-    def translate(self, tx):  # Todo Depreciate
-        for atom in self.get_atoms():
-            newX = atom.x + tx[0]
-            newY = atom.y + tx[1]
-            newZ = atom.z + tx[2]
-            atom.x, atom.y, atom.z = newX, newY, newZ
-
-    def rotate(self, rot, store_cb_and_bb_coords=False):  # Todo Depreciate
-        if store_cb_and_bb_coords:
-            for atom in self.get_atoms():
-                atom.x, atom.y, atom.z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
-                if atom.is_backbone():
-                    self.bb_coords.append([atom.x, atom.y, atom.z])
-                if atom.is_CB(InclGlyCA=False):
-                    self.cb_coords.append([atom.x, atom.y, atom.z])
-        else:
-            for atom in self.get_atoms():
-                atom.x, atom.y, atom.z = self.mat_vec_mul3(rot, [atom.x, atom.y, atom.z])
-
-    def rotate_along_principal_axis(self, degrees=90.0, axis='x'):  # Todo Depreciate
-        """Rotate the coordinates about the given axis
-        """
-        deg = math.radians(float(degrees))
-
-        # define the rotation matrices
-        if axis == 'x':
-            rotmatrix = [[1, 0, 0], [0, math.cos(deg), -1 * math.sin(deg)], [0, math.sin(deg), math.cos(deg)]]
-        elif axis == 'y':
-            rotmatrix = [[math.cos(deg), 0, math.sin(deg)], [0, 1, 0], [-1 * math.sin(deg), 0, math.cos(deg)]]
-        elif axis == 'z':
-            rotmatrix = [[math.cos(deg), -1 * math.sin(deg), 0], [math.sin(deg), math.cos(deg), 0], [0, 0, 1]]
-        else:
-            self.log.error('Axis does not exists!')
-
-        for atom in self.get_atoms():
-            coord = [atom.x, atom.y, atom.z]
-            # Todo replace below with atom.x, atom.y, atom.z = np.matmul(rotmatrix * coord)
-            newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
-            newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
-            newZ = coord[0] * rotmatrix[2][0] + coord[1] * rotmatrix[2][1] + coord[2] * rotmatrix[2][2]
-            atom.x, atom.y, atom.z = newX, newY, newZ
-
-    def ReturnRotatedPDB(self, degrees=90.0, axis='x', store_cb_and_bb_coords=False):  # Todo Depreciate
-        """Rotate the coordinates about the given axis
-        """
-        deg = math.radians(float(degrees))
-
-        # define the rotation matrices
-        if axis == 'x':
-            rotmatrix = [[1, 0, 0], [0, math.cos(deg), -1 * math.sin(deg)], [0, math.sin(deg), math.cos(deg)]]
-        elif axis == 'y':
-            rotmatrix = [[math.cos(deg), 0, math.sin(deg)], [0, 1, 0], [-1 * math.sin(deg), 0, math.cos(deg)]]
-        elif axis == 'z':
-            rotmatrix = [[math.cos(deg), -1 * math.sin(deg), 0], [math.sin(deg), math.cos(deg), 0], [0, 0, 1]]
-        else:
-            self.log.error('Axis does not exists!')
-
-        rotated_atoms = []
-        for atom in self.get_atoms():
-            coord = [atom.x, atom.y, atom.z]
-            newX = coord[0] * rotmatrix[0][0] + coord[1] * rotmatrix[0][1] + coord[2] * rotmatrix[0][2]
-            newY = coord[0] * rotmatrix[1][0] + coord[1] * rotmatrix[1][1] + coord[2] * rotmatrix[1][2]
-            newZ = coord[0] * rotmatrix[2][0] + coord[1] * rotmatrix[2][1] + coord[2] * rotmatrix[2][2]
-            rot_atom = deepcopy(atom)
-            rot_atom.x, rot_atom.y, rot_atom.z = newX, newY, newZ
-            rotated_atoms.append(rot_atom)
-
-        # rotated_pdb = PDB(atoms=)
-        rotated_pdb = PDB()
-        rotated_pdb.read_atom_list(rotated_atoms, store_cb_and_bb_coords=store_cb_and_bb_coords)
-
-        return rotated_pdb
-
-    def ReturnTranslatedPDB(self, tx, store_cb_and_bb_coords=False):  # Todo Depreciate
-        translated_atoms = []
-        for atom in self.get_atoms():
-            coord = [atom.x, atom.y, atom.z]
-            newX = coord[0] + tx[0]
-            newY = coord[1] + tx[1]
-            newZ = coord[2] + tx[2]
-            tx_atom = deepcopy(atom)
-            tx_atom.x, tx_atom.y, tx_atom.z = newX, newY, newZ
-            translated_atoms.append(tx_atom)
-
-        translated_pdb = PDB()
-        translated_pdb.read_atom_list(translated_atoms, store_cb_and_bb_coords)
-
-        return translated_pdb
-
-    def ReturnRotatedPDBMat(self, rot):  # Todo Depreciate
-        rotated_coords = []
-        return_atoms = []
-        return_pdb = PDB()
-        for coord in self.extract_coords():
-            coord_copy = deepcopy(coord)
-            coord_rotated = self.mat_vec_mul3(rot, coord_copy)
-            rotated_coords.append(coord_rotated)
-        for i in range(len(self.get_atoms())):
-            atom_copy = deepcopy(self.atoms[i])
-            atom_copy.x = rotated_coords[i][0]
-            atom_copy.y = rotated_coords[i][1]
-            atom_copy.z = rotated_coords[i][2]
-            return_atoms.append(atom_copy)
-        return_pdb.read_atom_list(return_atoms)
-
-        return return_pdb
-
     def rename_chains(self, chain_list_fixed):  # Todo Depreciate
         # Caution, doesn't update self.reference_sequence chain info
         lf = chain_list_fixed
         lm = self.chain_id_list[:]
-
-        l_abc = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-                 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-                 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7',
-                 '8', '9']
 
         l_av = []
         for e in PDB.available_letters:
@@ -654,13 +572,13 @@ class PDB(Structure):
         prev = self.atoms[0].chain
         c = 0
         l3 = []
-        for i in range(len(self.get_atoms())):
+        for i in range(len(self.atoms)):
             if prev != self.atoms[i].chain:
                 c += 1
             l3.append(lm[c])
             prev = self.atoms[i].chain
 
-        for i in range(len(self.get_atoms())):
+        for i in range(len(self.atoms)):
             self.atoms[i].chain = l3[i]
 
         self.chain_id_list = lm
@@ -670,7 +588,7 @@ class PDB(Structure):
     #     """Rename a single chain to a identifier of your choice.
     #     Caution, will rename to already taken chain and doesn't update self.reference_sequence chain info
     #     """
-    #     for atom in self.chain(chain_of_interest).get_atoms():
+    #     for atom in self.chain(chain_of_interest).atoms:
     #         atom.chain = new_chain
     #
     #     self.chain_id_list[self.chain_id_list.index(chain_of_interest)] = new_chain
@@ -689,18 +607,19 @@ class PDB(Structure):
 
         for idx, chain in enumerate(self.chain_id_list):
             self.chain(chain).set_atoms_attributes(chain=moved_chains[idx])
+            # Todo edit this mechanism! ^
         # prev_chain = self.atoms[0].chain
         # chain_index = 0
         # l3 = []
         #
-        # for atom in self.get_atoms():
+        # for atom in self.atoms:
         #     if atom.chain != prev_chain:
         #         chain_index += 1
         #     l3.append(moved_chains[chain_index])
         #     prev_chain = atom.chain
         #
         # # Update all atom chain names
-        # for idx, atom in enumerate(self.get_atoms()):
+        # for idx, atom in enumerate(self.atoms):
         #     atom.chain = l3[idx]
 
         # Update chain_id_list
@@ -729,7 +648,7 @@ class PDB(Structure):
         #             break
         # self.renumber_atoms()  # should be unnecessary
 
-    def AddZAxis(self):
+    def AddZAxis(self):  # Todo, modernize
         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
         z_axis_b = Atom(2, "CA", " ", "GLY", "7", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.000, 0.000, -80.000, 1.00, 20.00, "C", "")
@@ -737,7 +656,7 @@ class PDB(Structure):
         axis = [z_axis_a, z_axis_b, z_axis_c]
         self.atoms.extend(axis)
 
-    def AddXYZAxes(self):
+    def AddXYZAxes(self):  # Todo, modernize
         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
         z_axis_b = Atom(2, "CA", " ", "GLY", "7", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.000, 0.000, -80.000, 1.00, 20.00, "C", "")
@@ -773,45 +692,47 @@ class PDB(Structure):
     #     atoms = []
     #     # for residue in self.residues:
     #     #     if residue.chain == chain_id and residue.number in residue_numbers:
-    #     #         atoms.extend(residue.get_atoms())
+    #     #         atoms.extend(residue.atoms)
     #
     #     _residues = self.chain(chain_id).get_residues(numbers=residue_numbers)
     #     for _residue in _residues:
-    #         atoms.extend(_residue.get_atoms())
+    #         atoms.extend(_residue.atoms)
     #
     #     return atoms
 
-    def create_chains(self, solve_discrepancy=True):  # Todo fix the discrepancy to not modify chain names if possible
+    def create_chains(self, solve_discrepancy=True):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues"""
         if solve_discrepancy:
             chain_idx = 0
-            chain_id = PDB.available_letters[chain_idx]
-            chain_residues = {chain_id: [self.residues[0]]}
-            # previous_chain = self.residues[0].chain
-            for idx, residue in enumerate(self.residues[1:], 1):  # start at the second index to avoid off by one
-                if residue.number_pdb < self.residues[idx - 1].number_pdb \
-                        or residue.chain != self.residues[idx - 1].chain:
+            chain_residues = {chain_idx: [0]}  # self.residues[0].index]}  <- should always be zero
+            for prior_idx, residue in enumerate(self.residues[1:]):  # start at the second index to avoid off by one
+                if residue.number_pdb < self.residues[prior_idx].number_pdb \
+                        or residue.chain != self.residues[prior_idx].chain:
                     # Decreased number should only happen with new chain therefore this SHOULD satisfy a malformed PDB
                     chain_idx += 1
-                    # if residue.chain == previous_chain:  # residue[idx - 1].chain:
-                    chain_id = PDB.available_letters[chain_idx]  # get a new chain id
-                    # else:
-                    #     chain = residue.chain
-                    chain_residues[chain_id] = [residue]
+                    chain_residues[chain_idx] = [prior_idx + 1]  # residue.index]
+                    # chain_residues[chain_idx] = [residue]
                 else:
-                    chain_residues[chain_id].append(residue)
-
-            for idx, (chain_id, residues) in enumerate(chain_residues.items()):
-                # for residue in residues:
-                #     residue.set_atoms_attributes(chain=chain_id)
-                self.chains.append(Chain(name=chain_id, coords=self._coords, residues=residues, log=self.log))  # ,
-                #                        sequence=self.reference_sequence[chain_id]))
-                self.chains[idx].set_residues_attributes(chain=chain_id)
+                    chain_residues[chain_idx].append(prior_idx + 1)  # residue.index)
+                    # chain_residues[chain_idx].append(residue)
+            available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
+                                   for first in PDB.available_letters)
+            for idx, (chain_idx, residue_indices) in enumerate(chain_residues.items()):
+                if chain_idx < len(self.chain_id_list):
+                    chain_id = self.chain_id_list[chain_idx]
+                else:
+                    chain_id = next(available_chain_ids)
+                self.chains.append(Chain(name=chain_id, residue_indices=residue_indices, residues=self._residues,
+                                         coords=self._coords, log=self.log))
+                self.chains[idx].set_atoms_attributes(chain=chain_id)
+                # Todo edit this mechanism! ^
+            self.chain_id_list = [chain.name for chain in self.chains]
         else:
             for chain_id in self.chain_id_list:
-                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log,
-                                         residues=[residue for residue in self.residues if residue.chain == chain_id]))
-                #                        sequence = self.reference_sequence[chain_id],
+                self.chains.append(
+                    Chain(name=chain_id, coords=self._coords, log=self.log, residues=self._residues,
+                          residue_indices=[idx for idx, residue in enumerate(self.residues)
+                                           if residue.chain == chain_id]))
 
     def get_chains(self, names=None):
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
@@ -826,7 +747,7 @@ class PDB(Structure):
         Returns:
             (Chain)
         """
-        for chain in self.chains:
+        for chain in self.chains:   # also in Entity
             if chain.name == chain_id:
                 return chain
         return None
@@ -839,7 +760,7 @@ class PDB(Structure):
         atoms = []
         for chain in self.chains:
             if chain.name in chain_ids:
-                atoms.extend(chain.get_atoms())
+                atoms.extend(chain.atoms())
         return atoms
         # return [atom for atom in self.atoms if atom.chain == chain_id]
 
@@ -853,7 +774,7 @@ class PDB(Structure):
     #     with open(out_path, "w") as outfile:
     #         if cryst1 and isinstance(cryst1, str) and cryst1.startswith("CRYST1"):
     #             outfile.write(str(cryst1) + "\n")
-    #         outfile.write('\n'.join(str(atom) for atom in self.get_atoms()))
+    #         outfile.write('\n'.join(str(atom) for atom in self.atoms))
 
     def get_chain_sequences(self):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
@@ -878,10 +799,10 @@ class PDB(Structure):
     #         return None
 
     def orient(self, sym=None, out_dir=os.getcwd(), generate_oriented_pdb=False):
-        """Orient a symmetric PDB at the origin with it's symmetry axis cannonically set on axis defined by symmetry
+        """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axis defined by symmetry
         file"""
-        valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10,
-                                "D6": 12, "I": 60, "O": 24, "T": 12}
+        # valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10,
+        #                         "D6": 12, "I": 60, "O": 24, "T": 12}
         orient_log = os.path.join(out_dir, orient_log_file)
 
         pdb_file_name = os.path.basename(self.filepath)
@@ -1054,7 +975,7 @@ class PDB(Structure):
             else:
                 return None
 
-        pdb_coords = self.extract_coords()
+        pdb_coords = self.get_coords()
         rot_matrices = get_rot_matrices(rot_step_deg, axis, rot_range_deg)
         tx_matrices = get_tx_matrices(tx_step, axis, start_tx_range, end_tx_range)
         sampled_coords_np = generate_sampled_coordinates_np(pdb_coords, rot_matrices, tx_matrices, degeneracy)
@@ -1071,9 +992,20 @@ class PDB(Structure):
             return None
 
     def get_sasa(self, probe_radius=1.4, sasa_thresh=0):
-        """Use FreeSASA to calculate the surface area of a PDB.
+        """Use FreeSASA to calculate the surface area of residues in the PDB object
 
         Must be run with the self.filepath attribute. Entities/chains could have this, but don't currently"""
+        # # Residues in /yeates1/kmeador/Nanohedra_T33/C3_oriented_with_C3_symmetry/2pd2.pdb1
+        # SEQ A    1 MET :   74.46
+        # SEQ A    2 LYS :   96.30
+        # SEQ A    3 VAL :    0.00
+        # SEQ A    4 VAL :    0.00
+        # SEQ A    5 VAL :    0.00
+        # SEQ A    6 GLN :    0.00
+        # SEQ A    7 ILE :    0.00
+        # SEQ A    8 LYS :    0.87
+        # SEQ A    9 ASP :    1.30
+        # SEQ A   10 PHE :   64.55
         current_pdb_file = self.write(out_path='sasa_input.pdb')
         self.log.debug(current_pdb_file)
         p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius),
@@ -1085,13 +1017,12 @@ class PDB(Structure):
 
         sasa_out_chain, sasa_out_res, sasa_out = [], [], []
         for line in out_lines:
-            if line != "\n" and line != "" and not line.startswith("#"):
-                chain_id = line[4:5]
-                res_num = int(line[5:10])
+            # if line != "\n" and line != "" and not line.startswith("#"):
+            if line[:3] == 'SEQ':
                 sasa = float(line[16:])
-                if sasa >= sasa_thresh:
-                    sasa_out_chain.append(chain_id)
-                    sasa_out_res.append(res_num)
+                if sasa > sasa_thresh:
+                    sasa_out_chain.append(line[4:5])
+                    sasa_out_res.append(int(line[5:10]))
                     sasa_out.append(sasa)
 
         os.system('rm %s' % current_pdb_file)
@@ -1120,8 +1051,10 @@ class PDB(Structure):
         # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
 
         # try:
-            # with open(os.devnull, 'w') as devnull:
-        stride_cmd = [stride_exe_path, '%s' % self.filepath]
+        # with open(os.devnull, 'w') as devnull:
+        # stride_cmd = [stride_exe_path, '%s' % self.filepath]
+        current_pdb_file = self.write(out_path='stride_input.pdb')
+        stride_cmd = [stride_exe_path, current_pdb_file]
         #   -rId1Id2..  Read only chains Id1, Id2 ...
         #   -cId1Id2..  Process only Chains Id1, Id2 ...
         if chain:
@@ -1135,11 +1068,15 @@ class PDB(Structure):
 
         # if stride_out is not None:
         #     lines = stride_out.split('\n')
+        os.system('rm %s' % current_pdb_file)
 
+        residue_idx = 0
         for line in out_lines:
             if line[0:3] == 'ASG' and line[10:15].strip().isdigit():
-                self.chain(line[9:10]).residue(int(line[10:15].strip())).set_secondary_structure(line[24:25])
-        self.secondary_structure = [residue.get_secondary_structure() for residue in self.get_residues()]
+                # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
+                self.residues[residue_idx].secondary_structure = line[24:25]
+                residue_idx += 1
+        self.secondary_structure = [residue.secondary_structure for residue in self.residues]  # Todo make index access
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
         #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
 
@@ -1164,11 +1101,11 @@ class PDB(Structure):
         stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
         stride.run()
         stride_ss_asg = stride.ss_asg
-        for i in range(len(self.get_atoms())):
-            atom = self.atoms[i]
+        for idx, atom in enumerate(self.atoms):
+            # atom = self.atoms[i]
             if atom.is_CB():
                 if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_res:
-                    h_cb_indices.append(i)
+                    h_cb_indices.append(idx)
         return h_cb_indices
 
     def get_surface_atoms(self, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
@@ -1178,7 +1115,7 @@ class PDB(Structure):
 
         surface_atoms = []
         if chain_selection == "all":
-            for atom in self.get_atoms():
+            for atom in self.atoms:
                 if (atom.chain, atom.residue_number) in sasa_chain_res_l:
                     surface_atoms.append(atom)
         else:
@@ -1188,12 +1125,12 @@ class PDB(Structure):
 
         return surface_atoms
 
-    def get_surface_residue_info(self, probe_radius=2.2, sasa_thresh=0):
+    def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
         sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
 
-        return sasa_res
-        # return list(set(zip(sasa_chain, sasa_res)))  # for use with chains
+        return sasa_res  # Todo ensure pose mechanism work
+        # return list(zip(sasa_chain, sasa_res))  # for use with chains in PDB numbering, currently using Pose numbering
 
     def get_surface_area_residues(self, residue_numbers, probe_radius=2.2):
         """CURRENTLY UNUSEABLE Must be run when the PDB is in Pose numbering, chain data is not connected"""
@@ -1204,6 +1141,30 @@ class PDB(Structure):
                 total_sasa += sasa
 
         return total_sasa
+
+    def get_surface_fragments(self):
+        """Using Sasa, return the 5 residue surface fragments for each surface residue on each chain"""
+        surface_frags = []
+        # for (chain, res_num) in self.get_surface_residues():
+        for res_num in self.get_surface_residues():
+            frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
+            ca_count = 0
+
+            # for atom in pdb.get_chain_atoms(chain):
+            # for atom in pdb.chain(chain):
+            # frag_atoms = pdb.chain(chain).get_residue_atoms(numbers=frag_res_nums, pdb=True)  # Todo
+            frag_atoms = []
+            for atom in self.get_residue_atoms(numbers=frag_res_nums):
+                # if atom.pdb_residue_number in frag_res_nums:
+                if atom.residue_number in frag_res_nums:
+                    frag_atoms.append(atom)
+                    if atom.is_CA():
+                        ca_count += 1
+            if ca_count == 5:
+                # surface_frags.append(PDB.from_atoms(frag_atoms, coords=self._coords, lazy=True, log=self.log))
+                surface_frags.append(Structure.from_atoms(atoms=frag_atoms, coords=self._coords, log=None))
+
+        return surface_frags
 
     def insert_residue(self, chain_id, residue_number, residue_type):  # Todo Chain compatible
         """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
@@ -1219,15 +1180,15 @@ class PDB(Structure):
             insert_atom_idx = 0
         else:
             try:
-                residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()
+                residue_atoms = self.chain(chain_id).residue(residue_number).atoms()
                 # residue_atoms = self.get_residue_atoms(chain_id, residue_number)
                 # if residue_atoms:
                 insert_atom_idx = residue_atoms[0].number - 1  # subtract 1 from first atom number to get insertion idx
             # else:  # Atom index is not an insert operation as the location is at the C-term of the chain
             except AttributeError:  # Atom index is not an insert operation as the location is at the C-term of the chain
                 # prior_index = self.getResidueAtoms(chain, residue)[0].number - 1
-                prior_chain_length = self.chain(chain_id).residues[0].get_atoms()[0].number - 1
-                # chain_atoms = self.chain(chain_id).get_atoms()
+                prior_chain_length = self.chain(chain_id).residues[0].atoms()[0].number - 1
+                # chain_atoms = self.chain(chain_id).atoms
                 # chain_atoms = self.get_chain_atoms(chain_id)
 
                 # use length of all prior chains + length of all_chain_atoms
@@ -1247,27 +1208,29 @@ class PDB(Structure):
             # TODO load in Residue.py
             self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
                                                            'AAreference.pdb'),
-                                              log=start_log(handler=3), no_entities=True)
-        insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).get_atoms())
+                                              log=start_log(handler=3), entities=False)
+        insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms())
 
+        raise DesignError('This function is currently broken')  # TODO BROKEN
         for atom in reversed(insert_atoms):  # essentially a push
             atom.chain = chain_id
             atom.residue_number = residue_number
             atom.occ = 0
-            self.atoms.insert(insert_atom_idx, atom)
+            self.atoms = np.concatenate((self.atoms[:insert_atom_idx], insert_atoms, self.atoms[insert_atom_idx:]))
 
         self.renumber_pdb()
 
     def delete_residue(self, chain_id, residue_number):
+        raise DesignError('This function is broken')  # TODO BROKEN
         start = len(self.atoms)
         self.log.debug(len(self.atoms))
         # residue = self.get_residue(chain, residue_number)
         chain = self.chain(chain_id)
         residue = chain.residue(residue_number)
         # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
-        self.delete_atoms(residue.get_atoms())  # deletes Atoms from PDB
-        chain.residues.remove(residue)  # deletes Residue from Chain
-        self.residues.remove(residue)  # deletes Residue from PDB
+        self.delete_atoms(residue.atoms())  # deletes Atoms from PDB
+        chain._residues.remove(residue)  # deletes Residue from Chain
+        self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_pdb()
         self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
 
@@ -1276,42 +1239,12 @@ class PDB(Structure):
         # Todo find every Structure container with Atom and remove the Atom references from it. Chain, Entity, Residue,
         #  PDB. Atom may hold on in memory because of refernce to Coords.
         for atom in atoms:
-            self.atoms.remove(atom)
-
-    def apply(self, rot=None, tx=None):  # Todo move to Structure?
-        """Apply a transformation to the PDB object"""
-        # moved = []
-        # for coord in self.extract_coords():
-        #    coord_moved = self.mat_vec_mul3(rot, coord)
-        #    for j in range(3):
-        #         coord_moved[j] += tx[j]
-        #    moved.append(coord_moved)
-        if rot is not None:
-            moved = np.matmul(np.array(rot), self.coords)
-        else:
-            moved = self.coords
-        if tx is not None:
-            moved = moved + np.array(tx)
-
-        self.coords = Coords(moved)
-        # self.set_atom_coordinates(moved)
-
-    def get_ave_residue_b_factor(self, chain_id, residue_number):
-        residue_atoms = self.chain(chain_id).residue(residue_number).get_atoms()
-        # residue_atoms = self.get_residue_atoms(chain, residue)
-        temp = 0
-        for atom in residue_atoms:
-            temp += atom.temp_fact
-
-        return round(temp / len(residue_atoms), 2)
+            self._atoms.remove(atom)
 
     def retrieve_pdb_info_from_api(self, pdb_code=None):  # Todo doesn't really need pdb_code currently. When would it?
         if not pdb_code:
-            # if self.name:
             pdb_code = self.name
-            # else:
-            #     print('No PDB code associated with file! Cannot retrieve Entity information from PDB API')
-            #     return None
+
         if len(pdb_code) == 4:
             if not self.api_entry:
                 self.api_entry = get_pdb_info_by_entry(pdb_code)
@@ -1342,7 +1275,7 @@ class PDB(Structure):
                 return entity
         return None
 
-    def create_entities(self):  # , entity_names=None, pdb_code=None):
+    def create_entities(self):
         """Create all Entities in the PDB object searching for the required information if it was not found during
         parsing. First search the PDB API if a PDB entry_id is attached to instance, next from Atoms in instance
 
@@ -1351,40 +1284,32 @@ class PDB(Structure):
             will increment from order identified in ATOM records
             pdb_code=None (str): The four character code specifying the entry ID from the PDB
         """
-        if not self.entity_d:  # we didn't find information from the PDB file
-            self.get_entity_info_from_api()  # pdb_code=pdb_code)
-        if not self.entity_d:  # API didn't work for pdb_name
+        # if not self.entity_d:  # we didn't find information from the PDB file
+        #     if not self.design:  # this is analogous to above
+        #         self.get_entity_info_from_api()  # pdb_code=pdb_code)
+        if not self.entity_d:  # no information in PDB file  # # API didn't work for pdb_name
             self.get_entity_info_from_atoms()
-            for entity, atom_info in self.entity_d.items():
+            for entity, atom_info in list(self.entity_d.items()):
                 pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
                 if pdb_api_name:
                     self.entity_d[pdb_api_name] = self.entity_d.pop(entity)
             self.log.info('Found Entities \'%s\' by PDB API sequence search' % ', '.join(self.entity_d.keys()))
         else:
             for entity, info in self.entity_d.items():
-                info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
-                info['chains'] = filter(None, info['chains'])
+                self.log.debug('Found chains %s' % ', '.join(info['chains']))
+                # make chain names Chain objects
+                info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]
+                info['chains'] = [chain for chain in info['chains'] if chain]
 
-        # # solve this upon chain loading...?
-        # if len(self.entity_d) > self.number_of_chains:
-        #     # the chain info is certainly messed up, flexibly solve chains using residue increment
-        #     self.log.warning('%s: Incorrect chain (%d) and entity (%d) count. Chains probably have the same id! '
-        #                      'Attempting to correct' % (self.filepath, self.number_of_chains, len(self.entity_d)))
-        #     self.create_chains(solve_discrepancy=True)
-        self.update_entity_d()  # pdb_code=pdb_code)
+        self.update_entity_d()
 
         for entity, info in self.entity_d.items():
-            # chain_l = [self.chain(chain_id) for chain_id in info['chains']]  # ['representative']
-            # chain_l = filter(None, chain_l)
-            if len(entity.split('_')) == 2:  # we have an name generated from a PDB API sequence search
-                entity_name = entity
-            else:  #
+            if isinstance(entity, int):
                 entity_name = '%s_%d' % (self.name, entity)
-            # self.entities.append(self.create_entity(representative_chain=self.entity_d[entity]['representative'],
-            #                                         chains=chain_l, entity_id=entity_name,
-            #                                         uniprot_id=self.entity_accession_map[entity]))
+            else:  # entity.split('_')) == 2:  # we have an name generated from a PDB API sequence search
+                entity_name = entity
             self.entities.append(Entity.from_representative(chains=info['chains'], name=entity_name,
-                                                            coords=self._coords,
+                                                            # coords=self._coords,
                                                             uniprot_id=info['accession'], log=self.log,
                                                             representative=info['representative']))
 
@@ -1405,7 +1330,6 @@ class PDB(Structure):
         """Update a complete entity_d with the required information
         Todo choose the most symmetrically average chain if Entity is symmetric!
         For each Entity, gather the sequence of the chain representative"""
-        self.log.debug('Entity Dictionary: %s' % self.entity_d)
         for entity, info in self.entity_d.items():
             info['representative'] = info['chains'][0]  # We may get an index error someday. If so, fix upstream logic
             info['seq'] = info['representative'].sequence
@@ -1433,8 +1357,7 @@ class PDB(Structure):
                 self.log.debug('Chain %s has match score of %f' % (chain.name,
                                                                    score / len(self.entity_d[entity]['seq'])))
                 if score / len(self.entity_d[entity]['seq']) > 0.9:  # if score/length is > 90% similar, entity exists
-                    # rmsd = Bio.Superimposer()
-                    # if rmsd > 1:
+                    # rmsd = Bio.Superimposer()  # Todo implement structure check only?
                     self.entity_d[entity]['chains'].append(chain)
                     new_entity = False  # The entity is not unique, do not add
                     break
@@ -1444,12 +1367,10 @@ class PDB(Structure):
         self.log.info('Entities were generated from ATOM records.')
 
     def get_entity_info_from_api(self, pdb_code=None):
-        """Query the PDB API for the PDB entry_ID to find the corresponding Enitity information"""
+        """Query the PDB API for the PDB entry_ID to find the corresponding Entity information"""
         if self.retrieve_pdb_info_from_api(pdb_code=pdb_code):
             self.entity_d = {entity: {'chains': self.api_entry['entity'][entity]} for entity in
                              self.api_entry['entity']}
-        # else:
-        #     self.get_entity_info_from_atoms()
 
     # def update_entity_representatives(self):
     #     """For each Entity, gather the chain representative by choosing the first chain in the file
@@ -1553,8 +1474,8 @@ class PDB(Structure):
         chain_tree = BallTree(chain_coords)
 
         # Get CB Atom indices for the atoms CB and chain CB
-        all_cb_indices = self.get_cb_indices(InclGlyCA=gly_ca)
-        chain_cb_indices = self.chain(chain_id).get_cb_indices(InclGlyCA=gly_ca)
+        all_cb_indices = self.get_cb_indices()  # InclGlyCA=gly_ca)
+        chain_cb_indices = self.chain(chain_id).get_cb_indices()  # InclGlyCA=gly_ca)
         # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
         chain_coord_indices, contact_cb_indices = [], []
         # Find the contacting CB indices and chain specific indices
@@ -1697,15 +1618,15 @@ class PDB(Structure):
         # Todo entity_from_chain returns Entity now
         unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
 
-        asu = self.chain(chain).get_atoms()
-        for atoms in [self.chain(partner_chain).get_atoms() for partner_chain in unique_chains]:
+        asu = self.chain(chain).atoms
+        for atoms in [self.chain(partner_chain).atoms for partner_chain in unique_chains]:
             asu.extend(atoms)
 
         return asu
 
     def return_asu(self, chain='A'):  # , outpath=None):
         """Returns the ASU as a new PDB object. See self.get_asu() for method"""
-        asu_pdb = PDB.from_atoms(deepcopy(self.get_asu(chain=chain)), metadata=self)
+        asu_pdb = PDB.from_atoms(atoms=deepcopy(self.get_asu(chain=chain)), metadata=self)
         # asu_pdb.copy_metadata(self)
 
         return asu_pdb
@@ -1880,8 +1801,9 @@ class PDB(Structure):
                 file.write(line)
             file.truncate()
             if count != 0:
-                logger.warning('%s: Symmetry Definition File for %s missing %d lines, fix was attempted. Modelling may be '
-                               'affected for pose' % (os.path.dirname(self.filepath), os.path.basename(self.filepath), count))
+                logger.warning('%s: Symmetry Definition File for %s missing %d lines, fix was attempted. Modelling may '
+                               'be affected for pose'
+                               % (os.path.dirname(self.filepath), os.path.basename(self.filepath), count))
 
     @staticmethod
     def parse_cryst_record(cryst1_string):
@@ -1902,25 +1824,82 @@ class PDB(Structure):
         space_group = cryst1_string[55:66].strip()  # not in
         return [a, b, c, ang_a, ang_b, ang_c], space_group
 
-    # @staticmethod
-    # def create_entity(representative_chain=None, chains=None, entity_name=None, uniprot_id=None):
-    #     """Create an Entity
-    #
-    #     Keyword Args:
-    #         representative_chain=None (str): The name of the chain to represent the Entity
-    #         chains=None (list): A list of all chains that match the Entity
-    #         entity_name=None (str): The name for the Entity. Typically PDB.name is used to make PDB compatible form
-    #         PDB EntryID_EntityID
-    #         uniprot_id=None (str): The unique UniProtID for the Entity
-    #     """
-    #     return Entity.from_representative(representative_chain=representative_chain, chains=chains,
-    #                                       name=entity_name, uniprot_id=uniprot_id)
+    def __copy__(self):
+        other = super().__copy__()
+        # create a copy of all the chains and all the entities
+        structures = [other.chains, other.entities]
+        other.copy_structures(structures)
+        # these were updated in the super().__copy__, now need to set attributes in copied chains and entities
+        # other.update_attributes(residues=copy(self._residues), coords=copy(self._coords))
+        # This style v accomplishes the update that the super().__copy__() started
+        other.update_attributes(residues=other._residues, coords=other._coords)
+
+        return other
 
 
-def generate_sequence_template(pdb_file):
-    pdb = PDB.from_file(pdb_file)
-    sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), 'Protein'), id=pdb.filepath)
-    sequence_mask = copy(sequence)
-    sequence_mask.id = 'design_selector'
-    sequences = [sequence, sequence_mask]
-    return write_fasta(sequences, file_name='%s_design_selector_sequence' % os.path.splitext(pdb.filepath)[0])
+def extract_interface(pdb, chain_data_d, full_chain=True):
+    """
+    'interfaces': {interface_ID: {interface stats, {chain data}}, ...}
+        Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211,
+             'chain_data': {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                                't_vec': [0.0, 0.0, 0.0], 'num_atoms': 104, 'int_res': {'87': 23.89, '89': 45.01, ...},
+                            2: ...}},
+             2: {'occ': ..., },
+             'all_ids': {interface_type: [interface_id1, matching_id2], ...}
+            } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
+
+    """
+    # if one were trying to map the interface fragments created in a fragment extraction back to the pdb, they would
+    # want to use the interface in interface_data and the chain id (renamed from letter to ID #) to find the chain and
+    # the translation from the pisa.xml file
+    # pdb_code, subdirectory = return_and_make_pdb_code_and_subdirectory(pdb_file_path)
+    # out_path = os.path.join(os.getcwd(), subdirectory)
+    # try:
+    #     # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
+    #     # This makes flexible with MySQL
+    #     source_pdb = PDB(file=pdb_file_path)
+    #     pisa_data = unpickle(pisa_file_path)  # Get PISA data
+    #     interface_data = pisa_data['interfaces']
+    #     # interface_data, chain_data = pp.parse_pisa_interfaces_xml(pisa_file_path)
+    #     for interface_id in interface_data:
+    #         if not interface_id.is_digit():  # == 'all_ids':
+    #             continue
+    # interface_pdb = PDB.PDB()
+    temp_names = ('.', ',')
+    interface_chain_pdbs = []
+    temp_chain_d = {}
+    for temp_name_idx, chain_id in enumerate(chain_data_d):
+        # chain_pdb = PDB.PDB()
+        chain = chain_data_d[chain_id]['chain']
+        # if not chain:  # for instances of ligands, stop process, this is not a protein-protein interface
+        #     break
+        # else:
+        if full_chain:  # get the entire chain
+            interface_atoms = deepcopy(pdb.get_chain_atoms(chain))
+        else:  # get only the specific residues at the interface
+            residue_numbers = chain_data_d[chain_id]['int_res']
+            interface_atoms = pdb.chain(chain).get_residue_atoms(residue_numbers)
+            # interface_atoms = []
+            # for residue_number in residues:
+            #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
+            #     interface_atoms.extend(deepcopy(residue_atoms))
+            # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
+        chain_pdb = PDB.from_atoms(deepcopy(interface_atoms))
+        # chain_pdb.read_atom_list(interface_atoms)
+
+        rot = chain_data_d[chain_id]['r_mat']
+        trans = chain_data_d[chain_id]['t_vec']
+        chain_pdb.apply(rot, trans)
+        chain_pdb.chain(chain).set_atoms_attributes(chain=temp_names[temp_name_idx])  # ensure that chain names are not the same
+        # Todo edit this mechanism! ^
+        temp_chain_d[temp_names[temp_name_idx]] = str(chain_id)
+        interface_chain_pdbs.append(chain_pdb)
+        # interface_pdb.read_atom_list(chain_pdb.atoms)
+
+    interface_pdb = PDB.from_atoms(iter_chain.from_iterable([chain_pdb.atoms for chain_pdb in interface_chain_pdbs]))
+    if len(interface_pdb.chain_id_list) == 2:
+        for temp_name in temp_chain_d:
+            interface_pdb.chain(temp_name).set_atoms_attributes(chain=temp_chain_d[temp_name])
+            # Todo edit this mechanism! ^
+
+    return interface_pdb

@@ -1,10 +1,9 @@
 import sys
 import warnings
-from glob import glob
 from itertools import repeat
 
 from Bio.PDB.Atom import PDBConstructionWarning
-from classes.PDB import *
+from PDB import PDB
 from top_n_all_to_all_docked_poses_irmsd import map_align_interface_chains, interface_chains_and_resnums
 
 import DesignDirectory
@@ -25,18 +24,18 @@ def res_lev_sum_score_rank(all_design_directories):
 
 
 ############################################### Crystal VS Docked ######################################################
-def get_docked_pdb_pairs(all_design_directories):
-
-    docked_pdb_pairs = []
-    for des_dir in all_design_directories:
-        docked_pdbs_d = []
-        for building_block in os.path.basename(des_dir.building_blocks).split('_'):
-            docked_pdb = PDB()
-            docked_pdb.readfile(glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0])
-            docked_pdbs_d.append(docked_pdb)
-        docked_pdb_pairs.append((str(des_dir), tuple(docked_pdbs_d)))
-
-    return docked_pdb_pairs
+# def get_docked_pdb_pairs(all_design_directories):
+#
+#     docked_pdb_pairs = []
+#     for des_dir in all_design_directories:
+#         docked_pdbs_d = []
+#         for building_block in os.path.basename(des_dir.building_blocks).split('_'):
+#             docked_pdb = PDB()
+#             docked_pdb.readfile(glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0])
+#             docked_pdbs_d.append(docked_pdb)
+#         docked_pdb_pairs.append((str(des_dir), tuple(docked_pdbs_d)))
+#
+#     return docked_pdb_pairs
 
 
 def reference_vs_docked_irmsd(ref_pdb1, ref_pdb2, ref1_chain_id_residue_d, ref2_chain_id_residue_d, design_directory):
@@ -48,8 +47,10 @@ def reference_vs_docked_irmsd(ref_pdb1, ref_pdb2, ref1_chain_id_residue_d, ref2_
         design_directory.get_oligomers()
     except AssertionError:
         return str(design_directory), None
-    docked_pdb1 = design_directory.oligomers[design_directory.oligomer_names[0]]
-    docked_pdb2 = design_directory.oligomers[design_directory.oligomer_names[1]]
+    # docked_pdb1 = design_directory.oligomers[design_directory.oligomer_names[0]]
+    docked_pdb1 = design_directory.oligomers[0]
+    # docked_pdb2 = design_directory.oligomers[design_directory.oligomer_names[1]]
+    docked_pdb2 = design_directory.oligomers[1]
     # # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
     # # of CA atoms and only contains residues (based on residue number) that are present in all 'symmetry related'
     # # subunits. Also, standardize oligomer chain lengths such that oligomers being compared have the same number of CA
@@ -91,12 +92,10 @@ def main():
     # read in crystal structure oligomer 1 and oligomer 2 PDB files
     # get the PDB file names without '.pdb' extension
     # create name for combined crystal structure oligomers
-    ref_pdb1 = PDB()
-    ref_pdb1.readfile(xtal_pdb1_path, remove_alt_location=True)
+    ref_pdb1 = PDB.from_file(xtal_pdb1_path)
     xtal_pdb1_name = os.path.splitext(os.path.basename(xtal_pdb1_path))[0]
 
-    ref_pdb2 = PDB()
-    ref_pdb2.readfile(xtal_pdb2_path, remove_alt_location=True)
+    ref_pdb2 = PDB.from_file(xtal_pdb2_path)
     xtal_pdb2_name = os.path.splitext(os.path.basename(xtal_pdb2_path))[0]
 
     xtal_pdb_name = xtal_pdb1_name + "_" + xtal_pdb2_name

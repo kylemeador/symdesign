@@ -6,24 +6,21 @@ import operator
 import os
 import pickle
 import subprocess
-import sys
 from functools import reduce
 from glob import glob
 from itertools import chain
 from json import loads, dumps
 
 import numpy as np
-from Bio.PDB import PDBParser, Superimposer
 from sklearn.neighbors import BallTree
+from Bio import SeqIO
+from Bio.PDB import PDBParser, Superimposer
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
 
-# logging.getLogger().setLevel(logging.INFO)
 
 # Globals
-from utils.GeneralUtils import euclidean_squared_3d
-
 index_offset = 1
 rmsd_threshold = 1.0
 layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
@@ -43,7 +40,7 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        # layer groups
                        # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
                        # space groups  # Todo
-                       }
+                       'cryst': 'cryst'}
 # Todo space and cryst
 all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': -1},
                       'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': -2},
@@ -65,7 +62,7 @@ def parse_symmetry_to_nanohedra_entry(symmetry_string):
     else:  # C2, D6, C34
         raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
 
-    logger.debug('Symmetry parsing split: %s' % clean_split)
+    # logger.debug('Symmetry parsing split: %s' % clean_split)
     try:
         sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
     except KeyError:
@@ -73,7 +70,7 @@ def parse_symmetry_to_nanohedra_entry(symmetry_string):
         sym_entry = symmetry_string
         raise ValueError('%s is not a supported symmetry!' % symmetry_string)
 
-    logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
+    # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
     return sym_entry
 
 
@@ -216,7 +213,7 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
         lh = logging.FileHandler(location + '.log')
     else:  # handler == 3:
         lh = logging.NullHandler()
-        return _logger
+        # return _logger
     lh.setLevel(log_level[level])
     lh.setFormatter(log_format)
     _logger.addHandler(lh)
@@ -224,7 +221,8 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
     return _logger
 
 
-logger = start_log(name=__name__, handler=3, level=1)
+logger = start_log(name=__name__)
+null_log = start_log(name='null', handler=3, propagate=False)
 
 
 def pretty_format_table(rows, justifications=None):
@@ -258,7 +256,7 @@ def get_table_column_widths(rows):
 
 
 @handle_errors_f(errors=(FileNotFoundError, ))
-def unpickle(file_name):
+def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name:
         file_name = '%s.pkl' % file_name
@@ -400,7 +398,7 @@ def residue_interaction_graph(pdb, distance=8, gly_ca=True):  # Todo PDB.py
         query (list()): sklearn query object of pdb2 coordinates within dist of pdb1 coordinates
     """
     # Get CB Atom Coordinates including CA coordinates for Gly residues
-    coords = np.array(pdb.extract_CB_coords(InclGlyCA=gly_ca))
+    coords = np.array(pdb.extract_cb_coords(InclGlyCA=gly_ca))
 
     # Construct CB Tree for PDB1
     pdb1_tree = BallTree(coords)
@@ -962,14 +960,14 @@ def collect_directories(directory, file=None, project=None, single=None, dir_typ
     """
     if file:
         _file = file
-        if not os.path.exists(_file):
+        if not os.path.exists(file):
             _file = os.path.join(os.getcwd(), file)
             if not os.path.exists(_file):
-                logger.critical('No %s file found in \'%s\'! Please ensure correct location/name!' % (file, directory))
+                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
                 exit()
         with open(_file, 'r') as f:
-            all_paths = [location.strip() for location in f.readlines()]
-        location = file
+            all_paths = [location.strip() for location in f.readlines() if location.strip() != '']
+        location = _file
     else:
         location = directory
         if dir_type == 'dock':
@@ -1035,6 +1033,8 @@ def get_symdesign_dirs(base=None, project=None, single=None):
 #     # return sorted(set(all_directories))
 #
 #     return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
+
+
 class DesignError(Exception):
     pass
     # def __init__(self, message):
@@ -1045,21 +1045,35 @@ class DesignError(Exception):
     #     return self.__str__() == other
 
 
-def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None):
-    e1 = euclidean_squared_3d(coords1[0], coords2[0])
-    e2 = euclidean_squared_3d(coords1[1], coords2[1])
-    e3 = euclidean_squared_3d(coords1[2], coords2[2])
-    s = e1 + e2 + e3
-    mean = s / float(3)
-    rmsd = math.sqrt(mean)
-
+def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2):
+    """Calculate the overlap between two sets of coordinates given a reference rmsd"""
+    rmsds = rmsd(coords1, coords2)
     # Calculate Guide Atom Overlap Z-Value
-    # and Calculate Score Term for Nanohedra Residue Level Summation Score
-    z_val = rmsd / float(max(coords_rmsd_reference, 0.01))
+    z_values = rmsds / coords_rmsd_reference
+    # filter z_values by passing threshold
+    return np.where(z_values < max_z_value, z_values, False)
 
-    match_score = 1 / float(1 + (z_val ** 2))
 
-    return match_score, z_val
+def rmsd(coords1=None, coords2=None):
+    """Calculate the RMSD over sets of coordinates in two numpy.arrays. The first axis (0) contains instances of
+    coordinate sets, the second axis (1) contains a set of coordinates, and the third axis (2) contains the x, y, z
+    values for a coordinate
+
+    Returns:
+        (np.ndarray)
+    """
+    # e1 = euclidean_squared_3d(coords1[0], coords2[0])
+    # e2 = euclidean_squared_3d(coords1[1], coords2[1])
+    # e3 = euclidean_squared_3d(coords1[2], coords2[2])
+    # s = e1 + e2 + e3
+    # mean = s / float(3)
+    # rmsd = math.sqrt(mean)
+    difference_squared = (coords1 - coords2) ** 2
+    # axis 2 gets the sum of the rows 0[1[2[],2[],2[]], 1[2[],2[],2[]]]
+    sum_difference_squared = difference_squared.sum(axis=2)
+    # axis 1 gets the mean of the rows 0[1[]], 1[]]
+    mean_sum_difference_squared = sum_difference_squared.mean(axis=1)
+    return np.sqrt(mean_sum_difference_squared)
 
 
 def z_value_from_match_score(match_score):
@@ -1068,37 +1082,95 @@ def z_value_from_match_score(match_score):
 
 def match_score_from_z_value(z_value):
     """Return the match score from a fragment z-value. Bounded between 0 and 1"""
-    return 1 / float(1 + (z_value ** 2))
+    return 1 / (1 + (z_value ** 2))
 
 
-def filter_euler_lookup_by_zvalue(index_pairs, ghost_frags, coords_l1, surface_frags, coords_l2, z_value_func=None,
-                                  max_z_value=2):
-    """Filter an EulerLookup by a specified z-value, where the z-value is calculated by a passed function which has
-    two sets of coordinates and and rmsd as args
+# def filter_euler_lookup_by_zvalue(coords_l1, coords_l2, reference_coords, z_value_func=None,
+#                                   max_z_value=2):
+#     """Filter an EulerLookup by a specified z-value, where the z-value is calculated by a passed function which has
+#     two sets of coordinates and and rmsd as args
+#
+#     Returns:
+#         (list[tuple]): (Function overlap parameter, z-value of function)
+#     """
+#     overlap_results = [z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
+#                        for coords1, coords2 in zip(coords_l1, coords_l2)]
+#     # for index_pair in index_pairs:
+#     # for coords1, coords2 in zip(coords_l1, coords_l2):
+#     #     ghost_frag = ghost_frags[index_pair[0]]
+#     #     coords1 = coords_l1[index_pair[0]]
+#     #     or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
+#     #     coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
+#     #     surf_frag = surface_frags[index_pair[1]]
+#     #     coords2 = coords_l2[index_pair[1]]
+#     #     surf_frag.get_guide_coords()
+#     #     if surf_frag.get_i_type() == ghost_frag.get_j_type():  # Todo remove frags to a mask outside
+#     #     result = z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
+#     #     if z_value <= max_z_value:
+#     #         overlap_results.append((result, z_value))
+#     #     else:
+#     #         overlap_results.append(False)
+#     #     else:
+#     #         overlap_results.append(False)
+#
+#     return overlap_results
 
+
+def read_fasta_file(file_name):
+    """Returns an iterator of SeqRecords. Ex. [record1, record2, ...]"""
+    return SeqIO.parse(file_name, 'fasta')
+
+
+def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
+    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
+    if not file_name:
+        return None
+    if '.fasta' in file_name:
+        file_name = file_name.rstrip('.fasta')
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
+
+    return '%s.fasta' % file_name
+
+
+def concatenate_fasta_files(file_names, output='concatenated_fasta'):
+    """Take multiple fasta files and concatenate into a single file"""
+    seq_records = [read_fasta_file(file) for file in file_names]
+    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
+
+
+def write_fasta_file(sequence, name, outpath=os.getcwd()):
+    """Write a fasta file from sequence(s)
+
+    Args:
+        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(name, sequence),
+            list of lists, etc. Smart solver using object type
+        name (str): The name of the file to output
+    Keyword Args:
+        path=os.getcwd() (str): The location on disk to output file
     Returns:
-        (list[tuple]): (Function overlap parameter, z-value of function)
+        (str): The name of the output file
     """
-    # Todo, signature = coords_array1, coords_array2, rmsd_list
-    # Todo make coords_l1, coords_l2, rmsd_list all np array. Calling z_value_func on these arrays will return an array
-    #  must specify with optimal_tx if need to save the z_value. Could filter it in optimal_tx.apply()
-    overlap_results = []
-    for index_pair in index_pairs:
-        ghost_frag = ghost_frags[index_pair[0]]
-        coords1 = coords_l1[index_pair[0]]
-        # or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
-        # coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
-        surf_frag = surface_frags[index_pair[1]]
-        coords2 = coords_l2[index_pair[1]]
-        # surf_frag.get_guide_coords()
-        if surf_frag.get_i_type() == ghost_frag.get_j_frag_type():  # Todo remove frags to a mask outside
-            result, z_value = z_value_func(coords1=coords1, coords2=coords2,
-                                           coords_rmsd_reference=ghost_frag.get_rmsd())
-            if z_value <= max_z_value:
-                overlap_results.append((result, z_value))
+    file_name = os.path.join(outpath, name + '.fasta')
+    with open(file_name, 'w') as outfile:
+        if type(sequence) is list:
+            if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
+                for idx, seq in enumerate(sequence):
+                    outfile.write('>%s_%d\n' % (name, idx))  # header
+                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
+                        outfile.write(' '.join(aa for aa in seq))
+                    else:
+                        outfile.write(''.join(aa for aa in seq))
+            elif isinstance(sequence[0], str):
+                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
+            elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
+                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
             else:
-                overlap_results.append(False)
+                raise DesignError('Cannot parse data to make fasta')
+        elif isinstance(sequence, dict):
+            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
+        elif isinstance(sequence, str):
+            outfile.write('>%s\n%s\n' % (name, sequence))
         else:
-            overlap_results.append(False)
+            raise DesignError('Cannot parse data to make fasta')
 
-    return overlap_results
+    return file_name

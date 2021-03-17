@@ -56,18 +56,17 @@ def get_docking_parameters(arg_list):
         if outdir_index < len(arg_list):
             outdir = arg_list[outdir_index]
         else:
-            log_filepath = os.getcwd() + "/Nanohedra_log.txt"
-            logfile = open(log_filepath, "a+")
+            master_log_filepath = os.path.join(os.getcwd(), 'Nanohedra_log.txt')
+            logfile = open(master_log_filepath, "a+")
             logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
             logfile.close()
             sys.exit()
     else:
-        log_filepath = os.getcwd() + "/Nanohedra_log.txt"
-        logfile = open(log_filepath, "a+")
-        logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
-        logfile.close()
+        master_log_filepath = os.path.join(os.getcwd(), 'Nanohedra_log.txt')
+        master_logfile = open(master_log_filepath, "a+")
+        master_logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
+        master_logfile.close()
         sys.exit()
-
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -78,8 +77,8 @@ def get_docking_parameters(arg_list):
     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
 
     valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
-                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-init_match_type",
-                   '-no_time', '-initial']  # "-cores", '-resume'
+                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-output_assembly",
+                   '-no_time', '-initial']  # "-cores", '-resume', "-init_match_type"
 
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
@@ -150,23 +149,23 @@ def get_docking_parameters(arg_list):
     #         sys.exit()
     # else:
     #     cores = 1
-
-    if "-init_match_type" in arg_list:
-        init_match_type_index = arg_list.index('-init_match_type') + 1
-
-        if init_match_type_index < len(arg_list):
-            if arg_list[init_match_type_index] in ["1_1", "1_2", "2_1", "2_2"]:
-                init_match_type = str(arg_list[init_match_type_index])
-            else:
-                master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE SPECIFIED NOT RECOGNIZED" + "\n")
-                master_logfile.close()
-                sys.exit()
-        else:
-            master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE NOT SPECIFIED" + "\n")
-            master_logfile.close()
-            sys.exit()
-    else:
-        init_match_type = "1_1"  # default initial fragment match type is set to helix-helix interactions ==> "1_1"
+    #
+    # if "-init_match_type" in arg_list:
+    #     init_match_type_index = arg_list.index('-init_match_type') + 1
+    #
+    #     if init_match_type_index < len(arg_list):
+    #         if arg_list[init_match_type_index] in ["1_1", "1_2", "2_1", "2_2"]:
+    #             init_match_type = str(arg_list[init_match_type_index])
+    #         else:
+    #             master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE SPECIFIED NOT RECOGNIZED" + "\n")
+    #             master_logfile.close()
+    #             sys.exit()
+    #     else:
+    #         master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE NOT SPECIFIED" + "\n")
+    #         master_logfile.close()
+    #         sys.exit()
+    # else:
+    #     init_match_type = "1_1"  # default initial fragment match type is set to helix-helix interactions ==> "1_1"
 
     # FragDock PARAMETERS
     if "-rot_step1" in arg_list:
@@ -201,15 +200,9 @@ def get_docking_parameters(arg_list):
     else:
         rot_step_deg2 = None
 
-    if "-output_exp_assembly" in arg_list:
-        output_exp_assembly = True
-    else:
-        output_exp_assembly = False
-
-    if "-output_uc" in arg_list:
-        output_uc = True
-    else:
-        output_uc = False
+    output_assembly = False
+    if "-output_exp_assembly" in arg_list or "-output_assembly" in arg_list or "-output_uc" in arg_list:
+        output_assembly = True
 
     if "-output_surrounding_uc" in arg_list:
         output_surrounding_uc = True
@@ -250,18 +243,18 @@ def get_docking_parameters(arg_list):
     else:
         initial = False
 
-    return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_exp_assembly, \
-           output_uc, output_surrounding_uc, min_matched, init_match_type, keep_time, initial  #  cores, resume
+    return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_assembly, \
+        output_surrounding_uc, min_matched, keep_time, initial  # init_match_type, cores, resume
 
 
 def postprocess_mode(arg_list):
-    valid_flags = ["-outdir", "-design_dir", "-min_score", "-min_matched", "-postprocess", "-rank", "-min_matched_ss"]
+    valid_flags = ["-outdir", "-design_dir", "-min_score", "-min_matched", "-postprocess", "-rank"]
     for arg in arg_list:
         if arg[0] == '-' and arg not in valid_flags:
             log_filepath = os.getcwd() + "/Nanohedra_PostProcess_log.txt"
             logfile = open(log_filepath, "a+")
-            logfile.write("ERROR: %s IS AN INVALID FLAG\n" % arg)
-            logfile.write("VALID FLAGS ARE: -outdir, -design_dir, -min_score, -min_matched, -postprocess\n")
+            logfile.write("ERROR: %s IS AN INVALID FLAG\n" %arg)
+            logfile.write("VALID FLAGS ARE: -outdir, -design_dir, -min_score, -min_matched, -rank, -postprocess\n")
             logfile.close()
             sys.exit()
 
@@ -306,7 +299,7 @@ def postprocess_mode(arg_list):
         logfile.close()
         sys.exit()
 
-    if "-min_score" in arg_list and "-min_matched" not in arg_list and "-rank" not in arg_list and "-min_matched_ss" not in arg_list:
+    if "-min_score" in arg_list and "-min_matched" not in arg_list and "-rank" not in arg_list:
         try:
             min_score_index = arg_list.index("-min_score") + 1
             try:
@@ -330,7 +323,7 @@ def postprocess_mode(arg_list):
             logfile.close()
             sys.exit()
 
-    if "-min_matched" in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list and "-min_matched_ss" not in arg_list:
+    if "-min_matched" in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list:
         try:
             min_matched_index = arg_list.index("-min_matched") + 1
             try:
@@ -354,7 +347,7 @@ def postprocess_mode(arg_list):
             logfile.close()
             sys.exit()
 
-    if "-min_matched" in arg_list and "-min_score" in arg_list and "-rank" not in arg_list and "-min_matched_ss" not in arg_list:
+    if "-min_matched" in arg_list and "-min_score" in arg_list and "-rank" not in arg_list:
         min_matched_index = arg_list.index("-min_matched") + 1
         min_score_index = arg_list.index("-min_score") + 1
         try:
@@ -386,58 +379,33 @@ def postprocess_mode(arg_list):
             logfile.close()
             sys.exit()
 
-    if "-rank" in arg_list and "-min_matched" not in arg_list and "-min_score" not in arg_list and "-min_matched_ss" not in arg_list:
-        # try:
-        rank_index = arg_list.index("-rank") + 1
-        # try:
-        metric = arg_list[rank_index]
-        # try:
-        metric_str = str(metric)
-        if metric_str in ["score", "matched"]:
-            PostProcessUtils.rank(design_dir_path, metric_str, outdir)
-        else:
-            logfile = open(log_filepath, "w")
-            logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT RECOGNIZED\n")
-            logfile.close()
-            sys.exit()
-            # except ValueError:
-            #     logfile = open(log_filepath, "w")
-            #     logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT A STRING\n")
-            #     logfile.close()
-            #     sys.exit()
-        #     except IndexError:
-        #         logfile = open(log_filepath, "w")
-        #         logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
-        #         logfile.close()
-        #         sys.exit()
-        # except ValueError:
-        #     logfile = open(log_filepath, "w")
-        #     logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
-        #     logfile.close()
-        #     sys.exit()
-
-    if "-min_matched_ss" in arg_list and "-min_matched" not in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list:
+    if "-rank" in arg_list and "-min_matched" not in arg_list and "-min_score" not in arg_list:
         try:
-            min_matched_ss_index = arg_list.index("-min_matched_ss") + 1
+            rank_index = arg_list.index("-rank") + 1
             try:
-                min_matched_ss_str = arg_list[min_matched_ss_index]
+                metric = arg_list[rank_index]
                 try:
-                    min_matched_ss = int(min_matched_ss_str)
-                    PostProcessUtils.ss_match_count_filter(design_dir_path, min_matched_ss, outdir)
+                    metric_str = str(metric)
+                    if metric_str in ["score", "matched"]:
+                        PostProcessUtils.rank(design_dir_path, metric_str, outdir)
+                    else:
+                        logfile = open(log_filepath, "w")
+                        logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT RECOGNIZED\n")
+                        logfile.close()
+                        sys.exit()
                 except ValueError:
                     logfile = open(log_filepath, "w")
-                    logfile.write(
-                        "ERROR: VALUE SPECIFIED FOR MINIMUM SECONDARY STRUCTURE ELEMENT MATCHES IS NOT AN INTEGER\n")
+                    logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT A STRING\n")
                     logfile.close()
                     sys.exit()
             except IndexError:
                 logfile = open(log_filepath, "w")
-                logfile.write("ERROR: -min_matched_ss FLAG IS NOT FOLLOWED BY A MINIMUM VALUE\n")
+                logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
                 logfile.close()
                 sys.exit()
         except ValueError:
             logfile = open(log_filepath, "w")
-            logfile.write("ERROR: -min_matched_ss FLAG IS NOT FOLLOWED BY A MINIMUM VALUE\n")
+            logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
             logfile.close()
             sys.exit()
 
@@ -450,25 +418,229 @@ def postprocess_mode(arg_list):
         logfile.close()
         sys.exit()
 
-    if ("-min_matched" in arg_list or "-min_score" in arg_list) and "-min_matched_ss" in arg_list:
-        logfile = open(log_filepath, "w")
-        logfile.write("ERROR:\n")
-        logfile.write("EITHER: FILTER BY SCORE AND/OR BY MINIMUM FRAGMENT(S) MATCHED\n")
-        logfile.write("OR: FILTER BY MINIMUM SECONDARY STRUCTURE ELEMENT(S) MATCHED\n")
-        logfile.close()
-        sys.exit()
-
-    if "-rank" in arg_list and "-min_matched_ss" in arg_list:
-        logfile = open(log_filepath, "w")
-        logfile.write("ERROR:\n")
-        logfile.write("EITHER: FILTER BY MINIMUM SECONDARY STRUCTURE ELEMENT(S) MATCHED\n")
-        logfile.write("OR: PERFORM RANKING BY SCORE\n")
-        logfile.write("OR: PERFORM RANKING BY NUMBER OF FRAGMENT(S) MATCHED\n")
-        logfile.close()
-        sys.exit()
-
-    if "-min_matched" not in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list and "-min_matched_ss" not in arg_list:
+    if "-min_matched" not in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list:
         logfile = open(log_filepath, "w")
         logfile.write("ERROR: POST PROCESSING FLAG REQUIRED\n")
         logfile.close()
         sys.exit()
+
+
+# unreleased_postprocess_mode
+# def postprocess_mode(arg_list):
+#     valid_flags = ["-outdir", "-design_dir", "-min_score", "-min_matched", "-postprocess", "-rank", "-min_matched_ss"]
+#     for arg in arg_list:
+#         if arg[0] == '-' and arg not in valid_flags:
+#             log_filepath = os.getcwd() + "/Nanohedra_PostProcess_log.txt"
+#             logfile = open(log_filepath, "a+")
+#             logfile.write("ERROR: %s IS AN INVALID FLAG\n" % arg)
+#             logfile.write("VALID FLAGS ARE: -outdir, -design_dir, -min_score, -min_matched, -postprocess\n")
+#             logfile.close()
+#             sys.exit()
+#
+#     if "-outdir" in arg_list:
+#         outdir_index = arg_list.index('-outdir') + 1
+#         if outdir_index < len(arg_list):
+#             outdir = arg_list[outdir_index]
+#         else:
+#             log_filepath = os.getcwd() + "/Nanohedra_PostProcess_log.txt"
+#             logfile = open(log_filepath, "a+")
+#             logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED\n")
+#             logfile.close()
+#             sys.exit()
+#     else:
+#         log_filepath = os.getcwd() + "/Nanohedra_PostProcess_log.txt"
+#         logfile = open(log_filepath, "a+")
+#         logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED\n")
+#         logfile.close()
+#         sys.exit()
+#
+#     log_filepath = outdir + "/Nanohedra_PostProcess_log.txt"
+#     if not os.path.exists(outdir):
+#         os.makedirs(outdir)
+#
+#     try:
+#         design_dir_path_index = arg_list.index("-design_dir") + 1
+#         try:
+#             design_dir_path = arg_list[design_dir_path_index]
+#             if not os.path.exists(design_dir_path):
+#                 logfile = open(log_filepath, "w")
+#                 logfile.write("ERROR: DESIGN DIRECTORY PATH SPECIFIED DOES NOT EXIST\n")
+#                 logfile.close()
+#                 sys.exit()
+#         except IndexError:
+#             logfile = open(log_filepath, "w")
+#             logfile.write("ERROR: -design_dir FLAG FOLLOWED BY DESIGN DIRECTORY PATH IS REQUIRED\n")
+#             logfile.close()
+#             sys.exit()
+#     except ValueError:
+#         logfile = open(log_filepath, "w")
+#         logfile.write("ERROR: -design_dir FLAG FOLLOWED BY DESIGN DIRECTORY PATH IS REQUIRED\n")
+#         logfile.close()
+#         sys.exit()
+#
+#     if "-min_score" in arg_list and "-min_matched" not in arg_list and "-rank" not in arg_list and "-min_matched_ss" not in arg_list:
+#         try:
+#             min_score_index = arg_list.index("-min_score") + 1
+#             try:
+#                 min_score_str = arg_list[min_score_index]
+#                 try:
+#                     min_score = float(min_score_str)
+#                     PostProcessUtils.score_filter(design_dir_path, min_score, outdir)
+#                 except ValueError:
+#                     logfile = open(log_filepath, "w")
+#                     logfile.write("ERROR: MINIMUM SCORE SPECIFIED IS NOT A FLOAT\n")
+#                     logfile.close()
+#                     sys.exit()
+#             except IndexError:
+#                 logfile = open(log_filepath, "w")
+#                 logfile.write("ERROR: -min_score FLAG FOLLOWED BY A MINIMUM SCORE IS REQUIRED\n")
+#                 logfile.close()
+#                 sys.exit()
+#         except ValueError:
+#             logfile = open(log_filepath, "w")
+#             logfile.write("ERROR: -min_score FLAG FOLLOWED BY A MINIMUM SCORE IS REQUIRED\n")
+#             logfile.close()
+#             sys.exit()
+#
+#     if "-min_matched" in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list and "-min_matched_ss" not in arg_list:
+#         try:
+#             min_matched_index = arg_list.index("-min_matched") + 1
+#             try:
+#                 min_matched_str = arg_list[min_matched_index]
+#                 try:
+#                     min_matched = int(min_matched_str)
+#                     PostProcessUtils.frag_match_count_filter(design_dir_path, min_matched, outdir)
+#                 except ValueError:
+#                     logfile = open(log_filepath, "w")
+#                     logfile.write("ERROR: MINIMUM MATCHED FRAGMENT COUNT SPECIFIED IS NOT AN INTEGER\n")
+#                     logfile.close()
+#                     sys.exit()
+#             except IndexError:
+#                 logfile = open(log_filepath, "w")
+#                 logfile.write("ERROR: -min_matched FLAG FOLLOWED BY A MINIMUM MATCHED FRAGMENT COUNT IS REQUIRED\n")
+#                 logfile.close()
+#                 sys.exit()
+#         except ValueError:
+#             logfile = open(log_filepath, "w")
+#             logfile.write("ERROR: -min_matched FLAG FOLLOWED BY A MINIMUM MATCHED FRAGMENT COUNT IS REQUIRED\n")
+#             logfile.close()
+#             sys.exit()
+#
+#     if "-min_matched" in arg_list and "-min_score" in arg_list and "-rank" not in arg_list and "-min_matched_ss" not in arg_list:
+#         min_matched_index = arg_list.index("-min_matched") + 1
+#         min_score_index = arg_list.index("-min_score") + 1
+#         try:
+#             min_matched_str = arg_list[min_matched_index]
+#             min_score_str = arg_list[min_score_index]
+#
+#             try:
+#                 min_matched = int(min_matched_str)
+#             except ValueError:
+#                 logfile = open(log_filepath, "w")
+#                 logfile.write("ERROR: MINIMUM MATCHED FRAGMENT COUNT SPECIFIED IS NOT AN INTEGER\n")
+#                 logfile.close()
+#                 sys.exit()
+#
+#             try:
+#                 min_score = float(min_score_str)
+#             except ValueError:
+#                 logfile = open(log_filepath, "w")
+#                 logfile.write("ERROR: MINIMUM SCORE SPECIFIED IS NOT A FLOAT\n")
+#                 logfile.close()
+#                 sys.exit()
+#
+#             PostProcessUtils.score_and_frag_match_count_filter(design_dir_path, min_score, min_matched, outdir)
+#
+#         except IndexError:
+#             logfile = open(log_filepath, "w")
+#             logfile.write("ERROR: -min_matched FLAG FOLLOWED BY A MINIMUM MATCHED FRAGMENT COUNT IS REQUIRED\n")
+#             logfile.write("ERROR: -min_score FLAG FOLLOWED BY A MINIMUM SCORE IS REQUIRED\n")
+#             logfile.close()
+#             sys.exit()
+#
+#     if "-rank" in arg_list and "-min_matched" not in arg_list and "-min_score" not in arg_list and "-min_matched_ss" not in arg_list:
+#         # try:
+#         rank_index = arg_list.index("-rank") + 1
+#         # try:
+#         metric = arg_list[rank_index]
+#         # try:
+#         metric_str = str(metric)
+#         if metric_str in ["score", "matched"]:
+#             PostProcessUtils.rank(design_dir_path, metric_str, outdir)
+#         else:
+#             logfile = open(log_filepath, "w")
+#             logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT RECOGNIZED\n")
+#             logfile.close()
+#             sys.exit()
+#             # except ValueError:
+#             #     logfile = open(log_filepath, "w")
+#             #     logfile.write("ERROR: RANKING METRIC SPECIFIED IS NOT A STRING\n")
+#             #     logfile.close()
+#             #     sys.exit()
+#         #     except IndexError:
+#         #         logfile = open(log_filepath, "w")
+#         #         logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
+#         #         logfile.close()
+#         #         sys.exit()
+#         # except ValueError:
+#         #     logfile = open(log_filepath, "w")
+#         #     logfile.write("ERROR: -rank FLAG FOLLOWED BY A RANKING METRIC IS REQUIRED\n")
+#         #     logfile.close()
+#         #     sys.exit()
+#
+#     if "-min_matched_ss" in arg_list and "-min_matched" not in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list:
+#         try:
+#             min_matched_ss_index = arg_list.index("-min_matched_ss") + 1
+#             try:
+#                 min_matched_ss_str = arg_list[min_matched_ss_index]
+#                 try:
+#                     min_matched_ss = int(min_matched_ss_str)
+#                     PostProcessUtils.ss_match_count_filter(design_dir_path, min_matched_ss, outdir)
+#                 except ValueError:
+#                     logfile = open(log_filepath, "w")
+#                     logfile.write(
+#                         "ERROR: VALUE SPECIFIED FOR MINIMUM SECONDARY STRUCTURE ELEMENT MATCHES IS NOT AN INTEGER\n")
+#                     logfile.close()
+#                     sys.exit()
+#             except IndexError:
+#                 logfile = open(log_filepath, "w")
+#                 logfile.write("ERROR: -min_matched_ss FLAG IS NOT FOLLOWED BY A MINIMUM VALUE\n")
+#                 logfile.close()
+#                 sys.exit()
+#         except ValueError:
+#             logfile = open(log_filepath, "w")
+#             logfile.write("ERROR: -min_matched_ss FLAG IS NOT FOLLOWED BY A MINIMUM VALUE\n")
+#             logfile.close()
+#             sys.exit()
+#
+#     if ("-min_matched" in arg_list or "-min_score" in arg_list) and "-rank" in arg_list:
+#         logfile = open(log_filepath, "w")
+#         logfile.write("ERROR:\n")
+#         logfile.write("EITHER: FILTER BY SCORE AND/OR BY MINIMUM FRAGMENT(S) MATCHED\n")
+#         logfile.write("OR: PERFORM RANKING BY SCORE\n")
+#         logfile.write("OR: PERFORM RANKING BY NUMBER OF FRAGMENT(S) MATCHED\n")
+#         logfile.close()
+#         sys.exit()
+#
+#     if ("-min_matched" in arg_list or "-min_score" in arg_list) and "-min_matched_ss" in arg_list:
+#         logfile = open(log_filepath, "w")
+#         logfile.write("ERROR:\n")
+#         logfile.write("EITHER: FILTER BY SCORE AND/OR BY MINIMUM FRAGMENT(S) MATCHED\n")
+#         logfile.write("OR: FILTER BY MINIMUM SECONDARY STRUCTURE ELEMENT(S) MATCHED\n")
+#         logfile.close()
+#         sys.exit()
+#
+#     if "-rank" in arg_list and "-min_matched_ss" in arg_list:
+#         logfile = open(log_filepath, "w")
+#         logfile.write("ERROR:\n")
+#         logfile.write("EITHER: FILTER BY MINIMUM SECONDARY STRUCTURE ELEMENT(S) MATCHED\n")
+#         logfile.write("OR: PERFORM RANKING BY SCORE\n")
+#         logfile.write("OR: PERFORM RANKING BY NUMBER OF FRAGMENT(S) MATCHED\n")
+#         logfile.close()
+#         sys.exit()
+#
+#     if "-min_matched" not in arg_list and "-min_score" not in arg_list and "-rank" not in arg_list and "-min_matched_ss" not in arg_list:
+#         logfile = open(log_filepath, "w")
+#         logfile.write("ERROR: POST PROCESSING FLAG REQUIRED\n")
+#         logfile.close()
+#         sys.exit()

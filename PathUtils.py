@@ -8,8 +8,10 @@ import os
 program_name = 'SymDesign'
 program_output = '%sOutput' % program_name
 projects = 'Projects'
-program_command = 'python $SymDesign.py'
-guide_string = '%s guide. Enter \'%s guide\'' % (program_name, program_command)
+program_command = 'python SymDesign.py'
+submodule_guide = '%s --guide MODULE' % program_command
+submodule_help = '%s MODULE --help' % program_command
+guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
 nano = 'nanohedra'  # v0 'Nanohedra'  # v1?
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
@@ -40,7 +42,7 @@ clean = 'clean_asu.pdb'
 pssm = 'evolutionary.pssm'  # was 'asu_pose.pssm' 1/25/21
 dssm = 'design.pssm'
 assembly = 'assembly.pdb'
-frag_dir = 'matching_fragment_representatives'
+frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
 frag_text_file = 'frag_match_info_file.txt'
 frag_file = os.path.join(frag_dir, frag_text_file)
 pose_file = 'docked_pose_info_file.txt'
@@ -164,9 +166,6 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
                     stage[7]: os.path.join(sbatch_templates, stage[6]),
                     stage[8]: os.path.join(sbatch_templates, stage[6]),
                     stage[9]: os.path.join(sbatch_templates, stage[6])}
-
-# argparse help
-submodule_help = 'python %s %s -h' % (os.path.realpath(command), 'expand_asu')
 
 
 def help(module):  # command is SymDesign.py

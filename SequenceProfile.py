@@ -4,9 +4,7 @@ import subprocess
 import time
 from copy import deepcopy, copy
 from glob import glob
-from itertools import chain
 
-from Bio import SeqIO  # import write, parse
 from Bio import pairwise2
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
@@ -15,12 +13,10 @@ from Bio.SeqUtils import IUPACData
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-from classes.Fragment import FragmentDB
-from utils.MysqlPython import Mysql
 from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log  # logger,
 
 
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
 
 # Globals
 index_offset = 1
@@ -34,6 +30,7 @@ add_fragment_profile_instructions = 'To add fragment information, call Pose.gene
 
 class SequenceProfile:
     idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
+
     def __init__(self, structure=None, log=None, **kwargs):
         super().__init__(**kwargs)  # log=log,
         # if log:
@@ -93,7 +90,7 @@ class SequenceProfile:
         try:
             return self._entity_offset
         except AttributeError:
-            self.entity_offset = self.structure.get_residues()[0].number - 1
+            self.entity_offset = self.structure.residues[0].number - 1
             return self._entity_offset
 
     @entity_offset.setter
@@ -107,17 +104,8 @@ class SequenceProfile:
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
 
-    def connect_fragment_database(self, location=None, init=False, **kwargs):
-        """Generate a new connection. Initialize the representative library by passing init=True"""
-        if not location:  # Todo fix once multiple are available
-            location = 'biological_interfaces'
-        self.frag_db = FragmentDatabase(location=location, init_db=init)
-        #                               source=source, location=location, init_db=init_db)
-
-    def attach_fragment_database(self, db=None, **kwargs):
-        """Attach an existing Fragment Database to the SequenceProfile or generate a new connection. Initialize the
-        representative library by passing init=True"""
-        #                        source='directory', location='biological_interfaces', length=5, init_db=True):
+    def attach_fragment_database(self, db=None):
+        """Attach an existing Fragment Database to the SequenceProfile"""
         if db:
             self.frag_db = db
         else:
@@ -213,7 +201,7 @@ class SequenceProfile:
 
             if not rerun:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
-                for idx, residue in enumerate(self.structure.get_residues(), 1):
+                for idx, residue in enumerate(self.structure.residues, 1):
                     profile_residue_type = self.evolutionary_profile[idx]['type']
                     pose_residue_type = IUPACData.protein_letters_3to1[residue.type.title()]
                     if profile_residue_type != pose_residue_type:
@@ -1057,7 +1045,7 @@ class SequenceProfile:
         # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
         # interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atoms])
         # interface_tree = residue_interaction_graph(interface)
-        # interface_cb_indices = interface.get_cb_indices(InclGlyCA=True)
+        # interface_cb_indices = interface.get_cb_indices()  # InclGlyCA=True)
 
         interface_residue_edges = {}
         for idx, residue_contacts in enumerate(interface_tree):
@@ -1360,168 +1348,6 @@ def overlap_consensus(issm, aa_set):
     return consensus
 
 
-class FragmentDatabase(FragmentDB):
-    def __init__(self, source='directory', location=None, length=5, init_db=False):
-        super().__init__()  # FragmentDB
-        # self.monofrag_cluster_rep_dirpath = monofrag_cluster_rep_dirpath
-        # self.intfrag_cluster_rep_dirpath = intfrag_cluster_rep_dirpath
-        # self.intfrag_cluster_info_dirpath = intfrag_cluster_info_dirpath
-        # self.reps = None
-        # self.paired_frags = None
-        # self.info = None
-        self.source = source
-        if location:
-            self.location = PUtils.frag_directory[location]  # location
-        else:
-            self.location = None
-        self.statistics = {}
-        # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
-        #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
-        self.fragment_range = None
-        self.cluster_info = {}
-        self.fragdb = None
-
-        if self.source == 'DB':
-            self.start_mysql_connection()
-            self.db = True
-        elif self.source == 'directory':
-            # Todo initialize as local directory
-            self.db = False
-            if init_db:
-                logger.info('Initializing FragmentDatabase from disk. This may take awhile...')
-                self.get_monofrag_cluster_rep_dict()
-                self.get_intfrag_cluster_rep_dict()
-                self.get_intfrag_cluster_info_dict()
-        else:
-            self.db = False
-
-        self.get_db_statistics()
-        self.parameterize_frag_length(length)
-
-    def get_db_statistics(self):
-        """Retrieve summary statistics for a specific fragment database located on directory
-
-        Returns:
-            (dict): {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {paired}],
-                                   total_fragment_observations],
-                     cluster_id2: ...,
-                     frequencies: {'A': 0.11, ...}}
-                ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
-        """
-        if self.db:
-            logger.warning('No SQL DB connected yet!')  # Todo
-            raise DesignError('Can\'t connect to MySQL database yet')
-        else:
-            for file in os.listdir(self.location):
-                if 'statistics.pkl' in file:
-                    self.statistics = unpickle(os.path.join(self.location, file))
-
-    def get_db_aa_frequencies(self):
-        """Retrieve database specific interface background AA frequencies
-
-        Returns:
-            (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
-        """
-        return self.statistics['frequencies']
-
-    def retrieve_cluster_info(self, cluster=None, source=None, index=None):
-        """Return information from the fragment information database by cluster_id, information source, and source index
-         cluster_info takes the form:
-            {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ...,
-                         'mapped': indexed_frequency_dict, 'paired': indexed_frequency_dict}
-                         indexed_frequency_dict = {-2: {'A': 0.1, 'C': 0., ..., 'info': (12, 0.41)},
-                                                   -1: {}, 0: {}, 1: {}, 2: {}}
-
-        Keyword Args:
-            cluster=None (str): A cluster_id to get information about
-            source=None (str): The source of information to gather from: ['size', 'rmsd', 'rep', 'mapped', 'paired']
-            index=None (int): The index to gather information from. Must be from 'mapped' or 'paired'
-        Returns:
-            (dict)
-        """
-        if cluster:
-            if cluster not in self.cluster_info:
-                self.get_cluster_info(ids=[cluster])
-            if source:
-                if index is not None and source in ['mapped', 'paired']:  # must check for not None. The index can be 0
-                    return self.cluster_info[cluster][source][index]
-                else:
-                    return self.cluster_info[cluster][source]
-            else:
-                return self.cluster_info[cluster]
-        else:
-            return self.cluster_info
-
-    def get_cluster_info(self, ids=None):
-        """Load cluster information from the fragment database source into attribute cluster_info
-        # todo change ids to a tuple
-        Keyword Args:
-            id_list=None: [1_2_123, ...]
-        Sets:
-            self.cluster_info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
-        """
-        if self.db:
-            logger.warning('No SQL DB connected yet!')  # Todo
-            raise DesignError('Can\'t connect to MySQL database yet')
-        else:
-            if not ids:
-                directories = get_all_base_root_paths(self.location)
-            else:
-                directories = []
-                for _id in ids:
-                    c_id = _id.split('_')
-                    _dir = os.path.join(self.location, c_id[0], '%s_%s' % (c_id[0], c_id[1]),
-                                        '%s_%s_%s' % (c_id[0], c_id[1], c_id[2]))
-                    directories.append(_dir)
-
-            for cluster_directory in directories:
-                cluster_id = os.path.basename(cluster_directory)
-                filename = os.path.join(cluster_directory, '%s.pkl' % cluster_id)
-                self.cluster_info[cluster_id] = unpickle(filename)
-
-            # return self.cluster_info
-
-    @staticmethod
-    def get_cluster_id(cluster_id, index=3):
-        """Returns the cluster identification string according the specified index
-
-        Args:
-            cluster_id (str): The id of the fragment cluster. Ex: 1_2_123
-        Keyword Args:
-            index_number=3 (int): The index on which to return. Ex: index_number=2 gives 1_2
-        Returns:
-            (str): The cluster_id modified by the requested index_number
-        """
-        while len(cluster_id) < 3:
-            cluster_id += '0'
-
-        if len(cluster_id.split('_')) != 3:  # in case of 12123?
-            id_l = [cluster_id[:1], cluster_id[1:2], cluster_id[2:]]
-        else:
-            id_l = cluster_id.split('_')
-
-        info = [id_l[i] for i in range(index)]
-
-        while len(info) < 3:  # ensure the returned string has at least 3 indices
-            info.append('0')
-
-        return '_'.join(info)
-
-    def parameterize_frag_length(self, length):
-        """Generate fragment length range parameters for use in fragment functions"""
-        _range = math.floor(length / 2)  # get the number of residues extending to each side
-        if length % 2 == 1:
-            self.fragment_range = (0 - _range, 0 + _range + index_offset)
-            # return 0 - _range, 0 + _range + index_offset
-        else:
-            self.log.critical('%d is an even integer which is not symmetric about a single residue. '
-                              'Ensure this is what you want' % length)
-            self.fragment_range = (0 - _range, 0 + _range)
-
-    def start_mysql_connection(self):
-        self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
-
-
 def get_db_statistics(database):
     """Retrieve summary statistics for a specific fragment database
 
@@ -1689,7 +1515,7 @@ def offset_index(dictionary, to_zero=False):
         return {residue + index_offset: dictionary[residue] for residue in dictionary}
 
 
-def residue_object_to_number(residue_dict):  # TODO supplement with names info and pull out by names
+def residue_object_to_number(residue_dict):  # TODO DEPRECIATE
     """Convert sets of PDB.Residue objects to residue numbers
 
     Args:
@@ -2336,66 +2162,6 @@ def create_bio_msa(sequence_dict):
     new_alignment = MultipleSeqAlignment(sequences)
 
     return new_alignment
-
-
-def read_fasta_file(file_name):
-    """Returns an iterator of SeqRecords. Ex. [record1, record2, ...]"""
-    return SeqIO.parse(file_name, 'fasta')
-
-
-def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
-    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
-    if not file_name:
-        return None
-    if '.fasta' in file_name:
-        file_name = file_name.rstrip('.fasta')
-    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
-
-    return '%s.fasta' % file_name
-
-
-def concatenate_fasta_files(file_names, output='concatenated_fasta'):
-    """Take multiple fasta files and concatenate into a single file"""
-    seq_records = [read_fasta_file(file) for file in file_names]
-    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
-
-
-def write_fasta_file(sequence, name, outpath=os.getcwd()):
-    """Write a fasta file from sequence(s)
-
-    Args:
-        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(name, sequence),
-            list of lists, etc. Smart solver using object type
-        name (str): The name of the file to output
-    Keyword Args:
-        path=os.getcwd() (str): The location on disk to output file
-    Returns:
-        (str): The name of the output file
-    """
-    file_name = os.path.join(outpath, name + '.fasta')
-    with open(file_name, 'w') as outfile:
-        if type(sequence) is list:
-            if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
-                for idx, seq in enumerate(sequence):
-                    outfile.write('>%s_%d\n' % (name, idx))  # header
-                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
-                        outfile.write(' '.join(aa for aa in seq))
-                    else:
-                        outfile.write(''.join(aa for aa in seq))
-            elif isinstance(sequence[0], str):
-                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
-            elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
-                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
-            else:
-                raise DesignError('Cannot parse data to make fasta')
-        elif isinstance(sequence, dict):
-            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
-        elif isinstance(sequence, str):
-            outfile.write('>%s\n%s\n' % (name, sequence))
-        else:
-            raise DesignError('Cannot parse data to make fasta')
-
-    return file_name
 
 
 def make_mutations(seq, mutations, find_orf=True):

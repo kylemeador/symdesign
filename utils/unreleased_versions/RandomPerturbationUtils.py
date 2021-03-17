@@ -7,10 +7,9 @@ import re
 
 import numpy as np
 
-from classes.PDB import PDB
-from utils.ExpandAssemblyUtils import generate_cryst1_record
-from utils.SamplingUtils import get_optimal_external_tx_vector
-from utils.SymmUtils import get_uc_dimensions
+from PDB import PDB
+from classes.SymEntry import get_optimal_external_tx_vector
+from utils.SymmetryUtils import get_uc_dimensions, generate_cryst1_record
 
 
 def get_rot_matrix_z(angle_deg):
@@ -122,15 +121,13 @@ def rand_perturb(pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matri
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    pdb1 = PDB()
-    pdb1.readfile(pdb1_path)
+    pdb1 = PDB.from_file(pdb1_path)
 
-    pdb2 = PDB()
-    pdb2.readfile(pdb2_path)
+    pdb2 = PDB.from_file(pdb2_path)
 
     for perturb_number in range(number_of_perturbations):
-        pdb1_copy = copy.deepcopy(pdb1)
-        pdb2_copy = copy.deepcopy(pdb2)
+        pdb1_copy = copy.copy(pdb1)
+        pdb2_copy = copy.copy(pdb2)
 
         pdb1_rand_perturb_path = outdir + "/" + os.path.splitext(os.path.basename(pdb1.filepath))[
             0] + "_rand_perturb_" + str(perturb_number) + ".pdb"

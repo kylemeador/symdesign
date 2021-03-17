@@ -5,16 +5,17 @@ import pandas as pd
 from PathUtils import program_command, nano, program_name, nstruct, filter_and_sort
 from Query.PDB import input_string, format_string, confirmation_string, \
     bool_d, invalid_string, header_string
-from SequenceProfile import read_fasta_file
-from SymDesignUtils import pretty_format_table, DesignError, handle_errors
+from SymDesignUtils import pretty_format_table, DesignError, handle_errors, read_fasta_file
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
+generate_frags = 'generate_fragments'
 # Todo separate into types of options, aka fragments, residue selection, symmetry
 global_flags = {'symmetry': {'type': str, 'default': None,
                 'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
                                'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
                 'nanohedra_output': {'type': bool, 'default': False,
                                      'description': 'Whether the design targets are a %s output' % nano.title()},
+                'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
                 }
 design_flags = {
     'design_with_evolution': {'type': bool, 'default': True,
@@ -93,7 +94,8 @@ filters = copy(global_flags)
 filters.update(filter_flags)
 all_flags = copy(design)
 all_flags.update(filters)
-flags = {'design': design, 'filter': filters, 'analysis': global_flags, 'sequence_selection': global_flags, None: all_flags}
+flags = {'design': design, None: all_flags}
+#        'analysis': global_flags, 'filter': filters, 'sequence_selection': global_flags,
 
 
 def process_design_selector_flags(design_flags):
@@ -153,7 +155,7 @@ def return_default_flags(mode):
     if mode in flags:
         return dict(zip(flags[mode].keys(), [value_format['default'] for value_format in flags[mode].values()]))
     else:
-        return dict()
+        return dict(zip(global_flags.keys(), [value_format['default'] for value_format in global_flags.values()]))
 
 
 @handle_errors(errors=KeyboardInterrupt)

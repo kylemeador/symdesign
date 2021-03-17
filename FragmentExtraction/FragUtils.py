@@ -18,8 +18,8 @@ module = 'Fragment Utilities:'
 
 def construct_cb_atom_tree(pdb1, pdb2, distance):
     # Get CB Atom Coordinates
-    pdb1_coords = np.array(pdb1.extract_CB_coords(InclGlyCA=True))
-    pdb2_coords = np.array(pdb2.extract_CB_coords(InclGlyCA=True))
+    pdb1_coords = np.array(pdb1.extract_cb_coords(InclGlyCA=True))
+    pdb2_coords = np.array(pdb2.extract_cb_coords(InclGlyCA=True))
 
     # Construct CB Tree for PDB1
     pdb1_tree = BallTree(pdb1_coords)
@@ -38,9 +38,9 @@ def find_interface_pairs(pdb1, pdb2, distance):
     interface_pairs = []
     for pdb2_index in range(len(query)):
         if query[pdb2_index].tolist() != list():
-            pdb2_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_index]].residue_number
+            pdb2_res_num = pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number
             for pdb1_index in query[pdb2_index]:
-                pdb1_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_index]].residue_number
+                pdb1_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_index]].residue_number
                 interface_pairs.append((pdb1_res_num, pdb2_res_num))
 
     return interface_pairs
@@ -48,7 +48,7 @@ def find_interface_pairs(pdb1, pdb2, distance):
 
 def get_guide_atoms(frag_pdb):
     guide_atoms = []
-    for atom in frag_pdb.all_atoms:
+    for atom in frag_pdb.atoms:
         if atom.chain == "9":
             guide_atoms.append(atom)
     if len(guide_atoms) == 3:
@@ -190,7 +190,7 @@ def center(bio_pdb):
     center_ca_coords = center_ca_atom.get_coord()
 
     # Center Such That Central Residue CA is at Origin
-    for atom in bio_pdb.get_atoms():
+    for atom in bio_pdb.atoms():  # Todo might be wrong
         atom.set_coord(np.add(atom.get_coord(), -center_ca_coords))
 
 
@@ -281,8 +281,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     num_bb_atoms = 4
 
     # Creating PDB instance for mapped and paired chains
-    pdb_mapped = PDB.from_atoms(atoms=pdb.chain(mapped_chain).get_atoms())
-    pdb_paired = PDB.from_atoms(atoms=pdb.chain(paired_chain).get_atoms())
+    pdb_mapped = PDB.from_atoms(atoms=pdb.chain(mapped_chain).atoms)
+    pdb_paired = PDB.from_atoms(atoms=pdb.chain(paired_chain).atoms)
     # pdb_mapped.read_atom_list(pdb.get_chain_atoms(mapped_chain))
     # pdb_paired.read_atom_list(pdb.get_chain_atoms(paired_chain))
 
@@ -290,8 +290,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     query = construct_cb_atom_tree(pdb_mapped, pdb_paired, interaction_dist)
 
     # Map Coordinates to Atoms
-    # pdb_map_cb_indices = pdb1.get_cb_indices(InclGlyCA=True)
-    # pdb_partner_cb_indices = pdb2.get_cb_indices(InclGlyCA=True)
+    # pdb_map_cb_indices = pdb1.get_cb_indices()  # InclGlyCA=True)
+    # pdb_partner_cb_indices = pdb2.get_cb_indices()  # InclGlyCA=True)
 
     # Map Coordinates to Atoms
     interacting_pairs = []
@@ -313,9 +313,9 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     # Create dictionary and Count all atoms in each residue sidechain
     # ex. {'A': {32: (0, 9), 33: (0, 5), ...}, 'B':...}
     res_counts_dict = {'mapped': {residue.number: [0, residue.number_of_atoms - num_bb_atoms]
-                                  for residue in pdb_mapped.get_residues()},
+                                  for residue in pdb_mapped.residues},
                        'paired': {residue.number: [0, residue.number_of_atoms - num_bb_atoms]
-                                  for residue in pdb_paired.get_residues()}}
+                                  for residue in pdb_paired.residues}}
     # res_counts_dict = {'mapped': {i.residue_number: [0, len(pdb_mapped.get_residue_atoms(mapped_chain, i.residue_number))
     #                                                  - num_bb_atoms] for i in pdb_mapped.get_ca_atoms()},
     #                    'paired': {i.residue_number: [0, len(pdb_paired.get_residue_atoms(paired_chain, i.residue_number))

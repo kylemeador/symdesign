@@ -167,6 +167,7 @@ def main(cent_i_frag, paired_frag_dir, outdir, i_frag_limit, clust_rmsd_thresh, 
                         os.makedirs(subtype_dir_1)
 
                     # superimpose CA atoms from fragment, second chain_id, with second fragment min_rms_biopdb
+                    # this way we can map the guide coordinates to the second chain, fragment using a transformation
                     sup_1 = Superimposer()
                     sup_1.set_atoms(Frag.get_biopdb_ca(int_frag_chains_info[0][0][0][int_frag_chains_info[1][1]]),
                                     Frag.get_biopdb_ca(int_frag_chains_info[1][3]))

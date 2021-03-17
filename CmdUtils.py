@@ -25,16 +25,17 @@ extras_flags = {'default': [],
 
 script_cmd = [os.path.join(PUtils.rosetta, 'source/bin/rosetta_scripts.' + PUtils.rosetta_extras + '.linuxgccrelease'),
               '-database', os.path.join(PUtils.rosetta, 'database')]
-flags = extras_flags[PUtils.rosetta_extras] + \
-        ['-ex1', '-ex2', '-extrachi_cutoff 5', '-ignore_unrecognized_res',  # '-run:timer true',
-         '-ignore_zero_occupancy false', '-overwrite', '-linmem_ig 10', '-out:file:scorefile_format json',
-         '-output_only_asymmetric_unit true', '-no_chainend_ter true', '-write_seqres_records true',
-         '-output_pose_energies_table false', '-output_pose_cache_data false',
-         '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB VirtualNTerm '
-         'VirtualDNAPhosphate CTermConnect sc_orbitals pro_hydroxylated_case1 N_acetylated C_methylamidated '
-         'cys_acetylated pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated tyr_phosphorylated tyr_sulfated '
-         'lys_dimethylated lys_monomethylated lys_trimethylated lys_acetylated glu_carboxylated MethylatedProteinCterm '
-         'tyr_diiodinated']
+rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
+                ['-ex1', '-ex2', '-extrachi_cutoff 5', '-ignore_unrecognized_res',  # '-run:timer true',
+                 '-ignore_zero_occupancy false', '-overwrite', '-linmem_ig 10', '-out:file:scorefile_format json',
+                 '-output_only_asymmetric_unit true', '-no_chainend_ter true', '-write_seqres_records true',
+                 '-output_pose_energies_table false', '-output_pose_cache_data false',
+                 '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB '
+                 'VirtualNTerm '
+                 'VirtualDNAPhosphate CTermConnect sc_orbitals pro_hydroxylated_case1 N_acetylated C_methylamidated '
+                 'cys_acetylated pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated tyr_phosphorylated '
+                 'lys_dimethylated lys_monomethylated lys_trimethylated lys_acetylated glu_carboxylated '
+                 'MethylatedProteinCterm tyr_diiodinated tyr_sulfated']
 
 # PUtils.stage = 1: refine, 2: design, 3: metrics, 4:analysis, 5:consensus. 6:rmsd_calculation
 # 1 and 5 have the same flag options as both are relax
