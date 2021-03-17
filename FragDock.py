@@ -263,7 +263,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
         asu = get_contacting_asu(pdb1_copy, pdb2_copy)  # _pdb_1, asu_pdb_2
-        print('Grabbing asu')  # Todo debug
+        # print('Grabbing asu')  # Todo debug
         if not asu:  # _pdb_1 and not asu_pdb_2:
             with open(log_filepath, 'a+') as log_file:
                 log_file.write('\tNO Design ASU Found\n')
@@ -279,7 +279,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
 
-        print('Checked expand clash')  # Todo debug
+        # print('Checked expand clash')  # Todo debug
         if symmetric_material.symmetric_assembly_is_clash():
             with open(log_filepath, 'a+') as log_file:
                 log_file.write('\tBackbone Clash when Designed Assembly is Expanded (took: %s s)\n'
@@ -336,7 +336,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         sorted_fragment_indices = np.argsort(passing_z_values)
         sorted_z_values = passing_z_values[sorted_fragment_indices]
         match_scores = match_score_from_z_value(sorted_z_values)
-        print('Overlapping Match Scores: %s' % match_scores)  # Todo DEBUG
+        # print('Overlapping Match Scores: %s' % match_scores)  # Todo DEBUG
         sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
         int_ghostfrags = [interface_ghost_frags[idx] for idx in passing_ghost_indices[sorted_overlap_indices].tolist()]
         int_monofrags2 = [interface_surf_frags[idx] for idx in passing_surf_indices[sorted_overlap_indices].tolist()]
@@ -403,7 +403,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                                          surf_frag_chain1, surf_frag_central_res_num1,
                                                          surf_frag_chain2, surf_frag_central_res_num2, z_value))
 
-        print('Wrote Fragments to matching_fragments')  # Todo DEBUG
+        # print('Wrote Fragments to matching_fragments')  # Todo DEBUG
         # calculate weighted frequency for central residues and write weighted frequencies to frag_text_file
         weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
         weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
@@ -513,9 +513,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
     # calculate the initial match type by finding the predominant surface type
     frag_types2 = [monofrag2.i_type for monofrag2 in complete_surf_frags]
     fragment_content2 = [frag_types2.count(frag_type) for frag_type in range(1, fragment_length + 1)]
-    print('Found oligomer 2 fragment content: %s' % fragment_content2)  # Todo debug
+    # print('Found oligomer 2 fragment content: %s' % fragment_content2)  # Todo debug
     initial_type2 = np.argmax(fragment_content2) + 1
-    print('Found initial fragment type: %d' % initial_type2)  # Todo debug
+    # print('Found initial fragment type: %d' % initial_type2)  # Todo debug
     initial_surf_frags = [monofrag2 for monofrag2 in complete_surf_frags if monofrag2.i_type == initial_type2]
     initial_surf_frags2_guide_coords = [surf_frag.guide_coords for surf_frag in initial_surf_frags]
 
@@ -545,14 +545,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                                              ijk_frag_db.info))
 
     # calculate the initial match type by finding the predominant surface type
-    print('Length of surface_frags1: %d' % len(surf_frags_1))  # Todo debug
-    print('Length of complete_ghost_frags1: %d' % len(complete_ghost_frags))  # Todo debug
-    # frag_types1 = [ghost_frag1.i_type for ghost_frag1 in complete_ghost_frags]
-    # fragment_content1 = [frag_types1.count(frag_type) for frag_type in range(1, fragment_length + 1)]
-    # print('Found oligomer 1 i fragment content: %s' % fragment_content1)  # Todo debug
+    # print('Length of surface_frags1: %d' % len(surf_frags_1))  # Todo debug
+    # print('Length of complete_ghost_frags1: %d' % len(complete_ghost_frags))  # Todo debug
+    # # frag_types1 = [ghost_frag1.i_type for ghost_frag1 in complete_ghost_frags]
+    # # fragment_content1 = [frag_types1.count(frag_type) for frag_type in range(1, fragment_length + 1)]
+    # # print('Found oligomer 1 i fragment content: %s' % fragment_content1)  # Todo debug
     frag_types1_j = [ghost_frag1.j_type for ghost_frag1 in complete_ghost_frags]
     fragment_content1_j = [frag_types1_j.count(frag_type) for frag_type in range(1, fragment_length + 1)]
-    print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)  # Todo debug
+    # print('Found oligomer 1 j fragment content: %s' % fragment_content1_j)  # Todo debug
     ghost_frags = [ghost_frag1 for ghost_frag1 in complete_ghost_frags if ghost_frag1.j_type == initial_type2]
     ghost_frag_guide_coords = [ghost_frag1.guide_coords for ghost_frag1 in ghost_frags]
 
@@ -604,7 +604,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
 
     # Transpose Setting Matrices to Set Guide Coordinates just for Euler Lookup Using np.matmul
     set_mat1_np_t, set_mat2_np_t = np.transpose(set_mat1), np.transpose(set_mat2)
-    iteration = 0  # Todo
     for degen1 in degen_rot_mat_1[degen1_count:]:
         degen1_count += 1
         for rot1_mat in degen1[rot1_count:]:
@@ -633,23 +632,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                     overlapping_ghost_frags, overlapping_surf_frags = \
                         eul_lookup.check_lookup_table(ghost_frag_guide_coords_rot_and_set,
                                                       surf_frags_2_guide_coords_rot_and_set)
-                    # print(overlapping_ghost_frags[:10])
-                    print('number of matching euler angle pairs: %d' % len(overlapping_ghost_frags))  # Todo debug
+                    # print('number of matching euler angle pairs: %d' % len(overlapping_ghost_frags))  # Todo debug
 
-                    # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coodinate pairs
+                    # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
                     with open(log_file_path, 'a+') as log_file:
                         log_file.write('Get optimal shift parameters for the selected Ghost Fragment/Surface '
                                        'Fragment guide coordinate pairs\n')
-
-                    # Filter all overlapping arrays by matching ij type. This wouldn't increase speed much by
-                    # putting before check_euler_table as the all to all is a hash operation
-                    # ij_type_match = [True if ghost_frags[ghost_frag_idx].get_j_type() ==
-                    #                  initial_surf_frags[overlapping_surf_frag_array[idx]].get_i_type() else False
-                    #                  for idx, ghost_frag_idx in enumerate(overlapping_ghost_frag_array)]
-
-                    if not overlapping_ghost_frags.any():
-                        print('No overlapping ij fragments pairs, starting next sampling')  # Todo debug
-                        continue
 
                     passing_ghost_coords = ghost_frag_guide_coords_rot_and_set[overlapping_ghost_frags]
                     passing_surf_coords = surf_frags_2_guide_coords_rot_and_set[overlapping_surf_frags]
@@ -680,9 +668,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path, 
                                       rot_mat1=rot1_mat, rot_mat2=rot2_mat, max_z_val=subseq_max_z_val,
                                       output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
                                       min_matched=min_matched)
-                    iteration += 1  # Todo
-                    if iteration == 5:  # Todo
-                        exit()
                 rot2_count = 0
             degen2_count = 0
         rot1_count = 0
