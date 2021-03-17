@@ -209,8 +209,8 @@ class SequenceProfile:
                     pose_residue_type = IUPACData.protein_letters_3to1[residue.type.title()]
                     if profile_residue_type != pose_residue_type:
                         self.log.warning(
-                            '%s: Profile and Pose sequences mismatched!\nResidue %d: Profile=%s, Pose=%s'
-                            % (self.structure.file_path, residue.number, profile_residue_type, pose_residue_type))
+                            'Profile (%s) and Pose sequences mismatched!\nResidue %d: Profile=%s, Pose=%s'
+                            % (self.pssm_file, residue.number, profile_residue_type, pose_residue_type))
                         rerun = True
                         break
 
