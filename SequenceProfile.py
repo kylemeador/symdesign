@@ -99,7 +99,10 @@ class SequenceProfile:
 
     def set_structure(self, structure):
         self.structure = structure
-        self.structure_sequence = self.structure.get_structure_sequence()
+
+    @property
+    def structure_sequence(self):
+        return self.structure.get_structure_sequence()
 
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
@@ -301,6 +304,7 @@ class SequenceProfile:
                  2: {}, ...}
         """
         self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa_list, dtype=int)
+        structure_sequence = self.structure_sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
             # line_data = line.strip().split()
             # if len(line_data) == 44:
@@ -312,7 +316,7 @@ class SequenceProfile:
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts_dict)
             # for i, aa in enumerate(alph_3_aa_list, 2):
             #     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
-            self.evolutionary_profile[residue_number]['type'] = self.structure_sequence[idx]
+            self.evolutionary_profile[residue_number]['type'] = structure_sequence[idx]
             self.evolutionary_profile[residue_number]['info'] = 0.0
             self.evolutionary_profile[residue_number]['weight'] = 0.0
 
