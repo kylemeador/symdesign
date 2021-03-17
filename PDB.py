@@ -1295,7 +1295,7 @@ class PDB(Structure):
                 pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
                 if pdb_api_name:
                     self.entity_d[pdb_api_name] = self.entity_d.pop(entity)
-            self.log.info('Found Entities \'%s\' by PDB API sequence search' % ', '.join(self.entity_d.keys()))
+                    self.log.info('Found Entity \'%s\' by PDB API sequence search' % pdb_api_name)
         else:
             for entity, info in self.entity_d.items():
                 self.log.debug('Found chains %s' % ', '.join(info['chains']))
