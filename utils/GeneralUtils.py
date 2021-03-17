@@ -47,9 +47,6 @@ def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotat
     Returns:
         (numpy.ndarray): The transformed coordinate set with the same shape as the original
     """
-    if not coord_sets:
-        return []
-
     # in general, the np.tensordot module accomplishes this same problem without stacking
     # np.tensordot(a, b, axes=1)  <-- axes=1 performs the correct multiplication with a 3d (3,3,N) by 2d (3,3) matrix
     # np.matmul may solves as well... due to broadcasting
