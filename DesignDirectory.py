@@ -619,13 +619,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.number_of_fragments = design_metrics['number_fragments']  # Now @property self.number_of_fragments
 
         # Todo limit design_residues by the SASA accessible residues
-        design_residues = self.info.get('design_residues', False)
-        if design_residues is None:  # when no interface was found
-            design_residues = []
-        elif not design_residues:  # no attribute yet
-            self.identify_interface()
-        else:
-            design_residues = design_residues.split(',')
+        while True:
+            design_residues = self.info.get('design_residues', False)
+            if design_residues is None:  # when no interface was found
+                design_residues = []
+                break
+            elif not design_residues:  # no attribute yet
+                self.identify_interface()
+            else:
+                design_residues = design_residues.split(',')
+                break
 
         self.total_interface_residues = len(design_residues)
         try:
