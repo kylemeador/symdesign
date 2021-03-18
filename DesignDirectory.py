@@ -1155,7 +1155,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Gather miscellaneous pose specific metrics
         # ensure oligomers are present and if so, their metrics are pulled out. Happens when pose is scored.
-        # self.load_pose()
+        self.load_pose()
         other_pose_metrics = self.pose_metrics()  # these are initialized with DesignDirectory init
         if not other_pose_metrics:
             raise DesignError('Scoring this design encountered problems. Check the log (%s) for any errors which may '
