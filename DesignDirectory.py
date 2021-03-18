@@ -316,6 +316,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     return self.center_residue_score / self.central_residues_with_fragment_overlap
         except ZeroDivisionError:
             self.log.error('No fragment information available! Design cannot be scored.')
+            return 0.0
         return None  # 0.0
 
     def pose_score(self):  # Todo merge with above
@@ -333,8 +334,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      'percent_fragment_helix': , 'percent_fragment_strand': ,
                      'percent_fragment_coil': , 'unique_fragments': }
         """
-        score = self.score  # inherently calls self.get_fragment_metrics()
-        if not score:
+        score = self.score  # inherently calls self.get_fragment_metrics(). Returns None if this fails
+        if score is None:  # can be 0.0
             return {}
 
         metrics = {'nanohedra_score_per_res': score,
@@ -579,21 +580,33 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def get_fragment_metrics(self):  # , from_file=True, from_pose=False):
         """Set/get fragment metrics for all fragment observations in the design"""
-        # if from_file and self.fragment_observations:
         self.log.debug('Starting fragment metric collection')
-        if self.fragment_observations:
-            self.log.debug('Found fragment observations')
-            design_metrics = return_fragment_interface_metrics(calculate_match_metrics(self.fragment_observations))
-        # if from_pose and self.pose:
-        elif self.pose:
-            self.log.debug('No fragment observations, getting info from Pose')
-            design_metrics = self.pose.return_fragment_query_metrics(total=True)
+        if self.info.get('fragments', None):
+            if self.fragment_observations:
+                # self.log.debug('Found fragment observations from %s' % self.frag_file)
+                design_metrics = return_fragment_interface_metrics(calculate_match_metrics(self.fragment_observations))
+            # if from_pose and self.pose:
+            elif self.pose:
+                self.log.debug('No fragment observations, getting info from Pose')
+                design_metrics = self.pose.return_fragment_query_metrics(total=True)
+            else:
+                # no fragments were found. set design_metrics empty
+                design_metrics = return_fragment_interface_metrics(None, null=True)
         else:
             self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet? Trying'
                              ' %s now...'
                              % (self.path, PUtils.generate_fragments, PUtils.generate_fragments))
             self.generate_interface_fragments()
-            return None
+            if self.info.get('fragments', None):
+                if self.fragment_observations:
+                    design_metrics = return_fragment_interface_metrics(
+                        calculate_match_metrics(self.fragment_observations))
+                else:
+                    # no fragments were found. set design_metrics empty
+                    design_metrics = return_fragment_interface_metrics(None, null=True)
+            else:
+                raise DesignError('Something is wrong in Design logic. This error shouldn\'t be reached.')
+                # return None
 
         self.all_residue_score = design_metrics['nanohedra_score']
         self.center_residue_score = design_metrics['nanohedra_score_central']
@@ -605,14 +618,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.coil_fragment_content = design_metrics['percent_fragment_coil']
         # self.number_of_fragments = design_metrics['number_fragments']  # Now @property self.number_of_fragments
 
-        # Todo limit by the SASA accessible residues
-        if 'design_residues' not in self.info:  # and self.pose:
+        # Todo limit design_residues by the SASA accessible residues
+        design_residues = self.info.get('design_residues', False)
+        if design_residues is None:  # when no interface was found
+            design_residues = []
+        elif not design_residues:  # no attribute yet
             self.identify_interface()
+        else:
+            design_residues = design_residues.split(',')
 
-        self.total_interface_residues = len(self.info['design_residues'].split(','))
-        self.percent_residues_fragment_all = self.fragment_residues_total / self.total_interface_residues
-        self.percent_residues_fragment_center = \
-            self.central_residues_with_fragment_overlap / self.total_interface_residues
+        self.total_interface_residues = len(design_residues)
+        try:
+            self.percent_residues_fragment_all = self.fragment_residues_total / self.total_interface_residues
+            self.percent_residues_fragment_center = \
+                self.central_residues_with_fragment_overlap / self.total_interface_residues
+        except ZeroDivisionError:
+            self.log.warning('%s: No interface residues were found. Is there an interface in your design?' % str(self))
+            self.percent_residues_fragment_all, self.percent_residues_fragment_center = 0.0, 0.0
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_docking_metrics(self):
@@ -709,6 +731,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # self.fragment_cluster_residue_d[cluster_id]['freq'] = pair_freq
         self.fragment_observations = [{'mapped': frag_obs[0], 'paired': frag_obs[1], 'cluster': frag_obs[2],
                                        'match': frag_obs[3]} for frag_obs in fragment_observations]
+        self.info['fragments'] = True
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_pose_metrics(self):
@@ -1050,8 +1073,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
                              'requested. Each design will load a separate instance which takes time. If you wish to '
                              'speed up processing pass the flag -%s' % Flags.generate_frags)
-        self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=True)  # Todo parameterize
-        self.info['fragments'] = self.frag_file
+        self.identify_interface()
+        self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=True)  # Todo parameterize write
+        for observation in self.pose.fragment_queries.values():
+            self.fragment_observations.extend(observation)
+        self.info['fragments'] = True
         self.pickle_info()
 
     def identify_interface(self):
@@ -1066,6 +1092,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.info('Interface Residues:\n\t%s'
                           % '\n\t'.join('%s : %s' % (interface, res)
                                         for interface, res in self.interface_residue_d.items()))
+        else:
+            self.info['design_residues'] = None
+            self.log.info('No Interface Residues Found')
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
@@ -1079,7 +1108,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                    evolution=self.evolution, symmetry=self.design_symmetry,
                                    fragments=self.design_with_fragments, write_fragments=self.write_frags,
                                    query_fragments=self.query_fragments)
-        # TODO add symmetry or oligomer data to self.info?
+        # TODO add symmetry or oligomer data to self.info. Right now in self.sym_entry
         self.set_symmetry(**self.pose.return_symmetry_parameters())
         self.log.debug('DesignDirectory Symmetry: %s' % self.return_symmetry_parameters())
         self.make_path(self.designs)  # Todo include these after refine_sbatch.sh? Need if commands are run in python!
