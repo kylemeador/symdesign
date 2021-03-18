@@ -447,8 +447,9 @@ class Structure(StructureBase):
     def renumber_atoms(self):
         """Renumber all atom entries one-indexed according to list order"""
         self.log.debug('Atoms in %s were renumbered from 1 to %s' % (self.name, self.number_of_atoms))
-        for idx, atom in enumerate(self.atoms):
-            self.atoms[idx].number = idx + 1
+        atoms = self.atoms
+        for idx, atom in enumerate(atoms, 1):
+            atoms[idx].number = idx
 
     def reindex_atoms(self):
         """Reindex all Atom objects to the current index in the self.atoms attribute"""
@@ -593,13 +594,14 @@ class Structure(StructureBase):
 
     def renumber_residues(self):
         """Starts numbering Residues at 1 and number sequentially until last Residue"""
+        atoms = self.atoms
         last_atom_index = len(self.atoms)
         idx = 0  # offset , 1
         for i, residue in enumerate(self.residues, 1):
             # current_res_num = self.atoms[idx].residue_number
             current_res_num = residue.number
-            while self.atoms[idx].residue_number == current_res_num:
-                self.atoms[idx].residue_number = i  # + offset
+            while atoms[idx].residue_number == current_res_num:
+                atoms[idx].residue_number = i  # + offset
                 idx += 1
                 if idx == last_atom_index:
                     break
