@@ -1559,7 +1559,7 @@ class PDB(Structure):
         if not chain:
             chain = self.chain_id_list[0]
 
-        def get_unique_contacts(chain, entity=0, iteration=0, extra=False, partner_entity=None):
+        def get_unique_contacts(chain, entity=0, iteration=0, extra=False, partner_entities=None):
             unique_chains_entity = {}
             # unique_chains_entity, chain_entity, iteration = {}, None, 0
             while not unique_chains_entity:
@@ -1574,7 +1574,8 @@ class PDB(Structure):
                 interface_d = {}
                 for atom in all_contacting_interface_atoms:
                     if atom.chain not in interface_d:
-                        interface_d[atom.chain] = [atom]
+                        interface_d[self.chain] = [atom]
+                        # interface_d[self.chain(atom.chain)] = [atom]
                     else:
                         interface_d[atom.chain].append(atom)
                 self.log.debug(interface_d)
@@ -1583,21 +1584,23 @@ class PDB(Structure):
                 # for _chain in self.entity_d[entity]['chains']:
                 for _chain in entity.chains:
                     if _chain != chain:
-                        if _chain in interface_d:
-                            self_interface_d[_chain] = interface_d[_chain]
-                partner_interface_d = {_chain: interface_d[_chain] for _chain in interface_d
-                                       if _chain not in self_interface_d}
+                        if _chain.name in interface_d:
+                            self_interface_d[_chain.name] = interface_d[_chain.name]
+                partner_interface_d = {_chain_id: interface_d[_chain_id] for _chain_id in interface_d
+                                       if _chain_id not in self_interface_d}
 
-                if not partner_entity:  # if an entity in particular is desired as in the extras recursion
-                    partner_entity = set(self.entity_d.keys()) - {entity}
+                if not partner_entities:  # if an entity in particular is desired as in the extras recursion
+                    partner_entities = set(self.entities) - set(entity)
+                    # partner_entities = set(self.entity_d.keys()) - {entity}
 
                 if not extra:
                     # Find the top contacting chain from each unique partner entity
-                    for p_entity in partner_entity:
+                    for p_entity in partner_entities:
                         max_contact, max_contact_chain = 0, None
                         for _chain in partner_interface_d:
                             self.log.debug('Partner: %s' % _chain)
-                            if _chain not in self.entity_d[p_entity]['chains']:
+                            # if _chain not in self.entity_d[p_entity]['chains']:
+                            if self.chain(_chain) not in p_entity.chains:
                                 continue  # ensure that the chain is relevant to this entity
                             if len(partner_interface_d[_chain]) > max_contact:
                                 self.log.debug('Partner GREATER!: %s' % _chain)
@@ -1610,7 +1613,7 @@ class PDB(Structure):
                 else:  # solve the asu by expansion to extra contacts
                     # partner_entity_chains_first_entity_contact_d = {} TODO define here if iterate over all entities?
                     extra_first_entity_chains, first_entity_chain_contacts = [], []
-                    for p_entity in partner_entity:  # search over all entities
+                    for p_entity in partner_entities:  # search over all entities
                         # Find all partner chains in the entity in contact with chain of interest
                         # partner_chains_entity = {partner_chain: p_entity for partner_chain in partner_interface_d
                         #                          if partner_chain in self.entities[p_entity]['chains']}
@@ -1624,7 +1627,7 @@ class PDB(Structure):
                                 self.log.debug(partner_chain)
                                 partner_chains_first_entity_contact = \
                                     get_unique_contacts(partner_chain, entity=p_entity,
-                                                        partner_entity=entity)
+                                                        partner_entities=entity)
                                 self.log.info('Partner entity %s, original chain contacts: %s' %
                                               (p_entity, partner_chains_first_entity_contact))
                                 # Only include chain/partner entities that are also in contact with chain of interest
