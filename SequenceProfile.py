@@ -578,7 +578,8 @@ class SequenceProfile:
                         return_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
                         return_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
                         return_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
-                        metrics[align_type]['index_count'][4] + metrics[align_type]['index_count'][5])
+                                                                      metrics[align_type]['index_count'][4] +
+                                                                      metrics[align_type]['index_count'][5])
                         # 'fragment_cluster_ids': ','.join(clusters),  # Todo
                         # 'total_interface_residues': total_residues,
                         # 'percent_residues_fragment_all': percent_interface_covered,
@@ -607,10 +608,10 @@ class SequenceProfile:
             return return_d
 
         elif total:
-            return_d = {'nanohedra_score': 0, 'nanohedra_score_central': 0, 'multiple_fragment_ratio': 0,
+            return_d = {'nanohedra_score': 0.0, 'nanohedra_score_central': 0.0, 'multiple_fragment_ratio': 0.0,
                         'number_fragment_residues_total': 0, 'number_fragment_residues_central': 0,
-                        'number_fragments': 0, 'percent_fragment_helix': 0, 'percent_fragment_strand': 0,
-                        'percent_fragment_coil': 0}
+                        'number_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
+                        'percent_fragment_coil': 0.0}
             #           'fragment_cluster_ids': ','.join(clusters),  # Todo
             #           'total_interface_residues': total_residues,
             #           'percent_residues_fragment_all': percent_interface_covered,
@@ -634,10 +635,13 @@ class SequenceProfile:
                 # 'total_interface_residues': total_residues,
                 # 'percent_residues_fragment_all': percent_interface_covered,
                 # 'percent_residues_fragment_center': percent_interface_matched,
+            try:
+                return_d['percent_fragment_helix'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
+                return_d['percent_fragment_strand'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
+                return_d['percent_fragment_coil'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
+            except ZeroDivisionError:
+                pass
 
-            return_d['percent_fragment_helix'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-            return_d['percent_fragment_strand'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-            return_d['percent_fragment_coil'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
             return return_d
 
     def calculate_fragment_query_metrics(self):  # Todo Pose
@@ -676,7 +680,7 @@ class SequenceProfile:
                         self.fragment_queries[entity_pair] = [fragment]
             else:
                 raise DesignError('%s: Couldn\'t locate Pose Entities passed by residue number. Are the residues in '
-                                  'Pose Numbering? This may be occuring due to fragment queries performed on the PDB '
+                                  'Pose Numbering? This may be occurring due to fragment queries performed on the PDB '
                                   'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
                                   ' modifications' % self.add_fragment_query.__name__)
 
@@ -2471,8 +2475,12 @@ def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_
     return weaved_dict
 
 
-def return_fragment_interface_metrics(metrics):
+def return_fragment_interface_metrics(metrics, null=False):
     """For a set of fragment metrics, return the formatted total fragment metrics"""
+    if null:
+        return {'nanohedra_score': 0.0, 'nanohedra_score_central': 0.0, 'multiple_fragment_ratio': 0.0,
+                'number_fragment_residues_total': 0, 'number_fragment_residues_central': 0, 'number_fragments': 0,
+                'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0, 'percent_fragment_coil': 0.0}
     return {'nanohedra_score': metrics['total']['total']['score'],
             'nanohedra_score_central': metrics['total']['center']['score'],
             'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
