@@ -392,7 +392,7 @@ class SymmetricModel(Model):
             (int): The index of the number of models where the ASU can be found
         """
         template_atom_coords = self.asu.residues[0].ca_coords
-        template_atom_index = self.asu.residues[0].ca.index
+        template_atom_index = self.asu.residues[0].ca_index
         for model_number in range(self.number_of_models):
             if (template_atom_coords ==
                     self.model_coords[(model_number * len(self.coords)) + template_atom_index]).all():
