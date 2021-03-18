@@ -51,7 +51,7 @@ def make_asu(pdb_file, chain=None, out_path=os.getcwd, center=True):
     # return [SDUtils.extract_asu(file, chain=chain, outpath=destination) for file in files]
 
 
-def make_asu_oligomer(asu, chain_map, location=os.getcwd):
+def make_asu_oligomer(asu, chain_map, location=os.getcwd()):
     """Transform oriented oligomers to the ASU pose
 
     Args:
@@ -102,7 +102,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         reading_csv = reader(f_csv)
         if pdb_dir:
             design_file_input = {os.path.splitext(row[0])[0]:
-                                 {'design_pdb': PDB(file=os.path.join(pdb_dir, row[0])),
+                                 {'design_pdb': PDB.from_file(os.path.join(pdb_dir, row[0])),
                                  # {'design_pdb': SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),
                                   'source_pdb': [(row[1], row[3]), (row[2], row[4])], 'final_sym': row[5]}
                                  for row in reading_csv}  # 'pdb1': 'sym1': 'pdb2': 'sym2':
@@ -125,7 +125,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         if pdb_dir:
             asu = design_file_input[design]['design_pdb'].return_asu()
         else:
-            asu = PDB(file=os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
+            asu = PDB.from_file(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
             # asu = PDB(file=os.path.join(output_dir, design, 'design_asus', design  + '.pdb'))  # TODO in new, asu is inside design directory
         asu.reorder_chains()
         # asu.renumber_residues()
@@ -149,10 +149,9 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 biological_assembly = 1
             new_file = Pose.download_pdb('%s_%s' % (pdb, biological_assembly),
                                          location=os.path.join(output_dir, 'biological_assemblies'))
-            downloaded_pdb = PDB(file=new_file)
-            # downloaded_pdb = SDUtils.read_pdb(new_file)
-            oriented_pdb = downloaded_pdb.orient(sym=sym, orient_dir=PUtils.orient_dir)
-            if oriented_pdb.all_atoms == list():
+            downloaded_pdb = PDB.from_file(new_file)
+            oriented_pdb = downloaded_pdb.orient(sym=sym)
+            if not oriented_pdb.atoms:
                 logger.error('%s failed! Skipping design %s' % (pdb, design))
                 success = False
                 break
@@ -203,7 +202,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                         # logger.debug('Design %s: Deleted residue %d from Oriented Input' % (design, residue - orient_offset))
                 else:
                     for chain in oriented_pdb.chain_id_list:
-                        oriented_pdb.mutate_residue(number=residue - orient_offset, to=des_mutations_orient[residue]['to'])
+                        oriented_pdb.chain(chain).mutate_residue(number=residue - orient_offset,
+                                                                 to=des_mutations_orient[residue]['to'])
                         # oriented_pdb.mutate_to(chain, residue - orient_offset,
                         #                        res_id=des_mutations_orient[residue]['to'])
             # fix the residue numbering to account for deletions
@@ -265,7 +265,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         #     f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
         #     f.write('\n%s %s' % ('final_symmetry', design_file_input[design]['final_sym']))
     # 10/6/20 removed _vflip
-    if rmsd_comp_commands != dict():
+    if rmsd_comp_commands:
         # {design: {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb2': ...}}
         SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths', out_path=output_dir,
                               protocol=pickle_prot)
