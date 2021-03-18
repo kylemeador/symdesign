@@ -1664,7 +1664,8 @@ class PDB(Structure):
             # return unique_chains_entities
 
         # Todo entity_from_chain returns Entity now
-        unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
+        unique_chains = get_unique_contacts(self.chain(chain), entity=self.entity_from_chain(chain), extra=extra)
+        # unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
         # unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain).name, extra=extra)
 
         asu = self.chain(chain).atoms
