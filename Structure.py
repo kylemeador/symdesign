@@ -449,7 +449,7 @@ class Structure(StructureBase):
         self.log.debug('Atoms in %s were renumbered from 1 to %s' % (self.name, self.number_of_atoms))
         atoms = self.atoms
         for idx, atom in enumerate(atoms, 1):
-            atoms[idx].number = idx
+            atoms[idx - 1].number = idx
 
     def reindex_atoms(self):
         """Reindex all Atom objects to the current index in the self.atoms attribute"""
