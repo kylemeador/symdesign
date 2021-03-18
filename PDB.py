@@ -1565,7 +1565,9 @@ class PDB(Structure):
             while not unique_chains_entity:
                 self.log.debug(iteration, chain)
                 if iteration != 0:  # search through the chains found in an entity
-                    chain = self.entity_d[entity]['chains'][iteration]
+                    # chain = self.entity_d[entity]['chains'][iteration]
+                    chain = entity.chains[iteration]
+                    # chain = entity  # can't use this with iteration
                     self.log.debug(chain)
                 chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain)
                 self.log.debug(self.entities)
@@ -1578,7 +1580,8 @@ class PDB(Structure):
                 self.log.debug(interface_d)
                 # deepcopy(interface_d)
                 partner_interface_d, self_interface_d = {}, {}
-                for _chain in self.entity_d[entity]['chains']:
+                # for _chain in self.entity_d[entity]['chains']:
+                for _chain in entity.chains:
                     if _chain != chain:
                         if _chain in interface_d:
                             self_interface_d[_chain] = interface_d[_chain]
@@ -1661,8 +1664,8 @@ class PDB(Structure):
             # return unique_chains_entities
 
         # Todo entity_from_chain returns Entity now
-        # unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
-        unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain).name, extra=extra)
+        unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
+        # unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain).name, extra=extra)
 
         asu = self.chain(chain).atoms
         for atoms in [self.chain(partner_chain).atoms for partner_chain in unique_chains]:
