@@ -687,7 +687,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # the member pdbs which make up the pose. todo, combine with self.models?
         # self.pdbs = []
         self.pdbs_d = {}
-        self.fragment_observations = []
+        self.fragment_pairs = []
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.required_indices = set()
@@ -1174,7 +1174,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         self.fragment_queries[(entity1, entity2)] = fragment_matches
         # add newly found fragment pairs to the existing fragment observations
-        self.fragment_observations.extend(ghostfrag_surfacefrag_pairs)  # Todo, change so not same as DesignDirectory
+        self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)  # Todo, change so not same as DesignDirectory
 
     def score_interface(self, entity1=None, entity2=None):
         if (entity1, entity2) not in self.fragment_queries and (entity2, entity1) not in self.fragment_queries:
@@ -1317,6 +1317,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """Take the provided PDB, and use the ASU to compute calculations relevant to interface design.
 
         This process identifies the ASU (if one is not explicitly provided, enables Pose symmetry,
+
+        Sets:
+            design_dir.info['fragments'] to True is fragments are queried
         """
         if not design_dir:  # Todo
             dummy = True
@@ -1360,7 +1363,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
             self.set_symmetry(**symmetry)
 
-        # # get interface residues for the designable entities
+        # # get interface residues for the designable entities done at DesignDirectory level
         # self.find_and_split_interface()
         # # for entity_pair in combinations_with_replacement(self.active_entities, 2):
         # #     self.find_interface_residues(*entity_pair)
@@ -1372,6 +1375,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 # inherently gets interface residues for the designable entities
                 self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
                 # self.check_interface_topology()  # already done above
+                design_dir.info['fragments'] = True
             else:  # No fragment query, add existing fragment information to the pose
                 # if fragments_exist:
                 if not self.frag_db:
@@ -1386,7 +1390,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 if not fragment_source:
                     raise DesignError('%s: Fragments were set for design but there were none found in the Design '
                                       'Directory! Fix your input flags if this is not what you expected or generate '
-                                      'them with \'%s generate_fragments\'' % (str(design_dir), PUtils.program_command))
+                                      'them with \'%s %s\''
+                                      % (str(design_dir), PUtils.program_command, PUtils.generate_fragments))
 
                 # Must provide des_dir.fragment_observations then specify whether the Entity in question is from the
                 # mapped or paired chain (entity1 is mapped, entity2 is paired from Nanohedra). Then, need to renumber
@@ -1466,16 +1471,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         if not self.frag_db:  # There is no fragment database connected
             # Connect to a new DB, Todo parameterize which one should be used with location=
-            self.connect_fragment_database(init=True)  # default, init=False. other args are source= ,
-        # elif not self.frag_db:  # There is no fragment database connected
-        #     raise DesignError('%s: A fragment database is required to add fragments to the profile. Ensure you '
-        #                       'initialized the Pose with a database (pass FragmentDatabase obj by \'frag_db\')! '
-        #                       'Alternatively pass new_db=True to %s'
-        #                       % (self.generate_interface_fragments.__name__,
-        #                          self.generate_interface_fragments.__name__))
+            self.connect_fragment_database(init=True)  # default init=False, we need an initiated one to generate frags
+
         if not self.interface_residues:
-            for entity_pair in combinations_with_replacement(self.active_entities, 2):
-                self.find_interface_residues(*entity_pair)
+            self.find_and_split_interface()  # shouldn't occur with the set up on 3/17/21, upstream funcs call this 1st
+            # for entity_pair in combinations_with_replacement(self.active_entities, 2):
+            #     self.find_interface_residues(*entity_pair)
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'
@@ -1483,10 +1484,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.query_interface_for_fragments(*entity_pair)
 
         if write_fragments:
-            write_fragment_pairs(self.fragment_observations, out_path=out_path)
-            for match_count, frag_obs in enumerate(self.fragment_observations):
-                write_frag_match_info_file(ghost_frag=frag_obs[0], matched_frag=frag_obs[1],
-                                           overlap_error=z_value_from_match_score(frag_obs[2]),
+            write_fragment_pairs(self.fragment_pairs, out_path=out_path)
+            for match_count, (ghost_frag, surface_frag, match) in enumerate(self.fragment_pairs, 1):
+                write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
+                                           overlap_error=z_value_from_match_score(match),
                                            match_number=match_count, out_path=out_path)
 
     def return_symmetry_parameters(self):
@@ -1553,32 +1554,32 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
     return file_name  # Todo if list then will only return the last file
 
 
-def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
-    """Fetch PDB object of each chain from PDBdb or PDB server
-
-    Args:
-        codes (iter): Any iterable of PDB codes
-    Keyword Args:
-        location= : Location of the  on disk
-    Returns:
-        (dict): {pdb_code: PDB.py object, ...}
-    """
-    if PUtils.pdb_source == 'download_pdb':
-        get_pdb = download_pdb
-        # doesn't return anything at the moment
-    else:
-        get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_location, subdirectory(pdb_code),
-                                                             '%s.pdb' % pdb_code)))
-        # returns a list with matching file (should only be one)
-    oligomers = {}
-    for code in codes:
-        pdb_file_name = get_pdb(code, location=des_dir.pdbs)
-        assert len(pdb_file_name) == 1, 'More than one matching file found for pdb code %s' % code
-        oligomers[code] = PDB(file=pdb_file_name[0])
-        oligomers[code].name = code
-        oligomers[code].reorder_chains()
-
-    return oligomers
+# def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
+#     """Fetch PDB object of each chain from PDBdb or PDB server
+#
+#     Args:
+#         codes (iter): Any iterable of PDB codes
+#     Keyword Args:
+#         location= : Location of the  on disk
+#     Returns:
+#         (dict): {pdb_code: PDB.py object, ...}
+#     """
+#     if PUtils.pdb_source == 'download_pdb':
+#         get_pdb = download_pdb
+#         # doesn't return anything at the moment
+#     else:
+#         get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_location, subdirectory(pdb_code),
+#                                                              '%s.pdb' % pdb_code)))
+#         # returns a list with matching file (should only be one)
+#     oligomers = {}
+#     for code in codes:
+#         pdb_file_name = get_pdb(code, location=des_dir.pdbs)
+#         assert len(pdb_file_name) == 1, 'More than one matching file found for pdb code %s' % code
+#         oligomers[code] = PDB(file=pdb_file_name[0])
+#         oligomers[code].name = code
+#         oligomers[code].reorder_chains()
+#
+#     return oligomers
 
 
 def retrieve_pdb_file_path(code, directory=PUtils.pdb_db):
@@ -1625,8 +1626,8 @@ def construct_cb_atom_tree(pdb1, pdb2, distance=8):
         pdb2_cb_indices (list): List of all CB indices from pdb2
     """
     # Get CB Atom Coordinates including CA coordinates for Gly residues
-    pdb1_coords = np.array(pdb1.extract_cb_coords(InclGlyCA=gly_ca))
-    pdb2_coords = np.array(pdb2.extract_cb_coords(InclGlyCA=gly_ca))
+    pdb1_coords = np.array(pdb1.get_cb_coords())  # InclGlyCA=gly_ca))
+    pdb2_coords = np.array(pdb2.get_cb_coords())  # InclGlyCA=gly_ca))
 
     # Construct CB Tree for PDB1
     pdb1_tree = BallTree(pdb1_coords)
