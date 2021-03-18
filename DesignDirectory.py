@@ -312,12 +312,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 return self.center_residue_score / self.central_residues_with_fragment_overlap
             else:
                 self.get_fragment_metrics()
-                if self.center_residue_score and self.central_residues_with_fragment_overlap:
+                if self.center_residue_score is not None and self.central_residues_with_fragment_overlap is not None:
                     return self.center_residue_score / self.central_residues_with_fragment_overlap
+                else:
+                    return None
         except ZeroDivisionError:
             self.log.error('No fragment information available! Design cannot be scored.')
             return 0.0
-        return None  # 0.0
 
     def pose_score(self):  # Todo merge with above
         """Returns:
