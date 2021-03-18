@@ -1537,7 +1537,7 @@ class PDB(Structure):
 
         all_contact_atoms, chain_atoms = [], []
         for contact_idx, contacts in enumerate(chain_query):
-            if chain_query[contact_idx].tolist() != list():
+            if chain_query[contact_idx].tolist():
                 all_contact_atoms.append(self.atoms[contact_cb_indices[contact_idx]])
                 # residues2.append(pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number)
                 # for pdb1_index in chain_query[contact_idx]:
@@ -1578,17 +1578,20 @@ class PDB(Structure):
                         # interface_d[self.chain(atom.chain)] = [atom]
                     else:
                         interface_d[atom.chain].append(atom)
-                self.log.debug(interface_d)
+                self.log.info(interface_d)
                 # deepcopy(interface_d)
                 partner_interface_d, self_interface_d = {}, {}
                 # for _chain in self.entity_d[entity]['chains']:
+                # find all the chains which are in the entity in question
                 for _chain in entity.chains:
                     if _chain != chain:
                         if _chain.name in interface_d:
                             self_interface_d[_chain.name] = interface_d[_chain.name]
+                # all others are in the partner entity
                 partner_interface_d = {_chain_id: interface_d[_chain_id] for _chain_id in interface_d
                                        if _chain_id not in self_interface_d}
-
+                print('Partner_interface_d', partner_interface_d)
+                print('Self_interface_d:', self_interface_d)
                 if not partner_entities:  # if an entity in particular is desired as in the extras recursion
                     partner_entities = set(self.entities) - {entity}
                     # partner_entities = set(self.entity_d.keys()) - {entity}
@@ -1598,14 +1601,16 @@ class PDB(Structure):
                     for p_entity in partner_entities:
                         max_contact, max_contact_chain = 0, None
                         for _chain in partner_interface_d:
-                            self.log.debug('Partner: %s' % _chain)
+                            self.log.info('Partner chain name: %s' % _chain)
                             # if _chain not in self.entity_d[p_entity]['chains']:
                             if self.chain(_chain) not in p_entity.chains:
                                 continue  # ensure that the chain is relevant to this entity
                             if len(partner_interface_d[_chain]) > max_contact:
-                                self.log.debug('Partner GREATER!: %s' % _chain)
+                                self.log.info('Partner GREATER!: %s' % _chain)
                                 max_contact = len(partner_interface_d[_chain])
                                 max_contact_chain = _chain
+                            else:
+                                print('Length of partner_interface_d: %d' % len(partner_interface_d[_chain]))
                         if max_contact_chain:
                             unique_chains_entity[max_contact_chain] = p_entity  # set the max partner for this entity
 
