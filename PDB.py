@@ -597,7 +597,7 @@ class PDB(Structure):
     #     self.chain_id_list[self.chain_id_list.index(chain_of_interest)] = new_chain
     #     self.get_chain_sequences()
 
-    def reorder_chains(self, exclude_chains_list=None):
+    def reorder_chains(self, exclude_chains_list=None):  # Todo remove _list from kwarg
         """Renames chains starting from the first chain as A and the last as l_abc[len(self.chain_id_list) - 1]
         Caution, doesn't update self.reference_sequence chain info
         """
@@ -803,9 +803,12 @@ class PDB(Structure):
 
     def orient(self, sym=None, out_dir=os.getcwd(), generate_oriented_pdb=False):
         """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axis defined by symmetry
-        file"""
-        # valid_subunit_number = {"C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "D2": 4, "D3": 6, "D4": 8, "D5": 10,
-        #                         "D6": 12, "I": 60, "O": 24, "T": 12}
+        file
+        Keyword Args:
+            generate_oriented_pdb=False (bool): Whether to save a oriented PDB file to the out_dir
+        Returns:
+            (PDB): Oriented PDB
+        """
         orient_log = os.path.join(out_dir, orient_log_file)
 
         pdb_file_name = os.path.basename(self.filepath)
@@ -853,7 +856,7 @@ class PDB(Structure):
                     move(orient_output, oriented_file)
                     new_pdb = None
                 else:
-                    new_pdb = PDB(file=orient_output)
+                    new_pdb = PDB.from_file(orient_output)
             else:
                 raise RuntimeError(error_string)
 
@@ -1248,25 +1251,40 @@ class PDB(Structure):
         self.renumber_pdb()
 
     def delete_residue(self, chain_id, residue_number):
-        raise DesignError('This function is broken')  # TODO BROKEN
-        start = len(self.atoms)
-        self.log.debug(len(self.atoms))
+        # raise DesignError('This function is broken')  # TODO TEST
+        # start = len(self.atoms)
+        # self.log.debug(start)
         # residue = self.get_residue(chain, residue_number)
-        chain = self.chain(chain_id)
-        residue = chain.residue(residue_number)
         # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
-        self.delete_atoms(residue.atoms())  # deletes Atoms from PDB
-        chain._residues.remove(residue)  # deletes Residue from Chain
-        self._residues.remove(residue)  # deletes Residue from PDB
+
+        delete = self.chain(chain_id).residue(residue_number).atom_indices
+        # Atoms() should handle all Atoms containers for the object
+        self._atoms.atoms = np.delete(self._atoms.atoms, delete)
+        # self.delete_atoms(residue.atoms)  # deletes Atoms from PDB
+        # chain._residues.remove(residue)  # deletes Residue from Chain
+        # self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_pdb()
-        self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
+        self.reindex_residues()
+        # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
+        atom_delete_index = self._atom_indices.index(delete[0])
+        for iteration in range(len(delete)):
+            self._atom_indices.pop(atom_delete_index)
+        for structures in [self.chains, self.entities]:
+            for structure in structures:
+                try:
+                    atom_delete_index = structure._atom_indices.index(delete[0])
+                    for iteration in range(len(delete)):
+                        structure._atom_indices.pop(atom_delete_index)
+                except ValueError:
+                    continue
+        # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
 
     def delete_atoms(self, atoms):
         # Need to call self.renumber_atoms() after every call to delete_atoms()
         # Todo find every Structure container with Atom and remove the Atom references from it. Chain, Entity, Residue,
-        #  PDB. Atom may hold on in memory because of refernce to Coords.
+        #  PDB. Atom may hold on in memory because of reference to Coords.
         for atom in atoms:
-            self._atoms.remove(atom)
+            self._atoms.atoms.remove(atom)
 
     def retrieve_pdb_info_from_api(self, pdb_code=None):  # Todo doesn't really need pdb_code currently. When would it?
         if not pdb_code:
