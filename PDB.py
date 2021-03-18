@@ -1590,7 +1590,7 @@ class PDB(Structure):
                                        if _chain_id not in self_interface_d}
 
                 if not partner_entities:  # if an entity in particular is desired as in the extras recursion
-                    partner_entities = set(self.entities) - set(entity)
+                    partner_entities = set(self.entities) - {entity}
                     # partner_entities = set(self.entity_d.keys()) - {entity}
 
                 if not extra:
