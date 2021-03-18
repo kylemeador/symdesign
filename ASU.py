@@ -473,7 +473,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Start logging output
     if args.debug:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
+        logger = SDUtils.start_log(level=1)
         logger.debug('Debug mode. Verbose output')
     else:
         logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
