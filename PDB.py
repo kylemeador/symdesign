@@ -1498,11 +1498,11 @@ class PDB(Structure):
                 if other_seq == self.entity_d[entity]['seq']:
                     return self.entity_d[entity]['representative'][0]
 
-    def chain_interface_contacts(self, chain_id, distance=8, gly_ca=False):  # Todo very similar to Pose with entities
+    def chain_interface_contacts(self, chain, distance=8):  # Todo very similar to Pose with entities
         """Create a atom tree using CB atoms from one chain and all other atoms
 
         Args:
-            chain_id (PDB): First PDB to query against
+            chain (PDB): First PDB to query against
         Keyword Args:
             distance=8 (int): The distance to query in Angstroms
             gly_ca=False (bool): Whether glycine CA should be included in the tree
@@ -1512,7 +1512,7 @@ class PDB(Structure):
         # Get all CB Atom & chain CB Atom Coordinates into a numpy array [[x, y, z], ...]
         all_coords = self.get_cb_coords()  # InclGlyCA=gly_ca)
         # all_coords = np.array(self.extract_CB_coords(InclGlyCA=gly_ca))
-        chain_coords = self.chain(chain_id).get_cb_coords()  # InclGlyCA=gly_ca)
+        chain_coords = chain.get_cb_coords()  # InclGlyCA=gly_ca)
         # chain_coords = np.array(self.extract_CB_coords_chain(chain_id, InclGlyCA=gly_ca))
 
         # Construct CB Tree for the chain
@@ -1520,7 +1520,7 @@ class PDB(Structure):
 
         # Get CB Atom indices for the atoms CB and chain CB
         all_cb_indices = self.get_cb_indices()  # InclGlyCA=gly_ca)
-        chain_cb_indices = self.chain(chain_id).get_cb_indices()  # InclGlyCA=gly_ca)
+        chain_cb_indices = chain.get_cb_indices()  # InclGlyCA=gly_ca)
         # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
         chain_coord_indices, contact_cb_indices = [], []
         # Find the contacting CB indices and chain specific indices
@@ -1567,7 +1567,7 @@ class PDB(Structure):
                 if iteration != 0:  # search through the chains found in an entity
                     chain = self.entity_d[entity]['chains'][iteration]
                     self.log.debug(chain)
-                chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain, gly_ca=True)
+                chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain)
                 self.log.debug(self.entities)
                 interface_d = {}
                 for atom in all_contacting_interface_atoms:
