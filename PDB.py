@@ -1061,7 +1061,7 @@ class PDB(Structure):
         if chain:
             stride_cmd.append('-c%s' % chain)
 
-        p = subprocess.Popen(stride_cmd, stdout=subprocess.STDOUT, stderr=subprocess.DEVNULL)
+        p = subprocess.Popen(stride_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
         if out:
             out_lines = out.decode('utf-8').split('\n')
