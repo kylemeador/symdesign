@@ -883,13 +883,14 @@ class Structure(StructureBase):
         else:
             self.secondary_structure = [residue.secondary_structure for residue in self.residues]
 
-    def write(self, out_path=None, header=None, file_handle=None):
+    def write(self, out_path=None, header=None, file_handle=None, pdb_number=False):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written"""
         # atom_atrings = '\n'.join(str(atom) for atom in self.atoms)
         # '%d, %d, %d' % tuple(element.tolist())
         # '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
-        atom_atrings = '\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
+        # atom_atrings = '\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
+        atom_atrings = '\n'.join(atom.__str__(pdb=pdb_number) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
                                  for atom, coord in zip(self.atoms, self.coords.tolist()))
 
         def write_header(location):
@@ -1834,16 +1835,20 @@ class Atom:
     def __key(self):
         return self.number, self.type
 
-    def __str__(self):
+    def __str__(self, pdb=False):
         """Represent Atom in PDB format"""
         # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
         # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
         # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
         # return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        if pdb:
+            residue_number = self.pdb_residue_number
+        else:
+            residue_number = self.residue_number
         return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
                .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
-                       self.residue_number, self.code_for_insertion,  # self.x, self.y, self.z,
+                       residue_number, self.code_for_insertion,  # self.x, self.y, self.z,
                        self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
 
     def __eq__(self, other):

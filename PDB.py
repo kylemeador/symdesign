@@ -782,24 +782,6 @@ class PDB(Structure):
     def get_chain_sequences(self):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
         # self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_id_list}
-    #
-    # # def orient(self, sym=None, orient_dir=os.getcwd(), generate_oriented_pdb=True):
-    #     self.write('input.pdb')
-    #     # os.system('cp %s input.pdb' % self.filepath)
-    #     # os.system('%s/orient_oligomer_rmsd >> orient.out 2>&1 << eof\n%s/%s\neof' % (orient_dir, orient_dir, symm))
-    #     os.system('%s/orient_oligomer >> orient.out 2>&1 << eof\n%s/%s_symm.txt\neof' % (orient_dir, orient_dir, sym))
-    #     os.system('mv output.pdb %s_orient.pdb' % os.path.splitext(self.filepath)[0])  # Todo this could be removed
-    #     os.system('rm input.pdb')
-    #     if os.path.exists('%s_orient.pdb' % os.path.splitext(self.filepath)[0]):
-    #         if generate_oriented_pdb:
-    #             oriented_pdb = PDB()
-    #             oriented_pdb.readfile('%s_orient.pdb' % os.path.splitext(self.filepath)[0], remove_alt_location=True)
-    #             os.system('rm %s_orient.pdb' % os.path.splitext(self.filepath)[0])  # Todo this could be removed
-    #             return oriented_pdb
-    #         else:
-    #             return 0
-    #     else:
-    #         return None
 
     def orient(self, sym=None, out_dir=os.getcwd(), generate_oriented_pdb=False):
         """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axis defined by symmetry
@@ -809,12 +791,21 @@ class PDB(Structure):
         Returns:
             (PDB): Oriented PDB
         """
+        # orient_oligomer.f program notes
+        # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
+        # C		in ways such as but not limited to:
+        # C     equivalent residues in different chains don't have the same numbering; different subunits
+        # C		are all listed with the same chain ID (e.g. with incremental residue numbering) instead
+        # C		of separate IDs; multiple conformations are written out for the same subunit structure
+        # C		(as in an NMR ensemble), negative residue numbers, etc. etc.
+        # must format the input.pdb in an acceptable manner
+
         orient_log = os.path.join(out_dir, orient_log_file)
 
         pdb_file_name = os.path.basename(self.filepath)
         error_string = 'orient_oligomer could not orient %s check %s for more information\n' % (pdb_file_name,
                                                                                                 orient_log)
-        with open(orient_log_file, 'a+') as log_f:
+        with open(orient_log, 'a+') as log_f:
             number_of_subunits = len(self.chain_id_list)
             if number_of_subunits != valid_subunit_number[sym]:
                 log_f.write("%s\n Oligomer could not be oriented: It has %d subunits while %d are expected for %s "
@@ -824,8 +815,6 @@ class PDB(Structure):
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
 
-            # orient_input = 'input.pdb'
-            # orient_output = 'output.pdb'
             orient_input = os.path.join(orient_dir, 'input.pdb')
             orient_output = os.path.join(orient_dir, 'output.pdb')
 
@@ -837,9 +826,9 @@ class PDB(Structure):
 
             clean_orient_input_output()
             # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps.
-            self.write(orient_input)
-            # self.write('input.pdb')
-            # copyfile(self.filepath, orient_input)
+            # have to change residue numbering to PDB numbering
+            self.write(orient_input, pdb_number=True)
+            # self.renumber_residues_by_chain()
 
             p = subprocess.Popen([orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, cwd=orient_dir)
