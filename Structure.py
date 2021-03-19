@@ -861,7 +861,7 @@ class Structure(StructureBase):
         #         # reverse_ss_asg = self.secondary_structure[::-1]
         #         temp_window = ''.join(self.secondary_structure[idx + j] for j in range(-window + 1, 1))
         #         # res_number = reverse_ss_asg[0+i:5+i][4][0]
-        c_term_window = [residue.secondary_structure for residue in reversed(self.residues)[:window * 2]]
+        c_term_window = [residue.secondary_structure for residue in list(reversed(self.residues))[:window * 2]]
         if 'H' * window in c_term_window:
             return True
         else:
