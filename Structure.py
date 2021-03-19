@@ -883,6 +883,19 @@ class Structure(StructureBase):
         else:
             self.secondary_structure = [residue.secondary_structure for residue in self.residues]
 
+    def furthest_point_from_reference(self, reference=None):  # entity
+        """From an Entity, find the furthest coordinate from the origin (default) or from a reference.
+
+        Keyword Args:
+            reference=None (numpy.ndarray): The reference where the point should be measured from
+        Returns:
+            (float): The distance from the reference point to the furthest point
+        """
+        if reference:
+            raise DesignError('This function of %s not possible yet!' % self.furthest_point_from_reference.__name__)
+        else:
+            return np.max(np.linalg.norm(self.coords, axis=1))
+
     def write(self, out_path=None, header=None, file_handle=None, pdb_number=False):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written"""

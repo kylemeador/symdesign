@@ -353,21 +353,26 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                    'percent_residues_fragment_all': self.percent_residues_fragment_all,
                    'percent_residues_fragment_center': self.percent_residues_fragment_center}
         if self.sym_entry:
-            # if self.pose:  # Todo test
-            #     for oligomer in self.oligomers:
-            #         oligomer.calculate_secondary_structure()
-            metrics.update(
-                {'design_dimension': self.sym_entry.get_design_dim(),
-                 'component_1_symmetry': self.sym_entry.get_group1_sym(),
-                 # TODO clean oligomers[].entities mechanism
-                 'component_1_number_of_residues': self.oligomers[0].entities[0].number_of_residues,
-                 'component_2_symmetry': self.sym_entry.get_group2_sym(),
-                 'component_2_number_of_residues': self.oligomers[1].entities[0].number_of_residues,
-                 # 'component_1_n_terminal_helix': self.oligomers[0].entities[0].is_n_term_helical(),
-                 # 'component_1_c_terminal_helix': self.oligomers[0].entities[0].is_c_term_helical(),
-                 # 'component_2_n_terminal_helix': self.oligomers[1].entities[0].is_n_term_helical(),
-                 # 'component_2_c_terminal_helix': self.oligomers[1].entities[0].is_c_term_helical(),
-                 })
+            # if self.pose:  # Todo
+            if self.oligomers:  # Todo test
+                for oligomer in self.oligomers:
+                    oligomer.calculate_secondary_structure()
+                metrics.update(
+                    {'design_dimension': self.sym_entry.get_design_dim(),
+                     'component_1_symmetry': self.sym_entry.get_group1_sym(),
+                     # TODO clean oligomers[].entities mechanism
+                     'component_1_name': self.oligomers[0].entities[0].name,
+                     'component_1_number_of_residues': self.oligomers[0].entities[0].number_of_residues,
+                     'component_2_symmetry': self.sym_entry.get_group2_sym(),
+                     'component_2_name': self.oligomers[1].entities[0].name,
+                     'component_2_number_of_residues': self.oligomers[1].entities[0].number_of_residues,
+                     'component_1_max_radius': self.oligomers[0].entities[0].furthest_point_from_reference(),
+                     'component_2_max_radius': self.oligomers[1].entities[0].furthest_point_from_reference(),
+                     'component_1_n_terminal_helix': self.oligomers[0].entities[0].is_n_term_helical(),
+                     'component_1_c_terminal_helix': self.oligomers[0].entities[0].is_c_term_helical(),
+                     'component_2_n_terminal_helix': self.oligomers[1].entities[0].is_n_term_helical(),
+                     'component_2_c_terminal_helix': self.oligomers[1].entities[0].is_c_term_helical(),
+                     })
 
         return metrics
 
