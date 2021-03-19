@@ -2,7 +2,7 @@ from copy import copy
 
 import pandas as pd
 
-from PathUtils import program_command, nano, program_name, nstruct, filter_and_sort
+from PathUtils import program_command, nano, program_name, nstruct, filter_and_sort, interface_design
 from Query.PDB import input_string, format_string, confirmation_string, \
     bool_d, invalid_string, header_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, read_fasta_file
@@ -94,7 +94,7 @@ filters = copy(global_flags)
 filters.update(filter_flags)
 all_flags = copy(design)
 all_flags.update(filters)
-flags = {PUtils.interface_design: design, None: all_flags}
+flags = {interface_design: design, None: all_flags}
 #        'analysis': global_flags, 'filter': filters, 'sequence_selection': global_flags,
 
 
@@ -159,7 +159,7 @@ def return_default_flags(mode):
 
 
 @handle_errors(errors=KeyboardInterrupt)
-def query_user_for_flags(mode=PUtils.interface_design, template=False):
+def query_user_for_flags(mode=interface_design, template=False):
     flags_file = '%s.flags' % mode
     flag_output = return_default_flags(mode)
     write_file = False
