@@ -1079,8 +1079,9 @@ class PDB(Structure):
         # print(out_lines)
         residues = self.residues
         for line in out_lines:
-            residue_idx = int(line[10:15])
-            if line[0:3] == 'ASG' and line[10:15].strip().isdigit():  # residue number -> line[15:20].strip().isdigit():
+            # residue_idx = int(line[10:15])
+            if line[0:3] == 'ASG':
+                residue_idx = int(line[10:15])  # line[10:15].strip().isdigit():  # residue number -> line[15:20].strip().isdigit():
                 # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
                 residues[residue_idx].secondary_structure = line[24:25]
                 residue_idx += 1
