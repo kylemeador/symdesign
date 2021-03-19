@@ -199,7 +199,7 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
     """
     # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
     log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
-    log_format = logging.Formatter('%(name)s[%(levelname)s] %(module)s: %(message)s')
+    log_format = logging.Formatter('[%(levelname)s] %(name)s: %(message)s')
 
     _logger = logging.getLogger(name)
     _logger.setLevel(log_level[level])
@@ -610,13 +610,13 @@ def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', out_path=os.getcwd(), ad
 
 
 @handle_errors_f(errors=(FileNotFoundError, ))
-def parse_flags_file(directory, name='design', flag_variable=None):
+def parse_flags_file(directory, name=PUtils.interface_design, flag_variable=None):
     """Returns the design flags passed to Rosetta from a design directory
 
     Args:
         directory (str): Location of design directory on disk
     Keyword Args:
-        name='design' (str): The flags file suffix
+        name=PUtils.interface_design (str): The flags file suffix
         flag_variable=None (str): The name of a specific variable to retrieve
     Returns:
         variable_dict (dict): {'interfaceA': 15A,21A,25A,..., 'dssm_file': , ...}

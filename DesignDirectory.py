@@ -39,12 +39,12 @@ from interface_analysis.Database import FragmentDatabase
 # Globals
 logger = start_log(name=__name__)
 index_offset = 1
-design_directory_modes = ['design', 'dock', 'filter']
+design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, directory_type='design', pose_id=None, root=None, debug=False,
+    def __init__(self, design_path, nano=False, directory_type=PUtils.interface_design, pose_id=None, root=None, debug=False,
                  **kwargs):  # project=None,
         if pose_id:  # Todo may not be compatible P432
             self.program_root = root
@@ -227,7 +227,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_dirs[k].append(bb_dir)
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-            else:  # if self.directory_type in ['design', 'filter']:
+            else:  # if self.directory_type in [PUtils.interface_design, 'filter']:
                 # May have issues with the number of open log files
                 # if self.directory_type == 'filter':
                 #     self.skip_logging = True
@@ -537,7 +537,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     if file.endswith(PUtils.asu):
         #         return os.path.join(self.building_blocks, file)
 
-    def get_designs(self):  # design_type='design'
+    def get_designs(self):  # design_type=PUtils.interface_design
         """Return the paths of all design files in a DesignDirectory"""
         return glob('%s/*.pdb' % self.designs)
         # return glob(os.path.join(self.designs, '*%s*' % design_type))
@@ -566,7 +566,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
     def get_oligomers(self):
-        # if self.directory_type == 'design':
+        # if self.directory_type == PUtils.interface_design:
         self.oligomer_names = os.path.basename(self.building_blocks).split('_')
         for idx, name in enumerate(self.oligomer_names):
             pdb_files = glob(os.path.join(self.path, '%s*.pdb' % name))
@@ -1693,7 +1693,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             return self.path.replace(os.sep, '-')[1:]
 
 
-def set_up_directory_objects(design_list, mode='design', symmetry=None, project=None):
+def set_up_directory_objects(design_list, mode=PUtils.interface_design, symmetry=None, project=None):
     """Create DesignDirectory objects from a directory iterable. Add program_root if using DesignDirectory strings"""
     return [DesignDirectory.from_nanohedra(design_path, nano=True, mode=mode, project=project)
             for design_path in design_list]
