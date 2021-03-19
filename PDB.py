@@ -1083,7 +1083,7 @@ class PDB(Structure):
             if line[0:3] == 'ASG':
                 residue_idx = int(line[10:15])  # line[10:15].strip().isdigit():  # residue number -> line[15:20].strip().isdigit():
                 # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
-                residues[residue_idx].secondary_structure = line[24:25]
+                residues[residue_idx - 1].secondary_structure = line[24:25]
                 residue_idx += 1
         self.secondary_structure = [residue.secondary_structure for residue in self.residues]  # Todo make index access
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
