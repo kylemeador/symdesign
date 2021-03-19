@@ -94,7 +94,7 @@ filters = copy(global_flags)
 filters.update(filter_flags)
 all_flags = copy(design)
 all_flags.update(filters)
-flags = {'design': design, None: all_flags}
+flags = {PUtils.interface_design: design, None: all_flags}
 #        'analysis': global_flags, 'filter': filters, 'sequence_selection': global_flags,
 
 
@@ -159,7 +159,7 @@ def return_default_flags(mode):
 
 
 @handle_errors(errors=KeyboardInterrupt)
-def query_user_for_flags(mode='design', template=False):
+def query_user_for_flags(mode=PUtils.interface_design, template=False):
     flags_file = '%s.flags' % mode
     flag_output = return_default_flags(mode)
     write_file = False

@@ -433,7 +433,7 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
                 if save:
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
-        module_files = {'design': [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]]}
+        module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]]}
         if module in module_files:
             if len(success) > 0:
                 all_commands = {stage: [] for stage in module_files[module]}
@@ -554,13 +554,14 @@ if __name__ == '__main__':
                              help='Where should the output from commands be written?\n'
                                   'Default=CWD/NanohedraEntry(entry)DockedPoses')
     # ---------------------------------------------------
-    parser_fragments = subparsers.add_parser('generate_fragments',
+    parser_fragments = subparsers.add_parser(PUtils.generate_fragments,
                                              help='Generate fragment overlap for poses of interest.')
     # ---------------------------------------------------
-    parser_design = subparsers.add_parser('design', help='Gather poses of interest and format for design using sequence'
-                                                         'constraints in Rosetta. Constrain using evolutionary profiles'
-                                                         ' of homologous sequences and/or fragment profiles extracted '
-                                                         'from the PDB or neither.')
+    parser_design = subparsers.add_parser(PUtils.interface_design,
+                                          help='Gather poses of interest and format for design using sequence '
+                                               'constraints in Rosetta. Constrain using evolutionary profiles of '
+                                               'homologous sequences and/or fragment profiles extracted from the PDB or'
+                                               ' neither.')
     # parser_design.add_argument('-i', '--fragment_database', type=str,
     #                            help='Database to match fragments for interface specific scoring matrices. One of %s'
     #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
@@ -681,7 +682,7 @@ if __name__ == '__main__':
                         '\'%s sequence_selection -h\' will get you started.'
                         % (PUtils.program_command, '\n\t'.join(formatted_metrics), PUtils.program_name,
                            PUtils.program_command))
-        elif args.module == 'design':
+        elif args.module == PUtils.interface_design:
             logger.info()
         elif args.module == PUtils.nano:
             logger.info()
@@ -722,8 +723,8 @@ if __name__ == '__main__':
             raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
                                       '\n\t%s\nCorrect your flags and try again'
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
-    if args.module in ['design', 'generate_fragments', 'expand_asu']:
-        queried_flags['directory_type'] = 'design'
+    if args.module in [PUtils.interface_design, 'generate_fragments', 'expand_asu']:
+        queried_flags['directory_type'] = PUtils.interface_design
         if args.module == 'expand_asu':
             if queried_flags['symmetry']:
                 queried_flags['output_assembly'] = True
@@ -751,7 +752,7 @@ if __name__ == '__main__':
         raise SDUtils.DesignError('No design directories/files were specified!\n'
                                   'Please specify --directory, --file, --project, or --single '
                                   'and run your command again')
-    elif queried_flags['directory_type'] in ['design', 'filter', 'analysis', 'sequence_selection']:
+    elif queried_flags['directory_type'] in [PUtils.interface_design, 'filter', 'analysis', 'sequence_selection']:
         # if args.mpi:  # Todo figure out if needed
         #     # extras = ' mpi %d' % CUtils.mpi
         #     logger.info(
@@ -860,7 +861,7 @@ if __name__ == '__main__':
         logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
                                                                                        location))
 
-    if args.module in [PUtils.nano, 'design']:
+    if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
             args.suspend = False
             logger.info('Modelling will occur in this process, ensure you don\'t lose connection to the shell!')
@@ -1004,7 +1005,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 design.generate_interface_fragments()
     # ---------------------------------------------------
-    elif args.module == 'design':  # -i fragment_library, -p mpi, -x suspend
+    elif args.module == PUtils.interface_design:  # -i fragment_library, -p mpi, -x suspend
         if queried_flags['design_with_evolution']:
             if psutil.virtual_memory().available <= CUtils.hhblits_memory_threshold:
                 logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
@@ -1052,15 +1053,15 @@ if __name__ == '__main__':
         # WHEN ONE FILE RUNS ALL THREE MODES
         # all_commands = []
         # for des_directory in design_directories:
-        #     all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % interface_design))
-        # command_file = SDUtils.write_commands(all_commands, name=interface_design, out_path=args.directory)
+        #     all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % PUtils.interface_design))
+        # command_file = SDUtils.write_commands(all_commands, name=PUtils.interface_design, out_path=args.directory)
         # args.success_file = None
         # args.failure_file = None
         # args.max_jobs = 80
         # TODO add interface_design to PUtils.stage_f
-        # distribute(stage=interface_design, directory=args.directory, file=command_file,
+        # distribute(stage=PUtils.interface_design, directory=args.directory, file=command_file,
         #            success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
-        # logger.info('All \'%s\' commands were written to \'%s\'' % (interface_design, command_file))
+        # logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.interface_design, command_file))
     # ---------------------------------------------------
     elif args.module == 'analysis':  # -o output, -f figures, -n no_save, -j join, -g delta_g
         save = True
@@ -1102,13 +1103,13 @@ if __name__ == '__main__':
                                                                                               location2))
             all_design_directories2 = set_up_directory_objects(all_poses2)
             logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location2))
-            if queried_flags['directory_type'] == 'design':
+            if queried_flags['directory_type'] == PUtils.interface_design:
                 directory_pairs, failures = pair_directories(all_design_directories2, design_directories)
             else:
                 logger.warning('Source location was specified, but the --directory_type isn\'t design. Destination '
                                'directory will be ignored')
         else:
-            if queried_flags['directory_type'] == 'design':
+            if queried_flags['directory_type'] == PUtils.interface_design:
                 exit('No source location was specified! Use -d2 or -f2 to specify the source of poses when merging '
                      'design directories')
             elif queried_flags['directory_type'] == PUtils.nano:
