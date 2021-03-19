@@ -1063,7 +1063,11 @@ class PDB(Structure):
 
         p = subprocess.Popen(stride_cmd, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
-        out_lines = out.decode('utf-8').split('\n')
+        if out:
+            out_lines = out.decode('utf-8').split('\n')
+        else:
+            self.log.warning('%s: No secondary structure assignment found with Stride' % self.name)
+            return None
         # except:
         #     stride_out = None
 
@@ -1072,11 +1076,11 @@ class PDB(Structure):
         os.system('rm %s' % current_pdb_file)
 
         # residue_idx = 0
-        print(out_lines)
+        # print(out_lines)
         residues = self.residues
         for line in out_lines:
-            residue_idx = int(line[15:20])
-            if line[0:3] == 'ASG' and line[15:20].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
+            residue_idx = int(line[10:15])
+            if line[0:3] == 'ASG' and line[10:15].strip().isdigit():  # residue number -> line[15:20].strip().isdigit():
                 # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
                 residues[residue_idx].secondary_structure = line[24:25]
                 residue_idx += 1
