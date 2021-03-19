@@ -572,6 +572,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def get_oligomers(self):
         # if self.directory_type == PUtils.interface_design:
+        self.oligomers = []
         self.oligomer_names = os.path.basename(self.building_blocks).split('_')
         for idx, name in enumerate(self.oligomer_names):
             pdb_files = glob(os.path.join(self.path, '%s*.pdb' % name))
@@ -599,20 +600,25 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # no fragments were found. set design_metrics empty
                 design_metrics = return_fragment_interface_metrics(None, null=True)
         else:
-            self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet? Trying'
-                             ' %s now...'
-                             % (self.path, PUtils.generate_fragments, PUtils.generate_fragments))
-            self.generate_interface_fragments()
-            if self.info.get('fragments', None):
-                if self.fragment_observations:
-                    design_metrics = return_fragment_interface_metrics(
-                        calculate_match_metrics(self.fragment_observations))
-                else:
-                    # no fragments were found. set design_metrics empty
-                    design_metrics = return_fragment_interface_metrics(None, null=True)
-            else:
-                raise DesignError('Something is wrong in Design logic. This error shouldn\'t be reached.')
-                # return None
+            raise DesignError('There are no fragment observations for this Design! Have you run %s on it yet?'
+                              % PUtils.generate_fragments)
+            # self.log.warning('There are no fragment observations for this Design! Have you run %s on it yet?'
+            #                  % PUtils.generate_fragments)
+            # self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet?
+            #                  ' Trying'
+            #                  ' %s now...'
+            #                  % (self.path, PUtils.generate_fragments, PUtils.generate_fragments))
+            # self.generate_interface_fragments()
+            # if self.info.get('fragments', None):
+            #     if self.fragment_observations:
+            #         design_metrics = return_fragment_interface_metrics(
+            #             calculate_match_metrics(self.fragment_observations))
+            #     else:
+            #         # no fragments were found. set design_metrics empty
+            #         design_metrics = return_fragment_interface_metrics(None, null=True)
+            # else:
+            #     raise DesignError('Something is wrong in Design logic. This error shouldn\'t be reached.')
+            #     # return None
 
         self.all_residue_score = design_metrics['nanohedra_score']
         self.center_residue_score = design_metrics['nanohedra_score_central']
