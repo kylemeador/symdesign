@@ -812,12 +812,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         return self.pdb.number_of_residues
 
     @property
-    def center_of_mass(self):
+    def center_of_mass(self):  # Todo move to Model
         """Returns: (Numpy.ndarray)"""
         return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
 
     @property
-    def symmetric_centers_of_mass(self):
+    def symmetric_centers_of_mass(self):  # Todo move to SymmetricModel
         """Returns: (Numpy.ndarray)"""
         if self.symmetry:
             return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms),
