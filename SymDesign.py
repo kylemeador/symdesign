@@ -723,7 +723,7 @@ if __name__ == '__main__':
             raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
                                       '\n\t%s\nCorrect your flags and try again'
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
-    if args.module in [PUtils.interface_design, 'generate_fragments', 'expand_asu']:
+    if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'expand_asu']:
         queried_flags['directory_type'] = PUtils.interface_design
         if args.module == 'expand_asu':
             if queried_flags['symmetry']:
@@ -869,7 +869,7 @@ if __name__ == '__main__':
             args.suspend = True
             logger.info('Writing modelling commands out to file, no modelling will occur until commands are executed.')
 
-    if queried_flags.get(Flags.generate_frags, None) or args.module == 'generate_fragments':
+    if queried_flags.get(Flags.generate_frags, None) or args.module == PUtils.generate_fragments:
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
         fragment_db = FragmentDatabase(source='directory', location=interface_type, init_db=True)
@@ -991,7 +991,7 @@ if __name__ == '__main__':
         else:
             logger.error('No \'%s\' commands were written!' % PUtils.nano)
     # ---------------------------------------------------
-    elif args.module == 'generate_fragments':  # -i fragment_library, -p mpi, -x suspend
+    elif args.module == PUtils.generate_fragments:  # -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
