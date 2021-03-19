@@ -760,9 +760,10 @@ class Structure(StructureBase):
             # clashes = set(all_contacts) - set(residue_indices_and_bonded_c_and_n)
             clashes = all_contacts - set(residue_indices_and_bonded_c_and_n)
             if any(clashes):
+                # print(
+                #     'Residue indices: %s\nFound clashes at indices: %s' % (residue_indices_and_bonded_c_and_n, clashes))
+                # self.log.info('Residue indices: %s\nFound clashes at indices: %s' % (residue_indices_and_bonded_c_and_n, clashes))
                 for clash_idx in clashes:
-                    # print('Residue indices: %s\nFound clashes at indices: %s' % (residue_indices_and_bonded_c_and_n, clashes))
-                    # self.log.info('Residue indices: %s\nFound clashes at indices: %s' % (residue_indices_and_bonded_c_and_n, clashes))
                     if self.atoms[clash_idx].is_backbone() or self.atoms[clash_idx].is_CB():
                         backbone_clashes.append((residue, self.atoms[clash_idx], clash_idx))
                     else:

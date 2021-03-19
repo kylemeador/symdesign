@@ -113,11 +113,6 @@ class PDB(Structure):
                 #                                       done in set_coords -> , coords=self._coords)
                 # indices according to new Atoms/Coords index
                 self.reindex_residues()
-                # prior_residue = self.residues[0]
-                # prior_residue.start_index = 0
-                # for residue in self.residues[1:]:
-                #     residue.start_index = prior_residue.atom_indices[-1] + 1
-                #     prior_residue = residue
 
                 self.chains = copy(chains)
                 self.copy_structures([self.chains])
@@ -130,6 +125,9 @@ class PDB(Structure):
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
 
             elif isinstance(entities, list):  # Todo overloaded, may not function properly without process_pdb
+                # there was a strange error when this function was passed three entities, 2 and 3 were the same,
+                # however, when clashes were checked, 2 was clashing with itself as it was referencing residues from 3,
+                # while 3 was clashing with itself as it was referencing residues fom 2. watch out
                 atoms, residues = [], []
                 for entity in entities:  # grab only the Atom and Residue objects representing the Entity
                     atoms.extend(entity.atoms)
@@ -145,11 +143,6 @@ class PDB(Structure):
                 #                                       done in set_coords -> , coords=self._coords)
                 # indices according to new Atoms/Coords index
                 self.reindex_residues()
-                # prior_residue = self.residues[0]
-                # prior_residue.start_index = 0
-                # for residue in self.residues[1:]:
-                #     residue.start_index = prior_residue.atom_indices[-1] + 1
-                #     prior_residue = residue
 
                 self.entities = copy(entities)
                 self.copy_structures([self.entities])

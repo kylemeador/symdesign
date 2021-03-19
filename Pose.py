@@ -842,18 +842,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def add_pdb(self, pdb):
         """Add a PDB to the Pose PDB as well as the member PDB container"""
-        # self.pdbs.append(pdb)
         self.pdbs_d[pdb.name] = pdb
         self.add_entities_to_pose(pdb)
 
     def add_entities_to_pose(self, pdb):
         """Add each unique Entity in a PDB to the Pose PDB. Multiple PDB's become one PDB representative"""
-        # self.pose_pdb_accession_map[pdb.name] = pdb.entity_accession_map
-        # self.pose_pdb_accession_map[pdb.name] = pdb.entity_d
-        # for entity in pdb.accession_entity_map:
         current_pdb_entities = self.entities
         for idx, entity in enumerate(pdb.entities):
             current_pdb_entities.append(entity)
+        self.log.debug('Found entities: %s' % list(entity.name for entity in current_pdb_entities))
 
         self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb)
 
@@ -891,7 +888,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         if len(self.pdbs_d) > 1:
             self.log.warning('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
-                             'files. Proceed with caution if this is not was you expected!')
+                             'files. Proceed with caution if this is not what you expected!')
         def grab_indices(pdbs=None, entities=None, chains=None, residues=None, pdb_residues=None, atoms=None,
                          start_with_none=False):
             if start_with_none:
