@@ -2,8 +2,13 @@ import os
 import sys
 
 from PathUtils import master_log
-from utils import PostProcessUtils
-from utils import SymQueryUtils
+from classes.SymEntry import sym_comb_dict
+from utils import PostProcessUtils, SymQueryUtils
+from SymDesignUtils import start_log
+
+
+# Globals
+logger = start_log(name=__name__)
 
 
 def query_mode(arg_list):
@@ -51,63 +56,45 @@ def query_mode(arg_list):
 
 
 def get_docking_parameters(arg_list):
+    valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
+                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-output_assembly",
+                   '-no_time', '-initial']
     if "-outdir" in arg_list:
         outdir_index = arg_list.index('-outdir') + 1
         if outdir_index < len(arg_list):
             outdir = arg_list[outdir_index]
         else:
-            master_log_filepath = os.path.join(os.getcwd(), 'Nanohedra_log.txt')
-            logfile = open(master_log_filepath, "a+")
-            logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
-            logfile.close()
-            sys.exit()
+            logger.error('OUTPUT DIRECTORY NOT SPECIFIED\n')
+            exit(1)
     else:
-        master_log_filepath = os.path.join(os.getcwd(), 'Nanohedra_log.txt')
-        master_logfile = open(master_log_filepath, "a+")
-        master_logfile.write("ERROR: OUTPUT DIRECTORY NOT SPECIFIED" + '\n')
-        master_logfile.close()
-        sys.exit()
+        logger.error('OUTPUT DIRECTORY NOT SPECIFIED\n')
+        exit(1)
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    master_log_filepath = os.path.join(outdir, master_log)
-    # with open(master_log_filepath, "w") as master_logfile:
-    master_logfile = open(master_log_filepath, "w")
-    master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
-
-    valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
-                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-output_assembly",
-                   '-no_time', '-initial']  # "-cores", '-resume', "-init_match_type"
-
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
         if sys_input.startswith('-') and sys_input not in valid_flags:
-            master_logfile.write("ERROR: " + sys_input + " IS AN INVALID FLAG" + "\n")
-            master_logfile.write("VALID FLAGS FOR DOCKING ARE:" + "\n")
-            for flag in valid_flags:
-                master_logfile.write(flag + "\n")
-            master_logfile.close()
-            sys.exit()
+            logger.error("%s IS AN INVALID FLAG\nVALID FLAGS FOR DOCKING ARE:\n%s"
+                         % (sys_input, '\n'.join(valid_flags)))
+            exit(1)
 
     # SymEntry PARAMETER
     if "-entry" in arg_list:
         entry_index = arg_list.index('-entry') + 1
         if entry_index < len(arg_list):
-            if arg_list[entry_index].isdigit() and (int(arg_list[entry_index]) in range(1, 126)):
+            if arg_list[entry_index].isdigit() and (int(arg_list[entry_index]) in range(1, len(sym_comb_dict))):
                 entry = int(arg_list[arg_list.index('-entry') + 1])
             else:
-                master_logfile.write("ERROR: INVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: 1 to 125" + "\n")
-                master_logfile.close()
-                sys.exit()
+                logger.error("INVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: %d to %d\n" % (1, len(sym_comb_dict)))
+                exit(1)
         else:
-            master_logfile.write("ERROR: SYMMETRY ENTRY NOT SPECIFIED" + "\n")
-            master_logfile.close()
-            sys.exit()
+            logger.error("SYMMETRY ENTRY NOT SPECIFIED\n")
+            exit(1)
     else:
-        master_logfile.write("ERROR: SYMMETRY ENTRY NOT SPECIFIED" + "\n")
-        master_logfile.close()
-        sys.exit()
+        logger.error("SYMMETRY ENTRY NOT SPECIFIED\n")
+        exit(1)
 
     # General INPUT PARAMETERS
     if ("-pdb_dir1_path" in arg_list) and ("-pdb_dir2_path" in arg_list):
@@ -121,51 +108,14 @@ def get_docking_parameters(arg_list):
                 pdb_dir1_path = path1
                 pdb_dir2_path = path2
             else:
-                master_logfile.write("ERROR: SPECIFIED PDB DIRECTORY PATH(S) DO(ES) NOT EXIST" + "\n")
-                master_logfile.close()
-                sys.exit()
+                logger.error("SPECIFIED PDB DIRECTORY PATH(S) DO(ES) NOT EXIST\n")
+                exit(1)
         else:
-            master_logfile.write("ERROR: PDB DIRECTORY PATH(S) NOT SPECIFIED" + "\n")
-            master_logfile.close()
-            sys.exit()
+            logger.error("PDB DIRECTORY PATH(S) NOT SPECIFIED\n")
+            exit(1)
     else:
-        master_logfile.write("ERROR: PDB DIRECTORY PATH(S) NOT SPECIFIED" + "\n")
-        master_logfile.close()
-        sys.exit()
-
-    # if "-cores" in arg_list:
-    #     cores_index = arg_list.index('-cores') + 1
-    #
-    #     if cores_index < len(arg_list):
-    #         if arg_list[cores_index].isdigit():
-    #             cores = int(arg_list[cores_index])
-    #         else:
-    #             master_logfile.write("ERROR: VALUE SPECIFIED FOR NUMBER OF CPU CORES IS NOT AN INTEGER" + "\n")
-    #             master_logfile.close()
-    #             sys.exit()
-    #     else:
-    #         master_logfile.write("ERROR: NUMBER OF CPU CORES NOT SPECIFIED" + "\n")
-    #         master_logfile.close()
-    #         sys.exit()
-    # else:
-    #     cores = 1
-    #
-    # if "-init_match_type" in arg_list:
-    #     init_match_type_index = arg_list.index('-init_match_type') + 1
-    #
-    #     if init_match_type_index < len(arg_list):
-    #         if arg_list[init_match_type_index] in ["1_1", "1_2", "2_1", "2_2"]:
-    #             init_match_type = str(arg_list[init_match_type_index])
-    #         else:
-    #             master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE SPECIFIED NOT RECOGNIZED" + "\n")
-    #             master_logfile.close()
-    #             sys.exit()
-    #     else:
-    #         master_logfile.write("ERROR: INITIAL FRAGMENT MATCH TYPE NOT SPECIFIED" + "\n")
-    #         master_logfile.close()
-    #         sys.exit()
-    # else:
-    #     init_match_type = "1_1"  # default initial fragment match type is set to helix-helix interactions ==> "1_1"
+        logger.error("PDB DIRECTORY PATH(S) NOT SPECIFIED\n")
+        exit(1)
 
     # FragDock PARAMETERS
     if "-rot_step1" in arg_list:
@@ -174,13 +124,11 @@ def get_docking_parameters(arg_list):
             if arg_list[rot_step_index1].isdigit():
                 rot_step_deg1 = int(arg_list[rot_step_index1])
             else:
-                master_logfile.write("ERROR: ROTATION STEP SPECIFIED IS NOT AN INTEGER" + "\n")
-                master_logfile.close()
-                sys.exit()
+                logger.error("ROTATION STEP SPECIFIED IS NOT AN INTEGER\n")
+                exit(1)
         else:
-            master_logfile.write("ERROR: ROTATION STEP NOT SPECIFIED" + "\n")
-            master_logfile.close()
-            sys.exit()
+            logger.error("ROTATION STEP NOT SPECIFIED\n")
+            exit(1)
     else:
         rot_step_deg1 = None
 
@@ -190,13 +138,11 @@ def get_docking_parameters(arg_list):
             if arg_list[rot_step_index2].isdigit():
                 rot_step_deg2 = int(arg_list[rot_step_index2])
             else:
-                master_logfile.write("ERROR: ROTATION STEP SPECIFIED IS NOT AN INTEGER" + "\n")
-                master_logfile.close()
-                sys.exit()
+                logger.error("ROTATION STEP SPECIFIED IS NOT AN INTEGER\n")
+                exit(1)
         else:
-            master_logfile.write("ERROR: ROTATION STEP NOT SPECIFIED" + "\n")
-            master_logfile.close()
-            sys.exit()
+            logger.error("ROTATION STEP NOT SPECIFIED\n")
+            exit(1)
     else:
         rot_step_deg2 = None
 
@@ -215,28 +161,18 @@ def get_docking_parameters(arg_list):
             if arg_list[min_matched_index].isdigit():
                 min_matched = int(arg_list[min_matched_index])
             else:
-                master_logfile.write(
-                    "ERROR: MINIMUM NUMBER OF REQUIRED MATCHED FRAGMENT(S) SPECIFIED IS NOT AN INTEGER" + "\n")
-                master_logfile.close()
-                sys.exit()
+                logger.error("MINIMUM NUMBER OF REQUIRED MATCHED FRAGMENT(S) SPECIFIED IS NOT AN INTEGER\n")
+                exit(1)
         else:
-            master_logfile.write("ERROR: MINIMUM NUMBER OF REQUIRED MATCHED FRAGMENT(S) NOT SPECIFIED" + "\n")
-            master_logfile.close()
-            sys.exit()
+            logger.error("ERROR: MINIMUM NUMBER OF REQUIRED MATCHED FRAGMENT(S) NOT SPECIFIED\n")
+            exit(1)
     else:
         min_matched = 3
-
-    # if '-resume' in arg_list:
-    #     resume = True
-    # else:
-    #     resume = False
 
     if '-no_time' in arg_list:
         keep_time = False
     else:
         keep_time = True
-
-    master_logfile.close()
 
     if '-initial' in arg_list:
         initial = True
@@ -244,7 +180,7 @@ def get_docking_parameters(arg_list):
         initial = False
 
     return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_assembly, \
-        output_surrounding_uc, min_matched, keep_time, initial  # init_match_type, cores, resume
+        output_surrounding_uc, min_matched, keep_time, initial
 
 
 def postprocess_mode(arg_list):
