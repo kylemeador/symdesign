@@ -663,7 +663,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 elif 'Master Output Directory: ' in line:
                     self.master_outdir = line.split(':')[-1].strip()
                 elif 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                    self.sym_entry_number = int(line.split(':')[-1].strip())
+                    self.sym_entry_number = int(line.split(':')[-1])
                 elif 'Oligomer 1 Point Group Symmetry: ' in line:  # "Oligomer 1 Symmetry: "
                     self.oligomer_symmetry_1 = line.split(':')[-1].strip()
                 elif 'Oligomer 2 Point Group Symmetry: ' in line:  # "Oligomer 2 Symmetry: " or
