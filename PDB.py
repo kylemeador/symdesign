@@ -1192,7 +1192,7 @@ class PDB(Structure):
                     atom_delete_index = structure._atom_indices.index(delete[0])
                     for _ in range(len(delete)):
                         structure._atom_indices.pop(atom_delete_index)
-                    self.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
+                    structure.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
 
                 except ValueError:
                     # This should happen if the Atom is not in the Structure of interest
