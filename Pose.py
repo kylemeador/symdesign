@@ -1378,9 +1378,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 if not self.frag_db:
                     self.connect_fragment_database(init=False)  # location='biological_interfaces' inherent in call
                     # Attach an existing FragmentDB to the Pose
-                    self.attach_fragment_database(db=frag_db)
+                    self.attach_fragment_database(db=self.frag_db)
                     for entity in self.entities:
-                        entity.attach_fragment_database(db=frag_db)
+                        entity.attach_fragment_database(db=self.frag_db)
                     # self.handle_flags(frag_db=self.frag_db)  # attach to all entities
 
                 fragment_source = design_dir.fragment_observations
