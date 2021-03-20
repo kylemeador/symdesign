@@ -644,37 +644,37 @@ class Structure(StructureBase):
         for atom in residue.atoms:
             atom.residue_type = to.upper()
 
-        # Delete the corresponding Residue Atoms
-        delete = residue.sidechain_indices
-        if not delete:  # there are no indices
-            return delete
-        # Atoms() should handle all Atoms containers for the object
-        self._atoms.atoms = np.delete(self._atoms.atoms, delete)
+        # Find the corresponding Residue Atom indices to delete (side-chain only)
+        delete_indices = residue.sidechain_indices
+        if not delete_indices:  # there are no indices
+            return delete_indices
 
-        # Residue.atom_indices should handle all references to these atoms in the specified Residue
-        delete_length = len(delete)
-        try:
-            residue_delete_index = residue._atom_indices.index(delete[0])
-        except ValueError:
-            print('Delete has %s:' % delete)
-            print('residue is %d, %s:' % (residue.number, residue.type))
-            print('residue._atom_indices has %s:' % residue._atom_indices)
-            exit()
+        delete_length = len(delete_indices)
+        residue_delete_index = residue._atom_indices.index(delete_indices[0])
         for iteration in range(delete_length):
             residue._atom_indices.pop(residue_delete_index)
         # must re-index all succeeding residues
         # This doesn't applies to all PDB Residues, not only Structure Residues because modifying Residues object
         self._residues.reindex_residues()  # Todo start_at=residue.index)
 
+        self._atoms.delete(delete_indices)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
-        atom_delete_index = self._atom_indices.index(delete[0])
+        try:
+            atom_delete_index = self._atom_indices.index(delete_indices[0])
+        except ValueError:
+            print('Delete has %s:' % delete_indices)
+            print('length of atom_indices %s:' % len(self._atom_indices))
+            print('residue is %d%s, chain %s, pdb number %d:' % (residue.number, residue.type, residue.chain,
+                                                                 residue.number_pdb))
+            print('structure._atom_indices has %s:' % self._atom_indices)
+            exit()
         for iteration in range(delete_length):
             self._atom_indices.pop(atom_delete_index)
         # must re-index all succeeding atoms
         # This doesn't apply to all PDB Atoms only Structure Atoms! Need to modify at PDB level
         self.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
 
-        return delete
+        return delete_indices
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
@@ -1720,13 +1720,8 @@ class Atoms:
     def __init__(self, atoms):
         self.atoms = np.array(atoms)
 
-    # @property
-    # def atoms(self):
-    #     return self._atoms
-    #
-    # @atoms.setter
-    # def atoms(self, atoms):
-    #     self._atoms = np.array(atoms, dtype=Atom)
+    def delete(self, indices):
+        self.atoms = np.delete(self.atoms, indices)
 
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)

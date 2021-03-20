@@ -920,6 +920,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for idx, entity_residues in enumerate(residue_pair):
                 self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
                 for residue in entity_residues:
+                    self.log.debug('Mutating %d%s' % (residue.number, residue.type))
                     if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
                         mutated_pdb.mutate_residue(residue=residue, to='A')
 
