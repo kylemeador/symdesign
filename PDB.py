@@ -138,8 +138,8 @@ class PDB(Structure):
                     self.chains.extend(entity.chains)  # won't be included in the main PDB object as of now...
                 self.atoms = atoms
                 self.residues = residues
-                self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
                 self.reorder_chains()
+                self.chain_id_list = [chain.name for chain in self.chains]
                 self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
@@ -178,7 +178,7 @@ class PDB(Structure):
 
     @property
     def number_of_chains(self):
-        return len(self.chain_id_list)
+        return len(self.chains)
 
     @property
     def symmetry(self):
