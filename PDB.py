@@ -93,7 +93,7 @@ class PDB(Structure):
                     except AttributeError:
                         raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects '
                                           'lacking coords! Either pass Residue objects with coords or pass coords.')
-                    self.reindex_atoms()  # Todo is this correct?
+                    # self.reindex_atoms()  # not correct...
                     # self.coords = coords
                 self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
                 self.process_pdb(residues=residues, coords=coords, **kwargs)
@@ -112,7 +112,7 @@ class PDB(Structure):
                 self.set_structure_attributes(self.residues, _atoms=self._atoms)
                 #                                       done in set_coords -> , coords=self._coords)
                 # indices according to new Atoms/Coords index
-                self.reindex_residues()
+                self._residues.reindex_residues()
 
                 self.chains = copy(chains)
                 self.copy_structures([self.chains])
@@ -144,7 +144,7 @@ class PDB(Structure):
                 self.set_structure_attributes(self.residues, _atoms=self._atoms)
                 #                                       done in set_coords -> , coords=self._coords)
                 # indices according to new Atoms/Coords index
-                self.reindex_residues()
+                self._residues.reindex_residues()
 
                 self.entities = copy(entities)
                 self.copy_structures([self.entities])
@@ -1172,21 +1172,29 @@ class PDB(Structure):
 
         return surface_frags
 
-    def mutate_residue(self, residue=None, number=None, to='ALA'):
-        """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format
-        Todo Residue Number must be in Pose numbering
-        Returns:
-            (list[int]): The indices of the Atoms being removed from the Structure
+    def mutate_residue(self, residue=None, number=None, to='ALA', **kwargs):
+        """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
+
+        Keyword Args:
+            residue=None (Residue): A Residue object to mutate
+            number=None (int): A Residue number to select the Residue of interest by
+            to='ALA' (str): The type of amino acid to mutate to
+            pdb=False (bool): Whether to pull the Residue by PDB number
         """
-        delete = super().mutate_residue(residue=residue, number=number, to=to)
+        delete = super().mutate_residue(residue=residue, number=number, to=to, **kwargs)
+        delete_length = len(delete)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         for structures in [self.chains, self.entities]:
             for structure in structures:
                 try:
                     atom_delete_index = structure._atom_indices.index(delete[0])
-                    for iteration in range(len(delete)):
+                    for _ in range(len(delete)):
                         structure._atom_indices.pop(atom_delete_index)
+                    self.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
+
                 except ValueError:
+                    # This should happen if the Atom is not in the Structure of interest
+                    # self.log.warning('Mutating residues ran into a ValueError. Ensure this is okay!')
                     continue
 
     def insert_residue(self, chain_id, residue_number, residue_type):  # Todo Chain compatible
@@ -1257,7 +1265,7 @@ class PDB(Structure):
         # chain._residues.remove(residue)  # deletes Residue from Chain
         # self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_pdb()
-        self.reindex_residues()
+        self._residues.reindex_residues()
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         atom_delete_index = self._atom_indices.index(delete[0])
         for iteration in range(len(delete)):
