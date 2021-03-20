@@ -257,6 +257,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # else:
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
+        # Todo ensure asu chain names are different
         asu = get_contacting_asu(pdb1_copy, pdb2_copy)  # _pdb_1, asu_pdb_2
         # print('Grabbing asu')  # Todo debug
         if not asu:  # _pdb_1 and not asu_pdb_2:
