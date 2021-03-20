@@ -131,15 +131,14 @@ class PDB(Structure):
                 # there was a strange error when this function was passed three entities, 2 and 3 were the same,
                 # however, when clashes were checked, 2 was clashing with itself as it was referencing residues from 3,
                 # while 3 was clashing with itself as it was referencing residues fom 2. watch out
-                atoms, residues = [], []
+                atoms, residues, chains = [], [], []
                 for entity in entities:  # grab only the Atom and Residue objects representing the Entity
                     atoms.extend(entity.atoms)
                     residues.extend(entity.residues)
-                    self.chains.extend(entity.chains)  # won't be included in the main PDB object as of now...
+                    chains.extend(entity.chains)  # won't be included in the main PDB object as of now...
+                    # self.chains.extend(entity.chains)  # won't be included in the main PDB object as of now...
                 self.atoms = atoms
                 self.residues = residues
-                self.reorder_chains()
-                self.chain_id_list = [chain.name for chain in self.chains]
                 self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
@@ -159,6 +158,10 @@ class PDB(Structure):
                     entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
+                # because we don't care for chains attributes (YET) we update after everything is set
+                self.chains = chains
+                self.reorder_chains()
+                self.chain_id_list = [chain.name for chain in self.chains]
                 if not kwargs.get('lazy', False):  # Todo change lazy to pose
                     self.renumber_pdb()
             if metadata and isinstance(metadata, PDB):
