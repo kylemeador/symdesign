@@ -104,6 +104,7 @@ class PDB(Structure):
                     residues.extend(chain.residues)
                 self.atoms = atoms
                 self.residues = residues
+                self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
                 self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([chain.coords for chain in chains]))
@@ -134,8 +135,11 @@ class PDB(Structure):
                 for entity in entities:  # grab only the Atom and Residue objects representing the Entity
                     atoms.extend(entity.atoms)
                     residues.extend(entity.residues)
+                    self.chains.extend(entity.chains)  # won't be included in the main PDB object as of now...
                 self.atoms = atoms
                 self.residues = residues
+                self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
+                self.reorder_chains()
                 self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
@@ -595,7 +599,8 @@ class PDB(Structure):
     #     self.get_chain_sequences()
 
     def reorder_chains(self, exclude_chains_list=None):  # Todo remove _list from kwarg
-        """Renames chains starting from the first chain as A and the last as l_abc[len(self.chain_id_list) - 1]
+        """Renames chains starting from the first chain as A and the last as
+        PDB.available_letters[len(self.chain_id_list) - 1]
         Caution, doesn't update self.reference_sequence chain info
         """
         if exclude_chains_list:
@@ -605,9 +610,10 @@ class PDB(Structure):
 
         moved_chains = [available_chains[idx] for idx in range(self.number_of_chains)]
 
-        for idx, chain in enumerate(self.chain_id_list):
-            self.chain(chain).set_atoms_attributes(chain=moved_chains[idx])
-            # Todo edit this mechanism! ^
+        for idx, chain in enumerate(self.chains):
+            chain.name = moved_chains[idx]
+            chain.set_atoms_attributes(chain=moved_chains[idx])
+            # Todo edit this mechanism to Residue! ^
         # prev_chain = self.atoms[0].chain
         # chain_index = 0
         # l3 = []
@@ -1193,10 +1199,8 @@ class PDB(Structure):
                     for _ in iter(delete_indices):
                         structure._atom_indices.pop(atom_delete_index)
                     structure.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
-
                 except ValueError:
-                    # This should happen if the Atom is not in the Structure of interest
-                    # self.log.warning('Mutating residues ran into a ValueError. Ensure this is okay!')
+                    # this should happen if the Atom is not in the Structure of interest
                     continue
 
     def insert_residue(self, chain_id, residue_number, residue_type):  # Todo Chain compatible
