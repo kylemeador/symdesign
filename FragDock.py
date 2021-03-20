@@ -706,17 +706,17 @@ if __name__ == '__main__':
             # Write to Logfile
             if not resume:
                 with open(log_file_path, 'w') as log_file:
-                    log_file.write(
-                        'DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\nOutput Directory: %s\n\n'
-                        % (pdb1_name, pdb2_name, pdb1_path, pdb2_path, outdir))
+                    log_file.write('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\n\n'
+                                   % (pdb1_name, pdb2_name, pdb1_path, pdb2_path))
 
             nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path,
                            rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
                            output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
                            min_matched=min_matched, log=log_file_path, resume=resume, keep_time=timer)
+
             with open(master_log_filepath, 'a+') as master_log_file:
-                master_log_file.write(
-                    'COMPLETE ==> %s\n\n' % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
+                master_log_file.write('COMPLETE ==> %s\n\n'
+                                      % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
 
         except KeyboardInterrupt:
             with open(master_log_filepath, 'a+') as master_log:
