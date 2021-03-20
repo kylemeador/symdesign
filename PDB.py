@@ -1181,16 +1181,16 @@ class PDB(Structure):
             to='ALA' (str): The type of amino acid to mutate to
             pdb=False (bool): Whether to pull the Residue by PDB number
         """
-        delete = super().mutate_residue(residue=residue, number=number, to=to, **kwargs)
-        if not delete:  # there are no indices
+        delete_indices = super().mutate_residue(residue=residue, number=number, to=to, **kwargs)
+        if not delete_indices:  # there are no indices
             return None
-        delete_length = len(delete)
+        delete_length = len(delete_indices)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         for structures in [self.chains, self.entities]:
             for structure in structures:
                 try:
-                    atom_delete_index = structure._atom_indices.index(delete[0])
-                    for _ in range(len(delete)):
+                    atom_delete_index = structure._atom_indices.index(delete_indices[0])
+                    for _ in iter(delete_indices):
                         structure._atom_indices.pop(atom_delete_index)
                     structure.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
 

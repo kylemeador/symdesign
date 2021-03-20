@@ -649,9 +649,8 @@ class Structure(StructureBase):
         if not delete_indices:  # there are no indices
             return delete_indices
 
-        delete_length = len(delete_indices)
         residue_delete_index = residue._atom_indices.index(delete_indices[0])
-        for _ in iter(delete_length):
+        for _ in iter(delete_indices):
             residue._atom_indices.pop(residue_delete_index)
         # must re-index all succeeding residues
         # This doesn't applies to all PDB Residues, not only Structure Residues because modifying Residues object
@@ -668,11 +667,11 @@ class Structure(StructureBase):
                                                                  residue.number_pdb))
             print('structure._atom_indices has %s:' % self._atom_indices)
             exit()
-        for _ in iter(delete_length):
+        for _ in iter(delete_indices):
             self._atom_indices.pop(atom_delete_index)
         # must re-index all succeeding atoms
         # This doesn't apply to all PDB Atoms only Structure Atoms! Need to modify at PDB level
-        self.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
+        self.reindex_atoms(start_at=atom_delete_index, offset=len(delete_indices))
 
         return delete_indices
 
