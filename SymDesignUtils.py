@@ -5,7 +5,7 @@ import multiprocessing as mp
 import operator
 import pickle
 import subprocess
-from functools import reduce
+from functools import reduce, wraps
 from glob import glob
 from itertools import chain
 from json import loads, dumps
@@ -117,6 +117,7 @@ def handle_design_errors(errors=(Exception,)):
             raised, else None
     """
     def wrapper(func):
+        @wraps(func)
         def wrapped(*args, **kwargs):
             try:
                 return func(*args, **kwargs)  #, None
@@ -199,7 +200,7 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
     """
     # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
     log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
-    log_format = logging.Formatter('[%(levelname)s] %(name)s: %(message)s')
+    log_format = logging.Formatter('[%(name)s]-%(levelname)s: %(message)s')
 
     _logger = logging.getLogger(name)
     _logger.setLevel(log_level[level])

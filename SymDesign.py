@@ -658,7 +658,7 @@ if __name__ == '__main__':
         # Set root logger to log all logs to single file with info level, stream from above still emits at warning
         SDUtils.start_log(handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
         # SymDesign main logs to stream with level info
-        logger = SDUtils.start_log(name=__name__)
+        logger = SDUtils.start_log(name=os.path.basename(__file__).split('.')[0], propagate=False)
         # All Designs will log to specific file with level info unless -skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide
@@ -949,11 +949,11 @@ if __name__ == '__main__':
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
                                       repeat(args.project), initial_iter)
-                    results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_command_mp, zipped_args, threads))
+                    results = SDUtils.mp_starmap(nanohedra_command_s, zipped_args, threads)
                 else:  # args.directory or args.file set up docking directories
                     zipped_args = zip(design_directories, repeat(args.project))
-                    results, exceptions = zip(*SDUtils.mp_starmap(nanohedra_recap_mp, zipped_args, threads))
-                results = list(results)
+                    results = SDUtils.mp_starmap(nanohedra_recap_s, zipped_args, threads)
+                # results = list(results)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             if args.run_in_shell:
@@ -963,15 +963,15 @@ if __name__ == '__main__':
             else:
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     for initial, (path1, path2) in zip(initial_iter, pdb_pairs):
-                        result, error = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags,
-                                                            args.project, initial)
+                        result = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags, args.project,
+                                                     initial)
                         results.append(result)
-                        exceptions.append(error)  # Todo
+                        # exceptions.append(error)  # Todo
                 else:  # single directory docking (already made directories)
                     for dock_directory in design_directories:
-                        result, error = nanohedra_recap_s(dock_directory, args.project)
+                        result = nanohedra_recap_s(dock_directory, args.project)
                         results.append(result)
-                        exceptions.append(error)  # Todo
+                        # exceptions.append(error)  # Todo
 
         # Make single file with names of each directory. Specific for docking due to no established directory
         args.file = os.path.join(args.directory, 'all_docked_directories.paths')  # Todo Parameterized
@@ -997,9 +997,7 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)  # mpi=args.mpi, Todo
             logger.info('Starting multiprocessing using %s threads' % str(threads))
-            results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories,
-                                                      threads))
-            results = list(results)
+            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
@@ -1017,8 +1015,7 @@ if __name__ == '__main__':
 
             threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)  # mpi=args.mpi, Todo
             logger.info('Starting multiprocessing using %s threads' % str(threads))
-            results, exceptions = zip(*SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads))
-            results = list(results)
+            results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
@@ -1077,11 +1074,7 @@ if __name__ == '__main__':
             # Calculate the number of threads to use depending on computer resources
             threads = SDUtils.calculate_mp_threads(maximum=True)
             logger.info('Starting multiprocessing using %s threads' % str(threads))
-            zipped_args = zip(design_directories, repeat(args.delta_g), repeat(args.join), repeat(args.debug),
-                              repeat(save), repeat(args.figures))
-            # results, exceptions = SDUtils.mp_try_starmap(analyze_output_mp, zipped_args, threads)
-            results = zip(*SDUtils.mp_starmap(analyze_output_mp, zipped_args, threads))
-            # results = list(results)
+            results = SDUtils.mp_map(DesignDirectory.design_analysis, design_directories, threads)
         else:
             logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
 
@@ -1298,7 +1291,7 @@ if __name__ == '__main__':
             os.makedirs(outdir_traj)
             os.makedirs(outdir_res)
 
-        # Create symbolic links to the output PDB's
+        # Create new output of PDB's
         for pose in results:
             pose_des_dirs, design = zip(*pose)
             for i, des_dir in enumerate(pose_des_dirs):
@@ -1313,6 +1306,7 @@ if __name__ == '__main__':
                     shutil.copy(des_dir.trajectories,
                                 os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
                     shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
+                    # Create symbolic links to the output PDB's
                     # os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design[i])))
                     # os.symlink(des_dir.trajectories, os.path.join(outdir_traj,
                     #                                                    os.path.basename(des_dir.trajectories)))
