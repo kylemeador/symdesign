@@ -55,7 +55,6 @@ class Structure(StructureBase):
                 except AttributeError:
                     raise DesignError('Can\'t initialize Structure with Atom objects lacking coords if no _coords are '
                                       'passed! Either pass Atom objects with coords or pass _coords.')
-                self.reindex_atoms()
                 self.coords = coords
         if residues is not None:
             if residue_indices:
@@ -451,10 +450,17 @@ class Structure(StructureBase):
         for idx, atom in enumerate(atoms, 1):
             atoms[idx - 1].number = idx
 
-    def reindex_atoms(self):
+    def reindex_atoms(self, start_at=0, offset=None):
         """Reindex all Atom objects to the current index in the self.atoms attribute"""
-        for idx, atom in enumerate(self.atoms):
-            self.atoms[idx].index = idx
+        if start_at:
+            if offset:
+                self.atom_indices = self.atom_indices[:start_at] + [idx - offset for idx in self.atom_indices[start_at:]]
+            else:
+                raise DesignError('Must include an offset when re-indexing atoms from a start_at position!')
+        else:
+            self.atom_indices = list(range(len(self.atom_indices)))
+        # for idx, atom in enumerate(self.atoms):
+        #     self.atoms[idx].index = idx
 
     # def set_atom_coordinates(self, coords):
     #     """Set/Replace all Atom coordinates with coords specified. Must be in the same order to apply correctly!"""
@@ -522,14 +528,19 @@ class Structure(StructureBase):
         self.residues = new_residues
         self.residue_indices = list(range(len(new_residues)))
 
-    def residue(self, residue_number):
+    def residue(self, residue_number, pdb=False):
         """Retrieve the Residue specified
 
         Returns:
             (Residue)
         """
+        if pdb:
+            number_source = 'number_pdb'
+        else:
+            number_source = 'number'
+
         for residue in self.residues:
-            if residue.number == residue_number:
+            if getattr(residue, number_source) == residue_number:
                 return residue
         return None
 
@@ -607,18 +618,14 @@ class Structure(StructureBase):
                     break
         # self.renumber_atoms()  # should be unnecessary
 
-    def reindex_residues(self, start_at=0):
-        # indices according to new Atoms/Coords index
-        # prior_residue = self.residues[start_at]
-        prior_residue = self.residues[0]
-        prior_residue.start_index = 0
-        for residue in self.residues[1:]:
-            residue.start_index = prior_residue._atom_indices[-1] + 1
-            prior_residue = residue
-
-    def mutate_residue(self, residue=None, number=None, to='ALA'):
+    def mutate_residue(self, residue=None, number=None, to='ALA', **kwargs):
         """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format
 
+        Keyword Args:
+            residue=None (Residue): A Residue object to mutate
+            number=None (int): A Residue number to select the Residue of interest by
+            to='ALA' (str): The type of amino acid to mutate to
+            pdb=False (bool): Whether to pull the Residue by PDB number
         Returns:
             (list[int]): The indices of the Atoms being removed from the Structure
         """
@@ -630,9 +637,11 @@ class Structure(StructureBase):
             if not number:
                 raise DesignError('Cannot mutate Residue without residue object or number!')
             else:
-                residue = self.residue(number)
+                residue = self.residue(number, **kwargs)
         # for idx, atom in zip(residue.backbone_indices, residue.backbone_atoms):
-        for atom in residue.backbone_atoms:
+        # for atom in residue.backbone_atoms:
+        # residue.type = to.upper()
+        for atom in residue.atoms:
             atom.residue_type = to.upper()
 
         # Delete the corresponding residues
@@ -641,16 +650,21 @@ class Structure(StructureBase):
         self._atoms.atoms = np.delete(self._atoms.atoms, delete)
 
         # Residue.atom_indices should handle all references to these atoms in the specified Residue
+        delete_length = len(delete)
         residue_delete_index = residue._atom_indices.index(delete[0])
-        for iteration in range(len(delete)):
+        for iteration in range(delete_length):
             residue._atom_indices.pop(residue_delete_index)
         # must re-index all succeeding residues
-        self.reindex_residues()
+        # This doesn't applies to all PDB Residues, not only Structure Residues because modifying Residues object
+        self._residues.reindex_residues()  # Todo start_at=residue.index)
 
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         atom_delete_index = self._atom_indices.index(delete[0])
-        for iteration in range(len(delete)):
+        for iteration in range(delete_length):
             self._atom_indices.pop(atom_delete_index)
+        # must re-index all succeeding atoms
+        # This doesn't apply to all PDB Atoms only Structure Atoms! Need to modify at PDB level
+        self.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
 
         return delete
 
@@ -1111,6 +1125,24 @@ class Entity(Chain, SequenceProfile):  # Structure):
 class Residues:
     def __init__(self, residues):
         self.residues = np.array(residues)
+
+    def reindex_residues(self, start_at=0, offset=None):
+        # indices according to new Atoms/Coords index
+        if start_at and start_at < self.residues.shape[0]:  # not 0 and in the Residues index range
+            if offset:
+                prior_residue = self.residues[start_at - 1]
+                # prior_residue.start_index = start_at
+                for residue in self.residues[start_at:].tolist():
+                    residue.start_index = prior_residue._atom_indices[-1] + 1
+                    prior_residue = residue
+            else:
+                raise DesignError('Must include an offset when re-indexing Residues from a start_at position!')
+        else:  # start_at is 0
+            prior_residue = self.residues[start_at]
+            prior_residue.start_index = start_at
+            for residue in self.residues[start_at + 1:].tolist():
+                residue.start_index = prior_residue._atom_indices[-1] + 1
+                prior_residue = residue
 
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
