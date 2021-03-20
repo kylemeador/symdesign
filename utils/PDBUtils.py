@@ -67,7 +67,7 @@ def orient_pdb_file(pdb_path, log_path, sym=None, out_dir=None):
         with open(log_path, 'a+') as f:
             try:
                 pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True)
-                f.write("oriented: %s\n" % pdb_filename)
+                f.write('oriented: %s\n' % pdb_filename)
                 return oriented_file_path
             except ValueError as val_err:
                 f.write(str(val_err))
@@ -91,30 +91,9 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8):
                 max_contact_chain1, max_contact_chain2 = chain1, chain2
 
     if max_contact_count > 0:  # and max_contact_chain1 is not None and max_contact_chain2 is not None:
-        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', log=None)  # add when logger set up
-        # pdb2_asu = PDB.from_atoms(max_contact_chain2.atoms)
-        # return asu  # , pdb2_asu
+        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', log=None, lazy=True)  # add logger when set up
     else:
-        return None  # , None
-
-
-# def get_interface_frags(pdb1_ghost_frag_list, pdb2_surf_frag_list, rot_mat1, rot_mat2, internal_tx_vec1,
-#                         internal_tx_vec2, set_mat1, set_mat2, ext_tx_vec1, ext_tx_vec2):  # Unused
-#     ghost_frag_guide_coords = [ghost_frag.guide_coords for ghost_frag in pdb1_ghost_frag_list
-#                                if ghost_frag.get_aligned_chain_and_residue() in pdb1_unique_chain_central_resnums]
-#     surf_frag_guide_coords = [surf_frag.guide_coords for surf_frag in pdb2_surf_frag_list
-#                               if surf_frag.get_central_res_tup() in pdb2_unique_chain_central_resnums]
-#
-#     # Rotate, Translate and Set Fragment Guide Coordinates
-#     ghost_frag_guide_coords_transformed = transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1,
-#                                                                     translation=internal_tx_vec1, rotation2=set_mat1,
-#                                                                     translation2=ext_tx_vec1)
-#
-#     surf_frag_guide_coords_transformed = transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2,
-#                                                                    translation=internal_tx_vec2, rotation2=set_mat2,
-#                                                                    translation2=ext_tx_vec2)
-#
-#     return np.array(ghost_frag_guide_coords_transformed), np.array(surf_frag_guide_coords_transformed)
+        return None
 
 
 def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
