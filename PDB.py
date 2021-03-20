@@ -123,6 +123,8 @@ class PDB(Structure):
                     chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
+                if not kwargs.get('lazy', False):  # Todo change lazy to pose
+                    self.renumber_pdb()
 
             elif isinstance(entities, list):  # Todo overloaded, may not function properly without process_pdb
                 # there was a strange error when this function was passed three entities, 2 and 3 were the same,
@@ -153,6 +155,8 @@ class PDB(Structure):
                     entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
+                if not kwargs.get('lazy', False):  # Todo change lazy to pose
+                    self.renumber_pdb()
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
 
