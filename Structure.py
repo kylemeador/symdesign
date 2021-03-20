@@ -1260,7 +1260,7 @@ class Residue:
     @property
     def sidechain_indices(self):
         """Returns: (list[int])"""
-        return [self._atom_indices[index] for index in self._sc_indices]
+        return [self._atom_indices[index] for index in self._sc_indices if index < len(self._atom_indices)]
 
     @sidechain_indices.setter
     def sidechain_indices(self, indices):
