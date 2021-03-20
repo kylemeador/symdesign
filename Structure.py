@@ -644,8 +644,10 @@ class Structure(StructureBase):
         for atom in residue.atoms:
             atom.residue_type = to.upper()
 
-        # Delete the corresponding residues
+        # Delete the corresponding Residue Atoms
         delete = residue.sidechain_indices
+        if not delete:  # there are no indices
+            return delete
         # Atoms() should handle all Atoms containers for the object
         self._atoms.atoms = np.delete(self._atoms.atoms, delete)
 

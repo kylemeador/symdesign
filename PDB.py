@@ -1182,6 +1182,8 @@ class PDB(Structure):
             pdb=False (bool): Whether to pull the Residue by PDB number
         """
         delete = super().mutate_residue(residue=residue, number=number, to=to, **kwargs)
+        if not delete:  # there are no indices
+            return None
         delete_length = len(delete)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         for structures in [self.chains, self.entities]:
