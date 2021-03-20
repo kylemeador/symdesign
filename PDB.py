@@ -1047,7 +1047,7 @@ class PDB(Structure):
         # try:
         # with open(os.devnull, 'w') as devnull:
         # stride_cmd = [stride_exe_path, '%s' % self.filepath]
-        current_pdb_file = self.write(out_path='stride_input.pdb')
+        current_pdb_file = self.write(out_path='stride_input-%d.pdb' % (random() * 1000))
         stride_cmd = [stride_exe_path, current_pdb_file]
         #   -rId1Id2..  Read only Chains Id1, Id2 ...
         #   -cId1Id2..  Process only Chains Id1, Id2 ...
