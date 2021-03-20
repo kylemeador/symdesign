@@ -180,6 +180,7 @@ def sdf_lookup(symmetry_entry, dummy=False):
     logger.warning('Error locating specified symmetry entry: %s' % str(symmetry_entry))
     return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
 
+
 #####################
 # Runtime Utilities
 #####################
@@ -344,7 +345,6 @@ def index_intersection(indices):
     for metric in indices:
         final_indices = set(final_indices) & set(indices[metric])
 
-
     return list(final_indices)
 
 
@@ -409,71 +409,6 @@ def residue_interaction_graph(pdb, distance=8, gly_ca=True):  # Todo PDB.py
     return query
 
 
-######################
-# Matrix Handling
-######################
-
-
-def all_vs_all(iterable, func, symmetrize=True):
-    """Calculate an all versus all comparison using a defined function. Matrix is symmetrized by default
-
-    Args:
-        iterable (iter): Dict or array like object
-        func (function): Function to calculate different iterations of the iterable
-    Keyword Args:
-        symmetrize=True (Bool): Whether or not to make the resulting matrix symmetric
-    Returns:
-        all_vs_all (numpy array): Matrix with resulting calculations
-    """
-    if type(iterable) == dict:
-        # func(iterable[obj1], iterable[obj2])
-        _dict = iterable
-    else:
-        _dict = None
-    pairwise = np.zeros((len(iterable), (len(iterable))))
-    for i, obj1 in enumerate(iterable):
-        for j, obj2 in enumerate(iterable):
-            if j < i:
-                continue
-            # if type(iterable) == dict:  # _dict
-            pairwise[i][j] = func(obj1, obj2, d=_dict)
-            # pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)
-            # else:
-            #     pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)
-
-    if symmetrize:
-        return sym(pairwise)
-    else:
-        return pairwise
-
-
-def sym(a):
-    """Symmetrize a NumPy array. i.e. if a_ij = 0, then the returned array is such that _ij = a_ji
-
-    Args:
-        a (numpy array): square NumPy array
-    Returns:
-        (numpy array): Symmetrized NumPy array
-    """
-    return a + a.T - np.diag(a.diagonal())
-
-
-def condensed_to_square(k, n):
-    """Return the i, j indices of a scipy condensed matrix from element k and matrix dimension n"""
-    def calc_row_idx(_k, _n):
-        return int(math.ceil((1 / 2.) * (- (-8 * _k + 4 * _n ** 2 - 4 * _n - 7) ** 0.5 + 2 * _n - 1) - 1))
-
-    def elem_in_i_rows(_i, _n):
-        return _i * (_n - 1 - _i) + (_i * (_i + 1)) // 2
-
-    def calc_col_idx(_k, _i, _n):
-        return int(_n - elem_in_i_rows(_i + 1, _n) + _k)
-    i = calc_row_idx(k, n)
-    j = calc_col_idx(k, i, n)
-
-    return i, j
-
-
 #################
 # File Handling
 #################
@@ -486,7 +421,7 @@ def io_save(data, filename=None):
         None
     """
     # file = os.path.join(os.getcwd(), 'missing_UNP_PDBS.txt')
-    def write_file():
+    def write_file(filename):
         if not filename:
             filename = input('What is your desired filename? (appended to current working directory)\n')
             filename = os.path.join(os.getcwd(), filename)
@@ -497,7 +432,7 @@ def io_save(data, filename=None):
     while True:
         _input = input('Enter P to print Data, W to write Data to file, or B for both:').upper()
         if _input == 'W':
-            write_file()
+            write_file(filename)
             break
         elif _input == 'P':
             print(data)
@@ -511,7 +446,7 @@ def io_save(data, filename=None):
             #     f.write('\n'.join(data))
             # print('File \'%s\' was written' % filename)
             # break
-            write_file()
+            write_file(filename)
         else:
             print('Invalid Input...')
 
@@ -578,7 +513,7 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
     return file_name
 
 
-def write_commands(command_list, name='all_commands', out_path=os.getcwd()):  # TODO loc, location, outpath. Standardize!!!
+def write_commands(command_list, name='all_commands', out_path=os.getcwd()):
     if len(command_list) > 1:
         extension = '.cmds'
     else:
@@ -728,6 +663,66 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
+def read_fasta_file(file_name):
+    """Returns an iterator of SeqRecords. Ex. [record1, record2, ...]"""
+    return SeqIO.parse(file_name, 'fasta')
+
+
+def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
+    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
+    if not file_name:
+        return None
+    if '.fasta' in file_name:
+        file_name = file_name.rstrip('.fasta')
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
+
+    return '%s.fasta' % file_name
+
+
+def concatenate_fasta_files(file_names, output='concatenated_fasta'):
+    """Take multiple fasta files and concatenate into a single file"""
+    seq_records = [read_fasta_file(file) for file in file_names]
+    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
+
+
+def write_fasta_file(sequence, name, outpath=os.getcwd()):
+    """Write a fasta file from sequence(s)
+
+    Args:
+        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(name, sequence),
+            list of lists, etc. Smart solver using object type
+        name (str): The name of the file to output
+    Keyword Args:
+        path=os.getcwd() (str): The location on disk to output file
+    Returns:
+        (str): The name of the output file
+    """
+    file_name = os.path.join(outpath, name + '.fasta')
+    with open(file_name, 'w') as outfile:
+        if type(sequence) is list:
+            if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
+                for idx, seq in enumerate(sequence):
+                    outfile.write('>%s_%d\n' % (name, idx))  # header
+                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
+                        outfile.write(' '.join(aa for aa in seq))
+                    else:
+                        outfile.write(''.join(aa for aa in seq))
+            elif isinstance(sequence[0], str):
+                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
+            elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
+                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
+            else:
+                raise DesignError('Cannot parse data to make fasta')
+        elif isinstance(sequence, dict):
+            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
+        elif isinstance(sequence, str):
+            outfile.write('>%s\n%s\n' % (name, sequence))
+        else:
+            raise DesignError('Cannot parse data to make fasta')
+
+    return file_name
+
+
 ####################
 # MULTIPROCESSING
 ####################
@@ -764,7 +759,7 @@ def set_worker_affinity():
     https://stackoverflow.com/questions/15639779/why-does-multiprocessing-use-only-a-single-core-after-i-import-numpy
 
     See: http://manpages.ubuntu.com/manpages/precise/en/man1/taskset.1.html
-        -p is a mask for the logial cpu processers to use, the pid allows the affinity for an existing process to be
+        -p is a mask for the logical cpu processors to use, the pid allows the affinity for an existing process to be
         specified instead of a new process being spawned
     """
     # print("I'm the process %d, setting affinity to all CPUs." % os.getpid())
@@ -783,46 +778,8 @@ def mp_map(function, arg, threads=1):
     Returns:
         results (list): The results produced from the function and arg
     """
-    with mp.get_context('spawn').Pool(processes=threads) as p:  # maxtasksperchild=1
+    with mp.get_context('spawn').Pool(processes=threads, initializer=set_worker_affinity) as p:  # maxtasksperchild=1
         results = p.map(function, arg)
-    p.join()
-
-    return results
-
-
-def mp_try_starmap(function, process_args, threads, context='spawn'):  # UNUSED
-    """Maps iterable to a try/except function using multiprocessing Pool
-
-    Args:
-        function (function): Which function should be executed
-        process_args (list(tuple)): Arguments to be unpacked in the defined function, order specific
-        threads (int): How many workers/threads should be spawned to handle function(arguments)?
-    Keyword Args:
-        context='spawn' (str): One of 'spawn', 'fork', or 'forkserver'
-    Returns:
-        results (list): The results produced from the function and process_args
-    """
-    with mp.get_context(context).Pool(processes=threads) as p:  # maxtasksperchild=1
-        results = p.starmap(function, process_args)
-    p.join()
-
-    return results
-
-
-# to make mp compatible with 2.7
-from contextlib import contextmanager
-
-
-@contextmanager
-def poolcontext(*args, **kwargs):
-    pool = mp.Pool(*args, **kwargs)
-    yield pool
-    pool.terminate()
-
-
-def mp_starmap_python2(function, process_args, threads=1):
-    with poolcontext(processes=threads) as p:
-        results = p.map(function, process_args)
     p.join()
 
     return results
@@ -838,7 +795,7 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
         threads=1 (int): How many workers/threads should be spawned to handle function(arguments)?
         context='spawn' (str): One of 'spawn', 'fork', or 'forkserver'
     Returns:
-        results (list): The results produced from the function and process_args
+        (list): The results produced from the function and process_args
     """
     with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity, maxtasksperchild=100) as p:
         results = p.starmap(function, process_args)  # , chunksize=1
@@ -847,39 +804,28 @@ def mp_starmap(function, process_args, threads=1, context='spawn'):
     return results
 
 
+# # to make mp compatible with 2.7
+# from contextlib import contextmanager
+#
+#
+# @contextmanager
+# def poolcontext(*args, **kwargs):
+#     pool = mp.Pool(*args, **kwargs)
+#     yield pool
+#     pool.terminate()
+#
+#
+# def mp_starmap_python2(function, process_args, threads=1):
+#     with poolcontext(processes=threads) as p:
+#         results = p.map(function, process_args)
+#     p.join()
+#
+#     return results
+
+
 ######################
 # Directory Handling
 ######################
-
-
-# def set_up_dock_dir(path, suffix=None):  # DEPRECIATED
-#     """Saves the path of the docking directory as DesignDirectory.path attribute. Tries to populate further using
-#     typical directory structuring"""
-#     dock_dir = DesignDirectory(path, auto_structure=False)
-#     # try:
-#     # dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))
-#     dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses%s' % str(suffix or '')))  # design_recap
-#     dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.program_root]
-#     # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-#     dock_dir.building_blocks, dock_dir.building_block_logs = [], []
-#     for k, _sym in enumerate(dock_dir.program_root):
-#         dock_dir.building_blocks.append(list())
-#         dock_dir.building_block_logs.append(list())
-#         for bb_dir in next(os.walk(_sym))[1]:
-#             if os.path.exists(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils
-#                 dock_dir.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-#                 dock_dir.building_blocks[k].append(bb_dir)
-#
-#     # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
-#     # dock_dir.building_block_logs = [[os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir)  # make a log path TODO PUtils
-#     #                                  for bb_dir in dock_dir.building_blocks[k]]  # for each building_block combo in _sym index of dock_dir.building_blocks
-#     #                                 for k, _sym in enumerate(dock_dir.program_root)]  # for each sym in symmetry
-#
-#     return dock_dir
-
-
-# def get_pose_by_id(design_directories, ids):  # DEPRECIATED
-#     return [des_dir for des_dir in design_directories if str(des_dir) in ids]
 
 
 def get_all_base_root_paths(directory):
@@ -899,10 +845,6 @@ def get_all_pdb_file_paths(pdb_dir):  # Todo DEPRECIATE
             if '.pdb' in file]
 
 
-# def get_directory_pdb_file_paths(pdb_dir):  # DEPRECIATED
-#     return glob(os.path.join(pdb_dir, '*.pdb*'))
-
-
 def get_base_nanohedra_dirs(base_dir):
     """Find all master directories corresponding to the highest output level of Nanohedra.py outputs. This corresponds
     to the DesignDirectory symmetry attribute
@@ -912,7 +854,6 @@ def get_base_nanohedra_dirs(base_dir):
         if PUtils.master_log in files:
             nanohedra_dirs.append(root)
             del dirs[:]
-            # print('found %d directories' % len(nanohedra_dirs))
 
     return nanohedra_dirs
 
@@ -921,31 +862,10 @@ def get_docked_directories(base_directory, directory_type='NanohedraEntry'):  # 
     """Useful for when your docked directory is basically known but the """
     return [os.path.join(root, _dir) for root, dirs, files in os.walk(base_directory) for _dir in dirs
             if directory_type in _dir]
-    # all_directories.append(os.path.join(root, _dir))
-    # return sorted(set(all_directories))
-    #
-    # return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
 
 
 def get_docked_dirs_from_base(base):
     return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
-    # want to find all NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/tx_139
-
-    # for root1, dirs1, files1 in os.walk(base):  # NanohedraEntry1DockedPoses/
-    #     for dir1 in dirs1:  # 1abc_2xyz
-    #         for root2, dirs2, files2 in os.walk(os.path.join(base, dir1)):  # NanohedraEntry1DockedPoses/1abc_2xyz/
-    #             for dir2 in dirs2:  # DEGEN_1_1
-    #                 for root3, dirs3, files3 in os.walk(os.path.join(base, dir1, dir2)):  # NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/
-    #                     for dir3 in dirs3:  # ROT_1_1
-    #                         for root4, dirs4, files4 in os.walk(os.path.join(base, dir1, dir2, dir3)):  # NanohedraEntry1DockedPoses/1abc_2xyz/DEGEN_1_1/ROT_1_1/
-    #                             for dir4 in dirs4: # tx_139
-    #                                 if dir4.startswith('tx_'):
-
-    # baseline testing with
-    # timeit.timeit("import glob;glob.glob('*/*/*/*/')", number=1) Vs.
-    # timeit.timeit("import glob;get_design_directories('/share/gscratch/kmeador/crystal_design/
-    #     NanohedraEntry65MinMatched6_FULL')", setup="from __main__ import get_design_directories", number=1)
-    # gives 2.4859059400041588 versus 13.074574943981133
 
 
 def collect_directories(directory, file=None, project=None, single=None, dir_type=None):
@@ -1005,7 +925,6 @@ def get_base_symdesign_dirs(directory):
                 if sub_directory == PUtils.program_output]
     else:
         return []
-    # for root, dirs, files in os.walk(directory):
 
 
 def get_symdesign_dirs(base=None, project=None, single=None):
@@ -1020,29 +939,13 @@ def get_symdesign_dirs(base=None, project=None, single=None):
         return sorted(set(map(os.path.dirname, glob('%s/*/*/*/' % base))))
 
 
-# # DEPRECIATED
-# def get_dock_directories(base_directory, directory_type='vflip_dock.pkl'):  # removed a .pkl 9/29/20 9/17/20 run used .pkl.pkl TODO remove vflip
-#     all_directories = []
-#     for root, dirs, files in os.walk(base_directory):
-#         # for _dir in dirs:
-#         if 'master_log.txt' in files:
-#             if file.endswith(directory_type):
-#                 all_directories.append(root)
-#     #
-#     #
-#     # return sorted(set(all_directories))
-#
-#     return sorted(set(map(os.path.dirname, glob('%s/*/*%s' % (base_directory, directory_type)))))
-
-
 class DesignError(Exception):
     pass
-    # def __init__(self, message):
-    #     super().__init__(message)
-    #     self.args = message
-    #
-    # def __eq__(self, other):
-    #     return self.__str__() == other
+
+
+######################
+# Fragment Handling
+######################
 
 
 def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2):
@@ -1062,17 +965,12 @@ def rmsd(coords1=None, coords2=None):
     Returns:
         (np.ndarray)
     """
-    # e1 = euclidean_squared_3d(coords1[0], coords2[0])
-    # e2 = euclidean_squared_3d(coords1[1], coords2[1])
-    # e3 = euclidean_squared_3d(coords1[2], coords2[2])
-    # s = e1 + e2 + e3
-    # mean = s / float(3)
-    # rmsd = math.sqrt(mean)
     difference_squared = (coords1 - coords2) ** 2
     # axis 2 gets the sum of the rows 0[1[2[],2[],2[]], 1[2[],2[],2[]]]
     sum_difference_squared = difference_squared.sum(axis=2)
     # axis 1 gets the mean of the rows 0[1[]], 1[]]
     mean_sum_difference_squared = sum_difference_squared.mean(axis=1)
+
     return np.sqrt(mean_sum_difference_squared)
 
 
@@ -1085,92 +983,66 @@ def match_score_from_z_value(z_value):
     return 1 / (1 + (z_value ** 2))
 
 
-# def filter_euler_lookup_by_zvalue(coords_l1, coords_l2, reference_coords, z_value_func=None,
-#                                   max_z_value=2):
-#     """Filter an EulerLookup by a specified z-value, where the z-value is calculated by a passed function which has
-#     two sets of coordinates and and rmsd as args
-#
-#     Returns:
-#         (list[tuple]): (Function overlap parameter, z-value of function)
-#     """
-#     overlap_results = [z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
-#                        for coords1, coords2 in zip(coords_l1, coords_l2)]
-#     # for index_pair in index_pairs:
-#     # for coords1, coords2 in zip(coords_l1, coords_l2):
-#     #     ghost_frag = ghost_frags[index_pair[0]]
-#     #     coords1 = coords_l1[index_pair[0]]
-#     #     or guide_coords aren't numpy, so np.matmul gets them there, if not matmul, (like 3, 1)
-#     #     coords1 = np.matmul(qhost_frag.get_guide_coords(), rot1_mat_np_t)
-#     #     surf_frag = surface_frags[index_pair[1]]
-#     #     coords2 = coords_l2[index_pair[1]]
-#     #     surf_frag.get_guide_coords()
-#     #     if surf_frag.get_i_type() == ghost_frag.get_j_type():  # Todo remove frags to a mask outside
-#     #     result = z_value_func(coords1=coords1, coords2=coords2, coords_rmsd_reference=reference_coords)
-#     #     if z_value <= max_z_value:
-#     #         overlap_results.append((result, z_value))
-#     #     else:
-#     #         overlap_results.append(False)
-#     #     else:
-#     #         overlap_results.append(False)
-#
-#     return overlap_results
+######################
+# Matrix Handling
+######################
 
 
-def read_fasta_file(file_name):
-    """Returns an iterator of SeqRecords. Ex. [record1, record2, ...]"""
-    return SeqIO.parse(file_name, 'fasta')
-
-
-def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
-    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
-    if not file_name:
-        return None
-    if '.fasta' in file_name:
-        file_name = file_name.rstrip('.fasta')
-    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
-
-    return '%s.fasta' % file_name
-
-
-def concatenate_fasta_files(file_names, output='concatenated_fasta'):
-    """Take multiple fasta files and concatenate into a single file"""
-    seq_records = [read_fasta_file(file) for file in file_names]
-    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
-
-
-def write_fasta_file(sequence, name, outpath=os.getcwd()):
-    """Write a fasta file from sequence(s)
+def all_vs_all(iterable, func, symmetrize=True):
+    """Calculate an all versus all comparison using a defined function. Matrix is symmetrized by default
 
     Args:
-        sequence (iterable): One of either list, dict, or string. If list, can be list of tuples(name, sequence),
-            list of lists, etc. Smart solver using object type
-        name (str): The name of the file to output
+        iterable (iter): Dict or array like object
+        func (function): Function to calculate different iterations of the iterable
     Keyword Args:
-        path=os.getcwd() (str): The location on disk to output file
+        symmetrize=True (Bool): Whether or not to make the resulting matrix symmetric
     Returns:
-        (str): The name of the output file
+        all_vs_all (numpy array): Matrix with resulting calculations
     """
-    file_name = os.path.join(outpath, name + '.fasta')
-    with open(file_name, 'w') as outfile:
-        if type(sequence) is list:
-            if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
-                for idx, seq in enumerate(sequence):
-                    outfile.write('>%s_%d\n' % (name, idx))  # header
-                    if len(seq[0]) == 3:  # Check if alphabet is 3 letter protein
-                        outfile.write(' '.join(aa for aa in seq))
-                    else:
-                        outfile.write(''.join(aa for aa in seq))
-            elif isinstance(sequence[0], str):
-                outfile.write('>%s\n%s\n' % name, ' '.join(aa for aa in sequence))
-            elif type(sequence[0]) is tuple:  # where seq[0] is header, seq[1] is seq
-                outfile.write('\n'.join('>%s\n%s' % seq for seq in sequence))
-            else:
-                raise DesignError('Cannot parse data to make fasta')
-        elif isinstance(sequence, dict):
-            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
-        elif isinstance(sequence, str):
-            outfile.write('>%s\n%s\n' % (name, sequence))
-        else:
-            raise DesignError('Cannot parse data to make fasta')
+    if type(iterable) == dict:
+        # func(iterable[obj1], iterable[obj2])
+        _dict = iterable
+    else:
+        _dict = None
+    pairwise = np.zeros((len(iterable), (len(iterable))))
+    for i, obj1 in enumerate(iterable):
+        for j, obj2 in enumerate(iterable):
+            if j < i:
+                continue
+            # if type(iterable) == dict:  # _dict
+            pairwise[i][j] = func(obj1, obj2, d=_dict)
+            # pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)
+            # else:
+            #     pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)
 
-    return file_name
+    if symmetrize:
+        return sym(pairwise)
+    else:
+        return pairwise
+
+
+def sym(a):
+    """Symmetrize a NumPy array. i.e. if a_ij = 0, then the returned array is such that _ij = a_ji
+
+    Args:
+        a (numpy array): square NumPy array
+    Returns:
+        (numpy array): Symmetrized NumPy array
+    """
+    return a + a.T - np.diag(a.diagonal())
+
+
+def condensed_to_square(k, n):
+    """Return the i, j indices of a scipy condensed matrix from element k and matrix dimension n"""
+    def calc_row_idx(_k, _n):
+        return int(math.ceil((1 / 2.) * (- (-8 * _k + 4 * _n ** 2 - 4 * _n - 7) ** 0.5 + 2 * _n - 1) - 1))
+
+    def elem_in_i_rows(_i, _n):
+        return _i * (_n - 1 - _i) + (_i * (_i + 1)) // 2
+
+    def calc_col_idx(_k, _i, _n):
+        return int(_n - elem_in_i_rows(_i + 1, _n) + _k)
+    i = calc_row_idx(k, n)
+    j = calc_col_idx(k, i, n)
+
+    return i, j
