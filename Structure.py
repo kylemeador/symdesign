@@ -1072,9 +1072,10 @@ class Entity(Chain, SequenceProfile):  # Structure):
         #                                           'Chain object as the representative!'
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          structure=self, **kwargs)
-        self.chain_id = representative.name
+        # self.chain_id = representative.name
         self.chains = chains  # [Chain objs]
-        # self.chain = representative_chain
+        # Todo set up captain chain and mate chain dependency
+        self.chain_representative = representative
         self.api_entry = None
         if sequence:
             self.reference_sequence = sequence
@@ -1084,13 +1085,17 @@ class Entity(Chain, SequenceProfile):  # Structure):
         if uniprot_id:
             self.uniprot_id = uniprot_id
         else:
-            self.uniprot_id = '%s%d' % ('R', int(random() * 100000))  # Make a pseudo uniprot ID
+            self.uniprot_id = '%s%d' % ('R', random.randint(10000, 99999))  # Make a pseudo UniProtID
 
     @classmethod
     def from_representative(cls, representative=None, chains=None, uniprot_id=None, **kwargs):  # name=None, log=None,
         # coords=None
         return cls(representative=representative, chains=chains, uniprot_id=uniprot_id, **kwargs)  # name=name, log=log
         # coords=coords
+
+    @property
+    def chain_id(self):
+        return self.chain_representative.name
 
     @property
     def reference_sequence(self):
@@ -1121,8 +1126,6 @@ class Entity(Chain, SequenceProfile):  # Structure):
             self.api_entry (dict): {chain: db_reference, ...}
         """
         self.api_entry = get_pdb_info_by_entity(self.name)
-
-    # Todo set up captain chain and mate chain dependency
 
     # def __key(self):
     #     return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
