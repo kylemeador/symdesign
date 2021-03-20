@@ -1,6 +1,6 @@
 from copy import copy  # , deepcopy
 from collections.abc import Iterable
-from random import random
+from random import random, randint
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
@@ -1085,7 +1085,7 @@ class Entity(Chain, SequenceProfile):  # Structure):
         if uniprot_id:
             self.uniprot_id = uniprot_id
         else:
-            self.uniprot_id = '%s%d' % ('R', random.randint(10000, 99999))  # Make a pseudo UniProtID
+            self.uniprot_id = '%s%d' % ('R', randint(10000, 99999))  # Make a pseudo UniProtID
 
     @classmethod
     def from_representative(cls, representative=None, chains=None, uniprot_id=None, **kwargs):  # name=None, log=None,
