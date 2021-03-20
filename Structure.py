@@ -653,7 +653,13 @@ class Structure(StructureBase):
 
         # Residue.atom_indices should handle all references to these atoms in the specified Residue
         delete_length = len(delete)
-        residue_delete_index = residue._atom_indices.index(delete[0])
+        try:
+            residue_delete_index = residue._atom_indices.index(delete[0])
+        except ValueError:
+            print('Delete has %s:' % delete)
+            print('residue is %d, %s:' % (residue.number, residue.type))
+            print('residue._atom_indices has %s:' % residue._atom_indices)
+            exit()
         for iteration in range(delete_length):
             residue._atom_indices.pop(residue_delete_index)
         # must re-index all succeeding residues
