@@ -28,14 +28,16 @@ if __name__ == "__main__":
 
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, \
-            output_assembly, output_surrounding_uc, min_matched, timer, initial = \
+        output_assembly, output_surrounding_uc, min_matched, timer, initial = \
             get_docking_parameters(sys.argv)
 
+        # Master Log File
+        master_log_filepath = os.path.join(master_outdir, PUtils.master_log)
         # Making Master Output Directory
         if not os.path.exists(master_outdir):
             os.makedirs(master_outdir)
-        # Master Log File
-        master_log_filepath = os.path.join(master_outdir, PUtils.master_log)
+        with open(master_log_filepath, 'w') as master_logfile:
+            master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
 
         try:
             # Orient Oligomer Fortran Executable Path
@@ -127,24 +129,47 @@ if __name__ == "__main__":
                                                       oriented_pdb2_outdir))
                     pdb_filepaths = product(pdb1_oriented_filepaths, pdb2_oriented_filepaths)
 
-                # Create fragment database for all ijk cluster representatives
-                # frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamically start/use all fragDB
-                ijk_frag_db = FragmentDB()
-                # Get complete IJK fragment representatives database dictionaries
-                ijk_frag_db.get_monofrag_cluster_rep_dict()
-                ijk_frag_db.get_intfrag_cluster_rep_dict()
-                ijk_frag_db.get_intfrag_cluster_info_dict()
+            # Create fragment database for all ijk cluster representatives
+            # frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamically start/use all fragDB
+            ijk_frag_db = FragmentDB()
+            # Get complete IJK fragment representatives database dictionaries
+            ijk_frag_db.get_monofrag_cluster_rep_dict()
+            ijk_frag_db.get_intfrag_cluster_rep_dict()
+            ijk_frag_db.get_intfrag_cluster_info_dict()
 
             for pdb1_path, pdb2_path in pdb_filepaths:
-                pdb1_filename = os.path.splitext(os.path.basename(pdb1_path))[0]
-                pdb2_filename = os.path.splitext(os.path.basename(pdb2_path))[0]
-                with open(master_log_filepath, "a+") as master_log_file:
-                    master_log_file.write("Docking %s / %s \n" % (pdb1_filename, pdb2_filename))
+                pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
+                pdb2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
+                with open(master_log_filepath, 'a+') as master_log_file:
+                    master_log_file.write('Docking %s / %s \n' % (pdb1_name, pdb2_name))
 
-                nanohedra_dock(sym_entry, ijk_frag_db, master_outdir, pdb1_path, pdb2_path,
+                # Output Directory  # Todo DesignDirectory
+                outdir = os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name))
+                if not os.path.exists(outdir):
+                    os.makedirs(outdir)
+
+                log_file_path = os.path.join(outdir, '%s_%s_log.txt' % (pdb1_name, pdb2_name))
+                if os.path.exists(log_file_path):
+                    resume = True
+                    with open(log_file_path, 'a+') as log_file:
+                        log_file.write('Found a prior incomplete run! Resuming from last sampled transformation.\n')
+                else:
+                    resume = False
+
+                # Write to Logfile
+                if not resume:
+                    with open(log_file_path, 'w') as log_file:
+                        log_file.write('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\n\n'
+                                       % (pdb1_name, pdb2_name, pdb1_path, pdb2_path))
+
+                nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path,
                                rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
                                output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                               min_matched=min_matched, keep_time=timer)
+                               min_matched=min_matched, log=log_file_path, resume=resume, keep_time=timer)
+
+                with open(master_log_filepath, 'a+') as master_log_file:
+                    master_log_file.write('COMPLETE ==> %s\n\n'
+                                          % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
 
             with open(master_log_filepath, "a+") as master_log_file:
                 master_log_file.write("\nCOMPLETED FRAGMENT-BASED SYMMETRY DOCKING PROTOCOL\n\nDONE\n")
