@@ -23,7 +23,7 @@ def set_overlap(_set):
     try:
         set_op_func = set_ops[op_char]
     except KeyError as e:
-        exiti('%s not available!' % e.args)
+        exit('%s not available!' % e.args)
 
     for i in range(num_sets):
         for j in range(num_sets):
@@ -48,14 +48,12 @@ def set_overlap(_set):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=os.path.basename(__file__) +
-                                                 '\nCompare the items in two list files through multiple set operators.'
-                                     )
+    parser = argparse.ArgumentParser(description='%s: Compare the items in two list files through multiple set '
+                                                 'operators.' % os.path.basename(__file__))
     parser.add_argument('-f', '--files', nargs='+', help='Files with items to be compared. Two required', default=None)
     args = parser.parse_args()
 
     num_lists = len(args.files)
-    # num_lists = len(sys.argv) - 1
     file = [[] for x in range(num_lists)]
     _list = [[] for x in range(num_lists)]
     sets = [[] for x in range(num_lists)]
@@ -71,7 +69,6 @@ if __name__ == '__main__':
         #         _list[i][j] = _item[:-10]  # [9:] if removing /mntpoint, [:-10] if removing design.sh
         sets[i] = set(_list[i])
         # file[i] = sys.argv[i + 1]
-        print('List of', file[i], 'has', len(_list[i]), 'values. Set has', len(sets[i]), 'values')
-
+        print('List of %s has %d values. Set has %d values' % (file[i], len(_list[i]), len(sets[i])))
 
     set_overlap(sets)
