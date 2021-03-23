@@ -13,6 +13,7 @@ from Bio.SeqUtils import IUPACData
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
+# from Structure import Residue
 from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log
 
 
@@ -2730,3 +2731,26 @@ def nanohedra_fragment_match_score(fragment_metric_d):
     # # full interface metrics
     # all_residue_score += center_residue_score
     return all_residue_score + center_residue_score, center_residue_score
+
+
+def residue_number_to_object(pdb, residue_dict):  # TODO DEPRECIATE
+    """Convert sets of residue numbers to sets of PDB.Residue objects
+
+    Args:
+        pdb (PDB): PDB object to extract residues from. Chain order matches residue order in residue_dict
+        residue_dict (dict): {'key1': [(78, 87, ...),], ...} - Entry mapped to residue sets
+    Returns:
+        residue_dict - {'key1': [(residue1_ca_atom, residue2_ca_atom, ...), ...] ...}
+    """
+    for entry in residue_dict:
+        pairs = []
+        for _set in range(len(residue_dict[entry])):
+            residue_obj_set = []
+            for i, residue in enumerate(residue_dict[entry][_set]):
+                resi_object = Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
+                assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
+                residue_obj_set.append(resi_object)
+            pairs.append(tuple(residue_obj_set))
+        residue_dict[entry] = pairs
+
+    return residue_dict

@@ -17,19 +17,15 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import BallTree
 from sklearn.preprocessing import StandardScaler
 
-from SequenceProfile import sequence_difference
 import PathUtils as PUtils
-# from DesignDirectory import DesignDirectory
-from PDB import PDB
-from PoseProcessing import extract_aa_seq
-from Query.Flags import query_user_for_metrics
-from SequenceProfile import remove_non_mutations, pos_specific_jsd, weave_mutation_dict, \
-    generate_mutations, make_mutations, SequenceProfile, create_bio_msa
 from SymDesignUtils import DesignError, handle_design_errors, index_offset, start_log, unpickle, clean_dictionary,\
     index_intersection, condensed_to_square, sym
+from PDB import PDB
+from Query.Flags import query_user_for_metrics
+from SequenceProfile import remove_non_mutations, pos_specific_jsd, weave_mutation_dict, \
+    generate_mutations, make_mutations, SequenceProfile, create_bio_msa, sequence_difference
 
 # Globals
-# logger = SDUtils.start_log(__name__)
 logger = start_log(name=__name__)  # was from SDUtils logger, but moved here per standard suggestion
 db = PUtils.biological_fragmentDB
 
@@ -262,20 +258,21 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     return designs
 
 
+# @handle_design_errors(errors=(DesignError, AssertionError))
+# def select_sequences_s(des_dir, weights=None, number=1, desired_protocol=None, debug=False):
+#     return select_sequences(des_dir, weights=weights, number=number, desired_protocol=desired_protocol, debug=debug)
+#
+#
+# def select_sequences_mp(des_dir, weights=None, number=1, desired_protocol=None, debug=False):
+#     try:
+#         pose = select_sequences(des_dir, weights=weights, number=number, desired_protocol=desired_protocol, debug=debug)
+#         return pose
+#     except (DesignError, AssertionError) as e:
+#         return e
+
+
 @handle_design_errors(errors=(DesignError, AssertionError))
-def select_sequences_s(des_dir, weights=None, number=1, desired_protocol=None, debug=False):
-    return select_sequences(des_dir, weights=weights, number=number, desired_protocol=desired_protocol, debug=debug)
-
-
-def select_sequences_mp(des_dir, weights=None, number=1, desired_protocol=None, debug=False):
-    try:
-        pose = select_sequences(des_dir, weights=weights, number=number, desired_protocol=desired_protocol, debug=debug)
-        return pose
-    except (DesignError, AssertionError) as e:
-        return e
-
-
-def select_sequences(des_dir, weights=None, number=1, desired_protocol=None, debug=False):
+def select_sequences(des_dir, weights=None, number=1, desired_protocol=None):
     """From a single design, select sequences for further characterization. If weights, then using weights the user can
      prioritize sequences, otherwise the sequence with the most neighbors will be selected
 
@@ -286,15 +283,8 @@ def select_sequences(des_dir, weights=None, number=1, desired_protocol=None, deb
         number=1 (int): The number of sequences to consider for each design
         debug=False (bool): Whether or not to debug
     Returns:
-        (list): Containing tuples with (DesignDirectory, design index) for each sequence found
+        (list[tuple[DesignDirectory, str]]): Containing the selected sequences found
     """
-    # # Log output
-    # if debug:
-    #     global logger
-    # else:
-    #     logger = SDUtils.start_log(name=__name__, handler=2, level=2,
-    #                                location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
-
     # Load relevant data from the design directory
     trajectory_df = pd.read_csv(des_dir.trajectories, index_col=0, header=[0])
     trajectory_df.dropna(inplace=True)
@@ -425,7 +415,7 @@ def select_sequences(des_dir, weights=None, number=1, desired_protocol=None, deb
         else:
             final_seqs = zip(repeat(des_dir), final_designs.keys())
 
-        return final_seqs
+        return list(final_seqs)
 
 
 def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unused Todo SequenceProfile.py
@@ -1040,3 +1030,66 @@ if __name__ == '__main__':
             logger.critical('Must pass all three, wildtype, directory, and score if using non-standard %s '
                             'directory structure' % PUtils.program_name)
             exit()
+
+
+def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
+    """Extracts amino acid sequence from either ATOM or SEQRES record of PDB object
+    Returns:
+        (str): Sequence of PDB
+    """
+    if type(chain) == int:
+        chain = pdb.chain_id_list[chain]
+    final_sequence = None
+    sequence_list = []
+    failures = []
+    aa_code = int(aa_code)
+
+    if source == 'atom':
+        # Extracts sequence from ATOM records
+        if aa_code == 1:
+            for atom in pdb.all_atoms:
+                if atom.chain == chain and atom.type == 'N' and (atom.alt_location == '' or atom.alt_location == 'A'):
+                    try:
+                        sequence_list.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
+                    except KeyError:
+                        sequence_list.append('X')
+                        failures.append((atom.residue_number, atom.residue_type))
+            final_sequence = ''.join(sequence_list)
+        elif aa_code == 3:
+            for atom in pdb.all_atoms:
+                if atom.chain == chain and atom.type == 'N' and atom.alt_location == '' or atom.alt_location == 'A':
+                    sequence_list.append(atom.residue_type)
+            final_sequence = sequence_list
+        else:
+            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
+
+    elif source == 'seqres':
+        # Extract sequence from the SEQRES record
+        fail = False
+        while True:  # TODO WTF is this used for
+            if chain in pdb.seqres_sequences:
+                sequence = pdb.seqres_sequences[chain]
+                break
+            else:
+                if not fail:
+                    temp_pdb = PDB.from_file(file=pdb.filepath)
+                    fail = True
+                else:
+                    raise DesignError('Invalid PDB input, no SEQRES record found')
+        if aa_code == 1:
+            final_sequence = sequence
+            for i in range(len(sequence)):
+                if sequence[i] == 'X':
+                    failures.append((i, sequence[i]))
+        elif aa_code == 3:
+            for i, residue in enumerate(sequence):
+                sequence_list.append(IUPACData.protein_letters_1to3[residue])
+                if residue == 'X':
+                    failures.append((i, residue))
+            final_sequence = sequence_list
+        else:
+            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
+    else:
+        raise DesignError('Invalid sequence input')
+
+    return final_sequence, failures
