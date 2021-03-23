@@ -232,7 +232,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
                                                  max_z_value=max_z_val)
         # print('Checking all fragment overlap at interface')  # Todo debug
-        # get the passing_overlap indices and associated z-values
+        # get the passing_overlap indices and associated z-values by finding all indices where the value is not false
         passing_overlaps_indices = np.flatnonzero(all_fragment_overlap)  # .nonzero()[0]
         passing_z_values = all_fragment_overlap[passing_overlaps_indices]
         # print('Overlapping z-values: %s' % passing_z_values)  # Todo debug
@@ -245,8 +245,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                            'Library\n\t(Euler Lookup took %s s for %d fragment pairs and Overlap Score '
                            'Calculation took %s for %d fragment pairs)\n' %
                            (len(passing_overlaps_indices), str(eul_lookup_time),
-                            len(transformed_ghostfrag_guide_coords_np), str(overlap_score_time),
-                            len(overlapping_ghost_indices)))
+                            len(transformed_ghostfrag_guide_coords_np) * unique_interface_frag_count_pdb2,
+                            str(overlap_score_time), len(overlapping_ghost_indices)))
         
         # check if the pose has enough high quality fragment matches
         high_qual_match_count = np.where(passing_z_values < high_quality_match_value)[0].size
