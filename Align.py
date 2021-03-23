@@ -1417,8 +1417,9 @@ class HelixFusion:
 
                     # Run Stride On Oligomer
                     if self.oligomer_term == "N" or self.oligomer_term == "C":
-                        stride_oligomer = Stride(oriented_oligomer_filepath)
-                        stride_oligomer.run()
+                        raise RuntimeError('Need to rework Stride execution here')
+                        # stride_oligomer = Stride(oriented_oligomer_filepath)
+                        # stride_oligomer.run()
                         if self.oligomer_term == "N":
                             oligomer_term_resi = stride_oligomer.is_n_term_helical()[1]
                         elif self.oligomer_term == "C":
@@ -1445,7 +1446,7 @@ class HelixFusion:
                         # Create PDBOverlap instance
                         pdb_overlap = PDBOverlap(pdb_f_overlap, pdb_m_overlap)
 
-                        if pdb_overlap.overlap() != "lengths mixmitach":
+                        if pdb_overlap.overlap() != "lengths mismatch":
                             # Calculate Optimal (rot, tx, rmsd, coords_moved)
                             rot, tx, rmsd, coords_moved = pdb_overlap.overlap()
 
@@ -1567,8 +1568,8 @@ class HelixFusion:
                             check_parallel = [is_parallel_1, is_parallel_2, is_parallel_3]
                             count_parallel = 0
                             for test in check_parallel:
-                                 if test is True:
-                                     count_parallel = count_parallel + 1
+                                if test is True:
+                                    count_parallel = count_parallel + 1
 
                             angle_check_4 = AngleDistance(target_protein.axisX(), moving_axis_z)
                             is_90_1 = angle_check_4.is_90()
@@ -1580,8 +1581,8 @@ class HelixFusion:
                             check_90 = [is_90_1, is_90_2, is_90_3]
                             count_90 = 0
                             for test in check_90:
-                                 if test is True:
-                                     count_90 = count_90 + 1
+                                if test is True:
+                                    count_90 = count_90 + 1
 
                             if count_parallel > 0 and count_90 > 0:
                                 for k in [0, 1, 2]:
@@ -1598,18 +1599,17 @@ class HelixFusion:
                                 distance_check_1 = AngleDistance(axis_90, moving_axis_z)
 
                                 if distance_check_1.distance() <= 3:
+                                    pdb_oligomer.apply(rot, tx)
+                                    pdb_oligomer.rename_chains(target_protein.chain_id_list)
 
-                                        pdb_oligomer.apply(rot, tx)
-                                        pdb_oligomer.rename_chains(target_protein.chain_id_list)
+                                    PDB_OUT = PDB()
+                                    PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
 
-                                        PDB_OUT = PDB()
-                                        PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
-
-                                        out_path = design_directory + "/" + os.path.basename(self.target_protein_path)[0:4] + "_" + oligomer_id + "_" + str(i) + ".pdb"
-                                        outfile = open(out_path, "w")
-                                        for atom in PDB_OUT.all_atoms:
-                                            outfile.write(str(atom))
-                                        outfile.close()
+                                    out_path = design_directory + "/" + os.path.basename(self.target_protein_path)[0:4] + "_" + oligomer_id + "_" + str(i) + ".pdb"
+                                    outfile = open(out_path, "w")
+                                    for atom in PDB_OUT.all_atoms:
+                                        outfile.write(str(atom))
+                                    outfile.close()
 
         print("Done")
 

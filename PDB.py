@@ -16,7 +16,6 @@ from Bio.SeqUtils import IUPACData
 from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_symmdef, orient_exe_path, \
     orient_log_file, orient_dir
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
-from Stride import Stride
 from Structure import Structure, Chain, Entity, Atom
 from SymDesignUtils import remove_duplicates, start_log, DesignError
 from utils.SymmetryUtils import valid_subunit_number
@@ -1108,20 +1107,20 @@ class PDB(Structure):
             else:
                 return None
 
-    def get_surface_helix_cb_indices(self, probe_radius=1.4, sasa_thresh=1):
-        # only works for monomers or homo-complexes
-        sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
-
-        h_cb_indices = []
-        stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
-        stride.run()
-        stride_ss_asg = stride.ss_asg
-        for idx, atom in enumerate(self.atoms):
-            # atom = self.atoms[i]
-            if atom.is_CB():
-                if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_res:
-                    h_cb_indices.append(idx)
-        return h_cb_indices
+    # def get_surface_helix_cb_indices(self, probe_radius=1.4, sasa_thresh=1):
+    #     # only works for monomers or homo-complexes
+    #     sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+    #
+    #     h_cb_indices = []
+    #     stride = Stride(self.filepath, self.chain_id_list[0], stride_exe_path)
+    #     stride.run()
+    #     stride_ss_asg = stride.ss_asg
+    #     for idx, atom in enumerate(self.atoms):
+    #         # atom = self.atoms[i]
+    #         if atom.is_CB():
+    #             if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_res:
+    #                 h_cb_indices.append(idx)
+    #     return h_cb_indices
 
     def get_surface_atoms(self, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
         # only works for monomers or homo-complexes
