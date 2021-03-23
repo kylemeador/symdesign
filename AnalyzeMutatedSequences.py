@@ -186,8 +186,8 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
         # Filter the DataFrame to include only those values which are le/ge the specified filter
         filters_with_idx = df_filter_index_by_value(_df, **_filters)
         filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
-        logger.info('\n%s' % '\n'.join('Number of designs passing \'%s\' filter = %d' %
-                                       (metric, len(filtered_indices[metric])) for metric in filtered_indices))
+        logger.info('\n\t%s' % '\n\t'.join('Number of designs passing \'%s\' filter = %d' %
+                                           (metric, len(filtered_indices[metric])) for metric in filtered_indices))
         final_indices = index_intersection(filtered_indices)
         logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
         if len(final_indices) == 0:
