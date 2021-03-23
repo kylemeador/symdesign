@@ -98,7 +98,7 @@ flags = {interface_design: design, None: all_flags}
 #        'analysis': global_flags, 'filter': filters, 'sequence_selection': global_flags,
 
 
-def process_design_selector_flags(design_flags):
+def process_residue_selector_flags(design_flags):
     # Pull nanohedra_output and mask_design_using_sequence out of flags
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
     entity_req, chain_req, residues_req, residues_pdb_req = None, None, set(), set()
