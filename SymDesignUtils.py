@@ -188,7 +188,7 @@ def sdf_lookup(symmetry_entry, dummy=False):
 #####################
 
 
-def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True):
+def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True, format_log=True):
     """Create a logger to handle program messages
 
     Keyword Args:
@@ -203,7 +203,6 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
     """
     # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
     log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
-    log_format = logging.Formatter('[%(name)s]-%(levelname)s: %(message)s')
 
     _logger = logging.getLogger(name)
     _logger.setLevel(log_level[level])
@@ -218,8 +217,11 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True)
         lh = logging.NullHandler()
         # return _logger
     lh.setLevel(log_level[level])
-    lh.setFormatter(log_format)
     _logger.addHandler(lh)
+
+    if format_log:
+        log_format = logging.Formatter('[%(name)s]-%(levelname)s: %(message)s')
+        lh.setFormatter(log_format)
 
     return _logger
 
