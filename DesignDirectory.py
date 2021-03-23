@@ -181,25 +181,25 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.cannonical_pdb2 = None
             self.pdb_dir1_path = None
             self.pdb_dir2_path = None
-            self.master_outdir = None  # same as self.program_root
-            self.oligomer_symmetry_1 = None
-            self.oligomer_symmetry_2 = None
-            self.design_symmetry_pg = None
-            self.internal_rot1 = None
-            self.internal_rot2 = None
-            self.rot_range_deg_pdb1 = None
-            self.rot_range_deg_pdb2 = None
+            # self.master_outdir = None  # same as self.program_root
+            # self.oligomer_symmetry_1 = None
+            # self.oligomer_symmetry_2 = None
+            # self.design_symmetry_pg = None
+            # self.internal_rot1 = None
+            # self.internal_rot2 = None
+            # self.rot_range_deg_pdb1 = None
+            # self.rot_range_deg_pdb2 = None
             self.rot_step_deg1 = None
             self.rot_step_deg2 = None
-            self.internal_zshift1 = None
-            self.internal_zshift2 = None
-            self.ref_frame_tx_dof1 = None
-            self.ref_frame_tx_dof2 = None
-            self.set_mat1 = None
-            self.set_mat2 = None
-            self.uc_spec_string = None
-            self.degen1 = None
-            self.degen2 = None
+            # self.internal_zshift1 = None
+            # self.internal_zshift2 = None
+            # self.ref_frame_tx_dof1 = None
+            # self.ref_frame_tx_dof2 = None
+            # self.set_mat1 = None
+            # self.set_mat2 = None
+            # self.uc_spec_string = None
+            # self.degen1 = None
+            # self.degen2 = None
             self.cryst_record = None
             self.pose_id = None
 
@@ -249,7 +249,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   'Ensure you have the file \'%s\' located properly before trying this Design!'
                                   % (self.__str__(), PUtils.master_log, self.nano_master_log))
             # self.gather_docking_metrics()
-            self.sym_entry = SymEntry(self.sym_entry_number)
+            if not self.sym_entry:
+                self.sym_entry = SymEntry(self.sym_entry_number)
             self.design_symmetry = self.sym_entry.get_result_design_sym()
 
         else:
@@ -433,7 +434,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.mpi = mpi
         self.analysis = analysis
         if skip_logging:
-            print('skipping log')
+            # self.log.debug('skipping log')
             self.skip_logging = skip_logging
 
     def set_symmetry(self, symmetry=None, dimension=None, uc_dimensions=None, expand_matrices=None, **kwargs):
@@ -458,9 +459,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def start_log(self, debug=False, level=2):
         if self.skip_logging:  # set up null_logger
             self.log = null_log
-            print('Null logger set')
+            # self.log.debug('Null logger set')
             return None
-        print('logging this design')
+
         if debug:
             handler, level = 1, 1
             propagate = False
@@ -1717,8 +1718,10 @@ def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
     with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
         for line in f.readlines():
             if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                sym_entry_number = int(line.split(':')[-1])
-                return SymEntry(sym_entry_number)
+                return SymEntry(int(line.split(':')[-1]))
+
+    raise DesignError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
+                      % os.path.join(nanohedra_dir, PUtils.master_log))
 
 
 def set_up_directory_objects(design_list, mode=PUtils.interface_design, project=None):

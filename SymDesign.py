@@ -765,7 +765,7 @@ if __name__ == '__main__':
         if queried_flags['nanohedra_output']:
             all_poses, location = SDUtils.collect_nanohedra_designs(file=args.file, directory=args.directory)
             if all_poses:
-                base_directory = all_poses[0].split(os.sep)[-5]
+                base_directory = '/%s' % os.path.join(*all_poses[0].split(os.sep)[:-4])
                 queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
                 # all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory,
                 #                                               project=args.project, single=args.single)
