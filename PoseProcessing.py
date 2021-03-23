@@ -1,13 +1,3 @@
-"""
-The main program for generating sequence profiles from evolutionary and fragment databases to constrain protein design
-
-Before full run need to alleviate the following tags and incompleteness
--OPTIMIZE - make the best protocol
--JOSH - input style from Josh's output
-
-Object formatting
--PSSM format is dictating the output file format as it works best with Rosetta pose number
-"""
 import argparse
 import copy
 import math
@@ -16,266 +6,44 @@ import shutil
 import subprocess
 import time
 from glob import glob, iglob
-from itertools import repeat, combinations
+from itertools import repeat
 
 import numpy as np
-import pandas as pd
-from Bio.PDB import PDBParser
-from Bio.PDB.Selection import unfold_entities
 from Bio.SeqUtils import IUPACData
 # from sklearn.preprocessing import StandardScaler
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
-from sklearn.cluster import DBSCAN
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
+from AnalyzeMutatedSequences import extract_aa_seq
 from AnalyzeOutput import analyze_output
 from PDB import PDB
-from Structure import Residue
-from Pose import Model
 import SequenceProfile
-from SequenceProfile import SequenceProfile
-from SymDesignUtils import DesignError, start_log, write_fasta_file
+from SequenceProfile import SequenceProfile, residue_number_to_object
+from SymDesignUtils import start_log, write_fasta_file
 
 logger = start_log(name=__name__)
 
 
-def pose_rmsd_mp(all_des_dirs, threads=1):
-    """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
-
-    Args:
-        all_des_dirs (list[DesignDirectory]): List of relevant design directories
-    Keyword Args:
-        threads: Number of multiprocessing threads to run
-    Returns:
-        (dict): {building_blocks: {pair1: {pair2: rmsd, ...}, ...}, ...}
-    """
-    pose_map = {}
-    pairs_to_process = []
-    singlets = {}
-    for pair in combinations(all_des_dirs, 2):
-        # add all individual poses to a singles pool
-        singlets[pair[0].building_blocks] = pair[0]
-        if pair[0].building_blocks == pair[1].building_blocks:
-            singlets.pop(pair[0].building_blocks)
-            pairs_to_process.append(pair)
-    # find the rmsd between a pair of poses.  multiprocessing to increase throughput
-    _results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
-
-    # Make dictionary with all pairs
-    for pair, pair_rmsd in zip(pairs_to_process, _results):
-        protein_pair_path = os.path.basename(pair[0].building_blocks)
-        # protein_pair_path = pair[0].building_blocks
-        # pose_map[result[0]] = result[1]
-        if protein_pair_path in pose_map:
-            # # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
-            # {building_blocks: {pair1: {pair2: rmsd, ...}, ...}, ...}
-            if str(pair[0]) in pose_map[protein_pair_path]:
-                pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-                if str(pair[1]) not in pose_map[protein_pair_path]:
-                    pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}  # add the pair with itself
-        else:
-            pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}  # add the pair with itself
-            pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-            pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}  # add the pair with itself
-
-    # Add all singlets (poses that are missing partners) to the map
-    for protein_pair in singlets:
-        protein_path = os.path.basename(protein_pair)
-        if protein_path in pose_map:
-            # This logic is impossible??
-            pose_map[protein_path][str(singlets[protein_pair])] = {str(singlets[protein_pair]): 0.0}
-        else:
-            pose_map[protein_path] = {str(singlets[protein_pair]): {str(singlets[protein_pair]): 0.0}}
-
-    return pose_map
+# @SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
+# def initialization_s(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
+#     return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
+#
+#
+# def initialization_mp(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
+#     try:
+#         pose = initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
+#         # return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug), None
+#         return pose, None
+#     except (SDUtils.DesignError, AssertionError) as e:
+#         return None, (des_dir.path, e)
+#     # finally:
+#     #     print('Error occurred in %s' % des_dir.path)
 
 
-def pose_pair_rmsd(pair):
-    """Calculate the rmsd between Nanohedra pose pairs using the intersecting residues at the interface of each pose
-
-    Args:
-        pair (tuple[DesignDirectory, DesignDirectory]): Two DesignDirectory objects from pose processing directories
-    Returns:
-        (float): RMSD value
-    """
-    # protein_pair_path = pair[0].building_blocks
-    # Grab designed resides from the design_directory
-    des_residue_list = [pose.info['design_residues'] for pose in pair]
-
-    # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
-    # could use the union as well...?
-    des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
-                                                  for n, pose_residues in enumerate(des_residue_list)})
-    if not des_residue_set:  # when the two structures are not significantly overlapped
-        return np.nan
-    else:
-        pdb_parser = PDBParser(QUIET=True)
-        pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-        rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-                              if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-        pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-                          for entity_list in rmsd_residue_list]
-
-        return SDUtils.superimpose(pair_atom_list)
-
-    # return pair_rmsd
-    # return {protein_pair_path: {str(pair[0]): {str(pair[0]): pair_rmsd}}}
-
-
-def pose_rmsd_s(all_des_dirs):
-    pose_map = {}
-    for pair in combinations(all_des_dirs, 2):
-        if pair[0].building_blocks == pair[1].building_blocks:
-            protein_pair_path = pair[0].building_blocks
-            # Grab designed resides from the design_directory
-            des_residue_list = [pose.info['des_residues'] for pose in pair]
-            # could use the union as well...
-            des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
-                                                          for n, pose_residues in enumerate(des_residue_list)})
-            if des_residue_set == list():  # when the two structures are not significantly overlapped
-                pair_rmsd = np.nan
-            else:
-                pdb_parser = PDBParser(QUIET=True)
-                # pdb = parser.get_structure(pdb_name, filepath)
-                pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-                # returns a list with all ca atoms from a structure
-                # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
-                # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
-
-                # pair should be a structure...
-                # for structure in pair_structures:
-                #     for residue in structure.residues:
-                #         print(residue)
-                #         print(residue[0])
-                rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-                                      if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-
-                # rmsd_residue_list = [[residue for residue in structure.residues
-                #                       if residue.get_id()[1] in des_residue_list[n]]
-                #                      for n, structure in enumerate(pair_structures)]
-
-                # print(rmsd_residue_list)
-                pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-                                  for entity_list in rmsd_residue_list]
-                # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
-                # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
-                # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
-
-                pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
-            # if not pair_rmsd:
-            #     continue
-            if protein_pair_path in pose_map:
-                # {building_blocks: {(pair1, pair2): rmsd, ...}, ...}
-                if str(pair[0]) in pose_map[protein_pair_path]:
-                    pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-                    if str(pair[1]) not in pose_map[protein_pair_path]:
-                        pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
-                    # else:
-                    #     print('\n' * 6 + 'NEVER ACCESSED' + '\n' * 6)
-                    #     pose_map[pair[0].building_blocks][str(pair[1])][str(pair[1])] = 0.0
-                # else:
-                #     print('\n' * 6 + 'ACCESSED' + '\n' * 6)
-                #     pose_map[pair[0].building_blocks][str(pair[0])] = {str(pair[1]): pair_rmsd}
-                #     pose_map[pair[0].building_blocks][str(pair[0])][str(pair[0])] = 0.0
-                # pose_map[pair[0].building_blocks][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
-            else:
-                pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}
-                pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-                pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
-                # pose_map[pair[0].building_blocks] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
-
-    return pose_map
-
-
-def cluster_poses(pose_map):
-    """Take a pose map calculated by pose_rmsd (_mp or _s) and cluster using DBSCAN algorithm
-
-    Args:
-        pose_map (dict): {building_blocks: {pair1: {pair2: rmsd, ...}, ...}, ...}
-    Returns:
-        (dict): {building_block: {'poses clustered'}, ... }
-    """
-    pose_cluster_map = {}
-    for building_block in pose_map:
-        building_block_rmsd_df = pd.DataFrame(pose_map[building_block]).fillna(0.0)
-
-        # PCA analysis of distances
-        # pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
-        # for k, dist in enumerate(pairwise_sequence_diff_np):
-        #     i, j = SDUtils.condensed_to_square(k, len(designs))
-        #     pairwise_sequence_diff_mat[i, j] = dist
-        building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
-        # print(building_block_rmsd_df.values)
-        # print(building_block_rmsd_matrix)
-        # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
-        # pca = PCA(PUtils.variance)
-        # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
-        # pca_distance_vector = pdist(building_block_rmsd_pc_np)
-        # epsilon = pca_distance_vector.mean() * 0.5
-
-        # Compute the highest density cluster using DBSCAN algorithm
-        # logger.info('Finding pose clusters within RMSD of %f' % SDUtils.rmsd_threshold) # TODO
-        dbscan = DBSCAN(eps=SDUtils.rmsd_threshold, min_samples=2, metric='precomputed')
-        dbscan.fit(building_block_rmsd_matrix)
-
-        # find the cluster representative by minimizing the cluster mean
-        cluster_ids = set(dbscan.labels_)
-        # print(dbscan.labels_)
-        # print(dbscan.core_sample_indices_)
-        if -1 in cluster_ids:
-            cluster_ids.remove(-1)  # remove outlier label, will add all these later
-        pose_indices = building_block_rmsd_df.index.to_list()
-        cluster_members_map = {cluster_id: [pose_indices[n] for n, cluster in enumerate(dbscan.labels_)
-                                            if cluster == cluster_id] for cluster_id in cluster_ids}
-        # print(cluster_members_map)
-        # cluster_representative_map = {}
-        clustered_poses = {}
-        for cluster in cluster_members_map:
-            cluster_df = building_block_rmsd_df.loc[cluster_members_map[cluster], cluster_members_map[cluster]]
-            cluster_representative = cluster_df.mean().sort_values().index[0]
-            for member in cluster_members_map[cluster]:
-                clustered_poses[member] = cluster_representative  # includes representative
-            # cluster_representative_map[cluster] = cluster_representative
-            # cluster_representative_map[cluster_representative] = cluster_members_map[cluster]
-
-        # make dictionary with the core representative as the label and the matches as a list
-        # clustered_poses = {cluster_representative_map[cluster]: cluster_members_map[cluster]
-        #                    for cluster in cluster_representative_map}
-
-        # clustered_poses = {building_block_rmsd_df.iloc[idx, :].index:
-        #                    building_block_rmsd_df.iloc[idx, [n
-        #                                                      for n, cluster in enumerate(dbscan.labels_)
-        #                                                      if cluster == dbscan.labels_[idx]]].index.to_list()
-        #                    for idx in dbscan.core_sample_indices_}
-
-        # Add all outliers to the clustered poses as a representative
-        clustered_poses.update({building_block_rmsd_df.index[idx]: building_block_rmsd_df.index[idx]
-                                for idx, cluster in enumerate(dbscan.labels_) if cluster == -1})
-        pose_cluster_map[building_block] = clustered_poses
-
-    return pose_cluster_map
-
-
-@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
-def initialization_s(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
-    return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
-
-
-def initialization_mp(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
-    try:
-        pose = initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug)
-        # return initialization(des_dir, frag_db, sym, script=script, mpi=mpi, suspend=suspend, debug=debug), None
-        return pose, None
-    except (SDUtils.DesignError, AssertionError) as e:
-        return None, (des_dir.path, e)
-    # finally:
-    #     print('Error occurred in %s' % des_dir.path)
-
-
-# @SDUtils.handle_errors((SDUtils.DesignError, AssertionError))
+@SDUtils.handle_errors((SDUtils.DesignError, AssertionError))
 def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
     # Variable initialization
     cst_value = round(0.2 * CUtils.reference_average_residue_weight, 2)
@@ -318,7 +86,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #
     # for i, name in enumerate(oligomers):
     #     # oligomers[name].translate(oligomers[name].center_of_mass())
-    #     # TODO get orient program into source, get symm files from Josh
     #     oligomers[name].orient(symm, PUtils.orient)
     #     oligomers[name].rotate_translate(transformation_dict[i]['rot/deg'], transformation_dict[i]['tx_int'])
     #     oligomers[name].rotate_translate(transformation_dict[i]['setting'], transformation_dict[i]['tx_ref'])
@@ -327,7 +94,6 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     template_pdb = PDB.from_file(des_dir.source)
     num_chains = len(template_pdb.chain_id_list)
 
-    # TODO JOSH Get rid of same chain ID problem....
     # if num_chains != 2:
     if num_chains != len(pdb_codes):
         oligomer_file = glob(os.path.join(des_dir.path, pdb_codes[0] + '_tx_*.pdb'))
@@ -850,7 +616,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
     if script:
-        analysis_cmd = 'python %s -d %s' % (PUtils.filter_designs, des_dir.path)
+        # analysis_cmd = 'python %s -d %s' % (PUtils.filter_designs, des_dir.path)
         SDUtils.write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=des_dir.path)
     else:
         if not suspend:
@@ -908,92 +674,6 @@ def gather_profile_info(pdb, des_dir, names):
     pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.pssm, outpath=des_dir.path)
 
     return pssm_file, full_pssm
-
-
-def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
-    """Extracts amino acid sequence from either ATOM or SEQRES record of PDB object
-    Returns:
-        (str): Sequence of PDB
-    """
-    if type(chain) == int:
-        chain = pdb.chain_id_list[chain]
-    final_sequence = None
-    sequence_list = []
-    failures = []
-    aa_code = int(aa_code)
-
-    if source == 'atom':
-        # Extracts sequence from ATOM records
-        if aa_code == 1:
-            for atom in pdb.all_atoms:
-                if atom.chain == chain and atom.type == 'N' and (atom.alt_location == '' or atom.alt_location == 'A'):
-                    try:
-                        sequence_list.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
-                    except KeyError:
-                        sequence_list.append('X')
-                        failures.append((atom.residue_number, atom.residue_type))
-            final_sequence = ''.join(sequence_list)
-        elif aa_code == 3:
-            for atom in pdb.all_atoms:
-                if atom.chain == chain and atom.type == 'N' and atom.alt_location == '' or atom.alt_location == 'A':
-                    sequence_list.append(atom.residue_type)
-            final_sequence = sequence_list
-        else:
-            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
-
-    elif source == 'seqres':
-        # Extract sequence from the SEQRES record
-        fail = False
-        while True:  # TODO WTF is this used for
-            if chain in pdb.seqres_sequences:
-                sequence = pdb.seqres_sequences[chain]
-                break
-            else:
-                if not fail:
-                    temp_pdb = PDB.from_file(file=pdb.filepath)
-                    fail = True
-                else:
-                    raise SDUtils.DesignError('Invalid PDB input, no SEQRES record found')
-        if aa_code == 1:
-            final_sequence = sequence
-            for i in range(len(sequence)):
-                if sequence[i] == 'X':
-                    failures.append((i, sequence[i]))
-        elif aa_code == 3:
-            for i, residue in enumerate(sequence):
-                sequence_list.append(IUPACData.protein_letters_1to3[residue])
-                if residue == 'X':
-                    failures.append((i, residue))
-            final_sequence = sequence_list
-        else:
-            logger.critical('In %s, incorrect argument \'%s\' for \'aa_code\'' % (aa_code, extract_aa_seq.__name__))
-    else:
-        raise SDUtils.DesignError('Invalid sequence input')
-
-    return final_sequence, failures
-
-
-def residue_number_to_object(pdb, residue_dict):  # TODO DEPRECIATE
-    """Convert sets of residue numbers to sets of PDB.Residue objects
-
-    Args:
-        pdb (PDB): PDB object to extract residues from. Chain order matches residue order in residue_dict
-        residue_dict (dict): {'key1': [(78, 87, ...),], ...} - Entry mapped to residue sets
-    Returns:
-        residue_dict - {'key1': [(residue1_ca_atom, residue2_ca_atom, ...), ...] ...}
-    """
-    for entry in residue_dict:
-        pairs = []
-        for _set in range(len(residue_dict[entry])):
-            residue_obj_set = []
-            for i, residue in enumerate(residue_dict[entry][_set]):
-                resi_object = Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
-                assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
-                residue_obj_set.append(resi_object)
-            pairs.append(tuple(residue_obj_set))
-        residue_dict[entry] = pairs
-
-    return residue_dict
 
 
 if __name__ == '__main__':
