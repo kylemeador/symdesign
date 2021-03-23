@@ -530,7 +530,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.make_path(self.all_scores, condition=self.analysis)
         self.make_path(self.frags, condition=self.query_fragments)
-        self.make_path(self.sdf, condition=self.nano)  # Todo, is this necessary anymore?
 
         if os.path.exists(self.frag_file):
             # if self.info['fragments']:
