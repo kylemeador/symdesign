@@ -2,36 +2,7 @@ import os
 
 import numpy as np
 
-from PathUtils import frag_text_file
-
-
-# def euclidean_squared_3d(coordinates_1, coordinates_2):
-#     if len(coordinates_1) != 3 or len(coordinates_2) != 3:
-#         raise ValueError("len(coordinate list) != 3")
-#
-#     # KM removed as a tuple would suffice
-#     # elif type(coordinates_1) is not list or type(coordinates_2) is not list:
-#     #     raise TypeError("input parameters are not of type list")
-#
-#     else:
-#         x1, y1, z1 = coordinates_1[0], coordinates_1[1], coordinates_1[2]
-#         x2, y2, z2 = coordinates_2[0], coordinates_2[1], coordinates_2[2]
-#         return (x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2
-
-
-# def center_of_mass_3d(coordinates):
-#     n = len(coordinates)
-#     if n != 0:
-#         cm = [0. for j in range(3)]
-#         for i in range(n):
-#             for j in range(3):
-#                 cm[j] = cm[j] + coordinates[i][j]
-#         for j in range(3):
-#             cm[j] = cm[j] / n
-#         return cm
-#     else:
-#         print("ERROR CALCULATING CENTER OF MASS")
-#         return None
+from PathUtils import frag_text_file, docked_pose_file
 
 
 def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotation2=None, translation2=None):
@@ -128,14 +99,14 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
                            representative_ext_dof_tx_params_1, rot_mat2, representative_int_dof_tx_param_2, set_mat2,
                            representative_ext_dof_tx_params_2, cryst1_record, pdb1_path, pdb2_path, pose_id):
 
-    out_info_file_path = os.path.join(outdir_path, "docked_pose_info_file.txt")
-    with open(out_info_file_path, "w") as out_info_file:
+    out_info_file_path = os.path.join(outdir_path, docked_pose_file)
+    with open(out_info_file_path, 'w') as out_info_file:
         out_info_file.write("DOCKED POSE ID: %s\n\n" % pose_id)
-        out_info_file.write("Nanohedra Score: %s\n\n" % str(res_lev_sum_score))
-        out_info_file.write("Unique Mono Fragments Matched (z<=1): %s\n" % str(high_qual_match_count))
-        out_info_file.write("Unique Mono Fragments Matched: %s\n" % str(unique_matched_interface_monofrag_count))
-        out_info_file.write("Unique Mono Fragments at Interface: %s\n" % str(unique_total_interface_monofrags_count))
-        out_info_file.write("Interface Matched (%s): %s\n\n" % ("%", str(percent_of_interface_covered * 100)))
+        out_info_file.write("Nanohedra Score: %f\n\n" % res_lev_sum_score)
+        out_info_file.write("Unique Mono Fragments Matched (z<=1): %d\n" % high_qual_match_count)
+        out_info_file.write("Unique Mono Fragments Matched: %d\n" % unique_matched_interface_monofrag_count)
+        out_info_file.write("Unique Mono Fragments at Interface: %d\n" % unique_total_interface_monofrags_count)
+        out_info_file.write("Interface Matched (%s): %f\n\n" % ("%", percent_of_interface_covered * 100))
 
         out_info_file.write("ROT/DEGEN MATRIX PDB1: %s\n" % str(rot_mat1))
         if representative_int_dof_tx_param_1 is not None:
@@ -163,7 +134,7 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
             ref_frame_tx_vec_2 = representative_ext_dof_tx_params_2
         out_info_file.write("REFERENCE FRAME Tx PDB2: %s\n\n" % str(ref_frame_tx_vec_2))
 
-        out_info_file.write("CRYST1 RECORD: %s\n\n" % str(cryst1_record))
+        out_info_file.write("CRYST1 RECORD: %s\n\n" % cryst1_record)
 
         out_info_file.write('Canonical Orientation PDB1 Path: %s\n' % pdb1_path)
         out_info_file.write('Canonical Orientation PDB2 Path: %s\n\n' % pdb2_path)
