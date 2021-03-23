@@ -139,7 +139,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.coil_fragment_content = None  # TODO MOVE Metrics
         self.ave_z = None  # TODO MOVE Metrics
         self.total_interface_residues = None  # TODO MOVE Metrics
-        self.percent_residues_fragment_all = None  # TODO MOVE Metrics
+        self.percent_residues_fragment_total = None  # TODO MOVE Metrics
         self.percent_residues_fragment_center = None  # TODO MOVE Metrics
 
         # Design flags
@@ -351,7 +351,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                    'percent_fragment_coil': self.coil_fragment_content,
                    'unique_fragments': self.number_of_fragments,
                    'total_interface_residues': self.total_interface_residues,
-                   'percent_residues_fragment_all': self.percent_residues_fragment_all,
+                   'percent_residues_fragment_total': self.percent_residues_fragment_total,
                    'percent_residues_fragment_center': self.percent_residues_fragment_center}
         if self.sym_entry:
             # if self.pose:  # Todo
@@ -647,12 +647,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.total_interface_residues = len(design_residues)
         try:
-            self.percent_residues_fragment_all = self.fragment_residues_total / self.total_interface_residues
+            self.percent_residues_fragment_total = self.fragment_residues_total / self.total_interface_residues
             self.percent_residues_fragment_center = \
                 self.central_residues_with_fragment_overlap / self.total_interface_residues
         except ZeroDivisionError:
             self.log.warning('%s: No interface residues were found. Is there an interface in your design?' % str(self))
-            self.percent_residues_fragment_all, self.percent_residues_fragment_center = 0.0, 0.0
+            self.percent_residues_fragment_total, self.percent_residues_fragment_center = 0.0, 0.0
 
     # @staticmethod
     # @handle_errors_f(errors=(FileNotFoundError, ))
