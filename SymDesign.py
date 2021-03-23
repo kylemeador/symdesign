@@ -596,6 +596,8 @@ if __name__ == '__main__':
     filter_required.add_argument('-df', '--dataframe', type=os.path.abspath,
                                  metavar='/path/to/AllPoseDesignMetrics.csv',
                                  help='Dataframe.csv from analysis containing pose info.')
+    filter_required.add_argument('-m', '--metric', type=str, help='What metric would you like to filter Designs by?',
+                                 choices=['score', 'fragments_matched'])
     filter_required.add_argument('-p', '--pose_design_file', type=str, metavar='/path/to/pose_design.csv',
                                  help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_filter.add_argument('-f', '--filter', action='store_true',
@@ -606,8 +608,6 @@ if __name__ == '__main__':
                                help='String to prepend to output for custom design selection name')
     parser_filter.add_argument('-w', '--weight', action='store_true',
                                help='Whether to weight sequence selection using metrics from DataFrame')
-    parser_filter.add_argument('-m', '--metric', type=str, help='What metric would you like to filter Designs by?',
-                               choices=['score', 'fragments_matched'], required=True)
     # ---------------------------------------------------
     parser_sequence = subparsers.add_parser('sequence_selection', help='Generate protein sequences for selected designs'
                                                                        '. Either -df or -p is required. If both are '
@@ -1147,8 +1147,7 @@ if __name__ == '__main__':
             location = args.pose_design_file
         elif args.dataframe:
             # Figure out poses from a dataframe, filters, and weights
-            selected_poses = Ams.filter_pose(args.dataframe, filter=args.filter, weight=args.weight,
-                                             consensus=args.consensus)
+            selected_poses = Ams.filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
             # Sort results according to clustered poses if clustering exists
             cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
             if os.path.exists(cluster_map):
