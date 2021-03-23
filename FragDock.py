@@ -504,8 +504,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     # Check if the job was running but stopped. Resume where last left off
     degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
     if resume:
-        degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log)
-        # degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log.handlers[0].baseFilename)
+        # degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log)
+        degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log.handlers[0].baseFilename)
 
     if not resume:
         log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 1')
