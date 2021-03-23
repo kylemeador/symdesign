@@ -45,6 +45,7 @@ dssm = 'design.pssm'
 assembly = 'assembly.pdb'
 frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
 frag_text_file = 'frag_match_info_file.txt'
+docked_pose_file = 'docked_pose_info_file.txt'
 frag_file = os.path.join(frag_dir, frag_text_file)
 pose_file = 'docked_pose_info_file.txt'
 frag_profile = '_fragment_profile'
