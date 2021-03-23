@@ -212,7 +212,10 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True,
     if handler == 1:
         lh = logging.StreamHandler()
     elif handler == 2:
-        lh = logging.FileHandler(location + '.log')
+        if os.path.splitext(location)[1] == '':  # no extension, should add one
+            lh = logging.FileHandler('%s.log' % location)
+        else:  # already has extension
+            lh = logging.FileHandler(location)
     else:  # handler == 3:
         lh = logging.NullHandler()
         # return _logger
