@@ -2,7 +2,6 @@
 The main program for generating sequence profiles from evolutionary and fragment databases to constrain protein design
 
 Before full run need to alleviate the following tags and incompleteness
--TODO - Make this resource
 -OPTIMIZE - make the best protocol
 -JOSH - input style from Josh's output
 
@@ -104,7 +103,7 @@ def pose_pair_rmsd(pair):
     """
     # protein_pair_path = pair[0].building_blocks
     # Grab designed resides from the design_directory
-    des_residue_list = [pose.info['des_residues'] for pose in pair]
+    des_residue_list = [pose.info['design_residues'] for pose in pair]
 
     # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
     # could use the union as well...?
@@ -1040,7 +1039,7 @@ if __name__ == '__main__':
         (args.symmetry_group, ', '.join(sym for sym in PUtils.protocol)))
 
     # Collect all designs to be processed
-    all_designs, location = SDUtils.collect_designs(args.directory, file=args.file)
+    all_designs, location = SDUtils.collect_designs(file=args.file, directory=args.directory)
     assert all_designs != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct '
                                                   'location.' % (PUtils.nano, location))
     logger.info('%d Poses found in \'%s\'' % (len(all_designs), location))

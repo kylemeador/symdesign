@@ -12,7 +12,7 @@ from itertools import repeat
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-from SymDesignUtils import index_offset, start_log, DesignError, collect_directories, mp_starmap, unpickle, \
+from SymDesignUtils import index_offset, start_log, DesignError, collect_designs, mp_starmap, unpickle, \
     pickle_object
 
 logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
@@ -125,7 +125,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
 
     if file:  # or directory: Todo
         # here using collect directories get the commands from the provided file
-        _commands, location = collect_directories(directory, file=file)
+        _commands, location = collect_designs(file=file, directory=directory)
     else:
         raise DesignError('Error: You must pass a file containing a list of commands to process. This is '
                           'typically output to a \'[stage].cmds\' file. Ensure that this file exists and '
