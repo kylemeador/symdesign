@@ -538,7 +538,7 @@ class SequenceProfile:
 
     # 'fragment_cluster_ids': ','.join(clusters),  # Todo
     # 'total_interface_residues': total_residues,
-    # 'percent_residues_fragment_all': percent_interface_covered,
+    # 'percent_residues_fragment_total': percent_interface_covered,
     # 'percent_residues_fragment_center': percent_interface_matched,
 
     def return_fragment_query_metrics(self, total=True, per_interface=False, per_entity=False,
@@ -551,6 +551,11 @@ class SequenceProfile:
             (dict): {query1: {all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap,
             central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d}, ... }
         """
+        # Todo once moved to pose, incorporate these?
+        #  'fragment_cluster_ids': ','.join(clusters),
+        #  'total_interface_residues': total_residues,
+        #  'percent_residues_fragment_total': percent_interface_covered,
+        #  'percent_residues_fragment_center': percent_interface_matched,
         if per_interface:
             if not entity1 and not entity2:
                 self.log.error('%s: Entity %s or Entity %s can\'t be None!'
@@ -581,10 +586,6 @@ class SequenceProfile:
                         return_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
                                                                       metrics[align_type]['index_count'][4] +
                                                                       metrics[align_type]['index_count'][5])
-                        # 'fragment_cluster_ids': ','.join(clusters),  # Todo
-                        # 'total_interface_residues': total_residues,
-                        # 'percent_residues_fragment_all': percent_interface_covered,
-                        # 'percent_residues_fragment_center': percent_interface_matched,
                     else:
                         return_d[entity] = {'nanohedra_score': metrics[align_type]['total']['score'],
                                             'nanohedra_score_central': metrics[align_type]['center']['score'],
@@ -597,10 +598,6 @@ class SequenceProfile:
                                             'percent_fragment_coil': metrics[align_type]['index_count'][3] +
                                             metrics[align_type]['index_count'][4] +
                                             metrics[align_type]['index_count'][5]}
-                        #                   'fragment_cluster_ids': ','.join(clusters),  # Todo
-                        #                   'total_interface_residues': total_residues,
-                        #                   'percent_residues_fragment_all': percent_interface_covered,
-                        #                   'percent_residues_fragment_center': percent_interface_matched,
             for entity in return_d:
                 return_d[entity]['percent_fragment_helix'] /= return_d[entity]['number_fragments']
                 return_d[entity]['percent_fragment_strand'] /= return_d[entity]['number_fragments']
@@ -613,13 +610,7 @@ class SequenceProfile:
                         'number_fragment_residues_total': 0, 'number_fragment_residues_central': 0,
                         'number_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
                         'percent_fragment_coil': 0.0}
-            #           'fragment_cluster_ids': ','.join(clusters),  # Todo
-            #           'total_interface_residues': total_residues,
-            #           'percent_residues_fragment_all': percent_interface_covered,
-            #           'percent_residues_fragment_center': percent_interface_matched,
-            # all_interfaces = []  # Todo, with todo item below      v
             for query_pair, metrics in self.fragment_metrics.items():
-                # self.return_fragment_interface_metrics(metrics)  # Todo figure out percent_fragment calculation here
                 return_d['nanohedra_score'] += metrics['total']['total']['score']
                 return_d['nanohedra_score_central'] += metrics['total']['center']['score']
                 return_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
@@ -631,11 +622,6 @@ class SequenceProfile:
                 return_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
                                                       metrics['total']['index_count'][4] +
                                                       metrics['total']['index_count'][5])
-                # 'fragments': metrics['total']['total']['total'],
-                # 'fragment_cluster_ids': ','.join(clusters),  # Todo
-                # 'total_interface_residues': total_residues,
-                # 'percent_residues_fragment_all': percent_interface_covered,
-                # 'percent_residues_fragment_center': percent_interface_matched,
             try:
                 return_d['percent_fragment_helix'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
                 return_d['percent_fragment_strand'] /= (return_d['number_fragments'] * 2)  # account for 2x observations

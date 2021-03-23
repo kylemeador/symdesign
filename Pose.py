@@ -1844,7 +1844,7 @@ def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
                          'total_interface_residues': total_residues,
                          'number_fragments': len(fragment_matches),
-                         'percent_residues_fragment_all': percent_interface_covered,
+                         'percent_residues_fragment_total': percent_interface_covered,
                          'percent_residues_fragment_center': percent_interface_matched,
                          'percent_fragment_helix': fragment_content_d['1'],
                          'percent_fragment_strand': fragment_content_d['2'],
