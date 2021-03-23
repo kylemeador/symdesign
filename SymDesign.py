@@ -31,7 +31,7 @@ from interface_analysis.Database import FragmentDatabase
 import AnalyzeMutatedSequences as Ams
 from AnalyzeOutput import analyze_output_s, analyze_output_mp, metric_master, final_metrics
 from CommandDistributer import distribute
-from DesignDirectory import DesignDirectory, set_up_directory_objects
+from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
 from NanohedraWrap import nanohedra_command_mp, nanohedra_command_s, nanohedra_recap_mp, nanohedra_recap_s
 from PDB import PDB
 from PoseProcessing import pose_rmsd_s, pose_rmsd_mp, cluster_poses
@@ -244,6 +244,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
                     # degens, rotations = Pose.degen_and_rotation_parameters(
                     #     Pose.gather_docking_metrics(des_dir.log[sym_idx]))
+                    raise DesignError('This functionality has been removed \'des_dir.gather_docking_metrics()\'')
                     des_dir.gather_docking_metrics()  # log[sym_idx]))
                     degens, rotations = des_dir.degen_and_rotation_parameters()
                     degen1, degen2 = tuple(degens)
@@ -714,8 +715,7 @@ if __name__ == '__main__':
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags['symmetry']:
         if queried_flags['symmetry'] in SDUtils.possible_symmetries:
-            sym_entry = SDUtils.parse_symmetry_to_nanohedra_entry(queried_flags['symmetry'])
-            queried_flags['sym_entry_number'] = sym_entry
+            queried_flags['sym_entry'] = SDUtils.parse_symmetry_to_sym_entry(queried_flags['symmetry'])
         elif queried_flags['symmetry'].lower()[:5] == 'cryst':
             do_something = True
             # the symmetry information should be in the pdb headers
@@ -762,14 +762,17 @@ if __name__ == '__main__':
         #     queried_flags.update({'mpi': True, 'script': True})
 
         # Set up DesignDirectories
-        if 'nanohedra_output' in queried_flags and queried_flags['nanohedra_output']:
-            all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
-                                                              single=args.single, dir_type=PUtils.nano)
-            # Todo ensure that the Nanohedra DesignDirectory has symmetry initialized properly
-            design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags) for pose in all_poses]
+        if queried_flags['nanohedra_output']:
+            all_poses, location = SDUtils.collect_nanohedra_designs(file=args.file, directory=args.directory)
+            if all_poses:
+                base_directory = all_poses[0].split(os.sep)[-5]
+                queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
+                # all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory,
+                #                                               project=args.project, single=args.single)
+                design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags) for pose in all_poses]
         else:
-            all_poses, location = SDUtils.collect_directories(args.directory, file=args.file, project=args.project,
-                                                              single=args.single)
+            all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory,
+                                                          project=args.project, single=args.single)
             design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
             # all_poses = [design.asu for design in design_directories]
             # inputs_moved = True
@@ -838,20 +841,19 @@ if __name__ == '__main__':
                     # pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir),
                     #                          SDUtils.get_all_pdb_file_paths(oriented_pdb2_out_dir)))
                     location = '%s & %s' % (args.pdb_path1, args.pdb_path2)
-            else:  # Todo add initial to the first some how
+            else:
                 pdb_pairs = list(combinations(filter(None, pdb1_oriented_filepaths), 2))
                 # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
                 # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
                 location = args.pdb_path1
-            initial_iter = [False for i in range(len(pdb_pairs))]
+            initial_iter = [False for _ in range(len(pdb_pairs))]
             initial_iter[0] = True
             design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
         elif args.directory or args.file:
-            all_dock_directories, location = SDUtils.collect_directories(args.directory, file=args.file,
-                                                                         project=args.project, single=args.single,
-                                                                         dir_type=PUtils.nano)
-            design_directories = [set_up_directory_objects(dock_dir, mode=args.directory_type, project=args.project)
-                                  # TODO                   **queried_flags
+            all_dock_directories, location = SDUtils.collect_nanohedra_designs(file=args.file, directory=args.directory,
+                                                                               dock=True)
+            design_directories = [DesignDirectory.from_nanohedra(dock_dir, mode=args.directory_type,
+                                                                 project=args.project, **queried_flags)
                                   for dock_dir in all_dock_directories]
             if len(design_directories) == 0:
                 raise SDUtils.DesignError('No docking directories/files were found!\n'
@@ -1090,7 +1092,7 @@ if __name__ == '__main__':
         directory_pairs, failures = None, None
         if args.directory2 or args.file2:
             # Grab all poses (directories) to be processed from either directory name or file
-            all_poses2, location2 = SDUtils.collect_directories(args.directory2, file=args.file2)
+            all_poses2, location2 = SDUtils.collect_designs(file=args.file2, directory=args.directory2)
             assert all_poses2 != list(), logger.critical(
                 'No %s.py directories found within \'%s\'! Please ensure correct location' % (PUtils.nano.title(),
                                                                                               location2))

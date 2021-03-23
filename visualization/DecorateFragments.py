@@ -8,7 +8,7 @@ sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from SymDesignUtils import start_log, collect_directories
+from SymDesignUtils import start_log, collect_designs
 from Structure import MonoFragment
 from interface_analysis.Database import FragmentDB
 from PDB import PDB
@@ -89,7 +89,7 @@ if __name__ == '__main__':
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     if args.directory or args.file:
-        file_paths, location = collect_directories(args.directory, file=args.file)
+        file_paths, location = collect_designs(file=args.file, directory=args.directory)
     elif args.single:
         file_paths = [args.single]
     else:

@@ -227,7 +227,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_dirs[k].append(bb_dir)
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-            else:  # if self.directory_type in [PUtils.interface_design, 'filter']:
+            else:  # if self.directory_type in [PUtils.interface_design, 'filter', 'analysis']:
                 # May have issues with the number of open log files
                 # if self.directory_type == 'filter':
                 #     self.skip_logging = True
@@ -248,7 +248,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('%s: No %s found for this directory! Cannot perform material design without it.\n'
                                   'Ensure you have the file \'%s\' located properly before trying this Design!'
                                   % (self.__str__(), PUtils.master_log, self.nano_master_log))
-            self.gather_docking_metrics()
+            # self.gather_docking_metrics()
             self.sym_entry = SymEntry(self.sym_entry_number)
             self.design_symmetry = self.sym_entry.get_result_design_sym()
 
@@ -412,12 +412,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     # def add_flags(self, flags_file):  # UNUSED
     #     self.set_flags(**load_flags(flags_file))
 
-    def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None,
+    def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None, sym_entry=None,
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
                   number_of_trajectories=PUtils.nstruct, skip_logging=None, analysis=False, **kwargs):  # nanohedra_output,
         self.design_symmetry = symmetry
         self.sym_entry_number = sym_entry_number
+        self.sym_entry = sym_entry
         # self.nano = nanohedra_output
         self.design_selector = design_selector
         self.evolution = design_with_evolution
@@ -432,6 +433,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.mpi = mpi
         self.analysis = analysis
         if skip_logging:
+            print('skipping log')
             self.skip_logging = skip_logging
 
     def set_symmetry(self, symmetry=None, dimension=None, uc_dimensions=None, expand_matrices=None, **kwargs):
@@ -456,8 +458,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def start_log(self, debug=False, level=2):
         if self.skip_logging:  # set up null_logger
             self.log = null_log
+            print('Null logger set')
             return None
-
+        print('logging this design')
         if debug:
             handler, level = 1, 1
             propagate = False
@@ -651,67 +654,71 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.warning('%s: No interface residues were found. Is there an interface in your design?' % str(self))
             self.percent_residues_fragment_all, self.percent_residues_fragment_center = 0.0, 0.0
 
-    @handle_errors_f(errors=(FileNotFoundError, ))
-    def gather_docking_metrics(self):
-        with open(self.nano_master_log, 'r') as master_log:
-            parameters = master_log.readlines()
-            for line in parameters:
-                if 'Oligomer 1 Input Directory: ' in line:  # "PDB 1 Directory Path: " or
-                    self.pdb_dir1_path = line.split(':')[-1].strip()
-                elif 'Oligomer 2 Input Directory: 'in line:  #  "PDB 2 Directory Path: " or '
-                    self.pdb_dir2_path = line.split(':')[-1].strip()
-                elif 'Master Output Directory: ' in line:
-                    self.master_outdir = line.split(':')[-1].strip()
-                elif 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                    self.sym_entry_number = int(line.split(':')[-1])
-                elif 'Oligomer 1 Point Group Symmetry: ' in line:  # "Oligomer 1 Symmetry: "
-                    self.oligomer_symmetry_1 = line.split(':')[-1].strip()
-                elif 'Oligomer 2 Point Group Symmetry: ' in line:  # "Oligomer 2 Symmetry: " or
-                    self.oligomer_symmetry_2 = line.split(':')[-1].strip()
-                elif 'SCM Point Group Symmetry: ' in line:  # underlying point group # "Design Point Group Symmetry: "
-                    self.design_symmetry_pg = line.split(':')[-1].strip()
-                elif "Oligomer 1 Internal ROT DOF: " in line:  # ,
-                    self.internal_rot1 = line.split(':')[-1].strip()
-                elif "Oligomer 2 Internal ROT DOF: " in line:  # ,
-                    self.internal_rot2 = line.split(':')[-1].strip()
-                elif "Oligomer 1 Internal Tx DOF: " in line:  # ,
-                    self.internal_zshift1 = line.split(':')[-1].strip()
-                elif "Oligomer 2 Internal Tx DOF: " in line:  # ,
-                    self.internal_zshift2 = line.split(':')[-1].strip()
-                elif "Oligomer 1 Setting Matrix: " in line:
-                    self.set_mat1 = np.array(eval(line.split(':')[-1].strip()))
-                elif "Oligomer 2 Setting Matrix: " in line:
-                    self.set_mat2 = np.array(eval(line.split(':')[-1].strip()))
-                elif "Oligomer 1 Reference Frame Tx DOF: " in line:  # ,
-                    self.ref_frame_tx_dof1 = line.split(':')[-1].strip()
-                elif "Oligomer 2 Reference Frame Tx DOF: " in line:  # ,
-                    self.ref_frame_tx_dof2 = line.split(':')[-1].strip()
-                elif 'Resulting SCM Symmetry: ' in line:  # "Resulting Design Symmetry: " or
-                    self.design_symmetry = line.split(':')[-1].strip()
-                elif 'SCM Dimension: ' in line:  # "Design Dimension: " or
-                    self.design_dim = int(line.split(':')[-1].strip())
-                elif 'SCM Unit Cell Specification: ' in line:  # "Unit Cell Specification: " or
-                    self.uc_spec_string = line.split(':')[-1].strip()
-                elif "Oligomer 1 ROT Sampling Range: " in line:
-                    self.rot_range_deg_pdb1 = int(line.split(':')[-1].strip())
-                elif "Oligomer 2 ROT Sampling Range: " in line:
-                    self.rot_range_deg_pdb2 = int(line.split(':')[-1].strip())
-                elif "Oligomer 1 ROT Sampling Step: " in line:
-                    self.rot_step_deg1 = int(line.split(':')[-1].strip())
-                elif "Oligomer 2 ROT Sampling Step: " in line:
-                    self.rot_step_deg2 = int(line.split(':')[-1].strip())
-                elif 'Degeneracies Found for Oligomer 1' in line:
-                    self.degen1 = line.split()[0]
-                    if self.degen1.isdigit():
-                        self.degen1 = int(self.degen1) + 1  # number of degens is added to the original orientation
-                    else:
-                        self.degen1 = 1  # No degens becomes a single degen
-                elif 'Degeneracies Found for Oligomer 2' in line:
-                    self.degen2 = line.split()[0]
-                    if self.degen2.isdigit():
-                        self.degen2 = int(self.degen2) + 1  # number of degens is added to the original orientation
-                    else:
-                        self.degen2 = 1  # No degens becomes a single degen
+    # @staticmethod
+    # @handle_errors_f(errors=(FileNotFoundError, ))
+    # def gather_docking_metrics(nano_master_log):
+    #     with open(nano_master_log, 'r') as master_log:
+    #         parameters = master_log.readlines()
+    #         for line in parameters:
+    #             if 'Oligomer 1 Input Directory: ' in line:  # "PDB 1 Directory Path: " or
+    #                 pdb_dir1_path = line.split(':')[-1].strip()
+    #             elif 'Oligomer 2 Input Directory: ' in line:  # "PDB 2 Directory Path: " or '
+    #                 pdb_dir2_path = line.split(':')[-1].strip()
+    #             # elif 'Master Output Directory: ' in line:
+    #             #     master_outdir = line.split(':')[-1].strip()
+    #             elif 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
+    #                 sym_entry_number = int(line.split(':')[-1])
+    #             # all commented below are reflected in sym_entry_number
+    #             # elif 'Oligomer 1 Point Group Symmetry: ' in line:  # "Oligomer 1 Symmetry: "
+    #             #     self.oligomer_symmetry_1 = line.split(':')[-1].strip()
+    #             # elif 'Oligomer 2 Point Group Symmetry: ' in line:  # "Oligomer 2 Symmetry: " or
+    #             #     self.oligomer_symmetry_2 = line.split(':')[-1].strip()
+    #             # elif 'SCM Point Group Symmetry: ' in line:  # underlying point group # "Design Point Group Symmetry: "
+    #             #     self.design_symmetry_pg = line.split(':')[-1].strip()
+    #             # elif "Oligomer 1 Internal ROT DOF: " in line:  # ,
+    #             #     self.internal_rot1 = line.split(':')[-1].strip()
+    #             # elif "Oligomer 2 Internal ROT DOF: " in line:  # ,
+    #             #     self.internal_rot2 = line.split(':')[-1].strip()
+    #             # elif "Oligomer 1 Internal Tx DOF: " in line:  # ,
+    #             #     self.internal_zshift1 = line.split(':')[-1].strip()
+    #             # elif "Oligomer 2 Internal Tx DOF: " in line:  # ,
+    #             #     self.internal_zshift2 = line.split(':')[-1].strip()
+    #             # elif "Oligomer 1 Setting Matrix: " in line:
+    #             #     self.set_mat1 = np.array(eval(line.split(':')[-1].strip()))
+    #             # elif "Oligomer 2 Setting Matrix: " in line:
+    #             #     self.set_mat2 = np.array(eval(line.split(':')[-1].strip()))
+    #             # elif "Oligomer 1 Reference Frame Tx DOF: " in line:  # ,
+    #             #     self.ref_frame_tx_dof1 = line.split(':')[-1].strip()
+    #             # elif "Oligomer 2 Reference Frame Tx DOF: " in line:  # ,
+    #             #     self.ref_frame_tx_dof2 = line.split(':')[-1].strip()
+    #             # elif 'Resulting SCM Symmetry: ' in line:  # "Resulting Design Symmetry: " or
+    #             #     self.design_symmetry = line.split(':')[-1].strip()
+    #             # elif 'SCM Dimension: ' in line:  # "Design Dimension: " or
+    #             #     self.design_dim = int(line.split(':')[-1].strip())
+    #             # elif 'SCM Unit Cell Specification: ' in line:  # "Unit Cell Specification: " or
+    #             #     self.uc_spec_string = line.split(':')[-1].strip()
+    #             # elif "Oligomer 1 ROT Sampling Range: " in line:
+    #             #     self.rot_range_deg_pdb1 = int(line.split(':')[-1].strip())
+    #             # elif "Oligomer 2 ROT Sampling Range: " in line:
+    #             #     self.rot_range_deg_pdb2 = int(line.split(':')[-1].strip())
+    #             elif "Oligomer 1 ROT Sampling Step: " in line:
+    #                 rot_step_deg1 = int(line.split(':')[-1].strip())
+    #             elif "Oligomer 2 ROT Sampling Step: " in line:
+    #                 rot_step_deg2 = int(line.split(':')[-1].strip())
+    #             # elif 'Degeneracies Found for Oligomer 1' in line:
+    #             #     self.degen1 = line.split()[0]
+    #             #     if self.degen1.isdigit():
+    #             #         self.degen1 = int(self.degen1) + 1  # number of degens is added to the original orientation
+    #             #     else:
+    #             #         self.degen1 = 1  # No degens becomes a single degen
+    #             # elif 'Degeneracies Found for Oligomer 2' in line:
+    #             #     self.degen2 = line.split()[0]
+    #             #     if self.degen2.isdigit():
+    #             #         self.degen2 = int(self.degen2) + 1  # number of degens is added to the original orientation
+    #             #     else:
+    #             #         self.degen2 = 1  # No degens becomes a single degen
+    #     sym_entry = SymEntry(sym_entry_number)
+    #     return sym_entry
 
     @handle_errors_f(errors=(FileNotFoundError, ))
     def gather_fragment_info(self):
@@ -772,18 +779,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
                     data = eval(line[17:].strip())
                     if data:  # == 'None'
-                        self.transform_d[int(line[15:16])]['tx_int'] = np.array([0, 0, 0])
-                    else:
                         self.transform_d[int(line[15:16])]['tx_int'] = np.array(data)
+                    else:
+                        self.transform_d[int(line[15:16])]['tx_int'] = np.array([0, 0, 0])
                 elif line[:18] == 'SETTING MATRIX PDB':
                     data = eval(line[20:].strip())
                     self.transform_d[int(line[18:19])]['setting'] = np.array(data)
                 elif line[:22] == 'REFERENCE FRAME Tx PDB':
                     data = eval(line[24:].strip())
                     if data:
-                        self.transform_d[int(line[22:23])]['tx_ref'] = np.array([0, 0, 0])
-                    else:
                         self.transform_d[int(line[22:23])]['tx_ref'] = np.array(data)
+                    else:
+                        self.transform_d[int(line[22:23])]['tx_ref'] = np.array([0, 0, 0])
                 elif 'Nanohedra Score:' in line:  # res_lev_sum_score
                     self.all_residue_score = float(line[16:].rstrip())
                 elif 'CRYST1 RECORD:' in line:
@@ -1705,7 +1712,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             return self.path.replace(os.sep, '-')[1:]
 
 
-def set_up_directory_objects(design_list, mode=PUtils.interface_design, symmetry=None, project=None):
+@handle_errors_f(errors=(FileNotFoundError, ))
+def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
+    with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
+        for line in f.readlines():
+            if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
+                sym_entry_number = int(line.split(':')[-1])
+                return SymEntry(sym_entry_number)
+
+
+def set_up_directory_objects(design_list, mode=PUtils.interface_design, project=None):
     """Create DesignDirectory objects from a directory iterable. Add program_root if using DesignDirectory strings"""
     return [DesignDirectory.from_nanohedra(design_path, nano=True, mode=mode, project=project)
             for design_path in design_list]

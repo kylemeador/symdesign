@@ -101,7 +101,7 @@ def main():
     xtal_pdb_name = xtal_pdb1_name + "_" + xtal_pdb2_name
 
     # Retrieve all directories for the docked directory output
-    all_poses, location = SDUtils.collect_directories(docked_poses_dirpath)  # , file=args.file)
+    all_poses, location = SDUtils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
     all_design_directories = DesignDirectory.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
 
     # find the chain and residue numbers at the interface of the reference pose

@@ -20,6 +20,8 @@ import PathUtils as PUtils
 
 
 # Globals
+from classes.SymEntry import SymEntry
+
 index_offset = 1
 rmsd_threshold = 1.0
 layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
@@ -49,7 +51,7 @@ point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7
                        -1: 'T3', -2: 'O3'}
 
 
-def parse_symmetry_to_nanohedra_entry(symmetry_string):
+def parse_symmetry_to_sym_entry(symmetry_string):
     symmetry_string = symmetry_string.strip()
     if len(symmetry_string) > 3:
         symmetry_split = symmetry_string.split('{')
@@ -70,7 +72,7 @@ def parse_symmetry_to_nanohedra_entry(symmetry_string):
         raise ValueError('%s is not a supported symmetry!' % symmetry_string)
 
     # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
-    return sym_entry
+    return SymEntry(sym_entry)
 
 
 def dictionary_lookup(dictionary, items):
@@ -845,6 +847,33 @@ def get_all_pdb_file_paths(pdb_dir):  # Todo DEPRECIATE
             if '.pdb' in file]
 
 
+def collect_nanohedra_designs(file=None, directory=None, dock=False):
+    if file:
+        _file = file
+        if not os.path.exists(file):
+            _file = os.path.join(os.getcwd(), file)
+            if not os.path.exists(_file):
+                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
+                exit()
+        with open(_file, 'r') as f:
+            all_paths = [location.strip() for location in f.readlines() if location.strip() != '']
+        location = _file
+    elif directory:
+        location = directory
+        if dock:
+            all_paths = get_docked_directories(directory)
+        else:
+            base_directories = get_base_nanohedra_dirs(directory)
+            all_paths = []
+            for base in base_directories:  # Todo we shouldn't allow multiple, it complicates SymEntry matching
+                all_paths.extend(get_docked_dirs_from_base(base))
+    else:  # this shouldn't happen
+        all_paths = []
+        location = None
+
+    return all_paths, location
+
+
 def get_base_nanohedra_dirs(base_dir):
     """Find all master directories corresponding to the highest output level of Nanohedra.py outputs. This corresponds
     to the DesignDirectory symmetry attribute
@@ -868,7 +897,7 @@ def get_docked_dirs_from_base(base):
     return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
 
 
-def collect_directories(directory, file=None, project=None, single=None, dir_type=None):
+def collect_designs(file=None, directory=None, project=None, single=None):
     """Grab all poses from an input source
 
     Args:
@@ -888,29 +917,24 @@ def collect_directories(directory, file=None, project=None, single=None, dir_typ
         with open(_file, 'r') as f:
             all_paths = [location.strip() for location in f.readlines() if location.strip() != '']
         location = _file
-    else:
+    elif directory:
         location = directory
-        if dir_type == 'dock':
-            all_paths = get_docked_directories(directory)
-        elif dir_type == PUtils.nano:
-            base_directories = get_base_nanohedra_dirs(directory)
-            all_paths = list(chain.from_iterable([get_docked_dirs_from_base(base) for base in base_directories]))
-        elif directory:
-            base_directories = get_base_symdesign_dirs(directory)
-            if not base_directories:
-                # This is probably an uninitialized project and we should grab all .pdb files then initialize
-                all_paths = get_all_file_paths(directory, extension='.pdb')
-            else:
-                # return all design directories within the base directory ->/base/Projects/project/design
-                all_paths = list(chain.from_iterable([get_symdesign_dirs(base=base) for base in base_directories]))
-        elif project:
-            all_paths = get_symdesign_dirs(project=project)
-            location = project
-        elif single:
-            all_paths = get_symdesign_dirs(single=single)
-            location = single
+        base_directories = get_base_symdesign_dirs(directory)
+        if not base_directories:
+            # This is probably an uninitialized project and we should grab all .pdb files then initialize
+            all_paths = get_all_file_paths(directory, extension='.pdb')
         else:
-            all_paths = []
+            # return all design directories within the base directory ->/base/Projects/project/design
+            all_paths = list(chain.from_iterable([get_symdesign_dirs(base=base) for base in base_directories]))
+    elif project:
+        all_paths = get_symdesign_dirs(project=project)
+        location = project
+    elif single:
+        all_paths = get_symdesign_dirs(single=single)
+        location = single
+    else:  # this shouldn't happen
+        all_paths = []
+        location = None
 
     return sorted(set(all_paths)), location
 

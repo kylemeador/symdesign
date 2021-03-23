@@ -846,7 +846,7 @@ def main():
                 top_ranked_ids.append(pose_id)
 
     # retrieve all poses and filter for those ID's in consideration
-    all_poses, location = SDUtils.collect_directories(docked_poses_dirpath)  # , file=args.file)
+    all_poses, location = SDUtils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
     assert all_poses != list(), print('No %s directories found within \'%s\'! Please ensure correct location' %
                                       (PUtils.nano.title(), location))
     all_design_directories = DesignDirectory.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)

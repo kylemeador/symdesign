@@ -6,7 +6,7 @@ parent_dir = os.path.dirname(current_dir)
 # grandparent_dir = os.path.dirname(parent_dir)
 sys.path.extend([parent_dir])
 from DesignDirectory import set_up_directory_objects
-from SymDesignUtils import collect_directories
+from SymDesignUtils import collect_designs
 from PDB import PDB
 
 
@@ -166,7 +166,7 @@ def rank(master_design_dirpath, metric, outdir):
 #
 #     # designpath_metric_tup_list = []
 #     # print('Finding all Nanohedra directories')
-#     all_design_directories, location = collect_directories(master_design_dirpath, dir_type='nanohedra')
+#     all_design_directories, location = collect_designs(master_design_dirpath, dir_type='nanohedra')
 #     # print('Setting up directory objects')
 #     all_design_directories = set_up_directory_objects(all_design_directories)
 #     # for root1, dirs1, files1 in os.walk(master_design_dirpath):
