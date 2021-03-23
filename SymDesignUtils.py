@@ -973,7 +973,11 @@ class DesignError(Exception):
 
 
 def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2):
-    """Calculate the overlap between two sets of coordinates given a reference rmsd"""
+    """Calculate the overlap between two sets of coordinates given a reference rmsd
+
+    Returns:
+        (numpy.ndarray): The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value
+    """
     rmsds = rmsd(coords1, coords2)
     # Calculate Guide Atom Overlap Z-Value
     z_values = rmsds / coords_rmsd_reference
