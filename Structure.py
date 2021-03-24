@@ -905,6 +905,38 @@ class Structure(StructureBase):
         else:
             self.secondary_structure = [residue.secondary_structure for residue in self.residues]
 
+    def terminal_residue_orientation_from_reference(self, termini='n', reference=None):
+        """From an Entity, find the orientation of the termini from the origin (default) or from a reference point
+
+        Keyword Args:
+            termini='n' (str): Either n or c terminus should be specified
+            reference=None (numpy.ndarray): The reference where the point should be measured from
+        Returns:
+            (float): The distance from the reference point to the furthest point
+        """
+        if termini.lower() == 'n':
+            residue1, residue2 = self.residues[0], self.residues[1]
+        elif termini.lower() == 'c':
+            residue1, residue2 = self.residues[-1], self.residues[-2]
+        else:
+            raise DesignError('Termini must be either \'n\' or \'c\', not \'%s\'!' % termini)
+
+        if reference:
+            term, plus1 = np.linalg.norm(residue1.ca_coords - reference), np.linalg.norm(residue2.ca_coords - reference)
+        else:
+            term, plus1 = np.linalg.norm(residue1.ca_coords), np.linalg.norm(residue2.ca_coords)
+
+        if term > plus1:
+            # if termini.lower() == 'n':
+            return 1  # vector is pointing away from the reference
+        else:
+            return -1  # vector is pointing toward the reference
+        # else:
+        #     if termini.lower() == 'c':
+        #         return 1  # vector is pointing away from the reference
+        #     else:
+        #         return -1  # vector is pointing toward the reference
+
     def furthest_point_from_reference(self, reference=None):  # entity
         """From an Entity, find the furthest coordinate from the origin (default) or from a reference.
 
@@ -914,7 +946,8 @@ class Structure(StructureBase):
             (float): The distance from the reference point to the furthest point
         """
         if reference:
-            raise DesignError('This function of %s not possible yet!' % self.furthest_point_from_reference.__name__)
+            # raise DesignError('This function of %s not possible yet!' % self.furthest_point_from_reference.__name__)
+            return np.max(np.linalg.norm(self.coords - reference, axis=1))
         else:
             return np.max(np.linalg.norm(self.coords, axis=1))
 
@@ -1320,6 +1353,13 @@ class Residue:
         return self._atoms.atoms[[self._atom_indices[index] for index in self._sc_indices]]
 
     @property
+    def n_coords(self):
+        try:
+            return self._coords.coords[self._atom_indices[self._n]]
+        except AttributeError:
+            return None
+
+    @property
     def n(self):
         try:
             return self._atoms.atoms[self._atom_indices[self._n]]
@@ -1404,6 +1444,13 @@ class Residue:
     @cb.setter
     def cb(self, index):
         self._cb = index
+
+    @property
+    def c_coords(self):
+        try:
+            return self._coords.coords[self._atom_indices[self._c]]
+        except AttributeError:
+            return None
 
     @property
     def c(self):
