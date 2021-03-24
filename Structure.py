@@ -914,34 +914,47 @@ class Structure(StructureBase):
         Returns:
             (float): The distance from the reference point to the furthest point
         """
+        # if termini.lower() == 'n':
+        #     residue1, residue2 = self.residues[0], self.residues[1]
+        # elif termini.lower() == 'c':
+        #     residue1, residue2 = self.residues[-1], self.residues[-2]
+        # else:
+        #     raise DesignError('Termini must be either \'n\' or \'c\', not \'%s\'!' % termini)
+        #
+        # if reference:
+        #     term, plus1 = np.linalg.norm(residue1.ca_coords - reference), np.linalg.norm(residue2.ca_coords - reference)
+        # else:
+        #     term, plus1 = np.linalg.norm(residue1.ca_coords), np.linalg.norm(residue2.ca_coords)
+        #
+        # if term > plus1:
+        #     return 1  # vector is pointing away from the reference
+        # else:
+        #     return -1  # vector is pointing toward the reference
+
         if termini.lower() == 'n':
-            residue1, residue2 = self.residues[0], self.residues[1]
+            residue_coords = self.residues[0].n_coords
         elif termini.lower() == 'c':
-            residue1, residue2 = self.residues[-1], self.residues[-2]
+            residue_coords = self.residues[-1].c_coords
         else:
             raise DesignError('Termini must be either \'n\' or \'c\', not \'%s\'!' % termini)
 
         if reference:
-            term, plus1 = np.linalg.norm(residue1.ca_coords - reference), np.linalg.norm(residue2.ca_coords - reference)
+            coord_distance = np.linalg.norm(residue_coords - reference)
         else:
-            term, plus1 = np.linalg.norm(residue1.ca_coords), np.linalg.norm(residue2.ca_coords)
+            coord_distance = np.linalg.norm(residue_coords)
 
-        if term > plus1:
-            # if termini.lower() == 'n':
-            return 1  # vector is pointing away from the reference
+        max_distance = self.furthest_point_from_reference(reference=reference)
+        min_distance = self.closest_point_to_reference(reference=reference)
+        if abs(coord_distance - max_distance) < abs(coord_distance - min_distance):
+            return 1  # termini is further from the reference
         else:
-            return -1  # vector is pointing toward the reference
-        # else:
-        #     if termini.lower() == 'c':
-        #         return 1  # vector is pointing away from the reference
-        #     else:
-        #         return -1  # vector is pointing toward the reference
+            return -1  # termini is closer to the reference
 
-    def furthest_point_from_reference(self, reference=None):  # entity
+    def furthest_point_from_reference(self, reference=None):  # Todo move to entity
         """From an Entity, find the furthest coordinate from the origin (default) or from a reference.
 
         Keyword Args:
-            reference=None (numpy.ndarray): The reference where the point should be measured from
+            reference=[0,0,0] (numpy.ndarray): The reference where the point should be measured from. Default is origin
         Returns:
             (float): The distance from the reference point to the furthest point
         """
@@ -950,6 +963,20 @@ class Structure(StructureBase):
             return np.max(np.linalg.norm(self.coords - reference, axis=1))
         else:
             return np.max(np.linalg.norm(self.coords, axis=1))
+
+    def closest_point_to_reference(self, reference=None):  # Todo move to entity
+        """From an Entity, find the furthest coordinate from the origin (default) or from a reference.
+
+        Keyword Args:
+            reference=[0,0,0] (numpy.ndarray): The reference where the point should be measured from. Default is origin
+        Returns:
+            (float): The distance from the reference point to the furthest point
+        """
+        if reference:
+            # raise DesignError('This function of %s not possible yet!' % self.furthest_point_from_reference.__name__)
+            return np.min(np.linalg.norm(self.coords - reference, axis=1))
+        else:
+            return np.min(np.linalg.norm(self.coords, axis=1))
 
     def write(self, out_path=None, header=None, file_handle=None, pdb_number=False):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
