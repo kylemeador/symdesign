@@ -371,8 +371,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      'component_2_max_radius': self.oligomers[1].entities[0].furthest_point_from_reference(),
                      'component_1_n_terminal_helix': self.oligomers[0].entities[0].is_n_term_helical(),
                      'component_1_c_terminal_helix': self.oligomers[0].entities[0].is_c_term_helical(),
+                     'component_1_n_terminal_orientation': self.oligomers[0].entities[0].terminal_residue_orientation_from_reference(),
+                     'component_1_c_terminal_orientation': self.oligomers[0].entities[0].terminal_residue_orientation_from_reference(termini='c'),
                      'component_2_n_terminal_helix': self.oligomers[1].entities[0].is_n_term_helical(),
                      'component_2_c_terminal_helix': self.oligomers[1].entities[0].is_c_term_helical(),
+                     'component_2_n_terminal_orientation': self.oligomers[1].entities[0].terminal_residue_orientation_from_reference(),
+                     'component_2_c_terminal_orientation': self.oligomers[1].entities[0].terminal_residue_orientation_from_reference(termini='c'),
                      })
 
         return metrics
