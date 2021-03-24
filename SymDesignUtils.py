@@ -745,6 +745,7 @@ def calculate_mp_threads(mpi=False, maximum=False, no_model=False):
     Returns:
         (int): The number of threads to use
     """
+    # TODO use env_variable SLURM_CPUS_PER_TASK to tell how many CPU's were allocated if they were allocated
     # int returns same as math.floor()
     if mpi:
         return int(mp.cpu_count() / CUtils.mpi)
