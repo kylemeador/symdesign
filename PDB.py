@@ -1056,10 +1056,7 @@ class PDB(Structure):
         # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
         # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
 
-        # try:
-        # with open(os.devnull, 'w') as devnull:
-        # stride_cmd = [stride_exe_path, '%s' % self.filepath]
-        current_pdb_file = self.write(out_path='stride_input-%d.pdb' % (random() * 1000))
+        current_pdb_file = self.write(out_path='stride_input-%s-%d.pdb' % (self.name, random() * 100000))
         stride_cmd = [stride_exe_path, current_pdb_file]
         #   -rId1Id2..  Read only Chains Id1, Id2 ...
         #   -cId1Id2..  Process only Chains Id1, Id2 ...
