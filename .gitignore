@@ -2,6 +2,5 @@ __pycache__
 dependencies/nanohedra
 dependencies/hh-suite
 dependencies/orient/orient_oligomer
-data/databases
-databases
+data/databases/fragment_db/biological_interfaces
 .DS_Store
