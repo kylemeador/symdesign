@@ -1,6 +1,7 @@
 import os
 import sys
 
+from PDB import PDB
 import Pose
 import SequenceProfile
 
@@ -13,10 +14,11 @@ import SymDesignUtils as SDUtils
 
 # Globals
 module = 'Extract Interface Fragments:'
+logger = SDUtils.start_log(name=__name__)
 
 
 def extract_to_db(db_cursor, fragment_length=5):
-    central_res_idx = int(frag_length / 2)
+    central_res_idx = int(fragment_length / 2)
     # Use the central_res_index to pull out the residue_number, combine with PDB_code, interface ID, and chain to give
     # residue record which will populate the fragment table entry
     # Need to link the paired fragment table to the individual fragment using the individual fragment records... Can I
@@ -39,10 +41,10 @@ def extract_fragments(pdb, distance, frag_length, same_chain=False):
     pdb_ch2_id = pdb.chain_id_list[-1]
 
     # Create PDB instance for Ch1 and Ch2
-    pdb1 = PDB(atoms=pdb.get_chain_atoms(pdb_ch1_id))
-    pdb2 = PDB(atoms=pdb.get_chain_atoms(pdb_ch2_id))
-    if pdb1.all_atoms == list() or pdb2.all_atoms == list():
-        logger.info('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb.name))
+    pdb1 = PDB.from_atoms(pdb.chain(pdb_ch1_id).atoms)
+    pdb2 = PDB.from_atoms(pdb.chain(pdb_ch2_id).atoms)
+    if not pdb1.atoms or not pdb2.atoms:
+        logger.info('%s is missing atoms in one of two chains... It will be skipped!' % pdb.name)
         return pdb.name
     # Find Pairs of Interacting Residues
     interacting_pairs = Pose.find_interface_pairs(pdb1, pdb2, distance=distance)
@@ -85,15 +87,15 @@ def write_fragment_pair(fragment_pair, out_path=os.getcwd(), fragment_length=5, 
     if individual:
         if not os.path.exists(os.path.join(out_path, 'individual')):
             os.makedirs(os.path.join(out_path, 'individual'))
-        frag1.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb' % (frag1.name, frag1.chain_id_list[0],
-                                                                                frag1.all_atoms[central_res_idx])))
-        frag2.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb' % (frag2.name, frag2.chain_id_list[0],
-                                                                                frag2.all_atoms[central_res_idx])))
+        frag1.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb'
+                                 % (frag1.name, frag1.chain_id_list[0], frag1.residues[central_res_idx].number)))
+        frag2.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb'
+                                 % (frag2.name, frag2.chain_id_list[0], frag2.residues[central_res_idx].number)))
 
-    int_frag_out = PDB(atoms=fragment_pair[0].all_atoms + fragment_pair[1].all_atoms)
+    int_frag_out = PDB.from_atoms(fragment_pair[0].atoms + fragment_pair[1].atoms)
     int_frag_out.write(os.path.join(out_path, 'paired', '%s_ch%s_%s_res%d_%d.pdb'
                                     % (frag1.name, frag1.chain_id_list[0], frag2.chain_id_list[0],
-                                       frag1.all_atoms[central_res_idx], frag2.all_atoms[central_res_idx])))
+                                       frag1.residues[central_res_idx].number, frag2.residues[central_res_idx].number)))
 
 
 def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paired=False, multi=False, num_threads=4):  # paired_outdir
