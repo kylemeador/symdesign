@@ -1056,6 +1056,17 @@ class PDB(Structure):
         # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
         # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
 
+        # ASG    Detailed secondary structure assignment
+        #    Format:  6-8  Residue name
+        #       10-10 Protein chain identifier
+        #       12-15 PDB	residue	number
+        #       17-20 Ordinal residue number
+        #       25-25 One	letter secondary structure code	**)
+        #       27-39 Full secondary structure name
+        #       43-49 Phi	angle
+        #       53-59 Psi	angle
+        #       65-69 Residue solvent accessible area
+
         current_pdb_file = self.write(out_path='stride_input-%s-%d.pdb' % (self.name, random() * 100000))
         stride_cmd = [stride_exe_path, current_pdb_file]
         #   -rId1Id2..  Read only Chains Id1, Id2 ...
@@ -1077,15 +1088,16 @@ class PDB(Structure):
         #     lines = stride_out.split('\n')
         os.system('rm %s' % current_pdb_file)
 
-        # residue_idx = 0
+        residue_idx = 0
         # print(out_lines)
         residues = self.residues
         for line in out_lines:
             # residue_idx = int(line[10:15])
             if line[0:3] == 'ASG':
-                residue_idx = int(line[10:15])  # line[10:15].strip().isdigit():  # residue number -> line[15:20].strip().isdigit():
+                # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
+                # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
                 # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
-                residues[residue_idx - 1].secondary_structure = line[24:25]
+                residues[residue_idx].secondary_structure = line[24:25]
                 residue_idx += 1
         self.secondary_structure = [residue.secondary_structure for residue in self.residues]  # Todo make index access
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
