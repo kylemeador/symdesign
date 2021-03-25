@@ -16,6 +16,8 @@ global_flags = {'symmetry': {'type': str, 'default': None,
                 'nanohedra_output': {'type': bool, 'default': False,
                                      'description': 'Whether the design targets are a %s output' % nano.title()},
                 'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
+                'design_range': {'type': str, 'default': None,
+                                 'description': 'Whether to subset selected designs by a range of percentage values.'},
                 }
 design_flags = {
     'design_with_evolution': {'type': bool, 'default': True,

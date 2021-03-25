@@ -785,7 +785,14 @@ if __name__ == '__main__':
                 queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
                 # all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory,
                 #                                               project=args.project, single=args.single)
-                design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags) for pose in all_poses]
+                if queried_flags['design_range']:
+                    low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
+                    high_range = int((int(queried_flags['design_range'].split('-')[1]) / 100.0) * len(all_poses))
+                else:
+                    low_range, high_range = 0, -1
+                print('Selecting Designs with range: %d-%d' % (low_range, high_range))
+                design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
+                                      for pose in all_poses[low_range:high_range]]
         else:
             all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory,
                                                           project=args.project, single=args.single)
