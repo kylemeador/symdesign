@@ -76,7 +76,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Extract information from SymDock Output
     des_dir.gather_docking_metrics()
     des_dir.gather_pose_metrics()
-    pdb_codes = str(os.path.basename(des_dir.building_blocks)).split('_')
+    pdb_codes = str(os.path.basename(des_dir.composition)).split('_')
     # cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir)
 
     # Fetch PDB object of each chain from PDBdb or PDB server # TODO set up pdb database
@@ -299,10 +299,10 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.info('Expanding ASU by %f Angstroms' % dist)
 
     # Check to see if other poses have collected design sequence info and grab PSSM
-    temp_file = os.path.join(des_dir.building_blocks, PUtils.temp)
+    temp_file = os.path.join(des_dir.composition, PUtils.temp)
     rerun = False
-    if PUtils.clean not in os.listdir(des_dir.building_blocks):
-        shutil.copy(des_dir.asu, des_dir.building_blocks)
+    if PUtils.clean not in os.listdir(des_dir.composition):
+        shutil.copy(des_dir.asu, des_dir.composition)
         with open(temp_file, 'w') as f:
             f.write('Still fetching data. Process will resume once data is gathered\n')
 
@@ -366,7 +366,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         # Extract PSSM for each protein and combine into single PSSM
         pssm_dict = {name: SequenceProfile.parse_hhblits_pssm(pssm_files[name]) for name in names}
         full_pssm = SequenceProfile.combine_pssm([pssm_dict[name] for name in pssm_dict])  # requires python3.6 or greater
-        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.pssm, outpath=des_dir.building_blocks)
+        pssm_file = SequenceProfile.make_pssm_file(full_pssm, PUtils.pssm, outpath=des_dir.composition)
     else:
         time.sleep(1)
         while os.path.exists(temp_file):
@@ -376,7 +376,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
             pssm_file = os.path.join(des_dir.path, PUtils.pssm)
         else:
-            pssm_file = os.path.join(des_dir.building_blocks, PUtils.pssm)
+            pssm_file = os.path.join(des_dir.composition, PUtils.pssm)
         full_pssm = SequenceProfile.parse_pssm(pssm_file)
 
     # Check Pose and Profile for equality before proceeding
