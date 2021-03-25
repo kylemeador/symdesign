@@ -852,7 +852,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             current_pdb_entities.append(entity)
         self.log.debug('Found entities: %s' % list(entity.name for entity in current_pdb_entities))
 
-        self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb)
+        self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb, log=self.log)
 
     def entity(self, entity):
         return self.pdb.entity(entity)
