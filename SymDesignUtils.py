@@ -735,7 +735,7 @@ def write_fasta_file(sequence, name, outpath=os.getcwd()):
 ####################
 
 
-def calculate_mp_threads(mpi=False, maximum=False, no_model=False):
+def calculate_mp_threads(cores=None, mpi=False):
     """Calculate the number of multiprocessing threads to use for a specific application
 
     Keyword Args:
@@ -745,19 +745,18 @@ def calculate_mp_threads(mpi=False, maximum=False, no_model=False):
     Returns:
         (int): The number of threads to use
     """
-    # TODO use env_variable SLURM_CPUS_PER_TASK to tell how many CPU's were allocated if they were allocated
-    # int returns same as math.floor()
-    if mpi:
-        return int(mp.cpu_count() / CUtils.mpi)
-    elif maximum:
-        # # leave at least a CPU available for computer, see also len(os.sched_getaffinity(0)), mp.cpu_count() - 1
-        return mp.cpu_count() - 1
-    elif no_model:
-        # current cap for use with hhblits and multiprocessing. TODO Change to take into account memory constraints
-        return int(mp.cpu_count() / (CUtils.hhblits_threads + 5))
+    allocated_cpus = os.environ.get('SLURM_CPUS_PER_TASK', None)
+    if allocated_cpus:  # we are in a SLURM environment and should follow allocation but allow hyper-threading (* 2)
+        max_cpus_to_use = int(allocated_cpus) * 2
     else:
-        # leave at least a CPU available for computer
-        return int(mp.cpu_count() / CUtils.min_cores_per_job) - 1
+        max_cpus_to_use = mp.cpu_count() - 1  # leave CPU available for computer, see also len(os.sched_getaffinity(0))
+
+    if cores:
+        return cores
+    elif mpi:
+        return int(max_cpus_to_use / CUtils.mpi)
+    else:
+        return max_cpus_to_use
 
 
 def set_worker_affinity():
