@@ -64,7 +64,7 @@ def find_expression_tags(des_dir):
     # KM {chain: seq}
     # need to have reference_files mapped from design_chain to pdb_code
     # I can accomplish this with a deconstruction of the design.pdb into a DesignDirectory object and pull out the
-    # oligomer names from .building_blocks assigning A to building_blocks.split('_')[0] and B to [1]<- need chain
+    # oligomer names from .composition assigning A to composition.split('_')[0] and B to [1]<- need chain
     # ambivilance though probably isn't hard. Or could throw all of these into the /data directory to grab in future.
     # I don't need to map the reference to the design because of the source information.
 

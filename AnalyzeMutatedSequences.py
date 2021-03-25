@@ -120,7 +120,7 @@ db = PUtils.biological_fragmentDB
 #     if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
 #         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.pssm))
 #     else:
-#         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.pssm))
+#         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.composition, PUtils.pssm))
 #     evolution_divergence = pos_specific_jsd(mutation_frequencies, pssm)
 #
 #     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_frequencies, evolution_divergence,
@@ -439,7 +439,7 @@ def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unuse
     if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.pssm))
     else:
-        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.building_blocks, PUtils.pssm))
+        pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.composition, PUtils.pssm))
     evolution_divergence_values = pos_specific_jsd(mutation_probabilities, pssm)
 
     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_probabilities, evolution_divergence_values,

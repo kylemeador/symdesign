@@ -29,7 +29,7 @@ def res_lev_sum_score_rank(all_design_directories):
 #     docked_pdb_pairs = []
 #     for des_dir in all_design_directories:
 #         docked_pdbs_d = []
-#         for building_block in os.path.basename(des_dir.building_blocks).split('_'):
+#         for building_block in os.path.basename(des_dir.composition).split('_'):
 #             docked_pdb = PDB()
 #             docked_pdb.readfile(glob(os.path.join(des_dir.path, building_block + '_tx_*.pdb'))[0])
 #             docked_pdbs_d.append(docked_pdb)
