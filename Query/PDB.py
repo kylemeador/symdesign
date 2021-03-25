@@ -172,7 +172,8 @@ def query_pdb(_query):
     elif query_response.status_code == 204:
         logger.warning('No response was returned. Your query likely found no matches!')
     else:
-        return None
+        logger.warning('Your query returned an unrecognized status code (%d)' % query_response.status_code)
+    return None
 
 
 def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):  # Todo set up by kwargs
