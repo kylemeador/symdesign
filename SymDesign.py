@@ -487,7 +487,11 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
     #                                                             'include %s' % ', '.join(SDUtils.possible_symmetries))
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to stdout?\nDefault=False')
+    parser.add_argument('-c', '--cores', type=int,
+                        help='Number of cores to use with --multiprocessing. If -mp is run in a cluster environment, '
+                             'the number of cores will reflect the allocation provided by the cluster, otherwise, '
+                             'specify the number of cores\nDefault=#ofCores-1')
     parser.add_argument('-d', '--directory', type=os.path.abspath, metavar='/path/to_your_pdb_files/',
                         help='Master directory where poses to be designed with %s are located. This may be the output '
                              'directory from %s.py, a random directory with poses requiring interface design, or the '
@@ -501,9 +505,8 @@ if __name__ == '__main__':
                              % (PUtils.program_name, PUtils.program_name, PUtils.program_name), default=None)
     parser.add_argument('-g', '--guide', action='store_true',
                         help='Access the %s guide! Display the program or module specific guide. Ex: \'%s --guide\' '
-                             'or \'%s\''
-                             % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
-    parser.add_argument('-mp', '--multi_processing', action='store_true',  # Todo always true
+                             'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
+    parser.add_argument('-mp', '--multi_processing', action='store_true',  # Todo always true after logging is fixed
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-p', '--project', type=os.path.abspath,
                         metavar='/path/to/SymDesignOutput/Projects/your_project',
@@ -888,10 +891,8 @@ if __name__ == '__main__':
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
-            args.suspend = False
             logger.info('Modelling will occur in this process, ensure you don\'t lose connection to the shell!')
         else:
-            args.suspend = True
             logger.info('Writing modelling commands out to file, no modelling will occur until commands are executed.')
 
     if queried_flags.get(Flags.generate_frags, None) or args.module == PUtils.generate_fragments:
@@ -944,7 +945,7 @@ if __name__ == '__main__':
         # Initialize docking procedure
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)
+            threads = SDUtils.calculate_mp_threads(cores=args.cores)
             logger.info('Starting multiprocessing using %s threads' % str(threads))
             if args.run_in_shell:
                 # TODO implementation where SymDesignControl calls Nanohedra.py
@@ -1001,7 +1002,7 @@ if __name__ == '__main__':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)  # mpi=args.mpi, Todo
+            threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
             logger.info('Starting multiprocessing using %s threads' % str(threads))
             results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads)
         else:
@@ -1019,7 +1020,7 @@ if __name__ == '__main__':
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
 
-            threads = SDUtils.calculate_mp_threads(maximum=True, no_model=args.suspend)  # mpi=args.mpi, Todo
+            threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
             logger.info('Starting multiprocessing using %s threads' % str(threads))
             results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads)
         else:
@@ -1078,7 +1079,7 @@ if __name__ == '__main__':
                             % out_path)
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(maximum=True)
+            threads = SDUtils.calculate_mp_threads(cores=args.cores)
             logger.info('Starting multiprocessing using %s threads' % str(threads))
             results = SDUtils.mp_map(DesignDirectory.design_analysis, design_directories, threads)
         else:
@@ -1126,7 +1127,7 @@ if __name__ == '__main__':
                                                                                             for fail in failures))
         if args.multi_processing:
             # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(maximum=True)
+            threads = SDUtils.calculate_mp_threads(cores=args.cores)
             logger.info('Starting multiprocessing using %s threads' % str(threads))
             zipped_args = zip(design_directories, repeat(args.increment))
             results = SDUtils.mp_starmap(rename, zipped_args, threads)
@@ -1203,7 +1204,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == PUtils.cluster_poses:
         if args.multi_processing:
-            threads = SDUtils.calculate_mp_threads(maximum=True)
+            threads = SDUtils.calculate_mp_threads(cores=args.cores)
             # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, design_directories, threads=threads))
             pose_map = pose_rmsd_mp(design_directories, threads=threads)
         else:
@@ -1307,7 +1308,7 @@ if __name__ == '__main__':
         else:
             if args.multi_processing:
                 # Calculate the number of threads to use depending on computer resources
-                threads = SDUtils.calculate_mp_threads(maximum=True)
+                threads = SDUtils.calculate_mp_threads(cores=args.cores)
                 logger.info('Starting multiprocessing using %s threads' % str(threads))
                 # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                 #                     'int_energy_res_summary_delta': 0.25}
