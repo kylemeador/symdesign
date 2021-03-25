@@ -21,7 +21,7 @@ filter_designs = 'select_designs'
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
-rosetta = str(os.environ.get('ROSETTA'))
+rosetta = os.environ.get('ROSETTA')
 nstruct = 20  # Todo back to 50?
 stage = {1: 'refine', 2: interface_design, 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
