@@ -34,7 +34,7 @@ from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
 from NanohedraWrap import nanohedra_command_s, nanohedra_recap_s
 from PDB import PDB
-from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses
+from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map
 from ProteinExpression import find_expression_tags
 from Query import Flags
 from SequenceProfile import generate_mutations, find_orf_offset
@@ -88,7 +88,7 @@ def pair_dock_directories(dirs):
         new_dir = os.path.dirname(_dir.path)[:-len(flipped_sufffix)]
         # where the link will live
         destination = os.path.join(os.path.abspath(new_dir), os.path.basename(_dir.path), destination_string)
-        # where the link will attach too. Adding the flipped suffix to the building_blocks name
+        # where the link will attach too. Adding the flipped suffix to the composition name
         original_dir = os.path.join(os.path.abspath(_dir.path) + flipped_sufffix, origin_string)
         merge_pairs.append((original_dir, destination))
 
@@ -137,7 +137,7 @@ def rsync_dir(des_dir):
 
     for s, sym_dir in enumerate(des_dir.program_root):
         if '_flipped_180y' in sym_dir:
-            for bb_dir in des_dir.building_blocks[s]:
+            for bb_dir in des_dir.composition[s]:
                 building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
                 destination = os.path.join(building_block_dir, 'DEGEN_1_1%s' % os.sep)
 
@@ -217,19 +217,19 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
         from classes import get_last_sampling_state
         # observed_building_blocks = []
         for des_dir in all_design_directories:
-            # if os.path.basename(des_dir.building_blocks) in observed_building_blocks:
+            # if os.path.basename(des_dir.composition) in observed_building_blocks:
             #     continue
             # else:
-            #     observed_building_blocks.append(os.path.basename(des_dir.building_blocks))
-            # f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.building_blocks)
+            #     observed_building_blocks.append(os.path.basename(des_dir.composition))
+            # f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.composition)
             # degens, rotations = \
             # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.program_root))
             #
             # dock_dir = DesignDirectory(path, auto_structure=False)
             # dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
-            # dock_dir.building_blocks = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
+            # dock_dir.composition = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
             # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.program_root]
-            # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.building_blocks
+            # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.composition
             #                                 for bb_dir in sym] # TODO change to PUtils
 
             # docking_file = glob(
@@ -261,16 +261,16 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     logger.info('Expected:', degen1, degen2, last_rot1, last_rot2)
                     logger.info('From log: %s' % log_file)
                     if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
-                        complete.append(os.path.join(des_dir.program_root[sym_idx], des_dir.building_blocks[sym_idx][bb_idx]))
+                        complete.append(os.path.join(des_dir.program_root[sym_idx], des_dir.composition[sym_idx][bb_idx]))
                         # complete.append(des_dir)
                         # complete.append(des_dir.program_root)
                     else:
                         if active:
                             if int(time.time()) - int(os.path.getmtime(log_file)) < inactive_time:
                                 running.append(os.path.join(des_dir.program_root[sym_idx],
-                                                            des_dir.building_blocks[sym_idx][bb_idx]))
+                                                            des_dir.composition[sym_idx][bb_idx]))
                         incomplete.append(os.path.join(des_dir.program_root[sym_idx],
-                                                       des_dir.building_blocks[sym_idx][bb_idx]))
+                                                       des_dir.composition[sym_idx][bb_idx]))
                         # incomplete.append(des_dir)
                         # incomplete.append(des_dir.program_root)
         complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
@@ -429,7 +429,7 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
             if len(success) > 0:
                 # Save Design DataFrame
                 design_df = pd.DataFrame(successes)
-                out_path = os.path.join(program_root, args.output)
+                out_path = os.path.join(program_root, args.output % timestamp)
                 design_df.to_csv(out_path)
                 logger.info('Analysis of all poses written to %s' % out_path)
                 if save:
@@ -583,7 +583,7 @@ if __name__ == '__main__':
                                                  'the various metrics available to analyze.'
                                                  % (PUtils.program_command, PUtils.analysis))
     parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
-                                 help='Name to output .csv files.\nDefault=%s' % PUtils.analysis_file)
+                                 help='Name to output .csv files.\nDefault=%s' % PUtils.analysis_file % 'TIMESTAMP')
     parser_analysis.add_argument('-N', '--no_save', action='store_true',
                                  help='Don\'t save trajectory information.\nDefault=False')
     parser_analysis.add_argument('-f', '--figures', action='store_true',
@@ -791,9 +791,9 @@ if __name__ == '__main__':
                 if queried_flags['design_range']:
                     low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
                     high_range = int((int(queried_flags['design_range'].split('-')[1]) / 100.0) * len(all_poses))
+                    logger.info('Selecting Designs within range: %d-%d' % (low_range, high_range))
                 else:
                     low_range, high_range = 0, -1
-                print('Selecting Designs with range: %d-%d' % (low_range, high_range))
                 design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
                                       for pose in all_poses[low_range:high_range]]
         else:
@@ -903,6 +903,15 @@ if __name__ == '__main__':
         for design in design_directories:
             design.connect_db(frag_db=fragment_db)
             design.euler_lookup = euler_lookup
+
+    if args.multi_processing:
+        # Calculate the number of threads to use depending on computer resources
+        threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
+        logger.info('Starting multiprocessing using %s threads' % str(threads))
+    else:
+        threads = 1
+        logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
+
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands
     # -----------------------------------------------------------------------------------------------------------------
@@ -935,18 +944,20 @@ if __name__ == '__main__':
                     % fasta_file)
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
-        for design_dir in design_directories:
-            result = design_dir.expand_asu()
-            results.append(result)
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.expand_asu, design_directories, threads=threads)
+        else:
+            for design_dir in design_directories:
+                results.append(design_dir.expand_asu())
 
         terminate(args.module, design_directories, results=results, output=False)
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
         if args.multi_processing:
-            # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(cores=args.cores)
-            logger.info('Starting multiprocessing using %s threads' % str(threads))
+            # # Calculate the number of threads to use depending on computer resources
+            # threads = SDUtils.calculate_mp_threads(cores=args.cores)
+            # logger.info('Starting multiprocessing using %s threads' % str(threads))
             if args.run_in_shell:
                 # TODO implementation where SymDesignControl calls Nanohedra.py
                 logger.error('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
@@ -956,13 +967,13 @@ if __name__ == '__main__':
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
                                       repeat(args.project), initial_iter)
-                    results = SDUtils.mp_starmap(nanohedra_command_s, zipped_args, threads)
+                    results = SDUtils.mp_starmap(nanohedra_command_s, zipped_args, threads=threads)
                 else:  # args.directory or args.file set up docking directories
                     zipped_args = zip(design_directories, repeat(args.project))
-                    results = SDUtils.mp_starmap(nanohedra_recap_s, zipped_args, threads)
+                    results = SDUtils.mp_starmap(nanohedra_recap_s, zipped_args, threads=threads)
                 # results = list(results)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
+            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             if args.run_in_shell:
                 logger.error('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
                              % (PUtils.nano, __file__))
@@ -1001,12 +1012,12 @@ if __name__ == '__main__':
     elif args.module == PUtils.generate_fragments:  # -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
-            logger.info('Starting multiprocessing using %s threads' % str(threads))
-            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads)
+            # # Calculate the number of threads to use depending on computer resources
+            # threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
+            # logger.info('Starting multiprocessing using %s threads' % str(threads))
+            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
+            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
                 design.generate_interface_fragments()
     # ---------------------------------------------------
@@ -1018,13 +1029,12 @@ if __name__ == '__main__':
                                 'more memory or the process will fail. Otherwise, select -design_with_evolution False')
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            # Calculate the number of threads to use depending on computer resources
-
-            threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
-            logger.info('Starting multiprocessing using %s threads' % str(threads))
-            results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads)
+            # # Calculate the number of threads to use depending on computer resources
+            # threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
+            # logger.info('Starting multiprocessing using %s threads' % str(threads))
+            results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads=threads)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
+            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
                 result = design.interface_design()
                 results.append(result)
@@ -1078,13 +1088,12 @@ if __name__ == '__main__':
                             'data! Please modify that file or specify a new output name with -o/--output'
                             % out_path)
         if args.multi_processing:
-            # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(cores=args.cores)
-            logger.info('Starting multiprocessing using %s threads' % str(threads))
-            results = SDUtils.mp_map(DesignDirectory.design_analysis, design_directories, threads)
+            # # Calculate the number of threads to use depending on computer resources
+            # threads = SDUtils.calculate_mp_threads(cores=args.cores)
+            # logger.info('Starting multiprocessing using %s threads' % str(threads))
+            results = SDUtils.mp_map(DesignDirectory.design_analysis, design_directories, threads=threads)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
-
+            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
                 result = design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
                                                 figures=args.figures)
@@ -1126,14 +1135,14 @@ if __name__ == '__main__':
             logger.warning('The following directories have no partner:\n\t%s' % '\n\t'.join(fail.path
                                                                                             for fail in failures))
         if args.multi_processing:
-            # Calculate the number of threads to use depending on computer resources
-            threads = SDUtils.calculate_mp_threads(cores=args.cores)
-            logger.info('Starting multiprocessing using %s threads' % str(threads))
+            # # Calculate the number of threads to use depending on computer resources
+            # threads = SDUtils.calculate_mp_threads(cores=args.cores)
+            # logger.info('Starting multiprocessing using %s threads' % str(threads))
             zipped_args = zip(design_directories, repeat(args.increment))
-            results = SDUtils.mp_starmap(rename, zipped_args, threads)
+            results = SDUtils.mp_starmap(rename, zipped_args, threads=threads)
             results2 = SDUtils.mp_map(merge_design_pair, directory_pairs, threads)
         else:
-            logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
+            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for des_directory in design_directories:
                 rename(des_directory, increment=args.increment)
             for directory_pair in directory_pairs:
@@ -1154,23 +1163,38 @@ if __name__ == '__main__':
             results.append(zip(design_directories, pose_design_numbers))
             location = args.pose_design_file
         elif args.dataframe:
-            # Figure out poses from a dataframe, filters, and weights
-            selected_poses = Ams.filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
-            # Sort results according to clustered poses if clustering exists
+            # Figure out poses from a dataframe, filters, and weights. Returns pose id's
+            selected_poses_df = Ams.filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
+            timestamp = time.strftime('%y%m%d-%H:%M:%S')
+            selected_poses_df.to_csv('Filtered%sDesignPoseMetrics-%s.csv'
+                                     % ('Weighted' if args.weight else '', timestamp))
+            selected_poses = selected_poses_df.index.to_list()
+            logger.info('%d poses were selected:\n\t%s' % (len(selected_poses_df), '\n\t'.join(selected_poses)))
+
             cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
+            # Sort results according to clustered poses if clustering exists  # Todo parameterize names?
             if os.path.exists(cluster_map):
-                pose_cluster_map = SDUtils.unpickle(cluster_map)
-                # {building_blocks: {design_string: cluster_representative}, ...}
-                pose_clusters_found, final_poses = [], []
-                # for des_dir in design_directories:
-                for pose in selected_poses:
-                    if pose_cluster_map[pose.split('-')[0]][pose] not in pose_clusters_found:
-                        pose_clusters_found.append(pose_cluster_map[pose.split('-')[0]][pose])
-                        final_poses.append(pose)
-                logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(final_poses))
+                cluster_pose_map = SDUtils.unpickle(cluster_map)
+                # {design_string: [design_string, ...]} where key is representative, values are matching designs
+                # OLD -> {composition: {design_string: cluster_representative}, ...}
+                pose_cluster_membership_map = invert_cluster_map(cluster_pose_map)
+                pose_clusters_found = {}  # , final_pose_indices = [], []
+                for idx, pose in enumerate(selected_poses):
+                    if pose_cluster_membership_map[pose] not in pose_clusters_found:
+                        # pose_clusters_found.append(pose_cluster_map[pose])
+                        pose_clusters_found[pose_cluster_membership_map[pose]] = pose
+                        # final_poses.append(pose)
+                        # final_pose_indices.append(idx)
+                    else:
+                        # This pose has already been found and it was identified again. We should only include the
+                        # representative in the output as it can provide information on all occurrences
+                        pose_clusters_found[pose_cluster_membership_map[pose]] = pose_cluster_membership_map[pose]
+                # logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(final_poses))
+                logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(pose_clusters_found.values()))
+                final_poses = list(pose_clusters_found.values())
             else:
-                logger.info('No pose cluster map was found. Clustering similar poses may eliminate redundancy from the '
-                            'final Design selection. To generate, run \'%s %s\''
+                logger.info('No cluster pose map was found. Clustering similar poses may eliminate redundancy from the '
+                            'final design selection. To cluster poses, run \'%s %s\''
                             % (PUtils.program_command, PUtils.cluster_poses))
                 final_poses = selected_poses
 
@@ -1203,16 +1227,30 @@ if __name__ == '__main__':
                 logger.info('Top ranked Designs cutoff at 7995')
     # ---------------------------------------------------
     elif args.module == PUtils.cluster_poses:
-        if args.multi_processing:
-            threads = SDUtils.calculate_mp_threads(cores=args.cores)
-            # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, design_directories, threads=threads))
-            pose_map = pose_rmsd_mp(design_directories, threads=threads)
-        else:
-            pose_map = pose_rmsd_s(design_directories)
+        # First, identify the same compositions
+        compositions = {}
+        for design in design_directories:
+            if compositions.get(design.composition, None):
+                compositions[design.composition].append(design)
+            else:
+                compositions[design.composition] = [design]
 
-            pose_cluster_map = cluster_poses(pose_map)
-            pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, PUtils.clustered_poses,
-                                                      out_path=design_directories[0].protein_data)
+        if args.multi_processing:
+            # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, design_directories, threads=threads))
+            # pose_map = pose_rmsd_mp(design_directories, threads=threads)
+            results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
+            pose_cluster_map = {}
+            for result in results:
+                pose_cluster_map.update(result.items())
+        else:
+            # pose_map = pose_rmsd_s(design_directories)
+            # pose_cluster_map = cluster_poses(pose_map)
+            pose_cluster_map = {}
+            for composition_group in compositions.values():
+                pose_cluster_map.update(cluster_designs(composition_group))
+
+        pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, PUtils.clustered_poses,
+                                                  out_path=next(iter(design_directories)).protein_data)
 
         # for protein_pair in pose_map:
         #     if os.path.basename(protein_pair) == '4f47_4grd':
@@ -1278,7 +1316,7 @@ if __name__ == '__main__':
         #     #     cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
         #     #     if os.path.exists(cluster_map):
         #     #         pose_cluster_map = SDUtils.unpickle(cluster_map)
-        #     #         # {building_blocks: {design_string: cluster_representative}, ...}
+        #     #         # {composition: {design_string: cluster_representative}, ...}
         #     #         pose_clusters_found, final_poses = [], []
         #     #         # for des_dir in design_directories:
         #     #         for pose in selected_poses:
@@ -1307,9 +1345,9 @@ if __name__ == '__main__':
             results = list(zip(design_directories, repeat('consensus')))
         else:
             if args.multi_processing:
-                # Calculate the number of threads to use depending on computer resources
-                threads = SDUtils.calculate_mp_threads(cores=args.cores)
-                logger.info('Starting multiprocessing using %s threads' % str(threads))
+                # # Calculate the number of threads to use depending on computer resources
+                # threads = SDUtils.calculate_mp_threads(cores=args.cores)
+                # logger.info('Starting multiprocessing using %s threads' % str(threads))
                 # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                 #                     'int_energy_res_summary_delta': 0.25}
                 zipped_args = zip(design_directories, repeat(sequence_weights), repeat(args.number_sequences))
@@ -1391,7 +1429,7 @@ if __name__ == '__main__':
             # source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
             # Todo clean up depreciation
             # if des_dir.nano:
-            #     pose_entities = os.path.basename(des_dir.building_blocks).split('_')
+            #     pose_entities = os.path.basename(des_dir.composition).split('_')
             # else:
             #     pose_entities = []
             source_seqres = {}
