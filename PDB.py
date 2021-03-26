@@ -135,7 +135,6 @@ class PDB(Structure):
                     atoms.extend(entity.atoms)
                     residues.extend(entity.residues)
                     chains.extend(entity.chains)  # won't be included in the main PDB object as of now...
-                    # self.chains.extend(entity.chains)  # won't be included in the main PDB object as of now...
                 self.atoms = atoms
                 self.residues = residues
                 self.atom_indices = list(range(len(atoms)))
@@ -158,9 +157,10 @@ class PDB(Structure):
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
                 # because we don't care for chains attributes (YET) we update after everything is set
-                self.chains = chains
-                self.reorder_chains()
-                self.chain_id_list = [chain.name for chain in self.chains]
+                # self.chains = chains
+                # self.reorder_chains()
+                # self.chain_id_list = [chain.name for chain in self.chains]
+                self.chain_id_list = [chain.name for chain in chains]
                 if not kwargs.get('lazy', False):  # Todo change lazy to pose
                     self.renumber_pdb()
             if metadata and isinstance(metadata, PDB):
@@ -1210,7 +1210,7 @@ class PDB(Structure):
                     for _ in iter(delete_indices):
                         structure._atom_indices.pop(atom_delete_index)
                     structure.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
-                except ValueError:
+                except (ValueError, IndexError):
                     # this should happen if the Atom is not in the Structure of interest
                     continue
 
