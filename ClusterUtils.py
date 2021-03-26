@@ -240,8 +240,10 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     essentially the same space
 
     Args:
-        transform1 (dict[mapping[str, numpy.ndarray]]): A set of rotations/translations to be clustered
-        transform2 (dict[mapping[str, numpy.ndarray]]): A set of rotations/translations to be clustered
+        transform1 (dict[mapping[str, numpy.ndarray]]): First set of rotations/translations to be clustered
+            {'rotation': rot_array, 'translation': tx_array, 'rotation2': rot2_array, 'translation2': tx2_array}
+        transform2 (dict[mapping[str, numpy.ndarray]]): Second set of rotations/translations to be clustered
+            {'rotation': rot_array, 'translation': tx_array, 'rotation2': rot2_array, 'translation2': tx2_array}
     Keyword Args:
         distance=1.0 (float): The distance to query neighbors in transformational space
     Returns:
@@ -252,20 +254,15 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     #  a similar tx and a 3 degree step of rotation.
     # make a blank set of guide coordinates for each incoming transformation
     guide_coords = np.tile(np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]]), (len(transform1['rotation']), 1, 1))
-    # transforms = {'rotation': rotation_array, 'translation': translation_array,
-    #               'rotation2': rot2_array, 'translation2': tx2_array}
-    # print(transform1['translation'])
-    transformed_guide_coords1 = transform_coordinate_sets(guide_coords, **transform1)
-    # print(transformed_guide_coords1)
-    transformed_guide_coords_reshape1 = transformed_guide_coords1.reshape(-1, 9)
+    # transform1 =
 
-    # print(transformed_guide_coords_reshape1)
+    transformed_guide_coords1 = transform_coordinate_sets(guide_coords, **transform1)
+
     transformed_guide_coords2 = transform_coordinate_sets(guide_coords, **transform2)
-    # print(transformed_guide_coords2)
-    # transformed_guide_coords = np.concatenate([transformed_guide_coords1, transformed_guide_coords2], axis=2)
+
     transformed_guide_coords = np.concatenate([transformed_guide_coords1.reshape(-1, 9),
                                                transformed_guide_coords2.reshape(-1, 9)], axis=1)
-    # print(transformed_guide_coords)
+
     # create a tree structure describing the distances of all transformed points relative to one another
     transform_tree = NearestNeighbors(algorithm='ball_tree', radius=distance)
     transform_tree.fit(transformed_guide_coords)
@@ -279,9 +276,6 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
 
     # find cluster mean for each index
-    # print(tree_distances, tree_indices)
-    # print(type(tree_distances), type(tree_indices))
-    # mean_cluster_dist = tree_distances.mean()
     mean_cluster_dist = np.empty(tree_distances.shape[0])
     for idx, array in enumerate(tree_distances.tolist()):
         mean_cluster_dist[idx] = array.mean()  # empty slices can't have mean, so return np.nan if cluster is an outlier
@@ -290,19 +284,16 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     representative_transformation_indices = []
     for label in labels:
         cluster_indices = np.flatnonzero(cluster.labels_ == label)
-        # print(mean_cluster_dist[np.flatnonzero(cluster.labels_ == label)])
-        # print(cluster_indices[mean_cluster_dist[cluster_indices].argmin()])
         representative_transformation_indices.append(cluster_indices[mean_cluster_dist[cluster_indices].argmin()])
-        # representative_transformation_indices.append(mean_cluster_dist[np.where(cluster.labels_ == label)].argmin())
     # add all outliers to representatives
     representative_transformation_indices.extend(np.flatnonzero(cluster.labels_ == outlier).tolist())
 
     return representative_transformation_indices, cluster.labels_
 
 
-def cluster_designs(composition_group):
+def cluster_designs(composition):
     """From a group of poses with matching protein composition, cluster the designs according to transformational
-    parameters
+    parameters to identify the unique poses in each composition
 
     Args:
         (iterable[DesignDirectory]): The group of DesignDirectory objects to pull transformation data from
@@ -310,52 +301,32 @@ def cluster_designs(composition_group):
         (dict[mapping[DesignDirectoryID, list[DesignDirectoryID]]): Cluster with the representative as the key and
         matching poses as the values
     """
-    # # First, identify the same compositions
-    # compositions = {}
-    # for design in design_directories:
-    #     if compositions.get(design.composition, None):
-    #         compositions[design.composition].append(design)
-    #     else:
-    #         compositions[design.composition] = [design]
-
-    # Next, identify the unique poses in each composition
-    # pose_cluster_map = {}
-    # for composition_group in compositions.values():
     # format all transforms for the selected compositions
-    stacked_transforms = [design_directory.pose_transformation() for design_directory in composition_group]
-    # transformations1 = [transform[1].values() for transform in stacked_transforms]
+    stacked_transforms = [design_directory.pose_transformation() for design_directory in composition]
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[1].values()
                                                              for transform in stacked_transforms])
-    # must add a new axis to translations so the operations broadcast together
-    transformation1 = {'rotation': np.array(trans1_rot1), 'translation': np.array(trans1_tx1)[:, np.newaxis, :],
-                       'rotation2': np.array(trans1_rot2), 'translation2': np.array(trans1_tx2)[:, np.newaxis, :]}
-
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[2].values()
                                                              for transform in stacked_transforms])
+
+    # must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
+    transformation1 = {'rotation': np.array(trans1_rot1), 'translation': np.array(trans1_tx1)[:, np.newaxis, :],
+                       'rotation2': np.array(trans1_rot2), 'translation2': np.array(trans1_tx2)[:, np.newaxis, :]}
     transformation2 = {'rotation': np.array(trans2_rot1), 'translation': np.array(trans2_tx1)[:, np.newaxis, :],
                        'rotation2': np.array(trans2_rot2), 'translation2': np.array(trans2_tx2)[:, np.newaxis, :]}
-
-    # rotation1, translation1, rotation2, translation2 = zip(*[design_directory.pose_transformation()
-    #                                                          for design_directory in design_directories])
-    # rotation1, translation1, rotation2, translation2 = stacked_transforms
 
     # This section could be added to the Nanohedra docking routine
     cluster_representative_indices, cluster_labels = cluster_transformations(transformation1, transformation2)
     representative_labels = cluster_labels[cluster_representative_indices]
-    print(representative_labels)
 
     # pull out the pose-id from the input composition groups (DesignDirectory)
-    composition_map = {str(composition_group[rep_idx]): [str(composition_group[idx])
-                                                         for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+    composition_map = {str(composition[rep_idx]): [str(composition[idx])
+                                                   for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
                        for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
                        if rep_label != -1}  # don't add outliers (-1 labels) now
     # add the outliers as separate occurrences
-    composition_map.update({str(composition_group[idx]): [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
-    print(composition_map)
-    return composition_map
-    # pose_cluster_map.update(composition_map)
+    composition_map.update({str(composition[idx]): [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
 
-    # return pose_cluster_map
+    return composition_map
 
 
 def invert_cluster_map(cluster_map):
