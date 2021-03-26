@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 from glob import glob
-from itertools import combinations
+from itertools import combinations, repeat
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,8 +44,8 @@ design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, directory_type=PUtils.interface_design, pose_id=None, root=None, debug=False,
-                 **kwargs):  # project=None,
+    def __init__(self, design_path, nano=False, directory_type=PUtils.interface_design, pose_id=None, root=None,
+                 debug=False, **kwargs):  # project=None,
         if pose_id:  # Todo may not be compatible P432
             self.program_root = root
             self.directory_string_to_path(pose_id)
@@ -103,12 +103,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.refine_pdb = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
         self.refined_pdb = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/rosetta_pdbs/clean_asu_for_refine.pdb
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/designs/clean_asu_for_refine.pdb
         self.consensus = None  # Whether to run consensus or not
         self.consensus_pdb = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_consensus.pdb
         self.consensus_design_pdb = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/rosetta_pdbs/clean_asu_for_consensus.pdb
+        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/designs/clean_asu_for_consensus.pdb
 
         self.sdf = None
         # path/to/directory/sdf/
@@ -116,6 +116,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.oligomer_names = []
         self.oligomers = []
 
+        # todo integrate these flags with SymEntry and pass to Pose
         self.sym_entry_number = None
         self.design_symmetry = None
         self.design_dim = None
@@ -236,7 +237,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
                 # design_symmetry (P432)
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
-                self.building_blocks = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
+                self.composition = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
+                self.oligomer_names = os.path.basename(self.composition).split('_')
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.path, PUtils.asu)
                 self.set_up_design_directory()
@@ -254,6 +256,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.design_symmetry = self.sym_entry.get_result_design_sym()
 
         else:
+            self.composition = None
             if '.pdb' in design_path:  # set up /program_root/projects/project/design
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
@@ -389,7 +392,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def pose_transformation(self):
         """Returns:
-            (dict): {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
+            # (dict): {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
+            (dict): {1: {'rotation': numpy.ndarray,'translation': numpy.ndarray, 'rotation2': numpy.ndarray,
+                         'translation2': numpy.ndarray},
+                     2: {}}
         """
         return self.transform_d  # Todo enable transforms with pdbDB
 
@@ -545,9 +551,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         wt_file = glob(self.asu)
         assert len(wt_file) == 1, '%s: More than one matching file found with %s' % (self.path, PUtils.asu)
         return wt_file[0]
-        # for file in os.listdir(self.building_blocks):
+        # for file in os.listdir(self.composition):
         #     if file.endswith(PUtils.asu):
-        #         return os.path.join(self.building_blocks, file)
+        #         return os.path.join(self.composition, file)
 
     def get_designs(self):  # design_type=PUtils.interface_design
         """Return the paths of all design files in a DesignDirectory"""
@@ -568,10 +574,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #     return len(symm for symm in self.program_root)
     #
     # def return_building_block_stats(self):  # Depreciated
-    #     return len(bb for symm_bb in self.building_blocks for bb in symm_bb)
+    #     return len(bb for symm_bb in self.composition for bb in symm_bb)
     #
     # def return_unique_pose_stats(self):  # Depreciated
-    #     return len(bb for symm in self.building_blocks for bb in symm)
+    #     return len(bb for symm in self.composition for bb in symm)
 
     # def return_fragment_metrics(self):
     #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
@@ -580,7 +586,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def get_oligomers(self):
         # if self.directory_type == PUtils.interface_design:
         self.oligomers = []
-        self.oligomer_names = os.path.basename(self.building_blocks).split('_')
         for idx, name in enumerate(self.oligomer_names):
             pdb_files = glob(os.path.join(self.path, '%s*.pdb' % name))
             assert len(pdb_files) == 1, 'Incorrect match [%d != 1] found using %s*.pdb!' % (len(pdb_files), name)
@@ -779,22 +784,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     self.percent_overlapping_fragment = float(line[25:].strip()) / 100
                 elif line[:20] == 'ROT/DEGEN MATRIX PDB':
                     data = eval(line[22:].strip())
-                    self.transform_d[int(line[20:21])] = {'rot/deg': np.array(data)}
+                    self.transform_d[int(line[20:21])] = {'rotation': np.array(data)}
                 elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
                     data = eval(line[17:].strip())
                     if data:  # == 'None'
-                        self.transform_d[int(line[15:16])]['tx_int'] = np.array(data)
+                        self.transform_d[int(line[15:16])]['translation'] = np.array(data)
                     else:
-                        self.transform_d[int(line[15:16])]['tx_int'] = np.array([0, 0, 0])
+                        self.transform_d[int(line[15:16])]['translation'] = np.array([0, 0, 0])
                 elif line[:18] == 'SETTING MATRIX PDB':
                     data = eval(line[20:].strip())
-                    self.transform_d[int(line[18:19])]['setting'] = np.array(data)
+                    self.transform_d[int(line[18:19])]['rotation2'] = np.array(data)
                 elif line[:22] == 'REFERENCE FRAME Tx PDB':
                     data = eval(line[24:].strip())
                     if data:
-                        self.transform_d[int(line[22:23])]['tx_ref'] = np.array(data)
+                        self.transform_d[int(line[22:23])]['translation2'] = np.array(data)
                     else:
-                        self.transform_d[int(line[22:23])]['tx_ref'] = np.array([0, 0, 0])
+                        self.transform_d[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
                 elif 'Nanohedra Score:' in line:  # res_lev_sum_score
                     self.all_residue_score = float(line[16:].rstrip())
                 elif 'CRYST1 RECORD:' in line:
@@ -1200,15 +1205,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(design_residues), 2)
 
         idx_slice = pd.IndexSlice
-        if not os.path.exists(self.scores_file):
-            # initialize design dataframes as empty
-            pose_stat_s, protocol_stat_s, protocol_stats_s, sim_series = {}, {}, [], []
-
-            # if not self.info:
-            #     raise DesignError('Has not been initialized for design and therefore can\'t be analyzed. '
-            #                       'Initialize and perform interface design if you want to measure this design.')
-
-        else:
+        # initialize design dataframes as empty
+        pose_stat_s, protocol_stat_s, protocol_stats_s, sim_series = {}, {}, [], []
+        if os.path.exists(self.scores_file):
             # Get the scores from all design trajectories
             all_design_scores = read_scores(os.path.join(self.scores, PUtils.scores_file))
             all_design_scores = remove_interior_keys(all_design_scores, remove_score_columns)
@@ -1488,18 +1487,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             protocol_subset_df = trajectory_df.loc[:, protocol_specific_columns]
             protocol_intersection = set(protocols_of_interest) & set(unique_protocols)
 
+            pvalue_df = pd.DataFrame()
             if protocol_intersection != set(protocols_of_interest):
                 self.log.warning(
                     'Missing %s protocol required for significance measurements! Significance analysis failed!'
                     % ', '.join(set(protocols_of_interest) - protocol_intersection))
-                significance = False
-                sim_sum_and_divergence_stats, sim_measures = {}, {}
+                # significance = False
+                # sim_sum_and_divergence_stats, sim_measures = {}, {}
             else:
-                significance = True
-
+                # significance = True
                 sig_df = protocol_stat_df['mean']  # stats_metrics[0]
                 assert len(sig_df.index.to_list()) > 1, 'Can\'t measure protocol significance, not enough protocols!'
-                pvalue_df = pd.DataFrame()
                 for pair in combinations(sorted(sig_df.index.to_list()), 2):
                     select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]
                     difference_s = sig_df.loc[pair[0], protocol_specific_columns].sub(
@@ -1587,108 +1585,108 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     measure_s = pd.Series(
                         {pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
                     sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
-
-            # Create figures
-            if figures:  # Todo with relevant .ipynb figures
-                _path = os.path.join(self.all_scores, str(self))
-                # Set up Labels & Plot the PC data
-                protocol_map = {protocol: i for i, protocol in enumerate(unique_protocols)}
-                integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
-                pc_labels_group = [protocols_by_design[design] for design in residue_dict]
-                # pc_labels_group = np.array([protocols_by_design[design] for design in residue_dict])
-                pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_dict]
-                fig = plt.figure()
-                # ax = fig.add_subplot(111, projection='3d')
-                ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-                # plt.cla()
-
-                # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
-                #     ax.scatter(seq_pc[pc_labels_group == label, 0],
-                #                seq_pc[pc_labels_group == label, 1],
-                #                seq_pc[pc_labels_group == label, 2],
-                #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
-                scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
-                                     edgecolor='k')
-                # handles, labels = scatter.legend_elements()
-                # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
-                # ax.legend(handles, labels, loc='upper right', title=groups)
-                # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
-                # # plt.axis('equal') # not possible with 3D graphs
-                # plt.legend()  # No handles with labels found to put in legend.
-                colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-                custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in colors]
-                ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left', bbox_to_anchor=(1.0, .5))
-                # # Add group mean to the plot
-                # for name, label in integer_map.items():
-                #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(), seq_pc[pc_labels_group == label, 1].mean(),
-                #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
-                ax.set_xlabel('PC1')
-                ax.set_ylabel('PC2')
-                ax.set_zlabel('PC3')
-                # plt.legend(pc_labels_group)
-                plt.savefig('%s_seq_pca.png' % _path)
-                plt.clf()
-                # Residue PCA Figure to assay multiple interface states
-                fig = plt.figure()
-                # ax = fig.add_subplot(111, projection='3d')
-                ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-                scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
-                                     c=pc_labels_int,
-                                     cmap='Spectral', edgecolor='k')
-                colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-                custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in colors]
-                ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left', bbox_to_anchor=(1.0, .5))
-                ax.set_xlabel('PC1')
-                ax.set_ylabel('PC2')
-                ax.set_zlabel('PC3')
-                plt.savefig('%s_res_energy_pca.png' % _path)
-
-            # Save Trajectory, Residue DataFrames, and PDB Sequences
-            if save_trajectories:
-                # trajectory_df.to_csv('%s_Trajectories.csv' % _path)
-                trajectory_df.to_csv(self.trajectories)
-                # clean_residue_df.to_csv('%s_Residues.csv' % _path)
-                clean_residue_df.to_csv(self.residues)
-                seq_file = pickle_object(all_design_sequences, '%s_Sequences' % str(self), out_path=self.all_scores)
-
-            # CONSTRUCT: Create pose series and format index names
-            pose_stat_s, protocol_stat_s = {}, {}
-            for stat in stats_metrics:
-                pose_stat_s[stat] = trajectory_df.loc[stat, :]
-                pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=['pose'])
-                pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=[stat])
-                # Collect protocol specific metrics in series
-                suffix = ''
-                if stat != 'mean':
-                    suffix = '_' + stat
-                protocol_stat_s[stat] = pd.concat([protocol_subset_df.loc[protocol + suffix, :]
-                                                   for protocol in unique_protocols], keys=unique_protocols)
-                protocol_stat_s[stat] = pd.concat([protocol_stat_s[stat]], keys=[stat])
-
-            protocol_stats_s = pd.concat([pd.Series(stats_by_protocol[protocol]) for protocol in stats_by_protocol],
-                                         keys=unique_protocols)
-
-            # Add series specific Multi-index names to data
-            protocol_stats_s = [pd.concat([protocol_stats_s], keys=['stats'])]
-
-            if significance:
+            # if significance:
                 # Find the significance between each pair of protocols
                 protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
                                            keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
                 # squeeze turns the column headers into series indices. Keys appends to make a multi-index
 
                 other_stats_s = pd.Series(sim_sum_and_divergence_stats)
-                other_stats_s = pd.concat([other_stats_s], keys=['pose'])
-                other_stats_s = pd.concat([other_stats_s], keys=['seq_design'])
+                other_stats_s = pd.concat([other_stats_s], keys=[('seq_design', 'pose')], copy=False)
 
                 # Process similarity between protocols
                 sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
                                            keys=[measure for measure in sim_measures])
                 sim_series = [protocol_sig_s, other_stats_s, sim_measures_s]
 
+                if figures:  # Todo ensure output is as expected
+                    _path = os.path.join(self.all_scores, str(self))
+                    # Set up Labels & Plot the PC data
+                    protocol_map = {protocol: i for i, protocol in enumerate(unique_protocols)}
+                    integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
+                    pc_labels_group = [protocols_by_design[design] for design in residue_dict]
+                    # pc_labels_group = np.array([protocols_by_design[design] for design in residue_dict])
+                    pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_dict]
+                    fig = plt.figure()
+                    # ax = fig.add_subplot(111, projection='3d')
+                    ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+                    # plt.cla()
+
+                    # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
+                    #     ax.scatter(seq_pc[pc_labels_group == label, 0],
+                    #                seq_pc[pc_labels_group == label, 1],
+                    #                seq_pc[pc_labels_group == label, 2],
+                    #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
+                    scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
+                                         edgecolor='k')
+                    # handles, labels = scatter.legend_elements()
+                    # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
+                    # ax.legend(handles, labels, loc='upper right', title=groups)
+                    # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
+                    # # plt.axis('equal') # not possible with 3D graphs
+                    # plt.legend()  # No handles with labels found to put in legend.
+                    colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+                    custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
+                                    colors]
+                    ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+                              bbox_to_anchor=(1.0, .5))
+                    # # Add group mean to the plot
+                    # for name, label in integer_map.items():
+                    #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(), seq_pc[pc_labels_group == label, 1].mean(),
+                    #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
+                    ax.set_xlabel('PC1')
+                    ax.set_ylabel('PC2')
+                    ax.set_zlabel('PC3')
+                    # plt.legend(pc_labels_group)
+                    plt.savefig('%s_seq_pca.png' % _path)
+                    plt.clf()
+                    # Residue PCA Figure to assay multiple interface states
+                    fig = plt.figure()
+                    # ax = fig.add_subplot(111, projection='3d')
+                    ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+                    scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
+                                         c=pc_labels_int,
+                                         cmap='Spectral', edgecolor='k')
+                    colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+                    custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
+                                    colors]
+                    ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+                              bbox_to_anchor=(1.0, .5))
+                    ax.set_xlabel('PC1')
+                    ax.set_ylabel('PC2')
+                    ax.set_zlabel('PC3')
+                    plt.savefig('%s_res_energy_pca.png' % _path)
+
+            # CONSTRUCT: Create pose series and format index names
+            pose_stat_s, protocol_stat_s = {}, {}
+            for stat in stats_metrics:
+                pose_stat_s[stat] = pd.concat([trajectory_df.loc[stat, :]], keys=[(stat, 'pose')], copy=False)
+                # pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=[stat])
+                # Collect protocol specific metrics in series
+                suffix = ''
+                if stat != 'mean':
+                    suffix = '_%s' % stat
+                protocol_stat_s[stat] = pd.concat([protocol_subset_df.loc['%s%s' % (protocol, suffix), :]
+                                                   for protocol in unique_protocols],
+                                                  keys=list(zip(repeat(stat), unique_protocols)))
+                # protocol_stat_s[stat] = pd.concat([protocol_stat_s[stat]], keys=[stat], copy=False)
+
+            protocol_stats_s = pd.concat([pd.Series(stats_by_protocol[protocol]) for protocol in stats_by_protocol],
+                                         keys=list(zip(repeat('stats'), unique_protocols)))
+            # protocol_stats_s = [pd.concat([protocol_stats_s], keys=['stats'])]
+
+            # Save Trajectory, Residue DataFrames, and PDB Sequences
+            if save_trajectories:
+                trajectory_df.to_csv(self.trajectories)
+                clean_residue_df.to_csv(self.residues)
+                seq_file = pickle_object(all_design_sequences, '%s_Sequences' % str(self), out_path=self.all_scores)
+
+            # Create figures
+            # if figures:  # Todo with relevant .ipynb figures
+
         other_metrics_s = pd.Series(other_pose_metrics)
-        other_metrics_s = pd.concat([other_metrics_s], keys=['pose'])
-        other_metrics_s = pd.concat([other_metrics_s], keys=['dock'])
+        other_metrics_s = pd.concat([other_metrics_s], keys=[('dock', 'pose')], copy=False)
+
         # Combine all series
         pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] +
                            [protocol_stat_s[stat] for stat in protocol_stat_s]
@@ -1736,7 +1734,7 @@ def set_up_directory_objects(design_list, mode=PUtils.interface_design, project=
 def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
     pseudo_dir = DesignDirectory(path, nano=False)
     # pseudo_dir.path = os.path.dirname(wildtype)
-    pseudo_dir.building_blocks = os.path.dirname(path)
+    pseudo_dir.composition = os.path.dirname(path)
     pseudo_dir.designs = directory
     pseudo_dir.scores = os.path.dirname(score)
     pseudo_dir.all_scores = os.getcwd()
