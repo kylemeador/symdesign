@@ -887,8 +887,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.required_indices (set[int])
         """
         if len(self.pdbs_d) > 1:
-            self.log.warning('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
-                             'files. Proceed with caution if this is not what you expected!')
+            self.log.debug('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
+                           'files. Proceed with caution if this is not what you expected!')
         def grab_indices(pdbs=None, entities=None, chains=None, residues=None, pdb_residues=None, atoms=None,
                          start_with_none=False):
             if start_with_none:

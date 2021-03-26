@@ -394,12 +394,12 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
 
     exit_code = 0
     if exceptions:
-        print('\n\n')
+        print('\n')
         logger.warning('Exceptions were thrown for %d designs. Check their logs for further details\n\t%s' %
                        (len(exceptions), '\n\t'.join('%s: %s' % (str(design.path), _error)
                                                      for (design, _error) in exceptions)))
-        exit_code = 1
-        print('\n' * 3)
+        print('\n')
+        # exit_code = 1
 
     if success and output:  # and (inputs_moved or all_poses and design_directories and not args.file):  # Todo
         program_root = next(iter(designs)).program_root
