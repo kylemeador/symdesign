@@ -23,7 +23,7 @@ orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
 rosetta = os.environ.get('ROSETTA')
 nstruct = 20  # Todo back to 50?
-stage = {1: 'refine', 2: interface_design, 3: 'metrics', 4: 'analysis', 5: 'consensus',
+stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
          11: 'all_to_cluster'}
 stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},

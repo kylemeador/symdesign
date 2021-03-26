@@ -15,7 +15,7 @@ import PathUtils as PUtils
 from SymDesignUtils import index_offset, start_log, DesignError, collect_designs, mp_starmap, unpickle, \
     pickle_object
 
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)
 
 
 class GracefulKiller:
@@ -181,8 +181,8 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
     logger.info('To distribute \'%s\' commands, ensure the sbatch script located at %s is correct. Specifically, check '
                 'the job array and any node specifications to be accurate. You can look at the sbatch manual '
                 '(man sbatch or sbatch --help) to understand the variables or ask for help if you are still unsure. '
-                'Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s\n\tSuccessful designs '
-                'will be listed in \'%s\'\n\tFailed designs will be listed in \'%s\''
+                'Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s\n\t  Successful designs '
+                'will be listed in \'%s\'\n\t  Failed designs will be listed in \'%s\''
                 % (stage, filename, filename, success_file, failure_file))
 
     return filename
