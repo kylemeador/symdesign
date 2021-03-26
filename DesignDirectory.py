@@ -931,16 +931,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   '\'True\' if you want to use fragments')
 
         # Mutate all design positions to Ala before the Refinement
-        mutated_pdb = copy.deepcopy(self.pose.pdb)
-        for entity_pair, residue_pair in self.pose.interface_residues.items():
-            for idx, entity_residues in enumerate(residue_pair):
+        # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
+        # mutated_pdb = copy.copy(self.pose.pdb)  # this method is implemented, incompatible with downstream use!
+        # Have to use the self.pose.pdb as the Residue objects in entity_residues are from self.pose.pdb and not copy()!
+        for idx, (entity_pair, residue_pair) in enumerate(self.pose.interface_residues.items()):
+            if residue_pair[0]:  # check that there are residues present
                 self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
-                for residue in entity_residues:
-                    self.log.debug('Mutating %d%s' % (residue.number, residue.type))
-                    if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
-                        mutated_pdb.mutate_residue(residue=residue, to='A')
+                for entity_residues in residue_pair:
+                    for residue in entity_residues:
+                        self.log.debug('Mutating %d%s' % (residue.number, residue.type))
+                        if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+                            self.pose.pdb.mutate_residue(residue=residue, to='A')
 
-        mutated_pdb.write(out_path=self.refine_pdb)
+        self.pose.pdb.write(out_path=self.refine_pdb)
         self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
 
         # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
