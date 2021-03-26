@@ -164,7 +164,7 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
         weight=False (bool): Whether weights are going to select the poses
         consensus=False (bool): Whether consensus designs should be chosen
     Returns:
-        (list): The indices of the designs to select based on the provided filters and weights
+        (pandas.DataFrame): The dataframe of selected designs based on the provided filters and weights
     """
     idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
@@ -186,13 +186,13 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
         # Filter the DataFrame to include only those values which are le/ge the specified filter
         filters_with_idx = df_filter_index_by_value(_df, **_filters)
         filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
-        logger.info('\n\t%s' % '\n\t'.join('Number of designs passing \'%s\' filter = %d' %
-                                           (metric, len(filtered_indices[metric])) for metric in filtered_indices))
+        logger.info('Number of designs passing filters:\n\t%s'
+                    % '\n\t'.join('%6d - %s' % (len(indices), metric) for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices)
         logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
         if len(final_indices) == 0:
             raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
-                              'some better designs!')
+                              'better designs!')
         _df = _df.loc[final_indices, :]
 
     # When df IS ranked by percentage
@@ -241,21 +241,24 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
         # weights_s = pd.Series(weights)
         weight_score_s_d = {}
         for metric in _weights:
-            weight_score_s_d[metric] = _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
-                                                        method=_weights[metric]['direction'], pct=True) \
-                                       * _weights[metric]['value']
+            weight_score_s_d[metric] = \
+                _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+                                 method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
 
         design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
-        designs = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+        weighted_s = design_score_df.sum(axis=1).sort_values(ascending=False)
+        weighted_df = pd.concat([weighted_s], keys=[('pose', 'sum', 'selection_weight')])
+        final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
+        # designs = weighted_s.index.to_list()
     else:
-        designs = _df.index.to_list()
+        final_df = df.loc[_df.index.to_list(), :]
+        # designs = _df.index.to_list()
     # these will be sorted by the largest value to the smallest
     # design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
     # designs = design_scores_s.index.to_list()
     # designs = design_scores_s.index.to_list()[:num_designs]
-    logger.info('%d poses were selected:\n%s' % (len(designs), '\n'.join(designs)))
-
-    return designs
+    # return designs
+    return final_df
 
 
 # @handle_design_errors(errors=(DesignError, AssertionError))
