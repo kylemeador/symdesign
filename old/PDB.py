@@ -4,11 +4,9 @@ import os
 import subprocess
 from shutil import copyfile, move
 
-import numpy
-
 from PathUtils import free_sasa_exe_path, orient_dir, orient_exe_path, orient_log_file
-from classes.Atom import Atom
-from classes.Stride import Stride
+from old.Atom import Atom
+from old.Stride import Stride
 from utils.SymmetryUtils import valid_subunit_number
 
 
