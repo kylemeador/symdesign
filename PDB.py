@@ -234,7 +234,7 @@ class PDB(Structure):
              'cryst': other.__dict__['cryst'],
              'design': other.__dict__['design'],
              'entity_d': other.__dict__['entity_d'],  # Todo
-             'name': other.__dict__['_name'],
+             '_name': other.__dict__['_name'],
              'space_group': other.__dict__['space_group'],
              'uc_dimensions': other.__dict__['uc_dimensions'],
              'header': other.__dict__['header'],
@@ -270,23 +270,19 @@ class PDB(Structure):
         self.cb_coords = pdb.cb_coords
         self.bb_coords = pdb.bb_coords
 
-    def readfile(self, filepath, lazy=False, name=None, **kwargs):
+    def readfile(self, filepath, lazy=False, **kwargs):  # name=None,
         """Reads .pdb file and feeds PDB instance"""
         self.filepath = filepath
-        if not name:
+        if not self.name:
             formatted_filename = os.path.splitext(os.path.basename(filepath))[0].replace('pdb', '')
             underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
             self.name = formatted_filename[:underscore_idx]
-        else:
-            self.name = name
 
         with open(self.filepath, 'r') as f:
             pdb_lines = f.readlines()
-            # pdb_lines = list(map(str.rstrip, pdb_lines))
 
         chain_ids = []
         seq_res_lines = []
-        # remove_alt_location = True
         multimodel, start_of_new_model = False, False
         model_chain_id, curr_chain_id = None, None
         entity = None
