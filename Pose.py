@@ -993,7 +993,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
         pdb_atoms = self.pdb.atoms
-        pdb_residues = self.pdb.residues
         number_of_atoms = self.number_of_atoms
         self.log.debug('Number of atoms in PDB: %s' % number_of_atoms)
 
