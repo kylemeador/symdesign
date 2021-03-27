@@ -10,7 +10,7 @@ from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
-    start_log, null_log, possible_symmetries, match_score_from_z_value
+    start_log, null_log, possible_symmetries, match_score_from_z_value, split_interface_pairs
 from utils.GeneralUtils import write_frag_match_info_file
 from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from classes.EulerLookup import EulerLookup
@@ -1056,7 +1056,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         contacting_pairs = [(pdb_atoms[entity1_indices[entity1_idx]].residue_number,
                              pdb_atoms[entity2_indices[entity2_idx]].residue_number)
-                            for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
+                            for entity2_idx, entity1_contacts in enumerate(entity2_query)
+                            for entity1_idx in entity1_contacts]
         if entity2 != entity1:
             return contacting_pairs
         else:  # solve symmetric results for asymmetric contacts
@@ -1069,24 +1070,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     asymmetric_contacting_pairs.append((pair1, pair2))
 
             return asymmetric_contacting_pairs
-
-    # @staticmethod
-    # def split_interface_pairs(interface_pairs):
-    #     if interface_pairs:
-    #         residues1, residues2 = zip(*interface_pairs)
-    #         return sorted(set(residues1), key=lambda residue: residue.number), \
-    #             sorted(set(residues2), key=lambda residue: residue.number)
-    #     else:
-    #         return [], []
-
-    # for residue numbers
-    @staticmethod
-    def split_interface_pairs(interface_pairs):
-        if interface_pairs:
-            residues1, residues2 = zip(*interface_pairs)
-            return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
-        else:
-            return [], []
 
     def find_interface_residues(self, entity1=None, entity2=None, **kwargs):  # distance=8, include_glycine=True):
         """Get unique residues from each pdb across an interface provided by two Entity names
@@ -1101,7 +1084,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         # entity1_residues, entity2_residues = \
         entity1_residue_numbers, entity2_residue_numbers = \
-            self.split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
+            split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
         if not entity1_residue_numbers or not entity2_residue_numbers:
         # if not entity1_residues or not entity2_residues:
             self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
@@ -1661,23 +1644,23 @@ def find_interface_pairs(pdb1, pdb2, distance=8):  # , gly_ca=True):
     return interface_pairs
 
 
-def split_interface_pairs(interface_pairs):
-    residues1, residues2 = zip(*interface_pairs)
-    return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
-
-
-def find_interface_residues(pdb1, pdb2, distance=8):
-    """Get unique residues from each pdb across an interface
-
-        Args:
-            pdb1 (PDB): First pdb to measure interface between
-            pdb2 (PDB): Second pdb to measure interface between
-        Keyword Args:
-            distance=8 (int): The distance to query in Angstroms
-        Returns:
-            (tuple(set): A tuple of interface residue sets across an interface
-    """
-    return split_interface_pairs(find_interface_pairs(pdb1, pdb2, distance=distance))
+# def split_interface_pairs(interface_pairs):
+#     residues1, residues2 = zip(*interface_pairs)
+#     return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
+#
+#
+# def find_interface_residues(pdb1, pdb2, distance=8):
+#     """Get unique residues from each pdb across an interface
+#
+#         Args:
+#             pdb1 (PDB): First pdb to measure interface between
+#             pdb2 (PDB): Second pdb to measure interface between
+#         Keyword Args:
+#             distance=8 (int): The distance to query in Angstroms
+#         Returns:
+#             (tuple(set): A tuple of interface residue sets across an interface
+#     """
+#     return split_interface_pairs(find_interface_pairs(pdb1, pdb2, distance=distance))
 
 
 def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
