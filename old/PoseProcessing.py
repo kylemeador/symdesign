@@ -62,7 +62,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Set up Rosetta command, files
     main_cmd = copy.deepcopy(CUtils.script_cmd)
-    # cleaned_pdb = os.path.join(des_dir.path, PUtils.clean)
+    # cleaned_pdb = os.path.join(des_dir.path, PUtils.clean_asu)
     # ala_mut_pdb = os.path.splitext(cleaned_pdb)[0] + '_for_refine.pdb'
     # TODO no mut if glycine...
     # ala_mut_pdb = os.path.splitext(des_dir.asu)[0] + '_for_refine.pdb'
@@ -301,7 +301,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Check to see if other poses have collected design sequence info and grab PSSM
     temp_file = os.path.join(des_dir.composition, PUtils.temp)
     rerun = False
-    if PUtils.clean not in os.listdir(des_dir.composition):
+    if PUtils.clean_asu not in os.listdir(des_dir.composition):
         shutil.copy(des_dir.asu, des_dir.composition)
         with open(temp_file, 'w') as f:
             f.write('Still fetching data. Process will resume once data is gathered\n')
