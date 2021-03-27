@@ -253,7 +253,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.gather_docking_metrics()
             if not self.sym_entry:
                 self.sym_entry = SymEntry(self.sym_entry_number)
-            self.design_symmetry = self.sym_entry.get_result_design_sym()
+                self.design_symmetry = self.sym_entry.get_result_design_sym()
 
         else:
             self.composition = None
@@ -277,7 +277,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 shutil.copy(design_path, self.path)
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
                 self.path = design_path
-                self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean))
+                self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
                 if os.path.exists(self.asu):
                     self.source = self.asu
                 else:
@@ -384,11 +384,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return metrics
 
-    def pose_fragments(self):
-        """Returns:
-            (dict): {'1_2_24': [(78, 87, ...), ...], ...}
-        """
-        return self.fragment_observations
+    # @property
+    # def fragment_observations(self):
+    #     """Returns:
+    #         (dict): {'1_2_24': [(78, 87, ...), ...], ...}
+    #     """
+    #     return self._fragment_observations
 
     def pose_transformation(self):
         """Returns:
@@ -402,14 +403,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def pdb_input_parameters(self):
         return self.pdb_dir1_path, self.pdb_dir2_path
 
-    def symmetry_parameters(self):
-        return self.sym_entry_number, self.oligomer_symmetry_1, self.oligomer_symmetry_2, self.design_symmetry_pg
+    # def symmetry_parameters(self):
+    #     return self.sym_entry_number, self.oligomer_symmetry_1, self.oligomer_symmetry_2, self.design_symmetry_pg
 
     def rotation_parameters(self):
         return self.rot_range_deg_pdb1, self.rot_range_deg_pdb2, self.rot_step_deg1, self.rot_step_deg2
 
     def degeneracy_parameters(self):
-        return self.degen1, self.degen2
+        return self.sym_entry.degeneracy_matrices_1, self.sym_entry.degeneracy_matrices_2
 
     def degen_and_rotation_parameters(self):
         return self.degeneracy_parameters(), self.rotation_parameters()
@@ -419,9 +420,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         number_steps2 = self.rot_range_deg_pdb2 / self.rot_step_deg1
 
         return int(number_steps1), int(number_steps2)
-
-    # def add_flags(self, flags_file):  # UNUSED
-    #     self.set_flags(**load_flags(flags_file))
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None, sym_entry=None,
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
@@ -520,10 +518,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sdf = os.path.join(self.path, PUtils.symmetry_def_file_dir)
         self.pose_file = os.path.join(self.path, PUtils.pose_file)
         self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
-        self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean))
+        self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
         self.assembly = os.path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
-        self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(PUtils.clean)[0])
-        self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean)[0])
+        self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(PUtils.clean_asu)[0])
+        self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean_asu)[0])
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
         self.info_pickle = os.path.join(self.data, 'info.pkl')
@@ -1074,6 +1072,27 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #         self.pose.get_assembly_symmetry_mates()
         #         self.pose.write(out_path=self.assembly)
         #         self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+
+    @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
+    def orient(self):
+        """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
+        self.symmetry is used to specify the orientation
+        """
+        pdb = PDB.from_file(self.source, log=self.log)
+        oriented_pdb = pdb.orient(sym=self.design_symmetry, orient_dir=PUtils.orient_dir)
+        out_path = oriented_pdb.write(out_path=self.assembly)
+        # return out_path
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
+    def find_asu(self):
+        """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
+        ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
+        the minimal unit of Entities that are in contact
+        """
+        pdb = PDB.from_file(self.assembly, log=self.log)
+        asu = pdb.return_asu()
+        # ensure format matches clean_asu standard
+        asu.write(out_path=self.asu)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def expand_asu(self):
