@@ -946,6 +946,15 @@ if __name__ == '__main__':
                     '\n>pdb_template_sequence\nMAGHALKMLV...\n>design_mask\nMAGH----LV\n'
                     % fasta_file)
     # ---------------------------------------------------
+    elif args.module == 'orient':
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.orient, design_directories, threads=threads)
+        else:
+            for design_dir in design_directories:
+                results.append(design_dir.orient())
+
+        terminate(args.module, design_directories, results=results, output=False)
+    # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.expand_asu, design_directories, threads=threads)
