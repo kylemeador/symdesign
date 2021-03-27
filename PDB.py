@@ -17,7 +17,7 @@ from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_s
     orient_log_file, orient_dir
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Structure import Structure, Chain, Entity, Atom
-from SymDesignUtils import remove_duplicates, start_log, DesignError
+from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_pairs
 from utils.SymmetryUtils import valid_subunit_number
 
 logger = start_log(name=__name__)
@@ -803,14 +803,17 @@ class PDB(Structure):
 
         orient_log = os.path.join(out_dir, orient_log_file)
 
-        pdb_file_name = os.path.basename(self.filepath)
-        error_string = 'orient_oligomer could not orient %s check %s for more information\n' % (pdb_file_name,
-                                                                                                orient_log)
+        if self.filepath:
+            pdb_file_name = os.path.basename(self.filepath)
+        else:
+            pdb_file_name = self.name
+        error_string = 'orient_oligomer could not orient %s check %s for more information\n' \
+                       % (pdb_file_name, orient_log)
         with open(orient_log, 'a+') as log_f:
             number_of_subunits = len(self.chain_id_list)
             if number_of_subunits != valid_subunit_number[sym]:
-                log_f.write("%s\n Oligomer could not be oriented: It has %d subunits while %d are expected for %s "
-                            "symmetry\n\n" % (pdb_file_name, number_of_subunits, valid_subunit_number[sym], sym))
+                log_f.write('%s\n Oligomer could not be oriented: It has %d subunits while %d are expected for %s '
+                            'symmetry\n\n' % (pdb_file_name, number_of_subunits, valid_subunit_number[sym], sym))
                 raise ValueError(error_string)
 
             if not os.path.exists(out_dir):
@@ -1523,42 +1526,43 @@ class PDB(Structure):
         Returns:
             chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
         """
-        # Get all CB Atom & chain CB Atom Coordinates into a numpy array [[x, y, z], ...]
-        all_coords = self.get_cb_coords()  # InclGlyCA=gly_ca)
-        # all_coords = np.array(self.extract_CB_coords(InclGlyCA=gly_ca))
-        chain_coords = chain.get_cb_coords()  # InclGlyCA=gly_ca)
-        # chain_coords = np.array(self.extract_CB_coords_chain(chain_id, InclGlyCA=gly_ca))
-
-        # Construct CB Tree for the chain
-        chain_tree = BallTree(chain_coords)
-
         # Get CB Atom indices for the atoms CB and chain CB
         all_cb_indices = self.get_cb_indices()  # InclGlyCA=gly_ca)
         chain_cb_indices = chain.get_cb_indices()  # InclGlyCA=gly_ca)
         # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
-        chain_coord_indices, contact_cb_indices = [], []
-        # Find the contacting CB indices and chain specific indices
-        for i, idx in enumerate(all_cb_indices):
-            if idx not in chain_cb_indices:
-                contact_cb_indices.append(idx)
-            else:
-                chain_coord_indices.append(i)
+        # chain_coord_indices, contact_cb_indices = [], []
+        # # Find the contacting CB indices and chain specific indices
+        # for i, idx in enumerate(all_cb_indices):
+        #     if idx in chain_cb_indices:
+        #         chain_coord_indices.append(i)
+        #     else:
+        #         contact_cb_indices.append(idx)
 
+        contact_cb_indices = list(set(all_cb_indices).difference(chain_cb_indices))
+        # assuming that coords is for the whole structure
+        contact_coords = self.coords[contact_cb_indices]  # InclGlyCA=gly_ca)
+        # all_cb_coords = self.get_cb_coords()  # InclGlyCA=gly_ca)
+        # all_cb_coords = np.array(self.extract_CB_coords(InclGlyCA=gly_ca))
         # Remove chain specific coords from all coords by deleting them from numpy
-        contact_coords = np.delete(all_coords, chain_coord_indices, axis=0)
+        # contact_coords = np.delete(all_cb_coords, chain_coord_indices, axis=0)
+
+        # Construct CB Tree for the chain
+        chain_tree = BallTree(chain.get_cb_coords())
         # Query chain CB Tree for all contacting Atoms within distance
-        chain_query = chain_tree.query_radius(contact_coords, distance)
-
-        all_contact_atoms, chain_atoms = [], []
-        for contact_idx, contacts in enumerate(chain_query):
-            if chain_query[contact_idx].tolist():
-                all_contact_atoms.append(self.atoms[contact_cb_indices[contact_idx]])
-                # residues2.append(pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number)
-                # for pdb1_index in chain_query[contact_idx]:
-                for chain_idx in contacts:
-                    chain_atoms.append(self.atoms[chain_cb_indices[chain_idx]])
-
-        return chain_atoms, all_contact_atoms  # Todo return as interface pairs?
+        chain_contact_query = chain_tree.query_radius(contact_coords, distance)
+        pdb_atoms = self.atoms
+        return [(pdb_atoms[chain_cb_indices[chain_idx]].residue_number,
+                 pdb_atoms[contact_cb_indices[contact_idx]].residue_number)
+                for contact_idx, contacts in enumerate(chain_contact_query) for chain_idx in contacts]
+        # all_contact_atoms, chain_atoms = [], []
+        # for contact_idx, contacts in enumerate(chain_contact_query):
+        #     if chain_contact_query[contact_idx].tolist():
+        #         all_contact_atoms.append(pdb_atoms[contact_cb_indices[contact_idx]])
+        #         # residues2.append(pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number)
+        #         # for pdb1_index in chain_contact_query[contact_idx]:
+        #         chain_atoms.extend([pdb_atoms[chain_cb_indices[chain_idx]] for chain_idx in contacts])
+        #
+        # return chain_atoms, all_contact_atoms
 
     def get_asu(self, chain=None, extra=False):
         """Return the atoms involved in the ASU with the provided chain
@@ -1569,67 +1573,83 @@ class PDB(Structure):
         Returns:
             (list): List of atoms involved in the identified asu
         """
-        # self.get_entity_info_from_atoms()
         if not chain:
             chain = self.chain_id_list[0]
 
-        def get_unique_contacts(chain, entity=0, iteration=0, extra=False, partner_entities=None):
+        def get_unique_contacts(chain, entity, iteration=0, extra=False, partner_entities=None):
+            """
+
+            Args:
+                chain (Chain):
+                entity (Entity):
+                iteration (int):
+                extra:
+                partner_entities (list[Entity]):
+
+            Returns:
+                (list[Entity])
+            """
             unique_chains_entity = {}
-            # unique_chains_entity, chain_entity, iteration = {}, None, 0
             while not unique_chains_entity:
-                self.log.debug(iteration, chain)
-                if iteration != 0:  # search through the chains found in an entity
-                    # chain = self.entity_d[entity]['chains'][iteration]
+                if iteration == 0:  # use the provided chain
+                    pass
+                else:  # search through the chains found in an entity
                     chain = entity.chains[iteration]
-                    # chain = entity  # can't use this with iteration
-                    self.log.debug(chain)
-                chain_interface_atoms, all_contacting_interface_atoms = self.chain_interface_contacts(chain)
-                self.log.debug(self.entities)
+                iteration += 1
+                self.log.debug('Iteration %d, Chain %s' % (iteration, chain.name))
+                chain_residue_numbers, contacting_residue_numbers = \
+                    split_interface_pairs(self.chain_interface_contacts(chain))
+
+                # find all chains in contact and their corresponding atoms
                 interface_d = {}
-                for atom in all_contacting_interface_atoms:
-                    if atom.chain not in interface_d:
-                        interface_d[self.chain] = [atom]
-                        # interface_d[self.chain(atom.chain)] = [atom]
-                    else:
-                        interface_d[atom.chain].append(atom)
-                self.log.info(interface_d)
-                # deepcopy(interface_d)
-                partner_interface_d, self_interface_d = {}, {}
-                # for _chain in self.entity_d[entity]['chains']:
-                # find all the chains which are in the entity in question
+                for residue in self.get_residues(numbers=contacting_residue_numbers):
+                    if residue.chain in interface_d:
+                        interface_d[residue.chain].append(residue)
+                    else:  # add to chain
+                        interface_d[residue.chain] = [residue]
+                self.log.debug('Interface chains: %s' % interface_d)
+
+                # find all chains that are in the entity in question
+                self_interface_d = {}
                 for _chain in entity.chains:
                     if _chain != chain:
                         if _chain.name in interface_d:
+                            # {chain: [Residue, Residue, ...]}
                             self_interface_d[_chain.name] = interface_d[_chain.name]
+                self.log.debug('Self interface chains: %s' % self_interface_d.keys())
+
                 # all others are in the partner entity
-                partner_interface_d = {_chain_id: interface_d[_chain_id] for _chain_id in interface_d
-                                       if _chain_id not in self_interface_d}
-                print('Partner_interface_d', partner_interface_d)
-                print('Self_interface_d:', self_interface_d)
-                if not partner_entities:  # if an entity in particular is desired as in the extras recursion
-                    partner_entities = set(self.entities) - {entity}
-                    # partner_entities = set(self.entity_d.keys()) - {entity}
+                # {chain: int}
+                partner_interface_d = {self.chain(chain_id): len(residues) for chain_id, residues in interface_d.items()
+                                       if chain_id not in self_interface_d}
+                self.log.debug('Partner interface chains %s' % partner_interface_d.keys())
+                if not partner_entities:  # if no partner entity is specified
+                    partner_entities = set(self.entities).difference({entity})
+                # else:  # particular entity is desired in the extras recursion
+                #     pass
+                self.log.debug('Partner Entities: %s' % ', '.join(entity.name for entity in partner_entities))
 
                 if not extra:
                     # Find the top contacting chain from each unique partner entity
                     for p_entity in partner_entities:
-                        max_contact, max_contact_chain = 0, None
-                        for _chain in partner_interface_d:
-                            self.log.info('Partner chain name: %s' % _chain)
-                            # if _chain not in self.entity_d[p_entity]['chains']:
-                            if self.chain(_chain) not in p_entity.chains:
+                        max_contacts, max_contact_chain = 0, None
+                        for p_chain, contacts in partner_interface_d.items():
+                            if p_chain not in p_entity.chains:  # if more than 2 Entities this is okay
+                                # self.log.error('Chain %s was found in the list of partners but isn\'t in this Entity'
+                                #                % p_chain.name)
                                 continue  # ensure that the chain is relevant to this entity
-                            if len(partner_interface_d[_chain]) > max_contact:
-                                self.log.info('Partner GREATER!: %s' % _chain)
-                                max_contact = len(partner_interface_d[_chain])
-                                max_contact_chain = _chain
+                            if contacts > max_contacts:  # length is number of atoms
+                                self.log.debug('Partner GREATER!: %s' % p_chain)
+                                max_contacts = contacts
+                                max_contact_chain = p_chain
                             else:
-                                print('Length of partner_interface_d: %d' % len(partner_interface_d[_chain]))
+                                self.log.debug('Partner LESS THAN/EQUAL: %d' % contacts)
                         if max_contact_chain:
-                            unique_chains_entity[max_contact_chain] = p_entity  # set the max partner for this entity
+                            unique_chains_entity[max_contact_chain] = p_entity
 
                     # return list(unique_chains_entity.keys())
-                else:  # solve the asu by expansion to extra contacts
+                else:  # TODO this doesn't work yet. Solve the asu by expansion to extra contacts
+                    raise DesignError('This functionality \'get_asu(extra=True)\' is not working!')
                     # partner_entity_chains_first_entity_contact_d = {} TODO define here if iterate over all entities?
                     extra_first_entity_chains, first_entity_chain_contacts = [], []
                     for p_entity in partner_entities:  # search over all entities
@@ -1645,8 +1665,7 @@ class PDB(Structure):
                             if partner_chain in self.entity_d[p_entity]['chains']:
                                 self.log.debug(partner_chain)
                                 partner_chains_first_entity_contact = \
-                                    get_unique_contacts(partner_chain, entity=p_entity,
-                                                        partner_entities=entity)
+                                    get_unique_contacts(partner_chain, p_entity, partner_entities=[entity])
                                 self.log.info('Partner entity %s, original chain contacts: %s' %
                                               (p_entity, partner_chains_first_entity_contact))
                                 # Only include chain/partner entities that are also in contact with chain of interest
@@ -1679,29 +1698,26 @@ class PDB(Structure):
                     unique_chains_entity = {_chain: self.entity_from_chain(_chain) for _chain in all_asu_chains}
                     # need to make sure that the partner entity chains are all contacting as well...
                     # for chain in found_chains:
-                self.log.info('partners: %s' % unique_chains_entity)
-                iteration += 1
-            return list(unique_chains_entity.keys())
-            # return list(set(first_entity_chain_contacts)) + extra_first_entity_chains
-            # return unique_chains_entities
+                self.log.info('Partner chains: %s' % unique_chains_entity.keys())
 
-        # Todo entity_from_chain returns Entity now
-        unique_chains = get_unique_contacts(self.chain(chain), entity=self.entity_from_chain(chain), extra=extra)
-        # unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
-        # unique_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain).name, extra=extra)
+            return unique_chains_entity.keys()
 
-        asu = self.chain(chain).atoms
-        for atoms in [self.chain(partner_chain).atoms for partner_chain in unique_chains]:
-            asu.extend(atoms)
+        chain_of_interest = self.chain(chain)
+        partner_chains = get_unique_contacts(chain_of_interest, entity=self.entity_from_chain(chain), extra=extra)
+        # partner_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
+        # partner_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain).name, extra=extra)
 
-        return asu
+        asu_atoms = chain_of_interest.atoms
+        for atoms in [chain.atoms for chain in partner_chains]:
+            asu_atoms.extend(atoms)
+        asu_coords = np.concatenate([chain_of_interest.coords] + [chain.coords for chain in partner_chains])
 
-    def return_asu(self, chain='A'):  # , outpath=None):
+        return asu_atoms, asu_coords
+
+    def return_asu(self, chain='A'):
         """Returns the ASU as a new PDB object. See self.get_asu() for method"""
-        asu_pdb = PDB.from_atoms(atoms=deepcopy(self.get_asu(chain=chain)), metadata=self)
-        # asu_pdb.copy_metadata(self)
-
-        return asu_pdb
+        asu_pdb_atoms, asu_pdb_coords = self.get_asu(chain=chain)
+        return PDB.from_atoms(atoms=deepcopy(asu_pdb_atoms), coords=asu_pdb_coords, metadata=self)
 
         # if outpath:
         #     asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(self.filepath))[0] + '.pdb')
