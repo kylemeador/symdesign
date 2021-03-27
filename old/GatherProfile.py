@@ -43,7 +43,7 @@ def check_for_errors(des_dir):
     for file in os.listdir(des_dir.path):
         if file.endswith(PUtils.dssm):
             pose_pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, file))
-        if file.endswith(PUtils.clean):
+        if file.endswith(PUtils.clean_asu):
             template_pdb = PDB.from_file(os.path.join(des_dir.path, file))
 
     if pose_pssm and template_pdb:
@@ -59,7 +59,7 @@ def check_for_errors(des_dir):
 #     # for file in os.listdir(des_dir.path):
 #     #     if file.endswith('pose.dssm'):
 #     #         pose_pssm = SDUtils.parse_pssm(os.path.join(des_dir.path, file))
-#     #     if file.endswith(PUtils.clean):
+#     #     if file.endswith(PUtils.clean_asu):
 #     #         template_pdb = PDB(file=os.path.join(des_dir.path, file))
 #     #
 #     # if pose_pssm and template_pdb:
@@ -72,7 +72,7 @@ def check_for_errors(des_dir):
 #     # Check to see if other poses have collected design sequence info and grab PSSM
 #     temp_file = os.path.join(des_dir.composition, PUtils.temp)
 #     rerun = False
-#     if PUtils.clean not in os.listdir(des_dir.composition):
+#     if PUtils.clean_asu not in os.listdir(des_dir.composition):
 #         shutil.copy(pdb, des_dir.composition)
 #         with open(temp_file, 'w') as tf:
 #             tf.write('Still fetching data. Process will resume once data is gathered\n')

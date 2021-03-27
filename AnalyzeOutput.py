@@ -137,7 +137,7 @@ metric_master = {'average_fragment_z_score': 'The average fragment z-value used 
                  'symmetry': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
                  # 'nanohedra_score': 'Sum of all residue match scores (1 / 1 + Z-score^2) weighted by overlap ',  # DEPRECIATED
                  'fragment_z_score_total': 'The sum of all fragments z-values',
-                 'unique_fragments': 'The number of unique fragments in the pose',
+                 'unique_fragments': 'The number of fragments found in the pose',
                  'total_interface_residues':
                      'The total number of interface residues found in the pose (residue CB within 8A)',
                  'REU': 'Rosetta Energy Units. Always 0. We can disregard',
