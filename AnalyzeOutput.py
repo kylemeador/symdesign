@@ -93,6 +93,9 @@ metric_master = {'average_fragment_z_score': 'The average fragment z-value used 
                                             ' Higher ratio means multiple fragment observations per residue',
                  'number_hbonds': 'The number of residues making H-bonds in the total interface. Residues may make more'
                                   ' than one H-bond',
+                 'nanohedra_score': 'Sum of total fragment containing residue match scores (1 / 1 + Z-score^2) weighted'
+                                    ' by their ranked match score. Maximum of 2/residue',
+                 'nanohedra_score_central': 'nanohedra_score for the central fragment residues only',
                  'nanohedra_score_per_res': 'The normalized, per residue Nanohedra Score',
                  'number_fragment_residues_total': 'The number of residues in the interface with fragment observations'
                                                    'found',
@@ -135,7 +138,6 @@ metric_master = {'average_fragment_z_score': 'The average fragment z-value used 
                  'solvation_energy': 'Energy required to hydrate the unbound components',
                  'support': 'The number of \'support\' residues as classified by E. Levy 2010',
                  'symmetry': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
-                 # 'nanohedra_score': 'Sum of all residue match scores (1 / 1 + Z-score^2) weighted by overlap ',  # DEPRECIATED
                  'fragment_z_score_total': 'The sum of all fragments z-values',
                  'unique_fragments': 'The number of fragments found in the pose',
                  'total_interface_residues':
