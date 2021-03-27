@@ -18,7 +18,7 @@ C		Handles up to 60 subunits (i.e. symmetry I).
 C
 C		Handles up to 2000 residues in each chain.
 C
-C		Fails if the rotataional symmetry is broken by more than some allowed 'tolerance', for
+C		Fails if the rotational symmetry is broken by more than some allowed 'tolerance', for
 C		example 2 degrees.
 C
 C		In case the input file contains chains whose residue ranges are not quite identical,
