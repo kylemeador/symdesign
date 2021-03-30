@@ -31,6 +31,30 @@ metric_master = {'average_fragment_z_score': 'The average fragment z-value used 
                  'buns_hpol_total': 'Buried unsaturated H-bonding polarized hydrogen atoms in the design',
                  'buns_total': 'Total buried unsaturated H-bonds in the design',
                  'buns_per_ang': 'Buried Unsaturated Hbonds per Angstrom^2 of interface',
+                 'component_1_symmetry': 'The symmetry group of component 1',
+                 'component_1_name': 'component 1 PDB_ID',
+                 'component_1_number_of_residues': 'The number of residues in the monomer of component 1',
+                 'component_1_max_radius': 'The maximum distance that component 1 reaches away from the center of mass',
+                 'component_1_n_terminal_helix': 'Whether the n-terminus has an alpha helix',
+                 'component_1_c_terminal_helix': 'Whether the c-terminus has an alpha helix',
+                 'component_1_n_terminal_orientation':
+                     'The direction the n-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
+                     ' towards',
+                 'component_1_c_terminal_orientation':
+                     'The direction the c-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
+                     ' towards',
+                 'component_2_symmetry': 'The symmetry group of component 2',
+                 'component_2_name': 'component 2 PDB_ID',
+                 'component_2_number_of_residues': 'The number of residues in the monomer of component 2',
+                 'component_2_max_radius': 'The maximum distance that component 2 reaches away from the center of mass',
+                 'component_2_n_terminal_helix': 'Whether the n-terminus has an alpha helix',
+                 'component_2_c_terminal_helix': 'Whether the c-terminus has an alpha helix',
+                 'component_2_n_terminal_orientation':
+                     'The direction the n-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
+                     ' towards',
+                 'component_2_c_terminal_orientation':
+                     'The direction the c-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
+                     ' towards',
                  'contact_count': 'Number of carbon-carbon contacts across interface',
                  'core': 'The number of \'core\' residues as classified by E. Levy 2010',
                  'cst_weight': 'Total weight of coordinate constraints to keep design from moving in cartesian space',
@@ -139,7 +163,7 @@ metric_master = {'average_fragment_z_score': 'The average fragment z-value used 
                  'support': 'The number of \'support\' residues as classified by E. Levy 2010',
                  'symmetry': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
                  'fragment_z_score_total': 'The sum of all fragments z-values',
-                 'unique_fragments': 'The number of fragments found in the pose',
+                 'number_of_fragments': 'The number of fragments found in the pose interface',
                  'total_interface_residues':
                      'The total number of interface residues found in the pose (residue CB within 8A)',
                  'REU': 'Rosetta Energy Units. Always 0. We can disregard',
@@ -203,7 +227,7 @@ necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano',
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'int_energy_res_summary_delta', 'number_hbonds', 'total_interface_residues',
 #                      'int_energy_context_delta',
-#                      'average_fragment_z_score', 'nanohedra_score', 'unique_fragments', 'interface_b_factor_per_res',
+#                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments', 'interface_b_factor_per_res',
 #                      'int_energy_res_summary_oligomer', 'int_energy_context_oligomer',
 
 final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'core', 'cst_weight',
@@ -229,7 +253,7 @@ final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_c
 #                   'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
 #                   'int_energy_context_delta', 'int_energy_context_oligomer',
 #                These are accounted for in other pose metrics
-#                   'nanohedra_score', 'average_fragment_z_score', 'unique_fragments', 'total_interface_residues',
+#                   'nanohedra_score', 'average_fragment_z_score', 'number_of_fragments', 'total_interface_residues',
 #                   'interface_b_factor_per_res'}
 #                These could be added in, but seem to be unnecessary
 #                   'fsp_total_stability', 'full_stability_complex',

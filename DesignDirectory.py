@@ -337,7 +337,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             (dict): {'nanohedra_score_per_res': , 'number_fragment_residues_total': ,
                      'number_fragment_residues_central': , 'multiple_fragment_ratio': ,
                      'percent_fragment_helix': , 'percent_fragment_strand': ,
-                     'percent_fragment_coil': , 'unique_fragments': }
+                     'percent_fragment_coil': , 'number_of_fragments': }
         """
         score = self.score  # inherently calls self.get_fragment_metrics(). Returns None if this fails
         if score is None:  # can be 0.0
@@ -352,7 +352,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                    'percent_fragment_helix': self.helical_fragment_content,
                    'percent_fragment_strand': self.strand_fragment_content,
                    'percent_fragment_coil': self.coil_fragment_content,
-                   'unique_fragments': self.number_of_fragments,
+                   'number_of_fragments': self.number_of_fragments,
                    'total_interface_residues': self.total_interface_residues,
                    'percent_residues_fragment_total': self.percent_residues_fragment_total,
                    'percent_residues_fragment_center': self.percent_residues_fragment_center}
