@@ -2588,8 +2588,10 @@ def calculate_match_metrics(fragment_matches):
         paired_total_residues_with_fragment_overlap
     # -------------------------------------------
     # get the individual multiple fragment observation ratio observed for each side of the fragment query
-    mapped_multiple_frag_ratio = separated_fragment_metrics['total']['observations'] / mapped_central_residues_with_fragment_overlap
-    paired_multiple_frag_ratio = separated_fragment_metrics['total']['observations'] / paired_central_residues_with_fragment_overlap
+    mapped_multiple_frag_ratio = \
+        separated_fragment_metrics['total']['observations'] / mapped_central_residues_with_fragment_overlap
+    paired_multiple_frag_ratio = \
+        separated_fragment_metrics['total']['observations'] / paired_central_residues_with_fragment_overlap
     # combine
     multiple_frag_ratio = separated_fragment_metrics['total']['observations'] * 2 / central_residues_with_fragment_overlap
     # -------------------------------------------
