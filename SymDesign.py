@@ -501,8 +501,11 @@ if __name__ == '__main__':
                              % (PUtils.program_name, PUtils.nano, PUtils.program_name, PUtils.program_name))
     parser.add_argument('-f', '--file', type=os.path.abspath, metavar='/path/to/file_with_directory_names.txt',
                         help='File with location(s) of %s designs. For each run of %s, a file will be created '
-                             'specifying the specific directories to use in subsequent %s commands of the same designs'
-                             % (PUtils.program_name, PUtils.program_name, PUtils.program_name), default=None)
+                             'specifying the specific directories to use in subsequent %s commands of the same designs.'
+                             ' If pose-IDs are specified in a file, say as the result of %s or %s, in addition to the '
+                             'pose-ID file, provide your %s working directory to locate the pose-Ids of interest.'
+                             % (PUtils.program_name, PUtils.program_name, PUtils.program_name, PUtils.analysis,
+                                PUtils.select_designs, PUtils.program_name), default=None)
     parser.add_argument('-g', '--guide', action='store_true',
                         help='Access the %s guide! Display the program or module specific guide. Ex: \'%s --guide\' '
                              'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
@@ -535,7 +538,9 @@ if __name__ == '__main__':
     parser_selection = subparsers.add_parser('residue_selector',
                                              help='Generate a residue selection for %s' % PUtils.program_name)
     # ---------------------------------------------------
-    parser_expand = subparsers.add_parser('expand_asu', help='Filter designs based on design specific metrics.')
+    parser_expand = subparsers.add_parser('expand_asu', help='For given poses, expand the asymmetric unit to a '
+                                                             'symmetric assembly and write the result to the design '
+                                                             'directory.')
     # ---------------------------------------------------
     parser_dock = subparsers.add_parser(PUtils.nano,
                                         help='Submit jobs to %s.py\nIf a docking directory structure is set up, provide'
@@ -797,14 +802,29 @@ if __name__ == '__main__':
                     logger.info('Selecting Designs within range: %d-%d' % (low_range, high_range))
                 else:
                     low_range, high_range = 0, -1
-                design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
-                                      for pose in all_poses[low_range:high_range]]
+                if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
+                    design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=args.directory,
+                                                                       **queried_flags)
+                                          for pose in all_poses[low_range:high_range]]
+                else:
+                    design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
+                                          for pose in all_poses[low_range:high_range]]
         else:
             all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory,
                                                           project=args.project, single=args.single)
-            design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
-            # all_poses = [design.asu for design in design_directories]
-            # inputs_moved = True
+            if queried_flags['design_range']:
+                low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
+                high_range = int((int(queried_flags['design_range'].split('-')[1]) / 100.0) * len(all_poses))
+                logger.info('Selecting Designs within range: %d-%d' % (low_range, high_range))
+            else:
+                low_range, high_range = 0, -1
+            if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
+                design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=args.directory,
+                                                                   **queried_flags)
+                                      for pose in all_poses[low_range:high_range]]
+            else:
+                design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
+
         if not design_directories:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s?'
@@ -815,7 +835,7 @@ if __name__ == '__main__':
                         % design_directories[0].log.handlers[0].baseFilename)
 
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
-    elif queried_flags['directory_type'] == PUtils.nano:
+    elif queried_flags['directory_type'] == PUtils.nano:  # Todo consolidate this operation with above and nano orient
         # Getting PDB1 and PDB2 File paths
         if args.pdb_path1:
             if not args.entry:
