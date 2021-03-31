@@ -103,8 +103,8 @@ def handle_errors_f(errors=(Exception, )):
         def wrapped(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except errors as e:
-                return None
+            except errors as error:
+                return error
         return wrapped
     return wrapper
 
@@ -122,11 +122,10 @@ def handle_design_errors(errors=(Exception,)):
         @wraps(func)
         def wrapped(*args, **kwargs):
             try:
-                return func(*args, **kwargs)  #, None
+                return func(*args, **kwargs)
             except errors as error:
                 args[0].log.error(error)  # Allows exception reporting using DesignDirectory
                 return error
-                # return None, (args[0].path, e)
             # finally:  TODO figure out how to run only when uncaught exception is found
             #     print('Error occurred in %s' % args[0].path)
         return wrapped
