@@ -489,11 +489,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if score_db and isinstance(score_db, FragmentDatabase):
             self.score_db = score_db
 
-    def directory_string_to_path(self, pose_id):  # todo
+    def directory_string_to_path(self, pose_id):
+        """Set the DesignDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
+         path separators"""
         assert self.program_root, 'No program_root attribute set! Cannot create a path from a pose_id without a ' \
                                   'program_root!'
         self.path = os.path.join(self.program_root, pose_id.replace('Projects-', 'Projects%s' % os.sep).replace(
-            '_Designs-', '_Designs%s' % os.sep))
+            '_Designs-', '_Designs%s' % os.sep).replace('-', os.sep))
 
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
@@ -1736,14 +1738,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             return self.path.replace(os.sep, '-')[1:]
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
 def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
-    with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
-        for line in f.readlines():
-            if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                return SymEntry(int(line.split(':')[-1]))
-
-    raise DesignError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
+    try:
+        with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
+            for line in f.readlines():
+                if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
+                    return SymEntry(int(line.split(':')[-1]))
+    except FileNotFoundError:
+        raise FileNotFoundError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
+                                % os.path.join(nanohedra_dir, PUtils.master_log))
+    raise DesignError('The Nanohedra Output docking file %s is malformed. Missing required info Nanohedra Entry Number'
                       % os.path.join(nanohedra_dir, PUtils.master_log))
 
 
