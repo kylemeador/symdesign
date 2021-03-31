@@ -44,15 +44,15 @@ design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, directory_type=PUtils.interface_design, pose_id=None, root=None,
-                 debug=False, **kwargs):  # project=None,
+    def __init__(self, design_path, nanohedra_output=False, directory_type=PUtils.interface_design, pose_id=None,
+                 root=None, debug=False, **kwargs):  # project=None,
         if pose_id:  # Todo may not be compatible P432
             self.program_root = root
             self.directory_string_to_path(pose_id)
             design_path = self.path
         self.name = os.path.splitext(os.path.basename(design_path))[0]  # works for all cases
         self.log = None
-        self.nano = nano
+        self.nano = nanohedra_output
         self.directory_type = directory_type
 
         self.project_designs = None
@@ -295,7 +295,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @classmethod
     def from_nanohedra(cls, design_path, mode=None, project=None, nano=True, **kwargs):
-        return cls(design_path, nano=nano, mode=mode, project=project, **kwargs)
+        return cls(design_path, nanohedra_output=nano, mode=mode, project=project, **kwargs)
 
     @classmethod
     def from_file(cls, design_path, project=None, **kwargs):  # directory_type=None
