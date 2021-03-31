@@ -791,22 +791,22 @@ if __name__ == '__main__':
         # Set up DesignDirectories
         if queried_flags['nanohedra_output']:
             all_poses, location = SDUtils.collect_nanohedra_designs(file=args.file, directory=args.directory)
+            if queried_flags['design_range']:
+                low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
+                high_range = int((int(queried_flags['design_range'].split('-')[1]) / 100.0) * len(all_poses))
+                logger.info('Selecting Designs within range: %d-%d' % (low_range, high_range))
+            else:
+                low_range, high_range = 0, -1
             if all_poses:
-                base_directory = '/%s' % os.path.join(*all_poses[0].split(os.sep)[:-4])
-                queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
-                # all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory,
-                #                                               project=args.project, single=args.single)
-                if queried_flags['design_range']:
-                    low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
-                    high_range = int((int(queried_flags['design_range'].split('-')[1]) / 100.0) * len(all_poses))
-                    logger.info('Selecting Designs within range: %d-%d' % (low_range, high_range))
-                else:
-                    low_range, high_range = 0, -1
                 if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
+                    base_directory = args.directory
+                    queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
                     design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=args.directory,
                                                                        **queried_flags)
                                           for pose in all_poses[low_range:high_range]]
                 else:
+                    base_directory = '/%s' % os.path.join(*all_poses[0].split(os.sep)[:-4])
+                    queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
                     design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
                                           for pose in all_poses[low_range:high_range]]
         else:
@@ -818,12 +818,13 @@ if __name__ == '__main__':
                 logger.info('Selecting Designs within range: %d-%d' % (low_range, high_range))
             else:
                 low_range, high_range = 0, -1
-            if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
-                design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=args.directory,
-                                                                   **queried_flags)
-                                      for pose in all_poses[low_range:high_range]]
-            else:
-                design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
+            if all_poses:
+                if all_poses[0].count('/') == 0:  # assume we have received pose-IDs and process accordingly
+                    design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=args.directory,
+                                                                       **queried_flags)
+                                          for pose in all_poses[low_range:high_range]]
+                else:
+                    design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
 
         if not design_directories:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
