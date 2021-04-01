@@ -333,6 +333,18 @@ def cluster_designs(composition):
     return composition_map
 
 
+def group_compositions(design_directories):
+    compositions = {}
+    for design in design_directories:
+        design.gather_pose_metrics()
+        if compositions.get(design.composition, None):
+            compositions[design.composition].append(design)
+        else:
+            compositions[design.composition] = [design]
+
+    return compositions
+
+
 def invert_cluster_map(cluster_map):
     """Return an inverted cluster map where the cluster members map to the representative
 
