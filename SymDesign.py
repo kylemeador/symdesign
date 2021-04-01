@@ -25,19 +25,18 @@ import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from utils.CmdLineArgParseUtils import query_mode
 from utils.PDBUtils import orient_pdb_file
+from Query import Flags
 from classes.SymEntry import SymEntry
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDatabase
-import AnalyzeMutatedSequences as Ams
-from DesignMetrics import master_metrics
 from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
 from NanohedraWrap import nanohedra_command_s, nanohedra_recap_s
 from PDB import PDB
 from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map
 from ProteinExpression import find_expression_tags
-from Query import Flags
-from SequenceProfile import generate_mutations, find_orf_offset
+from DesignMetrics import filter_pose, select_sequences, master_metrics
+from SequenceProfile import generate_mutations, find_orf_offset, pdb_to_pose_num
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -1198,7 +1197,7 @@ if __name__ == '__main__':
             location = args.pose_design_file
         elif args.dataframe:
             # Figure out poses from a dataframe, filters, and weights. Returns pose id's
-            selected_poses_df = Ams.filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
+            selected_poses_df = filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
             timestamp = time.strftime('%y%m%d-%H:%M:%S')
             selected_poses_df.to_csv('Filtered%sDesignPoseMetrics-%s.csv'
                                      % ('Weighted' if args.weight else '', timestamp))
@@ -1382,7 +1381,7 @@ if __name__ == '__main__':
                 zipped_args = zip(design_directories, repeat(sequence_weights), repeat(args.number_sequences))
                 # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, threads))
                 # returns [[], [], ...]
-                result_mp = SDUtils.mp_starmap(Ams.select_sequences, zipped_args, threads)
+                result_mp = SDUtils.mp_starmap(select_sequences, zipped_args, threads)
                 results = []
                 for result in result_mp:
                     results.extend(result)
@@ -1392,8 +1391,8 @@ if __name__ == '__main__':
                 results = []
                 for des_directory in design_directories:
                     # returns []
-                    results.extend(Ams.select_sequences(des_directory, weights=sequence_weights,
-                                                        number=args.number_sequences))
+                    results.extend(select_sequences(des_directory, weights=sequence_weights,
+                                                    number=args.number_sequences))
                 # results = zip(*Ams.select_sequences(des_directory, weights=sequence_weights, number=args.number_sequences)
                 #               for des_directory in design_directories)
 
@@ -1496,7 +1495,7 @@ if __name__ == '__main__':
             #                                                 for chain in design_sequences]))
             # print('Source SEQRES Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_seqres[chain])
             #                                                   for chain in source_seqres]))
-            pose_offset_d = Ams.pdb_to_pose_num(source_seqres)
+            pose_offset_d = pdb_to_pose_num(source_seqres)
             # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
             #                                                                  seqres_pose.seqres_sequences[chain],
             #                                                                  offset=True, only_gaps=True)

@@ -17,11 +17,10 @@ from Bio.SeqUtils import IUPACData
 import CmdUtils as CUtils
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from AnalyzeMutatedSequences import extract_aa_seq
 from DesignMetrics import analyze_output
 from PDB import PDB
 import SequenceProfile
-from SequenceProfile import SequenceProfile, residue_number_to_object
+from SequenceProfile import SequenceProfile, residue_number_to_object, extract_aa_seq
 from SymDesignUtils import start_log, write_fasta_file
 
 logger = start_log(name=__name__)

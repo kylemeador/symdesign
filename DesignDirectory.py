@@ -22,8 +22,6 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_l
     condensed_to_square
 from PDB import PDB
 from Pose import Pose
-from AnalyzeMutatedSequences import generate_all_design_mutations, generate_sequences, multi_chain_alignment, \
-    compute_jsd
 from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups,\
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
@@ -31,7 +29,8 @@ from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, rem
     df_permutation_test, remove_score_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
-    pos_specific_jsd, remove_non_mutations, sequence_difference
+    pos_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
+    generate_all_design_mutations, generate_sequences, generate_multiple_mutations
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 
@@ -1246,7 +1245,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Gather mutations for residue specific processing and design sequences
             # self.log.debug('Design Files: %s' % ', '.join(self.get_designs()))
-            sequence_mutations = generate_all_design_mutations(self.get_designs(), self.get_wildtype_file())  # TODO
+            pdb_sequences = {}
+            for file in self.get_designs():
+                pdb = PDB.from_file(file, log=None, entities=False)
+                pdb_sequences[pdb.name] = pdb.atom_sequences
+            sequence_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences, pose_num=False)
             # self.log.debug('Design Files: %s' % ', '.join(sequence_mutations))
             # self.log.debug('Chain offset: %s' % str(offset_dict))
 
@@ -1336,7 +1339,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-            all_mutations = generate_all_design_mutations(self.get_designs(), self.get_wildtype_file(), pose_num=True)
+            all_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences)
             all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
             all_mutations_simplified = simplify_mutation_dict(all_mutations_no_chains)
             cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
