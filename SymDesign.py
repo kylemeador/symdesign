@@ -605,8 +605,9 @@ if __name__ == '__main__':
     filter_required.add_argument('-df', '--dataframe', type=os.path.abspath,
                                  metavar='/path/to/AllPoseDesignMetrics.csv',
                                  help='Dataframe.csv from analysis containing pose info.')
-    filter_required.add_argument('-m', '--metric', type=str, help='What metric would you like to filter Designs by?',
-                                 choices=['score', 'fragments_matched'])
+    filter_required.add_argument('-m', '--metric', type=str,
+                                 help='If a simple metric filter is required, what metric would you like to sort '
+                                      'Designs by?', choices=['score', 'fragments_matched'])
     filter_required.add_argument('-p', '--pose_design_file', type=str, metavar='/path/to/pose_design.csv',
                                  help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_filter.add_argument('-f', '--filter', action='store_true',

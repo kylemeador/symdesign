@@ -46,48 +46,48 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'The symmetry group of component 1',
                        'direction': 'min', 'function': 'equals', 'filter': True},
                   'component_1_name':
-                      {'description': 'component 1 PDB_ID', 'direction': None, 'function': None, 'filter': None},
+                      {'description': 'component 1 PDB_ID', 'direction': None, 'function': None, 'filter': False},
                   'component_1_number_of_residues':
                       {'description': 'The number of residues in the monomer of component 1',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'component_1_max_radius':
                       {'description': 'The maximum distance that component 1 reaches away from the center of mass',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
                   'component_1_n_terminal_helix':
                       {'description': 'Whether the n-terminus has an alpha helix',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': None, 'function': None, 'filter': True},  # Todo binary?
                   'component_1_c_terminal_helix':
                       {'description': 'Whether the c-terminus has an alpha helix',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': None, 'function': None, 'filter': True},  # Todo binary?
                   'component_1_n_terminal_orientation':
                       {'description': 'The direction the n-terminus is oriented from the symmetry group center of mass.'
-                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': None},
+                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
                   'component_1_c_terminal_orientation':
                       {'description': 'The direction the c-terminus is oriented from the symmetry group center of mass.'
-                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': None},
+                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
                   'component_2_symmetry':
                       {'description': 'The symmetry group of component 2',
                        'direction': 'min', 'function': 'equals', 'filter': True},
                   'component_2_name':
-                      {'description': 'component 2 PDB_ID', 'direction': None, 'function': None, 'filter': None},
+                      {'description': 'component 2 PDB_ID', 'direction': None, 'function': None, 'filter': False},
                   'component_2_number_of_residues':
                       {'description': 'The number of residues in the monomer of component 2',
                        'direction': 'min', 'function': 'rank', 'filter': True},
                   'component_2_max_radius':
                       {'description': 'The maximum distance that component 2 reaches away from the center of mass',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
                   'component_2_n_terminal_helix':
                       {'description': 'Whether the n-terminus has an alpha helix',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': None, 'function': None, 'filter': True},  # Todo binary?
                   'component_2_c_terminal_helix':
                       {'description': 'Whether the c-terminus has an alpha helix',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': None, 'function': None, 'filter': True},  # Todo binary?
                   'component_2_n_terminal_orientation':
                       {'description': 'The direction the n-terminus is oriented from the symmetry group center of mass.'
-                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': None},
+                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
                   'component_2_c_terminal_orientation':
                       {'description': 'The direction the c-terminus is oriented from the symmetry group center of mass.'
-                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': None},
+                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
                   'contact_count':
                       {'description': 'Number of carbon-carbon contacts across interface',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -97,20 +97,20 @@ master_metrics = {'average_fragment_z_score':
                   'cst_weight':
                       {'description': 'Total weight of coordinate constraints to keep design from moving in cartesian '
                                       'space', 'direction': 'min', 'function': 'normalize', 'filter': True},
-                  'divergence_combined_per_residue':
+                  'divergence_design_per_residue':
                       {'description': 'The Jensen-Shannon divergence of interface residues from the position specific '
                                       'design profile values. Includes fragment & evolution if both are True, otherwise'
                                       ' only includes those specified for use in design.',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'divergence_fragment_per_residue':
                       {'description': 'The Jensen-Shannon divergence of interface residues from the position specific '
-                                      'fragment profile', 'direction': None, 'function': None, 'filter': None},
+                                      'fragment profile', 'direction': 'min', 'function': 'rank', 'filter': True},
                   'divergence_evolution_per_residue':
                       {'description': 'The Jensen-Shannon divergence of interface residues from the position specific '
-                                      'evolutionary profile', 'direction': None, 'function': None, 'filter': None},
+                                      'evolutionary profile', 'direction': 'min', 'function': 'rank', 'filter': True},
                   'divergence_interface_per_residue':
                       {'description': 'The Jensen-Shannon divergence of interface residues from the typical interface '
-                                      'background', 'direction': None, 'function': None, 'filter': None},
+                                      'background', 'direction': 'min', 'function': 'rank', 'filter': True},
                   'fsp_energy':
                       {'description': 'Total weight of sequence constraints used to favor certain amino acids in design'
                                       '. Only protocols with a favored profile have values',
@@ -166,7 +166,7 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'min', 'function': 'rank', 'filter': True},
                   'int_energy_res_summary_2_unbound':
                       {'description': 'Sum of interface2 residue energies in the unbound state',
-                       'direction': None, 'function': None, 'filter': None}, 'int_separation':
+                       'direction': 'min', 'function': 'rank', 'filter': True}, 'int_separation':
                       {'description': 'Median distance between all atom points on each side of the interface',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
                   'interaction_energy_complex':
@@ -188,19 +188,19 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'nanohedra_score_center':
                       {'description': 'nanohedra_score for the central fragment residues only',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'nanohedra_score_per_res':
                       {'description': 'The Nanohedra Score normalized by number of fragment residues',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'nanohedra_score_center_per_res_center':
                       {'description': 'The central Nanohedra Score normalized by number of central fragment residues',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'number_fragment_residues_total':
                       {'description': 'The number of residues in the interface with fragment observationsfound',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'number_fragment_residues_center':
                       {'description': 'The number of interface residues that belong to a central fragment residue',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'max', 'function': 'rank', 'filter': None},
                   'observations':
                       {'description': 'Number of unique design trajectories contributing to statistics',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -212,7 +212,7 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'observed_interface':
                       {'description': 'Percent of observed residues in fragment profile. 1 is 100%',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'percent_core':
                       {'description': 'The percentage of residues which are \'core\' according to Levy, E. 2010',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
@@ -242,7 +242,7 @@ master_metrics = {'average_fragment_z_score':
                           , 'direction': 'max', 'function': 'normalize', 'filter': True},
                   groups:
                       {'description': 'Protocols utilized to search sequence space given fragment and/or evolutionary '
-                                      'constraint information', 'direction': None, 'function': None, 'filter': None},
+                                      'constraint information', 'direction': None, 'function': None, 'filter': False},
                   'protocol_energy_distance_sum':
                       {'description': 'The distance between the average linearly embedded per residue energy '
                                       'co-variation between specified protocols. Larger = greater distance. A small '
@@ -281,13 +281,13 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'symmetry':
                       {'description': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
-                       'direction': None, 'function': None, 'filter': None},
-                  'fragment_z_score_total':
-                      {'description': 'The sum of all fragments z-values',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': None, 'function': None, 'filter': False},
+                  # 'fragment_z_score_total':
+                  #     {'description': 'The sum of all fragments z-values',
+                  #      'direction': None, 'function': None, 'filter': None},
                   'number_of_fragments':
                       {'description': 'The number of fragments found in the pose interface',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'total_interface_residues':
                       {'description': 'The total number of interface residues found in the pose (residue CB within 8A)',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -296,7 +296,7 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'REU':
                       {'description': 'Rosetta Energy Units. Always 0. We can disregard',
-                       'direction': None, 'function': None, 'filter': None},
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'coordinate_constraint':
                       {'description': 'Same as cst_weight', 'direction': None, 'function': None, 'filter': None},
                   'res_type_constraint':
@@ -2215,8 +2215,7 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
                                                 % (metric, level, mode,
                                                    ' Designs with metrics %s than this value will be included'
                                                    % direction[filter_df.loc['direction', metric]].upper()
-                                                   if mode == 'filter' else '',
-                                                   input_string)))
+                                                   if mode == 'filter' else '', input_string)))
 
         print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
         while True:
