@@ -1232,6 +1232,10 @@ if __name__ == '__main__':
                     else:
                         print('%s %s is not a valid choice!' % (invalid_string, confirm))
                 if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
+                    if len(selected_poses) > 1000:
+                        queried_flags['skip_logging'] = True
+                    design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
+                                          for pose in selected_poses]
                     compositions = group_compositions(design_directories)
                     if args.multi_processing:  # Todo
                         results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
