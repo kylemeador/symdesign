@@ -762,8 +762,11 @@ if __name__ == '__main__':
                          'sequence_selection']:
         queried_flags['directory_type'] = args.module
         queried_flags[args.module] = True
-        if args.module == PUtils.select_designs and not args.debug:
-            queried_flags['skip_logging'] = True  # automatically skip logging if opening a large number of files
+        if args.module == PUtils.select_designs:
+            if not args.debug:
+                queried_flags['skip_logging'] = True  # automatically skip logging if opening a large number of files
+            if not args.metric:
+                queried_flags['directory_type'] = 'No directory initialization'  # we don't need to initialize
     else:  # ['distribute', 'query', 'guide', 'flags', 'residue_selector']
         queried_flags['directory_type'] = None
 
@@ -1185,7 +1188,8 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == PUtils.select_designs:
         # -df dataframe, -f filter, -m metric, -p pose_design_file, -s selection_string, -w weight
-        program_root = next(iter(design_directories)).program_root
+        # program_root = next(iter(design_directories)).program_root
+        program_root = args.directory
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
             with open(args.pose_design_file) as csv_file:
@@ -1209,13 +1213,14 @@ if __name__ == '__main__':
             logger.info('%d poses were selected:\n\t%s' % (len(selected_poses_df), '\n\t'.join(selected_poses)))
 
             # Sort results according to clustered poses if clustering exists  # Todo parameterize names?
-            cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
+            # cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
+            cluster_map = os.path.join(program_root, PUtils.data.title(), '%s.pkl' % PUtils.clustered_poses)
             if os.path.exists(cluster_map):
                 cluster_representative_pose_member_map = SDUtils.unpickle(cluster_map)
             else:
-                logger.info('No cluster pose map was found. Clustering similar poses may eliminate redundancy from the '
-                            'final design selection. To cluster poses broadly, run \'%s %s\''
-                            % (PUtils.program_command, PUtils.cluster_poses))
+                logger.info('No cluster pose map was found at %s. Clustering similar poses may eliminate redundancy '
+                            'from the final design selection. To cluster poses broadly, run \'%s %s\''
+                            % (cluster_map, PUtils.program_command, PUtils.cluster_poses))
                 while True:
                     confirm = input('Would you like to %s on the subset of designs (%d) located so far? [y/n]%s'
                                     % (len(selected_poses), PUtils.cluster_poses, input_string))
