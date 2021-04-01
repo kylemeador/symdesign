@@ -288,6 +288,9 @@ master_metrics = {'average_fragment_z_score':
                   'total_interface_residues':
                       {'description': 'The total number of interface residues found in the pose (residue CB within 8A)',
                        'direction': 'max', 'function': 'rank', 'filter': True},
+                  'total_non_fragment_interface_residues':
+                      {'description': 'The number of interface residues that are missing central fragment observations',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'REU':
                       {'description': 'Rosetta Energy Units. Always 0. We can disregard',
                        'direction': None, 'function': None, 'filter': None},
