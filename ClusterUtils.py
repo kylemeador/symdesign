@@ -1,5 +1,6 @@
 import os
 from itertools import combinations
+from warnings import catch_warnings, simplefilter
 
 import numpy as np
 # from sklearn.preprocessing import StandardScaler
@@ -276,9 +277,12 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
 
     # find cluster mean for each index
-    mean_cluster_dist = np.empty(tree_distances.shape[0])
-    for idx, array in enumerate(tree_distances.tolist()):
-        mean_cluster_dist[idx] = array.mean()  # empty slices can't have mean, so return np.nan if cluster is an outlier
+    with catch_warnings():
+        # empty slices can't have mean, so catch warning if cluster is an outlier
+        simplefilter("ignore", category=RuntimeWarning)
+        mean_cluster_dist = np.empty(tree_distances.shape[0])
+        for idx, array in enumerate(tree_distances.tolist()):
+            mean_cluster_dist[idx] = array.mean()
 
     # for each label (cluster), add the minimal mean (representative) the representative transformation indices
     representative_transformation_indices = []
