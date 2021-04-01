@@ -1246,6 +1246,13 @@ if __name__ == '__main__':
                         cluster_representative_pose_member_map = {}
                         for composition_group in compositions.values():
                             cluster_representative_pose_member_map.update(cluster_designs(composition_group))
+
+                    pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
+                                                              PUtils.clustered_poses,
+                                                              out_path=next(iter(design_directories)).protein_data)
+                    logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
+                                % (len(cluster_representative_pose_member_map), len(design_directories),
+                                   pose_cluster_file))
                 else:
                     cluster_representative_pose_member_map = {}
 
