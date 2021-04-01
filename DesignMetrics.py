@@ -11,18 +11,22 @@ import numpy as np
 import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import pdist
+from sklearn.neighbors import BallTree
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 import AnalyzeMutatedSequences
 import PathUtils as PUtils
 import SequenceProfile
-import SymDesignUtils as SDUtils
 # from DesignDirectory import DesignDirectory
 from PDB import PDB
-
+from Query.Flags import query_user_for_metrics
+from SymDesignUtils import start_log, pickle_object, unpickle, DesignError, handle_design_errors, index_intersection, \
+    remove_interior_keys, clean_dictionary, all_vs_all, condensed_to_square, sym
 
 # Globals
+logger = start_log(name=__name__)
+index_offset = 1
 groups = 'protocol'
 master_metrics = {'average_fragment_z_score':
                       {'description': 'The average fragment z-value used in docking/design',
@@ -1217,6 +1221,278 @@ def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
     return total
 
 
+def df_filter_index_by_value(df, **kwargs):
+    """Take a df and retrieve the indices which have column values greater_equal/less_equal to a value depending
+    on whether the column should be sorted max/min
+
+    Args:
+        df (pandas.DataFrame): DataFrame to filter indices on
+    Keyword Args:
+        kwargs (dict): {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
+    """
+    for idx in kwargs:
+        if kwargs[idx]['direction'] == 'max':
+            kwargs[idx]['idx'] = df[df[idx] >= kwargs[idx]['value']].index.to_list()
+        if kwargs[idx]['direction'] == 'min':
+            kwargs[idx]['idx'] = df[df[idx] <= kwargs[idx]['value']].index.to_list()
+
+    return kwargs
+
+
+def filter_pose(df_file, filter=None, weight=None, consensus=False):
+    """Return the indices from a dataframe that pass an set of filters (optional) and are ranked according to weight as
+    specified by user values.
+
+    Args:
+        df_file (str): DataFrame to filter/weight indices
+    Keyword Args:
+        filter=False (bool): Whether filters are going to remove viable candidates
+        weight=False (bool): Whether weights are going to select the poses
+        consensus=False (bool): Whether consensus designs should be chosen
+    Returns:
+        (pandas.DataFrame): The dataframe of selected designs based on the provided filters and weights
+    """
+    idx_slice = pd.IndexSlice
+    # Grab pose info from the DateFrame and drop all classifiers in top two rows.
+    df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
+    logger.info('Number of starting designs = %d' % len(df))
+    _df = df.loc[:, idx_slice['pose',
+                              df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
+
+    filter_df = pd.read_csv(master_metrics, index_col=0)
+    if filter:
+        available_filters = _df.columns.to_list()
+        filters = query_user_for_metrics(available_filters, mode='filter', level='design')
+        logger.info('Using filter parameters: %s' % str(filters))
+
+        # When df is not ranked by percentage
+        _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
+                    for metric, value in filters.items()}
+
+        # Filter the DataFrame to include only those values which are le/ge the specified filter
+        filters_with_idx = df_filter_index_by_value(_df, **_filters)
+        filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
+        logger.info('Number of designs passing filters:\n\t%s'
+                    % '\n\t'.join('%6d - %s' % (len(indices), metric) for metric, indices in filtered_indices.items()))
+        final_indices = index_intersection(filtered_indices)
+        logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
+        if len(final_indices) == 0:
+            raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
+                              'better designs!')
+        _df = _df.loc[final_indices, :]
+
+    # When df IS ranked by percentage
+    # bottom_percent = (num_designs / len(df))
+    # top_percent = 1 - bottom_percent
+    # min_max_to_top_bottom = {'min': bottom_percent, 'max': top_percent}
+    # _filters = {metric: {'direction': filter_df.loc['direction', metric],
+    #                      'value': min_max_to_top_bottom[filter_df.loc['direction', metric]]} for metric in filters}
+
+    # _sort = {metric: {'direction': filter_df.loc['direction', metric],
+    #                   'value': min_max_to_top_bottom[filter_df.loc['direction', metric]]} for metric in sort_s.index}
+    # filters_with_idx = df_filter_index_by_value(ranked_df, **_sort)
+
+    if consensus:
+        protocol_df = df.loc[:, idx_slice['consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
+        #     df.loc[:, idx_slice[df.columns.get_level_values(0) != 'pose', ['mean', 'stats'], :]].droplevel(1, axis=1)
+        # stats_protocol_df = \
+        #     df.loc[:, idx_slice[df.columns.get_level_values(0) != 'pose', df.columns.get_level_values(1) == 'stats',
+        #     :]].droplevel(1, axis=1)
+        # design_protocols_df = pd.merge(protocol_df, stats_protocol_df, left_index=True, right_index=True)
+        # TODO make more robust sampling from specific protocol
+        _df = pd.merge(protocol_df.loc[:, idx_slice['consensus', :]],
+                       df.droplevel(0, axis=1).loc[:, idx_slice[:, 'percent_fragment']],
+                       left_index=True, right_index=True).droplevel(0, axis=1)
+    # filtered_indices = {}
+
+    # for metric in filters:
+    #     filtered_indices[metric] = set(df[df.droplevel(0, axis=1)[metric] >= filters[metric]].index.to_list())
+    #     logger.info('Number of designs passing %s = %d' % (metric, len(filtered_indices[metric])))
+    # ranked_df = _df.rank(method='min', pct=True, )  # default is to rank lower values as closer to 1
+    # need {column: {'direction': 'max', 'value': 0.5, 'idx_slice': []}, ...}
+
+    # only used to check out the number of designs in each filter
+    # for _filter in crystal_filters_with_idx:
+    #     print('%s designs = %d' % (_filter, len(crystal_filters_with_idx[_filter]['idx_slice'])))
+
+    # {column: {'direction': 'min', 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
+    if weight:
+        # display(ranked_df[weights_s.index.to_list()] * weights_s)
+        available_metrics = _df.columns.to_list()
+        weights = query_user_for_metrics(available_metrics, mode='weight', level='design')
+        logger.info('Using weighting parameters: %s' % str(weights))
+        _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
+                    for metric, value in weights.items()}
+        weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
+        # weights_s = pd.Series(weights)
+        weight_score_s_d = {}
+        for metric in _weights:
+            weight_score_s_d[metric] = \
+                _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+                                 method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
+
+        design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
+        weighted_s = design_score_df.sum(axis=1).sort_values(ascending=False)
+        weighted_df = pd.concat([weighted_s], keys=[('pose', 'sum', 'selection_weight')])
+        final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
+        # designs = weighted_s.index.to_list()
+    else:
+        final_df = df.loc[_df.index.to_list(), :]
+        # designs = _df.index.to_list()
+    # these will be sorted by the largest value to the smallest
+    # design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
+    # designs = design_scores_s.index.to_list()
+    # designs = design_scores_s.index.to_list()[:num_designs]
+    # return designs
+    return final_df
+
+
+@handle_design_errors(errors=(DesignError, AssertionError))
+def select_sequences(des_dir, weights=None, number=1, desired_protocol=None):
+    """From a single design, select sequences for further characterization. If weights, then using weights the user can
+     prioritize sequences, otherwise the sequence with the most neighbors will be selected
+
+    Args:
+        des_dir (DesignDirectory)
+    Keyword Args:
+        weights=None (iter): The weights to use in sequence selection
+        number=1 (int): The number of sequences to consider for each design
+        debug=False (bool): Whether or not to debug
+    Returns:
+        (list[tuple[DesignDirectory, str]]): Containing the selected sequences found
+    """
+    # Load relevant data from the design directory
+    trajectory_df = pd.read_csv(des_dir.trajectories, index_col=0, header=[0])
+    trajectory_df.dropna(inplace=True)
+    # trajectory_df.dropna('protocol', inplace=True)
+    # designs = trajectory_df.index.to_list()  # can't use with the mean and std statistics
+    # designs = list(all_design_sequences[chains[0]].keys())
+    logger.info('Number of starting trajectories = %d' % len(trajectory_df))
+
+    if weights:
+        filter_df = pd.read_csv(master_metrics, index_col=0)
+        # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
+        # _df = trajectory_df.loc[final_indices, :]
+        _df = trajectory_df
+        logger.info('Using weighting parameters: %s' % str(weights))
+        _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
+                    for metric in weights}
+        weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
+        # weights_s = pd.Series(weights)
+        weight_score_s_d = {}
+        for metric in _weights:
+            weight_score_s_d[metric] = _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+                                                        method=_weights[metric]['direction'], pct=True) \
+                                       * _weights[metric]['value']
+
+        design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
+        design_list = design_score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+        logger.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
+
+        return zip(repeat(des_dir), design_list[:number])
+    else:
+        if desired_protocol:
+            unique_protocols = trajectory_df['protocol'].unique().tolist()
+            while True:
+                desired_protocol = input('Do you have a protocol that you prefer to pull your designs from? Possible '
+                                         'protocols include:\n%s' % ', '.join(unique_protocols))
+                if desired_protocol in unique_protocols:
+                    break
+                else:
+                    print('%s is not a valid protocol, try again.' % desired_protocol)
+
+            designs = trajectory_df[trajectory_df['protocol'] == desired_protocol].index.to_list()
+        else:
+            designs = trajectory_df.index.to_list()
+        # sequences_pickle = glob(os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir)))
+        # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
+        #                                    os.path.join(des_dir.all_scores, '%s_Sequences.pkl' % str(des_dir))
+        #
+        # all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
+        # {chain: {name: sequence, ...}, ...}
+        all_design_sequences = unpickle(des_dir.design_sequences)
+        # all_design_sequences.pop(PUtils.stage[1])  # Remove refine from sequences, not in trajectory_df so unnecessary
+        chains = list(all_design_sequences.keys())
+        concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains])
+                                  for design in designs]
+        logger.debug(chains)
+        logger.debug(concatenated_sequences)
+
+        # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)
+        # Using concatenated sequences makes the values incredibly similar and inflated as most residues are the same
+        # doing min/max normalization to see variation
+        pairwise_sequence_diff_l = [SequenceProfile.sequence_difference(*seq_pair)
+                                    for seq_pair in combinations(concatenated_sequences, 2)]
+        pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
+        _min = min(pairwise_sequence_diff_l)
+        # _max = max(pairwise_sequence_diff_l)
+        pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
+        # logger.info(pairwise_sequence_diff_l)
+
+        # PCA analysis of distances
+        pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
+        for k, dist in enumerate(pairwise_sequence_diff_np):
+            i, j = condensed_to_square(k, len(designs))
+            pairwise_sequence_diff_mat[i, j] = dist
+        pairwise_sequence_diff_mat = sym(pairwise_sequence_diff_mat)
+
+        pairwise_sequence_diff_mat = StandardScaler().fit_transform(pairwise_sequence_diff_mat)
+        seq_pca = PCA(PUtils.variance)
+        seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
+        seq_pca_distance_vector = pdist(seq_pc_np)
+        # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+        epsilon = seq_pca_distance_vector.mean() * 0.5
+        logger.info('Finding maximum neighbors within distance of %f' % epsilon)
+
+        # logger.info(pairwise_sequence_diff_np)
+        # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
+        # epsilon = math.sqrt(seq_pc_np.myean()) * 0.5
+        # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
+
+        # Find the nearest neighbors for the pairwise distance matrix using the X*X^T (PCA) matrix, linear transform
+        seq_neighbors = BallTree(seq_pc_np)  # Todo make brute force or automatic, not BallTree
+        seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # , sort_results=True)
+        top_count, top_idx = 0, None
+        for count in seq_neighbor_counts:  # idx, enumerate()
+            if count > top_count:
+                top_count = count
+
+        sorted_seqs = sorted(seq_neighbor_counts, reverse=True)
+        top_neighbor_counts = sorted(set(sorted_seqs[:number]), reverse=True)
+
+        # Find only the designs which match the top x (number) of neighbor counts
+        final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
+                         for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
+        logger.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
+                    # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
+                    % '\n'.join('\t%d\t%s' % (neighbors, os.path.join(des_dir.designs, design))
+                                for design, neighbors in final_designs.items()))
+
+        # logger.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(des_dir.designs, seq))
+        #                                                         for i, seq in enumerate(final_designs, 1)))
+
+        # Compute the highest density cluster using DBSCAN algorithm
+        # seq_cluster = DBSCAN(eps=epsilon)
+        # seq_cluster.fit(pairwise_sequence_diff_np)
+        #
+        # seq_pc_df = pd.DataFrame(seq_pc, index=designs,
+        #                       columns=['pc' + str(x + SDUtils.index_offset) for x in range(len(seq_pca.components_))])
+        # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+
+        # If final designs contains more sequences than specified, find the one with the lowest energy
+        if len(final_designs) > number:
+            energy_s = trajectory_df.loc[final_designs, 'int_energy_res_summary_delta']  # includes solvation energy
+            try:
+                energy_s = pd.Series(energy_s)
+            except ValueError:
+                raise DesignError('no dataframe')
+            energy_s.sort_values(inplace=True)
+            final_seqs = zip(repeat(des_dir), energy_s.iloc[:number].index.to_list())
+        else:
+            final_seqs = zip(repeat(des_dir), final_designs.keys())
+
+        return list(final_seqs)
+
 # @SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
 # def analyze_output_s(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
 #                      figures=True):
@@ -1237,15 +1513,13 @@ def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
 #     #     return None, (des_dir.path, e)
 
 
-@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
-def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
-                   figures=True):
+@handle_design_errors(errors=(DesignError, AssertionError))
+def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajectories=True, figures=True):
     """Retrieve all score information from a design directory and write results to .csv file
 
     Args:
         des_dir (DesignDirectory): DesignDirectory object
     Keyword Args:
-        delta_refine (bbol): Whether to compute DeltaG for residues
         merge_residue_data (bool): Whether to incorporate residue data into Pose dataframe
         debug=False (bool): Whether to debug output
         save_trajectories=False (bool): Whether to save trajectory and residue dataframes
@@ -1256,13 +1530,13 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     # Log output
     if debug:
         # global logger
-        logger = SDUtils.start_log(name=__name__, handler=2, level=1,
-                                   location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
+        logger = start_log(name=__name__, handler=2, level=1,
+                           location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     else:
-        logger = SDUtils.start_log(name=__name__, handler=2, level=2,
-                                   location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
+        logger = start_log(name=__name__, handler=2, level=2,
+                           location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     if not des_dir.info:
-        raise SDUtils.DesignError('Has not been initialized for design and therefore can\'t be analyzed. '
+        raise DesignError('Has not been initialized for design and therefore can\'t be analyzed. '
                                          'Initialize and perform interface design if you want to measure this design.')
     # TODO add fraction_buried_atoms
     # Set up pose, ensure proper input
@@ -1275,7 +1549,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     if 'evolutionary_profile' in des_dir.info:
         profile_dict['evolution'] = SequenceProfile.parse_pssm(des_dir.info['evolutionary_profile'])
     if 'fragment_profile' in des_dir.info:
-        profile_dict['fragment'] = SDUtils.unpickle(des_dir.info['fragment_profile'])
+        profile_dict['fragment'] = unpickle(des_dir.info['fragment_profile'])
         issm_residues = list(set(profile_dict['fragment'].keys()))
     else:
         issm_residues = []
@@ -1306,13 +1580,13 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
     else:
         # Get the scores from all design trajectories
         all_design_scores = read_scores(os.path.join(des_dir.scores, PUtils.scores_file))
-        all_design_scores = SDUtils.remove_interior_keys(all_design_scores, remove_score_columns)
+        all_design_scores = remove_interior_keys(all_design_scores, remove_score_columns)
 
         # Gather mutations for residue specific processing and design sequences
         all_design_files = des_dir.get_designs()
         # all_design_files = SDUtils.get_directory_pdb_file_paths(des_dir.designs)
         # logger.debug('Design Files: %s' % ', '.join(all_design_files))
-        sequence_mutations = AnalyzeMutatedSequences.generate_all_design_mutations(all_design_files, wild_type_file)  # TODO
+        sequence_mutations = SequenceProfile.generate_all_design_mutations(all_design_files, wild_type_file)  # TODO
         # logger.debug('Design Files: %s' % ', '.join(sequence_mutations))
         # offset_dict = AnalyzeMutatedSequences.pdb_to_pose_num(sequence_mutations['ref'])  # Removed on 01/2021 metrics.xml
         # logger.debug('Chain offset: %s' % str(offset_dict))
@@ -1324,7 +1598,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         #     for chain in pdb.chain_id_list
         #         sequences[chain][pdb.name] = pdb.atom_sequences[chain]
         # Todo just pull from design pdbs... reorient for {chain: {name: sequence, ...}, ...} ^^
-        all_design_sequences = AnalyzeMutatedSequences.generate_sequences(wt_sequence, sequence_mutations)
+        all_design_sequences = SequenceProfile.generate_sequences(wt_sequence, sequence_mutations)
         all_design_sequences = {chain: remove_pdb_prefixes(all_design_sequences[chain]) for chain in all_design_sequences}
         all_design_scores = remove_pdb_prefixes(all_design_scores)
         logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
@@ -1339,8 +1613,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         good_designs = list(set(design for design_sequences in all_design_sequences.values() for design in design_sequences)
                             & set(all_design_scores.keys()))
         logger.info('All Designs: %s' % ', '.join(good_designs))
-        all_design_scores = SDUtils.clean_dictionary(all_design_scores, good_designs, remove=False)
-        all_design_sequences = {chain: SDUtils.clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
+        all_design_scores = clean_dictionary(all_design_scores, good_designs, remove=False)
+        all_design_sequences = {chain: clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
                                 for chain in all_design_sequences}
         logger.debug('All Sequences: %s' % all_design_sequences)
 
@@ -1400,7 +1674,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
         interface_hbonds = dirty_hbond_processing(all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
         # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-        all_mutations = AnalyzeMutatedSequences.generate_all_design_mutations(all_design_files, wild_type_file, pose_num=True)
+        all_mutations = SequenceProfile.generate_all_design_mutations(all_design_files, wild_type_file, pose_num=True)
         all_mutations_no_chains = SequenceProfile.make_mutations_chain_agnostic(all_mutations)
         all_mutations_simplified = SequenceProfile.simplify_mutation_dict(all_mutations_no_chains)
         cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
@@ -1418,7 +1692,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
 
         if 'fragment' in profile_dict:
             # Remove residues from fragment dict if no fragment information available for them
-            obs_d['fragment'] = SDUtils.remove_interior_keys(obs_d['fragment'], issm_residues, keep=True)
+            obs_d['fragment'] = remove_interior_keys(obs_d['fragment'], issm_residues, keep=True)
 
         # Add observation information into the residue dictionary
         for design in residue_dict:
@@ -1471,15 +1745,15 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             #     int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[1], residue)
         other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
 
-        pose_alignment = AnalyzeMutatedSequences.multi_chain_alignment(all_design_sequences)
-        mutation_frequencies = SDUtils.clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
+        pose_alignment = SequenceProfile.multi_chain_alignment(all_design_sequences)
+        mutation_frequencies = clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
         # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
         pose_res_dict = {}
         for profile in profile_dict:  # both mut_freq and profile_dict[profile] are one-indexed
             pose_res_dict['divergence_%s' % profile] = SequenceProfile.pos_specific_jsd(mutation_frequencies,
                                                                                         profile_dict[profile])
         # if 'fragment' in profile_dict:
-        pose_res_dict['divergence_interface'] = AnalyzeMutatedSequences.compute_jsd(mutation_frequencies, interface_bkgd)
+        pose_res_dict['divergence_interface'] = SequenceProfile.compute_jsd(mutation_frequencies, interface_bkgd)
         # pose_res_dict['hydrophobic_collapse_index'] = hci()  # TODO HCI
 
         # Divide/Multiply column pairs to new columns
@@ -1532,13 +1806,13 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                                                        for design in all_design_sequences[chain]
                                                        if design in designs_by_protocol[protocol]}
                                                for chain in all_design_sequences}
-            protocol_alignment = AnalyzeMutatedSequences.multi_chain_alignment(sequences_by_protocol[protocol])
+            protocol_alignment = SequenceProfile.multi_chain_alignment(sequences_by_protocol[protocol])
             protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'], interface_residues)
             protocol_res_dict = {'divergence_%s' % profile: SequenceProfile.pos_specific_jsd(protocol_mutation_freq,
                                                                                              profile_dict[profile])
                                  for profile in profile_dict}  # both prot_freq and profile_dict[profile] are zero indexed
-            protocol_res_dict['divergence_interface'] = AnalyzeMutatedSequences.compute_jsd(protocol_mutation_freq,
-                                                                                            interface_bkgd)
+            protocol_res_dict['divergence_interface'] = SequenceProfile.compute_jsd(protocol_mutation_freq,
+                                                                                    interface_bkgd)
 
             # Get per residue divergence metric by protocol
             for key in protocol_res_dict:
@@ -1615,18 +1889,18 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
             residue_energy_pc = res_pca.fit_transform(residue_energy_np)
             residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
-                                                columns=['pc' + str(x + SDUtils.index_offset)
+                                                columns=['pc' + str(x + index_offset)
                                                          for x in range(len(res_pca.components_))])
             #                                    ,columns=residue_energy_df.columns)
 
             seq_pca = copy.deepcopy(res_pca)
             residue_dict.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
-            pairwise_sequence_diff_np = SDUtils.all_vs_all(residue_dict, SequenceProfile.sequence_difference)
+            pairwise_sequence_diff_np = all_vs_all(residue_dict, SequenceProfile.sequence_difference)
             pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
             # Compute the euclidean distance
             # pairwise_pca_distance_np = pdist(seq_pc)
-            # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
+            # pairwise_pca_distance_np = all_vs_all(seq_pc, euclidean)
 
             # Make PC DataFrame
             # First take all the principal components identified from above and merge with labels
@@ -1634,7 +1908,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             # All protocol means will have pairwise distance measured as a means of accessing similarity
             # These distance metrics will be reported in the final pose statistics
             seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_dict.keys()),
-                                     columns=['pc' + str(x + SDUtils.index_offset)
+                                     columns=['pc' + str(x + index_offset)
                                               for x in range(len(seq_pca.components_))])
             # Merge principle components with labels
             residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
@@ -1661,12 +1935,12 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
                     # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
                     #                             for k in seq_pca_mean_distance_vector)
                     for k, dist in enumerate(seq_pca_mean_distance_vector):
-                        i, j = SDUtils.condensed_to_square(k, len(grouped_pc_stat_df_dict[stat].index))
+                        i, j = condensed_to_square(k, len(grouped_pc_stat_df_dict[stat].index))
                         sim_measures['seq_distance'][(grouped_pc_stat_df_dict[stat].index[i],
                                                       grouped_pc_stat_df_dict[stat].index[j])] = dist
 
                     for k, e_dist in enumerate(energy_pca_mean_distance_vector):
-                        i, j = SDUtils.condensed_to_square(k, len(grouped_pc_energy_df_dict[stat].index))
+                        i, j = condensed_to_square(k, len(grouped_pc_energy_df_dict[stat].index))
                         sim_measures['energy_distance'][(grouped_pc_energy_df_dict[stat].index[i],
                                                          grouped_pc_energy_df_dict[stat].index[j])] = e_dist
 
@@ -1697,7 +1971,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             #                seq_pc[pc_labels_group == label, 1],
             #                seq_pc[pc_labels_group == label, 2],
             #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
-            scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral', edgecolor='k')
+            scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
+                                 edgecolor='k')
             # handles, labels = scatter.legend_elements()
             # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
             # ax.legend(handles, labels, loc='upper right', title=groups)
@@ -1721,8 +1996,8 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             fig = plt.figure()
             # ax = fig.add_subplot(111, projection='3d')
             ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-            scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2], c=pc_labels_int,
-                                 cmap='Spectral', edgecolor='k')
+            scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
+                                 c=pc_labels_int, cmap='Spectral', edgecolor='k')
             colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
             custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in colors]
             ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left', bbox_to_anchor=(1.0, .5))
@@ -1737,7 +2012,7 @@ def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=
             trajectory_df.to_csv(des_dir.trajectories)
             # clean_residue_df.to_csv('%s_Residues.csv' % _path)
             clean_residue_df.to_csv(des_dir.residues)
-            SDUtils.pickle_object(all_design_sequences, '%s_Sequences' % str(des_dir), out_path=des_dir.all_scores)
+            pickle_object(all_design_sequences, '%s_Sequences' % str(des_dir), out_path=des_dir.all_scores)
 
         # CONSTRUCT: Create pose series and format index names
         pose_stat_s, protocol_stat_s = {}, {}
@@ -1819,17 +2094,17 @@ if __name__ == '__main__':
 
     # Start logging output
     if args.debug:
-        logger = SDUtils.start_log(name='main', level=1)
+        logger = start_log(name='main', level=1)
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = SDUtils.start_log(name='main', level=2)
+        logger = start_log(name='main', level=2)
 
     logger.info('Starting %s with options:\n%s' %
                 (os.path.basename(__file__),
                  '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Collect all designs to be processed
-    all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory)
+    all_poses, location = collect_designs(file=args.file, directory=args.directory)
     assert all_poses != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct '
                                                 'location.' % (PUtils.nano, location))
     logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
@@ -1844,7 +2119,7 @@ if __name__ == '__main__':
     # Start pose analysis of all designed files
     if args.multi_processing:
         # Calculate the number of threads to use depending on computer resources
-        mp_threads = SDUtils.calculate_mp_threads()
+        mp_threads = calculate_mp_threads()
         logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
         zipped_args = zip(all_design_directories, repeat(args.delta_g), repeat(args.join), repeat(args.debug),
                           repeat(save))
