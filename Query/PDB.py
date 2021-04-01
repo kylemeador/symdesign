@@ -266,7 +266,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                     if confirm.lower() in bool_d:
                         break
                     else:
-                        print('%s %s is not a valid choice!' % invalid_string, confirm)
+                        print('%s %s is not a valid choice!' % (invalid_string, confirm))
 
                 if bool_d[confirmation.lower()] or confirmation.isspace():  # confirm that grouping is as specified
                     while True:  # check if logic input is viable
@@ -826,6 +826,17 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
         return unpickle(file)
 
     return schema_d
+
+
+def confirm_input_action(input_message):
+    while True:
+        confirm = input('%s\n%s' % (input_message, confirmation_string))
+        if confirm.lower() in bool_d:
+            break
+        else:
+            print('%s %s is not a valid choice!' % (invalid_string, confirm))
+
+    return confirm
 
 
 if __name__ == '__main__':
