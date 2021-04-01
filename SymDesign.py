@@ -29,7 +29,7 @@ from classes.SymEntry import SymEntry
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDatabase
 import AnalyzeMutatedSequences as Ams
-from AnalyzeOutput import metric_master, final_metrics
+from DesignMetrics import master_metrics
 from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
 from NanohedraWrap import nanohedra_command_s, nanohedra_recap_s
@@ -693,7 +693,8 @@ if __name__ == '__main__':
             with open(PUtils.readme, 'r') as f:
                 print(f.read(), end='')
         elif args.module == PUtils.analysis:
-            metrics_description = [(metric, metric_master[metric]) for metric in sorted(final_metrics)]
+            metrics_description = [(metric, attributes['description'])
+                                   for metric, attributes in sorted(master_metrics.items())]
             formatted_metrics = SDUtils.pretty_format_table(metrics_description)
             logger.info('After running \'%s analysis\', the following metrics will be available for each pose '
                         '(unique design configuration) selected for analysis:\n\t%s\n\nAdditionally, you can view the '

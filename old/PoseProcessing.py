@@ -18,7 +18,7 @@ import CmdUtils as CUtils
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from AnalyzeMutatedSequences import extract_aa_seq
-from AnalyzeOutput import analyze_output
+from DesignMetrics import analyze_output
 from PDB import PDB
 import SequenceProfile
 from SequenceProfile import SequenceProfile, residue_number_to_object
