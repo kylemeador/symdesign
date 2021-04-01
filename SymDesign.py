@@ -35,7 +35,7 @@ from NanohedraWrap import nanohedra_command_s, nanohedra_recap_s
 from PDB import PDB
 from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map
 from ProteinExpression import find_expression_tags
-from DesignMetrics import filter_pose, select_sequences, master_metrics
+from DesignMetrics import filter_pose, select_sequences, master_metrics, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, pdb_to_pose_num
 
 
@@ -1365,7 +1365,7 @@ if __name__ == '__main__':
             sample_trajectory = next(iter(design_directories)).trajectories
             trajectory_df = pd.read_csv(sample_trajectory, index_col=0, header=[0])
             sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
-            sequence_weights = Flags.query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
+            sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
         else:
             sequence_weights = None
 
