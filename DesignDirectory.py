@@ -238,6 +238,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # design_symmetry (P432)
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
                 self.composition = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
+                self.project_designs = os.path.join(self.composition, self.path.find(self.path.split(os.sep)[-2]))
                 self.oligomer_names = os.path.basename(self.composition).split('_')
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.path, PUtils.asu)
@@ -294,8 +295,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.log.debug('fragment_observations: %s' % self.fragment_observations)
 
     @classmethod
-    def from_nanohedra(cls, design_path, mode=None, project=None, nano=True, **kwargs):
-        return cls(design_path, nanohedra_output=nano, mode=mode, project=project, **kwargs)
+    def from_nanohedra(cls, design_path, mode=None, project=None, **kwargs):  #  nano=True,
+        return cls(design_path, mode=mode, project=project, **kwargs)
 
     @classmethod
     def from_file(cls, design_path, project=None, **kwargs):  # directory_type=None

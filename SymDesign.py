@@ -1280,6 +1280,7 @@ if __name__ == '__main__':
 
             design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
                                   for pose in final_poses]
+            location = program_root
             # write out the chosen poses to a pose.paths file
             terminate(args.module, design_directories, location=location, results=design_directories)
         else:
