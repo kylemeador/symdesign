@@ -24,14 +24,14 @@ from PDB import PDB
 from Pose import Pose
 from AnalyzeMutatedSequences import generate_all_design_mutations, generate_sequences, multi_chain_alignment, \
     compute_jsd
-from AnalyzeOutput import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
+from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups,\
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     residue_composition_diff, division_pairs, stats_metrics, protocol_specific_columns, protocols_of_interest, \
     df_permutation_test, remove_score_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
-    get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, pos_specific_jsd, \
-    remove_non_mutations, sequence_difference
+    get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
+    pos_specific_jsd, remove_non_mutations, sequence_difference
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 
@@ -334,20 +334,24 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Gather all metrics relating to the Pose and the interfaces within the Pose
 
         Returns:
-            (dict): {'nanohedra_score_per_res': , 'number_fragment_residues_total': ,
-                     'number_fragment_residues_central': , 'multiple_fragment_ratio': ,
+            (dict): {'nanohedra_score_per_res': , 'nanohedra_score_center_per_res_center':,
+                     'nanohedra_score': , 'nanohedra_score_center': , 'number_fragment_residues_total': ,
+                     'number_fragment_residues_center': , 'multiple_fragment_ratio': ,
                      'percent_fragment_helix': , 'percent_fragment_strand': ,
-                     'percent_fragment_coil': , 'number_of_fragments': }
+                     'percent_fragment_coil': , 'number_of_fragments': , 'total_interface_residues': ,
+                     'percent_residues_fragment_total': , 'percent_residues_fragment_center': }
         """
         score = self.score  # inherently calls self.get_fragment_metrics(). Returns None if this fails
         if score is None:  # can be 0.0
             return {}
 
-        metrics = {'nanohedra_score_per_res': score,
+        metrics = {'nanohedra_score_per_res':
+                   self.all_residue_score / self.fragment_residues_total if self.fragment_residues_total else 0.0,
+                   'nanohedra_score_center_per_res_center': score,
                    'nanohedra_score': self.all_residue_score,
-                   'nanohedra_score_central': self.center_residue_score,
+                   'nanohedra_score_center': self.center_residue_score,
                    'number_fragment_residues_total': self.fragment_residues_total,
-                   'number_fragment_residues_central': self.central_residues_with_fragment_overlap,
+                   'number_fragment_residues_center': self.central_residues_with_fragment_overlap,
                    'multiple_fragment_ratio': self.multiple_frag_ratio,
                    'percent_fragment_helix': self.helical_fragment_content,
                    'percent_fragment_strand': self.strand_fragment_content,

@@ -21,196 +21,534 @@ import SymDesignUtils as SDUtils
 # from DesignDirectory import DesignDirectory
 from PDB import PDB
 
-# import CmdUtils as CUtils
-
 
 # Globals
 groups = 'protocol'
-metric_master = {'average_fragment_z_score': 'The average fragment z-value used in docking/design',
-                 'buns_heavy_total': 'Buried unsaturated H-bonding heavy atoms in the design',
-                 'buns_hpol_total': 'Buried unsaturated H-bonding polarized hydrogen atoms in the design',
-                 'buns_total': 'Total buried unsaturated H-bonds in the design',
-                 'buns_per_ang': 'Buried Unsaturated Hbonds per Angstrom^2 of interface',
-                 'component_1_symmetry': 'The symmetry group of component 1',
-                 'component_1_name': 'component 1 PDB_ID',
-                 'component_1_number_of_residues': 'The number of residues in the monomer of component 1',
-                 'component_1_max_radius': 'The maximum distance that component 1 reaches away from the center of mass',
-                 'component_1_n_terminal_helix': 'Whether the n-terminus has an alpha helix',
-                 'component_1_c_terminal_helix': 'Whether the c-terminus has an alpha helix',
-                 'component_1_n_terminal_orientation':
-                     'The direction the n-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
-                     ' towards',
-                 'component_1_c_terminal_orientation':
-                     'The direction the c-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
-                     ' towards',
-                 'component_2_symmetry': 'The symmetry group of component 2',
-                 'component_2_name': 'component 2 PDB_ID',
-                 'component_2_number_of_residues': 'The number of residues in the monomer of component 2',
-                 'component_2_max_radius': 'The maximum distance that component 2 reaches away from the center of mass',
-                 'component_2_n_terminal_helix': 'Whether the n-terminus has an alpha helix',
-                 'component_2_c_terminal_helix': 'Whether the c-terminus has an alpha helix',
-                 'component_2_n_terminal_orientation':
-                     'The direction the n-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
-                     ' towards',
-                 'component_2_c_terminal_orientation':
-                     'The direction the c-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
-                     ' towards',
-                 'contact_count': 'Number of carbon-carbon contacts across interface',
-                 'core': 'The number of \'core\' residues as classified by E. Levy 2010',
-                 'cst_weight': 'Total weight of coordinate constraints to keep design from moving in cartesian space',
-                 'divergence_combined_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
-                                                    ' position specific design profile values. Includes fragment & '
-                                                    'evolution if both are True, otherwise only includes those '
-                                                    'specified for use in design.',
-                 'divergence_fragment_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
-                                                    ' position specific fragment profile',
-                 'divergence_evolution_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
-                                                     ' position specific evolutionary profile',
-                 'divergence_interface_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
-                                                     ' typical interface background',
-                 'fsp_energy': 'Total weight of sequence constraints used to favor certain amino acids in design. '
-                               'Only protocols with a favored profile have values',
-                 # 'fsp_total_stability': 'fsp_energy + total pose energy',  # DEPRECIATED
-                 # 'full_stability_complex': 'Total pose energy (essentially REU)',  # DEPRECIATED
-                 # 'full_stability_A_oligomer': 'Total A oligomer pose energy (essentially REU)',  # DEPRECIATED
-                 # 'full_stability_B_oligomer': 'Total B oligomer pose energy (essentially REU)',  # DEPRECIATED
-                 # 'full_stability_oligomer': 'Total oligomer pose energy (essentially REU)',  # DEPRECIATED
-                 'int_area_hydrophobic': 'Total hydrophobic interface buried surface area',
-                 'int_area_polar': 'Total polar interface buried surface area',
-                 'int_area_res_summary_hydrophobic_1_unbound': 'Sum of each interface residue\'s hydrophobic area for '
-                                                                'interface1',
-                 'int_area_res_summary_hydrophobic_2_unbound': 'Sum of each interface residue\'s hydrophobic area for '
-                                                                'interface2',
-                 'int_area_res_summary_polar_1_unbound': 'Sum of each interface residue\'s polar area for interface1',
-                 'int_area_res_summary_polar_2_unbound': 'Sum of each interface residue\'s polar area for interface2',
-                 'int_area_res_summary_total_1_unbound': 'Sum of each interface residue\'s total area for interface1',
-                 'int_area_res_summary_total_2_unbound': 'Sum of each interface residue\'s total area for interface2',
-                 # 'int_area_res_summary_polar_A_oligomer': 'Sum of each interface residue\'s polar area for oligomer A',
-                 # 'int_area_res_summary_polar_B_oligomer': 'Sum of each interface residue\'s polar area for oligomer B',
-                 # 'int_area_res_summary_total_A_oligomer': 'Sum of each interface residue\'s total area for oligomer A',
-                 # 'int_area_res_summary_total_B_oligomer': 'Sum of each interface residue\'s total area for oligomer B',
-                 'int_area_total': 'Total interface buried surface area',
-                 'int_composition_similarity':
-                     'The similarity to the expected interface composition given interface buried surface area. '
-                     '1 is similar to natural interfaces, 0 is dissimilar',
-                 # 'int_connectivity_A': 'Interface connection chainA to the rest of the protein',
-                 # 'int_connectivity_B': 'Interface connection chainB to the rest of the protein',
-                 'int_connectivity_1': 'How embedded is interface1 in the rest of the protein?',
-                 'int_connectivity_2': 'How embedded is interface2 in the rest of the protein?',
-                 # 'int_energy_context_A_oligomer': 'Interface energy of the A oligomer',  # DEPRECIATED x2
-                 # 'int_energy_context_B_oligomer': 'Interface energy of the B oligomer',  # DEPRECIATED x2
-                 # 'int_energy_context_oligomer_A': 'Interface energy of the A oligomer',  # DEPRECIATED
-                 # 'int_energy_context_oligomer_B': 'Interface energy of the B oligomer',  # DEPRECIATED
-                 # 'int_energy_context_complex': 'interface energy of the complex',  # DEPRECIATED
-                 # 'int_energy_res_summary_A_oligomer': 'Sum of each interface residue\'s energy for oligomer A',  # DEPRECIATED
-                 # 'int_energy_res_summary_B_oligomer': 'Sum of each interface residue\'s energy for oligomer B',  # DEPRECIATED
-                 'int_energy_res_summary_complex': 'Total interface residue energies in the complexed state',
-                 'int_energy_res_summary_delta': 'deltaG of int_energy_res_summary_complex and _unbound',
-                 'int_energy_res_summary_unbound': 'Total interface residue energies in the unbound state',
-                 'int_energy_res_summary_1_unbound': 'Sum of interface1 residue energies in the unbound state',
-                 'int_energy_res_summary_2_unbound': 'Sum of interface2 residue energies in the unbound state',
-                 'int_separation': 'Median distance between all atom points on each side of the interface',
-                 'interaction_energy_complex': 'The two-body (residue-pair) energy of the complexed interface. '
-                                               'No solvation energies',
-                 'interface_b_factor_per_res': 'The average B-factor from each atom, from each interface residue',
-                 'multiple_fragment_ratio': 'The extent to which fragment observations are connected in the interface.'
-                                            ' Higher ratio means multiple fragment observations per residue',
-                 'number_hbonds': 'The number of residues making H-bonds in the total interface. Residues may make more'
-                                  ' than one H-bond',
-                 'nanohedra_score': 'Sum of total fragment containing residue match scores (1 / 1 + Z-score^2) weighted'
-                                    ' by their ranked match score. Maximum of 2/residue',
-                 'nanohedra_score_central': 'nanohedra_score for the central fragment residues only',
-                 'nanohedra_score_per_res': 'The normalized, per residue Nanohedra Score',
-                 'number_fragment_residues_total': 'The number of residues in the interface with fragment observations'
-                                                   'found',
-                 'number_fragment_residues_central': 'The number of residues in the interface that are the central '
-                                                     'fragment observation',
-                 'observations': 'Number of unique design trajectories contributing to statistics',
-                 'observed_design': 'Percent of observed residues in combined profile. 1 is 100%',
-                 'observed_evolution': 'Percent of observed residues in evolutionary profile. 1 is 100%',
-                 'observed_interface': 'Percent of observed residues in fragment profile. 1 is 100%',
-                 'percent_core': 'The percentage of total residues which are \'core\' according to Levy, E. 2010',
-                 'percent_fragment': 'Percent of residues with fragment data out of total residues',
-                 'percent_fragment_coil': 'The percentage of fragments represented from coiled SS elements',
-                 'percent_fragment_helix': 'The percentage of fragments represented from an a-helix SS elements',
-                 'percent_fragment_strand': 'The percentage of fragments represented from a b-strand SS elements',
-                 'percent_int_area_hydrophobic': 'The percent of interface area which is occupied by hydrophobic atoms',
-                 'percent_int_area_polar': 'The percent of interface area which is occupied by polar atoms',
-                 'percent_rim': 'The percentage of total residues which are \'rim\' according to Levy, E. 2010',
-                 'percent_support': 'The percentage of total residues which are \'support\' according to Levy, E. 2010',
-                 'protocol_energy_distance_sum':
-                     'The distance between the average linearly embedded per residue energy co-variation between '
-                     'specified protocols. Larger = greater distance. A small distance indicates that different '
-                     'protocols arrived at the same per residue energy conclusions despite different pools of amino '
-                     'acids specified for sampling',
-                 'protocol_similarity_sum':
-                     'The statistical similarity between all sampled protocols. Larger is more similar, indicating that'
-                     ' different protocols have interface statistics that are similar despite different pools of amino '
-                     'acids specified for sampling',
-                 'protocol_seq_distance_sum':
-                     'The distance between the average linearly embedded sequence differences between specified '
-                     'protocols. Larger = greater distance. A small distance indicates that different '
-                     'protocols arrived at the same per residue energy conclusions despite different pools of amino '
-                     'acids specified for sampling',
-                 'ref': 'Rosetta Energy Term - A metric for the unfolded energy of the protein along with sequence '
-                        'fitting corrections',
-                 'rim': 'The number of \'rim\' residues as classified by E. Levy 2010',
-                 'rmsd': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and designed states',
-                 groups: 'Protocols utilized to search sequence space given fragment and/or evolutionary constraint '
-                         'information',
-                 'shape_complementarity': 'Interface shape complementarity (SC). Measure of fit between two surfaces',
-                 'solvation_energy': 'Energy required to hydrate the unbound components',
-                 'support': 'The number of \'support\' residues as classified by E. Levy 2010',
-                 'symmetry': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
-                 'fragment_z_score_total': 'The sum of all fragments z-values',
-                 'number_of_fragments': 'The number of fragments found in the pose interface',
-                 'total_interface_residues':
-                     'The total number of interface residues found in the pose (residue CB within 8A)',
-                 'REU': 'Rosetta Energy Units. Always 0. We can disregard',
-                 # 'buns_asu': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
-                 # 'buns_asu_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
-                 # 'buns_nano': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
-                 # 'buns_nano_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',  # DEPRECIATED
-                 # 'int_area_asu_hydrophobic': 'Buried surface area in asu interface hydrophobic',  # UNUSED
-                 # 'int_area_asu_polar': 'Buried surface area in asu interface area polar',  # UNUSED
-                 # 'int_area_asu_total': 'Buried surface area in asu interface area total',  # UNUSED
-                 # 'int_area_ex_asu_hydrophobic': 'Buried surface area in extra-asu interface area hydrophobic',  # UNUSED
-                 # 'int_area_ex_asu_polar': 'Buried surface area in extra-asu interface area polar',  # UNUSED
-                 # 'int_area_ex_asu_total': 'Buried surface area in extra-asu interface area total',  # UNUSED
-                 # 'int_energy_context_asu': 'Interface energy of the ASU',  # UNUSED, DEPRECIATED
-                 # 'int_energy_context_unbound': 'Interface energy of the unbound complex',  # UNUSED, DEPRECIATED
-                 'coordinate_constraint': 'Same as cst_weight',
-                 # 'int_energy_res_summary_asu': 'Sum of each interface residues individual energy for the ASU',  # DEPRECIATED
-                 # 'int_energy_res_summary_unbound': 'Sum of each interface residues individual energy for the unbound',  # DEPRECIATED
-                 # 'interaction_energy': 'Interaction energy between two sets of residues',  # DEPRECIATED
-                 # 'interaction_energy_asu': 'Interaction energy between two sets of residues in ASU state',  # DEPRECIATED
-                 # 'interaction_energy_oligomerA': 'Interaction energy between two sets of residues in oligomerA',  # DEPRECIATED
-                 # 'interaction_energy_oligomerB': 'Interaction energy between two sets of residues in oligomerB',  # DEPRECIATED
-                 # 'interaction_energy_unbound': 'Interaction energy between two sets of residues in unbound state', # DEPRECIATED
-                 'res_type_constraint': 'Same as fsp_energy',
-                 'time': 'Time for the protocol to complete',
-                 'hbonds_res_selection_unbound': 'The specific h-bonds present in the bound pose',
-                 'hbonds_res_selection_1_unbound': 'The specific h-bonds present in the unbound interface1',
-                 'hbonds_res_selection_2_unbound': 'The specific h-bonds present in the unbound interface2',
-                 'dslf_fa13': 'Rosetta Energy Term - disulfide bonding',
-                 'fa_atr': 'Rosetta Energy Term - lennard jones full atom atractive forces',
-                 'fa_dun': 'Rosetta Energy Term - dunbrack rotamer library statistical probability',
-                 'fa_elec': 'Rosetta Energy Term - full atom electrostatic forces',
-                 'fa_intra_rep': 'Rosetta Energy Term - lennard jones full atom intra-residue repulsive forces',
-                 'fa_intra_sol_xover4': 'Rosetta Energy Term - full atom intra-residue solvent forces',
-                 'fa_rep': 'Rosetta Energy Term - lennard jones full atom repulsive forces',
-                 'fa_sol': 'Rosetta Energy Term - full atom solvent forces',
-                 'hbond_bb_sc': 'Rosetta Energy Term - backbone/sidechain hydrogen bonding',
-                 'hbond_lr_bb': 'Rosetta Energy Term - long range backbone hydrogen bonding',
-                 'hbond_sc': 'Rosetta Energy Term - side-chain hydrogen bonding',
-                 'hbond_sr_bb': 'Rosetta Energy Term - short range backbone hydrogen bonding',
-                 'lk_ball_wtd': 'Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
-                 'omega': 'Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
-                 'p_aa_pp': '"Rosetta Energy Term - statistical probability of an amino acid given angles phi',
-                 'pro_close': 'Rosetta Energy Term - to favor closing of proline rings',
-                 'rama_prepro': 'Rosetta Energy Term - amino acid dependent term to favor certain ramachandran angles '
-                                'on residue before prolines',
-                 'yhh_planarity': 'Rosetta Energy Term - to favor planarity of tyrosine hydrogen'}
+master_metrics = {'average_fragment_z_score':
+                      {'description': 'The average fragment z-value used in docking/design',
+                       'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'buns_heavy_total':
+                      {'description': 'Buried unsaturated H-bonding heavy atoms in the design',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'buns_hpol_total':
+                      {'description': 'Buried unsaturated H-bonding polarized hydrogen atoms in the design',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'buns_total':
+                      {'description': 'Total buried unsaturated H-bonds in the design',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'buns_per_ang':
+                      {'description': 'Buried Unsaturated Hbonds per Angstrom^2 of interface',
+                       'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'component_1_symmetry':
+                      {'description': 'The symmetry group of component 1',
+                       'direction': 'min', 'function': 'equals', 'filter': True},
+                  'component_1_name':
+                      {'description': 'component 1 PDB_ID', 'direction': None, 'function': None, 'filter': None},
+                  'component_1_number_of_residues':
+                      {'description': 'The number of residues in the monomer of component 1',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'component_1_max_radius':
+                      {'description': 'The maximum distance that component 1 reaches away from the center of mass',
+                       'direction': None, 'function': None, 'filter': None},
+                  'component_1_n_terminal_helix':
+                      {'description': 'Whether the n-terminus has an alpha helix',
+                       'direction': None, 'function': None, 'filter': None},
+                  'component_1_c_terminal_helix':
+                      {'description': 'Whether the c-terminus has an alpha helix',
+                       'direction': None, 'function': None, 'filter': None},
+                  'component_1_n_terminal_orientation':
+                      {'description': 'The direction the n-terminus is oriented from the symmetry group center of mass.'
+                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': None},
+                  'component_1_c_terminal_orientation':
+                      {'description': 'The direction the c-terminus is oriented from the symmetry group center of mass.'
+                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': None},
+                  'component_2_symmetry':
+                      {'description': 'The symmetry group of component 2',
+                       'direction': 'min', 'function': 'equals', 'filter': True},
+                  'component_2_name':
+                      {'description': 'component 2 PDB_ID', 'direction': None, 'function': None, 'filter': None},
+                  'component_2_number_of_residues':
+                      {'description': 'The number of residues in the monomer of component 2',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'component_2_max_radius':
+                      {'description': 'The maximum distance that component 2 reaches away from the center of mass',
+                       'direction': None, 'function': None, 'filter': None},
+                  'component_2_n_terminal_helix':
+                      {'description': 'Whether the n-terminus has an alpha helix',
+                       'direction': None, 'function': None, 'filter': None},
+                  'component_2_c_terminal_helix':
+                      {'description': 'Whether the c-terminus has an alpha helix',
+                       'direction': None, 'function': None, 'filter': None},
+                  'component_2_n_terminal_orientation':
+                      {'description': 'The direction the n-terminus is oriented from the symmetry group center of mass.'
+                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': None},
+                  'component_2_c_terminal_orientation':
+                      {'description': 'The direction the c-terminus is oriented from the symmetry group center of mass.'
+                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': None},
+                  'contact_count':
+                      {'description': 'Number of carbon-carbon contacts across interface',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'core':
+                      {'description': 'The number of \'core\' residues as classified by E. Levy 2010',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'cst_weight':
+                      {'description': 'Total weight of coordinate constraints to keep design from moving in cartesian '
+                                      'space', 'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'divergence_combined_per_residue':
+                      {'description': 'The Jensen-Shannon divergence of interface residues from the position specific '
+                                      'design profile values. Includes fragment & evolution if both are True, otherwise'
+                                      ' only includes those specified for use in design.',
+                       'direction': None, 'function': None, 'filter': None},
+                  'divergence_fragment_per_residue':
+                      {'description': 'The Jensen-Shannon divergence of interface residues from the position specific '
+                                      'fragment profile', 'direction': None, 'function': None, 'filter': None},
+                  'divergence_evolution_per_residue':
+                      {'description': 'The Jensen-Shannon divergence of interface residues from the position specific '
+                                      'evolutionary profile', 'direction': None, 'function': None, 'filter': None},
+                  'divergence_interface_per_residue':
+                      {'description': 'The Jensen-Shannon divergence of interface residues from the typical interface '
+                                      'background', 'direction': None, 'function': None, 'filter': None},
+                  'fsp_energy':
+                      {'description': 'Total weight of sequence constraints used to favor certain amino acids in design'
+                                      '. Only protocols with a favored profile have values',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'int_area_hydrophobic':
+                      {'description': 'Total hydrophobic interface buried surface area',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'int_area_polar':
+                      {'description': 'Total polar interface buried surface area',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'int_area_res_summary_hydrophobic_1_unbound':
+                      {'description': 'Sum of each interface residue\'s hydrophobic area for interface1',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'int_area_res_summary_hydrophobic_2_unbound':
+                      {'description': 'Sum of each interface residue\'s hydrophobic area for interface2',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'int_area_res_summary_polar_1_unbound':
+                      {'description': 'Sum of each interface residue\'s polar area for interface1',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'int_area_res_summary_polar_2_unbound':
+                      {'description': 'Sum of each interface residue\'s polar area for interface2',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'int_area_res_summary_total_1_unbound':
+                      {'description': 'Sum of each interface residue\'s total area for interface1',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'int_area_res_summary_total_2_unbound':
+                      {'description': 'Sum of each interface residue\'s total area for interface2',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'int_area_total':
+                      {'description': 'Total interface buried surface area',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'int_composition_similarity':
+                      {'description': 'The similarity to the expected interface composition given interface buried '
+                                      'surface area. 1 is similar to natural interfaces, 0 is dissimilar',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'int_connectivity_1':
+                      {'description': 'How embedded is interface1 in the rest of the protein?',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'int_connectivity_2':
+                      {'description': 'How embedded is interface2 in the rest of the protein?',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'int_energy_res_summary_complex':
+                      {'description': 'Total interface residue energies in the complexed state',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'int_energy_res_summary_delta':
+                      {'description': 'deltaG of int_energy_res_summary_complex and _unbound',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'int_energy_res_summary_unbound':
+                      {'description': 'Total interface residue energies in the unbound state',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'int_energy_res_summary_1_unbound':
+                      {'description': 'Sum of interface1 residue energies in the unbound state',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'int_energy_res_summary_2_unbound':
+                      {'description': 'Sum of interface2 residue energies in the unbound state',
+                       'direction': None, 'function': None, 'filter': None}, 'int_separation':
+                      {'description': 'Median distance between all atom points on each side of the interface',
+                       'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'interaction_energy_complex':
+                      {'description': 'The two-body (residue-pair) energy of the complexed interface. No solvation '
+                                      'energies', 'direction': 'min', 'function': 'rank', 'filter': True},
+                  'interface_b_factor_per_res':
+                      {'description': 'The average B-factor from each atom, from each interface residue',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'multiple_fragment_ratio':
+                      {'description': 'The extent to which fragment observations are connected in the interface. Higher'
+                                      ' ratio means multiple fragment observations per residue',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'number_hbonds':
+                      {'description': 'The number of residues making H-bonds in the total interface. Residues may make '
+                                      'more than one H-bond', 'direction': 'max', 'function': 'rank', 'filter': True},
+                  'nanohedra_score':
+                      {'description': 'Sum of total fragment containing residue match scores (1 / 1 + Z-score^2) '
+                                      'weighted by their ranked match score. Maximum of 2/residue',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'nanohedra_score_center':
+                      {'description': 'nanohedra_score for the central fragment residues only',
+                       'direction': None, 'function': None, 'filter': None},
+                  'nanohedra_score_per_res':
+                      {'description': 'The Nanohedra Score normalized by number of fragment residues',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'nanohedra_score_center_per_res_center':
+                      {'description': 'The central Nanohedra Score normalized by number of central fragment residues',
+                       'direction': None, 'function': None, 'filter': None},
+                  'number_fragment_residues_total':
+                      {'description': 'The number of residues in the interface with fragment observationsfound',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'number_fragment_residues_center':
+                      {'description': 'The number of interface residues that belong to a central fragment residue',
+                       'direction': None, 'function': None, 'filter': None},
+                  'observations':
+                      {'description': 'Number of unique design trajectories contributing to statistics',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'observed_design':
+                      {'description': 'Percent of observed residues in combined profile. 1 is 100%',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'observed_evolution':
+                      {'description': 'Percent of observed residues in evolutionary profile. 1 is 100%',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'observed_interface':
+                      {'description': 'Percent of observed residues in fragment profile. 1 is 100%',
+                       'direction': None, 'function': None, 'filter': None},
+                  'percent_core':
+                      {'description': 'The percentage of residues which are \'core\' according to Levy, E. 2010',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_fragment':
+                      {'description': 'Percent of residues with fragment data out of total residues',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_fragment_coil':
+                      {'description': 'The percentage of fragments represented from coiled SS elements',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_fragment_helix':
+                      {'description': 'The percentage of fragments represented from an a-helix SS elements',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_fragment_strand':
+                      {'description': 'The percentage of fragments represented from a b-strand SS elements',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_int_area_hydrophobic':
+                      {'description': 'The percent of interface area which is occupied by hydrophobic atoms',
+                       'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'percent_int_area_polar':
+                      {'description': 'The percent of interface area which is occupied by polar atoms',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_rim':
+                      {'description': 'The percentage of residues which are \'rim\' according to Levy, E. 2010',
+                       'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'percent_support':
+                      {'description': 'The percentage of residues which are \'support\' according to Levy, E. 2010'
+                          , 'direction': 'max', 'function': 'normalize', 'filter': True},
+                  groups:
+                      {'description': 'Protocols utilized to search sequence space given fragment and/or evolutionary '
+                                      'constraint information', 'direction': None, 'function': None, 'filter': None},
+                  'protocol_energy_distance_sum':
+                      {'description': 'The distance between the average linearly embedded per residue energy '
+                                      'co-variation between specified protocols. Larger = greater distance. A small '
+                                      'distance indicates that different protocols arrived at the same per residue '
+                                      'energy conclusions despite different pools of amino acids specified for sampling'
+                          , 'direction': 'min', 'function': 'rank', 'filter': True},
+                  'protocol_similarity_sum':
+                      {'description': 'The statistical similarity between all sampled protocols. Larger is more similar'
+                                      ', indicating that different protocols have interface statistics that are similar'
+                                      ' despite different pools of amino acids specified for sampling',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'protocol_seq_distance_sum':
+                      {'description': 'The distance between the average linearly embedded sequence differences between '
+                                      'specified protocols. Larger = greater distance. A small distance indicates that '
+                                      'different protocols arrived at the same per residue energy conclusions despite '
+                                      'different pools of amino acids specified for sampling',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'ref':
+                      {'description': 'Rosetta Energy Term - A metric for the unfolded energy of the protein along with'
+                                      ' sequence fitting corrections',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'rim':
+                      {'description': 'The number of \'rim\' residues as classified by E. Levy 2010',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'rmsd':
+                      {'description': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
+                                      'designed states', 'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'shape_complementarity':
+                      {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'solvation_energy':
+                      {'description': 'Energy required to hydrate the unbound components',
+                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                  'support':
+                      {'description': 'The number of \'support\' residues as classified by E. Levy 2010',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'symmetry':
+                      {'description': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
+                       'direction': None, 'function': None, 'filter': None},
+                  'fragment_z_score_total':
+                      {'description': 'The sum of all fragments z-values',
+                       'direction': None, 'function': None, 'filter': None},
+                  'number_of_fragments':
+                      {'description': 'The number of fragments found in the pose interface',
+                       'direction': None, 'function': None, 'filter': None},
+                  'total_interface_residues':
+                      {'description': 'The total number of interface residues found in the pose (residue CB within 8A)',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'REU':
+                      {'description': 'Rosetta Energy Units. Always 0. We can disregard',
+                       'direction': None, 'function': None, 'filter': None},
+                  'coordinate_constraint':
+                      {'description': 'Same as cst_weight', 'direction': None, 'function': None, 'filter': None},
+                  'res_type_constraint':
+                      {'description': 'Same as fsp_energy', 'direction': None, 'function': None, 'filter': None},
+                  'time':
+                      {'description': 'Time for the protocol to complete',
+                       'direction': None, 'function': None, 'filter': None},
+                  'hbonds_res_selection_unbound':
+                      {'description': 'The specific h-bonds present in the bound pose',
+                       'direction': None, 'function': None, 'filter': None},
+                  'hbonds_res_selection_1_unbound':
+                      {'description': 'The specific h-bonds present in the unbound interface1',
+                       'direction': None, 'function': None, 'filter': None},
+                  'hbonds_res_selection_2_unbound':
+                      {'description': 'The specific h-bonds present in the unbound interface2',
+                       'direction': None, 'function': None, 'filter': None},
+                  'dslf_fa13':
+                      {'description': 'Rosetta Energy Term - disulfide bonding',
+                       'direction': None, 'function': None, 'filter': None},
+                  'fa_atr':
+                      {'description': 'Rosetta Energy Term - lennard jones full atom atractive forces',
+                       'direction': None, 'function': None, 'filter': None},
+                  'fa_dun':
+                      {'description': 'Rosetta Energy Term - Dunbrack rotamer library statistical probability',
+                       'direction': None, 'function': None, 'filter': None},
+                  'fa_elec':
+                      {'description': 'Rosetta Energy Term - full atom electrostatic forces',
+                       'direction': None, 'function': None, 'filter': None},
+                  'fa_intra_rep':
+                      {'description': 'Rosetta Energy Term - lennard jones full atom intra-residue repulsive forces',
+                       'direction': None, 'function': None, 'filter': None},
+                  'fa_intra_sol_xover4':
+                      {'description': 'Rosetta Energy Term - full atom intra-residue solvent forces',
+                       'direction': None, 'function': None, 'filter': None},
+                  'fa_rep':
+                      {'description': 'Rosetta Energy Term - lennard jones full atom repulsive forces',
+                       'direction': None, 'function': None, 'filter': None},
+                  'fa_sol':
+                      {'description': 'Rosetta Energy Term - full atom solvent forces',
+                       'direction': None, 'function': None, 'filter': None},
+                  'hbond_bb_sc':
+                      {'description': 'Rosetta Energy Term - backbone/sidechain hydrogen bonding',
+                       'direction': None, 'function': None, 'filter': None},
+                  'hbond_lr_bb':
+                      {'description': 'Rosetta Energy Term - long range backbone hydrogen bonding',
+                       'direction': None, 'function': None, 'filter': None},
+                  'hbond_sc':
+                      {'description': 'Rosetta Energy Term - side-chain hydrogen bonding',
+                       'direction': None, 'function': None, 'filter': None},
+                  'hbond_sr_bb':
+                      {'description': 'Rosetta Energy Term - short range backbone hydrogen bonding',
+                       'direction': None, 'function': None, 'filter': None},
+                  'lk_ball_wtd':
+                      {'description': 'Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
+                       'direction': None, 'function': None, 'filter': None},
+                  'omega':
+                      {'description': 'Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
+                       'direction': None, 'function': None, 'filter': None},
+                  'p_aa_pp':
+                      {'description': '"Rosetta Energy Term - statistical probability of an amino acid given angles phi'
+                          , 'direction': None, 'function': None, 'filter': None},
+                  'pro_close':
+                      {'description': 'Rosetta Energy Term - to favor closing of proline rings',
+                       'direction': None, 'function': None, 'filter': None},
+                  'rama_prepro':
+                      {'description': 'Rosetta Energy Term - amino acid dependent term to favor certain Ramachandran '
+                                      'angles on residue before proline',
+                       'direction': None, 'function': None, 'filter': None},
+                  'yhh_planarity':
+                      {'description': 'Rosetta Energy Term - favor planarity of tyrosine alcohol hydrogen',
+                       'direction': None, 'function': None, 'filter': None}}
+# metric_master = {'average_fragment_z_score': 'The average fragment z-value used in docking/design',
+#                  'buns_heavy_total': 'Buried unsaturated H-bonding heavy atoms in the design',
+#                  'buns_hpol_total': 'Buried unsaturated H-bonding polarized hydrogen atoms in the design',
+#                  'buns_total': 'Total buried unsaturated H-bonds in the design',
+#                  'buns_per_ang': 'Buried Unsaturated Hbonds per Angstrom^2 of interface',
+#                  'component_1_symmetry': 'The symmetry group of component 1',
+#                  'component_1_name': 'component 1 PDB_ID',
+#                  'component_1_number_of_residues': 'The number of residues in the monomer of component 1',
+#                  'component_1_max_radius': 'The maximum distance that component 1 reaches away from the center of mass',
+#                  'component_1_n_terminal_helix': 'Whether the n-terminus has an alpha helix',
+#                  'component_1_c_terminal_helix': 'Whether the c-terminus has an alpha helix',
+#                  'component_1_n_terminal_orientation':
+#                      'The direction the n-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
+#                      ' towards',
+#                  'component_1_c_terminal_orientation':
+#                      'The direction the c-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
+#                      ' towards',
+#                  'component_2_symmetry': 'The symmetry group of component 2',
+#                  'component_2_name': 'component 2 PDB_ID',
+#                  'component_2_number_of_residues': 'The number of residues in the monomer of component 2',
+#                  'component_2_max_radius': 'The maximum distance that component 2 reaches away from the center of mass',
+#                  'component_2_n_terminal_helix': 'Whether the n-terminus has an alpha helix',
+#                  'component_2_c_terminal_helix': 'Whether the c-terminus has an alpha helix',
+#                  'component_2_n_terminal_orientation':
+#                      'The direction the n-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
+#                      ' towards',
+#                  'component_2_c_terminal_orientation':
+#                      'The direction the c-terminus is oriented from the symmetry group center of mass. 1 is away, -1 is'
+#                      ' towards',
+#                  'contact_count': 'Number of carbon-carbon contacts across interface',
+#                  'core': 'The number of \'core\' residues as classified by E. Levy 2010',
+#                  'cst_weight': 'Total weight of coordinate constraints to keep design from moving in cartesian space',
+#                  'divergence_combined_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
+#                                                     ' position specific design profile values. Includes fragment & '
+#                                                     'evolution if both are True, otherwise only includes those '
+#                                                     'specified for use in design.',
+#                  'divergence_fragment_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
+#                                                     ' position specific fragment profile',
+#                  'divergence_evolution_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
+#                                                      ' position specific evolutionary profile',
+#                  'divergence_interface_per_residue': 'The Jensen-Shannon divergence of interface residues from the'
+#                                                      ' typical interface background',
+#                  'fsp_energy': 'Total weight of sequence constraints used to favor certain amino acids in design. '
+#                                'Only protocols with a favored profile have values',
+#                  'int_area_hydrophobic': 'Total hydrophobic interface buried surface area',
+#                  'int_area_polar': 'Total polar interface buried surface area',
+#                  'int_area_res_summary_hydrophobic_1_unbound':
+#                      'Sum of each interface residue\'s hydrophobic area for interface1',
+#                  'int_area_res_summary_hydrophobic_2_unbound':
+#                      'Sum of each interface residue\'s hydrophobic area for interface2',
+#                  'int_area_res_summary_polar_1_unbound': 'Sum of each interface residue\'s polar area for interface1',
+#                  'int_area_res_summary_polar_2_unbound': 'Sum of each interface residue\'s polar area for interface2',
+#                  'int_area_res_summary_total_1_unbound': 'Sum of each interface residue\'s total area for interface1',
+#                  'int_area_res_summary_total_2_unbound': 'Sum of each interface residue\'s total area for interface2',
+#                  'int_area_total': 'Total interface buried surface area',
+#                  'int_composition_similarity':
+#                      'The similarity to the expected interface composition given interface buried surface area. '
+#                      '1 is similar to natural interfaces, 0 is dissimilar',
+#                  'int_connectivity_1': 'How embedded is interface1 in the rest of the protein?',
+#                  'int_connectivity_2': 'How embedded is interface2 in the rest of the protein?',
+#                  'int_energy_res_summary_complex': 'Total interface residue energies in the complexed state',
+#                  'int_energy_res_summary_delta': 'deltaG of int_energy_res_summary_complex and _unbound',
+#                  'int_energy_res_summary_unbound': 'Total interface residue energies in the unbound state',
+#                  'int_energy_res_summary_1_unbound': 'Sum of interface1 residue energies in the unbound state',
+#                  'int_energy_res_summary_2_unbound': 'Sum of interface2 residue energies in the unbound state',
+#                  'int_separation': 'Median distance between all atom points on each side of the interface',
+#                  'interaction_energy_complex': 'The two-body (residue-pair) energy of the complexed interface. '
+#                                                'No solvation energies',
+#                  'interface_b_factor_per_res': 'The average B-factor from each atom, from each interface residue',
+#                  'multiple_fragment_ratio': 'The extent to which fragment observations are connected in the interface.'
+#                                             ' Higher ratio means multiple fragment observations per residue',
+#                  'number_hbonds': 'The number of residues making H-bonds in the total interface. Residues may make more'
+#                                   ' than one H-bond',
+#                  'nanohedra_score': 'Sum of total fragment containing residue match scores (1 / 1 + Z-score^2) weighted'
+#                                     ' by their ranked match score. Maximum of 2/residue',
+#                  'nanohedra_score_center': 'nanohedra_score for the central fragment residues only',
+#                  'nanohedra_score_per_res': 'The Nanohedra Score normalized by number of fragment residues',
+#                  'nanohedra_score_center_per_res_center':
+#                      'The central Nanohedra Score normalized by number of central fragment residues',
+#                  'number_fragment_residues_total': 'The number of residues in the interface with fragment observations'
+#                                                    'found',
+#                  'number_fragment_residues_center': 'The number of residues in the interface that are the central '
+#                                                      'fragment observation',
+#                  'observations': 'Number of unique design trajectories contributing to statistics',
+#                  'observed_design': 'Percent of observed residues in combined profile. 1 is 100%',
+#                  'observed_evolution': 'Percent of observed residues in evolutionary profile. 1 is 100%',
+#                  'observed_interface': 'Percent of observed residues in fragment profile. 1 is 100%',
+#                  'percent_core': 'The percentage of total residues which are \'core\' according to Levy, E. 2010',
+#                  'percent_fragment': 'Percent of residues with fragment data out of total residues',
+#                  'percent_fragment_coil': 'The percentage of fragments represented from coiled SS elements',
+#                  'percent_fragment_helix': 'The percentage of fragments represented from an a-helix SS elements',
+#                  'percent_fragment_strand': 'The percentage of fragments represented from a b-strand SS elements',
+#                  'percent_int_area_hydrophobic': 'The percent of interface area which is occupied by hydrophobic atoms',
+#                  'percent_int_area_polar': 'The percent of interface area which is occupied by polar atoms',
+#                  'percent_rim': 'The percentage of total residues which are \'rim\' according to Levy, E. 2010',
+#                  'percent_support': 'The percentage of total residues which are \'support\' according to Levy, E. 2010',
+#                  'protocol_energy_distance_sum':
+#                      'The distance between the average linearly embedded per residue energy co-variation between '
+#                      'specified protocols. Larger = greater distance. A small distance indicates that different '
+#                      'protocols arrived at the same per residue energy conclusions despite different pools of amino '
+#                      'acids specified for sampling',
+#                  'protocol_similarity_sum':
+#                      'The statistical similarity between all sampled protocols. Larger is more similar, indicating that'
+#                      ' different protocols have interface statistics that are similar despite different pools of amino '
+#                      'acids specified for sampling',
+#                  'protocol_seq_distance_sum':
+#                      'The distance between the average linearly embedded sequence differences between specified '
+#                      'protocols. Larger = greater distance. A small distance indicates that different '
+#                      'protocols arrived at the same per residue energy conclusions despite different pools of amino '
+#                      'acids specified for sampling',
+#                  'ref': 'Rosetta Energy Term - A metric for the unfolded energy of the protein along with sequence '
+#                         'fitting corrections',
+#                  'rim': 'The number of \'rim\' residues as classified by E. Levy 2010',
+#                  'rmsd': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and designed states',
+#                  groups: 'Protocols utilized to search sequence space given fragment and/or evolutionary constraint '
+#                          'information',
+#                  'shape_complementarity': 'Interface shape complementarity (SC). Measure of fit between two surfaces',
+#                  'solvation_energy': 'Energy required to hydrate the unbound components',
+#                  'support': 'The number of \'support\' residues as classified by E. Levy 2010',
+#                  'symmetry': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
+#                  'fragment_z_score_total': 'The sum of all fragments z-values',
+#                  'number_of_fragments': 'The number of fragments found in the pose interface',
+#                  'total_interface_residues':
+#                      'The total number of interface residues found in the pose (residue CB within 8A)',
+#                  'REU': 'Rosetta Energy Units. Always 0. We can disregard',
+#                  'coordinate_constraint': 'Same as cst_weight',
+#                  'res_type_constraint': 'Same as fsp_energy',
+#                  'time': 'Time for the protocol to complete',
+#                  'hbonds_res_selection_unbound': 'The specific h-bonds present in the bound pose',
+#                  'hbonds_res_selection_1_unbound': 'The specific h-bonds present in the unbound interface1',
+#                  'hbonds_res_selection_2_unbound': 'The specific h-bonds present in the unbound interface2',
+#                  'dslf_fa13': 'Rosetta Energy Term - disulfide bonding',
+#                  'fa_atr': 'Rosetta Energy Term - lennard jones full atom atractive forces',
+#                  'fa_dun': 'Rosetta Energy Term - dunbrack rotamer library statistical probability',
+#                  'fa_elec': 'Rosetta Energy Term - full atom electrostatic forces',
+#                  'fa_intra_rep': 'Rosetta Energy Term - lennard jones full atom intra-residue repulsive forces',
+#                  'fa_intra_sol_xover4': 'Rosetta Energy Term - full atom intra-residue solvent forces',
+#                  'fa_rep': 'Rosetta Energy Term - lennard jones full atom repulsive forces',
+#                  'fa_sol': 'Rosetta Energy Term - full atom solvent forces',
+#                  'hbond_bb_sc': 'Rosetta Energy Term - backbone/sidechain hydrogen bonding',
+#                  'hbond_lr_bb': 'Rosetta Energy Term - long range backbone hydrogen bonding',
+#                  'hbond_sc': 'Rosetta Energy Term - side-chain hydrogen bonding',
+#                  'hbond_sr_bb': 'Rosetta Energy Term - short range backbone hydrogen bonding',
+#                  'lk_ball_wtd': 'Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
+#                  'omega': 'Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
+#                  'p_aa_pp': '"Rosetta Energy Term - statistical probability of an amino acid given angles phi',
+#                  'pro_close': 'Rosetta Energy Term - to favor closing of proline rings',
+#                  'rama_prepro': 'Rosetta Energy Term - amino acid dependent term to favor certain ramachandran angles'
+#                                 ' on residue before prolines',
+#                  'yhh_planarity': 'Rosetta Energy Term - to favor planarity of tyrosine hydrogen'}
+#                'fsp_total_stability': 'fsp_energy + total pose energy',
+#                'full_stability_complex': 'Total pose energy (essentially REU)',
+#                'full_stability_A_oligomer': 'Total A oligomer pose energy (essentially REU)',
+#                'full_stability_B_oligomer': 'Total B oligomer pose energy (essentially REU)',
+#                'full_stability_oligomer': 'Total oligomer pose energy (essentially REU)',
+#                'int_area_res_summary_polar_A_oligomer': 'Sum of each interface residue\'s polar area for oligomer A',
+#                'int_area_res_summary_polar_B_oligomer': 'Sum of each interface residue\'s polar area for oligomer B',
+#                'int_area_res_summary_total_A_oligomer': 'Sum of each interface residue\'s total area for oligomer A',
+#                'int_area_res_summary_total_B_oligomer': 'Sum of each interface residue\'s total area for oligomer B',
+#                'int_connectivity_A': 'Interface connection chainA to the rest of the protein',
+#                'int_connectivity_B': 'Interface connection chainB to the rest of the protein',
+#                'int_energy_context_A_oligomer': 'Interface energy of the A oligomer',
+#                'int_energy_context_B_oligomer': 'Interface energy of the B oligomer',
+#                'int_energy_context_oligomer_A': 'Interface energy of the A oligomer',
+#                'int_energy_context_oligomer_B': 'Interface energy of the B oligomer',
+#                'int_energy_context_complex': 'interface energy of the complex',
+#                'int_energy_res_summary_A_oligomer': 'Sum of each interface residue\'s energy for oligomer A',
+#                'int_energy_res_summary_B_oligomer': 'Sum of each interface residue\'s energy for oligomer B',
+#                'buns_asu': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',
+#                'buns_asu_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',
+#                'buns_nano': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',
+#                'buns_nano_hpol': 'Buried unsaturated hydrogen bonds. This column helps with buns_total',
+#                'int_area_asu_hydrophobic': 'Buried surface area in asu interface hydrophobic',
+#                'int_area_asu_polar': 'Buried surface area in asu interface area polar',
+#                'int_area_asu_total': 'Buried surface area in asu interface area total',
+#                'int_area_ex_asu_hydrophobic': 'Buried surface area in extra-asu interface area hydrophobic',
+#                'int_area_ex_asu_polar': 'Buried surface area in extra-asu interface area polar',
+#                'int_area_ex_asu_total': 'Buried surface area in extra-asu interface area total',
+#                'int_energy_context_asu': 'Interface energy of the ASU',
+#                'int_energy_context_unbound': 'Interface energy of the unbound complex',
+#                'int_energy_res_summary_asu': 'Sum of each interface residues individual energy for the ASU',
+#                'int_energy_res_summary_unbound': 'Sum of each interface residues individual energy for the unbound',
+#                'interaction_energy': 'Interaction energy between two sets of residues',
+#                'interaction_energy_asu': 'Interaction energy between two sets of residues in ASU state',
+#                'interaction_energy_oligomerA': 'Interaction energy between two sets of residues in oligomerA',
+#                'interaction_energy_oligomerB': 'Interaction energy between two sets of residues in oligomerB',
+#                'interaction_energy_unbound': 'Interaction energy between two sets of residues in unbound state',
 
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total', 'contact_count',
@@ -876,26 +1214,27 @@ def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
     return total
 
 
+# @SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
+# def analyze_output_s(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
+#                      figures=True):
+#     return analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
+#                           save_trajectories=save_trajectories, figures=figures)
+#
+#
+# def analyze_output_mp(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
+#                       figures=True):
+#     try:
+#         pose = analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
+#                               save_trajectories=save_trajectories, figures=figures)
+#         return pose  # , None
+#     except (SDUtils.DesignError, AssertionError) as e:
+#         return e
+#     # finally:
+#     #     print('Error occurred in %s' % des_dir.path)
+#     #     return None, (des_dir.path, e)
+
+
 @SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
-def analyze_output_s(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
-                     figures=True):
-    return analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
-                          save_trajectories=save_trajectories, figures=figures)
-
-
-def analyze_output_mp(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
-                      figures=True):
-    try:
-        pose = analyze_output(des_dir, delta_refine=delta_refine, merge_residue_data=merge_residue_data, debug=debug,
-                              save_trajectories=save_trajectories, figures=figures)
-        return pose  # , None
-    except (SDUtils.DesignError, AssertionError) as e:
-        return e
-    # finally:
-    #     print('Error occurred in %s' % des_dir.path)
-    #     return None, (des_dir.path, e)
-
-
 def analyze_output(des_dir, delta_refine=False, merge_residue_data=False, debug=False, save_trajectories=True,
                    figures=True):
     """Retrieve all score information from a design directory and write results to .csv file
@@ -1502,17 +1841,17 @@ if __name__ == '__main__':
     # Start pose analysis of all designed files
     if args.multi_processing:
         # Calculate the number of threads to use depending on computer resources
-        mp_threads = SDUtils.calculate_mp_threads(maximum=True)
+        mp_threads = SDUtils.calculate_mp_threads()
         logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
         zipped_args = zip(all_design_directories, repeat(args.delta_g), repeat(args.join), repeat(args.debug),
                           repeat(save))
-        pose_results, exceptions = SDUtils.mp_try_starmap(analyze_output_mp, zipped_args, mp_threads)
+        pose_results, exceptions = SDUtils.mp_starmap(analyze_output, zipped_args, mp_threads)
     else:
         logger.info('Starting processing. If single process is taking awhile, use -m during submission')
         pose_results, exceptions = [], []
         for des_directory in all_design_directories:
-            result, error = analyze_output_s(des_directory, delta_refine=args.delta_g, merge_residue_data=args.join,
-                                             debug=args.debug, save_trajectories=save)
+            result, error = analyze_output(des_directory, delta_refine=args.delta_g, merge_residue_data=args.join,
+                                           debug=args.debug, save_trajectories=save)
             pose_results.append(result)
             exceptions.append(error)
 

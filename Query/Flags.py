@@ -2,7 +2,8 @@ from copy import copy
 
 import pandas as pd
 
-from PathUtils import program_command, nano, program_name, nstruct, filter_and_sort, interface_design
+from DesignMetrics import master_metrics
+from PathUtils import program_command, nano, program_name, nstruct, interface_design
 from Query.PDB import input_string, format_string, confirmation_string, \
     bool_d, invalid_string, header_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, read_fasta_file
@@ -301,7 +302,7 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
         (dict)
     """
     # if mode == 'filter':
-    filter_df = pd.read_csv(filter_and_sort, index_col=0)
+    filter_df = pd.read_csv(master_metrics, index_col=0)
     direction = {'max': 'higher', 'min': 'lower'}
     instructions = {'filter': '\nFor each metric, choose values based on supported literature or design goals to '
                               'eliminate designs that are certain to fail or have sub-optimal features. Ensure your '
