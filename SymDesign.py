@@ -23,6 +23,7 @@ from Bio.SeqRecord import SeqRecord
 import CmdUtils as CUtils
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
+from Query.PDB import input_string, bool_d, invalid_string
 from utils.CmdLineArgParseUtils import query_mode
 from utils.PDBUtils import orient_pdb_file
 from Query import Flags
@@ -33,7 +34,8 @@ from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
 from NanohedraWrap import nanohedra_command_s, nanohedra_recap_s
 from PDB import PDB
-from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map
+from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map, \
+    group_compositions
 from ProteinExpression import find_expression_tags
 from DesignMetrics import filter_pose, select_sequences, master_metrics, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, pdb_to_pose_num
@@ -1199,36 +1201,66 @@ if __name__ == '__main__':
             # Figure out poses from a dataframe, filters, and weights. Returns pose id's
             selected_poses_df = filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
             timestamp = time.strftime('%y%m%d-%H:%M:%S')
-            selected_poses_df.to_csv('Filtered%sDesignPoseMetrics-%s.csv'
-                                     % ('Weighted' if args.weight else '', timestamp))
+            if args.filter or args.weight:
+                selected_poses_df.to_csv('%s%sDesignPoseMetrics-%s.csv'
+                                         % ('Filtered' if args.weight else '',
+                                            'Weighted' if args.weight else '', timestamp))
             selected_poses = selected_poses_df.index.to_list()
             logger.info('%d poses were selected:\n\t%s' % (len(selected_poses_df), '\n\t'.join(selected_poses)))
 
-            cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
             # Sort results according to clustered poses if clustering exists  # Todo parameterize names?
+            cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
             if os.path.exists(cluster_map):
-                cluster_pose_map = SDUtils.unpickle(cluster_map)
+                cluster_representative_pose_member_map = SDUtils.unpickle(cluster_map)
+            else:
+                logger.info('No cluster pose map was found. Clustering similar poses may eliminate redundancy from the '
+                            'final design selection. To cluster poses broadly, run \'%s %s\''
+                            % (PUtils.program_command, PUtils.cluster_poses))
+                while True:
+                    confirm = input('Would you like to %s on the subset of designs (%d) located so far? [y/n]%s'
+                                    % (len(selected_poses), PUtils.cluster_poses, input_string))
+                    if confirm.lower() in bool_d:
+                        break
+                    else:
+                        print('%s %s is not a valid choice!' % (invalid_string, confirm))
+                if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
+                    compositions = group_compositions(design_directories)
+                    if args.multi_processing:  # Todo
+                        results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
+                        cluster_representative_pose_member_map = {}
+                        for result in results:
+                            cluster_representative_pose_member_map.update(result.items())
+                    else:
+                        cluster_representative_pose_member_map = {}
+                        for composition_group in compositions.values():
+                            cluster_representative_pose_member_map.update(cluster_designs(composition_group))
+                else:
+                    cluster_representative_pose_member_map = {}
+
+            if cluster_representative_pose_member_map:
                 # {design_string: [design_string, ...]} where key is representative, values are matching designs
                 # OLD -> {composition: {design_string: cluster_representative}, ...}
-                pose_cluster_membership_map = invert_cluster_map(cluster_pose_map)
-                pose_clusters_found = {}  # , final_pose_indices = [], []
+                pose_cluster_membership_map = invert_cluster_map(cluster_representative_pose_member_map)
+                pose_clusters_found, pose_not_found = {}, []
                 for idx, pose in enumerate(selected_poses):
-                    if pose_cluster_membership_map[pose] not in pose_clusters_found:
-                        # pose_clusters_found.append(pose_cluster_map[pose])
-                        pose_clusters_found[pose_cluster_membership_map[pose]] = pose
-                        # final_poses.append(pose)
-                        # final_pose_indices.append(idx)
+                    cluster_membership = pose_cluster_membership_map.get(pose, None)
+                    if cluster_membership:
+                        if cluster_membership in pose_clusters_found:
+                            # This pose has already been found and it was identified again. We should only include the
+                            # representative in the output as it can provide information on all occurrences
+                            pose_clusters_found[cluster_membership] = cluster_membership
+                        else:  # include this pose as it hasn't been identified
+                            pose_clusters_found[cluster_membership] = pose
                     else:
-                        # This pose has already been found and it was identified again. We should only include the
-                        # representative in the output as it can provide information on all occurrences
-                        pose_clusters_found[pose_cluster_membership_map[pose]] = pose_cluster_membership_map[pose]
-                # logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(final_poses))
+                        pose_not_found.append(pose)
+
+                if pose_not_found:
+                    logger.warning('Couldn\'t locate the following poses:\n%s\nWas %s only run on a subset of the poses'
+                                   ' found selected from %s?'
+                                   % ('\n\t'.join(pose_not_found), PUtils.cluster_poses, args.dataframe))
                 logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(pose_clusters_found.values()))
                 final_poses = list(pose_clusters_found.values())
             else:
-                logger.info('No cluster pose map was found. Clustering similar poses may eliminate redundancy from the '
-                            'final design selection. To cluster poses, run \'%s %s\''
-                            % (PUtils.program_command, PUtils.cluster_poses))
                 final_poses = selected_poses
 
             if len(final_poses) > args.number_poses:
@@ -1261,32 +1293,26 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == PUtils.cluster_poses:
         # First, identify the same compositions
-        compositions = {}
-        for design in design_directories:
-            design.gather_pose_metrics()
-            if compositions.get(design.composition, None):
-                compositions[design.composition].append(design)
-            else:
-                compositions[design.composition] = [design]
+        compositions = group_compositions(design_directories)
 
         if args.multi_processing:
             # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, design_directories, threads=threads))
             # pose_map = pose_rmsd_mp(design_directories, threads=threads)
             results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
-            pose_cluster_map = {}
+            cluster_representative_pose_member_map = {}
             for result in results:
-                pose_cluster_map.update(result.items())
+                cluster_representative_pose_member_map.update(result.items())
         else:
             # pose_map = pose_rmsd_s(design_directories)
-            # pose_cluster_map = cluster_poses(pose_map)
-            pose_cluster_map = {}
+            # cluster_representative_pose_member_map = cluster_poses(pose_map)
+            cluster_representative_pose_member_map = {}
             for composition_group in compositions.values():
-                pose_cluster_map.update(cluster_designs(composition_group))
+                cluster_representative_pose_member_map.update(cluster_designs(composition_group))
 
-        pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, PUtils.clustered_poses,
+        pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map, PUtils.clustered_poses,
                                                   out_path=next(iter(design_directories)).protein_data)
         logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
-                    % (len(pose_cluster_map), len(design_directories), pose_cluster_file))
+                    % (len(cluster_representative_pose_member_map), len(design_directories), pose_cluster_file))
         logger.info('To utilize the clustering, perform %s and cluster analysis will be applied to the poses to select '
                     'the cluster representative.' % PUtils.select_designs)
         # for protein_pair in pose_map:
