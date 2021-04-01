@@ -1332,7 +1332,7 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
 
         design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
         weighted_s = design_score_df.sum(axis=1).sort_values(ascending=False)
-        weighted_df = pd.concat([weighted_s], keys=[('pose', 'sum', 'selection_weight')])
+        weighted_df = pd.concat([weighted_s], keys=[('pose', 'sum', 'selection_weight')], axis=1)
         final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
         # designs = weighted_s.index.to_list()
     else:
