@@ -4,13 +4,11 @@ from itertools import repeat
 
 import pandas as pd
 
-import AnalyzeMutatedSequences
-import AnalyzeMutatedSequences as Ams
+from old import AnalyzeMutatedSequences as Ams
 import DesignMetrics as AOut
 import DesignDirectory
 import PathUtils as PUtils
 # import PDB
-import SequenceProfile
 import SymDesignUtils as SDUtils
 
 # import CmdUtils as CUtils

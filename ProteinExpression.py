@@ -2,17 +2,16 @@
 import csv
 
 from Bio.SeqUtils import IUPACData
-from numpy import array
 
-import AnalyzeMutatedSequences
 import PathUtils as PUtils
+import SymDesignUtils as SDUtils
+from PDB import PDB
 import Pose
 import SequenceProfile
-import SymDesignUtils as SDUtils
 
 
-SDUtils.start_log(name=__name__)
 # Globals
+SDUtils.start_log(name=__name__)
 # uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 
 
@@ -43,9 +42,10 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate fin
 
     partner_sequences = []
     for matching_pdb in pdb_chain_d:
-        partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
-                                                              chain=pdb_chain_d[matching_pdb], source='seqres')
-        partner_sequences.append(partner_d[pdb_chain_d[matching_pdb]])
+        partner_pdb = PDB.from_file(Pose.retrieve_pdb_file_path(matching_pdb), log=None, )
+        # partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
+        #                                                       chain=pdb_chain_d[matching_pdb], source='seqres')
+        partner_sequences.append(partner_pdb.reference_sequence[pdb_chain_d[matching_pdb]])
         # TODO chain can be not found... Should this be available based on Uniprot-PDB Map creation? Need to extend this
 
     # {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}
@@ -69,10 +69,10 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate fin
     n_term, c_term = 0, 0
     if pdb_tag_tally['N'] != dict():
         n_term = [pdb_tag_tally['N'][_type] for _type in pdb_tag_tally['N']]
-        n_term = array(n_term).sum()
+        n_term = sum(n_term)
     if pdb_tag_tally['C'] != dict():
         c_term = [pdb_tag_tally['C'][_type] for _type in pdb_tag_tally['C']]
-        c_term = array(c_term).sum()
+        c_term = sum(c_term)
     if n_term == 0 and c_term == 0:  # No tags found
         return {'name': None, 'seq': None}
     if n_term > c_term:

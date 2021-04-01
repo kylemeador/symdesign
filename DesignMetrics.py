@@ -15,7 +15,6 @@ from sklearn.neighbors import BallTree
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-import AnalyzeMutatedSequences
 import PathUtils as PUtils
 import SequenceProfile
 # from DesignDirectory import DesignDirectory

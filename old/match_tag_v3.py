@@ -2,7 +2,7 @@
 import csv
 import os
 
-import AnalyzeMutatedSequences
+from old import AnalyzeMutatedSequences
 import PathUtils as PUtils
 import Pose
 import SymDesignUtils as SDUtils
