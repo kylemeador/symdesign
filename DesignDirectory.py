@@ -30,7 +30,7 @@ from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, rem
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
     pos_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
-    generate_all_design_mutations, generate_sequences, generate_multiple_mutations
+    generate_sequences, generate_multiple_mutations
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 
