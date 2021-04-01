@@ -238,7 +238,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # design_symmetry (P432)
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
                 self.composition = self.path[:self.path.find(self.path.split(os.sep)[-3]) - 1]
-                self.project_designs = os.path.join(self.composition, self.path.find(self.path.split(os.sep)[-2]))
+                self.project_designs = os.path.join(self.composition, os.path.basename(self.path.split(os.sep)[-2]))
                 self.oligomer_names = os.path.basename(self.composition).split('_')
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.path, PUtils.asu)
