@@ -7,9 +7,11 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
+
 import requests
 
 from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError
+
 
 # Globals
 logger = start_log(name=__name__)

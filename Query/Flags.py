@@ -1,11 +1,7 @@
 from copy import copy
 
-import pandas as pd
-
-from DesignMetrics import master_metrics
 from PathUtils import program_command, nano, program_name, nstruct, interface_design
-from Query.PDB import input_string, format_string, confirmation_string, \
-    bool_d, invalid_string, header_string
+from Query.PDB import input_string, format_string, confirmation_string, bool_d, invalid_string, header_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, read_fasta_file
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
@@ -288,80 +284,3 @@ def generate_chain_mask(chain_string):
         (list): chain ids in pose format
     """
     return clean_comma_separated_string(chain_string)
-
-
-@handle_errors(errors=KeyboardInterrupt)
-def query_user_for_metrics(available_metrics, mode=None, level=None):
-    """Ask the user for the desired metrics to select indices from a dataframe
-
-    Args:
-        available_metrics (set): The columns available in the DataFrame to select indices by
-    Keyword Args:
-        mode=None (str): The mode in which to query and format metrics information
-    Returns:
-        (dict)
-    """
-    # if mode == 'filter':
-    filter_df = pd.read_csv(master_metrics, index_col=0)
-    direction = {'max': 'higher', 'min': 'lower'}
-    instructions = {'filter': '\nFor each metric, choose values based on supported literature or design goals to '
-                              'eliminate designs that are certain to fail or have sub-optimal features. Ensure your '
-                              'cutoffs aren\'t too exclusive. If you end up with no designs, try relaxing your filter '
-                              'values.',
-                    'weight':
-                        '\nFor each metric, choose a percentage signifying the metric\'s contribution to the total '
-                        'selection weight. The weight will be used as a linear combination of all weights according to '
-                        'each designs rank within the specified metric category. '
-                        'For instance, typically the total weight should equal 1. When choosing 5 metrics, you '
-                        'can assign an equal weight to each (specify 0.2 for each) or you can weight several more '
-                        'strongly (0.3, 0.3, 0.2, 0.1, 0.1). When ranking occurs, for each selected metric the metric '
-                        'will be sorted and designs in the top percentile will be given their percentage of the full '
-                        'weight. Top percentile is defined as the most advantageous score, so the top percentile of '
-                        'energy is lowest, while for hydrogen bonds it would be the most.',
-                    }
-
-    print('\n%s' % header_string % 'Select %s %s Metrics' % (level, mode))
-    print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
-          'To \'%s\' designs, which metrics would you like to utilize?' % (level, mode))
-
-    metric_values, chosen_metrics = {}, []
-    end = False
-    metrics_input = 'start'
-    print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
-          'comma separated input or alternatively, you can check out the available metrics by entering \'metrics\'.'
-          '\nEx: \'shape_complementarity, contact_count, etc.\'')
-    while not end:
-        if metrics_input.lower() == 'metrics':
-            print('Available Metrics\n%s\n' % ', '.join(available_metrics))
-        metrics_input = input('%s' % input_string)
-        chosen_metrics = set(map(str.strip, map(str.lower, metrics_input.split(','))))
-        unsupported_metrics = chosen_metrics - set(available_metrics)
-        if metrics_input == 'metrics':
-            pass
-        elif unsupported_metrics:
-            print('\'%s\' not found in the DataFrame! Is your spelling correct? Have you used the correct '
-                  'underscores? Please try again.' % ', '.join(unsupported_metrics))
-        else:
-            end = True
-    correct = False
-    print(instructions[mode])
-    while not correct:
-        for metric in chosen_metrics:
-            metric_values[metric] = float(input('For \'%s\' what value of should be used for %s %sing?%s%s'
-                                                % (metric, level, mode,
-                                                   ' Designs with metrics %s than this value will be included'
-                                                   % direction[filter_df.loc['direction', metric]].upper()
-                                                   if mode == 'filter' else '',
-                                                   input_string)))
-
-        print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
-        while True:
-            confirm = input(confirmation_string)
-            if confirm.lower() in bool_d:
-                break
-            else:
-                print('%s %s is not a valid choice!' % (invalid_string, confirm))
-        if bool_d[confirm]:
-            correct = True
-
-    return metric_values
