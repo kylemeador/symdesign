@@ -1285,22 +1285,16 @@ if __name__ == '__main__':
 
         pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, PUtils.clustered_poses,
                                                   out_path=next(iter(design_directories)).protein_data)
-
+        logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
+                    % (len(pose_cluster_map), len(design_directories), pose_cluster_file))
+        logger.info('To utilize the clustering, perform %s and cluster analysis will be applied to the poses to select '
+                    'the cluster representative.' % PUtils.select_designs)
         # for protein_pair in pose_map:
         #     if os.path.basename(protein_pair) == '4f47_4grd':
         #     logger.info('\n'.join(['%s\n%s' % (pose1, '\n'.join(['%s\t%f' %
         #                                                          (pose2, pose_map[protein_pair][pose1][pose2])
         #                                                          for pose2 in pose_map[protein_pair][pose1]]))
         #                            for pose1 in pose_map[protein_pair]]))
-
-        # errors = []
-        # for i, result in enumerate(results):
-        #     if not result:
-        #         errors.append(design_directories[i].path)
-        #
-        # logger.error('%d directories missing consensus metrics!' % len(errors))
-        # with open('missing_consensus_metrics', 'w') as f:
-        #     f.write('\n'.join(errors))
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == 'sequence_selection':  # -c consensus, -f filters, -n number
         program_root = next(iter(design_directories)).program_root
