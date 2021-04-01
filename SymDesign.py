@@ -1224,7 +1224,7 @@ if __name__ == '__main__':
                             % (cluster_map, PUtils.program_command, PUtils.cluster_poses))
                 while True:
                     confirm = input('Would you like to %s on the subset of designs (%d) located so far? [y/n]%s'
-                                    % (len(selected_poses), PUtils.cluster_poses, input_string))
+                                    % (PUtils.cluster_poses, len(selected_poses), input_string))
                     if confirm.lower() in bool_d:
                         break
                     else:
