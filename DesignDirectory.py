@@ -140,6 +140,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.coil_fragment_content = None  # TODO MOVE Metrics
         self.ave_z = None  # TODO MOVE Metrics
         self.total_interface_residues = None  # TODO MOVE Metrics
+        self.total_non_fragment_interface_residues = None  # TODO MOVE Metrics
         self.percent_residues_fragment_total = None  # TODO MOVE Metrics
         self.percent_residues_fragment_center = None  # TODO MOVE Metrics
 
@@ -358,6 +359,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                    'percent_fragment_coil': self.coil_fragment_content,
                    'number_of_fragments': self.number_of_fragments,
                    'total_interface_residues': self.total_interface_residues,
+                   'total_non_fragment_interface_residues': self.total_non_fragment_interface_residues,
                    'percent_residues_fragment_total': self.percent_residues_fragment_total,
                    'percent_residues_fragment_center': self.percent_residues_fragment_center}
         if self.sym_entry:
@@ -660,6 +662,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.total_interface_residues = len(design_residues)
         try:
+            self.total_non_fragment_interface_residues = \
+                self.total_interface_residues - self.central_residues_with_fragment_overlap
             self.percent_residues_fragment_total = self.fragment_residues_total / self.total_interface_residues
             self.percent_residues_fragment_center = \
                 self.central_residues_with_fragment_overlap / self.total_interface_residues
