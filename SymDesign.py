@@ -1206,12 +1206,14 @@ if __name__ == '__main__':
             # Figure out poses from a dataframe, filters, and weights. Returns pose id's
             selected_poses_df = filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
             timestamp = time.strftime('%y%m%d-%H:%M:%S')
-            if args.filter or args.weight:
-                selected_poses_df.to_csv('%s%sDesignPoseMetrics-%s.csv'
-                                         % ('Filtered' if args.weight else '',
-                                            'Weighted' if args.weight else '', timestamp))
             selected_poses = selected_poses_df.index.to_list()
             logger.info('%d poses were selected:\n\t%s' % (len(selected_poses_df), '\n\t'.join(selected_poses)))
+            if args.filter or args.weight:
+                new_dataframe = os.path.join(args.directory, '%s%sDesignPoseMetrics-%s.csv'
+                                             % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
+                                                timestamp))
+                selected_poses_df.to_csv(new_dataframe)
+                logger.info('New DataFrame was written to %s' % new_dataframe)
 
             # Sort results according to clustered poses if clustering exists  # Todo parameterize names?
             # cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
