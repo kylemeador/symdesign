@@ -1258,7 +1258,7 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     _df = df.loc[:, idx_slice['pose',
                               df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
 
-    filter_df = pd.read_csv(master_metrics, index_col=0)
+    filter_df = pd.DataFrame(master_metrics, index_col=0)
     if filter:
         available_filters = _df.columns.to_list()
         filters = query_user_for_metrics(available_filters, mode='filter', level='design')
@@ -1369,7 +1369,7 @@ def select_sequences(des_dir, weights=None, number=1, desired_protocol=None):
     logger.info('Number of starting trajectories = %d' % len(trajectory_df))
 
     if weights:
-        filter_df = pd.read_csv(master_metrics, index_col=0)
+        filter_df = pd.DataFrame(master_metrics, index_col=0)
         # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
         # _df = trajectory_df.loc[final_indices, :]
         _df = trajectory_df
@@ -2166,7 +2166,7 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
         (dict)
     """
     # if mode == 'filter':
-    filter_df = pd.read_csv(master_metrics, index_col=0)
+    filter_df = pd.DataFrame(master_metrics, index_col=0)
     direction = {'max': 'higher', 'min': 'lower'}
     instructions = {'filter': '\nFor each metric, choose values based on supported literature or design goals to '
                               'eliminate designs that are certain to fail or have sub-optimal features. Ensure your '
