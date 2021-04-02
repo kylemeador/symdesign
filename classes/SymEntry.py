@@ -249,6 +249,7 @@ class SymEntry:
         return self.ref_frame_tx_dof_group2
 
     def get_result_design_sym(self):
+        """The final symmetry of the symmetry combination material"""
         return self.result
 
     def get_design_dim(self):

@@ -116,9 +116,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.oligomers = []
 
         # todo integrate these flags with SymEntry and pass to Pose
-        self.sym_entry_number = None
-        self.design_symmetry = None
-        self.design_dim = None
+        # self.sym_entry_number = None
+        # self.design_symmetry = None
+        # self.design_dimension = None
+        self.sym_entry = None
         self.uc_dimensions = None
         self.expand_matrices = None
 
@@ -165,6 +166,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.skip_logging = False
         self.set_flags(**kwargs)
 
+        # if not self.sym_entry:
+        #     self.sym_entry = SymEntry(sym_entry)
+            # self.design_symmetry = self.sym_entry.get_result_design_sym()
+            # self.design_dimension = self.sym_entry.get_design_dim()
         # if not self.nano:
         # check to be sure it's not actually one
         #     if ('DEGEN', 'ROT', 'tx') in self.path:
@@ -252,9 +257,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   'Ensure you have the file \'%s\' located properly before trying this Design!'
                                   % (self.__str__(), PUtils.master_log, self.nano_master_log))
             # self.gather_docking_metrics()
-            if not self.sym_entry:
-                self.sym_entry = SymEntry(self.sym_entry_number)
-                self.design_symmetry = self.sym_entry.get_result_design_sym()
 
         else:
             self.composition = None
@@ -305,6 +307,27 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @classmethod
     def from_pose_id(cls, pose_id=None, root=None, **kwargs):  # directory_type=None
         return cls(None, pose_id=pose_id, root=root, **kwargs)
+
+    @property
+    def design_symmetry(self):
+        try:
+            return self.sym_entry.get_result_design_sym()
+        except AttributeError:
+            return None
+
+    @property
+    def sym_entry_number(self):
+        try:
+            return self.sym_entry.entry_number
+        except AttributeError:
+            return None
+
+    @property
+    def design_dimension(self):
+        try:
+            return self.sym_entry.get_design_dim()
+        except AttributeError:
+            return None
 
     @property
     def number_of_fragments(self):
@@ -368,7 +391,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # for oligomer in self.oligomers:
                 #     oligomer.calculate_secondary_structure()
                 metrics.update(
-                    {'design_dimension': self.sym_entry.get_design_dim(),
+                    {'design_dimension': self.design_dimension,
                      'component_1_symmetry': self.sym_entry.get_group1_sym(),
                      # TODO clean oligomers[].entities mechanism
                      'component_1_name': self.oligomers[0].entities[0].name,
@@ -431,10 +454,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                   design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
                   number_of_trajectories=PUtils.nstruct, skip_logging=None, analysis=False, **kwargs):  # nanohedra_output,
-        self.design_symmetry = symmetry
-        self.sym_entry_number = sym_entry_number
+        # self.design_symmetry = symmetry
+        if sym_entry_number:
+            # self.sym_entry_number = sym_entry_number
+            self.sym_entry = SymEntry(sym_entry_number)
         self.sym_entry = sym_entry
-        # self.nano = nanohedra_output
         self.design_selector = design_selector
         self.evolution = design_with_evolution
         self.design_with_fragments = design_with_fragments
@@ -451,8 +475,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.log.debug('skipping log')
             self.skip_logging = skip_logging
 
-    def set_symmetry(self, symmetry=None, dimension=None, uc_dimensions=None, expand_matrices=None, **kwargs):
-        #            sym_entry_number=None,
+    def set_symmetry(self, uc_dimensions=None, expand_matrices=None, **kwargs):  # Todo depreciate
         """{symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
 
         (str)
@@ -461,13 +484,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         (list[tuple[list[list], list]])
         """
         # self.sym_entry_number = sym_entry_number
-        self.design_symmetry = symmetry
-        self.design_dim = dimension
+        # self.design_symmetry = symmetry
+        # self.design_dimension = dimension
         self.uc_dimensions = uc_dimensions
         self.expand_matrices = expand_matrices
 
     def return_symmetry_parameters(self):
-        return dict(symmetry=self.design_symmetry, design_dimension=self.design_dim,
+        return dict(symmetry=self.design_symmetry, design_dimension=self.design_dimension,
                     uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
     def start_log(self, debug=False, level=2):
@@ -711,7 +734,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #             # elif 'Resulting SCM Symmetry: ' in line:  # "Resulting Design Symmetry: " or
     #             #     self.design_symmetry = line.split(':')[-1].strip()
     #             # elif 'SCM Dimension: ' in line:  # "Design Dimension: " or
-    #             #     self.design_dim = int(line.split(':')[-1].strip())
+    #             #     self.design_dimension = int(line.split(':')[-1].strip())
     #             # elif 'SCM Unit Cell Specification: ' in line:  # "Unit Cell Specification: " or
     #             #     self.uc_spec_string = line.split(':')[-1].strip()
     #             # elif "Oligomer 1 ROT Sampling Range: " in line:
@@ -849,9 +872,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def prepare_rosetta_commands(self):
         # Set up the command base (rosetta bin and database paths)
         main_cmd = copy.deepcopy(script_cmd)
-        if self.design_dim is not None:  # can be 0
-            protocol = PUtils.protocol[self.design_dim]
-            if self.design_dim == 0:  # point
+        if self.design_dimension is not None:  # can be 0
+            protocol = PUtils.protocol[self.design_dimension]
+            if self.design_dimension == 0:  # point
                 self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)'
                                % str(self.sym_entry_number))
                 sym_def_file = sdf_lookup(self.sym_entry_number)
@@ -862,7 +885,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.info('Symmetry Option: %s' % protocol)
         else:
             sym_def_file = 'null'
-            protocol = PUtils.protocol[-1]  # Make part of self.design_dim
+            protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it is'
                               'an ASU, may be missing crucial contacts. Is this what you want?')
 
@@ -879,7 +902,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #                                                                    for metrics in interface_metrics.values()))
 
         # Get ASU distance parameters
-        if self.nano:  # Todo adapt to self.design_dim and not nanohedra input
+        if self.nano:  # Todo adapt to self.design_dimension and not nanohedra input
             max_com_dist = 0
             for oligomer in self.oligomers:
                 # asu_oligomer_com_dist.append(np.linalg.norm(np.array(template_pdb.get_center_of_mass())

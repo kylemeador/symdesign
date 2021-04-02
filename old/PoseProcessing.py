@@ -161,8 +161,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # Set up protocol symmetry
     # sym_entry_number, oligomer_symmetry_1, oligomer_symmetry_2, design_symmetry = des_dir.symmetry_parameters()
     # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
-    protocol = PUtils.protocol[des_dir.design_dim]
-    if des_dir.design_dim > 0:  # layer or space
+    protocol = PUtils.protocol[des_dir.design_dimension]
+    if des_dir.design_dimension > 0:  # layer or space
         sym_def_file = SDUtils.sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
         main_cmd += ['-symmetry_definition', 'CRYST1']
     else:  # point

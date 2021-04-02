@@ -742,7 +742,7 @@ if __name__ == '__main__':
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags['symmetry']:
         if queried_flags['symmetry'] in SDUtils.possible_symmetries:
-            queried_flags['sym_entry'] = SDUtils.parse_symmetry_to_sym_entry(queried_flags['symmetry'])
+            queried_flags['sym_entry'] = SymEntry(SDUtils.parse_symmetry_to_sym_entry(queried_flags['symmetry']))
         elif queried_flags['symmetry'].lower()[:5] == 'cryst':
             do_something = True
             # the symmetry information should be in the pdb headers
@@ -806,13 +806,13 @@ if __name__ == '__main__':
             if all_poses:
                 if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
                     base_directory = args.directory
-                    queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
+                    queried_flags['sym_entry'] = SymEntry(get_sym_entry_from_nanohedra_directory(base_directory))
                     design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=args.directory,
                                                                        **queried_flags)
                                           for pose in all_poses[low_range:high_range]]
                 else:
                     base_directory = '/%s' % os.path.join(*all_poses[0].split(os.sep)[:-4])
-                    queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
+                    queried_flags['sym_entry'] = SymEntry(get_sym_entry_from_nanohedra_directory(base_directory))
                     design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
                                           for pose in all_poses[low_range:high_range]]
         else:
