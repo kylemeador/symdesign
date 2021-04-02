@@ -40,7 +40,7 @@ class SequenceProfile:
         #     self.log = start_log()
 
         # self.sequence = None
-        self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
+        # self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
         # self.structure_sequence = None
         self.sequence_source = None
         self.sequence_file = None
@@ -56,8 +56,8 @@ class SequenceProfile:
         self.interface_data_file = None
         self.alpha = {}
 
-        if structure:
-            self.set_structure(structure)
+        # if structure:
+        self.structure = structure
 
     @classmethod
     def from_structure(cls, structure=None):
@@ -86,19 +86,15 @@ class SequenceProfile:
 
     @property
     def entity_offset(self):
-        # Todo this wouldn't handle profile size modifications
-        try:
-            return self._entity_offset
-        except AttributeError:
-            self.entity_offset = self.structure.residues[0].number - 1
-            return self._entity_offset
+        """Return the starting index for the Entitiy based on pose numbering of the residues"""
+        return self.structure.residues[0].number - 1
 
-    @entity_offset.setter
-    def entity_offset(self, offset):
-        self._entity_offset = offset
+    # @entity_offset.setter
+    # def entity_offset(self, offset):
+    #     self._entity_offset = offset
 
-    def set_structure(self, structure):
-        self.structure = structure
+    # def set_structure(self, structure):
+    #     self.structure = structure
 
     @property
     def structure_sequence(self):
