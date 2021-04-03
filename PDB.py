@@ -141,7 +141,7 @@ class PDB(Structure):
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
                 # set residue attributes
-                self.residues = copy(self._residues)  # have to copy the Residues (Residue's) to set new attributes
+                self.residues = copy(self._residues)  # have to copy Residues object (Residue's) to set new attributes
                 self.set_structure_attributes(self.residues, _atoms=self._atoms)
                 #                                       done in set_coords -> , coords=self._coords)
                 # indices according to new Atoms/Coords index
@@ -156,11 +156,14 @@ class PDB(Structure):
                     entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
+                for idx, entity in enumerate(self.entities):  # grab only the Atom/Residue objects representing the Entity
+                    # entity.set_residues_attributes(chain=PDB.available_letters[idx])
+                    entity.set_atoms_attributes(chain=PDB.available_letters[idx])
                 # because we don't care for chains attributes (YET) we update after everything is set
                 # self.chains = chains
                 # self.reorder_chains()
                 # self.chain_id_list = [chain.name for chain in self.chains]
-                self.chain_id_list = [chain.name for chain in chains]
+                # self.chain_id_list = [chain.name for chain in chains]
                 if not kwargs.get('lazy', False):  # Todo change lazy to pose
                     self.renumber_pdb()
             if metadata and isinstance(metadata, PDB):
