@@ -965,11 +965,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
         # mutated_pdb = copy.copy(self.pose.pdb)  # this method is implemented, incompatible with downstream use!
         # Have to use the self.pose.pdb as the Residue objects in entity_residues are from self.pose.pdb and not copy()!
-        for idx, (entity_pair, residue_pair) in enumerate(self.pose.interface_residues.items()):
-            if residue_pair[0]:  # check that there are residues present
-                self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
-                for entity_residues in residue_pair:
-                    for residue in entity_residues:
+        for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
+            if interface_residue_sets[0]:  # check that there are residues present
+                for idx, interface_residue_set in enumerate(interface_residue_sets):
+                    self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
+                    for residue in interface_residue_set:
                         self.log.debug('Mutating %d%s' % (residue.number, residue.type))
                         if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
                             self.pose.pdb.mutate_residue(residue=residue, to='A')

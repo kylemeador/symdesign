@@ -266,6 +266,8 @@ class SequenceProfile:
                     elif seq_file == os.path.join(out_path, '%s.fasta' % self.name):
                         self.sequence_file = seq_file
                         self.log.info('%s fasta file: %s' % (self.name, self.sequence_file))
+                    elif seq_file == os.path.join(out_path, '%s.hhr' % self.name):
+                        pass
                     else:
                         self.log.debug('Found the file \'%s\' which was not expected in %s' % (seq_file, out_path))
                         #     with open(temp_file, 'w') as f:
