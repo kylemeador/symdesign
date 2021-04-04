@@ -889,6 +889,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if len(self.pdbs_d) > 1:
             self.log.debug('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
                            'files. Proceed with caution if this is not what you expected!')
+
         def grab_indices(pdbs=None, entities=None, chains=None, residues=None, pdb_residues=None, atoms=None,
                          start_with_none=False):
             if start_with_none:
@@ -940,9 +941,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.design_selector_indices = atom_selection.difference(atom_mask)
 
         if 'required' in self.design_selector:
-            self.log.debug('The required_residues includes: %s' % self.design_selector['required'])
-            entity_required, self.required_indices = grab_indices(**self.design_selector['required'], start_with_none=True)
-            self.required_residues = self.pdb.get_residues_by_atom_indices(indices=self.required_indices)
+            self.log.debug('The required_residues include: %s' % self.design_selector['required'])
+            entity_required, self.required_indices = grab_indices(**self.design_selector['required'],
+                                                                  start_with_none=True)
+            if self.required_indices:  # only if indices are specified should we grab them
+                self.required_residues = self.pdb.get_residues_by_atom_indices(indices=self.required_indices)
         else:
             entity_required, self.required_indices = set(), set()
 
