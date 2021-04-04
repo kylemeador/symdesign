@@ -160,6 +160,7 @@ class PDB(Structure):
                 for idx, entity in enumerate(self.entities):
                     # entity.set_residues_attributes(chain=PDB.available_letters[idx])  # Todo upon residue identifiers
                     entity.set_atoms_attributes(chain=PDB.available_letters[idx])
+                    entity.chain_id = PDB.available_letters[idx]
                     self.log.debug('Entity %s new chain identifier %s' % (entity.name, entity.residues[0].chain))
                 # because we don't care for chains attributes (YET) we update after everything is set
                 # self.chains = chains
