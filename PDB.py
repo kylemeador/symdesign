@@ -156,9 +156,11 @@ class PDB(Structure):
                     entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
-                for idx, entity in enumerate(self.entities):  # grab only the Atom/Residue objects representing the Entity
-                    # entity.set_residues_attributes(chain=PDB.available_letters[idx])
+                # set each successive Entity to have an incrementally higher chain id
+                for idx, entity in enumerate(self.entities):
+                    # entity.set_residues_attributes(chain=PDB.available_letters[idx])  # Todo upon residue identifiers
                     entity.set_atoms_attributes(chain=PDB.available_letters[idx])
+                    self.log.debug('Entity %s new chain identifier %s' % (entity.name, entity.residues[0].chain))
                 # because we don't care for chains attributes (YET) we update after everything is set
                 # self.chains = chains
                 # self.reorder_chains()
