@@ -1161,6 +1161,10 @@ class Entity(Chain, SequenceProfile):  # Structure):
     def chain_id(self):
         return self.chain_representative.name
 
+    @chain_id.setter
+    def chain_id(self, chain_id):
+        self.chain_representative.name = chain_id
+
     @property
     def reference_sequence(self):
         return self._ref_sequence
