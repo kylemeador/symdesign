@@ -1,6 +1,5 @@
 import os
 
-# from multiprocessing import cpu_count
 import PathUtils as PUtils
 
 min_cores_per_job = 1  # currently one for the MPI node, and 5 workers
@@ -23,7 +22,7 @@ extras_flags = {'default': [],
                 'mpi': [],
                 'cxx11threadmpi': ['-multithreading:total_threads ' + str(num_thread_per_process)]}
 
-script_cmd = [os.path.join(PUtils.rosetta, 'source/bin/rosetta_scripts.' + PUtils.rosetta_extras + '.linuxgccrelease'),
+script_cmd = [os.path.join(PUtils.rosetta, 'source/bin/rosetta_scripts.%s.linuxgccrelease' % PUtils.rosetta_extras),
               '-database', os.path.join(PUtils.rosetta, 'database')]
 rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
                 ['-ex1', '-ex2', '-extrachi_cutoff 5', '-ignore_unrecognized_res',  # '-run:timer true',
@@ -37,7 +36,6 @@ rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
                  'lys_dimethylated lys_monomethylated lys_trimethylated lys_acetylated glu_carboxylated '
                  'MethylatedProteinCterm tyr_diiodinated tyr_sulfated']
 
-# PUtils.stage = 1: refine, 2: design, 3: metrics, 4:analysis, 5:consensus. 6:rmsd_calculation
 # 1 and 5 have the same flag options as both are relax
 flag_options = {PUtils.stage[1]: ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints false',
                                   '-no_optH false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev 0.5',
@@ -49,6 +47,8 @@ flag_options = {PUtils.stage[1]: ['-constrain_relax_to_start_coords', '-use_inpu
                 PUtils.stage[3]: ['-no_nstruct_label true',  # '-out:suffix _' + PUtils.stage[2],
                                   '-mute all', '-unmute protocols.rosetta_scripts.ParsedProtocol']}  # -out:pdb false
 
-process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 1, PUtils.stage[3]: 1, PUtils.stage[5]: 2, PUtils.nano: 1,
+# Those jobs having a scale of 2 utilize two threads. Therefore two commands are selected from a supplied commands list
+# and are launched inside a python environment once the SLURM controller starts a SBATCH array job
+process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 2, PUtils.stage[3]: 1, PUtils.stage[5]: 2, PUtils.nano: 1,
                  PUtils.stage[6]: 1, PUtils.stage[7]: 1, PUtils.stage[8]: 1, PUtils.stage[9]: 1, PUtils.stage[10]: 1,
                  PUtils.stage[11]: 1}

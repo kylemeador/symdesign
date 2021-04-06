@@ -32,7 +32,7 @@ from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDatabase
 from CommandDistributer import distribute
 from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
-from NanohedraWrap import nanohedra_command_s, nanohedra_recap_s
+from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB
 from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map, \
     group_compositions
@@ -384,7 +384,7 @@ def format_additional_flags(flags):
     return final_flags
 
 
-def terminate(module, designs, location=None, results=None, exceptions=None, output=True):
+def terminate(module, designs, location=None, results=None, output=True):
     """Formats designs passing output parameters and report program exceptions"""
     # any_exceptions = [exception for exception in all_exceptions if exception]
     # any_exceptions = list(filter(bool, exceptions))
@@ -436,7 +436,8 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
                 if save:
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
-        module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]]}
+        module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
+                        PUtils.nano: [PUtils.nano]}
         if module in module_files:
             if len(success) > 0:
                 all_commands = {stage: [] for stage in module_files[module]}
@@ -444,18 +445,23 @@ def terminate(module, designs, location=None, results=None, exceptions=None, out
                     for stage in all_commands:
                         all_commands[stage].append(os.path.join(design.scripts, '%s.sh' % stage))
 
-                # command_files = {stage: None for stage in module_files[module]}
-                # sbatch = {stage: None for stage in module_files[module]}
-                command_files, sbatch = {}, {}
-                for stage in all_commands:
-                    command_files[stage] = SDUtils.write_commands(all_commands[stage],
-                                                                  name='%s_%s_%s' % (stage, location_name, timestamp),
-                                                                  out_path=program_root)
-                    sbatch[stage] = distribute(stage=stage, directory=program_root, file=command_files[stage])
-
-                logger.info('To process all commands in correct order, execute these commands sequentially, ensuring '
-                            'the prior one has completed before issuing the next:\n\t%s' %
-                            ('\n\t'.join('sbatch %s' % sbatch[stage] for stage in sbatch)))
+                command_files = {stage: SDUtils.write_commands(commands, name='%s_%s_%s' % (stage, location_name, timestamp),
+                                                               out_path=program_root)
+                                 for stage, commands in all_commands.items()}
+                sbatch_files = {stage: distribute(stage=stage, directory=program_root, file=command_file)
+                                for stage, command_file in command_files.items()}
+                logger.critical(
+                    'Ensure the created SBATCH script(s) are correct. Specifically, check that the job array and any'
+                    ' node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help)'
+                    ' to understand the variables or ask for help if you are still unsure.')
+                logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
+                            % ('\n\t'.join('sbatch %s' % value for value in sbatch_files.values())))
+                # logger.info('After submission, designs which successfully completed \'%s\' will be listed in \'%s\''
+                #             ', while designs which failed will be listed in \'%s\''
+                #             % (stage, success_file, failure_file))
+                # # logger.info('To process all commands in correct order, execute these commands sequentially, ensuring '
+                # #             'the prior one has completed before issuing the next:\n\t%s' %
+                # #             ('\n\t'.join('sbatch %s' % sbatch[stage] for stage in sbatch)))
                 print('\n\n')
 
     exit(exit_code)
@@ -994,9 +1000,6 @@ if __name__ == '__main__':
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
         if args.multi_processing:
-            # # Calculate the number of threads to use depending on computer resources
-            # threads = SDUtils.calculate_mp_threads(cores=args.cores)
-            # logger.info('Starting multiprocessing using %s threads' % str(threads))
             if args.run_in_shell:
                 # TODO implementation where SymDesignControl calls Nanohedra.py
                 logger.error('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
@@ -1006,13 +1009,11 @@ if __name__ == '__main__':
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(extra_flags),
                                       repeat(args.project), initial_iter)
-                    results = SDUtils.mp_starmap(nanohedra_command_s, zipped_args, threads=threads)
+                    results = SDUtils.mp_starmap(nanohedra_command, zipped_args, threads=threads)
                 else:  # args.directory or args.file set up docking directories
                     zipped_args = zip(design_directories, repeat(args.project))
-                    results = SDUtils.mp_starmap(nanohedra_recap_s, zipped_args, threads=threads)
-                # results = list(results)
+                    results = SDUtils.mp_starmap(nanohedra_design_recap, zipped_args, threads=threads)
         else:
-            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             if args.run_in_shell:
                 logger.error('Can\'t run %s.py docking from here yet. Must pass python %s -c for execution'
                              % (PUtils.nano, __file__))
@@ -1020,33 +1021,33 @@ if __name__ == '__main__':
             else:
                 if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
                     for initial, (path1, path2) in zip(initial_iter, pdb_pairs):
-                        result = nanohedra_command_s(args.entry, path1, path2, args.outdir, extra_flags, args.project,
-                                                     initial)
+                        result = nanohedra_command(args.entry, path1, path2, args.outdir, extra_flags, args.project,
+                                                   initial)
                         results.append(result)
-                        # exceptions.append(error)  # Todo
                 else:  # single directory docking (already made directories)
                     for dock_directory in design_directories:
-                        result = nanohedra_recap_s(dock_directory, args.project)
+                        result = nanohedra_design_recap(dock_directory, args.project)
                         results.append(result)
-                        # exceptions.append(error)  # Todo
 
-        # Make single file with names of each directory. Specific for docking due to no established directory
-        args.file = os.path.join(args.directory, 'all_docked_directories.paths')  # Todo Parameterized
-        with open(args.file, 'w') as design_f:
-            command_directories = map(os.path.dirname, results)  # get only the directory of the command
-            design_f.write('\n'.join(docking_pair for docking_pair in command_directories if docking_pair))
+        terminate(args.module, design_directories, location=args.directory, results=results, output=False)
+        #                                          location=location,
+        # # Make single file with names of each directory. Specific for docking due to no established directory
+        # args.file = os.path.join(args.directory, 'all_docked_directories.paths')
+        # with open(args.file, 'w') as design_f:
+        #     command_directories = map(os.path.dirname, results)  # get only the directory of the command
+        #     design_f.write('\n'.join(docking_pair for docking_pair in command_directories if docking_pair))
 
-        all_commands = [result for result in results if result]
-        if len(all_commands) > 0:
-            command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, out_path=args.directory)
-            args.success_file = None
-            args.failure_file = None
-            args.max_jobs = 80
-            distribute(stage=PUtils.nano, directory=args.directory, file=command_file,
-                       success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
-            logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
-        else:
-            logger.error('No \'%s\' commands were written!' % PUtils.nano)
+        # all_commands = [result for result in results if result]
+        # if len(all_commands) > 0:
+        #     command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, out_path=args.directory)
+        #     args.success_file = None
+        #     args.failure_file = None
+        #     args.max_jobs = 80
+        #     distribute(stage=PUtils.nano, directory=args.directory, file=command_file,
+        #                success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
+        #     logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
+        # else:
+        #     logger.error('No \'%s\' commands were written!' % PUtils.nano)
     # ---------------------------------------------------
     elif args.module == PUtils.generate_fragments:  # -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta

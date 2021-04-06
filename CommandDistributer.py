@@ -2,20 +2,18 @@
 Module for Distribution of Rosetta commands found for individual poses to SLURM/PBS computational cluster
 Finds commands within received directories (poses)
 """
-
 import argparse
 import os
 import signal
 import subprocess
-from random import random
-from itertools import repeat
 
 import CmdUtils as CUtils
 import PathUtils as PUtils
-from SymDesignUtils import index_offset, start_log, DesignError, collect_designs, mp_starmap, unpickle, \
-    pickle_object
+from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object
 
+# Globals
 logger = start_log(name=__name__)
+index_offset = 1
 
 
 class GracefulKiller:
@@ -62,30 +60,12 @@ def create_file(file):
             dummy = True
 
 
-# 2.7 compatible #
-
-
-def merge_names(a, b):
-    return '{} & {}'.format(a, b)
-
-
-def merge_names_unpack(args):
-    return merge_names(*args)
-
-
-def unpack_mp_args(args):
-    return run(*args)
-
-
-# 2.7 compatible #
-
-
-def run(cmd, log_file, srun=None, program='bash'):  # , log_file=None):
+def run(cmd, log_file_name, srun=None, program='bash'):
     """Executes specified command and appends command results to log file
 
     Args:
         cmd (str): The name of a command file which should be executed by the system
-        log_file (str): Location on disk of log file
+        log_file_name (str): Location on disk of log file
     Keyword Args:
         program='bash' (str): The interpreter for said command
     Returns:
@@ -95,7 +75,7 @@ def run(cmd, log_file, srun=None, program='bash'):  # , log_file=None):
     # if not log_file:
     #     log_file = os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log')
     cluster_prefix = srun if srun else []
-    with open(log_file, 'a') as log_f:
+    with open(log_file_name, 'a') as log_f:
         p = subprocess.Popen(cluster_prefix + [program, cmd], stdout=log_f, stderr=log_f)
         p.wait()
 
@@ -150,19 +130,18 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
             script_present = '-c'
 
     # Create success and failures files
-    # ran_num = int(100 * random())
     name = os.path.basename(os.path.splitext(file)[0])
     if not success_file:
-        success_file = os.path.join(directory, '%s_%s_success.log' % (name, PUtils.sbatch))  # , ran_num))
+        success_file = os.path.join(directory, '%s_%s_success.log' % (name, PUtils.sbatch))
     if not failure_file:
-        failure_file = os.path.join(directory, '%s_%s_failures.log' % (name, PUtils.sbatch))  # , ran_num))
+        failure_file = os.path.join(directory, '%s_%s_failures.log' % (name, PUtils.sbatch))
 
     # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
     with open(PUtils.sbatch_templates[stage]) as template_f:
         template_sbatch = template_f.readlines()
 
     # Make sbatch file from template, array details, and command distribution script
-    filename = os.path.join(directory, '%s_%s.sh' % (name, PUtils.sbatch))  # , ran_num))
+    filename = os.path.join(directory, '%s_%s.sh' % (name, PUtils.sbatch))
     output = os.path.join(directory, 'sbatch_output')
     if not os.path.exists(output):
         os.mkdir(output)
@@ -172,18 +151,11 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         for template_line in template_sbatch:
             new_f.write(template_line)
         out = 'output=%s/%s' % (output, '%A_%a.out')
-        new_f.write(PUtils.sb_flag + out + '\n')
+        new_f.write('%s%s\n' % (PUtils.sb_flag, out))
         array = 'array=1-%d%%%d' % (int(len(_commands) / command_divisor + 0.5), max_jobs)
-        new_f.write(PUtils.sb_flag + array + '\n')
+        new_f.write('%s%s\n' % (PUtils.sb_flag, array))
         new_f.write('\npython %s --stage %s distribute --success_file %s --failure_file %s --command_file %s %s\n' %
                     (PUtils.cmd_dist, stage, success_file, failure_file, file, (script_present or '')))
-
-    logger.info('To distribute \'%s\' commands, ensure the sbatch script located at %s is correct. Specifically, check '
-                'the job array and any node specifications to be accurate. You can look at the sbatch manual '
-                '(man sbatch or sbatch --help) to understand the variables or ask for help if you are still unsure. '
-                'Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s\n\t  Successful designs '
-                'will be listed in \'%s\'\n\t  Failed designs will be listed in \'%s\''
-                % (stage, filename, filename, success_file, failure_file))
 
     return filename
 
@@ -201,10 +173,11 @@ if __name__ == '__main__':
                                             'help on a SubModule such as specific commands and flags enter: \n%s\n\nAny'
                                             'SubModule help can be accessed in this way' % PUtils.submodule_help)
     # ---------------------------------------------------
-    parser_distirbute = subparsers.add_parser('distribute', help='Access the %s guide! Start here if your a first time user'
-                                                       % PUtils.program_name)
+    parser_distirbute = subparsers.add_parser('distribute', help='Access the %s guide! Start here if your a first time '
+                                                                 'user' % PUtils.program_name)
+    # TODO combine with command file as 1 arg
     parser_distirbute.add_argument('-c', '--command_present', action='store_true',
-                                   help='Whether command file has commands already')  # TODO combine with command file as 1 arg
+                                   help='Whether command file has commands already')
     parser_distirbute.add_argument('-f', '--command_file',
                                    help='File with command(s) to be distributed. Required', required=True)
     parser_distirbute.add_argument('-y', '--success_file',
@@ -238,17 +211,21 @@ if __name__ == '__main__':
 
         # Select exact poses to be handled according to array_ID and design stage
         array_task = int(os.environ.get('SLURM_ARRAY_TASK_ID'))
-        cmd_slice = (array_task - index_offset) * CUtils.process_scale[args.stage]  # adjust from SLURM one index
+        # adjust from SLURM one index and figure out how many commands to grab from command pool
+        cmd_slice = (array_task - index_offset) * CUtils.process_scale[args.stage]
         if cmd_slice + CUtils.process_scale[args.stage] > len(all_commands):  # check to ensure list index isn't missing
             final_cmd_slice = None
+            if cmd_slice > len(all_commands):
+                exit()
         else:
             final_cmd_slice = cmd_slice + CUtils.process_scale[args.stage]
         specific_commands = list(map(str.strip, all_commands[cmd_slice:final_cmd_slice]))
+        number_of_commands = len(specific_commands)
 
         # Prepare Commands
         # command_name = args.stage + '.sh'
         # python2.7 compatibility
-        def path_maker(path_name):
+        def path_maker(path_name):  # Todo depreciate
             return os.path.join(path_name, '%s.sh' % args.stage)
 
         if args.command_present:
@@ -256,7 +233,7 @@ if __name__ == '__main__':
         else:  # Todo, depreciate this mechanism
             command_paths = list(map(path_maker, specific_commands))
 
-        log_files = ['%s.log' % os.path.splitext(log_dir)[0] for log_dir in command_paths]
+        log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
         iteration = 0
         complete = False
         # while not complete:
@@ -278,19 +255,13 @@ if __name__ == '__main__':
         signal.signal(signal.SIGTERM, exit_gracefully)
         # while not monitor.kill_now:
 
-        # # python 2.7 compatibility NO MP here
-        # results = []
-        # for command, log_file in commands:
-        #     results.append(run(command, log_file))
-
-        # python 3.7 compatible
-        if len(command_paths) > 1:  # set by CUtils.process_scale
-            results = mp_starmap(run, zipped_commands, threads=len(command_paths))  # Todo change the command paths
+        if number_of_commands > 1:  # set by CUtils.process_scale
+            results = mp_starmap(run, zipped_commands, threads=number_of_commands)
         else:
             results = [run(*command_pair) for command_pair in zipped_commands]
         #    iteration += 1
 
-        # Write out successful and failed commands TODO ensure write is only possible one at a time
+        # Write out successful and failed commands
         with open(args.success_file, 'a') as f:
             for i, result in enumerate(results):
                 if result:
@@ -304,7 +275,7 @@ if __name__ == '__main__':
         # # Append SLURM output to log_file(s)
         # job_id = int(os.environ.get('SLURM_JOB_ID'))
         # for i, task_id in enumerate(range(cmd_slice, final_cmd_slice)):
-        #     file = '%s_%s.out' % (job_id, array_task)
+        #     file = os.path.join(sbatch_output, '%s_%s.out' % (job_id, array_task))  # Todo set sbatch_output
         #     # file = '%s_%s.out' % (job_id, task_id)
         #     run(file, log_files[i], program='cat')
-        #     run(file, '/dev/null', program='rm')
+        #     # run(file, '/dev/null', program='rm')
