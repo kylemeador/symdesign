@@ -2,11 +2,9 @@ import os
 import sys
 import argparse
 import logging
-from itertools import repeat
-from Bio.SeqUtils import IUPACData
+
 import SymDesignUtils as SDUtils
-import PathUtils as PUtils
-import CmdUtils as CUtils
+
 logging.getLogger().setLevel(logging.DEBUG)
 
 

@@ -20,7 +20,6 @@ import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import CmdUtils as CUtils
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from Query.PDB import input_string, bool_d, invalid_string
@@ -30,7 +29,7 @@ from Query import Flags
 from classes.SymEntry import SymEntry
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDatabase
-from CommandDistributer import distribute
+from CommandDistributer import distribute, hhblits_memory_threshold
 from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB
@@ -793,11 +792,11 @@ if __name__ == '__main__':
     elif queried_flags['directory_type'] in [PUtils.interface_design, PUtils.select_designs, PUtils.analysis,
                                              PUtils.cluster_poses, 'sequence_selection']:
         # if args.mpi:  # Todo figure out if needed
-        #     # extras = ' mpi %d' % CUtils.mpi
+        #     # extras = ' mpi %d' % CommmandDistributer.mpi
         #     logger.info(
         #         'Setting job up for submission to MPI capable computer. Pose trajectories run in parallel,'
         #         ' %s at a time. This will speed up pose processing ~%f-fold.' %
-        #         (CUtils.mpi - 1, PUtils.nstruct / (CUtils.mpi - 1)))
+        #         (CommmandDistributer.mpi - 1, PUtils.nstruct / (CommmandDistributer.mpi - 1)))
         #     queried_flags.update({'mpi': True, 'script': True})
 
         # Set up DesignDirectories
@@ -1063,7 +1062,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == PUtils.interface_design:  # -i fragment_library, -p mpi, -x suspend
         if queried_flags['design_with_evolution']:
-            if psutil.virtual_memory().available <= CUtils.hhblits_memory_threshold:
+            if psutil.virtual_memory().available <= CommandDistributer.hhblits_memory_threshold:
                 logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
                                 '(the backbone of -design_with_evolution)! Please allocate the job to a computer with'
                                 'more memory or the process will fail. Otherwise, select -design_with_evolution False')
