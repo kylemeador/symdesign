@@ -14,7 +14,7 @@ from Bio.SeqUtils import IUPACData
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
 
-import CmdUtils as CUtils
+import CommandDistributer
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from DesignMetrics import analyze_output
@@ -45,7 +45,7 @@ logger = start_log(name=__name__)
 @SDUtils.handle_errors((SDUtils.DesignError, AssertionError))
 def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False, debug=False):
     # Variable initialization
-    cst_value = round(0.2 * CUtils.reference_average_residue_weight, 2)
+    cst_value = round(0.2 * CommandDistributer.reference_average_residue_weight, 2)
     frag_size = 5
     done_process = subprocess.Popen(['run="go"'], shell=True)  # Todo remove shell=True
 
@@ -60,7 +60,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.info('Processing directory \'%s\'' % des_dir.path)
 
     # Set up Rosetta command, files
-    main_cmd = copy.deepcopy(CUtils.script_cmd)
+    main_cmd = copy.deepcopy(CommandDistributer.script_cmd)
     # cleaned_pdb = os.path.join(des_dir.path, PUtils.clean_asu)
     # ala_mut_pdb = os.path.splitext(cleaned_pdb)[0] + '_for_refine.pdb'
     # TODO no mut if glycine...
@@ -592,8 +592,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
          '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
 
     if mpi:
-        design_cmd = CUtils.run_cmds[PUtils.rosetta_extras] + design_cmd
-        metric_cmd = CUtils.run_cmds[PUtils.rosetta_extras] + metric_cmd
+        design_cmd = CommandDistributer.run_cmds[PUtils.rosetta_extras] + design_cmd
+        metric_cmd = CommandDistributer.run_cmds[PUtils.rosetta_extras] + metric_cmd
     metric_cmds = {name: metric_cmd + ['-parser:script_vars', 'chain=%s' % names[name](n)]
                    for n, name in enumerate(names)}
     # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
@@ -728,10 +728,10 @@ if __name__ == '__main__':
 
     if args.mpi:
         args.command_only = True
-        extras = ' mpi %d' % CUtils.mpi
+        extras = ' mpi %d' % CommandDistributer.mpi
         logger.info('Setting job up for submission to MPI capable computer. Pose trajectories will run in parallel, '
                     '%s at a time. This will speed up pose processing %f-fold.' %
-                    (CUtils.mpi - 1, PUtils.nstruct / CUtils.mpi - 1))
+                    (CommandDistributer.mpi - 1, PUtils.nstruct / CommandDistributer.mpi - 1))
     if args.command_only:
         args.suspend = True
         logger.info('Writing modelling commands out to file only, no modelling will occur until commands are executed')
