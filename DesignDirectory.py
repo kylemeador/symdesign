@@ -15,18 +15,18 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 import PathUtils as PUtils
-from CmdUtils import reference_average_residue_weight, script_cmd, run_cmds, flag_options, rosetta_flags
+from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, flag_options
 from Query import Flags
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError,\
     match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, clean_dictionary, all_vs_all, \
     condensed_to_square
 from PDB import PDB
 from Pose import Pose
-from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups,\
+from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     residue_composition_diff, division_pairs, stats_metrics, protocol_specific_columns, protocols_of_interest, \
-    df_permutation_test, remove_score_columns
+    df_permutation_test, remove_score_columns, residue_template, calc_relative_sa
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
     pos_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
@@ -869,9 +869,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file
 
-    def prepare_rosetta_commands(self):
+    def prepare_rosetta_interface_design(self):
+        """For the basic process of sequence design between two halves of an interface, write the necessary files for
+        refinement (FastRelax), redesign (FastDesign), and metrics collection (Filters & SimpleMetrics)
+
+        Stores job variables in a [stage]_flags file and the command in a [stage].sh file. Sets up dependencies based
+        on the DesignDirectory
+        """
         # Set up the command base (rosetta bin and database paths)
-        main_cmd = copy.deepcopy(script_cmd)
+        main_cmd = copy.copy(script_cmd)
         if self.design_dimension is not None:  # can be 0
             protocol = PUtils.protocol[self.design_dimension]
             if self.design_dimension == 0:  # point
@@ -889,7 +895,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it is'
                               'an ASU, may be missing crucial contacts. Is this what you want?')
 
-        if self.nano:
+        if self.nano:  # Todo may need to do this for non Nanohedra inputs
             self.log.info('Input Oligomers: %s' % ', '.join(oligomer.name for oligomer in self.oligomers))
 
         chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
@@ -898,21 +904,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                      for entity, residue_number in list(chain_breaks.items())[:-1])))
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
 
-        # self.log.info('Pulling fragment info from clusters: %s' % ', '.join(metrics['fragment_cluster_ids']
-        #                                                                    for metrics in interface_metrics.values()))
-
         # Get ASU distance parameters
-        if self.nano:  # Todo adapt to self.design_dimension and not nanohedra input
+        if self.design_dimension:  # when greater than 0
             max_com_dist = 0
             for oligomer in self.oligomers:
-                # asu_oligomer_com_dist.append(np.linalg.norm(np.array(template_pdb.get_center_of_mass())
                 com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
-                # need to use self.pose.pdb.center+of_mass as we want ASU COM not Sym Mates COM (self.pose.center_of_mass)
+                # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
                 if com_dist > max_com_dist:
                     max_com_dist = com_dist
-
             dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
-            self.log.info('Expanding ASU by %f Angstroms' % dist)
+            self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
         else:
             dist = 0
 
@@ -1198,21 +1199,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # TODO add symmetry or oligomer data to self.info. Right now in self.sym_entry
         self.set_symmetry(**self.pose.return_symmetry_parameters())
         self.log.debug('DesignDirectory Symmetry: %s' % self.return_symmetry_parameters())
-        self.make_path(self.designs)  # Todo include these after refine_sbatch.sh? Need if commands are run in python!
+        self.make_path(self.designs)  # Todo include these after refine_sbatch.sh..? Need if commands are run in python!
         self.make_path(self.scores)
-        self.prepare_rosetta_commands()
+        self.prepare_rosetta_interface_design()
         self.pickle_info()
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=True):
-        """Retrieve all score information from a design directory and write results to .csv file
+        """Retrieve all score information from a DesignDirectory and write results to .csv file
 
         Keyword Args:
-            merge_residue_data (bool): Whether to incorporate residue data into Pose dataframe
-            save_trajectories=False (bool): Whether to save trajectory and residue dataframes
+            merge_residue_data (bool): Whether to incorporate residue data into Pose DataFrame
+            save_trajectories=False (bool): Whether to save trajectory and residue DataFrames
             figures=True (bool): Whether to make and save pose figures
         Returns:
-            scores_df (Dataframe): Dataframe containing the average values from the input design directory
+            scores_df (pandas.DataFrame): DataFrame containing the average values from the input design directory
         """
         # TODO add fraction_buried_atoms
         remove_columns = columns_to_remove
@@ -1252,8 +1253,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         design_residues = self.info.get('design_residues', None)
         if design_residues:
             design_residues = [int(residue[:-1]) for residue in design_residues.split(',')]  # remove chain, change type
-        else:  # This should never happen as we catch at other_pose_metrics
-            raise DesignError('No residues were marked for design. Have you run -%s or -%s?'
+        else:  # This should never happen as we catch at other_pose_metrics...
+            raise DesignError('No residues were marked for design. Have you run %s or %s?'
                               % (PUtils.generate_fragments, PUtils.interface_design))
 
         int_b_factor = sum(wt_pdb.residue(residue).get_ave_b_factor() for residue in design_residues)
@@ -1268,28 +1269,25 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             all_design_scores = remove_interior_keys(all_design_scores, remove_score_columns)
 
             # Gather mutations for residue specific processing and design sequences
-            # self.log.debug('Design Files: %s' % ', '.join(self.get_designs()))
             pdb_sequences = {}
             for file in self.get_designs():
                 pdb = PDB.from_file(file, log=None, entities=False)
                 pdb_sequences[pdb.name] = pdb.atom_sequences
             sequence_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences, pose_num=False)
-            # self.log.debug('Design Files: %s' % ', '.join(sequence_mutations))
-            # self.log.debug('Chain offset: %s' % str(offset_dict))
 
             # Remove wt sequence and find all designs which have corresponding pdb files
-            sequence_mutations.pop('ref')
+            sequence_mutations.pop('reference')
             # all_design_sequences = {AnalyzeMutatedSequences.get_pdb_sequences(file) for file in self.get_designs()}
             # for pdb in models:
             #     for chain in pdb.chain_id_list
             #         sequences[chain][pdb.name] = pdb.atom_sequences[chain]
-            # Todo just pull from design pdbs... reorient for {chain: {name: sequence, ...}, ...} ^^
+            # Todo can I just pull from design pdbs... reorient for {chain: {name: sequence, ...}, ...} ^^
+            #  v-this-v mechanism accounts for offsets from the reference sequence which aren't necessary YET
             all_design_sequences = generate_sequences(wt_sequence, sequence_mutations)
-            all_design_sequences = {chain: remove_pdb_prefixes(all_design_sequences[chain]) for chain in
-                                    all_design_sequences}
+            all_design_sequences = {chain: remove_pdb_prefixes(chain_sequences)
+                                    for chain, chain_sequences in all_design_sequences.items()}
             all_design_scores = remove_pdb_prefixes(all_design_scores)
-            self.log.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
-                                                                  for name in all_design_sequences[chain]))
+            self.log.debug('all_design_sequences: %s' % ', '.join(next(iter(all_design_sequences)).keys()))
             # for chain in all_design_sequences:
             #     all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
 
@@ -1297,13 +1295,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                                      for name in all_design_sequences[chain]))
             self.log.debug('all_design_scores: %s' % ', '.join(all_design_scores.keys()))
             # Ensure data is present for both scores and sequences, then initialize DataFrames
-            good_designs = list(
-                set(design for design_sequences in all_design_sequences.values() for design in design_sequences)
-                & set(all_design_scores.keys()))
+            good_designs = set(next(iter(all_design_sequences)).keys()).intersection(set(all_design_scores.keys()))
             self.log.info('All Designs: %s' % ', '.join(good_designs))
             all_design_scores = clean_dictionary(all_design_scores, good_designs, remove=False)
-            all_design_sequences = {chain: clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
-                                    for chain in all_design_sequences}
+            all_design_sequences = {chain: clean_dictionary(chain_sequences, good_designs, remove=False)
+                                    for chain, chain_sequences in all_design_sequences.items()}
             self.log.debug('All Sequences: %s' % all_design_sequences)
 
             scores_df = pd.DataFrame(all_design_scores).T
@@ -1374,6 +1370,24 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                   hbonds=interface_hbonds)
             #                                   offset=offset_dict)
 
+            # include the wild type residue information in metrics for sequence comparison
+            wild_type_residue_info = {res_number: copy.deepcopy(residue_template) for res_number in residue_dict}
+            for res_number in residue_dict:
+                wild_type_residue_info[res_number]['energy'] = None  # Todo implement metric in refine before refinement
+                wild_type_residue_info[res_number]['sasa'] = {'polar': None, 'hydrophobic': None,
+                                                              'total': wt_pdb.get_surface_area_residues()}
+                wild_type_residue_info[res_number]['type'] = cleaned_mutations['reference'][res_number]  # ['from']
+                wild_type_residue_info[res_number]['core'] = None
+                wild_type_residue_info[res_number]['rim'] = None
+                wild_type_residue_info[res_number]['support'] = None
+                # wild_type_residue_info[res_number]['hot_spot'] = 0
+                rel_complex_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
+                                                    wild_type_residue_info[res_number]['sasa']['total'])
+                if rel_complex_sasa < 0.25:
+                    wild_type_residue_info[res_number]['interior'] = 1
+                else:
+                    wild_type_residue_info[res_number]['interior'] = 0
+
             # Calculate amino acid observation percent from residue dict and background SSM's
             obs_d = {}
             for profile in profile_dict:
@@ -1401,6 +1415,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # during residue_df unstack, all residues with missing dicts are copied as nan
             number_hbonds = {entry: len(interface_hbonds[entry]) for entry in interface_hbonds}
             # number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
+            cleaned_mutations.pop('reference')
+            scores_df['number_of_mutations'] = pd.Series({design: len(mutations)
+                                                          for design, mutations in cleaned_mutations.items()})
             number_hbonds_s = pd.Series(number_hbonds, name='number_hbonds')
             scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
 
@@ -1417,7 +1434,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()
             interface_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
             assert len(interface_residues) > 0, 'No interface residues found!'
-            other_pose_metrics['observations'] = len(good_designs)
             other_pose_metrics['percent_fragment'] = len(issm_residues) / len(interface_residues)
             scores_df['total_interface_residues'] = len(interface_residues)
             # 'design_residues' coming in as 234B (residue_number|chain)
@@ -1465,17 +1481,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if scores_na_index:
                 protocol_s.drop(scores_na_index, inplace=True)
                 self.log.warning('%s: Trajectory DataFrame dropped rows with missing values: %s' %
-                               (self.path, ', '.join(scores_na_index)))
+                                 (self.path, ', '.join(scores_na_index)))
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             if residue_na_index:
                 self.log.warning('%s: Residue DataFrame dropped rows with missing values: %s' %
-                               (self.path, ', '.join(residue_na_index)))
+                                 (self.path, ', '.join(residue_na_index)))
                 for res_idx in residue_na_index:
                     residue_dict.pop(res_idx)
                 self.log.debug('Residue_dict:\n\n%s\n\n' % residue_dict)
 
-            # Fix reported per_residue_energy to contain only interface. BUT With delta, these residues should be subtracted
-            # int_residue_df = residue_df.loc[:, idx_slice[interface_residues, :]]
+            other_pose_metrics['observations'] = len(clean_scores_df)  # len(good_designs)
 
             # Get unique protocols for protocol specific metrics and drop unneeded protocol values
             unique_protocols = protocol_s.unique().tolist()
@@ -1574,8 +1589,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # Compute sequence differences between each protocol
                 residue_energy_df = \
-                    clean_residue_df.loc[:,
-                                         idx_slice[:, clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
+                    clean_residue_df.loc[:, idx_slice[:,
+                                                      clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
 
                 res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
                 residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
@@ -1644,7 +1659,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     measure_s = pd.Series(
                         {pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
                     sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
-            # if significance:
+                # if significance:
                 # Find the significance between each pair of protocols
                 protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
                                            keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
@@ -1685,13 +1700,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # # plt.axis('equal') # not possible with 3D graphs
                     # plt.legend()  # No handles with labels found to put in legend.
                     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-                    custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
-                                    colors]
+                    custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
+                                    for c in colors]
                     ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
                               bbox_to_anchor=(1.0, .5))
                     # # Add group mean to the plot
                     # for name, label in integer_map.items():
-                    #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(), seq_pc[pc_labels_group == label, 1].mean(),
+                    #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
+                    #                seq_pc[pc_labels_group == label, 1].mean(),
                     #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
                     ax.set_xlabel('PC1')
                     ax.set_ylabel('PC2')
@@ -1717,22 +1733,26 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     plt.savefig('%s_res_energy_pca.png' % _path)
 
             # CONSTRUCT: Create pose series and format index names
+            # Collect protocol specific metrics in series
             pose_stat_s, protocol_stat_s = {}, {}
             for stat in stats_metrics:
-                pose_stat_s[stat] = pd.concat([trajectory_df.loc[stat, :]], keys=[(stat, 'pose')], copy=False)
-                # pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=[stat])
-                # Collect protocol specific metrics in series
-                suffix = ''
+                pose_stat_s[stat] = pd.concat([trajectory_df.loc[stat, :]], keys=[(stat, 'pose')])
                 if stat != 'mean':
                     suffix = '_%s' % stat
+                else:
+                    suffix = ''
                 protocol_stat_s[stat] = pd.concat([protocol_subset_df.loc['%s%s' % (protocol, suffix), :]
                                                    for protocol in unique_protocols],
                                                   keys=list(zip(repeat(stat), unique_protocols)))
-                # protocol_stat_s[stat] = pd.concat([protocol_stat_s[stat]], keys=[stat], copy=False)
 
             protocol_stats_s = pd.concat([pd.Series(stats_by_protocol[protocol]) for protocol in stats_by_protocol],
                                          keys=list(zip(repeat('stats'), unique_protocols)))
-            # protocol_stats_s = [pd.concat([protocol_stats_s], keys=['stats'])]
+
+            # Add wild-type sequence metrics to clean_residue_df
+            # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
+            wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
+            clean_residue_df = clean_residue_df.append(wt_df)
+            # TODO would like to sort this so that the clean_residue_df has wild_type on top then 1-N
 
             # Save Trajectory, Residue DataFrames, and PDB Sequences
             if save_trajectories:

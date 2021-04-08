@@ -894,6 +894,12 @@ def residue_composition_diff(row):
     return _sum / 3.0
 
 
+residue_template = {'energy': {'complex': 0, 'unbound': 0, 'fsp': 0, 'cst': 0},
+                    'sasa': {'polar': {'complex': 0, 'unbound': 0}, 'hydrophobic': {'complex': 0, 'unbound': 0},
+                             'total': {'complex': 0, 'unbound': 0}},
+                    'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
+
+
 def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None):
     """Process Residue Metrics from Rosetta score dictionary
 
@@ -910,10 +916,6 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
             22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}
     """  # , 'hot_spot': 1
-    dict_template = {'energy': {'complex': 0, 'unbound': 0, 'fsp': 0, 'cst': 0},
-                     'sasa': {'polar': {'complex': 0, 'unbound': 0}, 'hydrophobic': {'complex': 0, 'unbound': 0},
-                              'total': {'complex': 0, 'unbound': 0}},
-                     'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
     total_residue_dict = {}
     for entry in score_dict:
         print(entry)
@@ -929,7 +931,7 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
             if pose_state == 'unbound' and offset:  # 'oligomer'
                 res += offset[metadata[-3]]  # get interface, chain name, length offset
             if res not in residue_dict:
-                residue_dict[res] = copy.deepcopy(dict_template)
+                residue_dict[res] = copy.deepcopy(residue_template)
             if r_type == 'sasa':
                 # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                 polarity = metadata[3]  # hydrophobic or polar or total
@@ -987,7 +989,8 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
     Args:
         score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection': '15A,21A,26A,35A,...'}, ...}
-        mutations (dict): {'0001': {mutation_index: {'from': 'A', 'to: 'K'}, ...}, ...}
+        mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
+                           '0001': {mutation_index: {}, ...}, ...}
     Keyword Args:
         offset=None (dict): {'A': 0, 'B': 102}
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
@@ -995,10 +998,6 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
             22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}  # , 'hot_spot': 1
     """
-    dict_template = {'energy': {'complex': 0, 'unbound': 0, 'fsp': 0, 'cst': 0},
-                     'sasa': {'polar': {'complex': 0, 'unbound': 0}, 'hydrophobic': {'complex': 0, 'unbound': 0},
-                              'total': {'complex': 0, 'unbound': 0}},
-                     'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
     total_residue_dict = {}
     for entry in score_dict:
         residue_dict = {}
@@ -1013,7 +1012,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                 if pose_state == 'unbound' and offset:  # 'oligomer'
                     res += offset[metadata[-3]]  # get oligomer chain offset
                 if res not in residue_dict:
-                    residue_dict[res] = copy.deepcopy(dict_template)  # todo copy()
+                    residue_dict[res] = copy.deepcopy(residue_template)
                 if r_type == 'sasa':
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     polarity = metadata[3]
@@ -1027,14 +1026,14 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
             try:
                 residue_dict[res]['type'] = mutations[entry][res]
             except KeyError:
-                residue_dict[res]['type'] = mutations['ref'][res]  # fill with aa from wild_type sequence
+                residue_dict[res]['type'] = mutations['reference'][res]  # fill with aa from wild_type sequence
             if hbonds:
                 if res in hbonds[entry]:
                     residue_dict[res]['hbond'] = 1
             residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
                 - residue_dict[res]['energy']['unbound']  # - residue_dict[res]['energy']['fsp']  # 'oligomer'
             rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                 residue_dict[res]['sasa']['total']['unbound']) # 'oligomer'
+                                                 residue_dict[res]['sasa']['total']['unbound'])  # 'oligomer'
             rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
                                                 residue_dict[res]['sasa']['total']['complex'])
             for polarity in residue_dict[res]['sasa']:
