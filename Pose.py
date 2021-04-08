@@ -1290,7 +1290,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
              if key != 'self'}
         self.log.debug('The interface is split as: %s' % self.interface_split)
         if self.interface_split[1] == '':
-            raise DesignError('No residues were found in an interface!')
+            raise DesignError('Interface was unable to be split because no residues were found on one side of the'
+                              ' interface!')
 
     def interface_design(self, design_dir=None, symmetry=None, evolution=True,
                          fragments=True, query_fragments=False, write_fragments=True, fragments_exist=False,
