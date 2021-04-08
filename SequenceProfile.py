@@ -1104,11 +1104,11 @@ class SequenceProfile:
             mutant (str): Mutant sequence. Will be in the 'to' key
             reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
         Keyword Args:
-            offset=True (bool): Whether sequences are different legnths. Creates a new alignment
+            offset=True (bool): Whether sequences are different lengths. Creates a new alignment
             blanks=False (bool): Whether to include indices that are outside the reference sequence or missing residues
             termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
             reference_gaps=False (bool): Whether to include indices with missing residues inside the reference sequence
-            only_gaps=False (bool): Whether to only include all indices that are missing residues
+            only_gaps=False (bool): Whether to only include indices that are missing residues
         Returns:
             (dict): {index: {'from': 'A', 'to': 'K'}, ...}
         """
@@ -2329,63 +2329,67 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
     return mutations
 
 
-def make_mutations_chain_agnostic(mutation_dict):
+def make_mutations_chain_agnostic(mutations):
     """Remove chain identifier from mutation dictionary
 
     Args:
-        mutation_dict (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        mutations (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     Returns:
-        flattened_dict (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
+        (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
-    flattened_dict = {}
-    for pdb in mutation_dict:
-        flattened_dict[pdb] = {}
-        for chain in mutation_dict[pdb]:
-            flattened_dict[pdb].update(mutation_dict[pdb][chain])
+    flattened_mutations = {}
+    for pdb in mutations:
+        flattened_mutations[pdb] = {}
+        for chain in mutations[pdb]:
+            flattened_mutations[pdb].update(mutations[pdb][chain])
 
-    return flattened_dict
+    return flattened_mutations
 
 
-def simplify_mutation_dict(mutation_dict, to=True):
+def simplify_mutation_dict(mutations, to=True):
     """Simplify mutation dictionary to 'to'/'from' AA key
 
     Args:
-        mutation_dict (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        mutations (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     Keyword Args:
         to=True (bool): Whether to use 'to' AA (True) or 'from' AA (False)
     Returns:
-        mutation_dict (dict): {pdb: {mutation_index: 'K', ...}, ...}
+        (dict): {pdb: {mutation_index: 'K', ...}, ...}
     """
-    simplification = get_mutation_to
-    if not to:
-        simplification = get_mutation_from
+    if to:
+        simplification = 'to'
+        # simplification = get_mutation_to
+    else:
+        simplification = 'from'
+        # simplification = get_mutation_from
 
-    for pdb in mutation_dict:
-        for index in mutation_dict[pdb]:
-            mutation_dict[pdb][index] = simplification(mutation_dict[pdb][index])
+    for pdb in mutations:
+        for index in mutations[pdb]:
+            mutations[pdb][index] = mutations[pdb][index][simplification]
+            # mutations[pdb][index] = simplification(mutations[pdb][index])
 
-    return mutation_dict
-
-
-def get_mutation_from(mutation_dict):
-    """Remove 'to' identifier from mutation dictionary
-
-    Args:
-        mutation_dict (dict): {mutation_index: {'from': 'A', 'to': 'K'}, ...},
-    Returns:
-        mutation_dict (str): 'A'
-    """
-    return mutation_dict['from']
+    return mutations
 
 
-def get_mutation_to(mutation_dict):
-    """Remove 'from' identifier from mutation dictionary
-    Args:
-        mutation_dict (dict): {mutation_index: {'from': 'A', 'to': 'K'}, ...},
-    Returns:
-        mutation_dict (str): 'K'
-    """
-    return mutation_dict['to']
+# def get_mutation_from(mutation_dict):
+#     """Remove 'to' identifier from mutation dictionary
+#
+#     Args:
+#         mutation_dict (dict): {mutation_index: {'from': 'A', 'to': 'K'}, ...},
+#     Returns:
+#         mutation_dict (str): 'A'
+#     """
+#     return mutation_dict['from']
+#
+#
+# def get_mutation_to(mutation_dict):
+#     """Remove 'from' identifier from mutation dictionary
+#     Args:
+#         mutation_dict (dict): {mutation_index: {'from': 'A', 'to': 'K'}, ...},
+#     Returns:
+#         mutation_dict (str): 'K'
+#     """
+#     return mutation_dict['to']
 
 
 def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, des_divergence):
@@ -3063,14 +3067,15 @@ def pdb_to_pose_num(reference):
     return offset
 
 
-def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):  # seq_source='atom',
+def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
     """Extract mutation data from multiple sequence dictionaries with regard to a reference
 
     Args:
         reference (dict[mapping[str, str]]): {chain: sequence, ...}
         pdb_sequences (dict[mapping[str, dict[mapping[str, str]]): {pdb_code: {chain: sequence, ...}, ...}
     Keyword Args:
-        pose_num=True (bool): Whether to return the mutation dictionary as Pose numbering
+        pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
+        second Entity as Entity1 last residue + 1
     Returns:
         (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
@@ -3088,6 +3093,7 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):  # seq
             # returns {1: {'from': 'A', 'to': 'K'}, ...}
             mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
 
+    # add reference sequence mutations
     for chain, ref_sequence in reference.items():
         for sequence_idx, aa in enumerate(ref_sequence, 1):
             mutations['reference'][chain][sequence_idx] = {'from': aa, 'to': aa}
@@ -3185,23 +3191,23 @@ def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False):
     return {pdb: make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned) for pdb in mutation_dict}
 
 
-def generate_sequences(wild_type_seq_dict, all_design_mutations):
+def generate_sequences(wild_type_sequences, all_design_mutations):
     """Separate chains from mutation dictionary and generate mutated sequences
 
     Args:
-        wild_type_seq_dict (dict): {chain: sequence, ...}
+        wild_type_sequences (dict): {chain: sequence, ...}
         all_design_mutations (dict): {'name': {chain: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
             Index so mutation_index starts at 1
     Returns:
         mutated_sequences (dict): {chain: {name: sequence, ...}
     """
     mutated_sequences = {}
-    for chain in wild_type_seq_dict:
+    for chain in wild_type_sequences:
         chain_mutation_dict = {}
         for pdb in all_design_mutations:
             if chain in all_design_mutations[pdb]:
                 chain_mutation_dict[pdb] = all_design_mutations[pdb][chain]
-        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_seq_dict[chain], chain_mutation_dict,
+        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_sequences[chain], chain_mutation_dict,
                                                                  aligned=True)
 
     return mutated_sequences
