@@ -1537,7 +1537,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # POSE ANALYSIS: Get total pose design statistics
             # remove below if consensus is run multiple times. the cst_weights are very large and destroy the mean
-            trajectory_df = clean_scores_df.drop(PUtils.stage[5], axis=0, errors='ignore')
+            trajectory_df = clean_scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
             assert len(trajectory_df.index.to_list()) > 0, 'No design was done on this pose'
 
             traj_stats = {}
@@ -1552,9 +1552,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             trajectory_df = trajectory_df.append(list(traj_stats.values()))
             # Here we add consensus back to the trajectory_df after removing above
             trajectory_df = trajectory_df.append(list(protocol_stat_df.values()))
-
-            if merge_residue_data:
-                trajectory_df = pd.merge(trajectory_df, clean_residue_df, left_index=True, right_index=True)
 
             # Calculate protocol significance
             # Find all unique combinations of protocols using 'mean' as all protocol combination source. Excludes Consensus
@@ -1748,20 +1745,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             protocol_stats_s = pd.concat([pd.Series(stats_by_protocol[protocol]) for protocol in stats_by_protocol],
                                          keys=list(zip(repeat('stats'), unique_protocols)))
 
-            # Add wild-type sequence metrics to clean_residue_df
+            # Add wild-type sequence metrics to clean_residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
             wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
-            clean_residue_df = clean_residue_df.append(wt_df)
-            # TODO would like to sort this so that the clean_residue_df has wild_type on top then 1-N
+            clean_residue_df = clean_residue_df.append(wt_df).sort_index(key=lambda x: x.str.isdigit())
 
-            # Save Trajectory, Residue DataFrames, and PDB Sequences
+            # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
+            if merge_residue_data:
+                trajectory_df = pd.merge(trajectory_df, clean_residue_df, left_index=True, right_index=True)
             if save_trajectories:
                 trajectory_df.to_csv(self.trajectories)
                 clean_residue_df.to_csv(self.residues)
                 seq_file = pickle_object(all_design_sequences, '%s_Sequences' % str(self), out_path=self.all_scores)
 
             # Create figures
-            # if figures:  # Todo with relevant .ipynb figures
+            # if figures:  # Todo include relevant .ipynb figures
 
         other_metrics_s = pd.Series(other_pose_metrics)
         other_metrics_s = pd.concat([other_metrics_s], keys=[('dock', 'pose')], copy=False)
