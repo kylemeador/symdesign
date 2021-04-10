@@ -220,9 +220,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # design_symmetry (P432)
                 self.composition = design_path[:design_path.find(design_path.split(os.sep)[-3]) - 1]
                 # self.pose_id = design_path[design_path.find(design_path.split(os.sep)[-3]) - 1:].replace(os.sep, '-')
-                self.pose_id = '-'.join(design_path.split(os.sep)[-5:-1])  # [-5:-1] because of trailing os.sep
+                self.pose_id = '-'.join(design_path.split(os.sep)[-4:])  # [-5:-1] because of trailing os.sep
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
+                print('Program Root: %s' % self.program_root)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 # self.oligomer_names = os.path.basename(self.composition).split('_')
                 self.project_designs = os.path.join(self.projects,
@@ -237,7 +238,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     shutil.copy(nano_master_log, self.project_designs)
                 if not os.path.exists(self.path):
                     # copy the nanohedra output directory to the design directory
-                    os.makedirs(self.path)
+                    # os.makedirs(self.path)
                     shutil.copytree(design_path, self.path)
                 self.source = os.path.join(self.path, PUtils.asu)
                 # self.nano_master_log = os.path.join(self.project_designs, PUtils.master_log)
