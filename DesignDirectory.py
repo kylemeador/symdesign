@@ -217,7 +217,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # else:  # if self.directory_type in [PUtils.interface_design, 'filter', 'analysis']:
             elif self.directory_type == PUtils.interface_design:  # self.copy_nano:
                 # nanohedra_root = design_path[:design_path.find(design_path.split(os.sep)[-4]) - 1]
-                nanohedra_root = design_path.split(os.sep)[-4]
+                nanohedra_root = design_path.split(os.sep)[-5]
                 # design_symmetry (P432)
                 self.composition = design_path[:design_path.find(design_path.split(os.sep)[-3]) - 1]
                 # self.pose_id = design_path[design_path.find(design_path.split(os.sep)[-3]) - 1:].replace(os.sep, '-')
