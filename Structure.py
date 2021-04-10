@@ -1529,19 +1529,31 @@ class Residue:
 
     @property
     def number(self):  # Todo make property of residue
-        return self.ca.residue_number
+        try:
+            return self.ca.residue_number
+        except AttributeError:
+            return self.n.residue_number
 
     @property
     def number_pdb(self):  # Todo make property of residue
-        return self.ca.pdb_residue_number
+        try:
+            return self.ca.pdb_residue_number
+        except AttributeError:
+            return self.n.pdb_residue_number
 
     @property
     def chain(self):  # Todo make property of residue
-        return self.ca.chain
+        try:
+            return self.ca.chain
+        except AttributeError:
+            return self.n.chain
 
     @property
     def type(self):  # Todo make property of residue
-        return self.ca.residue_type
+        try:
+            return self.ca.residue_type
+        except AttributeError:
+            return self.n.chain
 
     @property
     def secondary_structure(self):
