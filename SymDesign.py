@@ -761,13 +761,14 @@ if __name__ == '__main__':
                                       '\n\t%s\nCorrect your flags and try again'
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
     # TODO consolidate this check
-    if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'expand_asu']:
+    if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu']:
         queried_flags['directory_type'] = PUtils.interface_design
-        if args.module == 'expand_asu':
+        if args.module in ['orient', 'expand_asu']:
             if queried_flags['symmetry']:
                 queried_flags['output_assembly'] = True
             else:
-                logger.critical('Cannot expand_asu without providing symmetry! Provide symmetry with \'--symmetry\'')
+                logger.critical('Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\''
+                                % args.module)
                 exit(1)
     elif args.module in [PUtils.nano, PUtils.select_designs, PUtils.analysis, PUtils.cluster_poses,
                          'sequence_selection']:
