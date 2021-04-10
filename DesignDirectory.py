@@ -221,12 +221,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.composition = design_path[:design_path.find(design_path.split(os.sep)[-3]) - 1]
                 # self.pose_id = design_path[design_path.find(design_path.split(os.sep)[-3]) - 1:].replace(os.sep, '-')
                 self.pose_id = '-'.join(design_path.split(os.sep)[-4:])  # [-5:-1] because of trailing os.sep
+                self.name = self.pose_id
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 # self.oligomer_names = os.path.basename(self.composition).split('_')
                 self.project_designs = os.path.join(self.projects, '%s_%s' % (nanohedra_root, PUtils.design_directory))
-                self.path = os.path.join(self.project_designs, self.pose_id)  # self.name)
+                self.path = os.path.join(self.project_designs, self.name)
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
                 if not os.path.exists(self.project_designs):
