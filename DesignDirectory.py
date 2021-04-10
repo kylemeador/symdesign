@@ -216,7 +216,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
             # else:  # if self.directory_type in [PUtils.interface_design, 'filter', 'analysis']:
             elif self.directory_type == PUtils.interface_design:  # self.copy_nano:
-                # nanohedra_root = design_path[:design_path.find(design_path.split(os.sep)[-4]) - 1]
                 nanohedra_root = design_path.split(os.sep)[-5]
                 # design_symmetry (P432)
                 self.composition = design_path[:design_path.find(design_path.split(os.sep)[-3]) - 1]
@@ -226,11 +225,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 # self.oligomer_names = os.path.basename(self.composition).split('_')
-                print('Projects: %s' % self.projects)
                 self.project_designs = os.path.join(self.projects, '%s_%s' % (nanohedra_root, PUtils.design_directory))
-                print('Project_designs: %s' % self.project_designs)
                 self.path = os.path.join(self.project_designs, self.pose_id)  # self.name)
-                print('Path: %s' % self.path)
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
                 if not os.path.exists(self.project_designs):
