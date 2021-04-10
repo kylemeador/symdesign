@@ -544,6 +544,11 @@ if __name__ == '__main__':
     parser_selection = subparsers.add_parser('residue_selector',
                                              help='Generate a residue selection for %s' % PUtils.program_name)
     # ---------------------------------------------------
+    parser_orient = subparsers.add_parser('orient',
+                                          help='Orient a symmetric assembly in a cannonical orientation at the origin')
+    # ---------------------------------------------------
+    parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
+    # ---------------------------------------------------
     parser_expand = subparsers.add_parser('expand_asu', help='For given poses, expand the asymmetric unit to a '
                                                              'symmetric assembly and write the result to the design '
                                                              'directory.')
@@ -984,6 +989,15 @@ if __name__ == '__main__':
         else:
             for design_dir in design_directories:
                 results.append(design_dir.orient())
+
+        terminate(args.module, design_directories, results=results, output=False)
+    # ---------------------------------------------------
+    elif args.module == 'find_asu':
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.find_asu, design_directories, threads=threads)
+        else:
+            for design_dir in design_directories:
+                results.append(design_dir.find_asu())
 
         terminate(args.module, design_directories, results=results, output=False)
     # ---------------------------------------------------
