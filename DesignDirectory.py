@@ -1136,7 +1136,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         out_path = oriented_pdb.write(out_path=self.assembly)
         # return out_path
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
     def find_asu(self):
         """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
         ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
@@ -1162,7 +1162,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if self.ignore_clashes:
                     self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu)
                 else:
-                    raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered')
+                    raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
+                                      'would like to generate the Assembly anyway, re-submit the command with '
+                                      '--ignore_clashes')
             if self.output_assembly:  # True by default when expand_asu module is used
                 self.pose.get_assembly_symmetry_mates()
                 self.pose.write(out_path=self.assembly)
