@@ -15,7 +15,7 @@ from sklearn.neighbors import BallTree
 from Bio import SeqIO
 from Bio.PDB import PDBParser, Superimposer
 
-import CommandDistributer
+# import CommandDistributer
 import PathUtils as PUtils
 
 
@@ -772,7 +772,7 @@ def calculate_mp_threads(cores=None, mpi=False):
     if cores:
         return cores
     elif mpi:
-        return int(max_cpus_to_use / CommandDistributer.mpi)
+        return int(max_cpus_to_use / 6)  # CommandDistributer.mpi)
     else:
         return max_cpus_to_use
 
