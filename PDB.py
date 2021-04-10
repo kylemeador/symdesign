@@ -331,9 +331,11 @@ class PDB(Structure):
                 atom_idx += 1
             elif line[0:5] == 'MODEL':
                 # start_of_new_model signifies that the next line comes after a new model
-                multimodel, start_of_new_model = True, True
-                available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
-                                       for first in PDB.available_letters)
+                start_of_new_model = True
+                if not multimodel:
+                    multimodel = True
+                    available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
+                                           for first in PDB.available_letters)
             elif lazy:
                 continue
             elif line[0:6] == 'SEQRES':
@@ -384,7 +386,7 @@ class PDB(Structure):
         if atoms:
             # create Atoms object and Residue objects
             self.set_atoms(atoms)
-        if residues:
+        if residues:  # Todo ensure that atoms is also None?
             # sets Atoms and Residues
             self.set_residues(residues)
 
@@ -602,38 +604,23 @@ class PDB(Structure):
     #     self.chain_id_list[self.chain_id_list.index(chain_of_interest)] = new_chain
     #     self.get_chain_sequences()
 
-    def reorder_chains(self, exclude_chains_list=None):  # Todo remove _list from kwarg
+    def reorder_chains(self, exclude_chains=None):
         """Renames chains starting from the first chain as A and the last as
         PDB.available_letters[len(self.chain_id_list) - 1]
         Caution, doesn't update self.reference_sequence chain info
         """
-        if exclude_chains_list:
-            available_chains = list(set(PDB.available_letters) - set(exclude_chains_list))
+        if exclude_chains:
+            available_chains = list(set(PDB.available_letters) - set(exclude_chains))
         else:
             available_chains = PDB.available_letters
 
-        moved_chains = [available_chains[idx] for idx in range(self.number_of_chains)]
+        # Update chain_id_list
+        self.chain_id_list = [available_chains[idx] for idx in range(self.number_of_chains)]
 
         for idx, chain in enumerate(self.chains):
-            chain.name = moved_chains[idx]
-            chain.set_atoms_attributes(chain=moved_chains[idx])
-            # Todo edit this mechanism to Residue! ^
-        # prev_chain = self.atoms[0].chain
-        # chain_index = 0
-        # l3 = []
-        #
-        # for atom in self.atoms:
-        #     if atom.chain != prev_chain:
-        #         chain_index += 1
-        #     l3.append(moved_chains[chain_index])
-        #     prev_chain = atom.chain
-        #
-        # # Update all atom chain names
-        # for idx, atom in enumerate(self.atoms):
-        #     atom.chain = l3[idx]
-
-        # Update chain_id_list
-        self.chain_id_list = moved_chains
+            chain.name = self.chain_id_list[idx]
+            chain.set_atoms_attributes(chain=self.chain_id_list[idx])
+            # Todo edit ^ this mechanism to set_residue_attributes!
         self.get_chain_sequences()
 
     def renumber_pdb(self):
@@ -739,10 +726,9 @@ class PDB(Structure):
             self.chain_id_list = [chain.name for chain in self.chains]
         else:
             for chain_id in self.chain_id_list:
-                self.chains.append(
-                    Chain(name=chain_id, coords=self._coords, log=self.log, residues=self._residues,
-                          residue_indices=[idx for idx, residue in enumerate(self.residues)
-                                           if residue.chain == chain_id]))
+                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log, residues=self._residues,
+                                         residue_indices=[idx for idx, residue in enumerate(self.residues)
+                                                          if residue.chain == chain_id]))
 
     def get_chains(self, names=None):
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
@@ -1723,7 +1709,10 @@ class PDB(Structure):
     def return_asu(self, chain='A'):
         """Returns the ASU as a new PDB object. See self.get_asu() for method"""
         asu_pdb_atoms, asu_pdb_coords = self.get_asu(chain=chain)
-        return PDB.from_atoms(atoms=deepcopy(asu_pdb_atoms), coords=asu_pdb_coords, metadata=self)
+        asu = PDB.from_atoms(atoms=deepcopy(asu_pdb_atoms), coords=asu_pdb_coords, metadata=self)
+        asu.reorder_chains()
+
+        return asu
 
         # if outpath:
         #     asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(self.filepath))[0] + '.pdb')
