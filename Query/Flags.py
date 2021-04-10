@@ -11,10 +11,17 @@ global_flags = {'symmetry': {'type': str, 'default': None,
                 'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
                                'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
                 'nanohedra_output': {'type': bool, 'default': False,
-                                     'description': 'Whether the design targets are a %s output' % nano.title()},
+                                     'description': 'Whether the design targets are the result of a %s output.%sUse this'
+                                                    ' flag to set up a %s project from docked poses%sor to analyze the '
+                                                    'output of %s.%sAfter a %s directory is initialized with '
+                                                    '--nanohedra_output True,%syou may submit future jobs containing '
+                                                    'these designs without this flag'
+                                                    % (terminal_formatter, nano.title(), terminal_formatter,
+                                                       program_name, terminal_formatter, nano.title(),
+                                                       terminal_formatter, program_name)},
                 'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
                 'design_range': {'type': str, 'default': None,
-                                 'description': 'Whether to subset selected designs by a range of percentage values.'},
+                                 'description': 'Whether to subset selected designs by a range of percentage values'},
                 }
 design_flags = {
     'design_with_evolution': {'type': bool, 'default': True,
