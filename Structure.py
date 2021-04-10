@@ -151,7 +151,7 @@ class Structure(StructureBase):
 
     def set_atoms(self, atoms):
         """Set the Structure atom indices, atoms to an Atoms object, and create Residue objects"""
-        self.atom_indices = [atom.index for atom in atoms]
+        self.atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
         self.atoms = atoms
         # self.atom_indices = list(range(len(atom_list)))  # can't set here as may contain other atoms
         self.create_residues()
@@ -491,7 +491,11 @@ class Structure(StructureBase):
     def set_residues(self, residues):
         """Set the Structure Residues to Residues object. Set the Structure Atoms and atom_indices"""
         self.residues = residues
-        self.atom_indices = [atom.index for residue in self.residues for atom in residue.atoms]
+        # self.atom_indices = [atom.index for residue in self.residues for atom in residue.atoms]
+        atom_indices = []
+        for residue in self.residues:
+            atom_indices.extend(residue.atom_indices)
+        self.atom_indices = atom_indices
         self.atoms = self.residues[0]._atoms
 
     def add_residues(self, residue_list):
@@ -611,7 +615,10 @@ class Structure(StructureBase):
         idx = 0  # offset , 1
         for i, residue in enumerate(self.residues, 1):
             # current_res_num = self.atoms[idx].residue_number
-            current_res_num = residue.number
+            try:
+                current_res_num = residue.number
+            except AttributeError:
+                print('\n'.join(str(atom) for atom in residue.atoms))
             while atoms[idx].residue_number == current_res_num:
                 atoms[idx].residue_number = i  # + offset
                 idx += 1
