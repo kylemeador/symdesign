@@ -122,6 +122,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sym_entry = None
         self.uc_dimensions = None
         self.expand_matrices = None
+        self.transform_d = {}  # dict[pdb# (1, 2)] = {'transform_type': matrix/vector}
 
         # self.fragment_cluster_residue_d = {}
         self.fragment_observations = []
@@ -191,7 +192,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.cryst_record = None
             self.pose_id = None
             # self.fragment_cluster_freq_d = {}
-            self.transform_d = {}  # dict[pdb# (1, 2)] = {'transform_type': matrix/vector}
 
             if self.directory_type == PUtils.nano:
                 # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
