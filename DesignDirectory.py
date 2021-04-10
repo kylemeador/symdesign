@@ -1085,26 +1085,35 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         Handles clash testing and writing the assembly if those options are True
         """
-        if self.nano:
-            self.get_oligomers()
-            if not self.oligomers:
-                raise DesignError('No oligomers were found for this design! Cannot initialize pose without oligomers')
-            self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
-                                      design_selector=self.design_selector, frag_db=self.frag_db,
-                                      ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-            #                         self.fragment_observations
-            for oligomer in self.oligomers[1:]:
-                self.pose.add_pdb(oligomer)
-            self.pose.asu = self.pose.pdb  # set the asu
-            self.pose.generate_symmetric_assembly()
-        else:
-            if not self.source:
-                raise DesignError('No source file was found for this design! Cannot initialize pose without a source.')
-            # Todo ensure that the asu has intra-oligomeric contacts accounted for by oligomer alignment (PDB API) or
-            #  quaternion rotational sampling
-            self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
-                                           design_selector=self.design_selector, frag_db=self.frag_db,
-                                           ignore_clashes=self.ignore_clashes)
+        # if self.nano:
+        #     self.get_oligomers()
+        #     if not self.oligomers:
+        #         raise DesignError('No oligomers were found for this design! Cannot initialize pose without oligomers')
+        #     self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
+        #                               design_selector=self.design_selector, frag_db=self.frag_db,
+        #                               ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
+        #     #                         self.fragment_observations
+        #     for oligomer in self.oligomers[1:]:
+        #         self.pose.add_pdb(oligomer)
+        #     self.pose.asu = self.pose.pdb  # set the asu
+        #     self.pose.generate_symmetric_assembly()
+        # else:
+        if not self.source:
+            raise DesignError('No source file was found for this design! Cannot initialize pose without a source')
+        # self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
+        #                                design_selector=self.design_selector, frag_db=self.frag_db,
+        #                                ignore_clashes=self.ignore_clashes)
+        self.get_oligomers()
+        if not self.oligomers:
+            raise DesignError('No oligomers were found for this design! Cannot initialize pose without oligomers')
+        self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
+                                  design_selector=self.design_selector, frag_db=self.frag_db,
+                                  ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
+        #                         self.fragment_observations
+        for oligomer in self.oligomers[1:]:
+            self.pose.add_pdb(oligomer)
+        self.pose.asu = self.pose.pdb  # set the asu
+        self.pose.generate_symmetric_assembly()
         # Save renumbered PDB to clean_asu.pdb
         if not os.path.exists(self.asu):
             self.pose.pdb.write(out_path=self.asu)
