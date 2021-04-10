@@ -223,7 +223,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.pose_id = '-'.join(design_path.split(os.sep)[-4:])  # [-5:-1] because of trailing os.sep
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
-                print('Program Root: %s' % self.program_root)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 # self.oligomer_names = os.path.basename(self.composition).split('_')
                 self.project_designs = os.path.join(self.projects,
