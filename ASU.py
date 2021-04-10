@@ -165,7 +165,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 logger.error('%s failed! Missing residue information in re-indexing' % pdb)
                 success = False
                 break
-            oriented_pdb.reorder_chains(exclude_chains_list=used_chains)  # redoes sequences
+            oriented_pdb.reorder_chains(exclude_chains=used_chains)  # redoes sequences
             used_chains += oriented_pdb.chain_id_list
             oriented_pdb_seq_a = oriented_pdb.atom_sequences[oriented_pdb.chain_id_list[0]]
             chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a, force_closest=True)
