@@ -1062,7 +1062,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == PUtils.interface_design:  # -i fragment_library, -p mpi, -x suspend
         if queried_flags['design_with_evolution']:
-            if psutil.virtual_memory().available <= CommandDistributer.hhblits_memory_threshold:
+            if psutil.virtual_memory().available <= hhblits_memory_threshold:
                 logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
                                 '(the backbone of -design_with_evolution)! Please allocate the job to a computer with'
                                 'more memory or the process will fail. Otherwise, select -design_with_evolution False')
