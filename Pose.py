@@ -11,7 +11,8 @@ from sklearn.neighbors import BallTree
 import PathUtils as PUtils
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
     start_log, null_log, possible_symmetries, match_score_from_z_value, split_interface_pairs
-from utils.GeneralUtils import write_frag_match_info_file
+from classes.SymEntry import get_rot_matrices, RotRangeDict, get_degen_rotmatrices
+from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
 from classes.EulerLookup import EulerLookup
 from PDB import PDB
@@ -48,6 +49,45 @@ class Model:  # (PDB)
             self.models = []
 
         self.number_of_models = len(self.models)
+
+    @property
+    def number_of_atoms(self):
+        return self.pdb.number_of_atoms
+
+    @property
+    def number_of_residues(self):
+        return self.pdb.number_of_residues
+
+    @property
+    def coords(self):
+        """Return a view of the representative Coords from the Model. These may be the ASU if a SymmetricModel"""
+        return self._coords.coords
+
+    @coords.setter
+    def coords(self, coords):
+        if isinstance(coords, Coords):
+            self._coords = coords
+        else:
+            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
+
+    @property
+    def center_of_mass(self):
+        """Returns: (Numpy.ndarray)"""
+        return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
+
+    @property
+    def model_coords(self):
+        """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
+        return self._model_coords.coords
+
+    @model_coords.setter
+    def model_coords(self, coords):
+        if isinstance(coords, Coords):
+            self._model_coords = coords
+        else:
+            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
     def set_models(self, models):
         self.models = models
@@ -130,30 +170,19 @@ class SymmetricModel(Model):
         return cls(models=assembly, **symmetry)
 
     @property
-    def coords(self):  # Todo Model
-        """Return a view of the representative Coords from the Model. These may be the ASU if a SymmetricModel"""
-        return self._coords.coords
-
-    @coords.setter
-    def coords(self, coords):
-        if isinstance(coords, Coords):
-            self._coords = coords
-        else:
-            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
+    def symmetric_center_of_mass(self):
+        """Returns: (Numpy.ndarray)"""
+        if self.symmetry:
+            return np.matmul(np.full(self.number_of_atoms * self.number_of_models,
+                                     1 / self.number_of_atoms * self.number_of_models),
+                             self.model_coords)
 
     @property
-    def model_coords(self):  # Todo Model
-        """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
-        return self._model_coords.coords
-
-    @model_coords.setter
-    def model_coords(self, coords):
-        if isinstance(coords, Coords):
-            self._model_coords = coords
-        else:
-            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+    def symmetric_centers_of_mass(self):
+        """Returns: (Numpy.ndarray)"""
+        if self.symmetry:
+            return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms),
+                             np.split(self.model_coords, self.number_of_models))
 
     def set_symmetry(self, expand_matrices=None, symmetry=None, cryst1=None, uc_dimensions=None, generate_assembly=True,
                      generate_symmetry_mates=False, **kwargs):
@@ -474,7 +503,7 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         return [pdb.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]  # Todo change below as well
 
-    def return_crystal_symmetry_mates(self, pdb, surrounding_uc, **kwargs):  # return_side_chains=False, surrounding_uc=False
+    def return_crystal_symmetry_mates(self, pdb, surrounding_uc=False, **kwargs):  # return_side_chains=False, surrounding_uc=False
         """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
         """
         if surrounding_uc:
@@ -482,8 +511,21 @@ class SymmetricModel(Model):
         else:
             return self.return_unit_cell_symmetry_mates(pdb, **kwargs)  # # return_side_chains=return_side_chains
 
+    def return_symmetric_coords(self, coords):
+        """Return the unit cell coordinates from a set of coordinates for the specified SymmetricModel"""
+        if self.dimension == 0:
+            coords_length = len(coords)
+            model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
+            for idx, rot in enumerate(self.expand_matrices):
+                rot_coords = np.matmul(coords, np.transpose(rot))
+                model_coords[idx * coords_length: (idx + 1) * coords_length] = rot_coords
+
+            return model_coords
+        else:
+            return self.return_unit_cell_coords(coords)
+
     def return_unit_cell_coords(self, coords, fractional=False):
-        """Return the cartesian unit cell coordinates from a set of coordinates for the specified SymmetricModel"""
+        """Return the unit cell coordinates from a set of coordinates for the specified SymmetricModel"""
         asu_frac_coords = self.cart_to_frac(coords)
         coords_length = len(coords)
         model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
@@ -554,7 +596,8 @@ class SymmetricModel(Model):
         coords_length = len(uc_frac_coords)
         sym_mates = []
         for coord_set in surrounding_cart_coords:
-            for model in self.number_of_models:
+            # for model in self.number_of_models:
+            for model in zvalue_dict[self.symmetry]:
                 symmetry_mate_pdb = copy.copy(pdb)
                 symmetry_mate_pdb.replace_coords(coord_set[(model * coords_length): ((model + 1) * coords_length)])
                 sym_mates.append(symmetry_mate_pdb)
@@ -562,6 +605,115 @@ class SymmetricModel(Model):
         assert len(sym_mates) == uc_number * zvalue_dict[self.symmetry], \
             'Number of models %d is incorrect! Should be %d' % (len(sym_mates), uc_number * zvalue_dict[self.symmetry])
         return sym_mates
+
+    def assign_entities_to_sub_symmetry(self):
+        """From a symmetry entry, find the entities which belong to each sub-symmetry (component groups) which make up
+        the global symmetry and make the local symmetric copy each Entity saving the copy to the Entity's chains
+        attribute
+        """
+        if not self.symmetry:
+            raise DesignError('Must set a global symmetry to assign entities to sub symmetry!')
+
+        if sym_entry.group1 in ['D2', 'D3', 'D4', 'D6'] or sym_entry.group1 in ['D2', 'D3', 'D4', 'D6']:
+            raise DesignError('Using dihedral symmetry has not been implemented yet! It is required to change the code'
+                              ' before continuing with material design of entry %d!' % sym_entry.entry_number)
+
+        # Assign each Entity to a symmetry group
+        # entity_coms = [entity.center_of_mass for entity in self.asu]
+        # all_entities_com = np.matmul(np.full(len(entity_coms), 1 / len(entity_coms)), entity_coms)
+        all_entities_com = self.center_of_mass
+        origin = np.array([0., 0., 0.])
+        # check if global symmetry is centered at the origin. If not, translate to the origin with ext_tx
+        if np.isclose(self.symmetric_center_of_mass, [0., 0., 0.]):
+            # the com is at the origin
+            ext_tx = origin
+        else:
+            # Todo find ext_tx from input without Nanohedra input? There is a difficulty when the symmetry is a crystal
+            #  and the external translation should be to the center of a component point group. The difficulty is
+            #  finding that point group a priori due to a random collection of centers of mass that belong to it and
+            #  their orientation with respect to the cell origin. In Nanohedra, the origin will work for many symmetries
+            if self.dimension > 0:
+                assert self.number_of_models == zvalue_dict[self.symmetry], 'Cannot have more models than a single UC!'
+            ext_tx = self.symmetric_center_of_mass  # only for unit cell or point group symmetry NOT surrounding
+        # find the approximate scalar translation of the asu center of mass from the reference symmetry origin
+        approx_entity_com_reference = np.linalg.norm(all_entities_com - ext_tx)
+        approx_entity_z_tx = [0., 0., approx_entity_com_reference]
+        # apply the setting matrix for each group to the approximate translation
+        # TODO test transform_coordinate_sets has the correct input format (numpy.ndarray)
+        com_group1 = transform_coordinate_sets(origin, translation=approx_entity_z_tx,
+                                               rotation2=sym_entry.get_rot_set_mat_group1(), translation2=ext_tx)
+        com_group2 = transform_coordinate_sets(origin, translation=approx_entity_z_tx,
+                                               rotation2=sym_entry.get_rot_set_mat_group2(), translation2=ext_tx)
+        # expand the setting matrix applied, approximate com for each group using expansion symmetry operators
+        coms_group1 = self.return_symmetric_coords(com_group1)
+        coms_group2 = self.return_symmetric_coords(com_group2)
+        # measure the closest distance from each entity com to the setting matrix transformed approx group coms to find
+        # which group the entity belongs to. Save the group and the operation index of the expansion matrices. With both
+        # of these, it is possible to find a new setting matrix that is symmetry equivalent and will generate the
+        # correct sub-symmetry symmetric copies for each provided Entity
+        group_entity_rot_ops = {1: {}, 2: {}}
+        # min_dist1, min_dist2, min_1_entity, min_2_entity = float('inf'), float('inf'), None, None
+        for entity in self.asu.entities:
+            entity_com = entity.center_of_mass
+            min_dist, min_entity_group_operator = float('inf'), None
+            for idx in range(len(self.expand_matrices)):  # has the length of the symmetry operations
+                com1_distance = np.linalg.norm(entity_com - coms_group1[idx])
+                com2_distance = np.linalg.norm(entity_com - coms_group2[idx])
+                if com1_distance < com2_distance:
+                    if com1_distance < min_dist:
+                        min_dist = com1_distance
+                        min_entity_group_operator = (1, self.expand_matrices[idx])
+                    # # entity_min_group = 1
+                    # entity_group_d[1].append(entity)
+                else:
+                    if com2_distance < min_dist:
+                        min_dist = com2_distance
+                        min_entity_group_operator = (2, self.expand_matrices[idx])
+                    # # entity_min_group = 2
+                    # entity_group_d[2].append(entity)
+            if min_entity_group_operator:
+                group, operation = min_entity_group_operator
+                group_entity_rot_ops[group][entity] = operation
+
+        # Get the rotation matrices for each group oriented along the setting matrix "axis"
+        rotation_matrices_group1 = get_rot_matrices(RotRangeDict[sym_entry.group1], 'z', 360)
+        rotation_matrices_group2 = get_rot_matrices(RotRangeDict[sym_entry.group2], 'z', 360)
+        # Todo must multiply the group#_rotation_matrices by a dihedral matrix (flip the rotation along x or y)
+        #  implement a function to supply these degeneracy_matrices v
+        # degen_rot_mat_1 = get_degen_rotmatrices(degeneracy_matrices_1, rotation_matrices_group1)
+        # degen_rot_mat_2 = get_degen_rotmatrices(degeneracy_matrices_2, rotation_matrices_group2)
+        # group_set_rotation_matrices = {1: np.matmul(degen_rot_mat_1, np.transpose(set_mat1)),
+        #                                2: np.matmul(degen_rot_mat_2, np.transpose(set_mat2))}
+        set_mat1 = sym_entry.get_rot_set_mat_group1()
+        set_mat2 = sym_entry.get_rot_set_mat_group2()
+        set_mat = {1: sym_entry.get_rot_set_mat_group1(), 2: sym_entry.get_rot_set_mat_group2()}
+        inv_set_matrix = {1: np.linalg.inv(set_mat1), 2: np.linalg.inv(set_mat2)}
+        # Todo test that I can rotate rotation matrices with matrix multiplication. Not in this way apparently!
+        group_rotation_matrices = {1: rotation_matrices_group1, 2: rotation_matrices_group2}
+        # group_set_rotation_matrices = {1: np.matmul(rotation_matrices_group1, np.transpose(set_mat1)),
+        #                                2: np.matmul(rotation_matrices_group2, np.transpose(set_mat2))}
+
+        # Apply the rotation matrices to the identified group Entities. First modify the entity by the inverse expansion
+        # and setting matrix to orient along Z, apply the rotation, then reverse the two rotations
+        for group, entity_ops in group_entity_rot_ops.items():
+            for entity, rot_op in entity_ops.items():
+                inv_expand_matrix = np.linalg.inv(rot_op)
+                # entity_inv = entity.return_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
+                inv_entity_coords = transform_coordinate_sets(entity.coords, rotation=inv_expand_matrix,
+                                                              rotation2=inv_set_matrix[group])
+                for rot in group_rotation_matrices[group]:
+                    temp_coords = transform_coordinate_sets(inv_entity_coords, rotation=rot, rotation2=set_mat[group])
+                    final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=ext_tx)
+                    # entity.chains.append(temp_entity.return_transformed_copy(rotation=set_rotation_mat, translation=ext_tx))
+                    # Todo what should I do with the entity representative in the .chains attribute?
+                    sub_symmetry_mate_pdb = copy.copy(entity.chain_representative)
+                    sub_symmetry_mate_pdb.replace_coords(final_coords)
+                    entity.chains.append(sub_symmetry_mate_pdb)
+
+                # entity_specific_set_rot_mat = np.matmul(group_set_rotation_matrices[group],
+                #                                         np.transpose(entity_group_d[group][entity]))
+                # for set_rotation_mat in entity_specific_set_rot_mat:
+                #     entity.chains.append(entity.return_transformed_copy(rotation=set_rotation_mat, translation=ext_tx))
 
     def symmetric_assembly_is_clash(self, distance=2.1):  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
@@ -802,34 +954,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     @property
     def active_chains(self):
         return [chain for entity in self.active_entities for chain in entity.chains]
-
-    @property
-    def number_of_atoms(self):
-        return self.pdb.number_of_atoms
-
-    @property
-    def number_of_residues(self):
-        return self.pdb.number_of_residues
-
-    @property
-    def center_of_mass(self):  # Todo move to Model
-        """Returns: (Numpy.ndarray)"""
-        return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
-
-    @property
-    def symmetric_centers_of_mass(self):  # Todo move to SymmetricModel
-        """Returns: (Numpy.ndarray)"""
-        if self.symmetry:
-            return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms),
-                             np.split(self.model_coords, self.number_of_models))
-            # for model in self.number_of_models:
-            #     np.matmul(np.full(coords_length, divisor),
-            #               self.model_coords[model * coords_length: (model + 1) * coords_length])
-        # try:
-        #     return self._center_of_mass
-        # except AttributeError:
-        #     self.find_center_of_mass()
-        #     return self._center_of_mass
 
     # def find_center_of_mass(self):
     #     """Retrieve the center of mass for the specified Structure"""
