@@ -1264,7 +1264,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         idx_slice = pd.IndexSlice
         # initialize design dataframes as empty
-        pose_stat_s, protocol_stat_s, protocol_stats_s, sim_series = {}, {}, [], []
+        pose_stat_s, protocol_stat_s, protocol_stats_s, sim_series = {}, {}, pd.Series(), []
         if os.path.exists(self.scores_file):
             # Get the scores from all design trajectories
             all_design_scores = read_scores(os.path.join(self.scores, PUtils.scores_file))
@@ -1739,13 +1739,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # CONSTRUCT: Create pose series and format index names
             # Collect protocol specific metrics in series
-            pose_stat_s, protocol_stat_s = {}, {}
             for stat in stats_metrics:
                 pose_stat_s[stat] = pd.concat([trajectory_df.loc[stat, :]], keys=[(stat, 'pose')])
-                if stat != 'mean':
-                    suffix = '_%s' % stat
-                else:
+                if stat == 'mean':
                     suffix = ''
+                else:
+                    suffix = '_%s' % stat
                 protocol_stat_s[stat] = pd.concat([protocol_subset_df.loc['%s%s' % (protocol, suffix), :]
                                                    for protocol in unique_protocols],
                                                   keys=list(zip(repeat(stat), unique_protocols)))
@@ -1773,9 +1772,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         other_metrics_s = pd.concat([other_metrics_s], keys=[('dock', 'pose')], copy=False)
 
         # Combine all series
-        pose_s = pd.concat([pose_stat_s[stat] for stat in pose_stat_s] +
-                           [protocol_stat_s[stat] for stat in protocol_stat_s]
-                           + protocol_stats_s + [other_metrics_s] + sim_series).swaplevel(0, 1)
+        pose_s = pd.concat(list(pose_stat_s.values()) + list(protocol_stat_s.values()) +
+                           [protocol_stats_s, other_metrics_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([groups, ], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
