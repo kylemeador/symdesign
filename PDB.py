@@ -1088,7 +1088,7 @@ class PDB(Structure):
     #                 h_cb_indices.append(idx)
     #     return h_cb_indices
 
-    def get_sasa(self, probe_radius=1.4, sasa_thresh=0):
+    def get_sasa(self, probe_radius=1.4):  # , sasa_thresh=0):
         """Use FreeSASA to calculate the surface area of residues in the Structure object.
         Entities/chains could have this, but don't currently"""
         # # Residues in /yeates1/kmeador/Nanohedra_T33/C3_oriented_with_C3_symmetry/2pd2.pdb1
@@ -1113,11 +1113,9 @@ class PDB(Structure):
         for line in out_lines:
             # if line != "\n" and line != "" and not line.startswith("#"):
             if line[:3] == 'SEQ':
-                sasa = float(line[16:])
-                if sasa > sasa_thresh:  # Todo make dynamic with residue type and relative sasa
-                    self.sasa_chain.append(line[4:5])
-                    self.sasa_residues.append(int(line[5:10]))
-                    self.sasa.append(sasa)
+                self.sasa_chain.append(line[4:5])
+                self.sasa_residues.append(int(line[5:10]))
+                self.sasa.append(float(line[16:]))
 
     # def get_surface_atoms(self, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
     #     # only works for monomers or homo-complexes
@@ -1143,9 +1141,10 @@ class PDB(Structure):
             (list[int]): The surface residue numbers
         """
         if not self.sasa:
-            self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+            self.get_sasa(probe_radius=probe_radius)  # , sasa_thresh=sasa_thresh)
 
-        return self.sasa_residues
+        # Todo make dynamic based on relative threshold seen with Levy 2010
+        return [residue_number for residue_number, sasa in zip(self.sasa_residues, self.sasa) if sasa > sasa_thresh]
 
     def get_residue_surface_area(self, residue_number, probe_radius=2.2):
         """Get the surface area for specified residues
