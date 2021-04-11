@@ -408,11 +408,11 @@ def terminate(module, designs, location=None, results=None, output=True):
             location_name = os.path.basename(next(iter(designs)).project_designs)
         else:
             location_name = os.path.basename(location)
-        timestamp = time.strftime('%y%m%d-%H:%M:%S')
+        time_stamp = time.strftime('%y%m%d-%H:%M:%S')
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
         # program_root = design_directories[0].program_root
-        designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, timestamp))
+        designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, time_stamp))
         with open(designs_file, 'w') as f:
             f.write('\n'.join(design.path for design in success))
         logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
@@ -429,7 +429,10 @@ def terminate(module, designs, location=None, results=None, output=True):
             if len(success) > 0:
                 # Save Design DataFrame
                 design_df = pd.DataFrame(successes)
-                out_path = os.path.join(program_root, args.output % timestamp)
+                if '%s' in args.output:
+                    out_path = os.path.join(program_root, args.output % time_stamp)
+                else:
+                    out_path = os.path.join(program_root, args.output)
                 design_df.to_csv(out_path)
                 logger.info('Analysis of all poses written to %s' % out_path)
                 if save:
@@ -444,8 +447,8 @@ def terminate(module, designs, location=None, results=None, output=True):
                     for stage in all_commands:
                         all_commands[stage].append(os.path.join(design.scripts, '%s.sh' % stage))
 
-                command_files = {stage: SDUtils.write_commands(commands, name='%s_%s_%s' % (stage, location_name, timestamp),
-                                                               out_path=program_root)
+                command_files = {stage: SDUtils.write_commands(commands, out_path=program_root,
+                                                               name='%s_%s_%s' % (stage, location_name, time_stamp))
                                  for stage, commands in all_commands.items()}
                 sbatch_files = {stage: distribute(stage=stage, directory=program_root, file=command_file)
                                 for stage, command_file in command_files.items()}

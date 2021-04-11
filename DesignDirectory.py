@@ -1334,7 +1334,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df = scores_df.rename(columns=rename_columns)
             scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
             # Check proper input
-            metric_set = necessary_metrics.copy() - set(scores_df.columns)
+            self.log.debug('Score columns present: %s' % scores_df.columns)
+            metric_set = necessary_metrics.difference(set(scores_df.columns))
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
             # TODO protocol switch or no_design switch?
