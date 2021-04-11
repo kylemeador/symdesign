@@ -1389,7 +1389,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None}
                 #      'hot_spot': None}
                 rel_complex_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
-                                                    wild_type_residue_info[res_number]['sasa']['total'])
+                                                    wild_type_residue_info[res_number]['bsa_total'])
                 if rel_complex_sasa < 0.25:
                     wild_type_residue_info[res_number]['interior'] = 1
                 else:
