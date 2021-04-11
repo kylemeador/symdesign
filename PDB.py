@@ -1091,7 +1091,6 @@ class PDB(Structure):
     def get_sasa(self, probe_radius=1.4):  # , sasa_thresh=0):
         """Use FreeSASA to calculate the surface area of residues in the Structure object.
         Entities/chains could have this, but don't currently"""
-        # # Residues in /yeates1/kmeador/Nanohedra_T33/C3_oriented_with_C3_symmetry/2pd2.pdb1
         # SEQ A    1 MET :   74.46
         # SEQ A    2 LYS :   96.30
         # SEQ A    3 VAL :    0.00
@@ -1102,17 +1101,11 @@ class PDB(Structure):
         # SEQ A    8 LYS :    0.87
         # SEQ A    9 ASP :    1.30
         # SEQ A   10 PHE :   64.55
-        # temp_pdb_file = self.write(out_path='sasa_%s-%s-%d.pdb'
-        #                                        % (self.name, time.strftime('%y%m%d-%H%M%S'), int(random() * 1000)))
         p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius)],  # temp_pdb_file
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-        # Todo info can be passed as stdin. Replace read and write with PIPE
-        # out, err = p.communicate()
-        # os.system('rm %s' % temp_pdb_file)
         out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
 
         for line in out.decode('utf-8').split('\n'):
-            # if line != "\n" and line != "" and not line.startswith("#"):
             if line[:3] == 'SEQ':
                 self.sasa_chain.append(line[4:5])
                 self.sasa_residues.append(int(line[5:10]))
