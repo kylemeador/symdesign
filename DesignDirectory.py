@@ -1383,7 +1383,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                       for res_number in residue_dict[next(iter(residue_dict))].keys()}
             for res_number in wild_type_residue_info:
                 wild_type_residue_info[res_number] = \
-                    {'energy': None, 'bsa_polar': None, 'bsa_hydrophobic': None,
+                    {'energy_delta': None, 'bsa_polar': None, 'bsa_hydrophobic': None,
                      # Todo implement energy metric for wild-type in refine.sh before refinement of clean_asu_for_refine
                      'bsa_total': wt_pdb.get_residue_surface_area(res_number),
                      'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None}
@@ -1480,24 +1480,24 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
             residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
             clean_scores_df = scores_df.dropna()
-            residue_df = residue_df.dropna(how='all', axis=1)  # remove completely empty columns (obs_interface)
+            residue_df = residue_df.dropna(how='all', axis=1)  # remove completely empty columns such as obs_interface
             clean_residue_df = residue_df.dropna()
             # print(residue_df.isna())  #.any(axis=1).to_list())  # scores_df.where()
             scores_na_index = scores_df[~scores_df.index.isin(clean_scores_df.index)].index.to_list()
             residue_na_index = residue_df[~residue_df.index.isin(clean_residue_df.index)].index.to_list()
             if scores_na_index:
                 protocol_s.drop(scores_na_index, inplace=True)
-                self.log.warning('%s: Trajectory DataFrame dropped rows with missing values: %s' %
-                                 (self.path, ', '.join(scores_na_index)))
+                self.log.warning('Trajectory DataFrame dropped rows with missing values: %s'
+                                 % ', '.join(scores_na_index))
+                print('%s: ' % self.path, scores_df.isna())
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             if residue_na_index:
-                self.log.warning('%s: Residue DataFrame dropped rows with missing values: %s' %
-                                 (self.path, ', '.join(residue_na_index)))
+                self.log.warning('Residue DataFrame dropped rows with missing values: %s' % ', '.join(residue_na_index))
                 for res_idx in residue_na_index:
                     residue_dict.pop(res_idx)
                 self.log.debug('Residue_dict:\n\n%s\n\n' % residue_dict)
 
-            other_pose_metrics['observations'] = len(clean_scores_df)  # len(good_designs)
+            other_pose_metrics['observations'] = len(clean_scores_df)
 
             # Get unique protocols for protocol specific metrics and drop unneeded protocol values
             unique_protocols = protocol_s.unique().tolist()
