@@ -3,11 +3,11 @@
 		<ScoreFunction name="2015" weights="ref2015"/>
 	</SCOREFXNS>
 	<MOVERS>
-		<SetupForSymmetry name="sym" sym="%%sym%%">
+		<SetupForSymmetry name="sym" sym="%%sym%%"/>
 		<DumpPdb name="dump_pdb" fname="design_full_sym.pdb" scorefxn="2015" tag_time="0"/>
 	</MOVERS>
 	<PROTOCOLS>
 		<Add mover_name="sym"/>
 		<Add mover_name="dump_pdb"/>
-	</PROTCOLS>
+	</PROTOCOLS>
 </ROSETTASCRIPTS>
