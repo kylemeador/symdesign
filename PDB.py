@@ -1103,7 +1103,7 @@ class PDB(Structure):
         # SEQ A    9 ASP :    1.30
         # SEQ A   10 PHE :   64.55
         # Todo can file info be passed as stdin? Removes read and write
-        current_pdb_file = self.write(out_path='sasa_input-%d.pdb' % time.strftime('%y%m%d-%H%M%S'))
+        current_pdb_file = self.write(out_path='sasa_input-%s.pdb' % time.strftime('%y%m%d-%H%M%S'))
         p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius),
                               current_pdb_file], stdout=subprocess.PIPE)
         out, err = p.communicate()
