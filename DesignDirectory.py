@@ -1308,7 +1308,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             all_design_sequences = {chain: remove_pdb_prefixes(chain_sequences)
                                     for chain, chain_sequences in all_design_sequences.items()}
             all_design_scores = remove_pdb_prefixes(all_design_scores)
-            self.log.debug('all_design_sequences: %s'
+            self.log.debug('all_design_sequences: %s' % all_design_sequences)
+            self.log.debug('all_design_sequences designs: %s'
                            % ', '.join(all_design_sequences[next(iter(all_design_sequences))].keys()))
             # for chain in all_design_sequences:
             #     all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
