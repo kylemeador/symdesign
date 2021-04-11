@@ -8,6 +8,9 @@ from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start
 from utils.MysqlPython import Mysql
 
 
+# Globals
+# for checking out the options to read and write Rosetta runs to a relational DB such as MySQL
+# https://new.rosettacommons.org/docs/latest/rosetta_basics/options/Database-options
 logger = start_log(name=__name__)
 index_offset = 1
 
