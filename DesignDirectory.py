@@ -1361,6 +1361,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
             # TODO protocol switch or no_design switch?
             protocol_s = scores_df[groups]
+            protocol_s.replace({'combo_profile': 'design_profile'}, inplace=True)  # ensure proper profile name
             self.log.debug(protocol_s)
             designs = protocol_s.index.to_list()
             self.log.debug('Design indices: %s' % designs)
@@ -1400,14 +1401,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             wild_type_residue_info = {res_number: copy.deepcopy(residue_template)
                                       for res_number in residue_dict[next(iter(residue_dict))].keys()}
             for res_number in wild_type_residue_info:
-                wild_type_residue_info[res_number]['energy'] = None  # Todo implement metric in refine before refinement
-                wild_type_residue_info[res_number]['sasa'] = {'polar': None, 'hydrophobic': None,
-                                                              'total': wt_pdb.get_residue_surface_area(res_number)}
-                wild_type_residue_info[res_number]['type'] = cleaned_mutations['reference'][res_number]  # ['from']
-                wild_type_residue_info[res_number]['core'] = None
-                wild_type_residue_info[res_number]['rim'] = None
-                wild_type_residue_info[res_number]['support'] = None
-                # wild_type_residue_info[res_number]['hot_spot'] = 0
+                wild_type_residue_info[res_number] = \
+                    {'energy': None, 'bsa_polar': None, 'bsa_hydrophobic': None,
+                     # Todo implement energy metric for wild-type in refine.sh before refinement of clean_asu_for_refine
+                     'bsa_total': wt_pdb.get_residue_surface_area(res_number),
+                     'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None}
+                #      'hot_spot': None}
                 rel_complex_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
                                                     wild_type_residue_info[res_number]['sasa']['total'])
                 if rel_complex_sasa < 0.25:

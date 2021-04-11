@@ -426,6 +426,7 @@ columns_to_rename = {'int_sc': 'shape_complementarity', 'int_sc_int_area': 'int_
                      # 'int_energy_res_summary_A_oligomer': 'int_energy_res_summary_oligomer_A',
                      'relax_switch': groups, 'no_constraint_switch': groups,
                      'limit_to_profile_switch': groups, 'combo_profile_switch': groups,
+                     'design_profile_switch': groups,
                      'favor_profile_switch': groups, 'consensus_design_switch': groups}
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
@@ -481,8 +482,9 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
                  'hbond_bb_sc', 'hbond_lr_bb', 'hbond_sc', 'hbond_sr_bb']  # 'ref'
 
 # Current protocols in use in design.xml
-protocols = ['combo_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'no_constraint_switch']
-protocols_of_interest = ['combo_profile', 'no_constraint']  # Todo ensure proper process with two instead of three
+protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'no_constraint_switch']
+protocols_of_interest = ['design_profile', 'no_constraint']
+# protocols_of_interest = ['combo_profile', 'no_constraint']
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']
 
 # Specific columns of interest to distinguish between design trajectories
@@ -820,7 +822,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                 res = int(metadata[-1])
                 r_type = metadata[2]  # energy or sasa
                 pose_state = metadata[-2]  # oligomer or complex
-                if pose_state == 'unbound' and offset:  # 'oligomer'
+                if pose_state == 'unbound' and offset:
                     res += offset[metadata[-3]]  # get oligomer chain offset
                 if res not in residue_dict:
                     residue_dict[res] = copy.deepcopy(residue_template)
@@ -842,15 +844,15 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                 if res in hbonds[entry]:
                     residue_dict[res]['hbond'] = 1
             residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                - residue_dict[res]['energy']['unbound']  # - residue_dict[res]['energy']['fsp']  # 'oligomer'
+                - residue_dict[res]['energy']['unbound']  # - residue_dict[res]['energy']['fsp']
             rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                 residue_dict[res]['sasa']['total']['unbound'])  # 'oligomer'
+                                                 residue_dict[res]['sasa']['total']['unbound'])
             rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
                                                 residue_dict[res]['sasa']['total']['complex'])
             for polarity in residue_dict[res]['sasa']:
                 # convert sasa measurements into bsa measurements
-                residue_dict[res]['bsa_' + polarity] = round(residue_dict[res]['sasa'][polarity]['unbound']  # 'oligomer
-                                                             - residue_dict[res]['sasa'][polarity]['complex'], 2)
+                residue_dict[res]['bsa_%s' % polarity] = round(residue_dict[res]['sasa'][polarity]['unbound']
+                                                               - residue_dict[res]['sasa'][polarity]['complex'], 2)
             if residue_dict[res]['bsa_total'] > 0:
                 if rel_oligomer_sasa < 0.25:
                     residue_dict[res]['support'] = 1
