@@ -1273,7 +1273,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Gather mutations for residue specific processing and design sequences
             pdb_sequences = {}
             for file in self.get_designs():
-                pdb = PDB.from_file(file, name=os.path.basename(file), log=None, entities=False)
+                pdb = PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0], log=None, entities=False)
                 pdb_sequences[pdb.name] = pdb.atom_sequences
             sequence_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences, pose_num=False)
             self.log.debug('Sequence Mutations: %s' % sequence_mutations)
