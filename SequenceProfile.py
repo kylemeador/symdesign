@@ -3094,9 +3094,12 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
             mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
 
     # add reference sequence mutations
+    mutations['reference'] = {}
     for chain, ref_sequence in reference.items():
-        for sequence_idx, aa in enumerate(ref_sequence, 1):
-            mutations['reference'][chain][sequence_idx] = {'from': aa, 'to': aa}
+        mutations['reference'][chain] = {sequence_idx: {'from': aa, 'to': aa}
+                                         for sequence_idx, aa in enumerate(ref_sequence, 1)}
+        # for sequence_idx, aa in enumerate(ref_sequence, 1):
+        #     mutations['reference'][chain][sequence_idx] = {'from': aa, 'to': aa}
 
     if pose_num:
         pose_mutations = {}
