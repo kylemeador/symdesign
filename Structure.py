@@ -989,16 +989,18 @@ class Structure(StructureBase):
         else:
             return np.min(np.linalg.norm(self.coords, axis=1))
 
-    def write(self, out_path=None, header=None, file_handle=None, pdb_number=False):
-        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-        one was written"""
+    def return_atom_string(self, pdb_number=False):
+        """Provide the Structure Atoms as a PDB file string"""
         # atom_atrings = '\n'.join(str(atom) for atom in self.atoms)
         # '%d, %d, %d' % tuple(element.tolist())
         # '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
         # atom_atrings = '\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-        atom_atrings = '\n'.join(atom.__str__(pdb=pdb_number) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-                                 for atom, coord in zip(self.atoms, self.coords.tolist()))
+        return '\n'.join(atom.__str__(pdb=pdb_number) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
+                         for atom, coord in zip(self.atoms, self.coords.tolist()))
 
+    def write(self, out_path=None, header=None, file_handle=None, **kwargs):
+        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
+        one was written"""
         def write_header(location):
             if header and isinstance(header, Iterable):
                 if isinstance(header, str):
@@ -1008,12 +1010,12 @@ class Structure(StructureBase):
 
         if file_handle:
             # write_header(file_handle)
-            file_handle.write('%s\n' % atom_atrings)
+            file_handle.write('%s\n' % self.return_atom_string(**kwargs))
 
         if out_path:
             with open(out_path, 'w') as outfile:
                 write_header(outfile)
-                outfile.write('%s\n' % atom_atrings)
+                outfile.write('%s\n' % self.return_atom_string(**kwargs))
 
             return out_path
 
