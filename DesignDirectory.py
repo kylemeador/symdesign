@@ -1308,7 +1308,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             all_design_sequences = {chain: remove_pdb_prefixes(chain_sequences)
                                     for chain, chain_sequences in all_design_sequences.items()}
             all_design_scores = remove_pdb_prefixes(all_design_scores)
-            self.log.debug('all_design_sequences: %s' % ', '.join(next(iter(all_design_sequences)).keys()))
+            self.log.debug('all_design_sequences: %s'
+                           % ', '.join(all_design_sequences[next(iter(all_design_sequences))].keys()))
             # for chain in all_design_sequences:
             #     all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
 
@@ -1316,7 +1317,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                                      for name in all_design_sequences[chain]))
             self.log.debug('all_design_scores: %s' % ', '.join(all_design_scores.keys()))
             # Ensure data is present for both scores and sequences, then initialize DataFrames
-            good_designs = set(next(iter(all_design_sequences)).keys()).intersection(set(all_design_scores.keys()))
+            good_designs = set(all_design_sequences[next(iter(all_design_sequences))].keys()).\
+                intersection(set(all_design_scores.keys()))
             self.log.info('All Designs: %s' % ', '.join(good_designs))
             all_design_scores = clean_dictionary(all_design_scores, good_designs, remove=False)
             all_design_sequences = {chain: clean_dictionary(chain_sequences, good_designs, remove=False)
