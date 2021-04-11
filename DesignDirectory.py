@@ -1378,8 +1378,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                   offset=offset_dict)
 
             # include the wild type residue information in metrics for sequence comparison
-            wild_type_residue_info = {res_number: copy.deepcopy(residue_template) for res_number in residue_dict}
-            for res_number in residue_dict:
+            wild_type_residue_info = {res_number: copy.deepcopy(residue_template)
+                                      for res_number in next(iter(residue_dict)).keys()}
+            for res_number in wild_type_residue_info:
                 wild_type_residue_info[res_number]['energy'] = None  # Todo implement metric in refine before refinement
                 wild_type_residue_info[res_number]['sasa'] = {'polar': None, 'hydrophobic': None,
                                                               'total': wt_pdb.get_residue_surface_area(res_number)}
