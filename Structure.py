@@ -668,6 +668,7 @@ class Structure(StructureBase):
         # self.log.debug('Range of indices in Atoms: %s' % self._atoms.atoms.shape[0])
         # self.log.debug('Last Residue atom_indices: %s' % self._residues.residues[-1].atom_indices)
         self._atoms.delete(delete_indices)
+        self._coords.delete(delete_indices)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         # try:
         atom_delete_index = self._atom_indices.index(delete_indices[0])
@@ -1841,6 +1842,9 @@ class Atoms:
 
         return other
 
+    def __len__(self):
+        return self.atoms.shape[0]
+
 
 class Atom:
     """An Atom container with the full Structure coordinates and the Atom unique data. Pass a reference to the full
@@ -2032,6 +2036,9 @@ class Coords:
     @coords.setter
     def coords(self, coords):
         self._coords = np.array(coords)
+
+    def delete(self, indices):
+        self._coords = np.delete(self._coords, indices)
 
     def __len__(self):
         return self.coords.shape[0]
