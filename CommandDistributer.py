@@ -237,6 +237,7 @@ if __name__ == '__main__':
     parser_status.add_argument('-c', '--check', action='store_true', help='Check the status of the command')
     parser_status.add_argument('-i', '--info', type=str, help='The location of the state file')
     parser_status.add_argument('-s', '--set', action='store_true', help='Set the status as True')
+    parser_status.add_argument('-r', '--remove', action='store_true', help='Set the status as False')
 
     args = parser.parse_args()
 
@@ -247,9 +248,12 @@ if __name__ == '__main__':
                 exit(1)
         elif args.set:
             info['status'][args.stage] = True
-
             pickle_object(info, name=args.info, out_path='')
-            exit(0)
+            exit()
+        elif args.remove:
+            info['status'][args.stage] = False
+            pickle_object(info, name=args.info, out_path='')
+            exit()
     elif args.module == 'distribute':
         # Grab all possible poses
         with open(args.command_file, 'r') as cmd_f:
