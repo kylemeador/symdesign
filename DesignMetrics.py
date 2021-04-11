@@ -533,18 +533,12 @@ def read_scores(file, key='decoy'):
 
 
 def remove_pdb_prefixes(pdb_dict):
-    """Strip all but last key identifiers separated by '_' from keys of dictionary. Ex 'design_0001' -> '0001'"""
-    clean_key_dict = {}
-    for key in pdb_dict:
-        new_key = key.split('_')[-1]
-        clean_key_dict[new_key] = pdb_dict[key]
-
-    return clean_key_dict
+    """Remove all string from dictionary keys except for string after last '_'. Ex 'design_0001' -> '0001'"""
+    return {key.split('_')[-1]: pdb_dict[key] for key in pdb_dict}
 
 
 def join_columns(x):
     """Combine columns in a dataframe with the same column name. Keep only the last column record"""
-
     new_data = ','.join(x[x.notnull()].astype(str))
     return new_data.split(',')[-1]
 

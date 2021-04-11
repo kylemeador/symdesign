@@ -1295,6 +1295,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 pdb = PDB.from_file(file, log=None, entities=False)
                 pdb_sequences[pdb.name] = pdb.atom_sequences
             sequence_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences, pose_num=False)
+            self.log.debug('Sequence Mutations: %s' % sequence_mutations)
 
             # Remove wt sequence and find all designs which have corresponding pdb files
             sequence_mutations.pop('reference')

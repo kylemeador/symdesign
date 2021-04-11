@@ -3079,27 +3079,15 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
     Returns:
         (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
-    mutations = {}
-    for pdb, sequences in pdb_sequences.items():
-        mutations[pdb] = {}
-        # if pdb == 'ref':
-        # if len(chain_dict[pdb]) > 1:
-        #     for chain in chain_dict[pdb]:
-        # if seq_source == 'compare':
-        #     sequence1, sequence2 = sequences.values()
-        #     generate_mutations(sequence1, sequence2)
-        # else:
-        for chain, sequence in sequences.items():
-            # returns {1: {'from': 'A', 'to': 'K'}, ...}
-            mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
+    #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
+    mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
+                       for chain, sequence in chain_sequences.items()}
+                 for pdb, chain_sequences in pdb_sequences.items()}
 
     # add reference sequence mutations
-    mutations['reference'] = {}
-    for chain, ref_sequence in reference.items():
-        mutations['reference'][chain] = {sequence_idx: {'from': aa, 'to': aa}
-                                         for sequence_idx, aa in enumerate(ref_sequence, 1)}
-        # for sequence_idx, aa in enumerate(ref_sequence, 1):
-        #     mutations['reference'][chain][sequence_idx] = {'from': aa, 'to': aa}
+    mutations['reference'] = {chain: {sequence_idx: {'from': aa, 'to': aa}
+                                      for sequence_idx, aa in enumerate(ref_sequence, 1)}
+                              for chain, ref_sequence in reference.items()}
 
     if pose_num:
         pose_mutations = {}
@@ -3180,18 +3168,18 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
 #     return final_sequence, failures
 
 
-def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False):
+def make_sequences_from_mutations(wild_type, pdb_mutations, aligned=False):
     """Takes a list of sequence mutations and returns the mutated form on wildtype
 
     Args:
         wild_type (str): Sequence to mutate
-        mutation_dict (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
+        pdb_mutations (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
     Keyword Args:
         aligned=False (bool): Whether the input sequences are already aligned
     Returns:
         all_sequences (dict): {name: sequence, ...}
     """
-    return {pdb: make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned) for pdb in mutation_dict}
+    return {pdb: make_mutations(wild_type, mutations, find_orf=not aligned) for pdb, mutations in pdb_mutations.items()}
 
 
 def generate_sequences(wild_type_sequences, all_design_mutations):
@@ -3206,11 +3194,12 @@ def generate_sequences(wild_type_sequences, all_design_mutations):
     """
     mutated_sequences = {}
     for chain in wild_type_sequences:
-        chain_mutation_dict = {}
-        for pdb in all_design_mutations:
-            if chain in all_design_mutations[pdb]:
-                chain_mutation_dict[pdb] = all_design_mutations[pdb][chain]
-        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_sequences[chain], chain_mutation_dict,
+        # pdb_chain_mutations = {pdb: chain_mutations.get(chain) for pdb, chain_mutations in all_design_mutations.items()}
+        pdb_chain_mutations = {}
+        for pdb, chain_mutations in all_design_mutations.items():
+            if chain in chain_mutations:
+                pdb_chain_mutations[pdb] = all_design_mutations[pdb][chain]
+        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_sequences[chain], pdb_chain_mutations,
                                                                  aligned=True)
 
     return mutated_sequences
