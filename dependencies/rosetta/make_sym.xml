@@ -3,7 +3,7 @@
 		<ScoreFunction name="2015" weights="ref2015"/>
 	</SCOREFXNS>
 	<MOVERS>
-		<SetupForSymmetry name="sym" sym="%%sym%%"/>
+		<SetupForSymmetry name="sym" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
 		<DumpPdb name="dump_pdb" fname="design_full_sym.pdb" scorefxn="2015" tag_time="0"/>
 	</MOVERS>
 	<PROTOCOLS>
