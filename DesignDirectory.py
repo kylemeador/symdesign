@@ -1382,7 +1382,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for res_number in residue_dict:
                 wild_type_residue_info[res_number]['energy'] = None  # Todo implement metric in refine before refinement
                 wild_type_residue_info[res_number]['sasa'] = {'polar': None, 'hydrophobic': None,
-                                                              'total': wt_pdb.get_surface_area_residues()}
+                                                              'total': wt_pdb.get_residue_surface_area(res_number)}
                 wild_type_residue_info[res_number]['type'] = cleaned_mutations['reference'][res_number]  # ['from']
                 wild_type_residue_info[res_number]['core'] = None
                 wild_type_residue_info[res_number]['rim'] = None
