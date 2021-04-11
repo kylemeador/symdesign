@@ -2,6 +2,7 @@ import copy
 import math
 import os
 import subprocess
+import time
 from collections.abc import Iterable
 from copy import copy, deepcopy
 from itertools import repeat, chain as iter_chain
@@ -65,6 +66,9 @@ class PDB(Structure):
         self.resolution = None
         self.rotation_d = {}
         self.reference_sequence = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
+        self.sasa_chain = []
+        self.sasa_residues = []
+        self.sasa = []
         self.space_group = None
         self.uc_dimensions = []
         self.max_symmetry = None
@@ -982,44 +986,6 @@ class PDB(Structure):
         else:
             return None
 
-    def get_sasa(self, probe_radius=1.4, sasa_thresh=0):
-        """Use FreeSASA to calculate the surface area of residues in the PDB object
-
-        Must be run with the self.filepath attribute. Entities/chains could have this, but don't currently"""
-        # # Residues in /yeates1/kmeador/Nanohedra_T33/C3_oriented_with_C3_symmetry/2pd2.pdb1
-        # SEQ A    1 MET :   74.46
-        # SEQ A    2 LYS :   96.30
-        # SEQ A    3 VAL :    0.00
-        # SEQ A    4 VAL :    0.00
-        # SEQ A    5 VAL :    0.00
-        # SEQ A    6 GLN :    0.00
-        # SEQ A    7 ILE :    0.00
-        # SEQ A    8 LYS :    0.87
-        # SEQ A    9 ASP :    1.30
-        # SEQ A   10 PHE :   64.55
-        random_file_name = 'sasa_input-%d.pdb' % int(random() * 1000)
-        current_pdb_file = self.write(out_path=random_file_name)
-        self.log.debug(current_pdb_file)
-        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius),
-                              current_pdb_file], stdout=subprocess.PIPE)
-        # p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius), self.filepath],
-        #                      stdout=subprocess.PIPE)
-        out, err = p.communicate()
-        out_lines = out.decode('utf-8').split('\n')
-
-        sasa_out_chain, sasa_out_res, sasa_out = [], [], []
-        for line in out_lines:
-            # if line != "\n" and line != "" and not line.startswith("#"):
-            if line[:3] == 'SEQ':
-                sasa = float(line[16:])
-                if sasa > sasa_thresh:
-                    sasa_out_chain.append(line[4:5])
-                    sasa_out_res.append(int(line[5:10]))
-                    sasa_out.append(sasa)
-
-        os.system('rm %s' % current_pdb_file)
-        return sasa_out_chain, sasa_out_res, sasa_out
-
     def stride(self, chain=None):
         """Use Stride to calculate the secondary structure of a PDB.
 
@@ -1122,63 +1088,115 @@ class PDB(Structure):
     #                 h_cb_indices.append(idx)
     #     return h_cb_indices
 
-    def get_surface_atoms(self, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
-        # only works for monomers or homo-complexes
-        sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
-        sasa_chain_res_l = zip(sasa_chain, sasa_res)
+    def get_sasa(self, probe_radius=1.4, sasa_thresh=0):
+        """Use FreeSASA to calculate the surface area of residues in the Structure object.
+        Entities/chains could have this, but don't currently"""
+        # # Residues in /yeates1/kmeador/Nanohedra_T33/C3_oriented_with_C3_symmetry/2pd2.pdb1
+        # SEQ A    1 MET :   74.46
+        # SEQ A    2 LYS :   96.30
+        # SEQ A    3 VAL :    0.00
+        # SEQ A    4 VAL :    0.00
+        # SEQ A    5 VAL :    0.00
+        # SEQ A    6 GLN :    0.00
+        # SEQ A    7 ILE :    0.00
+        # SEQ A    8 LYS :    0.87
+        # SEQ A    9 ASP :    1.30
+        # SEQ A   10 PHE :   64.55
+        # Todo can file info be passed as stdin? Removes read and write
+        current_pdb_file = self.write(out_path='sasa_input-%d.pdb' % time.strftime('%y%m%d-%H%M%S'))
+        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius),
+                              current_pdb_file], stdout=subprocess.PIPE)
+        out, err = p.communicate()
+        out_lines = out.decode('utf-8').split('\n')
+        os.system('rm %s' % current_pdb_file)
 
-        surface_atoms = []
-        if chain_selection == "all":
-            for atom in self.atoms:
-                if (atom.chain, atom.residue_number) in sasa_chain_res_l:
-                    surface_atoms.append(atom)
-        else:
-            for atom in self.get_chain_atoms(chain_selection):
-                if (atom.chain, atom.residue_number) in sasa_chain_res_l:
-                    surface_atoms.append(atom)
+        for line in out_lines:
+            # if line != "\n" and line != "" and not line.startswith("#"):
+            if line[:3] == 'SEQ':
+                sasa = float(line[16:])
+                if sasa > sasa_thresh:  # Todo make dynamic with residue type and relative sasa
+                    self.sasa_chain.append(line[4:5])
+                    self.sasa_residues.append(int(line[5:10]))
+                    self.sasa.append(sasa)
 
-        return surface_atoms
+    # def get_surface_atoms(self, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
+    #     # only works for monomers or homo-complexes
+    #     sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+    #     sasa_chain_res_l = zip(sasa_chain, sasa_res)
+    #
+    #     surface_atoms = []
+    #     if chain_selection == "all":
+    #         for atom in self.atoms:
+    #             if (atom.chain, atom.residue_number) in sasa_chain_res_l:
+    #                 surface_atoms.append(atom)
+    #     else:
+    #         for atom in self.get_chain_atoms(chain_selection):
+    #             if (atom.chain, atom.residue_number) in sasa_chain_res_l:
+    #                 surface_atoms.append(atom)
+    #
+    #     return surface_atoms
 
     def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
-        # only works for monomers or homo-complexes
-        sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+        """Get the residues who reside on the surface of the molecule
 
-        return sasa_res  # Todo ensure pose mechanism work
-        # return list(zip(sasa_chain, sasa_res))  # for use with chains in PDB numbering, currently using Pose numbering
+        Returns:
+            (list[int]): The surface residue numbers
+        """
+        if not self.sasa:
+            self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
+
+        return self.sasa_residues
+
+    def get_residue_surface_area(self, residue_number, probe_radius=2.2):
+        """Get the surface area for specified residues
+
+        Returns:
+            (float): Angstrom^2 of surface area
+        """
+        if not self.sasa:
+            self.get_sasa(probe_radius=probe_radius)
+
+        return self.sasa[self.sasa_residues.index(residue_number)]
 
     def get_surface_area_residues(self, residue_numbers, probe_radius=2.2):
-        """CURRENTLY UNUSEABLE Must be run when the PDB is in Pose numbering, chain data is not connected"""
-        sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius)
+        """Get the surface area for specified residues
+
+        Returns:
+            (float): Angstrom^2 of surface area
+        """
+        if not self.sasa:
+            self.get_sasa(probe_radius=probe_radius)
+
         total_sasa = 0
-        for chain, residue_number, sasa in zip(sasa_chain, sasa_res, sasa):
+        for residue_number, sasa in zip(self.sasa_residues, self.sasa):
             if residue_number in residue_numbers:
                 total_sasa += sasa
 
         return total_sasa
 
-    def get_surface_fragments(self):  # Todo combine with structure get_fragments
-        """Using Sasa, return the 5 residue surface fragments for each surface residue on each chain"""
-        surface_frags = []
-        # for (chain, res_num) in self.get_surface_residues():
-        for res_num in self.get_surface_residues():
-            frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
-            ca_count = 0
-
-            # for atom in pdb.get_chain_atoms(chain):
-            # for atom in pdb.chain(chain):
-            # frag_atoms = pdb.chain(chain).get_residue_atoms(numbers=frag_res_nums, pdb=True)  # Todo
-            frag_atoms = []
-            for atom in self.get_residue_atoms(numbers=frag_res_nums):
-                # if atom.pdb_residue_number in frag_res_nums:
-                if atom.residue_number in frag_res_nums:
-                    frag_atoms.append(atom)
-                    if atom.is_CA():
-                        ca_count += 1
-            if ca_count == 5:
-                # surface_frags.append(PDB.from_atoms(frag_atoms, coords=self._coords, lazy=True, log=self.log))
-                surface_frags.append(Structure.from_atoms(atoms=frag_atoms, coords=self._coords, log=None))
-
-        return surface_frags
+    # def get_surface_fragments(self):  # Todo combine with structure get_fragments
+    #     """Using Sasa, return the 5 residue surface fragments for each surface residue on each chain"""
+    #     surface_frags = []
+    #     # for (chain, res_num) in self.get_surface_residues():
+    #     for res_num in self.get_surface_residues():
+    #         frag_res_nums = [res_num - 2, res_num - 1, res_num, res_num + 1, res_num + 2]
+    #         ca_count = 0
+    #
+    #         # for atom in pdb.get_chain_atoms(chain):
+    #         # for atom in pdb.chain(chain):
+    #         # frag_atoms = pdb.chain(chain).get_residue_atoms(numbers=frag_res_nums, pdb=True)  # Todo
+    #         frag_atoms = []
+    #         for atom in self.get_residue_atoms(numbers=frag_res_nums):
+    #             # if atom.pdb_residue_number in frag_res_nums:
+    #             if atom.residue_number in frag_res_nums:
+    #                 frag_atoms.append(atom)
+    #                 if atom.is_CA():
+    #                     ca_count += 1
+    #         if ca_count == 5:
+    #             # surface_frags.append(PDB.from_atoms(frag_atoms, coords=self._coords, lazy=True, log=self.log))
+    #             surface_frags.append(Structure.from_atoms(atoms=frag_atoms, coords=self._coords, log=None))
+    #
+    #     return surface_frags
 
     def mutate_residue(self, residue=None, number=None, to='ALA', **kwargs):
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
@@ -1250,7 +1268,7 @@ class PDB(Structure):
                                               log=start_log(handler=3), entities=False)
         insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms())
 
-        raise DesignError('This function (insert_residue) is currently broken')  # TODO BROKEN
+        raise DesignError('This function \'%s\' is currently broken' % self.insert_residue.__name__)  # TODO BROKEN
         for atom in reversed(insert_atoms):  # essentially a push
             atom.chain = chain_id
             atom.residue_number = residue_number
