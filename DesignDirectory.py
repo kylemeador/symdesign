@@ -1508,7 +1508,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 protocol_s.drop(scores_na_index, inplace=True)
                 self.log.warning('Trajectory DataFrame dropped rows with missing values: %s'
                                  % ', '.join(scores_na_index))
+                pd.set_option('display.max_columns', None)
                 print('%s: ' % self.path, scores_df.isna())
+                print(scores_df)
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             if residue_na_index:
                 self.log.warning('Residue DataFrame dropped rows with missing values: %s' % ', '.join(residue_na_index))
@@ -1773,7 +1775,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Add wild-type sequence metrics to clean_residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
             wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
-            clean_residue_df = clean_residue_df.append(wt_df).sort_index(key=lambda x: x.str.isdigit())
+            clean_residue_df = clean_residue_df.append(wt_df)
+            clean_residue_df = clean_residue_df.sort_index(key=lambda x: x.str.isdigit())
 
             # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
             if merge_residue_data:
