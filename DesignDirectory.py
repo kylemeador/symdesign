@@ -1192,6 +1192,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def identify_interface(self):
         if not self.pose:
             self.load_pose()
+        if self.pose.symmetry:
+            if self.pose.symmetric_assembly_is_clash():
+                if self.ignore_clashes:
+                    self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu)
+                else:
+                    raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
+                                      'would like to generate the Assembly anyway, re-submit the command with '
+                                      '--ignore_clashes')
+            if self.output_assembly:
+                self.pose.get_assembly_symmetry_mates()
+                self.pose.write(out_path=self.assembly)
+                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
         self.pose.find_and_split_interface()
         self.interface_residue_d = {'interface%d' % interface: residues
                                     for interface, residues in self.pose.interface_split.items()}
@@ -1509,8 +1521,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.warning('Trajectory DataFrame dropped rows with missing values: %s'
                                  % ', '.join(scores_na_index))
                 pd.set_option('display.max_columns', None)
-                print('%s: ' % self.path, scores_df.isna())
-                print(scores_df)
+                # print('%s: ' % self.path, scores_df.isna())
+                # print(scores_df)
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             if residue_na_index:
                 self.log.warning('Residue DataFrame dropped rows with missing values: %s' % ', '.join(residue_na_index))
