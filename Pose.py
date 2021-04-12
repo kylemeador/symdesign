@@ -1883,7 +1883,7 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
 
 
 def write_fragment_pairs(ghostfrag_surffrag_pairs, out_path=os.getcwd()):
-    for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs):
+    for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
         interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_overlap_match_%d.pdb'
                                                                    % (*interface_ghost_frag.get_ijk(), idx)))
 
