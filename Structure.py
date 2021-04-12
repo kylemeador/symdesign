@@ -2038,7 +2038,7 @@ class Coords:
         self._coords = np.array(coords)
 
     def delete(self, indices):
-        self._coords = np.delete(self._coords, indices)
+        self._coords = np.delete(self._coords, indices, axis=0)
 
     def __len__(self):
         return self.coords.shape[0]
