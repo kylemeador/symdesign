@@ -57,7 +57,7 @@ flag_options = {PUtils.stage[1]: ['-constrain_relax_to_start_coords', '-use_inpu
 # Those jobs having a scale of 2 utilize two threads. Therefore two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
 
-process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 2, PUtils.stage[3]: 1, PUtils.stage[5]: 2, PUtils.nano: 1,
+process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 2, PUtils.stage[3]: 2, PUtils.stage[5]: 2, PUtils.nano: 1,
                  PUtils.stage[6]: 1, PUtils.stage[7]: 1, PUtils.stage[8]: 1, PUtils.stage[9]: 1, PUtils.stage[10]: 1,
                  PUtils.stage[11]: 1}
 
