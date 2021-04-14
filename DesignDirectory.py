@@ -1472,7 +1472,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                 for profile, background in profile_dict.items()}
             divergence_stats['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
-            for divergence_type, stat in divergence_stats.items():
+            for divergence_type, stat in list(divergence_stats.items()):
                 divergence_stats['%s_per_res' % divergence_type] = per_res_metric(stat)
             # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
 
