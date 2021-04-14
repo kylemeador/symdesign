@@ -767,7 +767,7 @@ if __name__ == '__main__':
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu']:
         queried_flags['directory_type'] = PUtils.interface_design
         if args.module in ['orient', 'expand_asu']:
-            if queried_flags['symmetry']:
+            if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
                 queried_flags['output_assembly'] = True
             else:
                 logger.critical('Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\''
