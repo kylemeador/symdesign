@@ -372,6 +372,12 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Rosetta Energy Term - favor planarity of tyrosine alcohol hydrogen',
                        'direction': None, 'function': None, 'filter': None}}
 
+nanohedra_metrics = ['nanohedra_score_per_res', 'nanohedra_score_center_per_res_center', 'nanohedra_score',
+                     'nanohedra_score_center', 'number_fragment_residues_total', 'number_fragment_residues_center',
+                     'multiple_fragment_ratio', 'percent_fragment_helix', 'percent_fragment_strand',
+                     'percent_fragment_coil', 'number_of_fragments', 'total_interface_residues',
+                     'total_non_fragment_interface_residues', 'percent_residues_fragment_total',
+                     'percent_residues_fragment_center']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total', 'contact_count',
                      'cst_weight', 'fsp_energy', 'int_area_hydrophobic', 'int_area_polar', 'int_area_total',
@@ -401,14 +407,18 @@ final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_c
                  'int_area_res_summary_hydrophobic_1_unbound', 'int_area_res_summary_hydrophobic_2_unbound',
                  'int_area_res_summary_polar_1_unbound', 'int_area_res_summary_polar_2_unbound',
                  'int_area_res_summary_total_1_unbound', 'int_area_res_summary_total_2_unbound',
-                 'interaction_energy_complex', 'interface_b_factor_per_res', 'multiple_fragment_ratio', 'number_hbonds',
-                 'nanohedra_score_per_res',
-                 'number_fragment_residues_total', 'number_fragment_residues_central', 'observations',
-                 'observed_design', 'observed_evolution', 'observed_interface', 'percent_core', 'percent_fragment',
-                 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
-                 'percent_int_area_hydrophobic', 'percent_int_area_polar', 'percent_rim', 'percent_support',
+                 'interaction_energy_complex', 'interface_b_factor_per_res', 'multiple_fragment_ratio',
+                 'number_hbonds', 'nanohedra_score', 'nanohedra_score_center',
+                 'nanohedra_score_per_res', 'nanohedra_score_center_per_res_center',
+                 'number_fragment_residues_total', 'number_fragment_residues_central', 'number_of_fragments',
+                 'observations',
+                 'observed_design', 'observed_evolution', 'observed_fragment', 'observed_interface', 'percent_core',
+                 'percent_fragment', 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
+                 'percent_int_area_hydrophobic', 'percent_int_area_polar', 'percent_residues_fragment_center',
+                 'percent_residues_fragment_total', 'percent_rim', 'percent_support',
                  'protocol_energy_distance_sum', 'protocol_similarity_sum', 'protocol_seq_distance_sum',
-                 'ref', 'rim', 'rmsd', 'shape_complementarity', 'solvation_energy', 'support', 'symmetry'}
+                 'ref', 'rim', 'rmsd', 'shape_complementarity', 'solvation_energy', 'support', 'symmetry',
+                 'total_non_fragment_interface_residues'}
 #                These are missing the bb_hb contribution and are inaccurate
 #                   'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
 #                   'int_energy_context_delta', 'int_energy_context_oligomer',
@@ -425,8 +435,8 @@ columns_to_rename = {'int_sc': 'shape_complementarity', 'int_sc_int_area': 'int_
                      # 'int_energy_res_summary_B_oligomer': 'int_energy_res_summary_oligomer_B',
                      # 'int_energy_res_summary_A_oligomer': 'int_energy_res_summary_oligomer_A',
                      'relax_switch': groups, 'no_constraint_switch': groups,
-                     'limit_to_profile_switch': groups, 'combo_profile_switch': groups,
-                     'design_profile_switch': groups,
+                     'limit_to_profile_switch': groups,
+                     'combo_profile_switch': groups, 'design_profile_switch': groups,
                      'favor_profile_switch': groups, 'consensus_design_switch': groups}
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
@@ -437,10 +447,11 @@ remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unboun
 # sum columns using tuple [0] + [1]
 summation_pairs = {'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
                    'buns_heavy_total': ('buns_asu', 'buns_nano'),
-                   # 'int_energy_context_oligomer':
-                   #     ('int_energy_context_oligomer_A', 'int_energy_context_oligomer_B'),
                    'int_energy_res_summary_unbound':
                        ('int_energy_res_summary_1_unbound', 'int_energy_res_summary_2_unbound')}  # ,
+#                    'int_energy_context_oligomer':
+#                        ('int_energy_context_oligomer_A', 'int_energy_context_oligomer_B'),
+
 #                    'full_stability_oligomer': ('full_stability_A_oligomer', 'full_stability_B_oligomer')}  # ,
 #                    'hbonds_oligomer': ('hbonds_res_selection_A_oligomer', 'hbonds_res_selection_B_oligomer')}
 
@@ -484,15 +495,14 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
 # Current protocols in use in design.xml
 protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'no_constraint_switch']
 protocols_of_interest = ['design_profile', 'no_constraint']
-# protocols_of_interest = ['combo_profile', 'no_constraint']
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']
 
 # Specific columns of interest to distinguish between design trajectories
-protocol_specific_columns = ['shape_complementarity', 'buns_total', 'contact_count', 'int_energy_res_summary_delta',
-                             'int_area_total', 'number_hbonds', 'percent_int_area_hydrophobic',  # ]
-                             'interaction_energy_complex']
-#                              'int_area_hydrophobic', 'int_area_polar',
-#                              'full_stability_delta', 'int_energy_context_delta',
+significance_columns = ['shape_complementarity', 'buns_total', 'contact_count', 'int_energy_res_summary_delta',
+                        'int_area_total', 'number_hbonds', 'percent_int_area_hydrophobic', 'solvation_energy']
+#                         'interaction_energy_complex']
+sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
+                    'observed_evolution', 'observed_fragment']
 
 stats_metrics = ['mean', 'std']
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
@@ -875,32 +885,32 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
     return total_residue_dict
 
 
-def mutation_conserved(residue_dict, background):  # TODO AMS
+def mutation_conserved(residue_info, background):
     """Process residue mutations compared to evolutionary background. Returns 1 if residue is observed in background
 
     Both residue_dict and background must be same index
     Args:
-        residue_dict (dict): {15: {'type': 'T', ...}, ...}
+        residue_info (dict): {15: {'type': 'T', ...}, ...}
         background (dict): {0: {'A': 0, 'R': 0, ...}, ...}
     Returns:
         conservation_dict (dict): {15: 1, 21: 0, 25: 1, ...}
     """
     conservation_dict = {}
-    for residue in residue_dict:
-        if residue in background:
-            if background[residue][residue_dict[residue]['type']] > 0:
-                conservation_dict[residue] = 1
-                continue
-        conservation_dict[residue] = 0
+    for residue, info in residue_info.items():
+        residue_background = background.get(residue)
+        if residue_background and residue_background[info['type']] > 0:
+            conservation_dict[residue] = 1
+        else:
+            conservation_dict[residue] = 0
 
     return conservation_dict
 
 
-def per_res_metric(sequence_dict, key=None):  # TODO AMS
+def per_res_metric(sequence_metrics, key=None):
     """Find metric value/residue in sequence dictionary specified by key
 
     Args:
-        sequence_dict (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
+        sequence_metrics (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
     Keyword Args:
         key='jsd' (str): Name of the residue metric to average
     Returns:
@@ -908,13 +918,14 @@ def per_res_metric(sequence_dict, key=None):  # TODO AMS
     """
     s, total = 0.0, 0
     if key:
-        for residue in sequence_dict:
-            if key in sequence_dict[residue]:
-                s += sequence_dict[residue][key]
+        for residue_metrics in sequence_metrics.values():
+            value = residue_metrics.get(key)
+            if value:
+                s += value
                 total += 1
     else:
-        for total, residue in enumerate(sequence_dict, 1):
-            s += sequence_dict[residue]
+        for total, residue_metric in enumerate(sequence_metrics.values(), 1):
+            s += residue_metric
 
     if total == 0:
         return 0.0
@@ -949,56 +960,57 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
     return bool_df.mean()
 
 
-def hydrophobic_collapse_index(sequence):  # UNUSED TODO Validate, AMS
+def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Validate
     """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return a HCI array
 
     """
     seq_length = len(sequence)
-    lower_range = 3
-    upper_range = 9
-    range_correction = 1
-    range_size = upper_range - lower_range + range_correction
+    lower_range, upper_range, range_correction = 3, 9, 1
+    range_size = upper_range - lower_range  # + range_correction
     yes = 1
     no = 0
-    hydrophobic = ['F', 'I', 'L', 'V']
-    sequence_array = []  # 0]  # initializes the list with index 0 equal to zero for sequence calculations
-    # make an array with # of rows equal to upper range (+1 for indexing), length equal to # of letters in sequence
-    window_array = np.zeros((upper_range + 1, seq_length))  # [[0] * (seq_length + 1) for i in range(upper_range + 1)]
-    hci = np.zeros(seq_length)  # [0] * (seq_length + 1)
-    for aa in sequence:
-        if aa in hydrophobic:
-            sequence_array.append(yes)
-        else:
-            sequence_array.append(no)
+    if hydrophobicity == 'expanded':
+        hydrophobic = ['F', 'I', 'L', 'M', 'V', 'W', 'Y']
+    else:  # hydrophobicity == 'standard':
+        hydrophobic = ['F', 'I', 'L', 'V']
 
-    for j in range(lower_range, upper_range + range_correction):
+    sequence_array = [yes if aa in hydrophobic else no for aa in sequence]
+    # for aa in sequence:
+    #     if aa in hydrophobic:
+    #         sequence_array.append(yes)
+    #     else:
+    #         sequence_array.append(no)
+
+    # make an array with # of rows equal to upper range (+1 for indexing), length equal to # of letters in sequence
+    window_array = np.zeros((range_size, seq_length))  # [[0] * (seq_length + 1) for i in range(upper_range + 1)]
+    for idx, j in enumerate(range(lower_range, upper_range + range_correction), 0):
         # iterate over the window range
         window_len = math.floor(j / 2)
         modulus = j % 2
         # check if the range is odd or even, then calculate score accordingly, with cases for N- and C-terminal windows
-        if modulus == 1:
+        if modulus == 1:  # range is odd
             for k in range(seq_length):
                 s = 0
-                if k < window_len:
+                if k < window_len:  # N-terminus
                     for n in range(k + window_len + range_correction):
                         s += sequence_array[n]
-                elif k + window_len >= seq_length:
+                elif k + window_len >= seq_length:  # C-terminus
                     for n in range(k - window_len, seq_length):
                         s += sequence_array[n]
                 else:
                     for n in range(k - window_len, k + window_len + range_correction):
                         s += sequence_array[n]
-                window_array[j][k] = s / j
-        else:
+                window_array[idx][k] = s / j
+        else:  # range is even
             for k in range(seq_length):
                 s = 0
-                if k < window_len:
+                if k < window_len:  # N-terminus
                     for n in range(k + window_len + range_correction):
                         if n == k + window_len:
                             s += 0.5 * sequence_array[n]
                         else:
                             s += sequence_array[n]
-                elif k + window_len >= seq_length:
+                elif k + window_len >= seq_length:  # C-terminus
                     for n in range(k - window_len, seq_length):
                         if n == k - window_len:
                             s += 0.5 * sequence_array[n]
@@ -1010,24 +1022,26 @@ def hydrophobic_collapse_index(sequence):  # UNUSED TODO Validate, AMS
                             s += 0.5 * sequence_array[n]
                         else:
                             s += sequence_array[n]
-                window_array[j][k] = s / j
+                window_array[idx][k] = s / j
+    logger.debug(window_array)
+    # return the mean score for each sequence position
+    return window_array.mean(axis=0)
+    # hci = np.zeros(seq_length)  # [0] * (seq_length + 1)
+    # for k in range(seq_length):
+    #     for j in range(lower_range, upper_range + range_correction):
+    #         hci[k] += window_array[j][k]
+    #     hci[k] /= range_size
+    #     hci[k] = round(hci[k], 3)
 
-    # find the total for each position
-    for k in range(seq_length):
-        for j in range(lower_range, upper_range + range_correction):
-            hci[k] += window_array[j][k]
-        hci[k] /= range_size
-        hci[k] = round(hci[k], 3)
-
-    return hci
+    # return hci
 
 
 def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
     total = len(final_metrics) * len(stats_metrics)
-    total += len(protocol_specific_columns) * num_groups * len(stats_metrics)
+    total += len(significance_columns) * num_groups * len(stats_metrics)
     total += misc
     total += sig  # for protocol pair mean similarity measure
-    total += sig * len(protocol_specific_columns)  # for protocol pair individual similarity measure
+    total += sig * len(significance_columns)  # for protocol pair individual similarity measure
 
     return total
 
@@ -1073,7 +1087,10 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     filter_df = pd.DataFrame(master_metrics)
     if filter:
         available_filters = _df.columns.to_list()
-        filters = query_user_for_metrics(available_filters, mode='filter', level='design')
+        if isinstance(filter, dict):
+            filters = filter
+        else:
+            filters = query_user_for_metrics(available_filters, mode='filter', level='design')
         logger.info('Using filter parameters: %s' % str(filters))
 
         # When df is not ranked by percentage
@@ -1130,7 +1147,10 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     if weight:
         # display(ranked_df[weights_s.index.to_list()] * weights_s)
         available_metrics = _df.columns.to_list()
-        weights = query_user_for_metrics(available_metrics, mode='weight', level='design')
+        if isinstance(weight, dict):
+            weights = weight
+        else:
+            weights = query_user_for_metrics(available_metrics, mode='weight', level='design')
         logger.info('Using weighting parameters: %s' % str(weights))
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
                     for metric, value in weights.items()}
@@ -1646,7 +1666,7 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
 
         # Calculate protocol significance
         # Find all unique combinations of protocols using 'mean' as all protocol combination source. Excludes Consensus
-        protocol_subset_df = trajectory_df.loc[:, protocol_specific_columns]
+        protocol_subset_df = trajectory_df.loc[:, significance_columns]
         protocol_intersection = set(protocols_of_interest) & set(unique_protocols)
 
         if protocol_intersection != set(protocols_of_interest):
@@ -1662,8 +1682,8 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
             pvalue_df = pd.DataFrame()
             for pair in combinations(sorted(sig_df.index.to_list()), 2):
                 select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]
-                difference_s = sig_df.loc[pair[0], protocol_specific_columns].sub(
-                    sig_df.loc[pair[1], protocol_specific_columns])
+                difference_s = sig_df.loc[pair[0], significance_columns].sub(
+                    sig_df.loc[pair[1], significance_columns])
                 pvalue_df[pair] = df_permutation_test(select_df, difference_s, group1_size=len(designs_by_protocol[pair[0]]),
                                                       compare=stats_metrics[0])
             logger.debug(pvalue_df)
