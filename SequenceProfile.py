@@ -2875,23 +2875,22 @@ def msa_to_prob_distribution(alignment_dict):
     return alignment_dict
 
 
-def compute_jsd(msa, bgd_freq, jsd_lambda=0.5):
+def compute_jsd(multiple_sequence_alignment, background_aa_probabilities, jsd_lambda=0.5):
     """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
 
     Args:
-        msa (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_freq (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
+        multiple_sequence_alignment (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+        background_aa_probabilities (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
     Keyword Args:
         jsd_lambda=0.5 (float): Value bounded between 0 and 1
     Returns:
-        divergence (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
+        (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
     """
-    divergence_dict = {}
-    for residue in msa:
+    divergence = {}
+    for residue, aa_probabilities in multiple_sequence_alignment.items():
         sum_prob1, sum_prob2 = 0, 0
         for aa in IUPACData.protein_letters:
-            p = msa[residue][aa]
-            q = bgd_freq[aa]
+            p, q = aa_probabilities[aa], background_aa_probabilities[aa]
             r = (jsd_lambda * p) + ((1 - jsd_lambda) * q)
             if r == 0:
                 continue
@@ -2902,9 +2901,9 @@ def compute_jsd(msa, bgd_freq, jsd_lambda=0.5):
                 prob1 = (p * math.log2(p / r))
                 sum_prob1 += prob1
         divergence = jsd_lambda * sum_prob1 + (1 - jsd_lambda) * sum_prob2
-        divergence_dict[residue] = round(divergence, 3)
+        divergence[residue] = round(divergence, 3)
 
-    return divergence_dict
+    return divergence
 
 
 def weight_gaps(divergence, representation, alignment_length):  # UNUSED
