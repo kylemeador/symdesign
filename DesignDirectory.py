@@ -25,8 +25,8 @@ from Pose import Pose
 from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
-    residue_composition_diff, division_pairs, stats_metrics, protocol_specific_columns, protocols_of_interest, \
-    df_permutation_test, remove_score_columns, residue_template, calc_relative_sa
+    residue_composition_diff, division_pairs, stats_metrics, significance_columns, protocols_of_interest, \
+    df_permutation_test, remove_score_columns, residue_template, calc_relative_sa, sequence_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
     pos_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
@@ -37,7 +37,7 @@ from interface_analysis.Database import FragmentDatabase
 
 # Globals
 logger = start_log(name=__name__)
-index_offset = 1
+idx_offset = 1
 design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 
 
@@ -1295,11 +1295,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         idx_slice = pd.IndexSlice
         # initialize design dataframes as empty
-        pose_stat_s, protocol_stat_s, protocol_stats_s, sim_series = {}, {}, pd.Series(), []
+        pose_stat_s, protocol_stat_s, protocol_stats_s, sim_series, divergence_stats = {}, {}, pd.Series(), [], {}
         if os.path.exists(self.scores_file):
             # Get the scores from all design trajectories
             all_design_scores = read_scores(os.path.join(self.scores, PUtils.scores_file))
-            all_design_scores = remove_interior_keys(all_design_scores, remove_score_columns)
+            all_design_scores = remove_interior_keys(all_design_scores, remove_score_columns)  # todo depreciate?
 
             # Gather mutations for residue specific processing and design sequences
             pdb_sequences = {}
@@ -1387,15 +1387,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Replace empty strings with numpy.notanumber (np.nan), drop str columns, and convert remaining to float
             scores_df = scores_df.replace('', np.nan)
             scores_df = scores_df.drop(remove_columns, axis=1, errors='ignore').astype(float)
-            scores_df = columns_to_new_column(scores_df, summation_pairs)
-            scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             # Remove unnecessary and Rosetta score terms TODO learn know how to produce them. Not in FastRelax...
             scores_df.drop(unnecessary + rosetta_terms, axis=1, inplace=True, errors='ignore')
 
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
-            interface_hbonds = dirty_hbond_processing(
-                all_design_scores)  # , offset=offset_dict) when hbonds are pose numbering
+            interface_hbonds = dirty_hbond_processing(all_design_scores)
+            #                                         , offset=offset_dict) <- when hbonds are pose numbering
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
             all_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences)
@@ -1427,21 +1425,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     wild_type_residue_info[res_number]['interior'] = 0
 
             # Calculate amino acid observation percent from residue dict and background SSM's
-            obs_d = {}
-            for profile in profile_dict:
-                obs_d[profile] = {design: mutation_conserved(residue_dict[design], profile_dict[profile])
-                                  for design in residue_dict}
+            obs_d = {profile: {design: mutation_conserved(residue_info, background)
+                               for design, residue_info in residue_dict.items()}
+                     for profile, background in profile_dict.items()}
 
             if 'fragment' in profile_dict:
                 # Remove residues from fragment dict if no fragment information available for them
                 obs_d['fragment'] = remove_interior_keys(obs_d['fragment'], issm_residues, keep=True)
 
             # Add observation information into the residue dictionary
-            for design in residue_dict:
+            for design, residue_info in residue_dict.items():
                 res_dict = {'observed_%s' % profile: obs_d[profile][design] for profile in obs_d}
-                residue_dict[design] = weave_sequence_dict(base_dict=residue_dict[design], **res_dict)
+                residue_dict[design] = weave_sequence_dict(base_dict=residue_info, **res_dict)
 
-            # Find the observed background for each design in the pose
+            # Find the observed background for each profile, for each design in the pose
             pose_observed_bkd = {profile: {design: per_res_metric(obs_d[profile][design]) for design in obs_d[profile]}
                                  for profile in profile_dict}
             for profile in profile_dict:
@@ -1482,23 +1479,25 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Interface B Factor TODO ensure asu.pdb has B-factors for Nanohedra
             int_b_factor = 0
             for residue in interface_residues:
-                # if residue <= chain_sep:
                 int_b_factor += wt_pdb.residue(residue).get_ave_b_factor()
-                # else:
-                #     int_b_factor += wt_pdb.get_ave_residue_b_factor(wt_pdb.chain_id_list[1], residue)
+
             other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
 
             pose_alignment = multi_chain_alignment(all_design_sequences)
             mutation_frequencies = clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
-            pose_res_dict = {}
-            for profile in profile_dict:  # both mut_freq and profile_dict[profile] are one-indexed
-                pose_res_dict['divergence_%s' % profile] = pos_specific_jsd(mutation_frequencies, profile_dict[profile])
-            # if 'fragment' in profile_dict:
-            pose_res_dict['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
-            # pose_res_dict['hydrophobic_collapse_index'] = hci()  # TODO HCI
+            #                                              both mut_freq and profile_dict[profile] are one-indexed
+            divergence_stats = {'divergence_%s' % profile: pos_specific_jsd(mutation_frequencies, background)
+                                for profile, background in profile_dict.items()}
+            divergence_stats['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
+            # Get pose sequence divergence
+            for divergence_type, stat in divergence_stats.items():
+                divergence_stats['%s_per_res' % divergence_type] = per_res_metric(stat)
+            # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
 
-            # Divide/Multiply column pairs to new columns
+            # Calculate new metrics from combinations of other metrics
+            scores_df = columns_to_new_column(scores_df, summation_pairs)
+            scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
 
             # Merge processed dataframes
@@ -1507,7 +1506,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             protocol_df.columns = pd.MultiIndex.from_product([[''], protocol_df.columns])
             residue_df = pd.merge(protocol_df, residue_df, left_index=True, right_index=True)
 
-            # Drop refine row and any rows with nan values
+            # Drop refine and any designs with nan values
             scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
             residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
             clean_scores_df = scores_df.dropna()
@@ -1520,9 +1519,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 protocol_s.drop(scores_na_index, inplace=True)
                 self.log.warning('Trajectory DataFrame dropped rows with missing values: %s'
                                  % ', '.join(scores_na_index))
-                pd.set_option('display.max_columns', None)
-                # print('%s: ' % self.path, scores_df.isna())
-                # print(scores_df)
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             if residue_na_index:
                 self.log.warning('Residue DataFrame dropped rows with missing values: %s' % ', '.join(residue_na_index))
@@ -1542,6 +1538,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     pass
             self.log.info('Unique Protocols: %s' % ', '.join(unique_protocols))
 
+            # calculate sequence statistics for each protocol run
             designs_by_protocol, sequences_by_protocol = {}, {}
             stats_by_protocol = {protocol: {} for protocol in unique_protocols}
             for protocol in unique_protocols:
@@ -1559,8 +1556,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # Get per residue divergence metric by protocol
                 for key in protocol_res_dict:
-                    stats_by_protocol[protocol]['%s_per_res' % key] = per_res_metric(
-                        protocol_res_dict[key])  # , key=key)
+                    stats_by_protocol[protocol]['%s_per_res' % key] = per_res_metric(protocol_res_dict[key])
                     # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
                 # Get per design observed background metric by protocol
                 for profile in profile_dict:
@@ -1573,56 +1569,48 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         designs_by_protocol[protocol],
                         idx_slice[:, clean_residue_df.columns.get_level_values(1) == res_class]].mean().sum()
                 stats_by_protocol[protocol]['observations'] = len(designs_by_protocol[protocol])
-            protocols_by_design = {v: k for k, _list in designs_by_protocol.items() for v in _list}
+            protocols_by_design = {design: prot for prot, designs in designs_by_protocol.items() for design in designs}
 
-            # POSE ANALYSIS: Get total pose design statistics
-            # remove below if consensus is run multiple times. the cst_weights are very large and destroy the mean
+            # POSE ANALYSIS
+            # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = clean_scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
             assert len(trajectory_df.index.to_list()) > 0, 'No design was done on this pose'
 
+            # Get total design statistics for every sequence in the pose and every protocol specifically
             traj_stats = {}
             protocol_stat_df = {}
             for stat in stats_metrics:
                 traj_stats[stat] = getattr(trajectory_df, stat)().rename(stat)
                 protocol_stat_df[stat] = getattr(clean_scores_df.groupby(groups), stat)()
-                if stat == 'mean':
-                    continue
-                protocol_stat_df[stat].index = protocol_stat_df[stat].index.to_series().map(
-                    {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
+                if stat != 'mean':
+                    protocol_stat_df[stat].index = protocol_stat_df[stat].index.to_series().map(
+                        {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
+                # else:
+                #     continue
             trajectory_df = trajectory_df.append(list(traj_stats.values()))
-            # Here we add consensus back to the trajectory_df after removing above
+            # this operation adds back consensus to the trajectory_df since it is calculated on clean_scores_df
             trajectory_df = trajectory_df.append(list(protocol_stat_df.values()))
 
             # Calculate protocol significance
-            # Find all unique combinations of protocols using 'mean' as all protocol combination source. Excludes Consensus
-            protocol_subset_df = trajectory_df.loc[:, protocol_specific_columns]
-            protocol_intersection = set(protocols_of_interest) & set(unique_protocols)
-
             pvalue_df = pd.DataFrame()
+            protocol_intersection = set(protocols_of_interest) & set(unique_protocols)
             if protocol_intersection != set(protocols_of_interest):
-                self.log.warning(
-                    'Missing %s protocol required for significance measurements! Significance analysis failed!'
-                    % ', '.join(set(protocols_of_interest) - protocol_intersection))
-                # significance = False
-                # sim_sum_and_divergence_stats, sim_measures = {}, {}
+                self.log.warning('Missing protocol(s) \'%s\'! These are required for protocol significance measurements'
+                                 % ', '.join(set(protocols_of_interest) - protocol_intersection))
             else:
-                # significance = True
-                sig_df = protocol_stat_df['mean']  # stats_metrics[0]
+                # Test significance between all combinations of protocols
+                # using 'mean' as source of combinations which excludes Consensus
+                sig_df = protocol_stat_df['mean']
                 assert len(sig_df.index.to_list()) > 1, 'Can\'t measure protocol significance, not enough protocols!'
-                for pair in combinations(sorted(sig_df.index.to_list()), 2):
-                    select_df = protocol_subset_df.loc[designs_by_protocol[pair[0]] + designs_by_protocol[pair[1]], :]
-                    difference_s = sig_df.loc[pair[0], protocol_specific_columns].sub(
-                        sig_df.loc[pair[1], protocol_specific_columns])
-                    pvalue_df[pair] = df_permutation_test(select_df, difference_s,
-                                                          group1_size=len(designs_by_protocol[pair[0]]),
-                                                          compare=stats_metrics[0])
-                self.log.debug(pvalue_df)
-                pvalue_df = pvalue_df.T  # change the significance pairs to the indices and protocol specific columns to columns
+                for prot1, prot2 in combinations(sorted(sig_df.index.to_list()), 2):
+                    select_df = trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2],
+                                                  significance_columns]
+                    difference_s = sig_df.loc[prot1, significance_columns].sub(sig_df.loc[prot2, significance_columns])
+                    pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
+                                                                    group1_size=len(designs_by_protocol[prot1]))
+                # self.log.debug(pvalue_df)
+                pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance columns to columns
                 trajectory_df = trajectory_df.append(pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1))
-
-                # Get pose sequence divergence TODO protocol switch
-                sim_sum_and_divergence_stats = {'%s_per_res' % key: per_res_metric(pose_res_dict[key]) for key in
-                                                pose_res_dict}
 
                 # Compute sequence differences between each protocol
                 residue_energy_df = \
@@ -1632,12 +1620,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
                 residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
                 residue_energy_pc = res_pca.fit_transform(residue_energy_np)
-                residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
-                                                    columns=['pc' + str(x + index_offset)
-                                                             for x in range(len(res_pca.components_))])
-                #                                    ,columns=residue_energy_df.columns)
+                residue_energy_pc_df = \
+                    pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
+                                 columns=['pc%d' % idx for idx, _ in enumerate(res_pca.components_, 1)])
 
-                seq_pca = copy.deepcopy(res_pca)
+                seq_pca = PCA(PUtils.variance)
                 residue_dict.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
                 pairwise_sequence_diff_np = all_vs_all(residue_dict, sequence_difference)
                 pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
@@ -1652,63 +1639,72 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # All protocol means will have pairwise distance measured as a means of accessing similarity
                 # These distance metrics will be reported in the final pose statistics
                 seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_dict.keys()),
-                                         columns=['pc' + str(x + index_offset)
-                                                  for x in range(len(seq_pca.components_))])
+                                         columns=['pc%d' % idx for idx, _ in enumerate(seq_pca.components_, 1)])
                 # Merge principle components with labels
-                residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
                 seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+                residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
 
                 # Gather protocol similarity/distance metrics
-                sim_measures = {'similarity': None, 'seq_distance': {}, 'energy_distance': {}}
-                # Find similarity between each type of protocol by taking row average of all p-values for each metric
-                mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance
-                mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
-                sim_measures['similarity'] = mean_pvalue_s
-                # sim_measures['similarity'] = pvalue_df.mean(axis=1)
-
-                grouped_pc_stat_df_dict, grouped_pc_energy_df_dict = {}, {}
+                sim_measures = {'seq_distance': {}, 'energy_distance': {}}
+                sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
+                grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
                 for stat in stats_metrics:
-                    grouped_pc_stat_df_dict[stat] = getattr(seq_pc_df.groupby(groups), stat)()
+                    grouped_pc_seq_df_dict[stat] = getattr(seq_pc_df.groupby(groups), stat)()
                     grouped_pc_energy_df_dict[stat] = getattr(residue_energy_pc_df.groupby(groups), stat)()
+                    similarity_stat_dict[stat] = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
                     if stat == 'mean':
                         # if renaming is necessary
                         # protocol_stat_df[stat].index = protocol_stat_df[stat].index.to_series().map(
                         #     {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
-                        seq_pca_mean_distance_vector = pdist(grouped_pc_stat_df_dict[stat])
+                        seq_pca_mean_distance_vector = pdist(grouped_pc_seq_df_dict[stat])
                         energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df_dict[stat])
                         # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
                         #                             for k in seq_pca_mean_distance_vector)
-                        for k, dist in enumerate(seq_pca_mean_distance_vector):
-                            i, j = condensed_to_square(k, len(grouped_pc_stat_df_dict[stat].index))
-                            sim_measures['seq_distance'][(grouped_pc_stat_df_dict[stat].index[i],
-                                                          grouped_pc_stat_df_dict[stat].index[j])] = dist
+                        # find similarity between each protocol by taking row average of all p-values for each metric
+                        # mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance Series
+                        # mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
+                        # sim_measures['similarity'] = mean_pvalue_s
+                        similarity_stat_dict[stat].index = pd.MultiIndex.from_tuples(similarity_stat_dict[stat].index)
+                        sim_measures['similarity'] = similarity_stat_dict[stat]
 
-                        for k, e_dist in enumerate(energy_pca_mean_distance_vector):
-                            i, j = condensed_to_square(k, len(grouped_pc_energy_df_dict[stat].index))
+                        for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
+                            i, j = condensed_to_square(vector_idx, len(grouped_pc_seq_df_dict[stat].index))
+                            sim_measures['seq_distance'][(grouped_pc_seq_df_dict[stat].index[i],
+                                                          grouped_pc_seq_df_dict[stat].index[j])] = seq_dist
+
+                        for vector_idx, energy_dist in enumerate(energy_pca_mean_distance_vector):
+                            i, j = condensed_to_square(vector_idx, len(grouped_pc_energy_df_dict[stat].index))
                             sim_measures['energy_distance'][(grouped_pc_energy_df_dict[stat].index[i],
-                                                             grouped_pc_energy_df_dict[stat].index[j])] = e_dist
+                                                             grouped_pc_energy_df_dict[stat].index[j])] = energy_dist
+                    elif stat == 'std':
+                        sim_stdev['similarity'] = similarity_stat_dict[stat]
+                        sim_stdev['seq_distance'] = grouped_pc_seq_df_dict[stat]
+                        sim_stdev['energy_distance'] = grouped_pc_energy_df_dict[stat]
 
-                for pc_stat in grouped_pc_stat_df_dict:
-                    self.log.info(grouped_pc_stat_df_dict[pc_stat])
+                # for pc_stat in grouped_pc_seq_df_dict:
+                #     self.log.info(grouped_pc_seq_df_dict[pc_stat])
 
-                # Find total protocol similarity for different metrics
-                for measure in sim_measures:
-                    measure_s = pd.Series(
-                        {pair: sim_measures[measure][pair] for pair in combinations(protocols_of_interest, 2)})
-                    sim_sum_and_divergence_stats['protocol_%s_sum' % measure] = measure_s.sum()
-                # if significance:
                 # Find the significance between each pair of protocols
                 protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
                                            keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
                 # squeeze turns the column headers into series indices. Keys appends to make a multi-index
 
-                other_stats_s = pd.Series(sim_sum_and_divergence_stats)
-                other_stats_s = pd.concat([other_stats_s], keys=[('seq_design', 'pose')], copy=False)
+                # Find total protocol similarity for different metrics
+                # for measure, values in sim_measures.items():
+                #     # measure_s = pd.Series({pair: similarity for pair, similarity in values.items()})
+                #     # measure_s = pd.Series(values)
+                #     similarity_sum['protocol_%s_sum' % measure] = pd.Series(values).sum()
+                similarity_sum = {'protocol_%s_sum' % measure: pd.Series(values).sum()
+                                  for measure, values in sim_measures.items()}
+                similarity_sum_s = pd.concat([pd.Series(similarity_sum)], keys=[('seq_design', 'pose')], copy=False)
 
                 # Process similarity between protocols
                 sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
-                                           keys=[measure for measure in sim_measures])
-                sim_series = [protocol_sig_s, other_stats_s, sim_measures_s]
+                                           keys=list(sim_measures.keys()))
+                # Todo test formatting
+                sim_stdev_s = pd.concat(list(sim_stdev.values()),
+                                        keys=list(zip(repeat('std'), sim_stdev.keys()))).swap_level(1, 2)
+                sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
 
                 if figures:  # Todo ensure output is as expected
                     _path = os.path.join(self.all_scores, str(self))
@@ -1777,12 +1773,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     suffix = ''
                 else:
                     suffix = '_%s' % stat
-                protocol_stat_s[stat] = pd.concat([protocol_subset_df.loc['%s%s' % (protocol, suffix), :]
+                protocol_stat_s[stat] = pd.concat([trajectory_df.loc['%s%s' % (protocol, suffix),
+                                                                     significance_columns + sequence_columns]
                                                    for protocol in unique_protocols],
                                                   keys=list(zip(repeat(stat), unique_protocols)))
 
-            protocol_stats_s = pd.concat([pd.Series(stats_by_protocol[protocol]) for protocol in stats_by_protocol],
-                                         keys=list(zip(repeat('stats'), unique_protocols)))
+            protocol_stats_s = pd.concat([pd.Series(stats) for stats in stats_by_protocol.values()],
+                                         keys=list(zip(repeat('stats'), stats_by_protocol.keys())))
 
             # Add wild-type sequence metrics to clean_residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
@@ -1801,12 +1798,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Create figures
             # if figures:  # Todo include relevant .ipynb figures
 
-        other_metrics_s = pd.Series(other_pose_metrics)
-        other_metrics_s = pd.concat([other_metrics_s], keys=[('dock', 'pose')], copy=False)
+        other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')], copy=False)
+        divergence_stats_s = pd.concat([pd.Series(divergence_stats)], keys=[('seq_design', 'pose')], copy=False)
 
         # Combine all series
         pose_s = pd.concat(list(pose_stat_s.values()) + list(protocol_stat_s.values()) +
-                           [protocol_stats_s, other_metrics_s] + sim_series).swaplevel(0, 1)
+                           [protocol_stats_s, other_metrics_s, divergence_stats_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([groups, ], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
