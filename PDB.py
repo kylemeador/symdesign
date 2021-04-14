@@ -1720,7 +1720,7 @@ class PDB(Structure):
     def return_asu(self, chain='A'):
         """Returns the ASU as a new PDB object. See self.get_asu() for method"""
         asu_pdb_atoms, asu_pdb_coords = self.get_asu(chain=chain)
-        asu = PDB.from_atoms(atoms=deepcopy(asu_pdb_atoms), coords=asu_pdb_coords, metadata=self)
+        asu = PDB.from_atoms(atoms=deepcopy(asu_pdb_atoms), coords=asu_pdb_coords, metadata=self, log=self.log)
         asu.reorder_chains()
 
         return asu
