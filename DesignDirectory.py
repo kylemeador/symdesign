@@ -1703,7 +1703,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                            keys=list(sim_measures.keys()))
                 # Todo test formatting
                 sim_stdev_s = pd.concat(list(sim_stdev.values()),
-                                        keys=list(zip(repeat('std'), sim_stdev.keys()))).swap_level(1, 2)
+                                        keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
                 sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
 
                 if figures:  # Todo ensure output is as expected
