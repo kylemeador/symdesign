@@ -5,7 +5,7 @@ from warnings import catch_warnings, simplefilter
 import numpy as np
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
-from sklearn.model_selection import test_train_split
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import MultiTaskLassoCV, LassoCV, MultiTaskElasticNetCV, ElasticNetCV
 from sklearn.metrics import median_absolute_error  # r2_score,
@@ -295,8 +295,8 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     targets2d = pd.concat([pose_traj_df, no_constraint_traj_df])
 
     # split training and test dataset
-    trajectory_train, trajectory_test, target_train, target_test = test_train_split(nano_traj, targets, random_state=42)
-    trajectory_train2d, trajectory_test2d, target_train2d, target_test2d = test_train_split(nano_traj, targets2d,
+    trajectory_train, trajectory_test, target_train, target_test = train_test_split(nano_traj, targets, random_state=42)
+    trajectory_train2d, trajectory_test2d, target_train2d, target_test2d = train_test_split(nano_traj, targets2d,
                                                                                             random_state=42)
     # calculate model performance with cross-validation, alpha tuning
     alphas = np.logspace(-10, 10, 21)  # Todo why log space here?
