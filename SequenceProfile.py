@@ -2900,8 +2900,7 @@ def compute_jsd(multiple_sequence_alignment, background_aa_probabilities, jsd_la
             if p != 0:
                 prob1 = (p * math.log2(p / r))
                 sum_prob1 += prob1
-        divergence = jsd_lambda * sum_prob1 + (1 - jsd_lambda) * sum_prob2
-        divergence[residue] = round(divergence, 3)
+        divergence[residue] = round((jsd_lambda * sum_prob1) + ((1 - jsd_lambda) * sum_prob2), 3)
 
     return divergence
 
