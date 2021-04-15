@@ -2096,7 +2096,7 @@ def return_consensus_design(frequency_sorted_msa):
                 frequency_sorted_msa[residue] = None
 
 
-def pos_specific_jsd(msa, background):
+def position_specific_jsd(msa, background):
     """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
 
     Both msa_dictionary and background must be the same index

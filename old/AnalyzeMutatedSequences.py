@@ -10,7 +10,7 @@ import os
 import PathUtils as PUtils
 from SymDesignUtils import start_log, clean_dictionary
 from PDB import PDB
-from SequenceProfile import remove_non_mutations, pos_specific_jsd, weave_mutation_dict, \
+from SequenceProfile import remove_non_mutations, position_specific_jsd, weave_mutation_dict, \
     SequenceProfile, compute_jsd, rank_possibilities
 
 # Globals
@@ -31,7 +31,7 @@ def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unuse
 
     # Calculate Jensen Shannon Divergence from DSSM using the occurrence data in col 2 and design Mutations
     dssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
-    residue_divergence_values = pos_specific_jsd(mutation_probabilities, dssm)
+    residue_divergence_values = position_specific_jsd(mutation_probabilities, dssm)
 
     interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
     interface_divergence_values = compute_jsd(mutation_probabilities, interface_bkgd)
@@ -40,7 +40,7 @@ def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unuse
         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.pssm))
     else:
         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.composition, PUtils.pssm))
-    evolution_divergence_values = pos_specific_jsd(mutation_probabilities, pssm)
+    evolution_divergence_values = position_specific_jsd(mutation_probabilities, pssm)
 
     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_probabilities, evolution_divergence_values,
                                               interface_divergence_values)
