@@ -1656,7 +1656,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                             sim_measures['energy_distance'][(grouped_pc_energy_df_dict[stat].index[i],
                                                              grouped_pc_energy_df_dict[stat].index[j])] = energy_dist
                     elif stat == 'std':
-                        sim_stdev['similarity'] = similarity_stat_dict[stat]
+                        # sim_stdev['similarity'] = similarity_stat_dict[stat]
                         sim_stdev['seq_distance'] = grouped_pc_seq_df_dict[stat]
                         sim_stdev['energy_distance'] = grouped_pc_energy_df_dict[stat]
 
