@@ -1260,7 +1260,10 @@ if __name__ == '__main__':
                         cluster_representative_pose_member_map = {}
                         for composition_group in compositions.values():
                             cluster_representative_pose_member_map.update(cluster_designs(composition_group))
-
+                    # cluster_representative_pose_member_string_map = \
+                    #     {str(representative): str(member)
+                    #      for representative, members in cluster_representative_pose_member_map.items()
+                    #      for member in members}
                     pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
                                                               PUtils.clustered_poses,
                                                               out_path=next(iter(design_directories)).protein_data)
@@ -1291,14 +1294,16 @@ if __name__ == '__main__':
                     logger.warning('Couldn\'t locate the following poses:\n%s\nWas %s only run on a subset of the poses'
                                    ' found selected from %s?'
                                    % ('\n\t'.join(pose_not_found), PUtils.cluster_poses, args.dataframe))
-                logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(pose_clusters_found.values()))
                 final_poses = list(pose_clusters_found.values())
+                logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(final_poses))
             else:
+                logger.info('Grabbing all selected poses.')
                 final_poses = selected_poses
 
             if args.number_poses and len(final_poses) > args.number_poses:
                 final_poses = final_poses[:args.number_poses]
-
+            if len(final_poses) > 1000:
+                queried_flags['skip_logging'] = True
             design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
                                   for pose in final_poses]
             location = program_root
