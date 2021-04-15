@@ -390,14 +390,14 @@ def cluster_transformations(transform1, transform2, distance=1.0):
 
 
 @SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
-def cluster_designs(composition):
+def cluster_designs(composition, return_pose_id=True):
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
     Args:
         (iterable[DesignDirectory]): The group of DesignDirectory objects to pull transformation data from
     Returns:
-        (dict[mapping[DesignDirectoryID, list[DesignDirectoryID]]): Cluster with the representative as the key and
+        (dict[mapping[DesignDirectoryID, list[DesignDirectoryID]]): Cluster with representative as the key and
         matching poses as the values
     """
     # format all transforms for the selected compositions
@@ -418,12 +418,20 @@ def cluster_designs(composition):
     representative_labels = cluster_labels[cluster_representative_indices]
 
     # pull out the pose-id from the input composition groups (DesignDirectory)
-    composition_map = {str(composition[rep_idx]): [str(composition[idx])
-                                                   for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-                       for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
-                       if rep_label != -1}  # don't add outliers (-1 labels) now
-    # add the outliers as separate occurrences
-    composition_map.update({str(composition[idx]): [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
+    if return_pose_id:  # convert all DesignDirectories to pose-id's
+        composition_map = {str(composition[rep_idx]): [str(composition[idx])
+                                                       for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+                           for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
+                           if rep_label != -1}  # don't add outliers (-1 labels) now
+        # add the outliers as separate occurrences
+        composition_map.update({str(composition[idx]): [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
+    else:
+        composition_map = {composition[rep_idx]: [composition[idx]
+                                                  for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+                           for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
+                           if rep_label != -1}  # don't add outliers (-1 labels) now
+        # add the outliers as separate occurrences
+        composition_map.update({composition[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
 
     return composition_map
 
