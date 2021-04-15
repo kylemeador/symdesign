@@ -636,8 +636,8 @@ if __name__ == '__main__':
                                  help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_filter.add_argument('-f', '--filter', action='store_true',
                                help='Whether to filter sequence selection using metrics from DataFrame')
-    parser_filter.add_argument('-np', '--number_poses', type=int, default=1, metavar='INT',
-                               help='Number of top poses to return per pool of designs.\nDefault=1')
+    parser_filter.add_argument('-np', '--number_poses', type=int, default=0, metavar='INT',
+                               help='Number of top poses to return per pool of designs.\nDefault=All')
     parser_filter.add_argument('-s', '--selection_string', type=str, metavar='string',
                                help='String to prepend to output for custom design selection name')
     parser_filter.add_argument('-w', '--weight', action='store_true',
@@ -1296,7 +1296,7 @@ if __name__ == '__main__':
             else:
                 final_poses = selected_poses
 
-            if len(final_poses) > args.number_poses:
+            if args.number_poses and len(final_poses) > args.number_poses:
                 final_poses = final_poses[:args.number_poses]
 
             design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
