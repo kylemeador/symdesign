@@ -389,6 +389,7 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     return representative_transformation_indices, cluster.labels_
 
 
+@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
 def cluster_designs(composition):
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
