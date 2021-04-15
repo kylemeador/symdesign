@@ -29,7 +29,7 @@ from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, rem
     df_permutation_test, remove_score_columns, residue_template, calc_relative_sa, sequence_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
-    pos_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
+    position_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
     generate_sequences, generate_multiple_mutations
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
@@ -1295,7 +1295,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         idx_slice = pd.IndexSlice
         # initialize design dataframes as empty
-        pose_stat_s, protocol_stat_s, protocol_stats_s, sim_series, divergence_stats = {}, {}, pd.Series(), [], {}
+        pose_stat_s, protocol_stat_s, sim_series, divergence_stats_s = pd.Series(), pd.Series(), [], pd.Series()
         if os.path.exists(self.scores_file):
             # Get the scores from all design trajectories
             all_design_scores = read_scores(os.path.join(self.scores, PUtils.scores_file))
@@ -1331,7 +1331,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                                      for name in all_design_sequences[chain]))
             self.log.debug('all_design_scores: %s' % ', '.join(all_design_scores.keys()))
             # Ensure data is present for both scores and sequences, then initialize DataFrames
-            good_designs = set(all_design_sequences[next(iter(all_design_sequences))].keys()).\
+            good_designs = set(all_design_sequences[next(iter(all_design_sequences))].keys()). \
                 intersection(set(all_design_scores.keys()))
             self.log.info('All Designs: %s' % ', '.join(good_designs))
             all_design_scores = clean_dictionary(all_design_scores, good_designs, remove=False)
@@ -1483,18 +1483,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
 
-            pose_alignment = multi_chain_alignment(all_design_sequences)
-            mutation_frequencies = clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
-            # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
-            #                                              both mut_freq and profile_dict[profile] are one-indexed
-            divergence_stats = {'divergence_%s' % profile: pos_specific_jsd(mutation_frequencies, background)
-                                for profile, background in profile_dict.items()}
-            divergence_stats['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
-            # Get pose sequence divergence
-            for divergence_type, stat in list(divergence_stats.items()):
-                divergence_stats['%s_per_res' % divergence_type] = per_res_metric(stat)
-            # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
-
             # Calculate new metrics from combinations of other metrics
             scores_df = columns_to_new_column(scores_df, summation_pairs)
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
@@ -1506,27 +1494,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             protocol_df.columns = pd.MultiIndex.from_product([[''], protocol_df.columns])
             residue_df = pd.merge(protocol_df, residue_df, left_index=True, right_index=True)
 
-            # Drop refine and any designs with nan values
+            # Drop refine trajectory and any designs with nan values
             scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
             residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
-            clean_scores_df = scores_df.dropna()
             residue_df = residue_df.dropna(how='all', axis=1)  # remove completely empty columns such as obs_interface
-            clean_residue_df = residue_df.dropna()
-            # print(residue_df.isna())  #.any(axis=1).to_list())  # scores_df.where()
-            scores_na_index = scores_df[~scores_df.index.isin(clean_scores_df.index)].index.to_list()
-            residue_na_index = residue_df[~residue_df.index.isin(clean_residue_df.index)].index.to_list()
-            if scores_na_index:
-                protocol_s.drop(scores_na_index, inplace=True)
-                self.log.warning('Trajectory DataFrame dropped rows with missing values: %s'
-                                 % ', '.join(scores_na_index))
-                # might have to remove these from all_design_scores in the case that that is used as a dictionary again
-            if residue_na_index:
-                self.log.warning('Residue DataFrame dropped rows with missing values: %s' % ', '.join(residue_na_index))
-                for res_idx in residue_na_index:
-                    residue_dict.pop(res_idx)
-                self.log.debug('Residue_dict:\n\n%s\n\n' % residue_dict)
+            scores_na_index = scores_df.index[scores_df.isna().any(axis=1)]  # scores_df.where()
+            residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
+            drop_na_index = np.union1d(scores_na_index, residue_na_index)
+            protocol_s.drop(drop_na_index, inplace=True, errors='ignore')
+            scores_df.drop(drop_na_index, inplace=True, errors='ignore')
+            residue_df.drop(drop_na_index, inplace=True, errors='ignore')
+            for idx in drop_na_index:
+                residue_dict.pop(idx)
+            self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
+            # might have to remove these from all_design_scores in the case that that is used as a dictionary again
 
-            other_pose_metrics['observations'] = len(clean_scores_df)
+            other_pose_metrics['observations'] = len(scores_df)
 
             # Get unique protocols for protocol specific metrics and drop unneeded protocol values
             unique_protocols = protocol_s.unique().tolist()
@@ -1538,7 +1521,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     pass
             self.log.info('Unique Protocols: %s' % ', '.join(unique_protocols))
 
-            # calculate sequence statistics for each protocol run
+            # Calculate sequence statistics
+            # first for entire pose
+            pose_alignment = multi_chain_alignment(all_design_sequences)
+            mutation_frequencies = clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
+            # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
+            #                                              both mut_freq and profile_dict[profile] are one-indexed
+            divergence_stats = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
+                                for profile, background in profile_dict.items()}
+            divergence_stats['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
+            # Get pose sequence divergence
+            for divergence_type, stat in list(divergence_stats.items()):
+                divergence_stats['%s_per_res' % divergence_type] = per_res_metric(stat)
+            # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
+            divergence_stats_s = pd.concat([pd.Series(divergence_stats)], keys=[('seq_design', 'pose')], copy=False)
+
+            # next for each protocol
             designs_by_protocol, sequences_by_protocol = {}, {}
             stats_by_protocol = {protocol: {} for protocol in unique_protocols}
             for protocol in unique_protocols:
@@ -1549,8 +1547,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                    for chain in all_design_sequences}
                 protocol_alignment = multi_chain_alignment(sequences_by_protocol[protocol])
                 protocol_mutation_freq = remove_non_mutations(protocol_alignment['counts'], interface_residues)
-                protocol_res_dict = {'divergence_%s' % profile: pos_specific_jsd(protocol_mutation_freq,
-                                                                                 profile_dict[profile])
+                protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq,
+                                                                                      profile_dict[profile])
                                      for profile in profile_dict}  # both prot_freq and profile_dict[profile] are 0-idx
                 protocol_res_dict['divergence_interface'] = compute_jsd(protocol_mutation_freq, interface_bkgd)
 
@@ -1565,15 +1563,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # Gather the average number of residue classifications for each protocol
                 for res_class in residue_classificiation:
-                    stats_by_protocol[protocol][res_class] = clean_residue_df.loc[
-                        designs_by_protocol[protocol],
-                        idx_slice[:, clean_residue_df.columns.get_level_values(1) == res_class]].mean().sum()
+                    stats_by_protocol[protocol][res_class] = \
+                        residue_df.loc[designs_by_protocol[protocol],
+                                       idx_slice[:, residue_df.columns.get_level_values(1) == res_class]].mean().sum()
                 stats_by_protocol[protocol]['observations'] = len(designs_by_protocol[protocol])
             protocols_by_design = {design: prot for prot, designs in designs_by_protocol.items() for design in designs}
 
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
-            trajectory_df = clean_scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
+            trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
             assert len(trajectory_df.index.to_list()) > 0, 'No design was done on this pose'
 
             # Get total design statistics for every sequence in the pose and every protocol specifically
@@ -1581,14 +1579,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             protocol_stat_df = {}
             for stat in stats_metrics:
                 traj_stats[stat] = getattr(trajectory_df, stat)().rename(stat)
-                protocol_stat_df[stat] = getattr(clean_scores_df.groupby(groups), stat)()
+                protocol_stat_df[stat] = getattr(scores_df.groupby(groups), stat)()
                 if stat != 'mean':
                     protocol_stat_df[stat].index = protocol_stat_df[stat].index.to_series().map(
                         {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
                 # else:
                 #     continue
             trajectory_df = trajectory_df.append(list(traj_stats.values()))
-            # this operation adds back consensus to the trajectory_df since it is calculated on clean_scores_df
+            # this operation adds back consensus to the trajectory_df since it is calculated on scores_df
             trajectory_df = trajectory_df.append(list(protocol_stat_df.values()))
 
             # Calculate protocol significance
@@ -1614,8 +1612,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # Compute sequence differences between each protocol
                 residue_energy_df = \
-                    clean_residue_df.loc[:, idx_slice[:,
-                                                      clean_residue_df.columns.get_level_values(1) == 'energy_delta']]
+                    residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'energy_delta']]
 
                 res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
                 residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
@@ -1766,44 +1763,47 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     plt.savefig('%s_res_energy_pca.png' % _path)
 
             # CONSTRUCT: Create pose series and format index names
+            pose_stat_s = pd.concat([trajectory_df.loc[stat, :] for stat in stats_metrics],
+                                    keys=[list(zip(stats_metrics, repeat('pose')))])
             # Collect protocol specific metrics in series
+            protocol_stats = []
             for stat in stats_metrics:
-                pose_stat_s[stat] = pd.concat([trajectory_df.loc[stat, :]], keys=[(stat, 'pose')])
+                # pose_stat_s[stat] = pd.concat([trajectory_df.loc[stat, :]], keys=[(stat, 'pose')])
                 if stat == 'mean':
                     suffix = ''
                 else:
                     suffix = '_%s' % stat
-                protocol_stat_s[stat] = pd.concat([trajectory_df.loc['%s%s' % (protocol, suffix),
-                                                                     significance_columns + sequence_columns]
-                                                   for protocol in unique_protocols],
-                                                  keys=list(zip(repeat(stat), unique_protocols)))
+                protocol_stats = pd.concat([trajectory_df.loc['%s%s' % (protocol, suffix), significance_columns]
+                                            for protocol in unique_protocols],
+                                           keys=list(zip(repeat(stat), unique_protocols)))
 
-            protocol_stats_s = pd.concat([pd.Series(stats) for stats in stats_by_protocol.values()],
-                                         keys=list(zip(repeat('stats'), stats_by_protocol.keys())))
+            protocol_stat_s = pd.concat([pd.Series(stats) for stats in stats_by_protocol.values()],
+                                        keys=list(zip(repeat('stats'), stats_by_protocol.keys())))
+            protocol_stat_s = pd.concat([protocol_stat_s] + protocol_stats)
 
-            # Add wild-type sequence metrics to clean_residue_df and sort
+            # Add wild-type sequence metrics to residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
             wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
-            clean_residue_df = clean_residue_df.append(wt_df)
-            clean_residue_df = clean_residue_df.sort_index(key=lambda x: x.str.isdigit())
+            residue_df = residue_df.append(wt_df)
+            residue_df = residue_df.sort_index(key=lambda x: x.str.isdigit())
 
             # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
             if merge_residue_data:
-                trajectory_df = pd.merge(trajectory_df, clean_residue_df, left_index=True, right_index=True)
+                trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
             if save_trajectories:
                 trajectory_df.to_csv(self.trajectories)
-                clean_residue_df.to_csv(self.residues)
+                residue_df.to_csv(self.residues)
                 seq_file = pickle_object(all_design_sequences, '%s_Sequences' % str(self), out_path=self.all_scores)
 
             # Create figures
             # if figures:  # Todo include relevant .ipynb figures
 
         other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')], copy=False)
-        divergence_stats_s = pd.concat([pd.Series(divergence_stats)], keys=[('seq_design', 'pose')], copy=False)
 
         # Combine all series
-        pose_s = pd.concat(list(pose_stat_s.values()) + list(protocol_stat_s.values()) +
-                           [protocol_stats_s, other_metrics_s, divergence_stats_s] + sim_series).swaplevel(0, 1)
+        #                   list(pose_stat_s.values()) + list(protocol_stat_s.values()) +
+        pose_s = \
+            pd.concat([pose_stat_s, protocol_stat_s, other_metrics_s, divergence_stats_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([groups, ], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
