@@ -1462,6 +1462,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for residue in interface_residues:
                 int_b_factor += wt_pdb.residue(residue).get_ave_b_factor()
 
+            # this value updates the prior calculated one with only residues in interface, i.e. not exterior
             other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
 
             # Calculate new metrics from combinations of other metrics
