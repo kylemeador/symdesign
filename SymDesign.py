@@ -383,8 +383,19 @@ def format_additional_flags(flags):
     return final_flags
 
 
-def terminate(module, designs, location=None, results=None, output=True):
-    """Formats designs passing output parameters and report program exceptions"""
+def terminate(module, designs, location=None, results=None, output=False):
+    """Format designs passing output parameters and report program exceptions
+
+    Args:
+        module (str): The module used
+        designs (list(DesignDirectory)): The designs processed
+    Keyword Args:
+        location=None (str): Where the designs were retrieved from
+        results=None (list): The returned results from the module run. By convention contains results and exceptions
+        output=False (bool): Whether the module used requires a file to be output
+    Returns:
+        (None)
+    """
     # any_exceptions = [exception for exception in all_exceptions if exception]
     # any_exceptions = list(filter(bool, exceptions))
     # any_exceptions = list(set(exceptions))
@@ -430,9 +441,9 @@ def terminate(module, designs, location=None, results=None, output=True):
                 # Save Design DataFrame
                 design_df = pd.DataFrame(successes)
                 if '%s' in args.output:
-                    out_path = os.path.join(program_root, args.output % time_stamp)
+                    out_path = os.path.join(all_scores, args.output % time_stamp)
                 else:
-                    out_path = os.path.join(program_root, args.output)
+                    out_path = os.path.join(all_scores, args.output)
                 design_df.to_csv(out_path)
                 logger.info('Analysis of all poses written to %s' % out_path)
                 if save:
@@ -703,7 +714,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide
     # -----------------------------------------------------------------------------------------------------------------
-    if args.guide:
+    if args.guide or args.module == '':
         if not args.module:
             with open(PUtils.readme, 'r') as f:
                 print(f.read(), end='')
@@ -994,7 +1005,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.orient())
 
-        terminate(args.module, design_directories, results=results, output=False)
+        terminate(args.module, design_directories, results=results)
     # ---------------------------------------------------
     elif args.module == 'find_asu':
         if args.multi_processing:
@@ -1003,7 +1014,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.find_asu())
 
-        terminate(args.module, design_directories, results=results, output=False)
+        terminate(args.module, design_directories, results=results)
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
@@ -1012,7 +1023,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.expand_asu())
 
-        terminate(args.module, design_directories, results=results, output=False)
+        terminate(args.module, design_directories, results=results)
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
@@ -1046,7 +1057,7 @@ if __name__ == '__main__':
                         result = nanohedra_design_recap(dock_directory, args.project)
                         results.append(result)
 
-        terminate(args.module, design_directories, location=args.directory, results=results, output=False)
+        terminate(args.module, design_directories, location=args.directory, results=results)
         #                                          location=location,
         # # Make single file with names of each directory. Specific for docking due to no established directory
         # args.file = os.path.join(args.directory, 'all_docked_directories.paths')
@@ -1069,12 +1080,8 @@ if __name__ == '__main__':
     elif args.module == PUtils.generate_fragments:  # -i fragment_library, -p mpi, -x suspend
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            # # Calculate the number of threads to use depending on computer resources
-            # threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
-            # logger.info('Starting multiprocessing using %s threads' % str(threads))
             results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
         else:
-            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
                 design.generate_interface_fragments()
     # ---------------------------------------------------
@@ -1086,17 +1093,13 @@ if __name__ == '__main__':
                                 'more memory or the process will fail. Otherwise, select -design_with_evolution False')
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            # # Calculate the number of threads to use depending on computer resources
-            # threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
-            # logger.info('Starting multiprocessing using %s threads' % str(threads))
             results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads=threads)
         else:
-            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
                 result = design.interface_design()
                 results.append(result)
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(args.module, design_directories, location=location, results=results, output=True)
 
         # if not args.run_in_shell and len(success) > 0:  # any(success): ALL success are None type
         #     design_name = os.path.basename(next(iter(design_directories)).project_designs)
@@ -1145,18 +1148,14 @@ if __name__ == '__main__':
                             'data! Please modify that file or specify a new output name with -o/--output'
                             % out_path)
         if args.multi_processing:
-            # # Calculate the number of threads to use depending on computer resources
-            # threads = SDUtils.calculate_mp_threads(cores=args.cores)
-            # logger.info('Starting multiprocessing using %s threads' % str(threads))
             results = SDUtils.mp_map(DesignDirectory.design_analysis, design_directories, threads=threads)
         else:
-            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for design in design_directories:
                 result = design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
                                                 figures=args.figures)
                 results.append(result)
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(args.module, design_directories, location=location, results=results, output=True)
     # ---------------------------------------------------
     elif args.module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
         directory_pairs, failures = None, None
@@ -1192,14 +1191,10 @@ if __name__ == '__main__':
             logger.warning('The following directories have no partner:\n\t%s' % '\n\t'.join(fail.path
                                                                                             for fail in failures))
         if args.multi_processing:
-            # # Calculate the number of threads to use depending on computer resources
-            # threads = SDUtils.calculate_mp_threads(cores=args.cores)
-            # logger.info('Starting multiprocessing using %s threads' % str(threads))
             zipped_args = zip(design_directories, repeat(args.increment))
             results = SDUtils.mp_starmap(rename, zipped_args, threads=threads)
             results2 = SDUtils.mp_map(merge_design_pair, directory_pairs, threads)
         else:
-            # logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
             for des_directory in design_directories:
                 rename(des_directory, increment=args.increment)
             for directory_pair in directory_pairs:
@@ -1307,7 +1302,7 @@ if __name__ == '__main__':
                                   for pose in final_poses]
             location = program_root
             # write out the chosen poses to a pose.paths file
-            terminate(args.module, design_directories, location=location, results=design_directories)
+            terminate(args.module, design_directories, location=location, results=design_directories, output=True)
         else:
             logger.debug('Collecting designs to sort')
             if args.metric == 'score':
@@ -1726,6 +1721,8 @@ if __name__ == '__main__':
                 if s:
                     logger.info('For \'%s\' stage, default settings should generate %d files'
                                 % (stage, PUtils.stage_f[stage]['len']))
+    # else:
+    #     exit('No module was selected! Did you include one? To get started, checkout the %s' % PUtils.guide_string)
     # -----------------------------------------------------------------------------------------------------------------
     # Finally run terminate(). Formats designs passing output parameters and report program exceptions
     # -----------------------------------------------------------------------------------------------------------------
