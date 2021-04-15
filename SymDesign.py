@@ -407,7 +407,7 @@ def terminate(module, designs, location=None, results=None, output=True):
         if not location:
             location_name = os.path.basename(next(iter(designs)).project_designs)
         else:
-            location_name = os.path.basename(location)
+            location_name = os.path.splitext(os.path.basename(location))[0]
         time_stamp = time.strftime('%y%m%d-%H%M%S')
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
