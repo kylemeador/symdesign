@@ -1482,13 +1482,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_na_index = scores_df.index[scores_df.isna().any(axis=1)]  # scores_df.where()
             residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
             drop_na_index = np.union1d(scores_na_index, residue_na_index)
-            protocol_s.drop(drop_na_index, inplace=True, errors='ignore')
-            scores_df.drop(drop_na_index, inplace=True, errors='ignore')
-            residue_df.drop(drop_na_index, inplace=True, errors='ignore')
-            for idx in drop_na_index:
-                residue_dict.pop(idx)
-            self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
-            # might have to remove these from all_design_scores in the case that that is used as a dictionary again
+            if drop_na_index.any():
+                protocol_s.drop(drop_na_index, inplace=True, errors='ignore')
+                scores_df.drop(drop_na_index, inplace=True, errors='ignore')
+                residue_df.drop(drop_na_index, inplace=True, errors='ignore')
+                for idx in drop_na_index:
+                    residue_dict.pop(idx)
+                self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
+                # might have to remove these from all_design_scores in the case that that is used as a dictionary again
 
             other_pose_metrics['observations'] = len(scores_df)
 
@@ -1745,7 +1746,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # CONSTRUCT: Create pose series and format index names
             pose_stat_s = pd.concat([trajectory_df.loc[stat, :] for stat in stats_metrics],
-                                    keys=[list(zip(stats_metrics, repeat('pose')))])
+                                    keys=list(zip(stats_metrics, repeat('pose'))))
             # Collect protocol specific metrics in series
             protocol_stats = []
             for stat in stats_metrics:
