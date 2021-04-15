@@ -1562,8 +1562,8 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
         pose_res_dict = {}
         for profile in profile_dict:  # both mut_freq and profile_dict[profile] are one-indexed
-            pose_res_dict['divergence_%s' % profile] = SequenceProfile.pos_specific_jsd(mutation_frequencies,
-                                                                                        profile_dict[profile])
+            pose_res_dict['divergence_%s' % profile] = SequenceProfile.position_specific_jsd(mutation_frequencies,
+                                                                                             profile_dict[profile])
         # if 'fragment' in profile_dict:
         pose_res_dict['divergence_interface'] = SequenceProfile.compute_jsd(mutation_frequencies, interface_bkgd)
         # pose_res_dict['hydrophobic_collapse_index'] = hci()  # TODO HCI
@@ -1620,8 +1620,8 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
                                                for chain in all_design_sequences}
             protocol_alignment = SequenceProfile.multi_chain_alignment(sequences_by_protocol[protocol])
             protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'], interface_residues)
-            protocol_res_dict = {'divergence_%s' % profile: SequenceProfile.pos_specific_jsd(protocol_mutation_freq,
-                                                                                             profile_dict[profile])
+            protocol_res_dict = {'divergence_%s' % profile: SequenceProfile.position_specific_jsd(protocol_mutation_freq,
+                                                                                                  profile_dict[profile])
                                  for profile in profile_dict}  # both prot_freq and profile_dict[profile] are zero indexed
             protocol_res_dict['divergence_interface'] = SequenceProfile.compute_jsd(protocol_mutation_freq,
                                                                                     interface_bkgd)
