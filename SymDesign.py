@@ -714,7 +714,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide
     # -----------------------------------------------------------------------------------------------------------------
-    if args.guide or args.module == '':
+    if args.guide or not args.module:
         if not args.module:
             with open(PUtils.readme, 'r') as f:
                 print(f.read(), end='')
@@ -1005,7 +1005,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.orient())
 
-        terminate(args.module, design_directories, results=results)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'find_asu':
         if args.multi_processing:
@@ -1014,7 +1014,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.find_asu())
 
-        terminate(args.module, design_directories, results=results)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
@@ -1023,7 +1023,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.expand_asu())
 
-        terminate(args.module, design_directories, results=results)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
@@ -1083,7 +1083,10 @@ if __name__ == '__main__':
             results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
         else:
             for design in design_directories:
-                design.generate_interface_fragments()
+                results.append(design.generate_interface_fragments())
+
+        terminate(args.module, design_directories, location=location, results=results, output=True)
+
     # ---------------------------------------------------
     elif args.module == PUtils.interface_design:  # -i fragment_library, -p mpi, -x suspend
         if queried_flags['design_with_evolution']:
@@ -1096,8 +1099,7 @@ if __name__ == '__main__':
             results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads=threads)
         else:
             for design in design_directories:
-                result = design.interface_design()
-                results.append(result)
+                results.append(design.interface_design())
 
         terminate(args.module, design_directories, location=location, results=results, output=True)
 
@@ -1151,9 +1153,8 @@ if __name__ == '__main__':
             results = SDUtils.mp_map(DesignDirectory.design_analysis, design_directories, threads=threads)
         else:
             for design in design_directories:
-                result = design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
-                                                figures=args.figures)
-                results.append(result)
+                results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
+                                                      figures=args.figures))
 
         terminate(args.module, design_directories, location=location, results=results, output=True)
     # ---------------------------------------------------
@@ -1228,7 +1229,7 @@ if __name__ == '__main__':
                 selected_poses_df.to_csv(new_dataframe)
                 logger.info('New DataFrame was written to %s' % new_dataframe)
 
-            # Sort results according to clustered poses if clustering exists  # Todo parameterize names?
+            # Sort results according to clustered poses if clustering exists  # Todo parameterize name
             # cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
             cluster_map = os.path.join(program_root, PUtils.data.title(), '%s.pkl' % PUtils.clustered_poses)
             if os.path.exists(cluster_map):
@@ -1250,7 +1251,7 @@ if __name__ == '__main__':
                     design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
                                           for pose in selected_poses]
                     compositions = group_compositions(design_directories)
-                    if args.multi_processing:  # Todo
+                    if args.multi_processing:
                         results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
                         cluster_representative_pose_member_map = {}
                         for result in results:
@@ -1329,8 +1330,6 @@ if __name__ == '__main__':
         compositions = group_compositions(design_directories)
 
         if args.multi_processing:
-            # results, exceptions = zip(*SDUtils.mp_map(fix_files_mp, design_directories, threads=threads))
-            # pose_map = pose_rmsd_mp(design_directories, threads=threads)
             results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
             cluster_representative_pose_member_map = {}
             for result in results:
