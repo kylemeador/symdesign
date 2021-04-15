@@ -851,11 +851,11 @@ if __name__ == '__main__':
                                       'location. Are you sure you want to run with -%s %s?'
                                       % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
 
+        logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
         if not args.debug and not queried_flags['skip_logging']:
             logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
                         % design_directories[0].log.handlers[0].baseFilename)
 
-        logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
     elif queried_flags['directory_type'] == PUtils.nano:  # Todo consolidate this operation with above and nano orient
         # Getting PDB1 and PDB2 File paths
         if args.pdb_path1:
