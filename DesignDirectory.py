@@ -1676,6 +1676,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                              grouped_pc_energy_df_dict[stat].index[j])] = energy_dist
                     elif stat == 'std':
                         # sim_stdev['similarity'] = similarity_stat_dict[stat]
+                        # Todo need to square each pc, add them up, divide by the group number, then take the sqrt
                         sim_stdev['seq_distance'] = grouped_pc_seq_df_dict[stat]
                         sim_stdev['energy_distance'] = grouped_pc_energy_df_dict[stat]
 
@@ -1699,10 +1700,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # Process similarity between protocols
                 sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
                                            keys=list(sim_measures.keys()))
-                # Todo test formatting
+                # Todo test
                 sim_stdev_s = pd.concat(list(sim_stdev.values()),
                                         keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
-                sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
+                # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
+                sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
                 if figures:  # Todo ensure output is as expected
                     _path = os.path.join(self.all_scores, str(self))
