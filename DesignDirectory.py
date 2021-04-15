@@ -1535,8 +1535,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 protocol_res_dict['divergence_interface'] = compute_jsd(protocol_mutation_freq, interface_bkgd)
 
                 # Get per residue divergence metric by protocol
-                for key in protocol_res_dict:
-                    stats_by_protocol[protocol]['%s_per_res' % key] = per_res_metric(protocol_res_dict[key])
+                for key, sequence_info in protocol_res_dict.items():
+                    stats_by_protocol[protocol]['%s_per_res' % key] = per_res_metric(sequence_info)
                     # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
                 # Get per design observed background metric by protocol
                 for profile in profile_dict:
@@ -1761,7 +1761,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             protocol_stat_s = pd.concat([pd.Series(stats) for stats in stats_by_protocol.values()],
                                         keys=list(zip(repeat('stats'), stats_by_protocol.keys())))
-            protocol_stat_s = pd.concat([protocol_stat_s] + protocol_stats)
+            protocol_stat_s = pd.concat([protocol_stat_s, protocol_stats])
 
             # Add wild-type sequence metrics to residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
