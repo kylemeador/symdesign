@@ -1128,6 +1128,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # ensure format matches clean_asu standard
         asu.write(out_path=self.asu)
 
+    def symmetric_assembly_is_clash(self):
+        if self.pose.symmetric_assembly_is_clash():
+            if self.ignore_clashes:
+                self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu)
+            else:
+                raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
+                                  'would like to generate the Assembly anyway, re-submit the command with '
+                                  '--ignore_clashes')
+
     @handle_design_errors(errors=(DesignError, AssertionError))
     def expand_asu(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
@@ -1139,13 +1148,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not self.pose:
             self.load_pose()
         if self.pose.symmetry:
-            if self.pose.symmetric_assembly_is_clash():
-                if self.ignore_clashes:
-                    self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu)
-                else:
-                    raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
-                                      'would like to generate the Assembly anyway, re-submit the command with '
-                                      '--ignore_clashes')
+            self.symmetric_assembly_is_clash()
             if self.output_assembly:  # True by default when expand_asu module is used
                 self.pose.get_assembly_symmetry_mates()
                 self.pose.write(out_path=self.assembly)
@@ -1174,13 +1177,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not self.pose:
             self.load_pose()
         if self.pose.symmetry:
-            if self.pose.symmetric_assembly_is_clash():
-                if self.ignore_clashes:
-                    self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu)
-                else:
-                    raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
-                                      'would like to generate the Assembly anyway, re-submit the command with '
-                                      '--ignore_clashes')
+            self.symmetric_assembly_is_clash()
             if self.output_assembly:
                 self.pose.get_assembly_symmetry_mates()
                 self.pose.write(out_path=self.assembly)
