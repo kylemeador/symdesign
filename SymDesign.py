@@ -421,7 +421,7 @@ def terminate(module, designs, location=None, results=None, output=False):
         # program_root = design_directories[0].program_root
         designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, time_stamp))
         with open(designs_file, 'w') as f:
-            f.write('\n'.join(design.path for design in success))
+            f.write('%s\n' % '\n'.join(design.path for design in success))
         logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
                         'internal checks/filtering. Utilize this file to interact with %s designs in future commands '
                         'for this project such as \'%s --file %s MODULE\'\n'
