@@ -1005,7 +1005,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.orient())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(args.module, design_directories, location=location, results=results, output=True)
     # ---------------------------------------------------
     elif args.module == 'find_asu':
         if args.multi_processing:
@@ -1014,7 +1014,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.find_asu())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(args.module, design_directories, location=location, results=results, output=True)
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
@@ -1023,7 +1023,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.expand_asu())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(args.module, design_directories, location=location, results=results, output=True)
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
