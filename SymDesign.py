@@ -1149,6 +1149,7 @@ if __name__ == '__main__':
             logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
                             'data! Please modify that file or specify a new output name with -o/--output'
                             % out_path)
+            exit(1)
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.design_analysis, design_directories, threads=threads)
         else:
