@@ -1774,13 +1774,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     suffix = ''
                 else:
                     suffix = '_%s' % stat
-                protocol_stats = pd.concat([trajectory_df.loc['%s%s' % (protocol, suffix), significance_columns]
-                                            for protocol in unique_protocols],
-                                           keys=list(zip(repeat(stat), unique_protocols)))
+                protocol_stats.append(pd.concat([trajectory_df.loc['%s%s' % (protocol, suffix), significance_columns]
+                                                 for protocol in unique_protocols],
+                                                keys=list(zip(repeat(stat), unique_protocols))))
 
             protocol_stat_s = pd.concat([pd.Series(stats) for stats in stats_by_protocol.values()],
                                         keys=list(zip(repeat('stats'), stats_by_protocol.keys())))
-            protocol_stat_s = pd.concat([protocol_stat_s, protocol_stats])
+            protocol_stat_s = pd.concat([protocol_stat_s] + protocol_stats)
 
             # Add wild-type sequence metrics to residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
