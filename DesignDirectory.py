@@ -1507,12 +1507,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             mutation_frequencies = clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_dict[profile] are one-indexed
-            divergence_stats = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
-                                for profile, background in profile_dict.items()}
-            divergence_stats['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
+            divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
+                          for profile, background in profile_dict.items()}
+            divergence['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
-            for divergence_type, stat in list(divergence_stats.items()):
-                divergence_stats['%s_per_res' % divergence_type] = per_res_metric(stat)
+            divergence_stats = {'%s_per_res' % divergence_type: per_res_metric(stat)
+                                for divergence_type, stat in divergence.items()}
             # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
             divergence_stats_s = pd.concat([pd.Series(divergence_stats)], keys=[('seq_design', 'pose')], copy=False)
 
