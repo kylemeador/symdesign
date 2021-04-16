@@ -396,10 +396,6 @@ def terminate(module, designs, location=None, results=None, output=False):
     Returns:
         (None)
     """
-    # any_exceptions = [exception for exception in all_exceptions if exception]
-    # any_exceptions = list(filter(bool, exceptions))
-    # any_exceptions = list(set(exceptions))
-    # if len(any_exceptions) > 1 or any_exceptions and any_exceptions[0]:
     success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
     exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
 
@@ -450,7 +446,7 @@ def terminate(module, designs, location=None, results=None, output=False):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
-                        PUtils.nano: [PUtils.nano]}
+                        PUtils.nano: [PUtils.nano], 'metrics_bound': 'metrics_bound'}
         if module in module_files:
             if len(success) > 0:
                 all_commands = {stage: [] for stage in module_files[module]}
@@ -469,14 +465,7 @@ def terminate(module, designs, location=None, results=None, output=False):
                     ' to understand the variables or ask for help if you are still unsure.')
                 logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
                             % ('\n\t'.join('sbatch %s' % value for value in sbatch_files.values())))
-                # logger.info('After submission, designs which successfully completed \'%s\' will be listed in \'%s\''
-                #             ', while designs which failed will be listed in \'%s\''
-                #             % (stage, success_file, failure_file))
-                # # logger.info('To process all commands in correct order, execute these commands sequentially, ensuring '
-                # #             'the prior one has completed before issuing the next:\n\t%s' %
-                # #             ('\n\t'.join('sbatch %s' % sbatch[stage] for stage in sbatch)))
-                print('\n\n')
-
+    print('\n')
     exit(exit_code)
 
 
@@ -1084,6 +1073,17 @@ if __name__ == '__main__':
         else:
             for design in design_directories:
                 results.append(design.generate_interface_fragments())
+
+        terminate(args.module, design_directories, location=location, results=results, output=True)
+
+    # ---------------------------------------------------
+    elif args.module == 'metrics_bound':
+        # Start pose processing and preparation for Rosetta
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.rosetta_metrics_bound, design_directories, threads=threads)
+        else:
+            for design in design_directories:
+                results.append(design.rosetta_metrics_bound())
 
         terminate(args.module, design_directories, location=location, results=results, output=True)
 

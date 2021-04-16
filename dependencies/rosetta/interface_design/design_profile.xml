@@ -8,16 +8,18 @@
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
-		# used for selecting residues on one side of the interface
-		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="1" reverse="0"/> # %%interface1%%
+		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+		<Index name="interface1_asu" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface1" selector="interface1_asu" />
 		# same, but for residues from chain "B"
-		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="1" reverse="0"/> # %%interface2%%
+		<Index name="interface2_asu" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface2" selector="interface2_asu" />
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
-		# other residues that may be designable
-		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
+		# other residues that may be designable, excluding symmetric copies
+		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		# all designable residues
 		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
 		# the negation of all designable residues

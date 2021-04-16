@@ -502,8 +502,7 @@ def remove_duplicates(_iter):
     return [x for x in _iter if not (x in seen or seen_add(x))]
 
 
-def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash',
-                       status_wrap=None):
+def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash', status_wrap=None):
     """Take a command and write to a name.sh script. By default bash is used as the shell interpreter
 
     Args:
@@ -511,7 +510,7 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
     Keyword Args:
         name='script' (str): The name of the output shell script
         out_path=os.getcwd() (str): The location where the script will be written
-        additional=None (iter): Additional commands also formatted using subprocess.list2cmdline
+        additional=None (list): Additional commands also formatted using subprocess.list2cmdline()
         shell='bash' (str): The shell which should interpret the script
         status_wrap=None (str): The name of a file in which to check and set the status of the command in the shell
     Returns:
