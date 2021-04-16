@@ -858,16 +858,28 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         flags = copy.deepcopy(rosetta_flags)
         flags.extend(flag_options[stage])
         flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores])
-        variables_for_flag_file = '-parser:script_vars ' + ' '.join('%s=%s' % (variable, str(value))
-                                                                    for variable, value in flag_variables)
-        flags.append(variables_for_flag_file)
+        flags.append('-parser:script_vars '
+                     + ' '.join('%s=%s' % (variable, str(value)) for variable, value in flag_variables))
 
         out_file = os.path.join(out_path, 'flags_%s' % stage)
         with open(out_file, 'w') as f:
-            f.write('\n'.join(flags))
-            f.write('\n')
+            f.write('%s\n' % '\n'.join(flags))
 
         return out_file
+
+    def rosetta_metrics_bound(self):
+        """Generate a script to calculate the metrics for a bound pose using the existing flags_metrics file"""
+        flags_metric = os.path.join(self.scripts, 'flags_%s' % PUtils.stage[3])
+        pdb_list = os.path.join(self.scripts, 'design_files.txt')
+        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
+        main_cmd = copy.copy(script_cmd)
+        metric_cmd = main_cmd + \
+            ['-in:file:l', pdb_list, '-in:file:native', self.refined_pdb, '@%s' % os.path.join(self.path, flags_metric),
+             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file),
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s_bound.xml' % PUtils.stage[3])]
+        return write_shell_script(subprocess.list2cmdline(generate_files_cmd), name='%s_bound' % PUtils.stage[3],
+                                  out_path=self.scripts,  # status_wrap=self.info_pickle,
+                                  additional=[subprocess.list2cmdline(metric_cmd)])
 
     def prepare_rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
