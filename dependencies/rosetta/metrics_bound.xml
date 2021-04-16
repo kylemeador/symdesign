@@ -20,7 +20,7 @@
 		<Subroutine name="design_profile" xml_fname="%%scripts%%/interface_design/design_profile.xml"/>
 		<Subroutine name="favor_profile" xml_fname="%%scripts%%/interface_design/favor_profile.xml"/>
 <!--		<Subroutine name="consensus_design" xml_fname="%%scripts%%/interface_design/consensus_design.xml"/>-->
-		<Subroutine name="metrics_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
+		<Subroutine name="metrics_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound_DEV.xml"/>
 		# Switch reporting to identify which design type or symmetry was selected
 		<SwitchMover name="no_constraint_switch" movers="no_constraint" selected="no_constraint"/>
 		<SwitchMover name="limit_to_profile_switch" movers="limit_to_profile" selected="limit_to_profile"/>
