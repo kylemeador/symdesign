@@ -278,7 +278,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     rosetta_metrics = {'shape_complementarity': StandardScaler(),  # I think a gaussian dist is preferable to MixMax
                        # 'protocol_energy_distance_sum': 0.25,  This will select poses by evolution
                        'int_composition_similarity': StandardScaler(),  # gaussian preferable to MixMax
-                       'int_energy_res_summary_delta': StandardScaler(),  # gaussian preferable to MaxAbsScaler,
+                       'interface_energy': StandardScaler(),  # gaussian preferable to MaxAbsScaler,
                        # 'observed_evolution': 0.25}  # also selects by evolution
                        }
     # assign each metric a weight proportional to it's share of the total weight
