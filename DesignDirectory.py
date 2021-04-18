@@ -26,7 +26,8 @@ from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, rem
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     residue_composition_diff, division_pairs, stats_metrics, significance_columns, protocols_of_interest, \
-    df_permutation_test, remove_score_columns, residue_template, calc_relative_sa, sequence_columns
+    df_permutation_test, remove_score_columns, residue_template, calc_relative_sa, sequence_columns, \
+    clean_up_intermediate_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
     position_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
@@ -1423,19 +1424,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 elif column.startswith('hbonds_res_selection'):
                     hbonds_columns.append(column)
             rename_columns.update(report_columns)
-            rename_columns.update({'R_int_sc': 'shape_complementarity', 'R_full_stability': 'full_stability_complex'})
-            #                        'R_full_stability_oligomer_A': 'full_stability_oligomer_A',
-            #                        'R_full_stability_oligomer_B': 'full_stability_oligomer_B',
-            #                        'R_full_stability_A_oligomer': 'full_stability_oligomer_A',
-            #                        'R_full_stability_B_oligomer': 'full_stability_oligomer_B',
-            #                        'R_int_energy_context_A_oligomer': 'int_energy_context_oligomer_A',
-            #                        'R_int_energy_context_B_oligomer': 'int_energy_context_oligomer_B'})
-            #                       TODO TEST if DONE? remove the update when metrics protocol is changed
             res_columns = hbonds_columns + per_res_columns
             remove_columns += res_columns + [groups]
 
             # Format columns
-            scores_df = scores_df.rename(columns=rename_columns)
+            scores_df.rename(columns=rename_columns, inplace=True)
             scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
             # Check proper input
             self.log.debug('Score columns present: %s' % scores_df.columns)
@@ -1458,8 +1451,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Replace empty strings with numpy.notanumber (np.nan), drop str columns, and convert remaining to float
             scores_df = scores_df.replace('', np.nan)
             scores_df = scores_df.drop(remove_columns, axis=1, errors='ignore').astype(float)
-            # Remove unnecessary and Rosetta score terms TODO learn know how to produce them. Not in FastRelax...
-            scores_df.drop(unnecessary + rosetta_terms, axis=1, inplace=True, errors='ignore')
+            # Remove unnecessary and Rosetta score terms besides ref
+            # TODO learn know how to produce them in output score file. Not in FastRelax...
+            rosetta_terms_to_remove = copy.copy(rosetta_terms)
+            rosetta_terms_to_remove.remove('ref')
+            scores_df.drop(unnecessary + rosetta_terms_to_remove, axis=1, inplace=True, errors='ignore')
 
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
@@ -1559,6 +1555,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df = columns_to_new_column(scores_df, summation_pairs)
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
+            scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
 
             # Merge processed dataframes
             scores_df = pd.merge(protocol_s, scores_df, left_index=True, right_index=True)
