@@ -626,7 +626,8 @@ def dirty_hbond_processing(score_dict, offset=None):  # columns
     if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
     Args:
         score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
-                            'yhh_planarity':0.885, 'hbonds_res_selection': '15A,21A,26A,35A,...'}, ...}
+                            'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...',
+                            'hbonds_res_selection_1_unbound': '26A'}, ...}
     Keyword Args:
         offset=None (dict): {'A': 0, 'B': 102} The amount to offset each chain by
     Returns:
@@ -634,25 +635,26 @@ def dirty_hbond_processing(score_dict, offset=None):  # columns
     """
     hbond_dict = {}
     res_offset = 0
-    for entry in score_dict:
+    for entry, data in score_dict.items():
         entry_dict = {}
         # for column in columns:
-        for column in score_dict[entry]:
+        for column in data:
             if column.startswith('hbonds_res_selection'):
-                hbonds = score_dict[entry][column].split(',')
+                hbonds = data[column].split(',')
+                meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
                 # ensure there are hbonds present
                 if hbonds[0] == '' and len(hbonds) == 1:
                     hbonds = set()
                 else:
-                    if column.split('_')[-1] == 'unbound' and offset:  # 'oligomer'
+                    if meta_data[-1] == 'unbound' and offset:  # 'oligomer'
                         # find offset according to chain
-                        res_offset = offset[column.split('_')[-2]]
+                        res_offset = offset[meta_data[-2]]
                     for i in range(len(hbonds)):
-                        hbonds[i] = int(hbonds[i][:-1]) + res_offset  # remove chain ID off last index of string
-                entry_dict[column.split('_')[3]] = set(hbonds)
+                        hbonds[i] = res_offset + int(hbonds[i][:-1])  # remove chain ID off last index of string
+                entry_dict[meta_data[3]] = set(hbonds)
         if len(entry_dict) == 3:
-            hbond_dict[entry] = list((entry_dict['complex'] - entry_dict['1']) - entry_dict['2'])
-            #                                                   entry_dict['A']) - entry_dict['B'])
+            hbond_dict[entry] = list(entry_dict['complex'].difference(entry_dict['1']).difference(entry_dict['2']))
+            #                                                         entry_dict['A']).difference(entry_dict['B'])
         else:
             hbond_dict[entry] = list()
             # logger.error('%s: Missing hbonds_res_selection_ data for %s. Hbonds inaccurate!' % (pose, entry))
@@ -717,9 +719,9 @@ def residue_composition_diff(row):
     return _sum / 3.0
 
 
-residue_template = {'energy': {'complex': 0, 'unbound': 0, 'fsp': 0, 'cst': 0},
-                    'sasa': {'polar': {'complex': 0, 'unbound': 0}, 'hydrophobic': {'complex': 0, 'unbound': 0},
-                             'total': {'complex': 0, 'unbound': 0}},
+residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.},
+                    'sasa': {'polar': {'complex': 0., 'unbound': 0.}, 'hydrophobic': {'complex': 0., 'unbound': 0.},
+                             'total': {'complex': 0., 'unbound': 0.}},
                     'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
 
 
@@ -741,7 +743,6 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
     """  # , 'hot_spot': 1
     total_residue_dict = {}
     for entry in score_dict:
-        print(entry)
         residue_dict = {}
         # for key, value in score_dict[entry].items():
         for column in columns:
@@ -805,31 +806,34 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
     return total_residue_dict
 
 
-def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
+def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  # pose_length,
     """Process Residue Metrics from Rosetta score dictionary
 
     One-indexed residues
     Args:
         score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
-                            'yhh_planarity':0.885, 'hbonds_res_selection': '15A,21A,26A,35A,...'}, ...}
+                            'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
         mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
                            '0001': {mutation_index: {}, ...}, ...}
     Keyword Args:
         offset=None (dict): {'A': 0, 'B': 102}
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
-        residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
-            22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}  # , 'hot_spot': 1
+        (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 22.29,
+                               'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0},  # , 'hot_spot': 1
+                          ...}, ...}
     """
+    # pose_length (int): The number of residues in the pose
     total_residue_dict = {}
-    for entry in score_dict:
+    for design, scores in score_dict.items():
         residue_dict = {}
         # for column in columns:
-        for key, value in score_dict[entry].items():
+        for key, value in scores.items():
             # metadata = column.split('_')
             if key.startswith('per_res_'):
                 metadata = key.split('_')
-                res = int(metadata[-1])
+                res = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
+                # res = int(metadata[-1])
                 r_type = metadata[2]  # energy or sasa
                 pose_state = metadata[-2]  # oligomer or complex
                 if pose_state == 'unbound' and offset:
@@ -839,48 +843,56 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):
                 if r_type == 'sasa':
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     polarity = metadata[3]
-                    residue_dict[res][r_type][polarity][pose_state] = round(score_dict[entry][key], 3)
-                    # residue_dict[res][r_type][polarity][pose_state] = round(score_dict[entry][column], 3)
+                    residue_dict[res][r_type][polarity][pose_state] = round(value, 3)
+                    # residue_dict[res][r_type][polarity][pose_state] = round(score_dict[design][column], 3)
                 else:
                     # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
-                    residue_dict[res][r_type][pose_state] = round(score_dict[entry][key], 3)
+                    residue_dict[res][r_type][pose_state] += value  # round(, 3)
         # if residue_dict:
-        for res in residue_dict:
+        for res, data in residue_dict.items():
             try:
-                residue_dict[res]['type'] = mutations[entry][res]
+                data['type'] = mutations[design][res]  # % pose_length]
             except KeyError:
-                residue_dict[res]['type'] = mutations['reference'][res]  # fill with aa from wild_type sequence
+                data['type'] = mutations['reference'][res]  # % pose_length]  # fill with aa from wt seq
             if hbonds:
-                if res in hbonds[entry]:
-                    residue_dict[res]['hbond'] = 1
-            residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                - residue_dict[res]['energy']['unbound']  # - residue_dict[res]['energy']['fsp']
-            rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                 residue_dict[res]['sasa']['total']['unbound'])
-            rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                residue_dict[res]['sasa']['total']['complex'])
-            for polarity in residue_dict[res]['sasa']:
+                if res in hbonds[design]:
+                    data['hbond'] = 1
+            data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']  # - data['energy']['fsp']
+            relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
+            relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
+            for polarity in data['sasa']:
                 # convert sasa measurements into bsa measurements
-                residue_dict[res]['bsa_%s' % polarity] = round(residue_dict[res]['sasa'][polarity]['unbound']
-                                                               - residue_dict[res]['sasa'][polarity]['complex'], 2)
-            if residue_dict[res]['bsa_total'] > 0:
-                if rel_oligomer_sasa < 0.25:
-                    residue_dict[res]['support'] = 1
-                elif rel_complex_sasa < 0.25:
-                    residue_dict[res]['core'] = 1
+                data['bsa_%s' % polarity] = round(data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex'],
+                                                  2)
+            if data['bsa_total'] > 0:
+                if relative_oligomer_sasa < 0.25:
+                    data['support'] = 1
+                elif relative_complex_sasa < 0.25:
+                    data['core'] = 1
                 else:
-                    residue_dict[res]['rim'] = 1
+                    data['rim'] = 1
             else:  # Todo remove res from dictionary as no interface design should be done? keep interior res constant?
-                if rel_complex_sasa < 0.25:
-                    residue_dict[res]['interior'] = 1
+                if relative_complex_sasa < 0.25:
+                    data['interior'] = 1
                 # else:
                 #     residue_dict[res]['surface'] = 1
 
-            residue_dict[res].pop('sasa')
-            residue_dict[res].pop('energy')
+            data.pop('sasa')
+            data.pop('energy')
             # if residue_dict[res]['energy'] <= hot_spot_energy:
             #     residue_dict[res]['hot_spot'] = 1
-        total_residue_dict[entry] = residue_dict
+        # # Consolidate symmetric residues into a single design
+        # for res, residue_data in residue_dict.items():
+        #     if res > pose_length:
+        #         new_residue_number = res % pose_length
+        #         for key in residue_data:  # ['bsa_polar', 'bsa_hydrophobic', 'bsa_total', 'core', 'energy_delta', 'hbond', 'interior', 'rim', 'support', 'type']
+        #             # This mechanism won't concern SASA symmetric residues info as symmetry will not be used for SASA
+        #             # ex: 'bsa_polar', 'bsa_hydrophobic', 'bsa_total', 'core', 'interior', 'rim', 'support'
+        #             # really only checking for energy_delta
+        #             if key in ['energy_delta']:
+        #                 residue_dict[new_residue_number][key] += residue_data.pop(key)
+
+        total_residue_dict[design] = residue_dict
 
     return total_residue_dict
 
