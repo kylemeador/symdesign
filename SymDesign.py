@@ -446,7 +446,8 @@ def terminate(module, designs, location=None, results=None, output=False):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
-                        PUtils.nano: [PUtils.nano], 'metrics_bound': 'metrics_bound'}
+                        PUtils.nano: [PUtils.nano], 'metrics_bound': 'metrics_bound',
+                        'interface_metrics': 'interface_metrics'}
         if module in module_files:
             if len(success) > 0:
                 all_commands = {stage: [] for stage in module_files[module]}
@@ -596,6 +597,13 @@ if __name__ == '__main__':
     #                            help='Should Rosetta design trajectory be suspended?\nDefault=False')
     # parser_design.add_argument('-p', '--mpi', action='store_true',
     #                            help='Should job be set up for cluster submission?\nDefault=False')
+    # ---------------------------------------------------
+    parser_interface_metrics = \
+        subparsers.add_parser('interface_metrics',
+                              help='Set up scripts to analyze interface metrics from an interface design job')
+    # ---------------------------------------------------
+    parser_metrics_bound = \
+        subparsers.add_parser('metrics_bound', help='Set up scripts to analyze bound interface metrics')
     # ---------------------------------------------------
     parser_analysis = subparsers.add_parser(PUtils.analysis,
                                             help='Analyze all designs specified. %s --guide %s will inform you about '
@@ -1073,6 +1081,17 @@ if __name__ == '__main__':
         else:
             for design in design_directories:
                 results.append(design.generate_interface_fragments())
+
+        terminate(args.module, design_directories, location=location, results=results, output=True)
+
+    # ---------------------------------------------------
+    elif args.module == 'interface_metrics':
+        # Start pose processing and preparation for Rosetta
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.rosetta_interface_metrics, design_directories, threads=threads)
+        else:
+            for design in design_directories:
+                results.append(design.rosetta_interface_metrics())
 
         terminate(args.module, design_directories, location=location, results=results, output=True)
 
