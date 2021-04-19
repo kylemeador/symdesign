@@ -936,12 +936,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         metric_cmd_bound = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.refined_pdb, '@%s' % os.path.join(self.path, flags_design),
-             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label true',
+             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'interface_%s.xml' % PUtils.stage[3])]
 
         metric_cmd_unbound = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.refined_pdb, '@%s' % os.path.join(self.path, flags_design),
-             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label true',
+             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s_DEV.xml' % PUtils.stage[3])]  # TODO '_DEV'
 
         metric_cmds = [metric_cmd_bound] + \
@@ -988,8 +988,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             sym_def_file = 'null'
             protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
-            self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it is'
-                              'an ASU, may be missing crucial contacts. Is this what you want?')
+            self.log.warning('No symmetry invoked during design. Rosetta will still design your PDB, however, if it is'
+                             'an ASU, may be missing crucial contacts. Is this what you want?')
 
         if self.nano:  # Todo may need to do this for non Nanohedra inputs
             self.log.info('Input Oligomers: %s' % ', '.join(oligomer.name for oligomer in self.oligomers))
