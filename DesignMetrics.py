@@ -146,10 +146,10 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'The similarity to the expected interface composition given interface buried '
                                       'surface area. 1 is similar to natural interfaces, 0 is dissimilar',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'int_connectivity_1':
+                  'interface_connectivity_1':
                       {'description': 'How embedded is interface1 in the rest of the protein?',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'int_connectivity_2':
+                  'interface_connectivity_2':
                       {'description': 'How embedded is interface2 in the rest of the protein?',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
                   'int_energy_density':
@@ -378,7 +378,7 @@ nanohedra_metrics = ['nanohedra_score_per_res', 'nanohedra_score_center_per_res_
 necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total', 'contact_count',
                      'coordinate_constraint', 'favor_residue_energy',
                      'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
-                     'int_connectivity_1', 'int_connectivity_2', 'interface_separation',
+                     'interface_connectivity_1', 'interface_connectivity_2', 'interface_separation',
                      'interface_energy_1_bound', 'interface_energy_2_bound',
                      'interface_energy_1_unbound', 'interface_energy_2_unbound', 'interface_energy_complex',
                      'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch',
@@ -394,7 +394,7 @@ final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_c
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
                  'divergence_interface_per_residue', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
-                 'int_composition_similarity', 'int_connectivity_1', 'int_connectivity_2',
+                 'int_composition_similarity', 'interface_connectivity_1', 'interface_connectivity_2',
                  'interface_energy_1_unbound', 'interface_energy_2_unbound',
                  'interface_energy_complex', 'interface_energy', 'interface_energy_unbound',
                  'int_separation',
@@ -437,7 +437,10 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      'sasa_res_summary_total_1_bound': 'sasa_total_1_bound',
                      'sasa_res_summary_hydrophobic_2_bound': 'sasa_hydrophobic_2_bound',
                      'sasa_res_summary_polar_2_bound': 'sasa_polar_2_bound',
-                     'sasa_res_summary_total_2_bound': 'sasa_total_2_bound'}
+                     'sasa_res_summary_total_2_bound': 'sasa_total_2_bound',
+                     'R_int_connectivity_1': 'interface_connectivity_1',
+                     'R_int_connectivity_2': 'interface_connectivity_2'
+                     }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
 columns_to_remove = ['decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',

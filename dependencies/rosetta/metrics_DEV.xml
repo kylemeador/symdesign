@@ -99,10 +99,10 @@
 	<FILTERS>
 <!--		<ScoreType name="full_stability_%%interface%%_unbound" scorefxn="2015_nano" score_type="total_score" threshold="20000" confidence="1.0"/>-->
 		# find the average degree of connectivity to residues surrounding specified residues
-		<AverageDegree name="int_connectivity_%%interface%%" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
+		<AverageDegree name="interface_connectivity_%%interface%%" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
 <!--		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_%%interface%%_unbound" in_context="1" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" confidence="1.0"/>-->
 <!--		<Report name="R_full_stability_%%interface%%_unbound" 			filter="full_stability_%%interface%%_unbound"/>-->
-		<Report name="R_int_connectivity_%%interface%%" 				filter="int_connectivity_%%interface%%"/>
+		<Report name="R_interface_connectivity_%%interface%%" 				filter="interface_connectivity_%%interface%%"/>
 <!--		<Report name="R_int_energy_context_%%interface%%_unbound" 		filter="int_energy_context_%%interface%%_unbound"/>-->
 	</FILTERS>
 
@@ -118,7 +118,7 @@
 		<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
 		<Add mover_name="run_metrics_bound_sum_sasa_total"/>
 		<Add mover_name="repack_loop"/> # Unused in P432 for minimization of the unbound state
-		<Add filter_name="R_int_connectivity_%%interface%%"/>
+		<Add filter_name="R_interface_connectivity_%%interface%%"/>
 <!--		<Add filter_name="R_full_stability_%%interface%%_unbound"/>-->
 		<!--		<Add filter_name="R_int_energy_context_%%interface%%_unbound"/>-->
 		<Add mover_name="run_metrics_unbound"/>
