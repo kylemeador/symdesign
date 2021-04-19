@@ -950,7 +950,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Create executable to gather interface Metrics on all Designs
         write_shell_script(subprocess.list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
                            out_path=self.scripts,  # status_wrap=self.info_pickle,
-                           additional=[subprocess.list2cmdline(command) for n, command in enumerate(metric_cmds)])
+                           additional=[subprocess.list2cmdline(command) for command in metric_cmds])
 
     def rosetta_metrics_bound(self):
         """Generate a script to calculate the metrics for a bound pose using the existing flags_design file"""
