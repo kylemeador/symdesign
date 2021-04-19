@@ -58,7 +58,8 @@ flag_options = \
 
 process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 2, PUtils.stage[3]: 2, PUtils.stage[5]: 2, PUtils.nano: 1,
                  PUtils.stage[6]: 1, PUtils.stage[7]: 1, PUtils.stage[8]: 1, PUtils.stage[9]: 1, PUtils.stage[10]: 1,
-                 PUtils.stage[11]: 1}
+                 PUtils.stage[11]: 1, 'metrics_bound': 2, 'interface_metrics': 2
+                 }
 
 
 class GracefulKiller:
