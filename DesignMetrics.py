@@ -383,9 +383,9 @@ necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano',
                      'interface_energy_1_unbound', 'interface_energy_2_unbound', 'interface_energy_complex',
                      'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch',
                      'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound', 'hbonds_res_selection_2_bound',
-                     'sasa_hydrophobic_1_unbound', 'sasa_hydrophobic_2_unbound',
-                     'sasa_polar_1_unbound', 'sasa_polar_2_unbound',
-                     'sasa_total_1_unbound', 'sasa_total_2_unbound'}
+                     'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
+                     'sasa_polar_1_bound', 'sasa_polar_2_bound',
+                     'sasa_total_1_bound', 'sasa_total_2_bound'}
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'number_hbonds', 'total_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments', 'interface_b_factor_per_res',
