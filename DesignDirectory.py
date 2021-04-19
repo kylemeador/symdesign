@@ -1448,8 +1448,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             res_columns = hbonds_columns + per_res_columns
             remove_columns += res_columns + [groups]
 
-            # Format columns
-            scores_df.rename(columns=rename_columns, inplace=True)
+            # Rename and Format columns
+            scores_df.rename(columns=report_columns, inplace=True)
             scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
             # Check proper input
             self.log.debug('Score columns present: %s' % scores_df.columns)
