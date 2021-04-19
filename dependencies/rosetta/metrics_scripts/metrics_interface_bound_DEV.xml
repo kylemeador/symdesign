@@ -21,11 +21,11 @@
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1" />
-		<Neighbor name="interface1_sym_neighbor" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<Neighborhood name="interface1_sym_neighbor" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
 		# same, but for residues from chain "B"
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface2_sym" selector="interface2" />
-		<Neighbor name="interface2_sym_neighbor" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
+		<Neighborhood name="interface2_sym_neighbor" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
 		# the negation of all interface residues
