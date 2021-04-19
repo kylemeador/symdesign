@@ -377,8 +377,8 @@ nanohedra_metrics = ['nanohedra_score_per_res', 'nanohedra_score_center_per_res_
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total', 'contact_count',
                      'coordinate_constraint', 'favor_residue_energy',
-                     'sasa_hydrophobic', 'sasa_polar', 'sasa_total',
-                     'int_connectivity_1', 'int_connectivity_2', 'int_separation',
+                     'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
+                     'int_connectivity_1', 'int_connectivity_2', 'interface_separation',
                      'interface_energy_1_bound', 'interface_energy_2_bound',
                      'interface_energy_1_unbound', 'interface_energy_2_unbound', 'interface_energy_complex',
                      'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch',
