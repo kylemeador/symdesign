@@ -53,7 +53,7 @@
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
-		<MoveMapFactory name="design_map" bb="0" chi="1">
+		<MoveMapFactory name="design_map" bb="1" chi="1">
 			<Backbone residue_selector="interface%%interface%%" enable="true"/> # believe this is Packer controlled so inherently symmetric
 		</MoveMapFactory>
 	</MOVE_MAP_FACTORIES>
@@ -88,7 +88,7 @@
 		# sample all rotamers
 		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/> # Unused in P432
 		# minimize all residues in design_map (move map)
-		<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
+		<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="1" chi="1"
 		<ParsedProtocol name="rotamer_trials_min_mover">
 			<Add mover_name="RT"/> # Unused in P432 for minimization of the unbound state
 			<Add mover_name="min"/>
