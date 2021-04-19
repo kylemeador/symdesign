@@ -1524,12 +1524,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             number_hbonds_s = pd.Series(number_hbonds, name='number_hbonds')
             scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
 
-            # Add design residue information to scores_df such as core, rim, and support measures
-            for r_class in residue_classificiation:
-                scores_df[r_class] = \
-                    residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
-            scores_df['int_composition_similarity'] = scores_df.apply(residue_composition_diff, axis=1)
-
             interior_residue_df = \
                 residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']].droplevel(1,
                                                                                                                 axis=1)
@@ -1557,6 +1551,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
             scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+
+            # Add design residue information to scores_df such as core, rim, and support measures
+            for r_class in residue_classificiation:
+                scores_df[r_class] = \
+                    residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
+            scores_df['int_composition_similarity'] = scores_df.apply(residue_composition_diff, axis=1)
 
             # Merge processed dataframes
             scores_df = pd.merge(protocol_s, scores_df, left_index=True, right_index=True)
