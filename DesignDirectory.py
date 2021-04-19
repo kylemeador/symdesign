@@ -1443,7 +1443,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     per_res_columns.append(column)
                 elif column.startswith('hbonds_res_selection'):
                     hbonds_columns.append(column)
-            rename_columns.update(report_columns)
+            # rename_columns.update(report_columns)
+            report_columns.update(rename_columns)
             res_columns = hbonds_columns + per_res_columns
             remove_columns += res_columns + [groups]
 
