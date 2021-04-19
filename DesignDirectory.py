@@ -917,7 +917,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             refine_variables = [('pdb_reference', self.asu), ('scripts', PUtils.rosetta_scripts),
                                 ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),
-                                ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
+                                ('dist', dist), ('cst_value_sym', (cst_value / 2))]  # ('cst_value', cst_value),
 
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             refine_variables.extend(self.interface_residue_d.items())
@@ -942,7 +942,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         metric_cmd_unbound = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.refined_pdb, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[3])]
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s_DEV.xml' % PUtils.stage[3])]  # TODO '_DEV'
 
         metric_cmds = [metric_cmd_bound] + \
                       [metric_cmd_unbound + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
