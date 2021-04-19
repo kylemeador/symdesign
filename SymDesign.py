@@ -446,8 +446,8 @@ def terminate(module, designs, location=None, results=None, output=False):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
-                        PUtils.nano: [PUtils.nano], 'metrics_bound': 'metrics_bound',
-                        'interface_metrics': 'interface_metrics'}
+                        PUtils.nano: [PUtils.nano], 'metrics_bound': ['metrics_bound'],
+                        'interface_metrics': ['interface_metrics']}
         if module in module_files:
             if len(success) > 0:
                 all_commands = {stage: [] for stage in module_files[module]}
