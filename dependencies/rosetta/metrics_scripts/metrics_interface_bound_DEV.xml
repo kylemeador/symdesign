@@ -33,7 +33,7 @@
 		<Or name="tot_interface_sym" selectors="interface1_sym,interface2_sym"/>
 		<Not name="not_interface_sym" selector="tot_interface_sym"/>
 		<Or name="tot_interface_and_neighbor" selectors="tot_interface_sym,interface1_sym_neighbor,interface2_sym_neighbor"/>
-		<Not name="not_interface_or_neighbor" selectors="tot_interface_and_neighbor"/>
+		<Not name="not_interface_or_neighbor" selector="tot_interface_and_neighbor"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
 		<HBond name="hbond_residues_sym" residue_selector="tot_interface_sym" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano"/>
 <!--		<SymmetricalResidue name="hbond_residues" selector="hbond_residues_asu" />-->
