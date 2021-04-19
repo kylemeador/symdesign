@@ -431,7 +431,7 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      'interface_energy_res_summary_2_unbound': 'interface_energy_2_unbound',
                      'sasa_res_summary_hydrophobic_complex': 'sasa_hydrophobic_complex',
                      'sasa_res_summary_polar_complex': 'sasa_polar_complex',
-                     'sasa_area_res_summary_total_complex': 'sasa_total_complex',
+                     'sasa_res_summary_total_complex': 'sasa_total_complex',
                      'sasa_res_summary_hydrophobic_1_bound': 'sasa_hydrophobic_1_bound',
                      'sasa_res_summary_polar_1_bound': 'sasa_polar_1_bound',
                      'sasa_res_summary_total_1_bound': 'sasa_total_1_bound',
