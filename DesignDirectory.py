@@ -1099,7 +1099,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         design_cmd = main_cmd + (['-in:file:pssm', self.info['evolutionary_profile']] if self.evolution else []) + \
             ['-in:file:s', self.refined_pdb, '-in:file:native', self.asu, '-nstruct', str(self.number_of_trajectories),
              '@%s' % os.path.join(self.path, flags_design), '-scorefile', os.path.join(self.scores, PUtils.scores_file),
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml')]
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
+             '-out:suffix _%s' % PUtils.stage[2]]
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
@@ -1132,7 +1133,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(generate_files_cmd), name=PUtils.stage[3],
                                                     out_path=self.scripts, status_wrap=self.info_pickle,
                                                     additional=[subprocess.list2cmdline(command)
-                                                                for n, command in enumerate(metric_cmds)]))
+                                                                for command in metric_cmds]))
             for idx, metric_cmd in enumerate(metric_cmds, 1):
                 self.log.info('Metrics Command %d: %s' % (idx, subprocess.list2cmdline(metric_cmd)))
         else:

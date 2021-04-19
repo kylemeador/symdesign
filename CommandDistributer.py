@@ -48,9 +48,9 @@ flag_options = \
                        '-no_optH false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev 0.5',
                        '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate true', '-no_nstruct_label true',
                        '-relax:bb_move false'],  # '-out:suffix _' + PUtils.stage[1], '-o + PUtils.stage[1]],
-     PUtils.stage[2]: ['-use_occurrence_data', '-out:suffix _%s' % PUtils.stage[2]]  # '-holes:dalphaball']
+     PUtils.stage[2]: ['-use_occurrence_data']  # '-holes:dalphaball']
      }
-#                 PUtils.stage[3]: [  # '-no_nstruct_label true',  # '-out:suffix _' + PUtils.stage[2],
+#                 PUtils.stage[3]: ['-no_nstruct_label true',
 #                                   '-mute all', '-unmute protocols.rosetta_scripts.ParsedProtocol']}  # -out:pdb false
 
 # Those jobs having a scale of 2 utilize two threads. Therefore two commands are selected from a supplied commands list
