@@ -94,7 +94,7 @@ master_metrics = {'average_fragment_z_score':
                   'core':
                       {'description': 'The number of \'core\' residues as classified by E. Levy 2010',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'cst_weight':
+                  'coordinate_constraint':
                       {'description': 'Total weight of coordinate constraints to keep design from moving in cartesian '
                                       'space', 'direction': 'min', 'function': 'normalize', 'filter': True},
                   'divergence_design_per_residue':
@@ -111,7 +111,7 @@ master_metrics = {'average_fragment_z_score':
                   'divergence_interface_per_residue':
                       {'description': 'The Jensen-Shannon divergence of interface residues from the typical interface '
                                       'background', 'direction': 'min', 'function': 'rank', 'filter': True},
-                  'fsp_energy':
+                  'favor_residue_energy':
                       {'description': 'Total weight of sequence constraints used to favor certain amino acids in design'
                                       '. Only protocols with a favored profile have values',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
@@ -121,24 +121,24 @@ master_metrics = {'average_fragment_z_score':
                   'interface_area_polar':
                       {'description': 'Total polar interface buried surface area',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'interface_area_hydrophobic_1_unbound':
-                      {'description': 'Sum of each interface residue\'s hydrophobic area for interface1',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
-                  'interface_area_hydrophobic_2_unbound':
-                      {'description': 'Sum of each interface residue\'s hydrophobic area for interface2',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
-                  'interface_area_polar_1_unbound':
-                      {'description': 'Sum of each interface residue\'s polar area for interface1',
-                       'direction': 'max', 'function': 'rank', 'filter': True},
-                  'interface_area_polar_2_unbound':
-                      {'description': 'Sum of each interface residue\'s polar area for interface2',
-                       'direction': 'max', 'function': 'rank', 'filter': True},
-                  'interface_area_total_1_unbound':
-                      {'description': 'Sum of each interface residue\'s total area for interface1',
-                       'direction': 'max', 'function': 'rank', 'filter': True},
-                  'interface_area_total_2_unbound':
-                      {'description': 'Sum of each interface residue\'s total area for interface2',
-                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  # 'interface_area_hydrophobic_1_unbound':
+                  #     {'description': 'Sum of each interface residue\'s hydrophobic area for interface1',
+                  #      'direction': 'min', 'function': 'rank', 'filter': True},
+                  # 'interface_area_hydrophobic_2_unbound':
+                  #     {'description': 'Sum of each interface residue\'s hydrophobic area for interface2',
+                  #      'direction': 'min', 'function': 'rank', 'filter': True},
+                  # 'interface_area_polar_1_unbound':
+                  #     {'description': 'Sum of each interface residue\'s polar area for interface1',
+                  #      'direction': 'max', 'function': 'rank', 'filter': True},
+                  # 'interface_area_polar_2_unbound':
+                  #     {'description': 'Sum of each interface residue\'s polar area for interface2',
+                  #      'direction': 'max', 'function': 'rank', 'filter': True},
+                  # 'interface_area_total_1_unbound':
+                  #     {'description': 'Sum of each interface residue\'s total area for interface1',
+                  #      'direction': 'max', 'function': 'rank', 'filter': True},
+                  # 'interface_area_total_2_unbound':
+                  #     {'description': 'Sum of each interface residue\'s total area for interface2',
+                  #      'direction': 'max', 'function': 'rank', 'filter': True},
                   'interface_area_total':
                       {'description': 'Total interface buried surface area',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -300,10 +300,6 @@ master_metrics = {'average_fragment_z_score':
                   'REU':
                       {'description': 'Rosetta Energy Units. Always 0. We can disregard',
                        'direction': 'min', 'function': 'rank', 'filter': True},
-                  'coordinate_constraint':
-                      {'description': 'Same as cst_weight', 'direction': None, 'function': None, 'filter': None},
-                  'res_type_constraint':
-                      {'description': 'Same as fsp_energy', 'direction': None, 'function': None, 'filter': None},
                   'time':
                       {'description': 'Time for the protocol to complete',
                        'direction': None, 'function': None, 'filter': None},
@@ -380,30 +376,28 @@ nanohedra_metrics = ['nanohedra_score_per_res', 'nanohedra_score_center_per_res_
                      'percent_residues_fragment_center']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total', 'contact_count',
-                     'cst_weight', 'fsp_energy', 'interface_area_hydrophobic', 'interface_area_polar',
-                     'interface_area_total', 'int_connectivity_1', 'int_connectivity_2', 'int_separation',
+                     'coordinate_constraint', 'favor_residue_energy',
+                     'sasa_hydrophobic', 'sasa_polar', 'sasa_total',
+                     'int_connectivity_1', 'int_connectivity_2', 'int_separation',
                      'interface_energy_1_bound', 'interface_energy_2_bound',
                      'interface_energy_1_unbound', 'interface_energy_2_unbound', 'interface_energy_complex',
                      'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch',
                      'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound', 'hbonds_res_selection_2_bound',
-                     'interface_area_hydrophobic_1_unbound', 'interface_area_res_summary_hydrophobic_2_unbound',
-                     'interface_area_polar_1_unbound', 'interface_area_polar_2_unbound',
-                     'interface_area_total_1_unbound', 'interface_area_total_2_unbound'}
+                     'sasa_hydrophobic_1_unbound', 'sasa_hydrophobic_2_unbound',
+                     'sasa_polar_1_unbound', 'sasa_polar_2_unbound',
+                     'sasa_total_1_unbound', 'sasa_total_2_unbound'}
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'number_hbonds', 'total_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments', 'interface_b_factor_per_res',
 
-final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'core', 'cst_weight',
+final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'core', 'coordinate_constraint',
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
-                 'divergence_interface_per_residue', 'fsp_energy',
+                 'divergence_interface_per_residue', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
                  'int_composition_similarity', 'int_connectivity_1', 'int_connectivity_2',
                  'interface_energy_1_unbound', 'interface_energy_2_unbound',
                  'interface_energy_complex', 'interface_energy', 'interface_energy_unbound',
                  'int_separation',
-                 'interface_area_hydrophobic_1_unbound', 'interface_area_hydrophobic_2_unbound',
-                 'interface_area_polar_1_unbound', 'interface_area_polar_2_unbound',
-                 'interface_area_total_1_unbound', 'interface_area_total_2_unbound',
                  'interaction_energy_complex', 'interface_b_factor_per_res', 'multiple_fragment_ratio',
                  'number_hbonds', 'nanohedra_score', 'nanohedra_score_center',
                  'nanohedra_score_per_res', 'nanohedra_score_center_per_res_center',
@@ -435,24 +429,32 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      'interface_energy_res_summary_2_bound': 'interface_energy_2_bound',
                      'interface_energy_res_summary_1_unbound': 'interface_energy_1_unbound',
                      'interface_energy_res_summary_2_unbound': 'interface_energy_2_unbound',
-                     'interface_area_res_summary_hydrophobic_1_unbound': 'interface_area_hydrophobic_1_unbound',
-                     'interface_area_res_summary_polar_1_unbound': 'interface_area_polar_1_unbound',
-                     'interface_area_res_summary_total_1_unbound': 'interface_area_total_1_unbound',
-                     'interface_area_res_summary_hydrophobic_2_unbound': 'interface_area_hydrophobic_2_unbound',
-                     'interface_area_res_summary_polar_2_unbound': 'interface_area_polar_2_unbound',
-                     'interface_area_res_summary_total_2_unbound': 'interface_area_total_2_unbound'}
+                     'sasa_res_summary_hydrophobic_complex': 'sasa_hydrophobic_complex',
+                     'sasa_res_summary_polar_complex': 'sasa_polar_complex',
+                     'sasa_area_res_summary_total_complex': 'sasa_total_complex',
+                     'sasa_res_summary_hydrophobic_1_bound': 'sasa_hydrophobic_1_bound',
+                     'sasa_res_summary_polar_1_bound': 'sasa_polar_1_bound',
+                     'sasa_res_summary_total_1_bound': 'sasa_total_1_bound',
+                     'sasa_res_summary_hydrophobic_2_bound': 'sasa_hydrophobic_2_bound',
+                     'sasa_res_summary_polar_2_bound': 'sasa_polar_2_bound',
+                     'sasa_res_summary_total_2_bound': 'sasa_total_2_bound'}
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
 columns_to_remove = ['decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unbound']
-clean_up_intermediate_columns = ['int_energy_no_intra_residue_score', 'interface_energy_bound']
+clean_up_intermediate_columns = ['int_energy_no_intra_residue_score', 'interface_energy_bound',
+                                 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
+                                 'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
+                                 'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
+                                 'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound'
+                                 ]
 
 # Some of these are unneeded now, but hanging around in case renaming occurred
 unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_total',
                'int_area_ex_asu_hydrophobic', 'int_area_ex_asu_polar', 'int_area_ex_asu_total',
-               'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol',  # 'int_connectivity1',
-               'int_energy_context_asu', 'int_energy_context_unbound',  # 'int_connectivity2',
+               'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol',
+               'int_energy_context_asu', 'int_energy_context_unbound',
                'coordinate_constraint', 'int_energy_res_summary_asu', 'int_energy_res_summary_unbound',
                'interaction_energy', 'interaction_energy_asu', 'interaction_energy_oligomerA',
                'interaction_energy_oligomerB', 'interaction_energy_unbound', 'res_type_constraint', 'time', 'REU',
@@ -464,15 +466,23 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 summation_pairs = {'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
                    'buns_heavy_total': ('buns_asu', 'buns_nano'),
                    'interface_energy_bound': ('interface_energy_1_bound', 'interface_energy_2_bound'),
-                   'interface_energy_unbound': ('interface_energy_1_unbound', 'interface_energy_2_unbound')}
+                   'interface_energy_unbound': ('interface_energy_1_unbound', 'interface_energy_2_unbound'),
+                   'sasa_hydrophobic_bound': ('sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound'),
+                   'sasa_polar_bound': ('sasa_polar_1_bound', 'sasa_polar_2_bound'),
+                   'sasa_total_bound': ('sasa_total_1_bound', 'sasa_total_2_bound')
+                   }
 # subtract columns using tuple [0] - [1] to make delta column
 delta_pairs = {'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
                'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
-               'solvation_energy': ('interaction_energy_complex', 'interface_energy_no_intra_residue_score')}
+               'solvation_energy': ('interaction_energy_complex', 'interface_energy_no_intra_residue_score'),
+               'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
+               'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
+               'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
+               }
 #                'int_energy_context_delta': ('int_energy_context_complex', 'int_energy_context_oligomer'),
 #                'full_stability_delta': ('full_stability_complex', 'full_stability_oligomer')}
 #                'number_hbonds': ('hbonds_res_selection_complex', 'hbonds_oligomer')}
-#               TODO P432 full_stability'_complex'
+
 
 # divide columns using tuple [0] / [1] to make divide column
 division_pairs = {'percent_interface_area_hydrophobic': ('interface_area_hydrophobic', 'interface_area_total'),
@@ -746,7 +756,7 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
             # metadata = key.split('_')
             res = int(metadata[-1])
             r_type = metadata[2]  # energy or sasa
-            pose_state = metadata[-2]  # unbound or complex or cst (constraint) or fsp (favor_sequence_profile)
+            pose_state = metadata[-2]  # unbound or complex or fsp (favor_sequence_profile)  # cst (constraint)
             if pose_state == 'unbound' and offset:  # 'oligomer'
                 res += offset[metadata[-3]]  # get interface, chain name, length offset
             if res not in residue_dict:
@@ -768,7 +778,7 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
                 if res in hbonds[entry]:
                     residue_dict[res]['hbond'] = 1
             residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                - residue_dict[res]['energy']['unbound'] - residue_dict[res]['energy']['cst']  # 'oligomer'
+                - residue_dict[res]['energy']['unbound']  # - residue_dict[res]['energy']['cst']  # 'oligomer'
             # - residue_dict[res]['energy']['fsp']
             rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
                                                  residue_dict[res]['sasa']['total']['unbound'])  # 'oligomer'
@@ -830,7 +840,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                 res = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
                 # res = int(metadata[-1])
                 r_type = metadata[2]  # energy or sasa
-                pose_state = metadata[-2]  # oligomer or complex
+                pose_state = metadata[-2]  # unbound or complex
                 if pose_state == 'unbound' and offset:
                     res += offset[metadata[-3]]  # get oligomer chain offset
                 if res not in residue_dict:
@@ -852,7 +862,9 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
             if hbonds:
                 if res in hbonds[design]:
                     data['hbond'] = 1
-            data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']  # - data['energy']['fsp']
+            data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
+            #     - data['energy']['fsp'] - data['energy']['cst']
+            # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
             relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
             relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
             for polarity in data['sasa']:
@@ -871,7 +883,8 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                     data['interior'] = 1
                 # else:
                 #     residue_dict[res]['surface'] = 1
-
+            data['coordinate_constraint'] = data['energy']['cst']
+            data['residue_favored'] = data['energy']['fsp']
             data.pop('sasa')
             data.pop('energy')
             # if residue_dict[res]['energy'] <= hot_spot_energy:
