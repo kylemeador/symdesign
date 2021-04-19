@@ -22,10 +22,12 @@
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1" />
 		<Neighborhood name="interface1_sym_neighbor" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
-		# same, but for residues from chain "B"
+		<Or name="interface_or_neighbors1" selectors="interface1_sym,interface1_sym_neighbor"/>
+		# same, but for residues from interface 2
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface2_sym" selector="interface2" />
 		<Neighborhood name="interface2_sym_neighbor" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
+		<Or name="interface_or_neighbors2" selectors="interface2_sym,interface2_sym_neighbor"/>
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
 		# the negation of all interface residues
@@ -56,8 +58,8 @@
 <!--		# restrict all non-interface residues to repacking only, no design-->
 <!--		<OperateOnResidueSubset name="non_int_rtr" selector="not_interface"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>-->
 		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
-		<OperateOnResidueSubset name="design_around1" selector="interface1_sym AND interface1_sym_neighbor"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
-		<OperateOnResidueSubset name="design_around2" selector="interface2_sym AND interface2_sym_neighbor"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="design_around1" selector="interface_or_neighbors1"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="design_around2" selector="interface_or_neighbors2"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
 <!--		<DesignAround name="design_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>-->
 <!--		<DesignAround name="design_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>-->
 			<!-- <DesignAround name="des_around_total" design_shell="0.1" resnums="%%interface1%%,%%interface2%%" repack_shell="8.0"/> -->
