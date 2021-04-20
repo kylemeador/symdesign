@@ -130,33 +130,37 @@
 		# this is for the nanohedra state to figure out the surface area of specific regions in the interface such as the extra ASU interface region
 		<TotalSasa name="interface_area_all_nano_hydrophobic" threshold="10" hydrophobic="1" polar="0" task_operations="init,vrt,non_int_no_repack"/>
 		<TotalSasa name="interface_area_all_nano_polar" threshold="10" hydrophobic="0" polar="1" task_operations="init,vrt,non_int_no_repack"/>
-		# find the total number of unstaisfied hydrogen honds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
-		<BuriedUnsatHbonds name="buns_asu" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_all_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/> print_out_info_to_pdb="true"
-		<BuriedUnsatHbonds name="buns_asu_hpol" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/>
 		# TODO test for RMSD and buns_nano on more than 2 chains
-		<BuriedUnsatHbonds name="buns_nano" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_all_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="2"/> print_out_info_to_pdb="true"
-		<BuriedUnsatHbonds name="buns_nano_hpol" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="2"/>
+		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
+		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0" ignore_surface_res="true"/> # use_reporter_behavior="true"
+<!--		<BuriedUnsatHbonds name="buns_hpol" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
+<!--		<BuriedUnsatHbonds name="buns_asu" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_all_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/> # print_out_info_to_pdb="true"-->
+<!--		<BuriedUnsatHbonds name="buns_asu_hpol" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/>-->
+<!--		<BuriedUnsatHbonds name="buns_nano" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_all_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="2"/>-->
+<!--		<BuriedUnsatHbonds name="buns_nano_hpol" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="2"/>-->
 		# find the difference in the Ca position of all residues in the asu versus a reference pose specified by -in:file:native on the command line
 		<Rmsd name="rmsd" symmetry="0" chains="AB" threshold="10.0" confidence="1.0"/>
 		## Reporters: access filters that change upon Pose manipulation. Must be run in specified Pose environment!! Afterwards, the value will be output to score location
 		#  ASUextraction
 <!--		<Report name="R_interface_area_all_asu_hydrophobic"	filter="interface_area_all_asu_hydrophobic"/>-->
 <!--		<Report name="R_interface_area_all_asu_polar" 		filter="interface_area_all_asu_polar"/>-->
-		<Report name="R_buns_asu" 						filter="buns_asu"/>
-		<Report name="R_buns_asu_hpol" 					filter="buns_asu_hpol"/>
-		<Report name="R_rmsd" 							filter="rmsd"/>
+<!--		<Report name="R_buns_asu" 						filter="buns_asu"/>-->
+<!--		<Report name="R_buns_asu_hpol" 					filter="buns_asu_hpol"/>-->
+		<Report name="R_rmsd" 						filter="rmsd"/>
 			<!-- <Report name="R_int_energy_context_asu"			filter="int_energy_context_asu"/> -->
 			<!-- <Report name="R_int_energy_context_unbound"		filter="int_energy_context_unbound"/> -->
 		#  Nanohedra
 <!--		<Report name="R_full_stability_complex"			filter="full_stability_complex"/>-->
-		<Report name="R_favor_residue_energy" 					filter="favor_residue_energy"/>
+		<Report name="R_favor_residue_energy" 		filter="favor_residue_energy"/>
 <!--		<Report name="R_fsp_total_stability" 			filter="fsp_total_stability"/>-->
-		<Report name="R_coordinate_constraint" 					filter="coordinate_constraint"/>
+		<Report name="R_coordinate_constraint" 		filter="coordinate_constraint"/>
 <!--		<Report name="R_int_energy_context_complex"		filter="int_energy_context_complex"/>-->
-		<Report name="R_shape_complementarity" 			filter="shape_complementarity"/>
-		<Report name="R_contact_count" 					filter="contact_count"/>
-		<Report name="R_buns_nano" 						filter="buns_nano"/>
-		<Report name="R_buns_nano_hpol" 				filter="buns_nano_hpol"/>
+		<Report name="R_shape_complementarity" 		filter="shape_complementarity"/>
+		<Report name="R_contact_count" 				filter="contact_count"/>
+		<Report name="R_buns_complex" 						filter="buns_complex"/>
+<!--		<Report name="R_buns_hpol" 					filter="buns_hpol"/>-->
+<!--		<Report name="R_buns_nano" 						filter="buns_nano"/>-->
+<!--		<Report name="R_buns_nano_hpol" 				filter="buns_nano_hpol"/>-->
 <!--		<Report name="R_interface_area_asu_hydrophobic" filter="interface_area_asu_hydrophobic"/>-->
 <!--		<Report name="R_interface_area_asu_polar" 		filter="interface_area_asu_polar"/>-->
 		## Calculators
@@ -199,13 +203,13 @@
 <!--      	</CalculatorFilter>-->
 <!--		<Report name="R_interface_area_total" filter="interface_area_total"/>-->
 		# calculate the total number of BUNS
-      	<CalculatorFilter name="buns_total" equation="n + nhpol + a + ahpol" threshold="0">
-      		<Var name="n" filter="R_buns_nano"/>
-      		<Var name="nhpol" filter="R_buns_nano_hpol"/>
-      		<Var name="a" filter="R_buns_asu"/>
-      		<Var name="ahpol" filter="R_buns_asu_hpol"/>
-      	</CalculatorFilter>
-		<Report name="R_buns_total" filter="buns_total"/>
+<!--      	<CalculatorFilter name="buns_total" equation="n + nhpol + a + ahpol" threshold="0">-->
+<!--      		<Var name="n" filter="R_buns_nano"/>-->
+<!--      		<Var name="nhpol" filter="R_buns_nano_hpol"/>-->
+<!--      		<Var name="a" filter="R_buns_asu"/>-->
+<!--      		<Var name="ahpol" filter="R_buns_asu_hpol"/>-->
+<!--      	</CalculatorFilter>-->
+<!--		<Report name="R_buns_total" filter="buns_total"/>-->
 	</FILTERS>
 
 	<PROTOCOLS>
@@ -216,8 +220,8 @@
 <!--		<Add filter_name="R_interface_area_all_asu_polar" report_at_end="false"/>-->
 <!--		<Add filter_name="R_interface_area_asu_hydrophobic"/>-->
 <!--		<Add filter_name="R_interface_area_asu_polar"/>-->
-		<Add filter_name="R_buns_asu"/>
-		<Add filter_name="R_buns_asu_hpol"/>
+<!--		<Add filter_name="R_buns_asu"/>-->
+<!--		<Add filter_name="R_buns_asu_hpol"/>-->
 		<Add filter_name="R_rmsd"/>
 			<!-- <Add filter_name="R_int_energy_context_asu"/> -->
 		<!-- <Add mover_name="translate_asu"/> -->
@@ -240,8 +244,8 @@
 		<Add mover_name="run_metrics_complex_sum_sasa_hydrophobic"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_polar"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_total"/>
-		<Add filter_name="R_buns_nano"/>
-		<Add filter_name="R_buns_nano_hpol"/>
+<!--		<Add filter_name="R_buns_nano"/>-->
+<!--		<Add filter_name="R_buns_nano_hpol"/>-->
 <!--		<Add filter_name="R_interface_area_asu_total"/>-->
 <!--		<Add filter_name="R_interface_area_ex_asu_hydrophobic"/>-->
 <!--		<Add filter_name="R_interface_area_ex_asu_polar"/>-->
@@ -249,7 +253,9 @@
 <!--		<Add filter_name="R_interface_area_hydrophobic"/>-->
 <!--		<Add filter_name="R_interface_area_polar"/>-->
 <!--		<Add filter_name="R_interface_area_total"/>-->
-		<Add filter_name="R_buns_total"/> -->
+		<Add filter_name="R_buns_complex"/>
+<!--		<Add filter_name="R_buns_hpol"/>-->
+<!--		<Add filter_name="R_buns_total"/>-->
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
