@@ -1900,6 +1900,15 @@ class PDB(Structure):
                                % (os.path.dirname(self.filepath), os.path.basename(self.filepath), count))
 
     @staticmethod
+    def get_cryst_record(file):
+        with open(file, 'r') as f:
+            for line in f.readlines():
+                if line[0:6] == 'CRYST1':
+                    uc_dimensions, space_group = PDB.parse_cryst_record(line.strip())
+                    a, b, c, ang_a, ang_b, ang_c = uc_dimensions
+                    return {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+
+    @staticmethod
     def parse_cryst_record(cryst1_string):
         """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
         Returns:
