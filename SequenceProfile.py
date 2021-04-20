@@ -2329,6 +2329,10 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
     return mutations
 
 
+def format_mutations(mutations):
+    return ['%s%d%s' % (mutation['from'], index, mutation['to']) for index, mutation in mutations.items()]
+
+
 def make_mutations_chain_agnostic(mutations):
     """Remove chain identifier from mutation dictionary
 

@@ -31,7 +31,7 @@ from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, rem
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
     position_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
-    generate_sequences, generate_multiple_mutations
+    generate_sequences, generate_multiple_mutations, format_mutations
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 
@@ -1384,8 +1384,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 pdb = PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0], log=None, entities=False)
                 pdb_sequences[pdb.name] = pdb.atom_sequences
             sequence_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences, pose_num=False)
-            self.log.debug('Sequence Mutations: %s' % sequence_mutations)
             sequence_mutations.pop('reference')
+            self.log.debug('Sequence Mutations: %s' % {design: format_mutations(mutations)
+                                                       for design, mutations in sequence_mutations.items()})
 
             # Find all designs which have corresponding pdb files
             # all_design_sequences = {AnalyzeMutatedSequences.get_pdb_sequences(file) for file in self.get_designs()}
@@ -1398,23 +1399,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             all_design_sequences = {chain: remove_pdb_prefixes(chain_sequences)
                                     for chain, chain_sequences in all_design_sequences.items()}
             all_design_scores = remove_pdb_prefixes(all_design_scores)
-            self.log.debug('all_design_sequences: %s' % all_design_sequences)
-            self.log.debug('all_design_sequences designs: %s'
+            self.log.debug('Design sequences by chain: %s' % all_design_sequences)
+            self.log.debug('All designs with sequences: %s'
                            % ', '.join(all_design_sequences[next(iter(all_design_sequences))].keys()))
             # for chain in all_design_sequences:
             #     all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
 
             # self.log.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
             #                                                      for name in all_design_sequences[chain]))
-            self.log.debug('all_design_scores: %s' % ', '.join(all_design_scores.keys()))
+            self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Ensure data is present for both scores and sequences, then initialize DataFrames
             good_designs = set(all_design_sequences[next(iter(all_design_sequences))].keys()). \
                 intersection(set(all_design_scores.keys()))
-            self.log.info('All Designs: %s' % ', '.join(good_designs))
+            self.log.info('All designs with both: %s' % ', '.join(good_designs))
             all_design_scores = clean_dictionary(all_design_scores, good_designs, remove=False)
             all_design_sequences = {chain: clean_dictionary(chain_sequences, good_designs, remove=False)
                                     for chain, chain_sequences in all_design_sequences.items()}
-            self.log.debug('All Sequences: %s' % all_design_sequences)
+            self.log.debug('Final design sequences by chain: %s' % all_design_sequences)
 
             scores_df = pd.DataFrame(all_design_scores).T
             # Gather all columns into specific types for processing and formatting TODO move up
