@@ -17,9 +17,9 @@ from sklearn.preprocessing import StandardScaler
 import PathUtils as PUtils
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, flag_options
 from Query import Flags
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError,\
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, clean_dictionary, all_vs_all, \
-    condensed_to_square
+    condensed_to_square, space_group_to_sym_entry
 from PDB import PDB
 from Pose import Pose
 from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
@@ -166,7 +166,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Analysis flags
         self.analysis = False
         self.skip_logging = False
-        self.set_flags(**kwargs)
 
         # if not self.sym_entry:
         #     self.sym_entry = SymEntry(sym_entry)
@@ -295,6 +294,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
 
             self.set_up_design_directory()
+        self.set_flags(**kwargs)
         self.start_log(debug=debug)
         # self.log.debug('fragment_observations: %s' % self.fragment_observations)
 
@@ -453,13 +453,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return int(number_steps1), int(number_steps2)
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None, sym_entry=None,
-                  design_with_fragments=True, generate_fragments=True, write_fragments=True,  # fragments_exist=None,
+                  design_with_fragments=True, generate_fragments=True, write_fragments=True,
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
-                  number_of_trajectories=PUtils.nstruct, skip_logging=None, analysis=False, **kwargs):  # nanohedra_output,
+                  number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False, **kwargs):
         # self.design_symmetry = symmetry
         if sym_entry_number:
             # self.sym_entry_number = sym_entry_number
             self.sym_entry = SymEntry(sym_entry_number)
+        if symmetry:
+            if symmetry == 'cryst':
+                cryst_record_d = PDB.get_cryst_record(self.source)
+                raise DesignError('This functionality is not possible yet. Please pass the --symmetry by Symmetry Entry'
+                                  ' Number instead (See Laniado & Yeates, 2020).')
+                self.sym_entry = space_group_to_sym_entry[cryst_record_d['space_group']]
         self.sym_entry = sym_entry
         self.design_selector = design_selector
         self.evolution = design_with_evolution
@@ -473,9 +479,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.script = script  # Todo to reflect the run_in_shell flag
         self.mpi = mpi
         self.analysis = analysis
-        if skip_logging:
-            # self.log.debug('skipping log')
-            self.skip_logging = skip_logging
+        self.skip_logging = skip_logging
 
     def set_symmetry(self, uc_dimensions=None, expand_matrices=None, **kwargs):  # Todo depreciate
         """{symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
@@ -892,8 +896,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 sym_def_file = 'null'
                 protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
                 self.log.critical(
-                    'No symmetry invoked during design. Rosetta will still design your PDB, however, if it is'
-                    'an ASU, may be missing crucial contacts. Is this what you want?')
+                    'No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s an ASU it'
+                    ' may be missing crucial interface contacts. Is this what you want?')
 
             chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
             self.log.info('Found the following chain breaks in the ASU:\n\t%s'
@@ -990,8 +994,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             sym_def_file = 'null'
             protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
-            self.log.warning('No symmetry invoked during design. Rosetta will still design your PDB, however, if it is'
-                             'an ASU, may be missing crucial contacts. Is this what you want?')
+            self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
+                              ' an ASU it may be missing crucial interface contacts. Is this what you want?')
 
         if self.nano:  # Todo may need to do this for non Nanohedra inputs
             self.log.info('Input Oligomers: %s' % ', '.join(oligomer.name for oligomer in self.oligomers))
@@ -1432,7 +1436,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df.rename(columns=rename_columns, inplace=True)
             scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
             # Check proper input
-            self.log.debug('Score columns present: %s' % scores_df.columns)
+            self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
