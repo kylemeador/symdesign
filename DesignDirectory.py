@@ -1386,6 +1386,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 pdb_sequences[pdb.name] = pdb.atom_sequences
             sequence_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences, pose_num=False)
             sequence_mutations.pop('reference')
+            sequence_mutations = remove_pdb_prefixes(sequence_mutations)
             self.log.debug('Sequence Mutations: %s' % {design: {chain: format_mutations(mutations)
                                                        for chain, mutations in chain_mutations.items()}
                            for design, chain_mutations in sequence_mutations.items()})
@@ -1398,9 +1399,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Todo can I just pull from design pdbs... reorient for {chain: {name: sequence, ...}, ...} ^^
             #  v-this-v mechanism accounts for offsets from the reference sequence which aren't necessary YET
             all_design_sequences = generate_sequences(wt_sequence, sequence_mutations)
-            all_design_sequences = {chain: remove_pdb_prefixes(chain_sequences)
-                                    for chain, chain_sequences in all_design_sequences.items()}
-            all_design_scores = remove_pdb_prefixes(all_design_scores)
+            # all_design_sequences = {chain: remove_pdb_prefixes(chain_sequences)
+            #                         for chain, chain_sequences in all_design_sequences.items()}
             self.log.debug('Design sequences by chain: %s' % all_design_sequences)
             self.log.debug('All designs with sequences: %s'
                            % ', '.join(all_design_sequences[next(iter(all_design_sequences))].keys()))
@@ -1409,6 +1409,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # self.log.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
             #                                                      for name in all_design_sequences[chain]))
+            all_design_scores = remove_pdb_prefixes(all_design_scores)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Ensure data is present for both scores and sequences, then initialize DataFrames
             good_designs = set(all_design_sequences[next(iter(all_design_sequences))].keys()). \
@@ -1868,7 +1869,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Add wild-type sequence metrics to residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
             wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
-            residue_df = residue_df.append(wt_df)
+            residue_df = pd.concat([residue_df, wt_df])
+            print(residue_df)
+            # residue_df = residue_df.append(wt_df, sort=False)
             residue_df = residue_df.sort_index(key=lambda x: x.str.isdigit())
 
             # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
