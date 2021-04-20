@@ -1869,7 +1869,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Add wild-type sequence metrics to residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
             wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
-            residue_df = pd.concat([residue_df, wt_df])
+            residue_df = pd.concat([residue_df, wt_df], sort=False)
             print(residue_df)
             # residue_df = residue_df.append(wt_df, sort=False)
             residue_df = residue_df.sort_index(key=lambda x: x.str.isdigit())
