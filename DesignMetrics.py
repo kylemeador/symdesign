@@ -532,8 +532,11 @@ protocols_of_interest = ['design_profile', 'no_constraint']
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
 
 # Specific columns of interest to distinguish between design trajectories
-significance_columns = ['buns_total', 'contact_count', 'interface_energy', 'interface_area_total', 'number_hbonds',
-                        'percent_interface_area_hydrophobic', 'shape_complementarity', 'solvation_energy']
+significance_columns = ['interface_buried_hbonds',
+                        'contact_count', 'interface_energy', 'interface_area_total', 'number_hbonds',
+                        'percent_interface_area_hydrophobic', 'shape_complementarity', 'solvation_energy'
+#                         'buns_total',
+                        ]
 sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
                     'observed_evolution', 'observed_fragment']
 
