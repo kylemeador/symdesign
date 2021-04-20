@@ -886,7 +886,6 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                     logger.warning('Encountered %s which has residue number > the pose length. Score will be discarded.'
                                    ' Use pbd_numbering on all Rosetta output to ensure that symmetric copies have the '
                                    'same residue number on symmetry mates.' % key)
-                    scores.pop(key)
                     continue
                 r_type = metadata[2]  # energy or sasa
                 pose_state = metadata[-2]  # unbound or complex
