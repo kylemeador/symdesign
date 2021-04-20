@@ -1580,7 +1580,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.debug('Missing information in score columns: %s'
                                % scores_df.columns[scores_df.isna().any(axis=0)].tolist())
                 self.log.debug('Missing information in residue columns: %s'
-                               % scores_df.columns[residue_df.isna().any(axis=0)].tolist())
+                               % residue_df.columns[residue_df.isna().any(axis=0)].tolist())
                 protocol_s.drop(drop_na_index, inplace=True, errors='ignore')
                 scores_df.drop(drop_na_index, inplace=True, errors='ignore')
                 residue_df.drop(drop_na_index, inplace=True, errors='ignore')
