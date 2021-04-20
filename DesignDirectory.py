@@ -1440,7 +1440,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df.rename(columns=rename_columns, inplace=True)
             scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
             # Check proper input
-            self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
@@ -1458,6 +1457,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Replace empty strings with numpy.notanumber (np.nan), drop str columns, and convert remaining to float
             scores_df = scores_df.replace('', np.nan)
             scores_df = scores_df.drop(remove_columns, axis=1, errors='ignore').astype(float)
+            self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
             # Remove unnecessary and Rosetta score terms besides ref
             # TODO learn know how to produce them in output score file. Not in FastRelax...
             rosetta_terms_to_remove = copy.copy(rosetta_terms)
@@ -1590,7 +1590,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     residue_dict.pop(idx)
                 self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
-            warnings.simplefilter('error')
 
             other_pose_metrics['observations'] = len(scores_df)
 
@@ -1868,6 +1867,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Add wild-type sequence metrics to residue_df and sort
             # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
+            warnings.simplefilter('ignore')  # 'error')
             wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
             residue_df = pd.concat([residue_df, wt_df], sort=False)
             print(residue_df)
