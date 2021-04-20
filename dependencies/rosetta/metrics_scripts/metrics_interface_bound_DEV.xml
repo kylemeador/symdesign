@@ -15,6 +15,7 @@
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
 			<Reweight scoretype="res_type_constraint" weight="0.5"/> # patch doesn't work here
 		</ScoreFunction>
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%solvent_sym_score_patch%%"/>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -70,6 +71,7 @@
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues_sym"/>
 		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
 		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano"/>
+		# used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
 		# find the per residue energy of residues in a residue_selector
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		<PerResidueEnergyMetric name="M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_nano_cst"/>
@@ -82,7 +84,7 @@
 		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum"/>
 		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum"/>
 		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum"/>
-		# used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
+		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>
 	</SIMPLE_METRICS>
 
 	<MOVERS>
@@ -98,7 +100,7 @@
 		<RunSimpleMetrics name="run_metrics_sasa" metrics="M_sasa_per_res" prefix="" suffix="_total_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_cst" metrics="M_int_energy_cst_per_res" prefix="" suffix="_cst" override="false"/>
 		<RunSimpleMetrics name="run_metrics_fsp" metrics="M_int_energy_fsp_per_res" prefix="" suffix="_fsp" override="false"/>
-		<RunSimpleMetrics name="run_metrics_complex" metrics="M_int_hbonds_res_selector,M_interaction_energy,M_int_energy_per_res,M_int_energy_total" prefix="" suffix="_complex" override="false"/>
+		<RunSimpleMetrics name="run_metrics_complex" metrics="M_int_hbonds_res_selector,M_interaction_energy,M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_complex" override="false"/>
@@ -132,7 +134,7 @@
 		<TotalSasa name="interface_area_all_nano_polar" threshold="10" hydrophobic="0" polar="1" task_operations="init,vrt,non_int_no_repack"/>
 		# TODO test for RMSD and buns_nano on more than 2 chains
 		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
-		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 <!--		<BuriedUnsatHbonds name="buns_hpol" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 <!--		<BuriedUnsatHbonds name="buns_asu" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_all_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/> # print_out_info_to_pdb="true"-->
 <!--		<BuriedUnsatHbonds name="buns_asu_hpol" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/>-->
