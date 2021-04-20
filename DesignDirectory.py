@@ -924,10 +924,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
             else:
                 dist = 0
-
             refine_variables = [('pdb_reference', self.asu), ('scripts', PUtils.rosetta_scripts),
-                                ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),
-                                ('dist', dist), ('cst_value_sym', (cst_value / 2))]  # ('cst_value', cst_value),
+                                ('sym_score_patch', PUtils.sym_weights),
+                                ('solvent_sym_score_patch', PUtils.solvent_weights), ('symmetry', protocol),
+                                ('sdf', sym_def_file), ('dist', dist), ('cst_value_sym', (cst_value / 2))]
 
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             refine_variables.extend(self.interface_residue_d.items())
@@ -1029,8 +1029,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         shell_scripts = []
         # RELAX: Prepare command and flags file
         refine_variables = [('pdb_reference', self.asu), ('scripts', PUtils.rosetta_scripts),
-                            ('sym_score_patch', PUtils.sym_weights), ('symmetry', protocol), ('sdf', sym_def_file),
-                            ('dist', dist), ('cst_value', cst_value), ('cst_value_sym', (cst_value / 2))]
+                            ('sym_score_patch', PUtils.sym_weights),
+                            ('solvent_sym_score_patch', PUtils.solvent_weights), ('symmetry', protocol),
+                            ('sdf', sym_def_file), ('dist', dist), ('cst_value_sym', (cst_value / 2))]
+        #                     ('cst_value', cst_value),
 
         # Need to assign the designable residues for each entity to a interface1 or interface2 variable
         refine_variables.extend(self.interface_residue_d.items())

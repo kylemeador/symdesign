@@ -159,6 +159,7 @@ rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
 symmetry_def_file_dir = 'sdf'
 symmetry_def_files = os.path.join(rosetta_scripts, symmetry_def_file_dir)
 sym_weights = (os.path.join(rosetta_scripts, 'ref2015_sym.wts_patch'))
+solvent_weights = (os.path.join(rosetta_scripts, 'ref2015_sym_solvent.wts_patch'))
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 protocol = {-1: 'null', 0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 
