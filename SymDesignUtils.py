@@ -924,12 +924,13 @@ def get_docked_dirs_from_base(base):
 def collect_designs(file=None, directory=None, project=None, single=None):
     """Grab all poses from an input source
 
-    Args:
-        directory (str): Disk location of the design directory
     Keyword Args:
         file=None (str): Disk location of file containing design directories
+        directory=None (str): Disk location of the program directory
+        project=None (str): Disk location of a project directory
+        single=None (str): Disk location of a single design directory
     Returns:
-        (list), (location): All pose directories found, Path to where they were located
+        (tuple[(list), (str)]): All pose directories found, The location where they are located
     """
     if file:
         _file = file
@@ -939,7 +940,7 @@ def collect_designs(file=None, directory=None, project=None, single=None):
                 logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
                 exit()
         with open(_file, 'r') as f:
-            all_paths = [location.strip() for location in f.readlines() if location.strip() != '']
+            all_paths = map(os.path.dirname, [location.strip() for location in f.readlines() if location.strip() != ''])
         location = _file
     elif directory:
         location = directory
@@ -949,7 +950,11 @@ def collect_designs(file=None, directory=None, project=None, single=None):
             all_paths = get_all_file_paths(directory, extension='.pdb')
         else:
             # return all design directories within the base directory ->/base/Projects/project/design
-            all_paths = list(chain.from_iterable([get_symdesign_dirs(base=base) for base in base_directories]))
+            all_paths = []
+            for base in base_directories:
+                all_paths.extend(get_symdesign_dirs(base=base))
+            all_paths = map(os.path.dirname, all_paths)
+
     elif project:
         all_paths = get_symdesign_dirs(project=project)
         location = project
@@ -980,11 +985,11 @@ def get_symdesign_dirs(base=None, project=None, single=None):
     /base(SymDesignOutput)/Projects/project/design
     """
     if single:
-        return sorted(set(map(os.path.dirname, glob('%s/' % single))))
+        return map(os.path.dirname, glob('%s/' % single))  # sorted(set())
     elif project:
-        return sorted(set(map(os.path.dirname, glob('%s/*/' % project))))
+        return map(os.path.dirname, glob('%s/*/' % project))  # sorted(set())
     else:
-        return sorted(set(map(os.path.dirname, glob('%s/*/*/*/' % base))))
+        return map(os.path.dirname, glob('%s/*/*/*/' % base))  # sorted(set())
 
 
 class DesignError(Exception):
