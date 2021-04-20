@@ -879,9 +879,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.load_pose()
             if self.design_dimension is not None:  # can be 0
                 protocol = PUtils.protocol[self.design_dimension]
+                self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)'
+                               % str(self.sym_entry_number))
                 if self.design_dimension == 0:  # point
-                    self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)'
-                                   % str(self.sym_entry_number))
                     sym_def_file = sdf_lookup(self.sym_entry_number)
                     main_cmd += ['-symmetry_definition', sym_def_file]
                 else:  # layer or space
@@ -979,9 +979,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         main_cmd = copy.copy(script_cmd)
         if self.design_dimension is not None:  # can be 0
             protocol = PUtils.protocol[self.design_dimension]
+            self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
             if self.design_dimension == 0:  # point
-                self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)'
-                               % str(self.sym_entry_number))
                 sym_def_file = sdf_lookup(self.sym_entry_number)
                 main_cmd += ['-symmetry_definition', sym_def_file]
             else:  # layer or space
