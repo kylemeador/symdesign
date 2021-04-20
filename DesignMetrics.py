@@ -451,9 +451,6 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
-columns_to_remove = ['decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
-                     'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
-remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unbound']
 clean_up_intermediate_columns = ['int_energy_no_intra_residue_score', 'interface_energy_bound',
                                  'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
@@ -479,11 +476,19 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                'int_area_res_summary_hydrophobic_2_unbound', 'int_area_res_summary_polar_2_unbound',
                'int_area_res_summary_total_1_unbound', 'int_area_total', 'int_area_polar', 'int_area_hydrophobic',
                'int_energy_context_1_unbound', 'int_energy_res_summary_1_unbound', 'int_energy_context_2_unbound',
-               'int_energy_res_summary_2_unbound', 'int_energy_res_summary_complex', 'int_sc', 'int_sc_median_dist'
+               'int_energy_res_summary_2_unbound', 'int_energy_res_summary_complex', 'int_sc', 'int_sc_median_dist',
                # 'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_bound',
                # 'solvation_energy_1_unbound', 'solvation_energy_2_unbound', 'solvation_energy_unbound',
+               'hbonds_res_selection_asu', 'hbonds_res_selection_unbound',
+               'decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
+               'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
+               'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'buns_total',
                ]
+# remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unbound']
 #                'full_stability_oligomer_A', 'full_stability_oligomer_B']
+
+# columns_to_remove = ['decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
+#                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 
 # sum columns using tuple [0] + [1]
 summation_pairs = {'buns_unbound': ('buns_1_unbound', 'buns_2_unbound'),
@@ -537,8 +542,8 @@ significance_columns = ['interface_buried_hbonds',
                         'percent_interface_area_hydrophobic', 'shape_complementarity', 'solvation_energy'
 #                         'buns_total',
                         ]
-sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
-                    'observed_evolution', 'observed_fragment']
+# sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
+#                     'observed_evolution', 'observed_fragment']
 
 stats_metrics = ['mean', 'std']
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
@@ -1443,7 +1448,7 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
     else:
         # Get the scores from all design trajectories
         all_design_scores = read_scores(os.path.join(des_dir.scores, PUtils.scores_file))
-        all_design_scores = remove_interior_keys(all_design_scores, remove_score_columns)
+        # all_design_scores = remove_interior_keys(all_design_scores, remove_score_columns)
 
         # Gather mutations for residue specific processing and design sequences
         all_design_files = des_dir.get_designs()
