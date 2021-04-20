@@ -21,7 +21,8 @@ import SequenceProfile
 from PDB import PDB
 from Query.PDB import header_string, input_string, confirmation_string, bool_d, invalid_string
 from SymDesignUtils import start_log, pickle_object, unpickle, DesignError, handle_design_errors, index_intersection, \
-    remove_interior_keys, clean_dictionary, all_vs_all, condensed_to_square, sym, handle_errors, pretty_format_table
+    remove_interior_keys, clean_dictionary, all_vs_all, condensed_to_square, sym, handle_errors, pretty_format_table, \
+    digit_translate_table
 
 # Globals
 logger = start_log(name=__name__)
@@ -875,7 +876,8 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
             # metadata = column.split('_')
             if key.startswith('per_res_'):
                 metadata = key.split('_')
-                res = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
+                # res = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
+                res = int(metadata[-1].translate(digit_translate_table))  # remove chain_id in rosetta_numbering="False"
                 # res = int(metadata[-1])
                 r_type = metadata[2]  # energy or sasa
                 pose_state = metadata[-2]  # unbound or complex

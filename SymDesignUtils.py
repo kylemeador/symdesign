@@ -3,12 +3,14 @@ import logging
 import math
 import multiprocessing as mp
 import operator
+import string
 import pickle
 import subprocess
 from functools import reduce, wraps
 from glob import glob
 from itertools import chain
 from json import loads, dumps
+from collections import defaultdict
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -24,9 +26,9 @@ from classes.SymEntry import SymEntry
 
 index_offset = 1
 rmsd_threshold = 1.0
-layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
-                'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
-                'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
+layer_group_d = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
+                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
+                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
 layer_groups = {2, 4, 10, 12, 17, 19, 20, 21, 23,
                 27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
                 71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
@@ -352,14 +354,23 @@ def index_intersection(indices):
     """
     final_indices = set()
     # find all set union
-    for metric in indices:
-        final_indices = set(final_indices) | set(indices[metric])
+    for values in indices.values():
+        final_indices = final_indices.union(values)
     # find all set intersection
-    for metric in indices:
-        final_indices = set(final_indices) & set(indices[metric])
+    for values in indices.values():
+        final_indices = final_indices.intersection(values)
 
     return list(final_indices)
 
+
+def digit_keeper():
+    table = defaultdict(type(None))
+    table.update({ord(c): c for c in string.digits})
+
+    return table
+
+
+digit_translate_table = digit_keeper()
 
 ###################
 # Bio.PDB Handling
