@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from glob import glob
 from itertools import combinations, repeat
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,6 +42,7 @@ logger = start_log(name=__name__)
 idx_offset = 1
 design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
+warnings.simplefilter('error')
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
