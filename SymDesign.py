@@ -1091,10 +1091,11 @@ if __name__ == '__main__':
     elif args.module == 'interface_metrics':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
+            zipped_args = zip(design_directories, repeat(args.force_flags))
             results = SDUtils.mp_map(DesignDirectory.rosetta_interface_metrics, design_directories, threads=threads)
         else:
             for design in design_directories:
-                results.append(design.rosetta_interface_metrics())
+                results.append(design.rosetta_interface_metrics(force_flags=args.force_flags))
 
         terminate(args.module, design_directories, location=location, results=results, output=True)
 
