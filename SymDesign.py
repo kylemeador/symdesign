@@ -767,7 +767,7 @@ if __name__ == '__main__':
         if queried_flags['symmetry'] in SDUtils.possible_symmetries:
             queried_flags['sym_entry'] = SDUtils.parse_symmetry_to_sym_entry(queried_flags['symmetry'])
         elif queried_flags['symmetry'].lower()[:5] == 'cryst':
-            do_something = True
+            queried_flags['symmetry'] = 'cryst'
             # the symmetry information should be in the pdb headers
         else:
             raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
