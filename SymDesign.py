@@ -1092,7 +1092,7 @@ if __name__ == '__main__':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             zipped_args = zip(design_directories, repeat(args.force_flags))
-            results = SDUtils.mp_starmap(DesignDirectory.rosetta_interface_metrics, zipped_args, threads=threads)
+            results = SDUtils.mp_starmap(rosetta_interface_metrics, zipped_args, threads=threads)
         else:
             for design in design_directories:
                 results.append(design.rosetta_interface_metrics(force_flags=args.force_flags))
