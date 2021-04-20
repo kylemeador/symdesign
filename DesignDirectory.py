@@ -1341,8 +1341,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df (pandas.DataFrame): DataFrame containing the average values from the input design directory
         """
         # TODO add fraction_buried_atoms
-        remove_columns = columns_to_remove
-        rename_columns = columns_to_rename
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
         profile_dict = {}
@@ -1433,10 +1431,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             scores_df = pd.DataFrame(all_design_scores).T
             # Gather all columns into specific types for processing and formatting TODO move up
-            report_columns, per_res_columns, hbonds_columns = {}, [], []
+            rename_columns, per_res_columns, hbonds_columns = {}, [], []
             for column in list(scores_df.columns):
                 if column.startswith('R_'):
-                    report_columns[column] = column.replace('R_', '')
+                    rename_columns[column] = column.replace('R_', '')
                 elif column.startswith('symmetry_switch'):
                     other_pose_metrics['symmetry'] = scores_df.loc[PUtils.stage[1], column].replace('make_', '')
                 elif column.startswith('per_res_'):
@@ -1444,30 +1442,27 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 elif column.startswith('hbonds_res_selection'):
                     hbonds_columns.append(column)
             # rename_columns.update(report_columns)
-            report_columns.update(rename_columns)
-            res_columns = hbonds_columns + per_res_columns
-            remove_columns += res_columns + [groups]
+            rename_columns.update(columns_to_rename)
+            remove_columns = hbonds_columns + per_res_columns + columns_to_remove + [groups]
 
             # Rename and Format columns
-            scores_df.rename(columns=report_columns, inplace=True)
+            scores_df.rename(columns=rename_columns, inplace=True)
             scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
             # Check proper input
             self.log.debug('Score columns present: %s' % scores_df.columns)
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
-            # TODO protocol switch or no_design switch?
             protocol_s = scores_df[groups]
             protocol_s.replace({'combo_profile': 'design_profile'}, inplace=True)  # ensure proper profile name
-            self.log.debug(protocol_s)
-            designs = protocol_s.index.to_list()
-            self.log.debug('Design indices: %s' % designs)
-            # Modify protocol name for refine and consensus
-            for stage in PUtils.stage_f:
-                if stage in designs:
-                    # change design index value to PUtils.stage[i] (for consensus and refine)
-                    protocol_s[stage] = stage  # TODO remove in future scripts
-                    # protocol_s.at[PUtils.stage[stage], groups] = PUtils.stage[stage]
+            # self.log.debug(protocol_s)
+            # # self.log.debug('Design indices: %s' % designs)
+            # # Modify protocol name for refine and consensus
+            # for stage in PUtils.stage_f:
+            #     if stage in protocol_s.index.to_list():
+            #         # change design index value to PUtils.stage[i] (for consensus and refine)
+            #         protocol_s[stage] = stage  # TODO remove in future scripts
+            #         # protocol_s.at[PUtils.stage[stage], groups] = PUtils.stage[stage]
 
             # Replace empty strings with numpy.notanumber (np.nan), drop str columns, and convert remaining to float
             scores_df = scores_df.replace('', np.nan)
