@@ -142,7 +142,7 @@ master_metrics = {'average_fragment_z_score':
                   'interface_area_total':
                       {'description': 'Total interface buried surface area',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'int_composition_similarity':
+                  'interface_composition_similarity':
                       {'description': 'The similarity to the expected interface composition given interface buried '
                                       'surface area. 1 is similar to natural interfaces, 0 is dissimilar',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -395,7 +395,7 @@ final_metrics = {'interface_buried_hbonds', 'contact_count', 'core', 'coordinate
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
                  'divergence_interface_per_residue', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
-                 'int_composition_similarity', 'interface_connectivity_1', 'interface_connectivity_2',
+                 'interface_composition_similarity', 'interface_connectivity_1', 'interface_connectivity_2',
                  'interface_energy_1_unbound', 'interface_energy_2_unbound',
                  'interface_energy_complex', 'interface_energy', 'interface_energy_unbound',
                  'int_separation',
@@ -458,7 +458,9 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score', 'interface
                                  'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
                                  'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound',
                                  'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
-                                 'solvation_energy_2_unbound'
+                                 'solvation_energy_2_unbound',
+                                 'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
+                                 'interface_energy_2_unbound',
                                  ]
 
 # Some of these are unneeded now, but hanging around in case renaming occurred
@@ -1589,7 +1591,7 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         for r_class in residue_classificiation:
             scores_df[r_class] = residue_df.loc[:, idx_slice[:,
                                                    residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
-        scores_df['int_composition_similarity'] = scores_df.apply(residue_composition_diff, axis=1)
+        scores_df['interface_composition_similarity'] = scores_df.apply(residue_composition_diff, axis=1)
 
         interior_residue_df = residue_df.loc[:, idx_slice[:,
                                                 residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)
