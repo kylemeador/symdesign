@@ -601,6 +601,8 @@ if __name__ == '__main__':
     parser_interface_metrics = \
         subparsers.add_parser('interface_metrics',
                               help='Set up scripts to analyze interface metrics from an interface design job')
+    parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
+                                          help='Force generation of a new flags_design file')
     # ---------------------------------------------------
     parser_metrics_bound = \
         subparsers.add_parser('metrics_bound', help='Set up scripts to analyze bound interface metrics')
