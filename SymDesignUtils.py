@@ -27,9 +27,13 @@ rmsd_threshold = 1.0
 layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
-layer_group_d = {2, 4, 10, 12, 17, 19, 20, 21, 23,
-                 27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
-                 71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
+layer_groups = {2, 4, 10, 12, 17, 19, 20, 21, 23,
+                27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
+                71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
+space_groups = {'P23', 'P4222', 'P321', 'P6322', 'P312', 'P622', 'F23', 'F222', 'P6222', 'I422', 'I213', 'R32', 'P4212',
+                'I432', 'P4132', 'I4132', 'P3', 'P6', 'I4122', 'P4', 'C222', 'P222', 'P432', 'F4132', 'P422', 'P213',
+                'F432', 'P4232'}
+space_group_to_sym_entry = {}
 
 # Todo get SDF files for all commented out
 possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T',  # O32': 'O', 'O42': 'O', 'O43': 'O',
@@ -43,7 +47,8 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        # layer groups
                        # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
                        # space groups  # Todo
-                       'cryst': 'cryst'}
+                       # 'cryst': 'cryst'
+                       }
 # Todo space and cryst
 all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': -1},
                       'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': -2},
@@ -161,7 +166,7 @@ def handle_errors(errors=(Exception,)):
 def handle_symmetry(symmetry_entry_number):
     # group = cryst1_record.split()[-1]/
     if symmetry_entry_number not in point_group_sdf_map.keys():
-        if symmetry_entry_number in layer_group_d:  # .keys():
+        if symmetry_entry_number in layer_groups:  # .keys():
             return 2
         else:
             return 3
