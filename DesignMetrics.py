@@ -263,7 +263,7 @@ master_metrics = {'average_fragment_z_score':
                                       'different protocols arrived at the same per residue energy conclusions despite '
                                       'different pools of amino acids specified for sampling',
                        'direction': 'min', 'function': 'rank', 'filter': True},
-                  'ref':
+                  'rosetta_reference_energy':
                       {'description': 'Rosetta Energy Term - A metric for the unfolded energy of the protein along with'
                                       ' sequence fitting corrections',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -276,8 +276,8 @@ master_metrics = {'average_fragment_z_score':
                   'shape_complementarity':
                       {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'solvation_energy':
-                      {'description': 'Energy required to hydrate the unbound components',
+                  'solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - bound
+                      {'description': 'the free energy gain upon formation of the interface, Energy required to hydrate the surface of newly unbound interface components',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
                   'support':
                       {'description': 'The number of \'support\' residues as classified by E. Levy 2010',
@@ -384,7 +384,7 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'buns_2_unbound', 'contac
                      'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                      'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
                      'sasa_total_1_bound', 'sasa_total_2_bound'
-                     }
+                     'solvation_composite_energy_complex'}
 #                      'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'number_hbonds', 'total_interface_residues',
@@ -482,7 +482,8 @@ summation_pairs = {'buns_unbound': ('buns_1_unbound', 'buns_2_unbound'),
 delta_pairs = {'interface_buried_hbonds': ('buns_complex', 'buns_unbound'),
                'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
                'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
-               'solvation_energy': ('interaction_energy_complex', 'interface_energy_no_intra_residue_score'),
+               'solvation_energy': ('solvation_energy_bound', 'solvation_energy_complex'),
+               # 'solvation_energy': ('interaction_energy_complex', 'interface_energy_no_intra_residue_score'),
                'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
                'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
                'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')

@@ -879,12 +879,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file
 
-    def rosetta_interface_metrics(self):
+    def rosetta_interface_metrics(self, force_flags=False):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         main_cmd = copy.copy(script_cmd)
         # flags_metric = os.path.join(self.scripts, 'flags_%s' % PUtils.stage[3])
         flags_design = os.path.join(self.scripts, 'flags_%s' % PUtils.stage[2])
-        if not os.path.exists(flags_design):
+        if force_flags or not os.path.exists(flags_design):
             # Generate a new flags_design file
             self.load_pose()
             if self.design_dimension is not None:  # can be 0
