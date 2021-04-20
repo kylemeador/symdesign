@@ -881,11 +881,13 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                 # res = int(metadata[-1])
                 # res = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
                 res = int(metadata[-1].translate(digit_translate_table))  # remove chain_id in rosetta_numbering="False"
-                if res > pose_length and not warn:  # TODO this can move to residue_processing (clean) once instated
-                    warn = True
-                    logger.warning('Encountered %s which has residue number > the pose length. Score will be discarded.'
-                                   ' Use pbd_numbering on all Rosetta output to ensure that symmetric copies have the '
-                                   'same residue number on symmetry mates.' % key)
+                if res > pose_length:
+                    if not warn:  # TODO this can move to residue_processing (clean) once instated
+                        warn = True
+                        logger.warning('Encountered %s which has residue number > the pose length (%d). Scores above '
+                                       'will be discarded. Use pbd_numbering on all Rosetta PerResidue SimpleMetrics to'
+                                       ' ensure that symmetric copies have the same residue number on symmetry mates.'
+                                       % (key, pose_length))
                     continue
                 r_type = metadata[2]  # energy or sasa
                 pose_state = metadata[-2]  # unbound or complex
