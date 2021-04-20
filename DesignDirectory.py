@@ -1577,6 +1577,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
             drop_na_index = np.union1d(scores_na_index, residue_na_index)
             if drop_na_index.any():
+                self.log.debug('Missing information in score columns: %s'
+                               % scores_df.columns[scores_df.isna().any(axis=0)].tolist())
+                self.log.debug('Missing information in residue columns: %s'
+                               % scores_df.columns[residue_df.isna().any(axis=0)].tolist())
                 protocol_s.drop(drop_na_index, inplace=True, errors='ignore')
                 scores_df.drop(drop_na_index, inplace=True, errors='ignore')
                 residue_df.drop(drop_na_index, inplace=True, errors='ignore')
@@ -1648,7 +1652,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
-            assert len(trajectory_df.index.to_list()) > 0, 'No design was done on this pose'
+            assert len(trajectory_df.index.to_list()) > 0, 'No designs to analyze in this pose!'
 
             # Get total design statistics for every sequence in the pose and every protocol specifically
             traj_stats = {}
