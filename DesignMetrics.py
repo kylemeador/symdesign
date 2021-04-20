@@ -855,7 +855,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
 
     One-indexed residues
     Args:
-        score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
+        score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15A': -3.26, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
         mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
                            '0001': {mutation_index: {}, ...}, ...}
@@ -868,6 +868,8 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                           ...}, ...}
     """
     # pose_length (int): The number of residues in the pose
+    pose_length = len(mutations['reference'])
+    warn = False
     total_residue_dict = {}
     for design, scores in score_dict.items():
         residue_dict = {}
@@ -876,9 +878,14 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
             # metadata = column.split('_')
             if key.startswith('per_res_'):
                 metadata = key.split('_')
+                # res = int(metadata[-1])
                 # res = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
                 res = int(metadata[-1].translate(digit_translate_table))  # remove chain_id in rosetta_numbering="False"
-                # res = int(metadata[-1])
+                if res > pose_length and not warn:
+                    warn = True
+                    logger.warning('Encountered %s which has residue number > the pose length. Score will be discarded.'
+                                   ' Use pbd_numbering on all Rosetta output to ensure that symmetric copies have the '
+                                   'same residue number on symmetry mates.' % metadata)
                 r_type = metadata[2]  # energy or sasa
                 pose_state = metadata[-2]  # unbound or complex
                 if pose_state == 'unbound' and offset:
