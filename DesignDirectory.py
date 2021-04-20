@@ -51,7 +51,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.program_root = root
             self.directory_string_to_path(pose_id)
             design_path = self.path
-        self.name = os.path.splitext(os.path.basename(design_path))[0]  # works for all cases
+        self.name = os.path.splitext(os.path.basename(design_path))[0]  # works for all directory and file cases
         self.log = None
         self.nano = nanohedra_output
         self.directory_type = directory_type
@@ -1325,8 +1325,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         Returns:
             scores_df (pandas.DataFrame): DataFrame containing the average values from the input design directory
         """
-        # TODO add fraction_buried_atoms
-
         # Get design information including: interface residues, SSM's, and wild_type/design files
         profile_dict = {}
         design_profile = self.info.get('design_profile', None)
@@ -1383,9 +1381,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 pdb_sequences[pdb.name] = pdb.atom_sequences
             sequence_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences, pose_num=False)
             self.log.debug('Sequence Mutations: %s' % sequence_mutations)
-
-            # Remove wt sequence and find all designs which have corresponding pdb files
             sequence_mutations.pop('reference')
+
+            # Find all designs which have corresponding pdb files
             # all_design_sequences = {AnalyzeMutatedSequences.get_pdb_sequences(file) for file in self.get_designs()}
             # for pdb in models:
             #     for chain in pdb.chain_id_list
@@ -1479,15 +1477,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             wild_type_residue_info = {res_number: copy.deepcopy(residue_template)
                                       for res_number in residue_dict[next(iter(residue_dict))].keys()}
             for res_number in wild_type_residue_info:
+                # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
                 wild_type_residue_info[res_number] = \
                     {'energy_delta': None, 'bsa_polar': None, 'bsa_hydrophobic': None,
                      # Todo implement energy metric for wild-type in refine.sh before refinement of clean_asu_for_refine
                      'bsa_total': wt_pdb.get_residue_surface_area(res_number),
                      'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None}
                 #      'hot_spot': None}
-                rel_complex_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
-                                                    wild_type_residue_info[res_number]['bsa_total'])
-                if rel_complex_sasa < 0.25:
+                relative_oligomer_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
+                                                          wild_type_residue_info[res_number]['bsa_total'])
+                if relative_oligomer_sasa < 0.25:
                     wild_type_residue_info[res_number]['interior'] = 1
                 else:
                     wild_type_residue_info[res_number]['interior'] = 0
@@ -1498,7 +1497,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      for profile, background in profile_dict.items()}
 
             if 'fragment' in profile_dict:
-                # Remove residues from fragment dict if no fragment information available for them
+                # Only keep residues in observed fragment if fragment information available for them
                 obs_d['fragment'] = remove_interior_keys(obs_d['fragment'], issm_residues, keep=True)
 
             # Add observation information into the residue dictionary
