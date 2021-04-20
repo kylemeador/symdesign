@@ -18,17 +18,16 @@ from sklearn.preprocessing import StandardScaler
 import PathUtils as PUtils
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, flag_options
 from Query import Flags
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError,\
     match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, clean_dictionary, all_vs_all, \
     condensed_to_square, space_group_to_sym_entry
 from PDB import PDB
 from Pose import Pose
-from DesignMetrics import columns_to_remove, columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
+from DesignMetrics import columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     residue_composition_diff, division_pairs, stats_metrics, significance_columns, protocols_of_interest, \
-    df_permutation_test, remove_score_columns, residue_template, calc_relative_sa, sequence_columns, \
-    clean_up_intermediate_columns
+    df_permutation_test, residue_template, calc_relative_sa, clean_up_intermediate_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
     position_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
@@ -1377,8 +1376,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if os.path.exists(self.scores_file):
             # Get the scores from all design trajectories
             all_design_scores = read_scores(os.path.join(self.scores, PUtils.scores_file))
-            all_design_scores = remove_interior_keys(all_design_scores, remove_score_columns)  # todo depreciate?
-
+            all_design_scores = remove_pdb_prefixes(all_design_scores)
+            self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Gather mutations for residue specific processing and design sequences
             pdb_sequences = {}
             for file in self.get_designs():
@@ -1409,11 +1408,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # self.log.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
             #                                                      for name in all_design_sequences[chain]))
-            all_design_scores = remove_pdb_prefixes(all_design_scores)
-            self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
+
             # Ensure data is present for both scores and sequences, then initialize DataFrames
-            good_designs = set(all_design_sequences[next(iter(all_design_sequences))].keys()). \
-                intersection(set(all_design_scores.keys()))
+            good_designs = sorted(set(all_design_sequences[next(iter(all_design_sequences))].keys()).
+                                  intersection(set(all_design_scores.keys())))
             self.log.info('All designs with both: %s' % ', '.join(good_designs))
             all_design_scores = clean_dictionary(all_design_scores, good_designs, remove=False)
             all_design_sequences = {chain: clean_dictionary(chain_sequences, good_designs, remove=False)
@@ -1434,7 +1432,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     hbonds_columns.append(column)
             # rename_columns.update(report_columns)
             rename_columns.update(columns_to_rename)
-            remove_columns = hbonds_columns + per_res_columns + columns_to_remove + [groups]
 
             # Rename and Format columns
             scores_df.rename(columns=rename_columns, inplace=True)
@@ -1455,14 +1452,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #         # protocol_s.at[PUtils.stage[stage], groups] = PUtils.stage[stage]
 
             # Replace empty strings with numpy.notanumber (np.nan), drop str columns, and convert remaining to float
-            scores_df = scores_df.replace('', np.nan)
-            scores_df = scores_df.drop(remove_columns, axis=1, errors='ignore').astype(float)
-            self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
+            scores_df.replace('', np.nan, inplace=True)
+            scores_df.astype(float, copy=False)
+            # scores_df = scores_df.drop(remove_columns, axis=1, errors='ignore')
             # Remove unnecessary and Rosetta score terms besides ref
             # TODO learn know how to produce them in output score file. Not in FastRelax...
             rosetta_terms_to_remove = copy.copy(rosetta_terms)
             rosetta_terms_to_remove.remove('ref')
-            scores_df.drop(unnecessary + rosetta_terms_to_remove, axis=1, inplace=True, errors='ignore')
+            remove_columns = rosetta_terms_to_remove + hbonds_columns + per_res_columns + unnecessary + [groups]
+            scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
+            self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
 
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
@@ -1489,8 +1488,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 wild_type_residue_info[res_number] = \
                     {'energy_delta': None, 'bsa_polar': None, 'bsa_hydrophobic': None,
                      # Todo implement energy metric for wild-type in refine.sh before refinement of clean_asu_for_refine
-                     'bsa_total': wt_pdb.get_residue_surface_area(res_number),
-                     'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None}
+                     'bsa_total': wt_pdb.get_residue_surface_area(res_number), 'protocol': None, 'hbond': None,
+                     'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None,
+                     'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None, 'observed_evolution':None}
                 #      'hot_spot': None}
                 relative_oligomer_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
                                                           wild_type_residue_info[res_number]['bsa_total'])
@@ -1870,8 +1870,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             warnings.simplefilter('ignore')  # 'error')
             wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
             residue_df = pd.concat([residue_df, wt_df], sort=False)
-            print(residue_df)
-            # residue_df = residue_df.append(wt_df, sort=False)
             residue_df = residue_df.sort_index(key=lambda x: x.str.isdigit())
 
             # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
