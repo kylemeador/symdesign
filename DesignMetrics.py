@@ -375,22 +375,22 @@ nanohedra_metrics = ['nanohedra_score_per_res', 'nanohedra_score_center_per_res_
                      'total_non_fragment_interface_residues', 'percent_residues_fragment_total',
                      'percent_residues_fragment_center']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
-necessary_metrics = {'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total', 'contact_count',
-                     'coordinate_constraint', 'favor_residue_energy',
-                     'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
-                     'interface_connectivity_1', 'interface_connectivity_2', 'interface_separation',
-                     'interface_energy_1_bound', 'interface_energy_2_bound',
+necessary_metrics = {'buns_complex', 'buns_1_unbound', 'buns_2_unbound', 'contact_count', 'coordinate_constraint',
+                     'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
+                     'hbonds_res_selection_2_bound', 'interface_connectivity_1', 'interface_connectivity_2',
+                     'interface_separation', 'interface_energy_1_bound', 'interface_energy_2_bound',
                      'interface_energy_1_unbound', 'interface_energy_2_unbound', 'interface_energy_complex',
-                     'interaction_energy_complex', groups, 'ref', 'rmsd', 'shape_complementarity', 'symmetry_switch',
-                     'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound', 'hbonds_res_selection_2_bound',
-                     'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
-                     'sasa_polar_1_bound', 'sasa_polar_2_bound',
-                     'sasa_total_1_bound', 'sasa_total_2_bound'}
+                     'interaction_energy_complex', groups, 'rosetta_reference_energy', 'rmsd', 'shape_complementarity',
+                     'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
+                     'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
+                     'sasa_total_1_bound', 'sasa_total_2_bound'
+                     }
+#                      'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'number_hbonds', 'total_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments', 'interface_b_factor_per_res',
 
-final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_count', 'core', 'coordinate_constraint',
+final_metrics = {'interface_buried_hbonds', 'contact_count', 'core', 'coordinate_constraint',
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
                  'divergence_interface_per_residue', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
@@ -409,8 +409,9 @@ final_metrics = {'buns_heavy_total', 'buns_hpol_total', 'buns_total', 'contact_c
                  'percent_residues_fragment_center',
                  'percent_residues_fragment_total', 'percent_rim', 'percent_support',
                  'protocol_energy_distance_sum', 'protocol_similarity_sum', 'protocol_seq_distance_sum',
-                 'ref', 'rim', 'rmsd', 'shape_complementarity', 'solvation_energy', 'support', 'symmetry',
-                 'total_non_fragment_interface_residues'}
+                 'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'solvation_energy', 'support',
+                 'symmetry', 'total_non_fragment_interface_residues'}
+#                  'buns_heavy_total', 'buns_hpol_total', 'buns_total',
 #                These are missing the bb_hb contribution and are inaccurate
 #                   'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
 #                   'int_energy_context_delta', 'int_energy_context_oligomer',
@@ -439,7 +440,8 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      'sasa_res_summary_polar_2_bound': 'sasa_polar_2_bound',
                      'sasa_res_summary_total_2_bound': 'sasa_total_2_bound',
                      'R_int_connectivity_1': 'interface_connectivity_1',
-                     'R_int_connectivity_2': 'interface_connectivity_2'
+                     'R_int_connectivity_2': 'interface_connectivity_2',
+                     'ref': 'rosetta_reference_energy',
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
@@ -450,7 +452,8 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score', 'interface
                                  'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
-                                 'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound'
+                                 'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
+                                 'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound'
                                  ]
 
 # Some of these are unneeded now, but hanging around in case renaming occurred
@@ -466,16 +469,18 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 #                'full_stability_oligomer_A', 'full_stability_oligomer_B']
 
 # sum columns using tuple [0] + [1]
-summation_pairs = {'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
-                   'buns_heavy_total': ('buns_asu', 'buns_nano'),
+summation_pairs = {'buns_unbound': ('buns_1_unbound', 'buns_2_unbound'),
                    'interface_energy_bound': ('interface_energy_1_bound', 'interface_energy_2_bound'),
                    'interface_energy_unbound': ('interface_energy_1_unbound', 'interface_energy_2_unbound'),
                    'sasa_hydrophobic_bound': ('sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound'),
                    'sasa_polar_bound': ('sasa_polar_1_bound', 'sasa_polar_2_bound'),
                    'sasa_total_bound': ('sasa_total_1_bound', 'sasa_total_2_bound')
+                   # 'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
+                   # 'buns_heavy_total': ('buns_asu', 'buns_nano'),
                    }
 # subtract columns using tuple [0] - [1] to make delta column
-delta_pairs = {'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
+delta_pairs = {'interface_buried_hbonds': ('buns_complex', 'buns_unbound'),
+               'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
                'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
                'solvation_energy': ('interaction_energy_complex', 'interface_energy_no_intra_residue_score'),
                'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
