@@ -8,6 +8,7 @@
 		<ScoreFunction name="2015_nano_cst" weights="ref2015" patch="%%sym_score_patch%%">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
 		</ScoreFunction>
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%solvent_sym_score_patch%%"/>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -50,6 +51,7 @@
 		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum"/>
 		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix
 		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum"/>
+		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano_solvation"/>
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
@@ -72,8 +74,8 @@
 		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_bound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%interface%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_polar_sasa_bound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%interface%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_sasa_bound" metrics="M_sasa_total_per_res" prefix="" suffix="_total_%%interface%%_unbound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_total" prefix="" suffix="_%%interface%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total" prefix="" suffix="_%%interface%%_unbound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%interface%%_bound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%interface%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_%%interface%%_bound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_%%interface%%_bound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_%%interface%%_bound" override="false"/>
@@ -101,7 +103,7 @@
 		# find the average degree of connectivity to residues surrounding specified residues
 		<AverageDegree name="interface_connectivity_%%interface%%" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
 <!--		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_%%interface%%_unbound" in_context="1" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" confidence="1.0"/>-->
-		<BuriedUnsatHbonds name="buns_%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns_%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 <!--		<BuriedUnsatHbonds name="buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 <!--		<Report name="R_full_stability_%%interface%%_unbound" 			filter="full_stability_%%interface%%_unbound"/>-->
 		<Report name="R_interface_connectivity_%%interface%%" 				filter="interface_connectivity_%%interface%%"/>
