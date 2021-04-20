@@ -474,7 +474,7 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                'cst_weight', 'fsp_energy', 'int_area_res_summary_hydrophobic_1_unbound',
                'int_area_res_summary_polar_1_unbound', 'int_area_res_summary_total_1_unbound',
                'int_area_res_summary_hydrophobic_2_unbound', 'int_area_res_summary_polar_2_unbound',
-               'int_area_res_summary_total_1_unbound', 'int_area_total', 'int_area_polar', 'int_area_hydrophobic',
+               'int_area_res_summary_total_2_unbound', 'int_area_total', 'int_area_polar', 'int_area_hydrophobic',
                'int_energy_context_1_unbound', 'int_energy_res_summary_1_unbound', 'int_energy_context_2_unbound',
                'int_energy_res_summary_2_unbound', 'int_energy_res_summary_complex', 'int_sc', 'int_sc_median_dist',
                # 'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_bound',
@@ -601,17 +601,17 @@ def columns_to_new_column(df, column_dict, mode='add'):
 
     Args:
         df (pandas.DataFrame): Dataframe where the columns are located
-        column_dict (dict): A dictionary with keys as new column names, values as tuple of columns.
-            Where value[0] mode(operation) value[1] = key
+        column_dict (dict[mapping[str,tuple]]): Keys are new column names, values are tuple of existing columns where
+        value[0] mode(operation) value[1] = key
     Keyword Args:
         mode='add' (str) = What operator to use?
             Viable options are included in module operator, but could be 'sub', 'mul', 'truediv', etc.
     Returns:
         df (pandas.DataFrame): Dataframe with new column values
     """
-    for column in column_dict:
+    for column, pair in column_dict.items():
         try:
-            df[column] = operator.attrgetter(mode)(operator)(df[column_dict[column][0]], df[column_dict[column][1]])
+            df[column] = operator.attrgetter(mode)(operator)(df[pair[0]], df[pair[1]])
         except KeyError:
             pass
 
