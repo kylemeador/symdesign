@@ -42,7 +42,6 @@ logger = start_log(name=__name__)
 idx_offset = 1
 design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
-warnings.simplefilter('error')
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
@@ -1590,6 +1589,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     residue_dict.pop(idx)
                 self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
+            warnings.simplefilter('error')
 
             other_pose_metrics['observations'] = len(scores_df)
 
