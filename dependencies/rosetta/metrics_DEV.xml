@@ -76,11 +76,11 @@
 		<RunSimpleMetrics name="run_metrics_polar_sasa_bound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%interface%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_sasa_bound" metrics="M_sasa_total_per_res" prefix="" suffix="_total_%%interface%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%interface%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%interface%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_%%interface%%_bound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_%%interface%%_bound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_%%interface%%_bound" override="false"/>
-			<!-- <RunSimpleMetrics name="run_metrics_hydrophobic_sasa_unbound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_unbound" override="false"/>  -->
+		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%interface%%_unbound" override="false"/>
+		<!-- <RunSimpleMetrics name="run_metrics_hydrophobic_sasa_unbound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_unbound" override="false"/>  -->
 			<!-- <RunSimpleMetrics name="run_metrics_polar_sasa_unbound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_unbound" override="false"/>  -->
 			<!-- <RunSimpleMetrics name="run_metrics_sasa_unbound" metrics="M_sasa_per_res" prefix="" suffix="_total_unbound" override="false"/>  -->
 			<!-- <RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total_unbound,M_interaction_energy,M_int_hbonds_res_selector" prefix="" suffix="_unbound" override="false"/> -->
