@@ -1458,7 +1458,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
             # Replace empty strings with numpy.notanumber (np.nan) and convert remaining to float
             scores_df.replace('', np.nan, inplace=True)
-            scores_df.astype(float, copy=False)
+            scores_df = scores_df.astype(float)  # , copy=False)
 
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
@@ -1552,8 +1552,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Calculate new metrics from combinations of other metrics
             scores_df = columns_to_new_column(scores_df, summation_pairs)
-            print(scores_df)
-            print(scores_df.dtypes)
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
             scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
