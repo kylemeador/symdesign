@@ -277,7 +277,8 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
                   'solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - bound
-                      {'description': 'the free energy gain upon formation of the interface, Energy required to hydrate the surface of newly unbound interface components',
+                      {'description': 'The free energy resulting from hydration of the separated interface surfaces. '
+                                      'Positive values indicate poorly soluble surfaces',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
                   'support':
                       {'description': 'The number of \'support\' residues as classified by E. Levy 2010',
@@ -383,8 +384,8 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'buns_2_unbound', 'contac
                      'interaction_energy_complex', groups, 'rosetta_reference_energy', 'rmsd', 'shape_complementarity',
                      'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                      'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
-                     'sasa_total_1_bound', 'sasa_total_2_bound'
-                     'solvation_composite_energy_complex'}
+                     'sasa_total_1_bound', 'sasa_total_2_bound', 'solvation_energy_complex', 'solvation_energy_1_bound',
+                     'solvation_energy_2_bound', 'solvation_energy_1_unbound', 'solvation_energy_2_unbound'}
 #                      'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'number_hbonds', 'total_interface_residues',
@@ -439,6 +440,11 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      'sasa_res_summary_hydrophobic_2_bound': 'sasa_hydrophobic_2_bound',
                      'sasa_res_summary_polar_2_bound': 'sasa_polar_2_bound',
                      'sasa_res_summary_total_2_bound': 'sasa_total_2_bound',
+                     'solvation_total_energy_complex': 'solvation_energy_complex',
+                     'solvation_total_energy_1_bound': 'solvation_energy_1_bound',
+                     'solvation_total_energy_2_bound': 'solvation_energy_2_bound',
+                     'solvation_total_energy_1_unbound': 'solvation_energy_1_unbound',
+                     'solvation_total_energy_2_unbound': 'solvation_energy_2_unbound',
                      'R_int_connectivity_1': 'interface_connectivity_1',
                      'R_int_connectivity_2': 'interface_connectivity_2',
                      'ref': 'rosetta_reference_energy',
@@ -453,7 +459,9 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score', 'interface
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
                                  'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
-                                 'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound'
+                                 'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound',
+                                 'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
+                                 'solvation_energy_2_unbound'
                                  ]
 
 # Some of these are unneeded now, but hanging around in case renaming occurred
@@ -465,7 +473,16 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                'interaction_energy', 'interaction_energy_asu', 'interaction_energy_oligomerA',
                'interaction_energy_oligomerB', 'interaction_energy_unbound', 'res_type_constraint', 'time', 'REU',
                'full_stability_complex', 'full_stability_oligomer', 'fsp_total_stability',
-               'full_stability_1_unbound', 'full_stability_2_unbound']
+               'full_stability_1_unbound', 'full_stability_2_unbound',
+               'cst_weight', 'fsp_energy', 'int_area_res_summary_hydrophobic_1_unbound',
+               'int_area_res_summary_polar_1_unbound', 'int_area_res_summary_total_1_unbound',
+               'int_area_res_summary_hydrophobic_2_unbound', 'int_area_res_summary_polar_2_unbound',
+               'int_area_res_summary_total_1_unbound', 'int_area_total', 'int_area_polar', 'int_area_hydrophobic',
+               'int_energy_context_1_unbound', 'int_energy_res_summary_1_unbound', 'int_energy_context_2_unbound',
+               'int_energy_res_summary_2_unbound', 'int_energy_res_summary_complex', 'int_sc', 'int_sc_median_dist'
+               # 'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_bound',
+               # 'solvation_energy_1_unbound', 'solvation_energy_2_unbound', 'solvation_energy_unbound',
+               ]
 #                'full_stability_oligomer_A', 'full_stability_oligomer_B']
 
 # sum columns using tuple [0] + [1]
@@ -474,15 +491,17 @@ summation_pairs = {'buns_unbound': ('buns_1_unbound', 'buns_2_unbound'),
                    'interface_energy_unbound': ('interface_energy_1_unbound', 'interface_energy_2_unbound'),
                    'sasa_hydrophobic_bound': ('sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound'),
                    'sasa_polar_bound': ('sasa_polar_1_bound', 'sasa_polar_2_bound'),
-                   'sasa_total_bound': ('sasa_total_1_bound', 'sasa_total_2_bound')
+                   'sasa_total_bound': ('sasa_total_1_bound', 'sasa_total_2_bound'),
+                   'solvation_energy_bound': ('solvation_energy_1_bound', 'solvation_energy_2_bound'),
+                   'solvation_energy_unbound': ('solvation_energy_1_unbound', 'solvation_energy_2_unbound')
                    # 'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
                    # 'buns_heavy_total': ('buns_asu', 'buns_nano'),
                    }
 # subtract columns using tuple [0] - [1] to make delta column
 delta_pairs = {'interface_buried_hbonds': ('buns_complex', 'buns_unbound'),
                'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
-               'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
-               'solvation_energy': ('solvation_energy_bound', 'solvation_energy_complex'),
+               # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
+               'solvation_energy': ('solvation_energy_unbound', 'solvation_energy_complex'),
                # 'solvation_energy': ('interaction_energy_complex', 'interface_energy_no_intra_residue_score'),
                'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
                'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
@@ -857,7 +876,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                 if r_type == 'sasa':
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     polarity = metadata[3]
-                    residue_dict[res][r_type][polarity][pose_state] = round(value, 3)
+                    residue_dict[res][r_type][polarity][pose_state] = value  # round(value, 3)
                     # residue_dict[res][r_type][polarity][pose_state] = round(score_dict[design][column], 3)
                 else:
                     # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
@@ -878,8 +897,8 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
             relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
             for polarity in data['sasa']:
                 # convert sasa measurements into bsa measurements
-                data['bsa_%s' % polarity] = round(data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex'],
-                                                  2)
+                data['bsa_%s' % polarity] = \
+                    round(data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex'], 2)
             if data['bsa_total'] > 0:
                 if relative_oligomer_sasa < 0.25:
                     data['support'] = 1
