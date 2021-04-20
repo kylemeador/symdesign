@@ -1466,10 +1466,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                         , offset=offset_dict) <- when hbonds are pose numbering
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-            all_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences)
+            all_mutations = remove_pdb_prefixes(generate_multiple_mutations(wt_sequence, pdb_sequences))
             all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
-            all_mutations_simplified = simplify_mutation_dict(all_mutations_no_chains)
-            cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
+            cleaned_mutations = simplify_mutation_dict(all_mutations_no_chains)
             residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, hbonds=interface_hbonds)
             #                                       offset=offset_dict)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
