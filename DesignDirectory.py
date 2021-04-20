@@ -561,8 +561,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         if os.path.exists(self.info_pickle):  # Pose has already been processed. We can assume files are available
             self.info = unpickle(self.info_pickle)
-            if 'design' in self.info and self.info['design']:  # Todo, respond to the state
-                dummy = True
+            # if 'design' in self.info and self.info['design']:  # Todo, respond to the state
+            #     dummy = True
         else:  # Ensure directories are only created once Pose Processing is called
             # self.log.debug('Setting up DesignDirectory for design: %s' % self.source)
             self.make_path(self.protein_data)
@@ -918,8 +918,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                 ('sym_score_patch', PUtils.sym_weights),
                                 ('solvent_sym_score_patch', PUtils.solvent_weights), ('symmetry', protocol),
                                 ('sdf', sym_def_file), ('dist', dist), ('cst_value_sym', (cst_value / 2))]
-
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
+            # if self.info:
+            #     self.info.get('design_residues')
+            # else:
+            self.identify_interface()
             refine_variables.extend(self.interface_residue_d.items())
 
             # assign any additional designable residues
