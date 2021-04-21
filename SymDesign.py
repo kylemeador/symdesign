@@ -553,9 +553,14 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
     # ---------------------------------------------------
-    parser_expand = subparsers.add_parser('expand_asu', help='For given poses, expand the asymmetric unit to a '
-                                                             'symmetric assembly and write the result to the design '
-                                                             'directory.')
+    parser_expand = subparsers.add_parser('expand_asu',
+                                          help='For given poses, expand the asymmetric unit to a symmetric assembly and'
+                                               ' write the result to the design directory.')
+    # ---------------------------------------------------
+    parser_rename = subparsers.add_parser('rename_chains',
+                                          help='For given poses, rename the chains in the source PDB to the alphabetic '
+                                               'order. Useful for writing a multi-model as distinct chains or fixing '
+                                               'common PDB formatting errors as well. Writes to design directory')
     # ---------------------------------------------------
     parser_dock = subparsers.add_parser(PUtils.nano,
                                         help='Submit jobs to %s.py\nIf a docking directory structure is set up, provide'
@@ -775,7 +780,7 @@ if __name__ == '__main__':
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
-                       'interface_metrics', 'metrics_bound']:
+                       'interface_metrics', 'metrics_bound', 'rename_chains']:
         queried_flags['directory_type'] = PUtils.interface_design
         if args.module in ['orient', 'expand_asu']:
             if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
@@ -1022,6 +1027,15 @@ if __name__ == '__main__':
         else:
             for design_dir in design_directories:
                 results.append(design_dir.expand_asu())
+
+        terminate(args.module, design_directories, location=location, results=results, output=True)
+    # ---------------------------------------------------
+    elif args.module == 'rename_chains':
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.rename_chains, design_directories, threads=threads)
+        else:
+            for design_dir in design_directories:
+                results.append(design_dir.rename_chains())
 
         terminate(args.module, design_directories, location=location, results=results, output=True)
     # ---------------------------------------------------

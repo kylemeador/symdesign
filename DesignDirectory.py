@@ -1211,6 +1211,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #         self.pose.write(out_path=self.assembly)
         #         self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
 
+    @handle_design_errors(errors=(DesignError,))
+    def rename_chains(self):
+        """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
+        self.symmetry is used to specify the orientation
+        """
+        pdb = PDB.from_file(self.source, log=self.log)
+        pdb.reorder_chains()
+        pdb.write(out_path=self.source)
+
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
     def orient(self):
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
