@@ -1251,7 +1251,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   '--ignore_clashes')
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def expand_asu(self, increment_chain=False):
+    def expand_asu(self, increment_chains=False):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, and self.log objects then expand the design given the provided symmetry operators and write to a
         file
@@ -1264,7 +1264,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.symmetric_assembly_is_clash()
             if self.output_assembly:  # True by default when expand_asu module is used
                 self.pose.get_assembly_symmetry_mates()
-                self.pose.write(out_path=self.assembly, increment_chain=increment_chain)
+                self.pose.write(out_path=self.assembly, increment_chains=increment_chains)
                 self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
