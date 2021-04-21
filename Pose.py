@@ -771,7 +771,7 @@ class SymmetricModel(Model):
         else:
             return False  # no clash
 
-    def write(self, out_path=os.getcwd(), header=None):  # , cryst1=None):  # Todo write symmetry, name, location
+    def write(self, out_path=os.getcwd(), header=None, increment_chains=False):  # , cryst1=None):  # Todo write symmetry, name, location
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written"""
         with open(out_path, 'w') as f:
@@ -780,13 +780,24 @@ class SymmetricModel(Model):
                     f.write(header)
                 # if isinstance(header, Iterable):
 
+        if increment_chains:
+            idx = 0
+            # for idx, model in enumerate(self.models):
+            for model in self.models:
+                for entity in model.entities:
+                    chain = PDB.available_letters[idx]
+                    entity.write(file_handle=f, chain=chain)
+                    chain_terminal_atom = entity.atoms[-1]
+                    f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
+                                                                          chain_terminal_atom.residue_type, chain,
+                                                                          chain_terminal_atom.residue_number))
+                    idx += 1
+        else:
             for model_number, model in enumerate(self.models, 1):
                 f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
                 for entity in model.entities:
-                    chain_terminal_atom = entity.atoms[-1]
                     entity.write(file_handle=f)
-                    # f.write('\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-                    #                   for atom, coord in zip(chain.atoms, self.model_coords.tolist())))
+                    chain_terminal_atom = entity.atoms[-1]
                     f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
                                                                           chain_terminal_atom.residue_type,
                                                                           entity.chain_id,

@@ -1023,10 +1023,11 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.expand_asu, design_directories, threads=threads)
+            zipped_args = zip(design_directories, repeat(queried_flags.get('increment_chain', False)))
+            results = SDUtils.mp_starmap(DesignDirectory.expand_asu, design_directories, threads=threads)
         else:
             for design_dir in design_directories:
-                results.append(design_dir.expand_asu())
+                results.append(design_dir.expand_asu(increment_chain=queried_flags.get('increment_chain', False)))
 
         terminate(args.module, design_directories, location=location, results=results, output=True)
     # ---------------------------------------------------
