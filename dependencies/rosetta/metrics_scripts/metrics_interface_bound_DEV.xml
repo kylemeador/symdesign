@@ -86,13 +86,14 @@
 		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum"/>
 <!--		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>-->
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>
+		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
 	</SIMPLE_METRICS>
 
 	<MOVERS>
 		# extracts from the symmetric pose to the asymmetric unit
-		<ExtractAsymmetricUnit name="extract_asu" keep_virtual="0"/>
+<!--		<ExtractAsymmetricUnit name="extract_asu" keep_virtual="0"/>-->
 		# move two folds on different sides of a jump. this instance has the jump between chain A and B and moves them apart the distance on the specified axis (not sure how the axis are defined)
-		<RigidBodyTransMover name="translate_asu" jump="1" distance="100.0" x="0.0" y="0.0" z="0.0"/>
+<!--		<RigidBodyTransMover name="translate_asu" jump="1" distance="100.0" x="0.0" y="0.0" z="0.0"/>-->
 		<SavePoseMover name="save_nanohedra" restore_pose="0" reference_name="nanohedra"/>
 		<SavePoseMover name="restore_nanohedra" restore_pose="1" reference_name="nanohedra"/>
 		# process mertics that are defined in the SimpleMetrics header above
@@ -101,7 +102,7 @@
 		<RunSimpleMetrics name="run_metrics_sasa" metrics="M_sasa_per_res" prefix="" suffix="_total_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_cst" metrics="M_int_energy_cst_per_res" prefix="" suffix="_cst" override="false"/>
 		<RunSimpleMetrics name="run_metrics_fsp" metrics="M_int_energy_fsp_per_res" prefix="" suffix="_fsp" override="false"/>
-		<RunSimpleMetrics name="run_metrics_complex" metrics="M_int_hbonds_res_selector,M_interaction_energy,M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_complex" override="false"/>
+		<RunSimpleMetrics name="run_metrics_complex" metrics="M_int_hbonds_res_selector,M_interaction_energy,M_int_energy_per_res,M_int_energy_total,M_solvation_energy,M_rmsd" prefix="" suffix="_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_complex" override="false"/>
@@ -142,14 +143,14 @@
 <!--		<BuriedUnsatHbonds name="buns_nano" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_all_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="2"/>-->
 <!--		<BuriedUnsatHbonds name="buns_nano_hpol" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="2"/>-->
 		# find the difference in the Ca position of all residues in the asu versus a reference pose specified by -in:file:native on the command line
-		<Rmsd name="rmsd" symmetry="0" chains="AB" threshold="10.0" confidence="1.0"/>
+<!--		<Rmsd name="rmsd" symmetry="0" chains="AB" threshold="10.0" confidence="1.0"/>-->
 		## Reporters: access filters that change upon Pose manipulation. Must be run in specified Pose environment!! Afterwards, the value will be output to score location
 		#  ASUextraction
 <!--		<Report name="R_interface_area_all_asu_hydrophobic"	filter="interface_area_all_asu_hydrophobic"/>-->
 <!--		<Report name="R_interface_area_all_asu_polar" 		filter="interface_area_all_asu_polar"/>-->
 <!--		<Report name="R_buns_asu" 						filter="buns_asu"/>-->
 <!--		<Report name="R_buns_asu_hpol" 					filter="buns_asu_hpol"/>-->
-		<Report name="R_rmsd" 						filter="rmsd"/>
+<!--		<Report name="R_rmsd" 						filter="rmsd"/>-->
 			<!-- <Report name="R_int_energy_context_asu"			filter="int_energy_context_asu"/> -->
 			<!-- <Report name="R_int_energy_context_unbound"		filter="int_energy_context_unbound"/> -->
 		#  Nanohedra
@@ -216,21 +217,21 @@
 	</FILTERS>
 
 	<PROTOCOLS>
-		<Add mover_name="save_nanohedra"/>
+<!--		<Add mover_name="save_nanohedra"/>-->
 		## ASU analysis
-		<Add mover_name="extract_asu"/>
+<!--		<Add mover_name="extract_asu"/>-->
 <!--		<Add filter_name="R_interface_area_all_asu_hydrophobic" report_at_end="false"/>-->
 <!--		<Add filter_name="R_interface_area_all_asu_polar" report_at_end="false"/>-->
 <!--		<Add filter_name="R_interface_area_asu_hydrophobic"/>-->
 <!--		<Add filter_name="R_interface_area_asu_polar"/>-->
 <!--		<Add filter_name="R_buns_asu"/>-->
 <!--		<Add filter_name="R_buns_asu_hpol"/>-->
-		<Add filter_name="R_rmsd"/>
+<!--		<Add filter_name="R_rmsd"/>-->
 			<!-- <Add filter_name="R_int_energy_context_asu"/> -->
 		<!-- <Add mover_name="translate_asu"/> -->
 			<!-- <Add filter_name="R_int_energy_context_unbound"/> -->
 		## Nanohedra analysis ##
-		<Add mover_name="restore_nanohedra"/>
+<!--		<Add mover_name="restore_nanohedra"/>-->
 <!--		<Add filter_name="R_full_stability_complex"/>-->
 <!--		<Add filter_name="R_fsp_total_stability"/>-->
 		<Add filter_name="R_favor_residue_energy"/>
