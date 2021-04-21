@@ -1218,7 +1218,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         pdb = PDB.from_file(self.source, log=self.log)
         pdb.reorder_chains()
-        pdb.write(out_path=self.source)
+        pdb.write(out_path=self.asu)
 
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
     def orient(self):
