@@ -1001,12 +1001,16 @@ class Structure(StructureBase):
 
     def write(self, out_path=None, header=None, file_handle=None, **kwargs):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-        one was written"""
+        one was written
+
+        Returns:
+            (str): The name of the written file
+        """
         def write_header(location):
             if header and isinstance(header, Iterable):
                 if isinstance(header, str):
                     location.write(header)
-                # else:
+                # else:  # TODO
                 #     location.write('\n'.join(header))
 
         if file_handle:
