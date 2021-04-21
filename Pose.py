@@ -780,29 +780,29 @@ class SymmetricModel(Model):
                     f.write(header)
                 # if isinstance(header, Iterable):
 
-        if increment_chains:
-            idx = 0
-            # for idx, model in enumerate(self.models):
-            for model in self.models:
-                for entity in model.entities:
-                    chain = PDB.available_letters[idx]
-                    entity.write(file_handle=f, chain=chain)
-                    chain_terminal_atom = entity.atoms[-1]
-                    f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
-                                                                          chain_terminal_atom.residue_type, chain,
-                                                                          chain_terminal_atom.residue_number))
-                    idx += 1
-        else:
-            for model_number, model in enumerate(self.models, 1):
-                f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-                for entity in model.entities:
-                    entity.write(file_handle=f)
-                    chain_terminal_atom = entity.atoms[-1]
-                    f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
-                                                                          chain_terminal_atom.residue_type,
-                                                                          entity.chain_id,
-                                                                          chain_terminal_atom.residue_number))
-                f.write('ENDMDL\n')
+            if increment_chains:
+                idx = 0
+                # for idx, model in enumerate(self.models):
+                for model in self.models:
+                    for entity in model.entities:
+                        chain = PDB.available_letters[idx]
+                        entity.write(file_handle=f, chain=chain)
+                        chain_terminal_atom = entity.atoms[-1]
+                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
+                                                                              chain_terminal_atom.residue_type, chain,
+                                                                              chain_terminal_atom.residue_number))
+                        idx += 1
+            else:
+                for model_number, model in enumerate(self.models, 1):
+                    f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
+                    for entity in model.entities:
+                        entity.write(file_handle=f)
+                        chain_terminal_atom = entity.atoms[-1]
+                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
+                                                                              chain_terminal_atom.residue_type,
+                                                                              entity.chain_id,
+                                                                              chain_terminal_atom.residue_number))
+                    f.write('ENDMDL\n')
 
     @staticmethod
     def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
