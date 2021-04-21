@@ -1633,7 +1633,7 @@ class Residue:
 
     def __str__(self, pdb=False, chain=None, **kwargs):  # type=None, number=None, **kwargs
         residue_strings = '{:3s}'.format(self.type), (chain or self.chain), \
-                          '{:4d}'.format(getattr(self, 'number%s' % '_pdb' if pdb else ''))
+                          '{:4d}'.format(getattr(self, 'number%s' % ('_pdb' if pdb else '')))
         return '\n'.join(str(atom) % ('{:5d}'.format(idx + 1), *residue_strings,
                                       '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
                          for atom, idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
@@ -2013,7 +2013,7 @@ class Atom:
         # Todo ^ For future implement in residue writes
         return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
                .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, (chain or self.chain),
-                       getattr(self, '%sresidue_number' % 'pdb_' if pdb else ''), self.code_for_insertion,
+                       getattr(self, '%sresidue_number' % ('pdb_' if pdb else '')), self.code_for_insertion,
                        self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
 
     def __eq__(self, other):
