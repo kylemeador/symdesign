@@ -8,7 +8,7 @@ import pickle
 import subprocess
 from functools import reduce, wraps
 from glob import glob
-from itertools import chain
+from itertools import chain, repeat
 from json import loads, dumps
 from collections import defaultdict
 
@@ -956,7 +956,8 @@ def collect_designs(file=None, directory=None, project=None, single=None):
                 logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
                 exit()
         with open(_file, 'r') as f:
-            all_paths = map(os.path.dirname, [location.strip() for location in f.readlines() if location.strip() != ''])
+            all_paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
+                            repeat(os.sep))  # only strip the trailing '/' path separator in case file names are passed
         location = _file
     elif directory:
         location = directory
