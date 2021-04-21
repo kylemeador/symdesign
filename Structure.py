@@ -990,13 +990,13 @@ class Structure(StructureBase):
         else:
             return np.min(np.linalg.norm(self.coords, axis=1))
 
-    def return_atom_string(self, pdb_number=False):
+    def return_atom_string(self, **kwargs):
         """Provide the Structure Atoms as a PDB file string"""
         # atom_atrings = '\n'.join(str(atom) for atom in self.atoms)
         # '%d, %d, %d' % tuple(element.tolist())
         # '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
         # atom_atrings = '\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-        return '\n'.join(atom.__str__(pdb=pdb_number) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
+        return '\n'.join(atom.__str__(**kwargs) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
                          for atom, coord in zip(self.atoms, self.coords.tolist()))
 
     def write(self, out_path=None, header=None, file_handle=None, **kwargs):
@@ -1631,9 +1631,11 @@ class Residue:
             return self.__key() == other.__key()
         return NotImplemented
 
-    def __str__(self):
-        return '\n'.join(str(atom) % ('{:5d}'.format(idx + 1), '{:3s}'.format(self.type), self.chain,
-                                      '{:4d}'.format(self.number), '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
+    def __str__(self, pdb=False, chain=None, **kwargs):  # type=None, number=None, **kwargs
+        residue_strings = '{:3s}'.format(self.type), (chain or self.chain), \
+                          '{:4d}'.format(getattr(self, 'number%s' % '_pdb' if pdb else ''))
+        return '\n'.join(str(atom) % ('{:5d}'.format(idx + 1), *residue_strings,
+                                      '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
                          for atom, idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
 
     def __hash__(self):
@@ -2001,20 +2003,17 @@ class Atom:
     def __key(self):
         return self.number, self.type
 
-    def __str__(self, pdb=False):
+    def __str__(self, pdb=False, chain=None, **kwargs):  # type=None, number=None, **kwargs
         """Represent Atom in PDB format"""
         # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
         # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
         # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
         # return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        if pdb:
-            residue_number = self.pdb_residue_number
-        else:
-            residue_number = self.residue_number
+        # Todo ^ For future implement in residue writes
         return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-               .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
-                       residue_number, self.code_for_insertion,  # self.x, self.y, self.z,
+               .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, (chain or self.chain),
+                       getattr(self, '%sresidue_number' % 'pdb_' if pdb else ''), self.code_for_insertion,
                        self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
 
     def __eq__(self, other):
