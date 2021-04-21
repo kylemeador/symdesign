@@ -768,13 +768,19 @@ class PDB(Structure):
     #     """Return the Residues included in a particular chain"""
     #     return [residue for residue in self.residues if residue.chain == chain_id]
 
-    # def write(self, out_path=None, cryst1=None):  # Todo Depreciate
-    #     if not cryst1:
-    #         cryst1 = self.cryst_record
-    #     with open(out_path, "w") as outfile:
-    #         if cryst1 and isinstance(cryst1, str) and cryst1.startswith("CRYST1"):
-    #             outfile.write(str(cryst1) + "\n")
-    #         outfile.write('\n'.join(str(atom) for atom in self.atoms))
+    def write(self, out_path=None, **kwargs):
+        """Write PDB Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
+        one was written
+
+        Returns:
+            (str): The name of the written file
+        """
+        if self.cryst_record:
+            header = self.cryst_record
+        else:
+            header = None
+
+        return super().write(out_path=out_path, header=header, **kwargs)
 
     def get_chain_sequences(self):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
