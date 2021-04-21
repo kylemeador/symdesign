@@ -18,9 +18,9 @@ from sklearn.preprocessing import StandardScaler
 import PathUtils as PUtils
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, flag_options
 from Query import Flags
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError,\
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, clean_dictionary, all_vs_all, \
-    condensed_to_square, space_group_to_sym_entry
+    condensed_to_square, space_group_to_sym_entry, digit_translate_table
 from PDB import PDB
 from Pose import Pose
 from DesignMetrics import columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
@@ -1370,9 +1370,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
         wt_sequence = wt_pdb.atom_sequences
 
-        design_residues = self.info.get('design_residues', None)
+        design_residues = other_pose_metrics.get('total_interface_residues', None)
+        # design_residues = self.info.get('design_residues', None)
         if design_residues:
-            design_residues = [int(residue[:-1]) for residue in design_residues.split(',')]  # remove chain, change type
+            # 'design_residues' coming in as 234B (residue_number|chain), remove residue chain, change type
+            design_residues = [int(residue.translate(digit_translate_table)) for residue in design_residues.split(',')]
         else:  # This should never happen as we catch at other_pose_metrics...
             raise DesignError('No residues were marked for design. Have you run %s or %s?'
                               % (PUtils.generate_fragments, PUtils.interface_design))
@@ -1435,7 +1437,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if column.startswith('R_'):
                     rename_columns[column] = column.replace('R_', '')
                 elif column.startswith('symmetry_switch'):
-                    other_pose_metrics['symmetry'] = scores_df.loc[PUtils.stage[1], column].replace('make_', '')
+                    other_pose_metrics['symmetry'] = \
+                        scores_df.loc[PUtils.stage[1], column].replace('make_', '').replace('group', '')
                 elif column.startswith('per_res_'):
                     per_res_columns.append(column)
                 elif column.startswith('hbonds_res_selection'):
@@ -1543,10 +1546,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Check if any of the values in columns are 1. If so, return True for that column
             interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()
             interface_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
-            assert len(interface_residues) > 0, 'No interface residues found!'
+            assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
             other_pose_metrics['percent_fragment'] = len(issm_residues) / len(interface_residues)
-            scores_df['total_interface_residues'] = len(interface_residues)
-            # 'design_residues' coming in as 234B (residue_number|chain)
+            other_pose_metrics['total_interface_residues'] = len(interface_residues)
             if set(interface_residues) != set(design_residues):
                 self.log.info('Residues %s are located in the interior' %
                               ', '.join(map(str, set(design_residues) - set(interface_residues))))
@@ -1560,10 +1562,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
 
             # Calculate new metrics from combinations of other metrics
+            scores_df['total_interface_residues'] = len(interface_residues)
             scores_df = columns_to_new_column(scores_df, summation_pairs)
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
-            scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+            # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
+            scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True,
+                           errors='ignore')
 
             # Add design residue information to scores_df such as core, rim, and support measures
             for r_class in residue_classificiation:
