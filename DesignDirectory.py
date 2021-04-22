@@ -874,7 +874,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return out_file
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def rosetta_interface_metrics(self, force_flags=False):
+    def rosetta_interface_metrics(self, force_flags=False, development=False):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         main_cmd = copy.copy(script_cmd)
         # flags_metric = os.path.join(self.scripts, 'flags_%s' % PUtils.stage[3])
@@ -945,12 +945,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         metric_cmd_bound = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'interface_%s.xml' % PUtils.stage[3])]
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
+                                              % (PUtils.stage[3], '_DEV' if development else ''))]
 
         metric_cmd_unbound = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[3])]
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
+                                              % (PUtils.stage[3], '_DEV' if development else ''))]
 
         metric_cmds = [metric_cmd_bound] + \
                       [metric_cmd_unbound + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
