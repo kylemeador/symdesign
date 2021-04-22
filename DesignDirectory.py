@@ -1370,8 +1370,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
         wt_sequence = wt_pdb.atom_sequences
 
-        design_residues = other_pose_metrics.get('total_interface_residues', None)
-        # design_residues = self.info.get('design_residues', None)
+        design_residues = self.info.get('design_residues', None)
         if design_residues:
             # 'design_residues' coming in as 234B (residue_number|chain), remove residue chain, change type
             design_residues = [int(residue.translate(digit_translate_table)) for residue in design_residues.split(',')]
@@ -1557,8 +1556,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             int_b_factor = 0
             for residue in interface_residues:
                 int_b_factor += wt_pdb.residue(residue).get_ave_b_factor()
-
-            # this value updates the prior calculated one with only residues in interface, i.e. not exterior
+            # this value updates the prior calculated one with only residues in interface, i.e. not interior
             other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
 
             # Calculate new metrics from combinations of other metrics
