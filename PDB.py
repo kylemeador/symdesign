@@ -75,8 +75,10 @@ class PDB(Structure):
         self.dihedral_chain = None
 
         # Todo consolidate process_pdb and chain/entity mechanism. Need to pass these parameters for different reasons
-        kwargs['entities'] = entities
-        kwargs['chains'] = chains
+        if entities:
+            kwargs['entities'] = entities
+        if chains:
+            kwargs['chains'] = chains
         if file:
             self.readfile(file, **kwargs)
         else:
