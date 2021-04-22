@@ -23,20 +23,20 @@
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1" />
 		<Neighborhood name="interface1_sym_neighbor" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
-		<Or name="interface_or_neighbors1" selectors="interface1_sym,interface1_sym_neighbor"/>
+		<Or name="interface_or_neighbors1_sym" selectors="interface1_sym,interface1_sym_neighbor"/>
 		# same, but for residues from interface 2
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface2_sym" selector="interface2" />
 		<Neighborhood name="interface2_sym_neighbor" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
-		<Or name="interface_or_neighbors2" selectors="interface2_sym,interface2_sym_neighbor"/>
+		<Or name="interface_or_neighbors2_sym" selectors="interface2_sym,interface2_sym_neighbor"/>
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
 		<Or name="tot_interface_sym" selectors="interface1_sym,interface2_sym"/>
 		<Not name="not_interface_sym" selector="tot_interface_sym"/>
-		<Or name="tot_interface_and_neighbor" selectors="tot_interface_sym,interface1_sym_neighbor,interface2_sym_neighbor"/>
-		<Not name="not_interface_or_neighbor" selector="tot_interface_and_neighbor"/>
+		<Or name="tot_interface_and_neighbor_sym" selectors="tot_interface_sym,interface1_sym_neighbor,interface2_sym_neighbor"/>
+		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
 		<HBond name="hbond_residues_sym" residue_selector="tot_interface_sym" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano"/>
 <!--		<SymmetricalResidue name="hbond_residues" selector="hbond_residues_asu" />-->
@@ -55,12 +55,12 @@
 		<OperateOnResidueSubset name="int_rtr" selector="tot_interface"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
 		# disable repacking of all non-interface residues
 		<OperateOnResidueSubset name="non_int_no_repack" selector="not_interface_sym"> <PreventRepackingRLT/> </OperateOnResidueSubset>
-		<OperateOnResidueSubset name="non_neighbor_no_repack" selector="not_interface_or_neighbor"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="non_neighbor_no_repack_sym" selector="not_interface_or_neighbor_sym"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 <!--		# restrict all non-interface residues to repacking only, no design-->
 <!--		<OperateOnResidueSubset name="non_int_rtr" selector="not_interface"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>-->
 		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
-		<OperateOnResidueSubset name="design_around1" selector="interface_or_neighbors1"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
-		<OperateOnResidueSubset name="design_around2" selector="interface_or_neighbors2"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="design_around1" selector="interface_or_neighbors1_sym"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="design_around2" selector="interface_or_neighbors2_sym"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
 <!--		<DesignAround name="design_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>-->
 <!--		<DesignAround name="design_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>-->
 			<!-- <DesignAround name="des_around_total" design_shell="0.1" resnums="%%interface1%%,%%interface2%%" repack_shell="8.0"/> -->
@@ -122,7 +122,7 @@
 <!--		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_complex" in_context="1" residue_selector="tot_interface_sym" scorefxn="2015_nano" confidence="1.0"/>-->
 		## Interface Metric Filters
 		# find the number of carbon carbon contacts with specified residues
-		<AtomicContactCount name="contact_count" partition="none" taskA="design_around1,init,vrt,non_neighbor_no_repack" taskB="design_around2,init,vrt,non_neighbor_no_repack" distance="5.0" normalize_by_carbon_count="1"/>
+		<AtomicContactCount name="contact_count" partition="none" taskA="design_around1,init,vrt,non_neighbor_no_repack_sym" taskB="design_around2,init,vrt,non_neighbor_no_repack_sym" distance="5.0" normalize_by_carbon_count="1"/>
 		# find the shape complementarity between residues in an interface. report the median distance (or interface area, but this seems inaccurate) between the two
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		# find the solvent accessable surface area across an interface specified by a chain-chain jump. can be hydrophobic, polar or if not specified, the total SASA
