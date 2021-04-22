@@ -873,6 +873,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return out_file
 
+    @handle_design_errors(errors=(DesignError, AssertionError))
     def rosetta_interface_metrics(self, force_flags=False):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         main_cmd = copy.copy(script_cmd)
