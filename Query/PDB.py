@@ -156,25 +156,29 @@ def parse_pdb_response_for_score(response):
 
 
 def query_pdb(_query):
+    query_response = None
     iteration = 0
     while True:
         try:
             query_response = requests.get(pdb_query_url, params={'json': dumps(_query)})
-            break
+            if query_response.status_code == 200:
+                return query_response.json()
+            elif query_response.status_code == 204:
+                logger.warning('No response was returned. Your query likely found no matches!')
+                break
+            else:
+                logger.debug('Your query returned an unrecognized status code (%d)' % query_response.status_code)
+                time.sleep(1)
+                iteration += 1
         except requests.exceptions.ConnectionError:
             logger.debug('Requests ran into a connection error')
             time.sleep(1)
             iteration += 1
-            if iteration > 5:
-                raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
-                                  'Offending request %s' % query_response.url)
 
-    if query_response.status_code == 200:
-        return query_response.json()
-    elif query_response.status_code == 204:
-        logger.warning('No response was returned. Your query likely found no matches!')
-    else:
-        logger.warning('Your query returned an unrecognized status code (%d)' % query_response.status_code)
+        if iteration > 5:
+            raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
+                              'Offending request %s' % getattr(query_response, 'url'))
+
     return None
 
 
