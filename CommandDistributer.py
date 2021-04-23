@@ -14,7 +14,7 @@ from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, 
 logger = start_log(name=__name__)
 index_offset = 1
 min_cores_per_job = 1  # currently one for the MPI node, and 5 workers
-mpi = 6
+mpi = 4
 num_thread_per_process = 2
 hhblits_threads = 1
 hhblits_memory_threshold = 10000000000
@@ -22,7 +22,7 @@ reference_average_residue_weight = 3  # for REF2015
 run_cmds = {'default': '',
             'python': '',
             'cxx11thread': '',
-            'mpi': ['mpiexec', '-np', str(int(mpi))],  # TODO Optimize
+            'mpi': ['mpiexec', '-np', str(mpi)],  # TODO Optimize
             'cxx11threadmpi': ['mpiexec', '-np', str(int(min_cores_per_job / num_thread_per_process))]}  # TODO Optimize
 extras_flags = {'default': [],
                 'python': [],
