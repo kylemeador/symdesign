@@ -2107,25 +2107,24 @@ def position_specific_jsd(msa, background):
     Returns:
         divergence_dict (dict): {15: 0.732, 16: 0.552, ...}
     """
-    return {residue: res_divergence(msa[residue], background[residue]) for residue in msa if residue in background}
+    return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
 
 
-def res_divergence(position_freq, bgd_freq, jsd_lambda=0.5):
+def distribution_divergence(freq, bgd_freq, lambda_=0.5):
     """Calculate residue specific Jensen-Shannon Divergence value
 
     Args:
-        position_freq (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_freq (dict): {15: {'A': 0, 'R': 0, ...}
+        freq (dict): {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+        bgd_freq (dict): {'A': 0, 'R': 0, ...}
     Keyword Args:
         jsd_lambda=0.5 (float): Value bounded between 0 and 1
     Returns:
-        divergence (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
+        (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
     sum_prob1, sum_prob2 = 0, 0
-    for aa in position_freq:
-        p = position_freq[aa]
-        q = bgd_freq[aa]
-        r = (jsd_lambda * p) + ((1 - jsd_lambda) * q)
+    for item in freq:
+        p, q = freq[item], bgd_freq[item]
+        r = (lambda_ * p) + ((1 - lambda_) * q)
         if r == 0:
             continue
         if q != 0:
@@ -2134,26 +2133,21 @@ def res_divergence(position_freq, bgd_freq, jsd_lambda=0.5):
         if p != 0:
             prob1 = (p * math.log(p / r, 2))
             sum_prob1 += prob1
-    divergence = round(jsd_lambda * sum_prob1 + (1 - jsd_lambda) * sum_prob2, 3)
 
-    return divergence
+    return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
 
 
-def create_bio_msa(sequence_dict):
+def create_bio_msa(named_sequences):
     """
     Args:
-        sequence_dict (dict): {name: sequence, ...}
+        named_sequences (dict): {name: sequence, ...}
             ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
     Returns:
-        new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
-                                               SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
+        (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
+                                 SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
     """
-    sequences = [SeqRecord(Seq(sequence_dict[name]), annotations={'molecule_type': 'Protein'}, id=name)
-                 for name in sequence_dict]
-    # sequences = [SeqIO.SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
-    new_alignment = MultipleSeqAlignment(sequences)
-
-    return new_alignment
+    return MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+                                 for name, sequence in named_sequences.items()])
 
 
 def make_mutations(seq, mutations, find_orf=True):
@@ -2785,7 +2779,7 @@ def weight_sequences(msa_dict, alignment):  # UNUSED
 
 
 def generate_msa_dictionary(alignment, alphabet=IUPACData.protein_letters, weighted_dict=None, weight=False):
-    """Generate an alignment dictinary from a Biopython MultipleSeqAlignment object
+    """Generate an alignment dictionary from a Biopython MultipleSeqAlignment object. One-indexed
 
     Args:
         alignment (MultipleSeqAlignment): List of SeqRecords
@@ -2794,9 +2788,8 @@ def generate_msa_dictionary(alignment, alphabet=IUPACData.protein_letters, weigh
         weighted_dict=None (dict): A weighted sequence dictionary with weights for each alignment sequence
         weight=False (bool): If weights should be used to weight the alignment
     Returns:
-        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
-                                'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {0: {'A': 13, 'C': 1, 'D': 23, ...}, 1: {}, ...})
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS---THLVLK...'},
+                 'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}}
     """
     aligned_seq = str(alignment[0].seq)
     # Add Info to 'meta' record as needed
@@ -2890,23 +2883,8 @@ def compute_jsd(multiple_sequence_alignment, background_aa_probabilities, jsd_la
     Returns:
         (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
     """
-    divergence = {}
-    for residue, aa_probabilities in multiple_sequence_alignment.items():
-        sum_prob1, sum_prob2 = 0, 0
-        for aa in IUPACData.protein_letters:
-            p, q = aa_probabilities[aa], background_aa_probabilities[aa]
-            r = (jsd_lambda * p) + ((1 - jsd_lambda) * q)
-            if r == 0:
-                continue
-            if q != 0:
-                prob2 = (q * math.log2(q / r))
-                sum_prob2 += prob2
-            if p != 0:
-                prob1 = (p * math.log2(p / r))
-                sum_prob1 += prob1
-        divergence[residue] = round((jsd_lambda * sum_prob1) + ((1 - jsd_lambda) * sum_prob2), 3)
-
-    return divergence
+    return {residue: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=jsd_lambda)
+            for residue, aa_probabilities in multiple_sequence_alignment.items()}
 
 
 def weight_gaps(divergence, representation, alignment_length):  # UNUSED
@@ -2955,7 +2933,7 @@ def window_score(score_dict, window_len, score_lambda=0.5):  # UNUSED
         return window_scores
 
 
-def rank_possibilities(probability_dict):
+def rank_possibilities(probability_dict):  # UNUSED
     """Gather alternative residues and sort them by probability.
 
     Args:
@@ -2976,56 +2954,46 @@ def rank_possibilities(probability_dict):
     return sorted_alternates_dict
 
 
-def process_alignment(bio_alignment_object, gaps=False):
+def process_alignment(bio_alignment, gaps=False):
     """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
     gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
     probability of residue i in the specific column more accurately.
     Args:
-        bio_alignment_object (MultipleSeqAlignment): List of SeqRecords
+        bio_alignment (MultipleSeqAlignment): List of SeqRecords
     Keyword Args:
         gaps=False (bool): Whether gaps (-) should be counted in column weights
     Returns:
-        probability_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
-                                  'query_with_gaps': 'MGS---THLVLK...'}}
-                                  'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
-                                  'rep': {1: 210, 2:211, ...}}
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS---THLVLK...'}}
+                 'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+                 'rep': {1: 210, 2:211, ...}}
     """
-    alignment_dict = generate_msa_dictionary(bio_alignment_object)
+    alignment_dict = generate_msa_dictionary(bio_alignment)
     alignment_dict['rep'] = add_column_weight(alignment_dict['counts'], gaps=gaps)
-    probability_dict = msa_to_prob_distribution(alignment_dict)
-
-    return probability_dict
+    return msa_to_prob_distribution(alignment_dict)
 
 
 def multi_chain_alignment(mutated_sequences):
-    """Combines different chain's Multiple Sequence Alignments into a single MSA
+    """Combines different chain's Multiple Sequence Alignments into a single MSA. One-indexed
 
     Args:
         mutated_sequences (dict): {chain: {name: sequence, ...}
     Returns:
-        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...,
-                                'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
-                                'rep': {0: 210, 1: 211, 2:211, ...}}
-            Zero-indexed counts and rep dictionary elements
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK..., 'query_with_gaps': 'MGS---THLVLK...'},
+                 'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
+                 'rep': {1: 210, 1: 211, 2:211, ...}}
     """
-    alignment = {chain: create_bio_msa(mutated_sequences[chain]) for chain in mutated_sequences}
-
-    # Combine alignments for all chains from design file Ex: A: 1-102, B: 130. Alignment: 1-232
-    first = True
+    # Combine alignments for all chains from design file Ex: A: 1-102, B: 1-130. Alignment: 1-232
     total_alignment = None
-    for chain in alignment:
-        if first:
-            total_alignment = alignment[chain][:, :]
-            first = False
+    for idx, (chain, named_sequences) in enumerate(mutated_sequences.items()):
+        if idx == 0:
+            total_alignment = create_bio_msa(named_sequences)[:, :]
         else:
-            total_alignment += alignment[chain][:, :]
+            total_alignment += create_bio_msa(named_sequences)[:, :]
 
     if total_alignment:
         return process_alignment(total_alignment)
     else:
-        logger.error('%s - No sequences were found!' % multi_chain_alignment.__name__)
         raise DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
 
 
