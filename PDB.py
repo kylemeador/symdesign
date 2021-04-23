@@ -619,12 +619,12 @@ class PDB(Structure):
         Caution, doesn't update self.reference_sequence chain info
         """
         if exclude_chains:
-            available_chains = list(set(PDB.available_letters) - set(exclude_chains))
+            available_chains = list(set(PDB.available_letters).difference(exclude_chains))
         else:
             available_chains = PDB.available_letters
 
         # Update chain_id_list
-        self.chain_id_list = [available_chains[idx] for idx in range(self.number_of_chains)]
+        self.chain_id_list = available_chains[:self.number_of_chains]
 
         for idx, chain in enumerate(self.chains):
             chain.name = self.chain_id_list[idx]
