@@ -1048,8 +1048,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.make_path(self.scripts)
         flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
         relax_cmd = main_cmd + \
-            ['@%s' % flags_refine, '-scorefile', os.path.join(self.scores, PUtils.scores_file),
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
+            ['@%s' % flags_refine, '-scorefile', os.path.join(self.scores, PUtils.scores_file), '-in:file:native',
+             self.asu, '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
         refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
         if self.consensus:
             if self.design_with_fragments:
@@ -1112,7 +1112,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             ['-in:file:s', self.refined_pdb, '-in:file:native', self.asu, '-nstruct', str(self.number_of_trajectories),
              '@%s' % os.path.join(self.path, flags_design), '-scorefile', os.path.join(self.scores, PUtils.scores_file),
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
-             '-out:suffix _%s' % PUtils.stage[2]]
+             '-out:suffix', '_%s' % PUtils.stage[2]]
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
@@ -1127,7 +1127,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         metric_cmd = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
-             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label true',
+             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
 
         if self.mpi:
