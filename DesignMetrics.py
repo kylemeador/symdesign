@@ -277,7 +277,7 @@ master_metrics = {'average_fragment_z_score':
                                       ', indicating that different protocols have interface statistics that are similar'
                                       ' despite different pools of amino acids specified for sampling',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'protocol_seq_distance_sum':
+                  'protocol_sequence_distance_sum':
                       {'description': 'The distance between the average linearly embedded sequence differences between '
                                       'specified protocols. Larger = greater distance. A small distance indicates that '
                                       'different protocols arrived at the same per residue energy conclusions despite '
