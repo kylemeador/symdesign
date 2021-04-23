@@ -1371,7 +1371,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Todo fold these into Model and attack these metrics from a Pose object
         #  This will get rid of the self.log
         wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
-        wt_pdb.rename_chains()
+        wt_pdb.reorder_chains()
 
         design_residues = self.info.get('design_residues', None)
         if design_residues:
