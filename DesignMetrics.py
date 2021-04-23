@@ -98,6 +98,9 @@ master_metrics = {'average_fragment_z_score':
                   'coordinate_constraint':
                       {'description': 'Total weight of coordinate constraints to keep design from moving in cartesian '
                                       'space', 'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'design_dimension':
+                      {'description': 'The underlying dimension of the design. 0 - point, 2 - layer, 3 - space group',
+                                      'direction': 'min', 'function': 'normalize', 'filter': True},
                   'divergence_design_per_residue':
                       {'description': 'The Jensen-Shannon divergence of interface residues from the position specific '
                                       'design profile values. Includes fragment & evolution if both are True, otherwise'
@@ -116,6 +119,9 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Total weight of sequence constraints used to favor certain amino acids in design'
                                       '. Only protocols with a favored profile have values',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'interaction_energy_complex':
+                      {'description': 'The two-body (residue-pair) energy of the complexed interface. No solvation '
+                                      'energies', 'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_area_hydrophobic':
                       {'description': 'Total hydrophobic interface buried surface area',
                        'direction': 'min', 'function': 'rank', 'filter': True},
@@ -143,6 +149,12 @@ master_metrics = {'average_fragment_z_score':
                   'interface_area_total':
                       {'description': 'Total interface buried surface area',
                        'direction': 'max', 'function': 'rank', 'filter': True},
+                  'interface_b_factor_per_residue':
+                      {'description': 'The average B-factor from each atom, from each interface residue',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'interface_buried_hbonds':
+                      {'description': 'Total buried unsaturated H-bonds in the design',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_composition_similarity':
                       {'description': 'The similarity to the expected interface composition given interface buried '
                                       'surface area. 1 is similar to natural interfaces, 0 is dissimilar',
@@ -156,12 +168,15 @@ master_metrics = {'average_fragment_z_score':
                   'int_energy_density':
                       {'description': 'Energy in the bound complex per Angstrom^2 of interface area',
                        'direction': 'min', 'function': 'rank', 'filter': True},
+                  'interface_energy':
+                      {'description': 'DeltaG of the complexed and unbound (repacked) interfaces',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_energy_complex':
                       {'description': 'Total interface residue energy summed in the complexed state',
                        'direction': 'min', 'function': 'rank', 'filter': True},
-                  'interface_energy':
-                      {'description': 'deltaG of complexed and unbound interfaces',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'interface_energy_density':
+                      {'description': 'Interface energy per interface area^2. How much energy is achieved within the '
+                                      'given space?', 'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_energy_unbound':
                       {'description': 'Total interface residue energy summed in the unbound state',
                        'direction': 'min', 'function': 'rank', 'filter': True},
@@ -170,15 +185,10 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_energy_2_unbound':
                       {'description': 'Sum of interface2 residue energy in the unbound state',
-                       'direction': 'min', 'function': 'rank', 'filter': True}, 'int_separation':
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'interface_separation':
                       {'description': 'Median distance between all atom points on each side of the interface',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
-                  'interaction_energy_complex':
-                      {'description': 'The two-body (residue-pair) energy of the complexed interface. No solvation '
-                                      'energies', 'direction': 'min', 'function': 'rank', 'filter': True},
-                  'interface_b_factor_per_res':
-                      {'description': 'The average B-factor from each atom, from each interface residue',
-                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'multiple_fragment_ratio':
                       {'description': 'The extent to which fragment observations are connected in the interface. Higher'
                                       ' ratio means multiple fragment observations per residue',
@@ -193,10 +203,10 @@ master_metrics = {'average_fragment_z_score':
                   'nanohedra_score_center':
                       {'description': 'nanohedra_score for the central fragment residues only',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'nanohedra_score_per_res':
+                  'nanohedra_score_normalized':
                       {'description': 'The Nanohedra Score normalized by number of fragment residues',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'nanohedra_score_center_per_res_center':
+                  'nanohedra_score_center_normalized':
                       {'description': 'The central Nanohedra Score normalized by number of central fragment residues',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'number_fragment_residues_total':
@@ -213,6 +223,9 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'observed_evolution':
                       {'description': 'Percent of observed residues in evolutionary profile. 1 is 100%',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'observed_fragment':
+                      {'description': 'Percent of observed residues in the fragment profile. 1 is 100%',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'observed_interface':
                       {'description': 'Percent of observed residues in fragment profile. 1 is 100%',
@@ -238,12 +251,18 @@ master_metrics = {'average_fragment_z_score':
                   'percent_interface_area_polar':
                       {'description': 'The percent of interface area which is occupied by polar atoms',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_residues_fragment_center':
+                      {'description': 'The percentage of residues which are central fragment observations',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_residues_fragment_total':
+                      {'description': 'The percentage of residues which are represented by fragment observations',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
                   'percent_rim':
                       {'description': 'The percentage of residues which are \'rim\' according to Levy, E. 2010',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
                   'percent_support':
-                      {'description': 'The percentage of residues which are \'support\' according to Levy, E. 2010'
-                          , 'direction': 'max', 'function': 'normalize', 'filter': True},
+                      {'description': 'The percentage of residues which are \'support\' according to Levy, E. 2010',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
                   groups:
                       {'description': 'Protocols utilized to search sequence space given fragment and/or evolutionary '
                                       'constraint information', 'direction': None, 'function': None, 'filter': False},
@@ -281,6 +300,18 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'The free energy resulting from hydration of the separated interface surfaces. '
                                       'Positive values indicate poorly soluble surfaces',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
+                  'solvation_energy_bound':
+                      {'description': 'The desolvation free energy of the separated interface surfaces. Positive values'
+                                      ' indicate energy is required to desolvate',
+                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                  'solvation_energy_complex':
+                      {'description': 'The desolvation free energy of the complexed interface. Positive values'
+                                      ' indicate energy is required to desolvate',
+                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                  'solvation_energy_unbound':
+                      {'description': 'The desolvation free energy of the separated, repacked, interface surfaces. '
+                                      'Positive values indicate energy is required to desolvate',
+                       'direction': 'min', 'function': 'rank\n', 'filter': True},
                   'support':
                       {'description': 'The number of \'support\' residues as classified by E. Levy 2010',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -292,7 +323,10 @@ master_metrics = {'average_fragment_z_score':
                   #      'direction': None, 'function': None, 'filter': None},
                   'number_of_fragments':
                       {'description': 'The number of fragments found in the pose interface',
-                       'direction': 'max', 'function': 'rank', 'filter': True},
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'number_of_mutations':
+                      {'description': 'The number of mutations made to the pose (ie. wild-type residue to any other '
+                                      'amino acid)', 'direction': 'min', 'function': 'normalize', 'filter': True},
                   'total_interface_residues':
                       {'description': 'The total number of interface residues found in the pose (residue CB within 8A)',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -725,13 +759,13 @@ def hot_spot(residue_dict, energy=-1.5):  # UNUSED
     return residue_dict
 
 
-def residue_composition_diff(row):
+def interface_residue_composition_similarity(series):
     """Calculate the composition difference for pose residue classification
 
     Args:
-        row (pandas.Series): Series with 'interface_area_total', 'core', 'rim', and 'support' indices
+        series (pandas.Series): Series with 'interface_area_total', 'core', 'rim', and 'support' indices
     Returns:
-        (float): Difference of expected residue classification and observed
+        (float): Average similarity for expected residue classification given the observed classification
     """
     # Calculate modelled number of residues according to buried surface area (Levy, E 2010)
     def core_res_fn(bsa):
@@ -744,23 +778,20 @@ def residue_composition_diff(row):
         return 0.006 * bsa + 5
 
     classification_fxn_d = {'core': core_res_fn, 'rim': rim_res_fn, 'support': support_res_fn}
-    class_ratio_diff_d = {}
-    int_area = row['interface_area_total']  # buried surface area
+
+    int_area = series['interface_area_total']  # buried surface area
     if int_area <= 250:
         return np.nan
-    #     assert int_area > 250, 'interface_area_total gives negative value for support'
 
-    for _class in classification_fxn_d:
-        expected = classification_fxn_d[_class](int_area)
-        class_ratio_diff_d[_class] = (1 - (abs(row[_class] - expected) / expected))
-        if class_ratio_diff_d[_class] < 0:
+    class_ratio_diff_d = {}
+    for residue_class, function in classification_fxn_d.items():
+        expected = function(int_area)
+        class_ratio_diff_d[residue_class] = (1 - (abs(series[residue_class] - expected) / expected))
+        if class_ratio_diff_d[residue_class] < 0:
             # above calculation fails to bound between 0 and 1 with large obs values due to proportion > 1
-            class_ratio_diff_d[_class] = 0
-    _sum = 0
-    for value in class_ratio_diff_d.values():
-        _sum += value
+            class_ratio_diff_d[residue_class] = 0
 
-    return _sum / 3.0
+    return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
 
 
 residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.},
@@ -1139,7 +1170,7 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     specified by user values.
 
     Args:
-        df_file (str): DataFrame to filter/weight indices
+        df_file (union[str, pandas.DataFrame]): DataFrame to filter/weight indices
     Keyword Args:
         filter=False (bool): Whether filters are going to remove viable candidates
         weight=False (bool): Whether weights are going to select the poses
@@ -1149,7 +1180,10 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
     """
     idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
-    df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
+    if isinstance(df_file, pd.DataFrame):
+        df = df_file
+    else:
+        df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
     logger.info('Number of starting designs = %d' % len(df))
     _df = df.loc[:, idx_slice['pose',
                               df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
@@ -1603,7 +1637,8 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         for r_class in residue_classificiation:
             scores_df[r_class] = residue_df.loc[:, idx_slice[:,
                                                    residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
-        scores_df['interface_composition_similarity'] = scores_df.apply(residue_composition_diff, axis=1)
+        scores_df['interface_composition_similarity'] = \
+            scores_df.apply(interface_residue_composition_similarity, axis=1)
 
         interior_residue_df = residue_df.loc[:, idx_slice[:,
                                                 residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)

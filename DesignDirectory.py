@@ -26,7 +26,7 @@ from Pose import Pose
 from DesignMetrics import columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
-    residue_composition_diff, division_pairs, stats_metrics, significance_columns, protocols_of_interest, \
+    interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, protocols_of_interest, \
     df_permutation_test, residue_template, calc_relative_sa, clean_up_intermediate_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
@@ -360,7 +360,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Gather all metrics relating to the Pose and the interfaces within the Pose
 
         Returns:
-            (dict): {'nanohedra_score_per_res': , 'nanohedra_score_center_per_res_center':,
+            (dict): {'nanohedra_score_normalized': , 'nanohedra_score_center_normalized':,
                      'nanohedra_score': , 'nanohedra_score_center': , 'number_fragment_residues_total': ,
                      'number_fragment_residues_center': , 'multiple_fragment_ratio': ,
                      'percent_fragment_helix': , 'percent_fragment_strand': ,
@@ -371,9 +371,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if score is None:  # can be 0.0
             return {}
 
-        metrics = {'nanohedra_score_per_res':
+        metrics = {'nanohedra_score_normalized':
                    self.all_residue_score / self.fragment_residues_total if self.fragment_residues_total else 0.0,
-                   'nanohedra_score_center_per_res_center': score,
+                   'nanohedra_score_center_normalized': score,
                    'nanohedra_score': self.all_residue_score,
                    'nanohedra_score_center': self.center_residue_score,
                    'number_fragment_residues_total': self.fragment_residues_total,
@@ -1382,7 +1382,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                               % (PUtils.generate_fragments, PUtils.interface_design))
 
         int_b_factor = sum(wt_pdb.residue(residue).get_ave_b_factor() for residue in design_residues)
-        other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(design_residues), 2)
+        other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(design_residues), 2)
 
         idx_slice = pd.IndexSlice
         # initialize design dataframes as empty
@@ -1560,7 +1560,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for residue in interface_residues:
                 int_b_factor += wt_pdb.residue(residue).get_ave_b_factor()
             # this value updates the prior calculated one with only residues in interface, i.e. not interior
-            other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
+            other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(interface_residues), 2)
 
             # Calculate new metrics from combinations of other metrics
             scores_df['total_interface_residues'] = len(interface_residues)
@@ -1575,7 +1575,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for r_class in residue_classificiation:
                 scores_df[r_class] = \
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
-            scores_df['int_composition_similarity'] = scores_df.apply(residue_composition_diff, axis=1)
+            scores_df['interface_composition_similarity'] = scores_df.apply(interface_residue_composition_similarity, axis=1)
 
             # Merge processed dataframes
             scores_df = pd.merge(protocol_s, scores_df, left_index=True, right_index=True)
@@ -1625,7 +1625,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                           for profile, background in profile_dict.items()}
             divergence['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
-            divergence_stats = {'%s_per_res' % divergence_type: per_res_metric(stat)
+            divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
                                 for divergence_type, stat in divergence.items()}
             # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
             divergence_stats_s = pd.concat([pd.Series(divergence_stats)], keys=[('seq_design', 'pose')], copy=False)
@@ -1648,7 +1648,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # Get per residue divergence metric by protocol
                 for key, sequence_info in protocol_res_dict.items():
-                    stats_by_protocol[protocol]['%s_per_res' % key] = per_res_metric(sequence_info)
+                    stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
                     # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
                 # Get per design observed background metric by protocol
                 for profile in profile_dict:
