@@ -34,7 +34,7 @@ script_cmd = [os.path.join(PUtils.rosetta, 'source/bin/rosetta_scripts.%s.linuxg
               '-database', os.path.join(PUtils.rosetta, 'database')]
 rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
     ['-ex1', '-ex2', '-extrachi_cutoff 5', '-ignore_unrecognized_res', '-ignore_zero_occupancy false',
-     '-overwrite',  # Todo remove
+     # '-overwrite',
      '-linmem_ig 10', '-out:file:scorefile_format json', '-output_only_asymmetric_unit true', '-no_chainend_ter true',
      '-write_seqres_records true', '-output_pose_energies_table false', '-output_pose_cache_data false',
      '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB VirtualNTerm '
