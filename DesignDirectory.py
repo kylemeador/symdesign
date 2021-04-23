@@ -19,18 +19,18 @@ import PathUtils as PUtils
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, flag_options
 from Query import Flags
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
-    match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, clean_dictionary, all_vs_all, \
+    match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, filter_dictionary_keys, all_vs_all, \
     condensed_to_square, space_group_to_sym_entry, digit_translate_table
 from PDB import PDB
 from Pose import Pose
-from DesignMetrics import columns_to_rename, read_scores, remove_pdb_prefixes, join_columns, groups, \
+from DesignMetrics import columns_to_rename, read_scores, keys_from_trajectory_number, join_columns, groups, \
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, protocols_of_interest, \
     df_permutation_test, residue_template, calc_relative_sa, clean_up_intermediate_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
-    position_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
+    position_specific_jsd, remove_non_mutations, sequence_difference, jensen_shannon_divergence, multi_chain_alignment, \
     generate_multiple_mutations  # , format_mutations, generate_sequences
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
@@ -1344,9 +1344,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         # Get design information including: interface residues, SSM's, and wild_type/design files
         profile_dict = {}
-        design_profile = self.info.get('design_profile', None)
-        evolutionary_profile = self.info.get('evolutionary_profile', None)
-        fragment_profile = self.info.get('fragment_profile', None)
+        design_profile = self.info.get('design_profile')
+        evolutionary_profile = self.info.get('evolutionary_profile')
+        fragment_profile = self.info.get('fragment_profile')
         if design_profile:
             profile_dict['design'] = parse_pssm(design_profile)
         if evolutionary_profile:
@@ -1357,8 +1357,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             issm_residues = []
             self.log.info('Design has no fragment information')
-        if self.info.get('fragment_database', None):
+        if self.info.get('fragment_database'):
             interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[self.info['fragment_database']])
+        else:
+            interface_bkgd = {}
 
         # Gather miscellaneous pose specific metrics
         # ensure oligomers are present and if so, their metrics are pulled out. Happens when pose is scored.
@@ -1390,16 +1392,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if os.path.exists(self.scores_file):
             # Get the scores from all design trajectories
             all_design_scores = read_scores(os.path.join(self.scores, PUtils.scores_file))
-            all_design_scores = remove_pdb_prefixes(all_design_scores)
+            all_design_scores = keys_from_trajectory_number(all_design_scores)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Gather mutations for residue specific processing and design sequences
 
+            # Find all designs which have corresponding pdb files and collect their sequences
             pdb_sequences = {}
             for file in self.get_designs():
                 pdb = PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0], log=None, entities=False)
                 pdb_sequences[pdb.name] = pdb.atom_sequences
 
-            # Find all designs which have corresponding pdb files
             # pulling from design pdbs and reorienting with format {chain: {name: sequence, ...}, ...}
             all_design_sequences = {}
             for design, chain_sequences in pdb_sequences.items():
@@ -1415,7 +1417,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                                     for chain, mutations in chain_mutations.items()}
             #                                            for design, chain_mutations in sequence_mutations.items()})
             # all_design_sequences = generate_sequences(wt_pdb.atom_sequences, sequence_mutations)
-            all_design_sequences = {chain: remove_pdb_prefixes(named_sequences)
+            all_design_sequences = {chain: keys_from_trajectory_number(named_sequences)
                                     for chain, named_sequences in all_design_sequences.items()}
 
             self.log.debug('Design sequences by chain: %s' % all_design_sequences)
@@ -1426,8 +1428,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             good_designs = sorted(set(all_design_sequences[next(iter(all_design_sequences))].keys()).
                                   intersection(set(all_design_scores.keys())))
             self.log.info('All designs with both: %s' % ', '.join(good_designs))
-            all_design_scores = clean_dictionary(all_design_scores, good_designs, remove=False)
-            all_design_sequences = {chain: clean_dictionary(chain_sequences, good_designs, remove=False)
+            all_design_scores = filter_dictionary_keys(all_design_scores, good_designs)
+            all_design_sequences = {chain: filter_dictionary_keys(chain_sequences, good_designs)
                                     for chain, chain_sequences in all_design_sequences.items()}
             self.log.debug('Final design sequences by chain: %s' % all_design_sequences)
 
@@ -1480,7 +1482,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                         , offset=offset_dict) <- when hbonds are pose numbering
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-            all_mutations = remove_pdb_prefixes(generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences))
+            all_mutations = keys_from_trajectory_number(
+                generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences))
             all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
             cleaned_mutations = simplify_mutation_dict(all_mutations_no_chains)
             residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, hbonds=interface_hbonds)
@@ -1611,12 +1614,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Calculate sequence statistics
             # first for entire pose
             pose_alignment = multi_chain_alignment(all_design_sequences)
-            mutation_frequencies = clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
+            mutation_frequencies = filter_dictionary_keys(pose_alignment['counts'], interface_residues)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_dict[profile] are one-indexed
             divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
                           for profile, background in profile_dict.items()}
-            divergence['divergence_interface'] = compute_jsd(mutation_frequencies, interface_bkgd)
+            if interface_bkgd:
+                divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
             divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
                                 for divergence_type, stat in divergence.items()}
@@ -1636,7 +1640,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq,
                                                                                       profile_dict[profile])
                                      for profile in profile_dict}  # both prot_freq and profile_dict[profile] are 0-idx
-                protocol_res_dict['divergence_interface'] = compute_jsd(protocol_mutation_freq, interface_bkgd)
+                protocol_res_dict['divergence_interface'] = jensen_shannon_divergence(protocol_mutation_freq,
+                                                                                      interface_bkgd)
 
                 # Get per residue divergence metric by protocol
                 for key, sequence_info in protocol_res_dict.items():
