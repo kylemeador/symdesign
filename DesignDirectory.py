@@ -31,7 +31,7 @@ from DesignMetrics import columns_to_rename, read_scores, remove_pdb_prefixes, j
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
     position_specific_jsd, remove_non_mutations, sequence_difference, compute_jsd, multi_chain_alignment, \
-    generate_sequences, generate_multiple_mutations, format_mutations
+    generate_multiple_mutations  # , format_mutations, generate_sequences
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 
@@ -1371,7 +1371,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Todo fold these into Model and attack these metrics from a Pose object
         #  This will get rid of the self.log
         wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
-        wt_sequence = wt_pdb.atom_sequences
+        wt_pdb.rename_chains()
 
         design_residues = self.info.get('design_residues', None)
         if design_residues:
@@ -1393,35 +1393,34 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             all_design_scores = remove_pdb_prefixes(all_design_scores)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Gather mutations for residue specific processing and design sequences
+
             pdb_sequences = {}
             for file in self.get_designs():
                 pdb = PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0], log=None, entities=False)
                 pdb_sequences[pdb.name] = pdb.atom_sequences
-            sequence_mutations = generate_multiple_mutations(wt_sequence, pdb_sequences, pose_num=False)
-            sequence_mutations.pop('reference')
-            sequence_mutations = remove_pdb_prefixes(sequence_mutations)
-            self.log.debug('Sequence Mutations: %s' % {design: {chain: format_mutations(mutations)
-                                                       for chain, mutations in chain_mutations.items()}
-                           for design, chain_mutations in sequence_mutations.items()})
 
             # Find all designs which have corresponding pdb files
-            # all_design_sequences = {AnalyzeMutatedSequences.get_pdb_sequences(file) for file in self.get_designs()}
-            # for pdb in models:
-            #     for chain in pdb.chain_id_list
-            #         sequences[chain][pdb.name] = pdb.atom_sequences[chain]
-            # Todo can I just pull from design pdbs... reorient for {chain: {name: sequence, ...}, ...} ^^
-            #  v-this-v mechanism accounts for offsets from the reference sequence which aren't necessary YET
-            all_design_sequences = generate_sequences(wt_sequence, sequence_mutations)
-            # all_design_sequences = {chain: remove_pdb_prefixes(chain_sequences)
-            #                         for chain, chain_sequences in all_design_sequences.items()}
+            # pulling from design pdbs and reorienting with format {chain: {name: sequence, ...}, ...}
+            all_design_sequences = {}
+            for design, chain_sequences in pdb_sequences.items():
+                for chain, sequence in chain_sequences.items():
+                    if chain not in all_design_sequences:
+                        all_design_sequences[chain] = {}
+                    all_design_sequences[chain][design] = sequence
+
+            # #  v-this-v mechanism accounts for offsets from the reference sequence which aren't necessary YET
+            # sequence_mutations = generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences, pose_num=False)
+            # sequence_mutations.pop('reference')
+            # self.log.debug('Sequence Mutations: %s' % {design: {chain: format_mutations(mutations)
+            #                                                     for chain, mutations in chain_mutations.items()}
+            #                                            for design, chain_mutations in sequence_mutations.items()})
+            # all_design_sequences = generate_sequences(wt_pdb.atom_sequences, sequence_mutations)
+            all_design_sequences = {chain: remove_pdb_prefixes(named_sequences)
+                                    for chain, named_sequences in all_design_sequences.items()}
+
             self.log.debug('Design sequences by chain: %s' % all_design_sequences)
             self.log.debug('All designs with sequences: %s'
                            % ', '.join(all_design_sequences[next(iter(all_design_sequences))].keys()))
-            # for chain in all_design_sequences:
-            #     all_design_sequences[chain] = remove_pdb_prefixes(all_design_sequences[chain])
-
-            # self.log.debug('all_design_sequences2: %s' % ', '.join(name for chain in all_design_sequences
-            #                                                      for name in all_design_sequences[chain]))
 
             # Ensure data is present for both scores and sequences, then initialize DataFrames
             good_designs = sorted(set(all_design_sequences[next(iter(all_design_sequences))].keys()).
@@ -1481,7 +1480,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                         , offset=offset_dict) <- when hbonds are pose numbering
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-            all_mutations = remove_pdb_prefixes(generate_multiple_mutations(wt_sequence, pdb_sequences))
+            all_mutations = remove_pdb_prefixes(generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences))
             all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
             cleaned_mutations = simplify_mutation_dict(all_mutations_no_chains)
             residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, hbonds=interface_hbonds)
@@ -1604,16 +1603,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
 
+            # Get unique protocols and number of observations
+            unique_protocols = scores_df.index.unique().tolist()
             other_pose_metrics['observations'] = len(scores_df)
-
-            # Get unique protocols for protocol specific metrics and drop unneeded protocol values
-            unique_protocols = protocol_s.unique().tolist()
-            for value in ['refine']:
-                # TODO TEST if remove '' is fixed ## after P432 MinMatch6 upon future script deployment
-                try:
-                    unique_protocols.remove(value)
-                except ValueError:
-                    pass
             self.log.info('Unique Protocols: %s' % ', '.join(unique_protocols))
 
             # Calculate sequence statistics
@@ -1636,11 +1628,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             stats_by_protocol = {protocol: {} for protocol in unique_protocols}
             for protocol in unique_protocols:
                 designs_by_protocol[protocol] = protocol_s.index[protocol_s == protocol].tolist()
-                sequences_by_protocol[protocol] = {chain: {design: all_design_sequences[chain][design]
-                                                           for design in all_design_sequences[chain]
-                                                           if design in designs_by_protocol[protocol]}
-                                                   for chain in all_design_sequences}
-                protocol_alignment = multi_chain_alignment(sequences_by_protocol[protocol])
+                protocol_sequences = {chain: {design: sequence for design, sequence in design_sequences.items()
+                                              if design in designs_by_protocol[protocol]}
+                                      for chain, design_sequences in all_design_sequences.items()}
+                protocol_alignment = multi_chain_alignment(protocol_sequences)
                 protocol_mutation_freq = remove_non_mutations(protocol_alignment['counts'], interface_residues)
                 protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq,
                                                                                       profile_dict[profile])
