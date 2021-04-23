@@ -1501,7 +1501,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      # Todo implement energy metric for wild-type in refine.sh before refinement of clean_asu_for_refine
                      'bsa_total': wt_pdb.get_residue_surface_area(res_number), 'protocol': None, 'hbond': None,
                      'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None,
-                     'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None, 'observed_evolution':None}
+                     'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
+                     'observed_evolution': None}
                 #      'hot_spot': None}
                 relative_oligomer_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
                                                           wild_type_residue_info[res_number]['bsa_total'])
@@ -1736,7 +1737,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
 
                 # Gather protocol similarity/distance metrics
-                sim_measures = {'seq_distance': {}, 'energy_distance': {}}
+                sim_measures = {'sequence_distance': {}, 'energy_distance': {}}
                 sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
                 grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
                 for stat in stats_metrics:
@@ -1760,8 +1761,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                         for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
                             i, j = condensed_to_square(vector_idx, len(grouped_pc_seq_df_dict[stat].index))
-                            sim_measures['seq_distance'][(grouped_pc_seq_df_dict[stat].index[i],
-                                                          grouped_pc_seq_df_dict[stat].index[j])] = seq_dist
+                            sim_measures['sequence_distance'][(grouped_pc_seq_df_dict[stat].index[i],
+                                                               grouped_pc_seq_df_dict[stat].index[j])] = seq_dist
 
                         for vector_idx, energy_dist in enumerate(energy_pca_mean_distance_vector):
                             i, j = condensed_to_square(vector_idx, len(grouped_pc_energy_df_dict[stat].index))
@@ -1788,7 +1789,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 #     similarity_sum['protocol_%s_sum' % measure] = pd.Series(values).sum()
                 similarity_sum = {'protocol_%s_sum' % measure: pd.Series(values).sum()
                                   for measure, values in sim_measures.items()}
-                similarity_sum_s = pd.concat([pd.Series(similarity_sum)], keys=[('seq_design', 'pose')], copy=False)
+                similarity_sum_s = pd.concat([pd.Series(similarity_sum)], keys=[('sequence_design', 'pose')])
 
                 # Process similarity between protocols
                 sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
