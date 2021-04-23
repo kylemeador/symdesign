@@ -1400,7 +1400,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             pdb_sequences = {}
             for file in self.get_designs():
                 pdb = PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0], log=None, entities=False)
-                pdb_sequences[pdb.name] = pdb.atom_sequences
+                pdb_sequences[pdb.name] = pdb.atom_sequences  # {chain: sequence, ...}
 
             # pulling from design pdbs and reorienting with format {chain: {name: sequence, ...}, ...}
             all_design_sequences = {}
@@ -1458,14 +1458,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
             protocol_s = scores_df[groups]
             protocol_s.replace({'combo_profile': 'design_profile'}, inplace=True)  # ensure proper profile name
-            # self.log.debug(protocol_s)
-            # # self.log.debug('Design indices: %s' % designs)
-            # # Modify protocol name for refine and consensus
-            # for stage in PUtils.stage_f:
-            #     if stage in protocol_s.index.to_list():
-            #         # change design index value to PUtils.stage[i] (for consensus and refine)
-            #         protocol_s[stage] = stage  # TODO remove in future scripts
-            #         # protocol_s.at[PUtils.stage[stage], groups] = PUtils.stage[stage]
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
@@ -1581,10 +1573,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df['interface_composition_similarity'] = scores_df.apply(interface_residue_composition_similarity, axis=1)
 
             # Merge processed dataframes
-            scores_df = pd.merge(protocol_s, scores_df, left_index=True, right_index=True)
-            protocol_df = pd.DataFrame(protocol_s)
-            protocol_df.columns = pd.MultiIndex.from_product([[''], protocol_df.columns])
-            residue_df = pd.merge(protocol_df, residue_df, left_index=True, right_index=True)
+            scores_df[groups] = protocol_s
+            # scores_df = pd.merge(protocol_s, scores_df, left_index=True, right_index=True)
+            # protocol_df = pd.DataFrame(protocol_s)
+            # protocol_df.columns = pd.MultiIndex.from_product([[''], protocol_df.columns])
+            # residue_df = pd.merge(protocol_df, residue_df, left_index=True, right_index=True)
+            residue_df[('', groups)] = protocol_s
 
             # Drop refine trajectory and any designs with nan values
             scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
@@ -1607,7 +1601,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
 
             # Get unique protocols and number of observations
-            unique_protocols = scores_df.index.unique().tolist()
+            unique_protocols = scores_df[groups].unique().tolist()
             other_pose_metrics['observations'] = len(scores_df)
             self.log.info('Unique Protocols: %s' % ', '.join(unique_protocols))
 
