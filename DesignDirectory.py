@@ -1128,11 +1128,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         metric_cmd = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[3] + '.xml')]
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[3])]
 
         if self.mpi:
-            design_cmd = run_cmds[PUtils.rosetta_extras] + design_cmd
-            metric_cmd = run_cmds[PUtils.rosetta_extras] + metric_cmd
+            design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
+            metric_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + metric_cmd
             self.script = True
 
         metric_cmds = [metric_cmd + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]

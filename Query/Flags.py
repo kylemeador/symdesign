@@ -22,6 +22,9 @@ global_flags = {'symmetry': {'type': str, 'default': None,
                 'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
                 'design_range': {'type': str, 'default': None,
                                  'description': 'Whether to subset selected designs by a range of percentage values'},
+                'mpi': {'type': int, 'default': None,
+                        'description': 'If commands should be run as MPI parralel processes, how many processes should '
+                                       'be invoked for each job?'},
                 }
 design_flags = {
     'design_with_evolution': {'type': bool, 'default': True,

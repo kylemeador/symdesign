@@ -22,8 +22,8 @@ reference_average_residue_weight = 3  # for REF2015
 run_cmds = {'default': '',
             'python': '',
             'cxx11thread': '',
-            'mpi': ['mpiexec', '-np', str(mpi)],  # TODO Optimize
-            'cxx11threadmpi': ['mpiexec', '-np', str(int(min_cores_per_job / num_thread_per_process))]}  # TODO Optimize
+            'mpi': ['mpiexec', '--oversubscribe', '-np'],
+            'cxx11threadmpi': ['mpiexec', '--oversubscribe', '-np', str(int(min_cores_per_job / num_thread_per_process))]}  # TODO Optimize
 extras_flags = {'default': [],
                 'python': [],
                 'cxx11thread': ['-multithreading:total_threads ' + str(num_thread_per_process),
