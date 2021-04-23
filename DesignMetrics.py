@@ -21,7 +21,7 @@ import SequenceProfile
 from PDB import PDB
 from Query.PDB import header_string, input_string, confirmation_string, bool_d, invalid_string
 from SymDesignUtils import start_log, pickle_object, unpickle, DesignError, handle_design_errors, index_intersection, \
-    remove_interior_keys, clean_dictionary, all_vs_all, condensed_to_square, sym, handle_errors, pretty_format_table, \
+    remove_interior_keys, filter_dictionary_keys, all_vs_all, condensed_to_square, sym, handle_errors, pretty_format_table, \
     digit_translate_table
 
 # Globals
@@ -622,9 +622,13 @@ def read_scores(file, key='decoy'):
     return score_dict
 
 
-def remove_pdb_prefixes(pdb_dict):
-    """Remove all string from dictionary keys except for string after last '_'. Ex 'design_0001' -> '0001'"""
-    return {key.split('_')[-1]: pdb_dict[key] for key in pdb_dict}
+def keys_from_trajectory_number(pdb_dict):
+    """Remove all string from dictionary keys except for string after last '_'. Ex 'design_0001' -> '0001'
+
+    Returns:
+        (dict): {cleaned_key: value, ...}
+    """
+    return {key.split('_')[-1]: value for key, value in pdb_dict.items()}
 
 
 def join_columns(x):
@@ -1515,8 +1519,8 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         #         sequences[chain][pdb.name] = pdb.atom_sequences[chain]
         # Todo just pull from design pdbs... reorient for {chain: {name: sequence, ...}, ...} ^^
         all_design_sequences = SequenceProfile.generate_sequences(wt_sequence, sequence_mutations)
-        all_design_sequences = {chain: remove_pdb_prefixes(all_design_sequences[chain]) for chain in all_design_sequences}
-        all_design_scores = remove_pdb_prefixes(all_design_scores)
+        all_design_sequences = {chain: keys_from_trajectory_number(all_design_sequences[chain]) for chain in all_design_sequences}
+        all_design_scores = keys_from_trajectory_number(all_design_scores)
         logger.debug('all_design_sequences: %s' % ', '.join(name for chain in all_design_sequences
                                                             for name in all_design_sequences[chain]))
         # for chain in all_design_sequences:
@@ -1529,8 +1533,8 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         good_designs = list(set(design for design_sequences in all_design_sequences.values() for design in design_sequences)
                             & set(all_design_scores.keys()))
         logger.info('All Designs: %s' % ', '.join(good_designs))
-        all_design_scores = clean_dictionary(all_design_scores, good_designs, remove=False)
-        all_design_sequences = {chain: clean_dictionary(all_design_sequences[chain], good_designs, remove=False)
+        all_design_scores = filter_dictionary_keys(all_design_scores, good_designs)
+        all_design_sequences = {chain: filter_dictionary_keys(all_design_sequences[chain], good_designs)
                                 for chain in all_design_sequences}
         logger.debug('All Sequences: %s' % all_design_sequences)
 
@@ -1596,7 +1600,7 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         all_mutations = SequenceProfile.generate_all_design_mutations(all_design_files, wild_type_file, pose_num=True)
         all_mutations_no_chains = SequenceProfile.make_mutations_chain_agnostic(all_mutations)
         all_mutations_simplified = SequenceProfile.simplify_mutation_dict(all_mutations_no_chains)
-        cleaned_mutations = remove_pdb_prefixes(all_mutations_simplified)
+        cleaned_mutations = keys_from_trajectory_number(all_mutations_simplified)
         residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, hbonds=interface_hbonds)
         #                                       offset=offset_dict)
         # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
@@ -1666,14 +1670,15 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         other_pose_metrics['interface_b_factor_per_res'] = round(int_b_factor / len(interface_residues), 2)
 
         pose_alignment = SequenceProfile.multi_chain_alignment(all_design_sequences)
-        mutation_frequencies = clean_dictionary(pose_alignment['counts'], interface_residues, remove=False)
+        mutation_frequencies = filter_dictionary_keys(pose_alignment['counts'], interface_residues)
         # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
         pose_res_dict = {}
         for profile in profile_dict:  # both mut_freq and profile_dict[profile] are one-indexed
             pose_res_dict['divergence_%s' % profile] = SequenceProfile.position_specific_jsd(mutation_frequencies,
                                                                                              profile_dict[profile])
         # if 'fragment' in profile_dict:
-        pose_res_dict['divergence_interface'] = SequenceProfile.compute_jsd(mutation_frequencies, interface_bkgd)
+        pose_res_dict['divergence_interface'] = SequenceProfile.jensen_shannon_divergence(mutation_frequencies,
+                                                                                          interface_bkgd)
         # pose_res_dict['hydrophobic_collapse_index'] = hci()  # TODO HCI
 
         # Divide/Multiply column pairs to new columns
@@ -1727,12 +1732,13 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
                                                        if design in designs_by_protocol[protocol]}
                                                for chain in all_design_sequences}
             protocol_alignment = SequenceProfile.multi_chain_alignment(sequences_by_protocol[protocol])
-            protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'], interface_residues)
-            protocol_res_dict = {'divergence_%s' % profile: SequenceProfile.position_specific_jsd(protocol_mutation_freq,
-                                                                                                  profile_dict[profile])
-                                 for profile in profile_dict}  # both prot_freq and profile_dict[profile] are zero indexed
-            protocol_res_dict['divergence_interface'] = SequenceProfile.compute_jsd(protocol_mutation_freq,
-                                                                                    interface_bkgd)
+            protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'],
+                                                                          interface_residues)
+            protocol_res_dict = {'divergence_%s' % profile:
+                                 SequenceProfile.position_specific_jsd(protocol_mutation_freq, profile_dict[profile])
+                                 for profile in profile_dict}  # both prot_freq and profile_dict[profile] are 0 indexed
+            protocol_res_dict['divergence_interface'] = \
+                SequenceProfile.jensen_shannon_divergence(protocol_mutation_freq, interface_bkgd)
 
             # Get per residue divergence metric by protocol
             for key in protocol_res_dict:
