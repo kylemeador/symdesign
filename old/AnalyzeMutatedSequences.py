@@ -8,10 +8,10 @@ import os
 # generic_protein = None
 
 import PathUtils as PUtils
-from SymDesignUtils import start_log, clean_dictionary
+from SymDesignUtils import start_log, filter_dictionary_keys
 from PDB import PDB
 from SequenceProfile import remove_non_mutations, position_specific_jsd, weave_mutation_dict, \
-    SequenceProfile, compute_jsd, rank_possibilities
+    SequenceProfile, jensen_shannon_divergence, rank_possibilities
 
 # Globals
 logger = start_log(name=__name__)
@@ -34,7 +34,7 @@ def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unuse
     residue_divergence_values = position_specific_jsd(mutation_probabilities, dssm)
 
     interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
-    interface_divergence_values = compute_jsd(mutation_probabilities, interface_bkgd)
+    interface_divergence_values = jensen_shannon_divergence(mutation_probabilities, interface_bkgd)
 
     if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.pssm))
@@ -74,7 +74,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
     # for _chain in pdb.chain_id_list:
     #     seq_dict[_chain] =
     if chain:
-        seq_dict = clean_dictionary(seq_dict, chain, remove=False)
+        seq_dict = filter_dictionary_keys(seq_dict, chain)
 
     return seq_dict
 

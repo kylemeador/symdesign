@@ -2872,7 +2872,7 @@ def msa_to_prob_distribution(alignment_dict):
     return alignment_dict
 
 
-def compute_jsd(multiple_sequence_alignment, background_aa_probabilities, jsd_lambda=0.5):
+def jensen_shannon_divergence(multiple_sequence_alignment, background_aa_probabilities, lambda_=0.5):
     """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
 
     Args:
@@ -2883,7 +2883,7 @@ def compute_jsd(multiple_sequence_alignment, background_aa_probabilities, jsd_la
     Returns:
         (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
     """
-    return {residue: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=jsd_lambda)
+    return {residue: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
             for residue, aa_probabilities in multiple_sequence_alignment.items()}
 
 
@@ -2985,7 +2985,7 @@ def multi_chain_alignment(mutated_sequences):
     """
     # Combine alignments for all chains from design file Ex: A: 1-102, B: 1-130. Alignment: 1-232
     total_alignment = None
-    for idx, (chain, named_sequences) in enumerate(mutated_sequences.items()):
+    for idx, named_sequences in enumerate(mutated_sequences.values()):
         if idx == 0:
             total_alignment = create_bio_msa(named_sequences)[:, :]
         else:

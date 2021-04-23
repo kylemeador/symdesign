@@ -304,7 +304,7 @@ def pickle_object(target_object, name, out_path=os.getcwd(), protocol=pickle.HIG
     return file_name
 
 
-def clean_dictionary(dictionary, keys, remove=True):
+def filter_dictionary_keys(dictionary, keys, remove=False):
     """Clean specified keys from a dictionary. Default removes the specified keys
 
     Args:
