@@ -56,7 +56,7 @@
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
-		<MoveMapFactory name="design_map" bb="1" chi="1">
+		<MoveMapFactory name="design_map" bb="0" chi="1">
 			<Backbone residue_selector="interface%%interface%%" enable="true"/> # believe this is Packer controlled so inherently symmetric
 		</MoveMapFactory>
 	</MOVE_MAP_FACTORIES>
@@ -100,35 +100,36 @@
 	</MOVERS>
 
 	<FILTERS>
-<!--		<ScoreType name="full_stability_%%interface%%_unbound" scorefxn="2015_nano" score_type="total_score" threshold="20000" confidence="1.0"/>-->
-		# find the average degree of connectivity to residues surrounding specified residues
-		<AverageDegree name="interface_connectivity_%%interface%%" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
-<!--		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_%%interface%%_unbound" in_context="1" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" confidence="1.0"/>-->
 		<BuriedUnsatHbonds name="buns_%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
-<!--		<BuriedUnsatHbonds name="buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
-<!--		<Report name="R_full_stability_%%interface%%_unbound" 			filter="full_stability_%%interface%%_unbound"/>-->
-		<Report name="R_interface_connectivity_%%interface%%" 				filter="interface_connectivity_%%interface%%"/>
-<!--		<Report name="R_int_energy_context_%%interface%%_unbound" 		filter="int_energy_context_%%interface%%_unbound"/>-->
-		<Report name="R_buns_%%interface%%_unbound" 						filter="buns_%%interface%%_unbound"/>
+		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_ignore" residue_selector="interface%%interface%%" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_sym" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_sym_ignore" residue_selector="interface%%interface%%_sym" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
+		<Report name="R_buns_%%interface%%_unbound" 					filter="buns_%%interface%%_unbound"/>
+		<Report name="R_buns_%%interface%%_unbound_ignore" 				filter="buns_%%interface%%_unbound_ignore"/>
+		<Report name="R_buns_%%interface%%_unbound_sym" 				filter="buns_%%interface%%_unbound_sym"/>
+		<Report name="R_buns_%%interface%%_unbound_sym_ignore" 			filter="buns_%%interface%%_unbound_sym_ignore"/>
 	</FILTERS>
 
 	<PROTOCOLS>
 		<Add mover_name="measure_interface_%%interface%%"/>
 		<Add mover_name="symmetry_switch"/>
 		<Add mover_name="add_csts"/>
-		<Add mover_name="run_metrics_bound"/>
-		<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>
-		<Add mover_name="run_metrics_polar_sasa_bound"/>
-		<Add mover_name="run_metrics_sasa_bound"/>
-		<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>
-		<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
-		<Add mover_name="run_metrics_bound_sum_sasa_total"/>
+<!--		<Add mover_name="run_metrics_bound"/>-->
+<!--		<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>-->
+<!--		<Add mover_name="run_metrics_polar_sasa_bound"/>-->
+<!--		<Add mover_name="run_metrics_sasa_bound"/>-->
+<!--		<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>-->
+<!--		<Add mover_name="run_metrics_bound_sum_sasa_polar"/>-->
+<!--		<Add mover_name="run_metrics_bound_sum_sasa_total"/>-->
 		<Add filter_name="R_buns_%%interface%%_unbound"/>
-		<Add mover_name="repack_loop"/> # Unused in P432 for minimization of the unbound state
-		<Add filter_name="R_interface_connectivity_%%interface%%"/>
+		<Add filter_name="R_buns_%%interface%%_unbound_ignore"/>
+		<Add filter_name="R_buns_%%interface%%_unbound_sym"/>
+		<Add filter_name="R_buns_%%interface%%_unbound_sym_ignore"/>
+<!--		<Add mover_name="repack_loop"/> # Unused in P432 for minimization of the unbound state-->
+<!--		<Add filter_name="R_interface_connectivity_%%interface%%"/>-->
 		<!--		<Add filter_name="R_full_stability_%%interface%%_unbound"/>-->
 		<!--		<Add filter_name="R_int_energy_context_%%interface%%_unbound"/>-->
-		<Add mover_name="run_metrics_unbound"/>
+<!--		<Add mover_name="run_metrics_unbound"/>-->
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
