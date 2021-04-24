@@ -56,7 +56,7 @@
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
-		<MoveMapFactory name="design_map" bb="1" chi="1">
+		<MoveMapFactory name="design_map" bb="0" chi="1">
 			<Backbone residue_selector="interface%%interface%%" enable="true"/> # believe this is Packer controlled so inherently symmetric
 		</MoveMapFactory>
 	</MOVE_MAP_FACTORIES>
