@@ -91,7 +91,7 @@
 
 	<MOVERS>
 		# extracts from the symmetric pose to the asymmetric unit
-<!--		<ExtractAsymmetricUnit name="extract_asu" keep_virtual="0"/>-->
+		<ExtractAsymmetricUnit name="extract_asu" keep_virtual="0"/>
 		# move two folds on different sides of a jump. this instance has the jump between chain A and B and moves them apart the distance on the specified axis (not sure how the axis are defined)
 <!--		<RigidBodyTransMover name="translate_asu" jump="1" distance="100.0" x="0.0" y="0.0" z="0.0"/>-->
 		<SavePoseMover name="save_nanohedra" restore_pose="0" reference_name="nanohedra"/>
