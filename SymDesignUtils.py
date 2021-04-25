@@ -912,7 +912,7 @@ def collect_nanohedra_designs(file=None, directory=None, dock=False):
         all_paths = []
         location = None
 
-    return all_paths, location
+    return sorted(set(all_paths)), location
 
 
 def get_base_nanohedra_dirs(base_dir):
