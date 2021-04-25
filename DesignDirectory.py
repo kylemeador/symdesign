@@ -939,6 +939,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # get an out of bounds index
                 refine_variables.append(('required_residues', int(list(chain_breaks.values())[-1]) + 50))
 
+            self.make_path(self.scripts)
             flags_design = self.prepare_rosetta_flags(refine_variables, PUtils.stage[2], out_path=self.scripts)
 
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
