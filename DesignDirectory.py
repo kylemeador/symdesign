@@ -1566,7 +1566,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True,
                            errors='ignore')
 
-            # Add design residue information to scores_df such as core, rim, and support measures
+            # Add design residue information to scores_df such as how many core, rim, and support residues were measured
             for r_class in residue_classificiation:
                 scores_df[r_class] = \
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
@@ -1578,7 +1578,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # protocol_df = pd.DataFrame(protocol_s)
             # protocol_df.columns = pd.MultiIndex.from_product([[''], protocol_df.columns])
             # residue_df = pd.merge(protocol_df, residue_df, left_index=True, right_index=True)
-            residue_df[('', groups)] = protocol_s
+            residue_df.columns = residue_df.columns.set_levels(residue_df.columns.levels[0].astype(int), level=0)
+            residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+            residue_df[(groups, groups)] = protocol_s
 
             # Drop refine trajectory and any designs with nan values
             scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
@@ -1619,7 +1621,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
                                 for divergence_type, stat in divergence.items()}
             # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
-            divergence_stats_s = pd.concat([pd.Series(divergence_stats)], keys=[('seq_design', 'pose')], copy=False)
+            divergence_stats_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
 
             # next for each protocol
             designs_by_protocol, sequences_by_protocol = {}, {}
