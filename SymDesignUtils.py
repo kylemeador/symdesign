@@ -896,7 +896,8 @@ def collect_nanohedra_designs(file=None, directory=None, dock=False):
                 logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
                 exit()
         with open(_file, 'r') as f:
-            all_paths = [location.strip() for location in f.readlines() if location.strip() != '']
+            all_paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
+                            repeat(os.sep))  # only strip the trailing '/' path separator in case file names are passed
         location = _file
     elif directory:
         location = directory
