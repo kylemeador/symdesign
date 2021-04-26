@@ -18,19 +18,19 @@ from sklearn.preprocessing import StandardScaler
 import PathUtils as PUtils
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, flag_options
 from Query import Flags
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError, \
-    match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, filter_dictionary_keys, all_vs_all, \
-    condensed_to_square, space_group_to_sym_entry, digit_translate_table
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError,\
+    match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, filter_dictionary_keys, \
+    all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table
 from PDB import PDB
 from Pose import Pose
 from DesignMetrics import columns_to_rename, read_scores, keys_from_trajectory_number, join_columns, groups, \
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
-    interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, protocols_of_interest, \
-    df_permutation_test, residue_template, calc_relative_sa, clean_up_intermediate_columns
+    interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, \
+    protocols_of_interest, df_permutation_test, residue_template, calc_relative_sa, clean_up_intermediate_columns
 from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
     get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
-    position_specific_jsd, remove_non_mutations, sequence_difference, jensen_shannon_divergence, multi_chain_alignment, \
+    position_specific_jsd, sequence_difference, jensen_shannon_divergence, multi_chain_alignment, \
     generate_multiple_mutations  # , format_mutations, generate_sequences
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
@@ -1380,7 +1380,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         design_residues = self.info.get('design_residues', None)
         if design_residues:
             # 'design_residues' coming in as 234B (residue_number|chain), remove residue chain, change type
-            design_residues = [int(residue.translate(digit_translate_table)) for residue in design_residues.split(',')]
+            design_residues = set(int(residue.translate(digit_translate_table))
+                                  for residue in design_residues.split(','))
         else:  # This should never happen as we catch at other_pose_metrics...
             raise DesignError('No residues were marked for design. Have you run %s or %s?'
                               % (PUtils.generate_fragments, PUtils.interface_design))
@@ -1480,22 +1481,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences))
             all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
             cleaned_mutations = simplify_mutation_dict(all_mutations_no_chains)
-            residue_dict = dirty_residue_processing(all_design_scores, cleaned_mutations, hbonds=interface_hbonds)
+            residue_info = dirty_residue_processing(all_design_scores, cleaned_mutations, hbonds=interface_hbonds)
             #                                       offset=offset_dict)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
-            # residue_dict = residue_processing(all_design_scores, cleaned_mutations, per_res_columns,
+            # residue_info = residue_processing(all_design_scores, cleaned_mutations, per_res_columns,
             #                                   hbonds=interface_hbonds)
             #                                   offset=offset_dict)
 
             # include the wild type residue information in metrics for sequence comparison
-            wild_type_residue_info = {res_number: copy.deepcopy(residue_template)
-                                      for res_number in residue_dict[next(iter(residue_dict))].keys()}
+            wild_type_residue_info = {residue_number: copy.deepcopy(residue_template)
+                                      for residue_number in residue_info[next(iter(residue_info))].keys()}
             for res_number in wild_type_residue_info:
                 # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
                 wild_type_residue_info[res_number] = \
                     {'energy_delta': None, 'bsa_polar': None, 'bsa_hydrophobic': None,
                      # Todo implement energy metric for wild-type in refine.sh before refinement of clean_asu_for_refine
-                     'bsa_total': wt_pdb.get_residue_surface_area(res_number), 'protocol': None, 'hbond': None,
+                     'bsa_total': wt_pdb.residue(res_number).sasa, 'protocol': None, 'hbond': None,
                      'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None,
                      'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
                      'observed_evolution': None}
@@ -1509,7 +1510,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Calculate amino acid observation percent from residue dict and background SSM's
             obs_d = {profile: {design: mutation_conserved(residue_info, background)
-                               for design, residue_info in residue_dict.items()}
+                               for design, residue_info in residue_info.items()}
                      for profile, background in profile_dict.items()}
 
             if 'fragment' in profile_dict:
@@ -1517,9 +1518,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 obs_d['fragment'] = remove_interior_keys(obs_d['fragment'], issm_residues, keep=True)
 
             # Add observation information into the residue dictionary
-            for design, residue_info in residue_dict.items():
-                res_dict = {'observed_%s' % profile: obs_d[profile][design] for profile in obs_d}
-                residue_dict[design] = weave_sequence_dict(base_dict=residue_info, **res_dict)
+            for design, info in residue_info.items():
+                residue_info[design] = weave_sequence_dict(base_dict=info,
+                                                           **{'observed_%s' % profile: obs_d[profile][design]
+                                                              for profile in obs_d})
 
             # Find the observed background for each profile, for each design in the pose
             pose_observed_bkd = {profile: {design: per_res_metric(obs_d[profile][design]) for design in obs_d[profile]}
@@ -1528,29 +1530,29 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 scores_df['observed_%s' % profile] = pd.Series(pose_observed_bkd[profile])
 
             # Process H-bond and Residue metrics to dataframe
-            residue_df = pd.concat({key: pd.DataFrame(value) for key, value in residue_dict.items()}).unstack()
+            residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
             # returns multi-index column with residue number as first (top) column index, metric as second index
             # during residue_df unstack, all residues with missing dicts are copied as nan
-            number_hbonds = {entry: len(interface_hbonds[entry]) for entry in interface_hbonds}
-            # number_hbonds_df = pd.DataFrame(number_hbonds, index=['number_hbonds', ]).T
+
+            number_hbonds_s = pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()},
+                                        name='number_hbonds')
+            scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
             cleaned_mutations.pop('reference')
             scores_df['number_of_mutations'] = pd.Series({design: len(mutations)
                                                           for design, mutations in cleaned_mutations.items()})
-            number_hbonds_s = pd.Series(number_hbonds, name='number_hbonds')
-            scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
-
             interior_residue_df = \
-                residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']].droplevel(1,
-                                                                                                                axis=1)
-            # Check if any of the values in columns are 1. If so, return True for that column
-            interior_residues = interior_residue_df.any().index[interior_residue_df.any()].to_list()
-            interface_residues = list(set(residue_df.columns.get_level_values(0).unique()) - set(interior_residues))
+                residue_df.loc[:,
+                               idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)
+            # Check if any columns are > 50% interior. If so, return True for that column
+            interior_residues = \
+                interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
+            interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residues)
             assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
             other_pose_metrics['percent_fragment'] = len(issm_residues) / len(interface_residues)
             other_pose_metrics['total_interface_residues'] = len(interface_residues)
-            if set(interface_residues) != set(design_residues):
+            if interface_residues != design_residues:
                 self.log.info('Residues %s are located in the interior' %
-                              ', '.join(map(str, set(design_residues) - set(interface_residues))))
+                              ', '.join(map(str, design_residues.difference(interface_residues))))
 
             # Interface B Factor TODO ensure asu.pdb has B-factors for Nanohedra
             int_b_factor = 0
@@ -1600,7 +1602,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 scores_df.drop(drop_na_index, inplace=True, errors='ignore')
                 residue_df.drop(drop_na_index, inplace=True, errors='ignore')
                 for idx in drop_na_index:
-                    residue_dict.pop(idx)
+                    residue_info.pop(idx)
                 self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
 
@@ -1634,7 +1636,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                               if design in designs_by_protocol[protocol]}
                                       for chain, design_sequences in all_design_sequences.items()}
                 protocol_alignment = multi_chain_alignment(protocol_sequences)
-                protocol_mutation_freq = remove_non_mutations(protocol_alignment['counts'], interface_residues)
+                protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['counts'], interface_residues)
                 protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq,
                                                                                       profile_dict[profile])
                                      for profile in profile_dict}  # both prot_freq and profile_dict[profile] are 0-idx
@@ -1711,8 +1713,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                  columns=['pc%d' % idx for idx, _ in enumerate(res_pca.components_, 1)])
 
                 seq_pca = PCA(PUtils.variance)
-                residue_dict.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
-                pairwise_sequence_diff_np = all_vs_all(residue_dict, sequence_difference)
+                residue_info.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
+                pairwise_sequence_diff_np = all_vs_all(residue_info, sequence_difference)
                 pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
                 seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
                 # Compute the euclidean distance
@@ -1724,7 +1726,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # Next the labels will be grouped and stats are taken for each group (mean is important)
                 # All protocol means will have pairwise distance measured as a means of accessing similarity
                 # These distance metrics will be reported in the final pose statistics
-                seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_dict.keys()),
+                seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
                                          columns=['pc%d' % idx for idx, _ in enumerate(seq_pca.components_, 1)])
                 # Merge principle components with labels
                 seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
@@ -1799,9 +1801,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # Set up Labels & Plot the PC data
                     protocol_map = {protocol: i for i, protocol in enumerate(unique_protocols)}
                     integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
-                    pc_labels_group = [protocols_by_design[design] for design in residue_dict]
-                    # pc_labels_group = np.array([protocols_by_design[design] for design in residue_dict])
-                    pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_dict]
+                    pc_labels_group = [protocols_by_design[design] for design in residue_info]
+                    # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
+                    pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
                     fig = plt.figure()
                     # ax = fig.add_subplot(111, projection='3d')
                     ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
