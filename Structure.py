@@ -845,7 +845,7 @@ class Structure(StructureBase):
                 self.residues[self.residue_indices[idx]].sasa = float(line[16:])
                 idx += 1
 
-        self.sasa = True
+        self.sasa = sum([residue.sasa for residue in self.residues])
         # for line in out.decode('utf-8').split('\n'):
         #     if line[:3] == 'SEQ':
         #         self.sasa_chain.append(line[4:5])
