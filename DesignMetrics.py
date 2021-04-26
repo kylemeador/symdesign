@@ -416,11 +416,12 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'buns_2_unbound', 'contac
                      'hbonds_res_selection_2_bound', 'interface_connectivity_1', 'interface_connectivity_2',
                      'interface_separation', 'interface_energy_1_bound', 'interface_energy_2_bound',
                      'interface_energy_1_unbound', 'interface_energy_2_unbound', 'interface_energy_complex',
-                     'interaction_energy_complex', groups, 'rosetta_reference_energy', 'rmsd', 'shape_complementarity',
+                     'interaction_energy_complex', groups, 'rosetta_reference_energy', 'shape_complementarity',
                      'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                      'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
                      'sasa_total_1_bound', 'sasa_total_2_bound', 'solvation_energy_complex', 'solvation_energy_1_bound',
                      'solvation_energy_2_bound', 'solvation_energy_1_unbound', 'solvation_energy_2_unbound'}
+#                    'rmsd'
 #                      'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'number_hbonds', 'total_interface_residues',
