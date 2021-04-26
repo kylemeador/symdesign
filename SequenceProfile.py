@@ -2065,23 +2065,6 @@ def sequence_difference(seq1, seq2, d=None, matrix='BLOSUM62'):  # TODO AMS
     return s
 
 
-def remove_non_mutations(frequency_msa, residue_list):
-    """Keep residues which are present in provided list
-
-    Args:
-        frequency_msa (dict): {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...}
-        residue_list (list): [15, 16, 18, 20, 34, 35, 67, 108, 119]
-    Returns:
-        mutation_dict (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
-    """
-    mutation_dict = {}
-    for residue in frequency_msa:
-        if residue in residue_list:
-            mutation_dict[residue] = frequency_msa[residue]
-
-    return mutation_dict
-
-
 def return_consensus_design(frequency_sorted_msa):
     for residue in frequency_sorted_msa:
         if residue == 0:
