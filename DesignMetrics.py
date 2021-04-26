@@ -912,7 +912,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
     warn = False
     total_residue_dict = {}
     for design, scores in score_dict.items():
-        residue_info = {}
+        residue_data = {}
         # for column in columns:
         for key, value in scores.items():
             # metadata = column.split('_')
@@ -933,18 +933,18 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                 pose_state = metadata[-2]  # unbound or complex
                 if pose_state == 'unbound' and offset:
                     residue_number += offset[metadata[-3]]  # get oligomer chain offset
-                if residue_number not in residue_info:
-                    residue_info[residue_number] = copy.deepcopy(residue_template)
+                if residue_number not in residue_data:
+                    residue_data[residue_number] = copy.deepcopy(residue_template)
                 if metric == 'sasa':
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     polarity = metadata[3]
-                    residue_info[residue_number][metric][polarity][pose_state] = value  # round(value, 3)
-                    # residue_info[residue_number][r_type][polarity][pose_state] = round(score_dict[design][column], 3)
+                    residue_data[residue_number][metric][polarity][pose_state] = value  # round(value, 3)
+                    # residue_data[residue_number][r_type][polarity][pose_state] = round(score_dict[design][column], 3)
                 else:
                     # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
-                    residue_info[residue_number][metric][pose_state] += value  # round(, 3)
-        # if residue_info:
-        for residue_number, data in residue_info.items():
+                    residue_data[residue_number][metric][pose_state] += value  # round(, 3)
+        # if residue_data:
+        for residue_number, data in residue_data.items():
             try:
                 data['type'] = mutations[design][residue_number]  # % pose_length]
             except KeyError:
@@ -952,7 +952,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
             if hbonds:
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
-            data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
+            data['energy_delta'] = round(data['energy']['complex'] - data['energy']['unbound'], 2)
             #     - data['energy']['fsp'] - data['energy']['cst']
             # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
             relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
@@ -968,19 +968,19 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                     data['core'] = 1
                 else:
                     data['rim'] = 1
-            else:  # Todo remove residue_number from dictionary as no interface design should be done? keep interior residue_number constant?
+            else:  # Todo remove residue from dict as no design should be done? keep interior residue constant?
                 if relative_complex_sasa < 0.25:
                     data['interior'] = 1
                 # else:
-                #     residue_info[residue_number]['surface'] = 1
-            data['coordinate_constraint'] = data['energy']['cst']
-            data['residue_favored'] = data['energy']['fsp']
+                #     residue_data[residue_number]['surface'] = 1
+            data['coordinate_constraint'] = round(data['energy']['cst'], 2)
+            data['residue_favored'] = round(data['energy']['fsp'], 2)
             data.pop('sasa')
             data.pop('energy')
-            # if residue_info[residue_number]['energy'] <= hot_spot_energy:
-            #     residue_info[residue_number]['hot_spot'] = 1
+            # if residue_data[residue_number]['energy'] <= hot_spot_energy:
+            #     residue_data[residue_number]['hot_spot'] = 1
         # # Consolidate symmetric residues into a single design
-        # for residue_number, residue_data in residue_info.items():
+        # for residue_number, residue_data in residue_data.items():
         #     if residue_number > pose_length:
         #         new_residue_number = residue_number % pose_length
         #         for key in residue_data:  # ['bsa_polar', 'bsa_hydrophobic', 'bsa_total', 'core', 'energy_delta', 'hbond', 'interior', 'rim', 'support', 'type']
@@ -988,9 +988,9 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
         #             # ex: 'bsa_polar', 'bsa_hydrophobic', 'bsa_total', 'core', 'interior', 'rim', 'support'
         #             # really only checking for energy_delta
         #             if key in ['energy_delta']:
-        #                 residue_info[new_residue_number][key] += residue_data.pop(key)
+        #                 residue_data[new_residue_number][key] += residue_data.pop(key)
 
-        total_residue_dict[design] = residue_info
+        total_residue_dict[design] = residue_data
 
     return total_residue_dict
 
