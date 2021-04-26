@@ -10,7 +10,7 @@ import os
 import PathUtils as PUtils
 from SymDesignUtils import start_log, filter_dictionary_keys
 from PDB import PDB
-from SequenceProfile import remove_non_mutations, position_specific_jsd, weave_mutation_dict, \
+from SequenceProfile import position_specific_jsd, weave_mutation_dict, \
     SequenceProfile, jensen_shannon_divergence, rank_possibilities
 
 # Globals
@@ -21,7 +21,7 @@ db = PUtils.biological_fragmentDB
 def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unused Todo SequenceProfile.py
     if residues:
         keep_residues = residues
-        mutation_probabilities = remove_non_mutations(alignment_dict['counts'], keep_residues)
+        mutation_probabilities = filter_dictionary_keys(alignment_dict['counts'], keep_residues)
     else:
         mutation_probabilities = alignment_dict['counts']
     #     design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')

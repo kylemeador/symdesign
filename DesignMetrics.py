@@ -908,16 +908,16 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
     warn = False
     total_residue_dict = {}
     for design, scores in score_dict.items():
-        residue_dict = {}
+        residue_info = {}
         # for column in columns:
         for key, value in scores.items():
             # metadata = column.split('_')
             if key.startswith('per_res_'):
                 metadata = key.split('_')
-                # res = int(metadata[-1])
-                # res = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
-                res = int(metadata[-1].translate(digit_translate_table))  # remove chain_id in rosetta_numbering="False"
-                if res > pose_length:
+                # residue_number = int(metadata[-1])
+                # residue_number = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
+                residue_number = int(metadata[-1].translate(digit_translate_table))  # remove chain_id in rosetta_numbering="False"
+                if residue_number > pose_length:
                     if not warn:  # TODO this can move to residue_processing (clean) once instated
                         warn = True
                         logger.warning('Encountered %s which has residue number > the pose length (%d). Scores above '
@@ -925,28 +925,28 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                                        ' ensure that symmetric copies have the same residue number on symmetry mates.'
                                        % (key, pose_length))
                     continue
-                r_type = metadata[2]  # energy or sasa
+                metric = metadata[2]  # energy or sasa
                 pose_state = metadata[-2]  # unbound or complex
                 if pose_state == 'unbound' and offset:
-                    res += offset[metadata[-3]]  # get oligomer chain offset
-                if res not in residue_dict:
-                    residue_dict[res] = copy.deepcopy(residue_template)
-                if r_type == 'sasa':
+                    residue_number += offset[metadata[-3]]  # get oligomer chain offset
+                if residue_number not in residue_info:
+                    residue_info[residue_number] = copy.deepcopy(residue_template)
+                if metric == 'sasa':
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     polarity = metadata[3]
-                    residue_dict[res][r_type][polarity][pose_state] = value  # round(value, 3)
-                    # residue_dict[res][r_type][polarity][pose_state] = round(score_dict[design][column], 3)
+                    residue_info[residue_number][metric][polarity][pose_state] = value  # round(value, 3)
+                    # residue_info[residue_number][r_type][polarity][pose_state] = round(score_dict[design][column], 3)
                 else:
                     # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
-                    residue_dict[res][r_type][pose_state] += value  # round(, 3)
-        # if residue_dict:
-        for res, data in residue_dict.items():
+                    residue_info[residue_number][metric][pose_state] += value  # round(, 3)
+        # if residue_info:
+        for residue_number, data in residue_info.items():
             try:
-                data['type'] = mutations[design][res]  # % pose_length]
+                data['type'] = mutations[design][residue_number]  # % pose_length]
             except KeyError:
-                data['type'] = mutations['reference'][res]  # % pose_length]  # fill with aa from wt seq
+                data['type'] = mutations['reference'][residue_number]  # % pose_length]  # fill with aa from wt seq
             if hbonds:
-                if res in hbonds[design]:
+                if residue_number in hbonds[design]:
                     data['hbond'] = 1
             data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
             #     - data['energy']['fsp'] - data['energy']['cst']
@@ -964,29 +964,29 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                     data['core'] = 1
                 else:
                     data['rim'] = 1
-            else:  # Todo remove res from dictionary as no interface design should be done? keep interior res constant?
+            else:  # Todo remove residue_number from dictionary as no interface design should be done? keep interior residue_number constant?
                 if relative_complex_sasa < 0.25:
                     data['interior'] = 1
                 # else:
-                #     residue_dict[res]['surface'] = 1
+                #     residue_info[residue_number]['surface'] = 1
             data['coordinate_constraint'] = data['energy']['cst']
             data['residue_favored'] = data['energy']['fsp']
             data.pop('sasa')
             data.pop('energy')
-            # if residue_dict[res]['energy'] <= hot_spot_energy:
-            #     residue_dict[res]['hot_spot'] = 1
+            # if residue_info[residue_number]['energy'] <= hot_spot_energy:
+            #     residue_info[residue_number]['hot_spot'] = 1
         # # Consolidate symmetric residues into a single design
-        # for res, residue_data in residue_dict.items():
-        #     if res > pose_length:
-        #         new_residue_number = res % pose_length
+        # for residue_number, residue_data in residue_info.items():
+        #     if residue_number > pose_length:
+        #         new_residue_number = residue_number % pose_length
         #         for key in residue_data:  # ['bsa_polar', 'bsa_hydrophobic', 'bsa_total', 'core', 'energy_delta', 'hbond', 'interior', 'rim', 'support', 'type']
         #             # This mechanism won't concern SASA symmetric residues info as symmetry will not be used for SASA
         #             # ex: 'bsa_polar', 'bsa_hydrophobic', 'bsa_total', 'core', 'interior', 'rim', 'support'
         #             # really only checking for energy_delta
         #             if key in ['energy_delta']:
-        #                 residue_dict[new_residue_number][key] += residue_data.pop(key)
+        #                 residue_info[new_residue_number][key] += residue_data.pop(key)
 
-        total_residue_dict[design] = residue_dict
+        total_residue_dict[design] = residue_info
 
     return total_residue_dict
 
@@ -1733,8 +1733,7 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
                                                        if design in designs_by_protocol[protocol]}
                                                for chain in all_design_sequences}
             protocol_alignment = SequenceProfile.multi_chain_alignment(sequences_by_protocol[protocol])
-            protocol_mutation_freq = SequenceProfile.remove_non_mutations(protocol_alignment['counts'],
-                                                                          interface_residues)
+            protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['counts'], interface_residues)
             protocol_res_dict = {'divergence_%s' % profile:
                                  SequenceProfile.position_specific_jsd(protocol_mutation_freq, profile_dict[profile])
                                  for profile in profile_dict}  # both prot_freq and profile_dict[profile] are 0 indexed
