@@ -1071,7 +1071,7 @@ class PDB(Structure):
         # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
         #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
 
-    def calculate_secondary_structure(self, chain=None):
+    def get_secondary_structure(self, chain=None):
         self.stride(chain=chain)
 
     def get_secondary_structure_chain(self, chain=None):
