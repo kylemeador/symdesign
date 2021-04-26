@@ -152,6 +152,9 @@ master_metrics = {'average_fragment_z_score':
                   'interface_b_factor_per_residue':
                       {'description': 'The average B-factor from each atom, from each interface residue',
                        'direction': 'max', 'function': 'rank', 'filter': True},
+                  'interface_bound_activation_energy':
+                      {'description': 'Energy required for the unbound interface to adopt the conformation in the '
+                                      'complexed state', 'direction': 'max', 'function': 'rank', 'filter': True},
                   'interface_buried_hbonds':
                       {'description': 'Total buried unsaturated H-bonds in the design',
                        'direction': 'min', 'function': 'rank', 'filter': True},
@@ -487,7 +490,7 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
-clean_up_intermediate_columns = ['int_energy_no_intra_residue_score', 'interface_energy_bound',
+clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interface_energy_bound',
                                  'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
@@ -544,6 +547,7 @@ summation_pairs = {'buns_unbound': ('buns_1_unbound', 'buns_2_unbound'),
 delta_pairs = {'interface_buried_hbonds': ('buns_complex', 'buns_unbound'),
                'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
                # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
+               'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),
                'solvation_energy': ('solvation_energy_unbound', 'solvation_energy_complex'),
                # 'solvation_energy': ('interaction_energy_complex', 'interface_energy_no_intra_residue_score'),
                'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
