@@ -495,7 +495,7 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interf
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
                                  'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
-                                 'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound',
+                                 # 'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound',
                                  'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
                                  'solvation_energy_2_unbound',
                                  'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
