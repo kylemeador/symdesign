@@ -1329,7 +1329,6 @@ class Residue:
         if coords:
             self.coords = coords
         self.secondary_structure = None
-        self.sasa = None
 
     @property
     def start_index(self):
@@ -1643,11 +1642,28 @@ class Residue:
 
     @property
     def secondary_structure(self):
-        return self._secondary_structure
+        try:
+            return self._secondary_structure
+        except AttributeError:
+            raise DesignError('This residue has no \'.secondary_structure\' attribute! Ensure you call '
+                              'Structure.get_secondary_structure() on your Structure before you request Residue '
+                              'specific secondary structure information')
 
     @secondary_structure.setter
     def secondary_structure(self, ss_code):
         self._secondary_structure = ss_code
+
+    @property
+    def sasa(self):
+        try:
+            return self._sasa
+        except AttributeError:
+            raise DesignError('This residue has no \'.sasa\' attribute! Ensure you call Structure.get_sasa() on your '
+                              'Structure before you request Residue specific sasa information')
+
+    @sasa.setter
+    def sasa(self, sasa):
+        self._sasa = sasa
 
     @property
     def number_of_atoms(self):
