@@ -1541,9 +1541,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             cleaned_mutations.pop('reference')
             scores_df['number_of_mutations'] = pd.Series({design: len(mutations)
                                                           for design, mutations in cleaned_mutations.items()})
-            interior_residue_df = \
-                residue_df.loc[:,
-                               idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']].droplevel(1, axis=1)
+            interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
             # Check if any columns are > 50% interior. If so, return True for that column
             interior_residues = \
                 interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
