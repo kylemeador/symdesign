@@ -1,3 +1,4 @@
+import subprocess
 from copy import copy  # , deepcopy
 from collections.abc import Iterable
 from random import random, randint
@@ -8,6 +9,7 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
 from Bio.SeqUtils import IUPACData
 
+from PathUtils import free_sasa_exe_path
 from SymDesignUtils import start_log, null_log, DesignError
 from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
@@ -39,6 +41,7 @@ class Structure(StructureBase):
         self._residue_indices = None
         self.name = name
         self.secondary_structure = None
+        self.sasa = None
 
         if log:
             self.log = log
@@ -818,6 +821,74 @@ class Structure(StructureBase):
         else:
             return False
 
+    def get_sasa(self, probe_radius=1.4):  # , sasa_thresh=0):
+        """Use FreeSASA to calculate the surface area of residues in the Structure object.
+        Entities/chains could have this, but don't currently"""
+        # SEQ A    1 MET :   74.46
+        # SEQ A    2 LYS :   96.30
+        # SEQ A    3 VAL :    0.00
+        # SEQ A    4 VAL :    0.00
+        # SEQ A    5 VAL :    0.00
+        # SEQ A    6 GLN :    0.00
+        # SEQ A    7 ILE :    0.00
+        # SEQ A    8 LYS :    0.87
+        # SEQ A    9 ASP :    1.30
+        # SEQ A   10 PHE :   64.55
+        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius)],
+                             stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+        out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
+
+        # self.sasa = [float(line[16:]) for line in out.decode('utf-8').split('\n') if line[:3] == 'SEQ']
+        idx = 0
+        for line in out.decode('utf-8').split('\n'):
+            if line[:3] == 'SEQ':
+                self.residues[self.residue_indices[idx]].sasa = float(line[16:])
+                idx += 1
+
+        self.sasa = True
+        # for line in out.decode('utf-8').split('\n'):
+        #     if line[:3] == 'SEQ':
+        #         self.sasa_chain.append(line[4:5])
+        #         self.sasa_residues.append(int(line[5:10]))
+        #         self.sasa.append(float(line[16:]))
+
+    def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
+        """Get the residues who reside on the surface of the molecule
+
+        Returns:
+            (list[int]): The surface residue numbers
+        """
+        if not self.sasa:
+            self.get_sasa(probe_radius=probe_radius)  # , sasa_thresh=sasa_thresh)
+
+        # Todo make dynamic based on relative threshold seen with Levy 2010
+        # return [residue.number for residue, sasa in zip(self.residues, self.sasa) if sasa > sasa_thresh]
+        return [residue.number for residue in self.residues if residue.sasa > sasa_thresh]
+
+    # def get_residue_surface_area(self, residue_number, probe_radius=2.2):
+    #     """Get the surface area for specified residues
+    #
+    #     Returns:
+    #         (float): Angstrom^2 of surface area
+    #     """
+    #     if not self.sasa:
+    #         self.get_sasa(probe_radius=probe_radius)
+    #
+    #     # return self.sasa[self.residues.index(residue_number)]
+    #     return self.sasa[self.residues.index(residue_number)]
+
+    def get_surface_area_residues(self, numbers, probe_radius=2.2):
+        """Get the surface area for specified residues
+
+        Returns:
+            (float): Angstrom^2 of surface area
+        """
+        if not self.sasa:
+            self.get_sasa(probe_radius=probe_radius)
+
+        # return sum([sasa for residue_number, sasa in zip(self.sasa_residues, self.sasa) if residue_number in numbers])
+        return sum([residue.sasa for residue in self.residues if residue.number in numbers])
+
     # def stride(self, chain=None):
     #     # REM  -------------------- Secondary structure summary -------------------  XXXX
     #     # REM                .         .         .         .         .               XXXX
@@ -1258,6 +1329,7 @@ class Residue:
         if coords:
             self.coords = coords
         self.secondary_structure = None
+        self.sasa = None
 
     @property
     def start_index(self):

@@ -66,9 +66,9 @@ class PDB(Structure):
         self.resolution = None
         self.rotation_d = {}
         self.reference_sequence = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
-        self.sasa_chain = []
-        self.sasa_residues = []
-        self.sasa = []
+        # self.sasa_chain = []
+        # self.sasa_residues = []
+        # self.sasa = []
         self.space_group = None
         self.uc_dimensions = []
         self.max_symmetry = None
@@ -1098,85 +1098,6 @@ class PDB(Structure):
     #             if (atom.residue_number, "H") in stride_ss_asg and atom.residue_number in sasa_res:
     #                 h_cb_indices.append(idx)
     #     return h_cb_indices
-
-    def get_sasa(self, probe_radius=1.4):  # , sasa_thresh=0):
-        """Use FreeSASA to calculate the surface area of residues in the Structure object.
-        Entities/chains could have this, but don't currently"""
-        # SEQ A    1 MET :   74.46
-        # SEQ A    2 LYS :   96.30
-        # SEQ A    3 VAL :    0.00
-        # SEQ A    4 VAL :    0.00
-        # SEQ A    5 VAL :    0.00
-        # SEQ A    6 GLN :    0.00
-        # SEQ A    7 ILE :    0.00
-        # SEQ A    8 LYS :    0.87
-        # SEQ A    9 ASP :    1.30
-        # SEQ A   10 PHE :   64.55
-        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius)],  # temp_pdb_file
-                             stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-        out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
-
-        for line in out.decode('utf-8').split('\n'):
-            if line[:3] == 'SEQ':
-                self.sasa_chain.append(line[4:5])
-                self.sasa_residues.append(int(line[5:10]))
-                self.sasa.append(float(line[16:]))
-
-    # def get_surface_atoms(self, chain_selection="all", probe_radius=2.2, sasa_thresh=0):
-    #     # only works for monomers or homo-complexes
-    #     sasa_chain, sasa_res, sasa = self.get_sasa(probe_radius=probe_radius, sasa_thresh=sasa_thresh)
-    #     sasa_chain_res_l = zip(sasa_chain, sasa_res)
-    #
-    #     surface_atoms = []
-    #     if chain_selection == "all":
-    #         for atom in self.atoms:
-    #             if (atom.chain, atom.residue_number) in sasa_chain_res_l:
-    #                 surface_atoms.append(atom)
-    #     else:
-    #         for atom in self.get_chain_atoms(chain_selection):
-    #             if (atom.chain, atom.residue_number) in sasa_chain_res_l:
-    #                 surface_atoms.append(atom)
-    #
-    #     return surface_atoms
-
-    def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
-        """Get the residues who reside on the surface of the molecule
-
-        Returns:
-            (list[int]): The surface residue numbers
-        """
-        if not self.sasa:
-            self.get_sasa(probe_radius=probe_radius)  # , sasa_thresh=sasa_thresh)
-
-        # Todo make dynamic based on relative threshold seen with Levy 2010
-        return [residue_number for residue_number, sasa in zip(self.sasa_residues, self.sasa) if sasa > sasa_thresh]
-
-    def get_residue_surface_area(self, residue_number, probe_radius=2.2):
-        """Get the surface area for specified residues
-
-        Returns:
-            (float): Angstrom^2 of surface area
-        """
-        if not self.sasa:
-            self.get_sasa(probe_radius=probe_radius)
-
-        return self.sasa[self.sasa_residues.index(residue_number)]
-
-    def get_surface_area_residues(self, residue_numbers, probe_radius=2.2):
-        """Get the surface area for specified residues
-
-        Returns:
-            (float): Angstrom^2 of surface area
-        """
-        if not self.sasa:
-            self.get_sasa(probe_radius=probe_radius)
-
-        total_sasa = 0
-        for residue_number, sasa in zip(self.sasa_residues, self.sasa):
-            if residue_number in residue_numbers:
-                total_sasa += sasa
-
-        return total_sasa
 
     # def get_surface_fragments(self):  # Todo combine with structure get_fragments
     #     """Using Sasa, return the 5 residue surface fragments for each surface residue on each chain"""
