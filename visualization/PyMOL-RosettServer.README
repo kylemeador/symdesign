@@ -1,0 +1,64 @@
+### General Information ###
+Evan H. Baugh, Sergey Lyskov, Brian D. Weitzner, Jeffrey J. Gray
+
+The PyMOL_Mover is a versatile new mover for utilization in
+Rosetta and PyRosetta
+The PyMOL_demo.py script illustrates several uses and features
+of the PyMOL_Mover. For simplicity, the demo is written for PyRosetta.
+
+
+### versions ###
+
+The PyMOL_Mover is currently in Rosetta (revision 37389 and later) and
+PyRosetta version 2.0 Beta
+
+    svn co https://svn.rosettacommons.org/source/trunk/mini/src/python/bindings/PyMOLPyRosettaServer.py
+
+    svn co https://svn.rosettacommons.org/source/trunk/mini/src/python/bindings/PyMOL_demo.py
+
+
+### running ###
+To prepare PyMOL for viewing output, run the PyMOLPyRosettaServer.py script
+in mini/src/python/bindings or the main directory of PyRosetta
+
+    pymol /path/to/PyRosetta/PyMOLPyRosettaServer.py
+    pymol /path/to/Rosetta/mini/src/python/bindings/PyMOLPyRosettaServer.py
+
+PyMOLPyRosettaServer.py connects at 127.0.0.1 by default
+
+To change the IP address PyMOL is listening to, use start_rosetta_server
+
+    start_rosetta_server 187.1.3.37, 9001
+
+Since start_rosetta_server is extended in PyMOLPyRosettaServer.py
+
+
+    cmd.start_rosetta_server("187.1.3.37","9001")
+To see a sample of the output from PyRosetta:
+
+    python /path/to/PyRosetta/PyMOL_demo.py
+    python /path/to/mini/src/python/bindings/PyMOL_demo.py
+
+For interactive use, start ipython, import rosetta, and test the commands
+written in PyMOL_demo.py
+
+
+### movie ###
+An illustrative movie is provided, PyRosettaDock.mp4
+To make the identical movie in PyMOL, launch PyMOL and type:
+
+    run path/to/PyMOLPyRosettaServer.py
+
+In the interpreter, set the background to white
+Execute the PyRosettaDock_Movie.py script in a separate shell by using:
+
+    python PyRosettaDock_Movie.py
+
+In PyMOL, select the Action Menu ('A') -> presets -> pretty and turn on the 
+sidechain representation by selecting the Show Menu ('S') -> side chain -> sticks
+
+The movie can then saved using File -> Save Movie As
+
+
+To ensure the RosettaPyMolMover is loaded in your PyMol session, edit your .pymolrc file (home/user/.pymolrc) to 'run path/to/PyMOL-RosettaServer.py'
+see more info at http://www.pyrosetta.org/pymol_mover-tutorial
