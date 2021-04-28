@@ -920,8 +920,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
             else:
                 dist = 0
-            refine_variables = [('pdb_reference', self.asu), ('scripts', PUtils.rosetta_scripts),
-                                ('sym_score_patch', PUtils.sym_weights),
+            refine_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
                                 ('solvent_sym_score_patch', PUtils.solvent_weights), ('symmetry', protocol),
                                 ('sdf', sym_def_file), ('dist', dist), ('cst_value_sym', (cst_value / 2))]
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
@@ -944,18 +943,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
-        metric_cmd_bound = main_cmd + \
+        main_cmd += \
             ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
-                                              % (PUtils.stage[3], '_DEV' if development else ''))]
-
-        metric_cmd_unbound = main_cmd + \
-            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
-             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
-                                              % (PUtils.stage[3], '_DEV' if development else ''))]
-
+             '-parser:protocol']
+        metric_cmd_bound = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
+                                                    % (PUtils.stage[3], '_DEV' if development else ''))]
+        metric_cmd_unbound = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
+                                                      % (PUtils.stage[3], '_DEV' if development else ''))]
         metric_cmds = [metric_cmd_bound] + \
                       [metric_cmd_unbound + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
 
@@ -1030,11 +1025,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # ------------------------------------------------------------------------------------------------------------
         shell_scripts = []
         # RELAX: Prepare command and flags file
-        refine_variables = [('pdb_reference', self.asu), ('scripts', PUtils.rosetta_scripts),
-                            ('sym_score_patch', PUtils.sym_weights),
+        refine_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
                             ('solvent_sym_score_patch', PUtils.solvent_weights), ('symmetry', protocol),
                             ('sdf', sym_def_file), ('dist', dist), ('cst_value_sym', (cst_value / 2))]
-        #                     ('cst_value', cst_value),
 
         # Need to assign the designable residues for each entity to a interface1 or interface2 variable
         refine_variables.extend(self.interface_residue_d.items())
@@ -1048,6 +1041,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             refine_variables.append(('required_residues', int(list(chain_breaks.values())[-1]) + 50))
 
         self.make_path(self.scripts)
+        # Todo separate flags for all protocols from flags for refinement. Put refine specific in command
         flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
         relax_cmd = main_cmd + \
             ['@%s' % flags_refine, '-scorefile', os.path.join(self.scores, PUtils.scores_file), '-in:file:native',
