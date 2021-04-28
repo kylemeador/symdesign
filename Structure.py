@@ -448,7 +448,6 @@ class Structure(StructureBase):
 
     def renumber_atoms(self):
         """Renumber all atom entries one-indexed according to list order"""
-        self.log.debug('Atoms in %s were renumbered from 1 to %s' % (self.name, self.number_of_atoms))
         atoms = self.atoms
         for idx, atom in enumerate(atoms, 1):
             atoms[idx - 1].number = idx
@@ -614,15 +613,15 @@ class Structure(StructureBase):
     def renumber_residues(self):
         """Starts numbering Residues at 1 and number sequentially until last Residue"""
         atoms = self.atoms
-        last_atom_index = len(self.atoms)
+        last_atom_index = len(atoms)
         idx = 0  # offset , 1
         for i, residue in enumerate(self.residues, 1):
             # current_res_num = self.atoms[idx].residue_number
-            try:
-                current_res_num = residue.number
-            except AttributeError:
-                print('\n'.join(str(atom) for atom in residue.atoms))
-            while atoms[idx].residue_number == current_res_num:
+            # try:
+            current_res_num = residue.number
+            # except AttributeError:
+            #     print('\n'.join(str(atom) for atom in residue.atoms))
+            while atoms[idx].residue_number == current_res_num:  # Todo remove once residue_number is Residue.attribute
                 atoms[idx].residue_number = i  # + offset
                 idx += 1
                 if idx == last_atom_index:
@@ -1659,8 +1658,9 @@ class Residue:
         try:
             return self._sasa
         except AttributeError:
-            raise DesignError('This residue has no \'.sasa\' attribute! Ensure you call Structure.get_sasa() on your '
-                              'Structure before you request Residue specific sasa information')
+            raise DesignError('Residue %d%s has no \'.sasa\' attribute! Ensure you call Structure.get_sasa() on your '
+                              'Structure before you request Residue specific sasa information'
+                              % (self.number, self.chain))
 
     @sasa.setter
     def sasa(self, sasa):

@@ -405,7 +405,8 @@ class PDB(Structure):
 
         if not lazy:  # Todo change lazy to pose
             self.renumber_pdb()
-
+            self.log.debug('%s was formatted in Pose numbering (residues now 1 to %d)'
+                           % (self.name, self.number_of_residues))
         if chains:
             # create Chains from Residues
             if multimodel:

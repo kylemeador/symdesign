@@ -93,7 +93,7 @@ class Model:  # (PDB)
         self.models = models
         self.pdb = self.models[0]
 
-    def add_pdb(self, pdb):
+    def add_model(self, pdb):
         self.models.append(pdb)
 
     # def add_atoms_to_pdb(self, index=0, atoms=None):
