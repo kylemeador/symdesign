@@ -1,45 +1,53 @@
 <ROSETTASCRIPTS>
 
-        <SCOREFXNS>
-                # patched version of 2015, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-                <ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%">
-                        <Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
-                </ScoreFunction>
-        </SCOREFXNS>
+    <SCOREFXNS>
+        # patched version of 2015, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
+        <ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%">
+            <Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
+        </ScoreFunction>
+    </SCOREFXNS>
 
-        <RESIDUE_SELECTORS>
-                # used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
-                <Index name="A_interface" resnums="%%interface1%%" error_on_out_of_bounds_index="1" reverse="0"/> # %%interface1%%
-                # same, but for residues from chain "B"
-                <Index name="B_interface" resnums="%%interface2%%" error_on_out_of_bounds_index="1" reverse="0"/> # %%interface2%%
-                # combined group of all identified interface residues
-                <Or name="tot_interface" selectors="A_interface,B_interface"/>
-                # the negation of all interface residues
-                <Not name="not_interface" selector="tot_interface"/>
-                # all residues
-                <True name="full_pose"/>
-        </RESIDUE_SELECTORS>
+	<RESIDUE_SELECTORS>
+		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+<!--		<SymmetricalResidue name="interface1_sym" selector="interface1" />-->
+		# same, but for residues from chain "B"
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+<!--		<SymmetricalResidue name="interface2_sym" selector="interface2" />-->
+		# combined group of all identified interface residues
+		<Or name="tot_interface" selectors="interface1,interface2"/>
+		# the negation of all interface residues
+		<Not name="not_interface" selector="tot_interface"/>
+        # other residues that may be designable
+		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		# all designable residues
+		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
+		# the negation of all designable residues
+		<Not name="not_designable" selector="all_designable"/>
+        # all residues
+        <True name="full_pose"/>
+    </RESIDUE_SELECTORS>
 
-        <MOVERS>
-                # Generates symmetry for the system in question using %%sdf%% or %%dist%%
-                <SetupForSymmetry name="make_point_group" definition="%%sdf%%"/>
-                <MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
-                <MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
-                <LoopModeler name="modeler" loops_file="%%loops%%"/>
-                # Pull subroutines in from other files
-                # Symmetry selector
-                <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%"/>
-        </MOVERS>
+    <MOVERS>
+        # Generates symmetry for the system in question using %%sdf%% or %%dist%%
+        <SetupForSymmetry name="make_point_group" definition="%%sdf%%"/>
+        <MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
+        <MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
+        <LoopModeler name="modeler" loops_file="%%loops%%"/>
+        # Pull subroutines in from other files
+        # Symmetry selector
+        <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%"/>
+    </MOVERS>
 
-        <FILTERS>
-                <Time name="time"/>
-        </FILTERS>
+    <FILTERS>
+        <Time name="time"/>
+    </FILTERS>
 
-        <PROTOCOLS>
-                <Add filter_name="time" report_at_end="false"/>
-                <Add mover_name="symmetry_switch"/>
-                <Add mover_name="modeler"/>
-                <Add filter_name="time"/>
-        </PROTOCOLS>
+    <PROTOCOLS>
+        <Add filter_name="time" report_at_end="false"/>
+        <Add mover_name="symmetry_switch"/>
+        <Add mover_name="modeler"/>
+        <Add filter_name="time"/>
+    </PROTOCOLS>
 
 </ROSETTASCRIPTS>

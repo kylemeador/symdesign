@@ -4,10 +4,12 @@
 		<ScoreFunction name="2015" weights="ref2015"/>
 		<ScoreFunction name="2015_soft" weights="ref2015_soft"/>
 	</SCOREFXNS>
+
 	<RESIDUE_SELECTORS>
 		<Index name="8A_interface" resnums="%%interface%%" error_on_out_of_bounds_index="1" reverse="0"/>
 		<Not name="not_interface" selector="8A_interface"/>
 	</RESIDUE_SELECTORS>
+
 	<TASKOPERATIONS>
 		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
 		<DesignAround name="des_around" design_shell="0.1" resnums="%%interface%%" repack_shell="8.0"/>
@@ -20,6 +22,7 @@
 		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
 		<ExtractAsymmetricUnit name="extract_asu" keep_virtual="0" keep_unknown_aas="0"/>
 	</MOVERS>
+
 	<FILTERS>
 		<Time name="time"/>
 		<ScoreType confidence="0" name="full_stability" score_type="total_score" scorefxn="2015" threshold="0"/>
@@ -37,9 +40,9 @@
 	</FILTERS>
 
 	<PROTOCOLS>
-        	<Add filter_name="time"/>
+		<Add filter_name="time"/>
 		<Add mover_name="make_lattice"/>
-        	<Add filter_name="int_rotamer_quality"/>
+		<Add filter_name="int_rotamer_quality"/>
 		<Add mover_name="extract_asu"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
