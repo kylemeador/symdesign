@@ -946,14 +946,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         metric_cmd_bound = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
-            # ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
                                               % (PUtils.stage[3], '_DEV' if development else ''))]
 
         metric_cmd_unbound = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
-            # ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
                                               % (PUtils.stage[3], '_DEV' if development else ''))]
@@ -973,7 +971,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         main_cmd = copy.copy(script_cmd)
         metric_cmd = main_cmd + \
-            ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
+            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s_bound.xml' % PUtils.stage[3])]
         # Todo remove _bound?
@@ -1053,7 +1051,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
         relax_cmd = main_cmd + \
             ['@%s' % flags_refine, '-scorefile', os.path.join(self.scores, PUtils.scores_file), '-in:file:native',
-             self.asu, '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
+             self.refine_pdb, '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
         refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
         if self.consensus:
             if self.design_with_fragments:
@@ -1113,7 +1111,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
         design_cmd = main_cmd + (['-in:file:pssm', self.info['evolutionary_profile']] if self.evolution else []) + \
-            ['-in:file:s', self.refined_pdb, '-in:file:native', self.asu, '-nstruct', str(self.number_of_trajectories),
+            ['-in:file:s', self.refined_pdb, '-in:file:native', self.refine_pdb, '-nstruct', str(self.number_of_trajectories),
              '@%s' % os.path.join(self.path, flags_design), '-scorefile', os.path.join(self.scores, PUtils.scores_file),
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
              '-out:suffix', '_%s' % PUtils.stage[2]]
@@ -1130,7 +1128,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         metric_cmd = main_cmd + \
-            ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
+            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[3])]
 
@@ -1502,8 +1500,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      'bsa_total': wt_pdb.residue(res_number).sasa, 'protocol': None, 'hbond': None,
                      'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None,
                      'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
-                     'observed_evolution': None}
-                #      'hot_spot': None}
+                     'observed_evolution': None}  # 'hot_spot': None}
                 relative_oligomer_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
                                                           wild_type_residue_info[res_number]['bsa_total'])
                 if relative_oligomer_sasa < 0.25:
@@ -1575,7 +1572,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for r_class in residue_classificiation:
                 scores_df[r_class] = \
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
-            scores_df['interface_composition_similarity'] = scores_df.apply(interface_residue_composition_similarity, axis=1)
+            scores_df['interface_composition_similarity'] = \
+                scores_df.apply(interface_residue_composition_similarity, axis=1)
 
             # Merge processed dataframes
             scores_df[groups] = protocol_s
@@ -1583,7 +1581,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # protocol_df = pd.DataFrame(protocol_s)
             # protocol_df.columns = pd.MultiIndex.from_product([[''], protocol_df.columns])
             # residue_df = pd.merge(protocol_df, residue_df, left_index=True, right_index=True)
-            residue_df.columns = residue_df.columns.set_levels(residue_df.columns.levels[0].astype(int), level=0)
+            # residue_df.columns = residue_df.columns.set_levels(residue_df.columns.levels[0].astype(int), level=0)
             residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
             residue_df[(groups, groups)] = protocol_s
 
