@@ -2314,15 +2314,15 @@ def make_mutations_chain_agnostic(mutations):
     """Remove chain identifier from mutation dictionary
 
     Args:
-        mutations (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        mutations (dict): {design: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     Returns:
         (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
     flattened_mutations = {}
-    for pdb in mutations:
-        flattened_mutations[pdb] = {}
-        for chain in mutations[pdb]:
-            flattened_mutations[pdb].update(mutations[pdb][chain])
+    for design, chain_mutations in mutations.items():
+        flattened_mutations[design] = {}
+        for chain, mutations in chain_mutations.items():
+            flattened_mutations[design].update(mutations)
 
     return flattened_mutations
 
@@ -3021,7 +3021,7 @@ def pdb_to_pose_num(reference):
 
 
 def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
-    """Extract mutation data from multiple sequence dictionaries with regard to a reference
+    """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
 
     Args:
         reference (dict[mapping[str, str]]): {chain: sequence, ...}
@@ -3033,9 +3033,13 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
         (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
     #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
-    mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
-                       for chain, sequence in chain_sequences.items()}
-                 for pdb, chain_sequences in pdb_sequences.items()}
+    try:
+        mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
+                           for chain, sequence in chain_sequences.items()}
+                     for pdb, chain_sequences in pdb_sequences.items()}
+    except KeyError:
+        raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
+                          'reference' % chain)
 
     # add reference sequence mutations
     mutations['reference'] = {chain: {sequence_idx: {'from': aa, 'to': aa}
