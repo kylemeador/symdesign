@@ -951,6 +951,8 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
             data['energy_delta'] = round(data['energy']['complex'] - data['energy']['unbound'], 2)
+            data['coordinate_constraint'] = round(data['energy']['cst'], 2)
+            data['residue_favored'] = round(data['energy']['fsp'], 2)
             data.pop('energy')
             #     - data['energy']['fsp'] - data['energy']['cst']
             # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
@@ -973,21 +975,8 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                     data['interior'] = 1
                 # else:
                 #     residue_data[residue_number]['surface'] = 1
-            data['coordinate_constraint'] = round(data['energy']['cst'], 2)
-            data['residue_favored'] = round(data['energy']['fsp'], 2)
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
-        # # Consolidate symmetric residues into a single design
-        # for residue_number, residue_data in residue_data.items():
-        #     if residue_number > pose_length:
-        #         new_residue_number = residue_number % pose_length
-        #         for key in residue_data:  # ['bsa_polar', 'bsa_hydrophobic', 'bsa_total', 'core', 'energy_delta', 'hbond', 'interior', 'rim', 'support', 'type']
-        #             # This mechanism won't concern SASA symmetric residues info as symmetry will not be used for SASA
-        #             # ex: 'bsa_polar', 'bsa_hydrophobic', 'bsa_total', 'core', 'interior', 'rim', 'support'
-        #             # really only checking for energy_delta
-        #             if key in ['energy_delta']:
-        #                 residue_data[new_residue_number][key] += residue_data.pop(key)
-
         total_residue_dict[design] = residue_data
 
     return total_residue_dict
