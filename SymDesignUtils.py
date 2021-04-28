@@ -99,25 +99,6 @@ def set_dictionary_by_path(root, items, value):
 ##########
 
 
-def handle_errors_f(errors=(Exception, )):
-    """Decorator to wrap a function with try: ... except errors: finally: Specifically for file reading functions
-
-    Keyword Args:
-        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
-    Returns:
-        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
-            raised, else None
-    """
-    def wrapper(func):
-        def wrapped(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except errors as error:
-                return error
-        return wrapped
-    return wrapper
-
-
 def handle_design_errors(errors=(Exception,)):
     """Decorator to wrap a function with try: ... except errors: finally:
 
@@ -135,22 +116,20 @@ def handle_design_errors(errors=(Exception,)):
             except errors as error:
                 args[0].log.error(error)  # Allows exception reporting using DesignDirectory
                 return error
-            # finally:  TODO figure out how to run only when uncaught exception is found
-            #     print('Error occurred in %s' % args[0].path)
         return wrapped
     return wrapper
 
 
 def handle_errors(errors=(Exception,)):
-    """Decorator to wrap a function with try: ... except errors: finally:
+    """Decorator to wrap a function with try: ... except errors:
 
     Keyword Args:
         errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
     Returns:
-        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
-            raised, else None
+        (function): Function return upon proper execution, else is error if exception raised, else None
     """
     def wrapper(func):
+        @wraps(func)
         def wrapped(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
@@ -271,7 +250,7 @@ def get_table_column_widths(rows):
     return tuple(max(map(len, map(str, col))) for col in zip(*rows))
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
+@handle_errors(errors=(FileNotFoundError,))
 def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name:
@@ -585,7 +564,7 @@ def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', out_path=os.getcwd(), ad
     return file_name
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
+@handle_errors(errors=(FileNotFoundError,))
 def parse_flags_file(directory, name=PUtils.interface_design, flag_variable=None):
     """Returns the design flags passed to Rosetta from a design directory
 
