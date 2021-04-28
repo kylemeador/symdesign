@@ -373,7 +373,7 @@ if __name__ == '__main__':
             for pdb_code in pdbs_of_interest:
                 pisa_path = retrieve_pisa_file_path(pdb_code, directory=pisa_directory)
                 if pisa_path:
-                    pisa_d = unpickle(pisa_path)
+                    pisa_d = unpickle(pisa_path)  # Todo try except FileNotFoundError
                     interface_data = pisa_d['interfaces']
                     interface_ids = list(interface_data.keys())  # interface_ids are only from interface type rep
                     interface_ids.remove('all_ids')

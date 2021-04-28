@@ -100,13 +100,12 @@ def set_dictionary_by_path(root, items, value):
 
 
 def handle_design_errors(errors=(Exception,)):
-    """Decorator to wrap a function with try: ... except errors: finally:
+    """Decorator to wrap a function with try: ... except errors: and log errors to a DesignDirectory
 
     Keyword Args:
         errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
     Returns:
-        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
-            raised, else None
+        (function): Function return upon proper execution, else is error if exception raised, else None
     """
     def wrapper(func):
         @wraps(func)
@@ -250,7 +249,7 @@ def get_table_column_widths(rows):
     return tuple(max(map(len, map(str, col))) for col in zip(*rows))
 
 
-@handle_errors(errors=(FileNotFoundError,))
+# @handle_errors(errors=(FileNotFoundError,))
 def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name:
