@@ -236,10 +236,7 @@ class FragmentDatabase(FragmentDB):
 
             for cluster_directory in directories:
                 cluster_id = os.path.basename(cluster_directory)
-                filename = os.path.join(cluster_directory, '%s.pkl' % cluster_id)
-                self.cluster_info[cluster_id] = unpickle(filename)
-
-            # return self.cluster_info
+                self.cluster_info[cluster_id] = unpickle(os.path.join(cluster_directory, '%s.pkl' % cluster_id))
 
     @staticmethod
     def get_cluster_id(cluster_id, index=3):
