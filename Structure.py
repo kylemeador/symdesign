@@ -839,10 +839,11 @@ class Structure(StructureBase):
         out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
 
         # self.sasa = [float(line[16:]) for line in out.decode('utf-8').split('\n') if line[:3] == 'SEQ']
+        residues = self.residues
         idx = 0
         for line in out.decode('utf-8').split('\n'):
             if line[:3] == 'SEQ':
-                self.residues[self.residue_indices[idx]].sasa = float(line[16:])
+                residues[idx].sasa = float(line[16:])
                 idx += 1
 
         self.sasa = sum([residue.sasa for residue in self.residues])
