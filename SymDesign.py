@@ -1,6 +1,6 @@
 """
 Module for distribution of SymDesign commands. Includes pose initialization, distribution of Rosetta commands to
-SLURM/PBS computational clusters, analysis of designed poses, and renaming of completed structures.
+SLURM computational clusters, analysis of designed poses, and sequence selection of completed structures.
 
 """
 import argparse
@@ -29,7 +29,7 @@ from Query import Flags
 from classes.SymEntry import SymEntry
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDatabase
-from CommandDistributer import distribute, hhblits_memory_threshold
+from CommandDistributer import distribute, hhblits_memory_threshold, update_status
 from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB
@@ -662,6 +662,8 @@ if __name__ == '__main__':
                                  help='Whether to weight sequence selection using metrics from DataFrame')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
+    parser_status.add_argument('-u', '--update', type=str,
+                               help='Provide an update to the serialized state of the specified stage', default=None)
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
                                default=None)
     parser_status.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
@@ -1754,17 +1756,21 @@ if __name__ == '__main__':
     #             accessed_dirs = [rsync_dir(design_directory) for design_directory in design_directories]
     # ---------------------------------------------------
     elif args.module == 'status':  # -n number, -s stage
-        if args.number_designs:
-            logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but design '
-                        'stage' % args.number_designs)
-        if args.stage:
-            status(design_directories, args.stage, number=args.number_designs)
+        if args.update:
+            for design in design_directories:
+                update_status(design.serialized_info, args.stage, mode=args.update)
         else:
-            for stage in PUtils.stage_f:
-                s = status(design_directories, stage, number=args.number_designs)
-                if s:
-                    logger.info('For \'%s\' stage, default settings should generate %d files'
-                                % (stage, PUtils.stage_f[stage]['len']))
+            if args.number_designs:
+                logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but '
+                            'design stage' % args.number_designs)
+            if args.stage:
+                status(design_directories, args.stage, number=args.number_designs)
+            else:
+                for stage in PUtils.stage_f:
+                    s = status(design_directories, stage, number=args.number_designs)
+                    if s:
+                        logger.info('For \'%s\' stage, default settings should generate %d files'
+                                    % (stage, PUtils.stage_f[stage]['len']))
     # else:
     #     exit('No module was selected! Did you include one? To get started, checkout the %s' % PUtils.guide_string)
     # -----------------------------------------------------------------------------------------------------------------

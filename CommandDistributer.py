@@ -206,6 +206,24 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
     return filename
 
 
+def update_status(serialized_info, stage, mode='check'):
+    """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
+    info = unpickle(serialized_info)
+    if mode == 'check':
+        if info['status'][stage]:  # if the status of the stage is True
+            exit(1)
+    elif mode == 'set':
+        info['status'][stage] = True
+        pickle_object(info, name=serialized_info, out_path='')
+        exit()
+    elif mode == 'remove':
+        info['status'][stage] = False
+        pickle_object(info, name=serialized_info, out_path='')
+        exit()
+    else:
+        exit(127)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='%s\nGather commands set up by %s and distribute to computational '
                                                  'nodes for Rosetta processing.'
@@ -219,8 +237,7 @@ if __name__ == '__main__':
                                             'help on a SubModule such as specific commands and flags enter: \n%s\n\nAny'
                                             'SubModule help can be accessed in this way' % PUtils.submodule_help)
     # ---------------------------------------------------
-    parser_distirbute = subparsers.add_parser('distribute', help='Access the %s guide! Start here if your a first time '
-                                                                 'user' % PUtils.program_name)
+    parser_distirbute = subparsers.add_parser('distribute', help='Submit a job to SLURM for processing')
     # TODO combine with command file as 1 arg
     parser_distirbute.add_argument('-c', '--command_present', action='store_true',
                                    help='Whether command file has commands already')
@@ -242,18 +259,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.module == 'status':
-        info = unpickle(args.info)
-        if args.check:
-            if info['status'][args.stage]:  # if the status of the stage is True
-                exit(1)
-        elif args.set:
-            info['status'][args.stage] = True
-            pickle_object(info, name=args.info, out_path='')
-            exit()
-        elif args.remove:
-            info['status'][args.stage] = False
-            pickle_object(info, name=args.info, out_path='')
-            exit()
+        mode = 'check' if args.check else 'set' if args.set else 'remove'
+        update_status(args.info, args.stage, mode=mode)
     elif args.module == 'distribute':
         # Grab all possible poses
         with open(args.command_file, 'r') as cmd_f:
