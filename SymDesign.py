@@ -519,7 +519,7 @@ if __name__ == '__main__':
     parser.add_argument('-g', '--guide', action='store_true',
                         help='Access the %s guide! Display the program or module specific guide. Ex: \'%s --guide\' '
                              'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
-    parser.add_argument('-mp', '--multi_processing', action='store_true',  # Todo always true after logging is fixed
+    parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-p', '--project', type=os.path.abspath,
                         metavar='/path/to/SymDesignOutput/Projects/your_project',
@@ -669,7 +669,7 @@ if __name__ == '__main__':
     parser_status.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
                                help='The stage of design to check status of. One of %s'
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
-    parser_status.add_argument('-u', '--update', type=str,
+    parser_status.add_argument('-u', '--update', type=str, choices=('check', 'set', 'remove'),
                                help='Provide an update to the serialized state of the specified stage', default=None)
     # ---------------------------------------------------
     parser_dist = subparsers.add_parser('distribute',
@@ -1762,7 +1762,10 @@ if __name__ == '__main__':
     elif args.module == 'status':  # -n number, -s stage, -u update
         if args.update:
             for design in design_directories:
+                print('updating %s' % str(design))
+                print('before %s' % design.info)
                 update_status(design.serialized_info, args.stage, mode=args.update)
+                print('after %s' % design.info)
         else:
             if args.number_designs:
                 logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but '
