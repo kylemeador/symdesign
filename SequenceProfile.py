@@ -3033,10 +3033,15 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
         (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
     #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
+    # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
+    #                    for chain, sequence in chain_sequences.items()}
+    #              for pdb, chain_sequences in pdb_sequences.items()}
     try:
-        mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
-                           for chain, sequence in chain_sequences.items()}
-                     for pdb, chain_sequences in pdb_sequences.items()}
+        mutations = {}
+        for pdb, chain_sequences in pdb_sequences.items():
+            mutations[pdb] = {}
+            for chain, sequence in chain_sequences.items():
+                mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
     except KeyError:
         raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
                           'reference' % chain)
