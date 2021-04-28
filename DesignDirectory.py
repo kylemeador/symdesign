@@ -18,7 +18,7 @@ from sklearn.preprocessing import StandardScaler
 import PathUtils as PUtils
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, flag_options
 from Query import Flags
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors_f, sdf_lookup, write_shell_script, DesignError,\
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError,\
     match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, filter_dictionary_keys, \
     all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table
 from PDB import PDB
@@ -702,7 +702,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.percent_residues_fragment_total, self.percent_residues_fragment_center = 0.0, 0.0
 
     # @staticmethod
-    # @handle_errors_f(errors=(FileNotFoundError, ))
+    # @handle_errors(errors=(FileNotFoundError, ))
     # def gather_docking_metrics(nano_master_log):
     #     with open(nano_master_log, 'r') as master_log:
     #         parameters = master_log.readlines()
@@ -767,7 +767,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #     sym_entry = SymEntry(sym_entry_number)
     #     return sym_entry
 
-    @handle_errors_f(errors=(FileNotFoundError, ))
+    @handle_errors(errors=(FileNotFoundError,))
     def gather_fragment_info(self):
         """Gather observed fragment metrics from Nanohedra output"""
         fragment_observations = set()
@@ -802,7 +802,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                        'match': frag_obs[3]} for frag_obs in fragment_observations]
         self.info['fragments'] = True
 
-    @handle_errors_f(errors=(FileNotFoundError, ))
+    @handle_errors(errors=(FileNotFoundError,))
     def gather_pose_metrics(self):
         """Gather information for the docked Pose from Nanohedra output. Includes coarse fragment metrics"""
         with open(self.pose_file, 'r') as f:

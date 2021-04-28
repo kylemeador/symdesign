@@ -8,7 +8,7 @@ import signal
 import subprocess
 
 import PathUtils as PUtils
-from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object
+from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors
 
 # Globals
 logger = start_log(name=__name__)
@@ -206,6 +206,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
     return filename
 
 
+@handle_errors(errors=(FileNotFoundError,))
 def update_status(serialized_info, stage, mode='check'):
     """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
     info = unpickle(serialized_info)
