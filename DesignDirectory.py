@@ -348,7 +348,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 else:
                     return None
         except ZeroDivisionError:
-            self.log.error('No fragment information available! Design cannot be scored.')
+            self.log.error('No fragment information found! Fragment scoring unavailable.')
             return 0.0
 
     def pose_score(self):  # Todo merge with above
@@ -1424,7 +1424,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Ensure data is present for both scores and sequences, then initialize DataFrames
             good_designs = sorted(set(all_design_sequences[next(iter(all_design_sequences))].keys()).
                                   intersection(set(all_design_scores.keys())))
-            self.log.info('All designs with both: %s' % ', '.join(good_designs))
+            self.log.info('All designs with both sequence and scores: %s' % ', '.join(good_designs))
             all_design_scores = filter_dictionary_keys(all_design_scores, good_designs)
             all_design_sequences = {chain: filter_dictionary_keys(chain_sequences, good_designs)
                                     for chain, chain_sequences in all_design_sequences.items()}
@@ -1443,7 +1443,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     per_res_columns.append(column)
                 elif column.startswith('hbonds_res_selection'):
                     hbonds_columns.append(column)
-            # rename_columns.update(report_columns)
             rename_columns.update(columns_to_rename)
 
             # Rename and Format columns
