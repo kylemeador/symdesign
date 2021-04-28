@@ -1484,6 +1484,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # include the wild type residue information in metrics for sequence comparison
             wild_type_residue_info = {residue_number: copy.deepcopy(residue_template)
                                       for residue_number in residue_info[next(iter(residue_info))].keys()}
+            # find the solvent acessible surface area of the separated entities
             for entity in wt_pdb.entities:
                 entity.get_sasa()
             for res_number in wild_type_residue_info:
