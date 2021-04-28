@@ -1528,8 +1528,11 @@ class PDB(Structure):
             while not unique_chains_entity:
                 if iteration == 0:  # use the provided chain
                     pass
-                else:  # search through the chains found in an entity
+                elif iteration < len(entity.chains):  # search through the chains found in an entity
                     chain = entity.chains[iteration]
+                else:
+                    raise DesignError('The ASU couldn\'t be found! Debugging may be required %s'
+                                      % get_unique_contacts.__name__)
                 iteration += 1
                 self.log.debug('Iteration %d, Chain %s' % (iteration, chain.name))
                 chain_residue_numbers, contacting_residue_numbers = \
