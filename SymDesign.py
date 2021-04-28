@@ -1762,10 +1762,7 @@ if __name__ == '__main__':
     elif args.module == 'status':  # -n number, -s stage, -u update
         if args.update:
             for design in design_directories:
-                print('updating %s' % str(design))
-                print('before %s' % design.info)
                 update_status(design.serialized_info, args.stage, mode=args.update)
-                print('after %s' % design.info)
         else:
             if args.number_designs:
                 logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but '
