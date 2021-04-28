@@ -945,13 +945,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         metric_cmd_bound = main_cmd + \
-            ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
+            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
+            # ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
                                               % (PUtils.stage[3], '_DEV' if development else ''))]
 
         metric_cmd_unbound = main_cmd + \
-            ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
+            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
+            # ['-in:file:l', pdb_list, '-in:file:native', self.asu, '@%s' % os.path.join(self.path, flags_design),
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
                                               % (PUtils.stage[3], '_DEV' if development else ''))]
