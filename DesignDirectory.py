@@ -89,7 +89,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pose_file = None
         self.data = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/data)
-        self.info_pickle = None
+        self.serialized_info = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
         #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
         self.info = {}
@@ -562,10 +562,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean_asu)[0])
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
-        self.info_pickle = os.path.join(self.data, 'info.pkl')
+        self.serialized_info = os.path.join(self.data, 'info.pkl')
 
-        if os.path.exists(self.info_pickle):  # Pose has already been processed. We can assume files are available
-            self.info = unpickle(self.info_pickle)
+        if os.path.exists(self.serialized_info):  # Pose has already been processed. We can assume files are available
+            self.info = unpickle(self.serialized_info)
             # if 'design' in self.info and self.info['design']:  # Todo, respond to the state
             #     dummy = True
         else:  # Ensure directories are only created once Pose Processing is called
@@ -849,7 +849,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def pickle_info(self):
         self.make_path(self.data)
-        pickle_object(self.info, self.info_pickle, out_path='')
+        pickle_object(self.info, self.serialized_info, out_path='')
 
     def prepare_rosetta_flags(self, flag_variables, stage, out_path=os.getcwd()):
         """Prepare a protocol specific Rosetta flags file with program specific variables
@@ -956,7 +956,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Create executable to gather interface Metrics on all Designs
         write_shell_script(subprocess.list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
-                           out_path=self.scripts,  # status_wrap=self.info_pickle,
+                           out_path=self.scripts,  # status_wrap=self.serialized_info,
                            additional=[subprocess.list2cmdline(command) for command in metric_cmds])
 
     def rosetta_metrics_bound(self):
@@ -1054,7 +1054,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if self.script:
                     shell_scripts.append(write_shell_script(subprocess.list2cmdline(consensus_cmd),
                                                             name=PUtils.stage[5], out_path=self.scripts,
-                                                            status_wrap=self.info_pickle))
+                                                            status_wrap=self.serialized_info))
                 else:
                     self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
                     consensus_process = subprocess.Popen(consensus_cmd)
@@ -1085,7 +1085,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.script:
             self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
-                                                    out_path=self.scripts, status_wrap=self.info_pickle))
+                                                    out_path=self.scripts, status_wrap=self.serialized_info))
         else:
             self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
             refine_process = subprocess.Popen(refine_cmd)
@@ -1137,9 +1137,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.script:
             self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2],
-                                                    out_path=self.scripts, status_wrap=self.info_pickle))
+                                                    out_path=self.scripts, status_wrap=self.serialized_info))
             shell_scripts.append(write_shell_script(subprocess.list2cmdline(generate_files_cmd), name=PUtils.stage[3],
-                                                    out_path=self.scripts, status_wrap=self.info_pickle,
+                                                    out_path=self.scripts, status_wrap=self.serialized_info,
                                                     additional=[subprocess.list2cmdline(command)
                                                                 for command in metric_cmds]))
             for idx, metric_cmd in enumerate(metric_cmds, 1):
@@ -1158,7 +1158,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.script:
             pass
             # analysis_cmd = '%s -d %s %s' % (PUtils.program_command, self.path, PUtils.stage[4])
-            # write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=self.scripts, status_wrap=self.info_pickle
+            # write_shell_script(analysis_cmd, name=PUtils.stage[4], out_path=self.scripts, status_wrap=self.serialized_info
         else:
             pose_s = self.design_analysis()
             outpath = os.path.join(self.all_scores, PUtils.analysis_file)
