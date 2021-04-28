@@ -14,7 +14,7 @@ from Bio.SeqUtils import IUPACData
 
 import CommandDistributer
 import PathUtils as PUtils
-from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log
+from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log
 
 
 # Globals
@@ -340,7 +340,7 @@ class SequenceProfile:
         p = subprocess.Popen(cmd)
         p.wait()
 
-    @handle_errors_f(errors=(FileNotFoundError,))
+    @handle_errors(errors=(FileNotFoundError,))
     def parse_psiblast_pssm(self):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
         # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_design_profile, CHANGE psiblast lod score parsing
@@ -385,7 +385,7 @@ class SequenceProfile:
         p = subprocess.Popen(cmd)
         p.wait()
 
-    @handle_errors_f(errors=(FileNotFoundError,))
+    @handle_errors(errors=(FileNotFoundError,))
     def parse_hhblits_pssm(self, null_background=True):
         """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
@@ -1718,7 +1718,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
 #     return outfile_name, p
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
+@handle_errors(errors=(FileNotFoundError,))
 def parse_pssm(file):
     """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
 
@@ -1778,7 +1778,7 @@ def get_lod(aa_freq_dict, bg_dict, round_lod=True):
     return lods
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
+@handle_errors(errors=(FileNotFoundError,))
 def parse_hhblits_pssm(file, null_background=True):
     # Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
     dummy = 0.00
