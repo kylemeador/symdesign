@@ -215,11 +215,11 @@ def update_status(serialized_info, stage, mode='check'):
     elif mode == 'set':
         info['status'][stage] = True
         pickle_object(info, name=serialized_info, out_path='')
-        exit()
+        # exit()
     elif mode == 'remove':
         info['status'][stage] = False
         pickle_object(info, name=serialized_info, out_path='')
-        exit()
+        # exit()
     else:
         exit(127)
 
