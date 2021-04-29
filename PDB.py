@@ -1337,25 +1337,29 @@ class PDB(Structure):
     def get_entity_info_from_atoms(self):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects"""
         entity_count = 1
-        # for chain in self.atom_sequences:
         for chain in self.chains:
             new_entity = True  # assume all chains are unique entities
             self.log.debug('Searching for matching Entities for Chain %s' % chain.name)
             for entity in self.entity_d:
+                # rmsd, rot, tx, rescale = superposition3d()  # Todo implement structure check
+                # if rmsd < 3:  # 3A threshold needs testing
+                #     self.entity_d[entity]['chains'].append(chain)
+                #     new_entity = False  # The entity is not unique, do not add
+                #     break
                 # check if the sequence associated with the atom chain is in the entity dictionary
-                # if self.atom_sequences[chain] == self.entity_d[entity]['seq']:
                 if chain.sequence == self.entity_d[entity]['seq']:
-                    # score = len(self.atom_sequences[chain])
                     score = len(chain.sequence)
                 else:
-                    # alignment = pairwise2.align.localxx(self.atom_sequences[chain], self.entity_d[entity]['seq'])
                     alignment = pairwise2.align.localxx(chain.sequence, self.entity_d[entity]['seq'])
                     score = alignment[0][2]  # first alignment from localxx, grab score value
-                self.log.debug('Chain %s has score of %d for Entity %d' % (chain.name, score, entity))
-                self.log.debug('Chain %s has match score of %f' % (chain.name,
-                                                                   score / len(self.entity_d[entity]['seq'])))
-                if score / len(self.entity_d[entity]['seq']) > 0.9:  # if score/length is > 90% similar, entity exists
-                    # rmsd = Bio.Superimposer()  # Todo implement structure check only?
+                match_score = score / len(self.entity_d[entity]['seq'])
+                length_proportion = abs(len(chain.sequence) - len(self.entity_d[entity]['seq'])) \
+                    / len(self.entity_d[entity]['seq'])
+                self.log.debug('Chain %s matches Entity %d with %0.2f and length differnce of %0.2f'
+                               % (chain.name, entity, match_score, length_proportion))
+                if match_score > 0.9 and length_proportion < 0.1:
+                    # if number of sequence matches is > 90% similar, and the length difference < 10%, the entity exists
+                    # the chain is the same as the observed entity, we should move on to the next chain
                     self.entity_d[entity]['chains'].append(chain)
                     new_entity = False  # The entity is not unique, do not add
                     break
