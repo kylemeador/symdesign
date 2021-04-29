@@ -881,9 +881,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         main_cmd = copy.copy(script_cmd)
         flags = os.path.join(self.scripts, 'flags')
-        if force_flags or not os.path.exists(flags):
-            # Generate a new flags_design file
-            self.load_pose()
+        if force_flags or not os.path.exists(flags):  # Generate a new flags_design file
+            # Need to assign the designable residues for each entity to a interface1 or interface2 variable
+            self.identify_interface()
             if self.design_dimension is not None:  # can be 0
                 protocol = PUtils.protocol[self.design_dimension]
                 self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)'
@@ -922,8 +922,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             else:
                 dist = 0
 
-            # Need to assign the designable residues for each entity to a interface1 or interface2 variable
-            self.identify_interface()
             # assign any additional designable residues
             if self.pose.required_residues:
                 required = ('required_residues', ','.join(str(residue.number)
@@ -941,8 +939,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                               ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
                               ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
                               required, *self.interface_residue_d.items(),  # interface1 or interface2 variable
-                              ('design_profile', self.info['design_profile']),
                               ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+            design_profile = self.info.get('design_profile')
+            flag_variables.extend([('design_profile', design_profile)] if design_profile else [])
 
             self.make_path(self.scripts)
             flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
@@ -1046,8 +1045,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                           ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
                           ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
                           required, *self.interface_residue_d.items(),  # interface1 or interface2 variable
-                          ('design_profile', self.info['design_profile']),
                           ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+        design_profile = self.info.get('design_profile')
+        flag_variables.extend([('design_profile', design_profile)] if design_profile else [])
 
         self.make_path(self.scripts)
         flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
@@ -1108,8 +1108,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # DESIGN: Prepare command and flags file
         # flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
+        evolutionary_profile = self.info.get('design_profile')
         design_cmd = main_cmd + \
-            ['-in:file:pssm', self.info['evolutionary_profile'], '-use_occurrence_data'] if self.evolution else [] + \
+            ['-in:file:pssm', evolutionary_profile, '-use_occurrence_data'] if evolutionary_profile else [] + \
             ['-in:file:s', self.refined_pdb, '-in:file:native', self.refine_pdb, '@%s' % flags,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),  # '-holes:dalphaball'
              '-out:suffix', '_%s' % PUtils.stage[2], '-nstruct', str(self.number_of_trajectories)]
@@ -1280,8 +1281,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.make_path(self.frags)
         if not self.frag_db:
             self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
-                             'requested. Each design will load a separate instance which takes time. If you wish to '
-                             'speed up processing pass the flag -%s' % Flags.generate_frags)
+                             'requested. Each design will load a separate instance which takes time and memory. To '
+                             'maximize efficiency, pass the flag -%s' % Flags.generate_frags)
         self.identify_interface()
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=True)  # Todo parameterize write
         for observation in self.pose.fragment_queries.values():
@@ -1290,6 +1291,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pickle_info()
 
     def identify_interface(self):
+        """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
+        entities. Sets the interface_residue_d to map each interface to the corresponding residues."""
         if not self.pose:
             self.load_pose()
         if self.pose.symmetry:
@@ -1357,8 +1360,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             issm_residues = []
             self.log.info('Design has no fragment information')
-        if self.info.get('fragment_database'):
-            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[self.info['fragment_database']])
+        frag_db_ = self.info.get('fragment_database')
+        if frag_db_:
+            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[frag_db_])
         else:
             interface_bkgd = {}
 
