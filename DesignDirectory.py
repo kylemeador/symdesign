@@ -542,7 +542,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
 
-        self.all_scores = os.path.join(self.program_root, 'All' + PUtils.scores_outdir.title())  # TODO db integration
+        self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO db integration
         self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
         self.design_sequences = os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
