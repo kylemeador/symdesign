@@ -407,7 +407,7 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Rosetta Energy Term - favor planarity of tyrosine alcohol hydrogen',
                        'direction': None, 'function': None, 'filter': None}}
 
-nanohedra_metrics = ['nanohedra_score_per_res', 'nanohedra_score_center_per_res_center', 'nanohedra_score',
+nanohedra_metrics = ['nanohedra_score_normalized', 'nanohedra_score_center_normalized', 'nanohedra_score',
                      'nanohedra_score_center', 'number_fragment_residues_total', 'number_fragment_residues_center',
                      'multiple_fragment_ratio', 'percent_fragment_helix', 'percent_fragment_strand',
                      'percent_fragment_coil', 'number_of_fragments', 'total_interface_residues',
