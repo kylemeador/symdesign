@@ -851,24 +851,26 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.make_path(self.data)
         pickle_object(self.info, self.serialized_info, out_path='')
 
-    def prepare_rosetta_flags(self, flag_variables, stage, out_path=os.getcwd()):
+    def prepare_rosetta_flags(self, flag_variables, out_path=os.getcwd()):  # stage,
         """Prepare a protocol specific Rosetta flags file with program specific variables
 
         Args:
             flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
-            stage (str): The protocol stage or flag suffix to name the specific flags file
+            # stage (str): The protocol stage or flag suffix to name the specific flags file
         Keyword Args:
             out_path=cwd (str): Disk location to write the flags file
         Returns:
             (str): Disk location of the written flags file
         """
         flags = copy.deepcopy(rosetta_flags)
-        flags.extend(flag_options[stage])
-        flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores])
+        # flags.extend(flag_options[stage])
+        flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores,  # TODO necessary w/ below?
+                      '-scorefile', os.path.join(self.scores, PUtils.scores_file)])
         flags.append('-parser:script_vars '
                      + ' '.join('%s=%s' % (variable, str(value)) for variable, value in flag_variables))
 
-        out_file = os.path.join(out_path, 'flags_%s' % stage)
+        out_file = os.path.join(out_path, 'flags')
+        # out_file = os.path.join(out_path, 'flags_%s' % stage)
         with open(out_file, 'w') as f:
             f.write('%s\n' % '\n'.join(flags))
 
@@ -878,9 +880,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def rosetta_interface_metrics(self, force_flags=False, development=False):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         main_cmd = copy.copy(script_cmd)
-        # flags_metric = os.path.join(self.scripts, 'flags_%s' % PUtils.stage[3])
-        flags_design = os.path.join(self.scripts, 'flags_%s' % PUtils.stage[2])
-        if force_flags or not os.path.exists(flags_design):
+        flags = os.path.join(self.scripts, 'flags')
+        if force_flags or not os.path.exists(flags):
             # Generate a new flags_design file
             self.load_pose()
             if self.design_dimension is not None:  # can be 0
@@ -920,31 +921,36 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
             else:
                 dist = 0
-            refine_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
-                                ('solvent_sym_score_patch', PUtils.solvent_weights), ('symmetry', protocol),
-                                ('sdf', sym_def_file), ('dist', dist), ('cst_value_sym', (cst_value / 2))]
-            # Need to assign the designable residues for each entity to a interface1 or interface2 variable
-            # if self.info:
-            #     self.info.get('design_residues')
-            # else:
-            self.identify_interface()
-            refine_variables.extend(self.interface_residue_d.items())
 
+            # Need to assign the designable residues for each entity to a interface1 or interface2 variable
+            self.identify_interface()
             # assign any additional designable residues
             if self.pose.required_residues:
-                refine_variables.append(('required_residues',
-                                         ','.join(str(residue.number) for residue in self.pose.required_residues)))
+                required = ('required_residues', ','.join(str(residue.number)
+                                                          for residue in self.pose.required_residues))
+            else:  # get an out of bounds index
+                required = ('required_residues', int(list(chain_breaks.values())[-1]) + 50)
+
+            if self.evolution:
+                constraint_percent = 0.5
+                free_percent = 1 - constraint_percent
             else:
-                # get an out of bounds index
-                refine_variables.append(('required_residues', int(list(chain_breaks.values())[-1]) + 50))
+                constraint_percent, free_percent = 0, 1
+
+            flag_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
+                              ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
+                              ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
+                              required, self.interface_residue_d.items(),  # interface1 or interface2 variable
+                              ('design_profile', self.info['design_profile']),
+                              ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
 
             self.make_path(self.scripts)
-            flags_design = self.prepare_rosetta_flags(refine_variables, PUtils.stage[2], out_path=self.scripts)
+            flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
 
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         main_cmd += \
-            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
+            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % flags,
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol']
         metric_cmd_bound = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
@@ -1023,34 +1029,42 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # ------------------------------------------------------------------------------------------------------------
         # Rosetta Execution formatting
         # ------------------------------------------------------------------------------------------------------------
-        shell_scripts = []
-        # RELAX: Prepare command and flags file
-        refine_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
-                            ('solvent_sym_score_patch', PUtils.solvent_weights), ('symmetry', protocol),
-                            ('sdf', sym_def_file), ('dist', dist), ('cst_value_sym', (cst_value / 2))]
-
-        # Need to assign the designable residues for each entity to a interface1 or interface2 variable
-        refine_variables.extend(self.interface_residue_d.items())
-
+        # Prepare flags file
         # assign any additional designable residues
         if self.pose.required_residues:
-            refine_variables.append(('required_residues',
-                                     ','.join(str(residue.number) for residue in self.pose.required_residues)))
+            required = ('required_residues', ','.join(str(residue.number) for residue in self.pose.required_residues))
+        else:  # get an out of bounds index
+            required = ('required_residues', int(list(chain_breaks.values())[-1]) + 50)
+
+        if self.evolution:
+            constraint_percent = 0.5
+            free_percent = 1 - constraint_percent
         else:
-            # get an out of bounds index
-            refine_variables.append(('required_residues', int(list(chain_breaks.values())[-1]) + 50))
+            constraint_percent, free_percent = 0, 1
+
+        flag_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
+                          ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
+                          ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
+                          required, self.interface_residue_d.items(),  # interface1 or interface2 variable
+                          ('design_profile', self.info['design_profile']),
+                          ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
 
         self.make_path(self.scripts)
-        # Todo separate flags for all protocols from flags for refinement. Put refine specific in command
-        flags_refine = self.prepare_rosetta_flags(refine_variables, PUtils.stage[1], out_path=self.scripts)
-        relax_cmd = main_cmd + \
-            ['@%s' % flags_refine, '-scorefile', os.path.join(self.scores, PUtils.scores_file), '-in:file:native',
-             self.refine_pdb, '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
+        flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
+
+        shell_scripts = []
+        # RELAX: Prepare command
+        relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints false',
+                       '-no_optH false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev 0.5',
+                       '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate true', '-no_nstruct_label true',
+                       '-relax:bb_move false']
+        relax_cmd = main_cmd + relax_flags + ['@%s' % flags, '-in:file:native', self.refine_pdb] + \
+            ['-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
         refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
         if self.consensus:
             if self.design_with_fragments:
-                consensus_cmd = relax_cmd + ['-in:file:s', self.consensus_pdb, '-parser:script_vars',
-                                             'switch=%s' % PUtils.stage[5]]
+                consensus_cmd = relax_cmd + \
+                                ['-in:file:s', self.consensus_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
                 if self.script:
                     shell_scripts.append(write_shell_script(subprocess.list2cmdline(consensus_cmd),
                                                             name=PUtils.stage[5], out_path=self.scripts,
@@ -1093,22 +1107,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             refine_process.communicate()
 
         # DESIGN: Prepare command and flags file
-        design_variables = copy.deepcopy(refine_variables)
-        design_variables.append(('design_profile', self.info['design_profile']))
-
-        constraint_percent, free_percent = 0, 1
-        if self.evolution:
-            constraint_percent = 0.5
-            free_percent -= constraint_percent
-        design_variables.append(('constrained_percent', constraint_percent))
-        design_variables.append(('free_percent', free_percent))
-
-        flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
-        design_cmd = main_cmd + (['-in:file:pssm', self.info['evolutionary_profile']] if self.evolution else []) + \
-            ['-in:file:s', self.refined_pdb, '-in:file:native', self.refine_pdb, '-nstruct', str(self.number_of_trajectories),
-             '@%s' % os.path.join(self.path, flags_design), '-scorefile', os.path.join(self.scores, PUtils.scores_file),
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),
-             '-out:suffix', '_%s' % PUtils.stage[2]]
+        # flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
+        design_cmd = main_cmd + \
+            ['-in:file:pssm', self.info['evolutionary_profile'], '-use_occurrence_data'] if self.evolution else [] + \
+            ['-in:file:s', self.refined_pdb, '-in:file:native', self.refine_pdb, '@%s' % flags,
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),  # '-holes:dalphaball'
+             '-out:suffix', '_%s' % PUtils.stage[2], '-nstruct', str(self.number_of_trajectories)]
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
@@ -1122,7 +1126,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         metric_cmd = main_cmd + \
-            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
+            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % flags,
              '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[3])]
 
