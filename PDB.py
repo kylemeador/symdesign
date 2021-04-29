@@ -1334,10 +1334,18 @@ class PDB(Structure):
 
         self.update_entity_accession_id()
 
-    def get_entity_info_from_atoms(self):
-        """Find all unique Entities in the input .pdb file. These are unique sequence objects"""
+    def get_entity_info_from_atoms(self, tolerance=0.9):
+        """Find all unique Entities in the input .pdb file. These are unique sequence objects
+
+        Keyword Args:
+            tolerance=0.1 (float): The acceptable difference between chains to consider them the same Entity.
+            Tuning this parameter is necessary if you have chains which should be considered different entities,
+            but are fairly similar. Alternatively, the use of a structural match could be used.
+            For example, when each chain in an ASU is structurally deviating, but they all share the same sequence
+        """
         entity_count = 1
-        for chain in self.chains:
+        self.entity_d[entity_count] = {'chains': [self.chains[0]], 'seq': self.chains[0].sequence}
+        for chain in self.chains[1:]:
             new_entity = True  # assume all chains are unique entities
             self.log.debug('Searching for matching Entities for Chain %s' % chain.name)
             for entity in self.entity_d:
@@ -1352,19 +1360,19 @@ class PDB(Structure):
                 else:
                     alignment = pairwise2.align.localxx(chain.sequence, self.entity_d[entity]['seq'])
                     score = alignment[0][2]  # first alignment from localxx, grab score value
-                match_score = score / len(self.entity_d[entity]['seq'])
+                match_score = score / len(self.entity_d[entity]['seq'])  # could also use which ever sequence is greater
                 length_proportion = abs(len(chain.sequence) - len(self.entity_d[entity]['seq'])) \
                     / len(self.entity_d[entity]['seq'])
-                self.log.debug('Chain %s matches Entity %d with %0.2f and length differnce of %0.2f'
+                self.log.debug('Chain %s matches Entity %d with %0.2f and length difference of %0.2f'
                                % (chain.name, entity, match_score, length_proportion))
-                if match_score > 0.9 and length_proportion < 0.1:
-                    # if number of sequence matches is > 90% similar, and the length difference < 10%, the entity exists
-                    # the chain is the same as the observed entity, we should move on to the next chain
+                if match_score > tolerance and length_proportion > tolerance:
+                    # if number of sequence matches is > tolerance, and the length difference < tolerance
+                    # the current chain is the same as the Entity, add to chains, and move on to the next chain
                     self.entity_d[entity]['chains'].append(chain)
                     new_entity = False  # The entity is not unique, do not add
                     break
             if new_entity:  # no existing entity matches, add new entity
-                self.entity_d[copy(entity_count)] = {'chains': [chain], 'seq': chain.sequence}
+                self.entity_d[entity_count] = {'chains': [chain], 'seq': chain.sequence}
                 entity_count += 1
         self.log.info('Entities were generated from ATOM records.')
 
