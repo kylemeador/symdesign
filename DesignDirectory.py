@@ -865,7 +865,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         flags = copy.deepcopy(rosetta_flags)
         # flags.extend(flag_options[stage])
         flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores,  # TODO necessary w/ below?
-                      '-scorefile', os.path.join(self.scores, PUtils.scores_file)])
+                      '-scorefile %s' % os.path.join(self.scores, PUtils.scores_file)])
         flags.append('-parser:script_vars '
                      + ' '.join('%s=%s' % (variable, str(value)) for variable, value in flag_variables))
 
@@ -940,7 +940,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             flag_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
                               ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
                               ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
-                              required, self.interface_residue_d.items(),  # interface1 or interface2 variable
+                              required, *self.interface_residue_d.items(),  # interface1 or interface2 variable
                               ('design_profile', self.info['design_profile']),
                               ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
 
@@ -1045,7 +1045,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         flag_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
                           ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
                           ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
-                          required, self.interface_residue_d.items(),  # interface1 or interface2 variable
+                          required, *self.interface_residue_d.items(),  # interface1 or interface2 variable
                           ('design_profile', self.info['design_profile']),
                           ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
 
