@@ -383,7 +383,7 @@ def format_additional_flags(flags):
     return final_flags
 
 
-def terminate(module, designs, location=None, results=None, output=False):
+def terminate(module, designs, location=None, results=None, output=True):
     """Format designs passing output parameters and report program exceptions
 
     Args:
@@ -408,7 +408,7 @@ def terminate(module, designs, location=None, results=None, output=False):
         print('\n')
         # exit_code = 1
 
-    if success and output:  # and (inputs_moved or all_poses and design_directories and not args.file):  # Todo
+    if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
         program_root = next(iter(designs)).program_root
         all_scores = next(iter(designs)).all_scores
         if not location:
@@ -436,11 +436,12 @@ def terminate(module, designs, location=None, results=None, output=False):
             if len(success) > 0:
                 # Save Design DataFrame
                 design_df = pd.DataFrame(successes)
-                if '%s' in args.output:
-                    out_path = os.path.join(all_scores, args.output % time_stamp)
-                else:
+                if args.output == PUtils.analysis_file:
+                    out_path = os.path.join(all_scores, args.output % (location, time_stamp))
+                else:  # user provided the output path
+                    # out_path = args.output
                     out_path = os.path.join(all_scores, args.output)
-                design_df.to_csv(out_path)
+                design_df.to_csv(out_path if out_path.endswith('.csv') else '%s.csv' % out_path)
                 logger.info('Analysis of all poses written to %s' % out_path)
                 if save:
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
@@ -619,7 +620,9 @@ if __name__ == '__main__':
                                                  'the various metrics available to analyze.'
                                                  % (PUtils.program_command, PUtils.analysis))
     parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
-                                 help='Name to output .csv files.\nDefault=%s' % PUtils.analysis_file % 'TIMESTAMP')
+                                 help='Name of the output .csv file containing design metrics. Will be saved to the %s/'
+                                      ' folder of the output.\nDefault=%s'
+                                      % (PUtils.all_scores, PUtils.analysis_file % ('LOCATION', 'TIMESTAMP')))
     parser_analysis.add_argument('-N', '--no_save', action='store_true',
                                  help='Don\'t save trajectory information.\nDefault=False')
     parser_analysis.add_argument('-f', '--figures', action='store_true',
@@ -1009,7 +1012,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.orient())
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'find_asu':
         if args.multi_processing:
@@ -1018,7 +1021,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.find_asu())
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
@@ -1028,7 +1031,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.expand_asu(increment_chains=queried_flags.get('increment_chains', False)))
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'rename_chains':
         if args.multi_processing:
@@ -1037,7 +1040,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.rename_chains())
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
@@ -1071,7 +1074,7 @@ if __name__ == '__main__':
                         result = nanohedra_design_recap(dock_directory, args.project)
                         results.append(result)
 
-        terminate(args.module, design_directories, location=args.directory, results=results)
+        terminate(args.module, design_directories, location=args.directory, results=results, output=False)
         #                                          location=location,
         # # Make single file with names of each directory. Specific for docking due to no established directory
         # args.file = os.path.join(args.directory, 'all_docked_directories.paths')
@@ -1099,7 +1102,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.generate_interface_fragments())
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
     elif args.module == 'interface_metrics':
@@ -1112,7 +1115,7 @@ if __name__ == '__main__':
                 results.append(design.rosetta_interface_metrics(force_flags=args.force_flags,
                                                                 development=queried_flags.get('development')))
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
     elif args.module == 'metrics_bound':
@@ -1123,7 +1126,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.rosetta_metrics_bound())
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
     elif args.module == PUtils.interface_design:  # -i fragment_library, -p mpi, -x suspend
@@ -1146,7 +1149,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.interface_design())
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
 
         # if not args.run_in_shell and len(success) > 0:  # any(success): ALL success are None type
         #     design_name = os.path.basename(next(iter(design_directories)).project_designs)
@@ -1202,7 +1205,7 @@ if __name__ == '__main__':
                 results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
                                                       figures=args.figures))
 
-        terminate(args.module, design_directories, location=location, results=results, output=True)
+        terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
     # elif args.module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
     #     directory_pairs, failures = None, None
@@ -1354,7 +1357,7 @@ if __name__ == '__main__':
                                   for pose in final_poses]
             location = program_root
             # write out the chosen poses to a pose.paths file
-            terminate(args.module, design_directories, location=location, results=design_directories, output=True)
+            terminate(args.module, design_directories, location=location, results=design_directories)
         else:
             logger.debug('Collecting designs to sort')
             if args.metric == 'score':
