@@ -1900,6 +1900,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('No design scores found at %s' % self.scores_file)
 
         other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
+        print(other_pose_metrics)
         print(other_metrics_s)
         # Combine all series
         pose_s = \
