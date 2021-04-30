@@ -1336,7 +1336,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.prepare_rosetta_interface_design()
         self.pickle_info()
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))  # AssertionError))
     def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=False):
         """Retrieve all score information from a DesignDirectory and write results to .csv file
 
@@ -1900,23 +1900,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('No design scores found at %s' % self.scores_file)
 
         other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
-        self.log.debug('pandas other metrics_s')
 
         # Combine all series
-        #                   list(pose_stat_s.values()) + list(protocol_stat_s.values()) +
         pose_s = \
             pd.concat([pose_stat_s, protocol_stat_s, other_metrics_s, divergence_stats_s] + sim_series).swaplevel(0, 1)
-        self.log.debug('pandas concat empty series with other metrics')
-        print(pose_s)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([groups], level=2, inplace=True, errors='ignore')
-        self.log.debug('drop groups')
-
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
-        self.log.debug('sorted')
-
         pose_s.name = str(self)
 
         return pose_s
