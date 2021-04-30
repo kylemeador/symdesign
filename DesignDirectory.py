@@ -390,7 +390,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                    'percent_residues_fragment_center': self.percent_residues_fragment_center}
         if self.sym_entry:
             # if self.pose:  # Todo
-            if self.oligomers:  # Todo test
+            if self.oligomers:
+                # Todo test
                 # for oligomer in self.oligomers:
                 #     oligomer.get_secondary_structure()
                 metrics.update(
@@ -698,7 +699,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.percent_residues_fragment_center = \
                 self.central_residues_with_fragment_overlap / self.total_interface_residues
         except ZeroDivisionError:
-            self.log.warning('%s: No interface residues were found. Is there an interface in your design?' % str(self))
+            self.log.warning('%s: No interface residues were found. Is there an interface in your design?'
+                             % self.source)
             self.percent_residues_fragment_total, self.percent_residues_fragment_center = 0.0, 0.0
 
     # @staticmethod
@@ -865,7 +867,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         flags = copy.deepcopy(rosetta_flags)
         # flags.extend(flag_options[stage])
         flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores,  # TODO necessary w/ below?
-                      '-scorefile %s' % os.path.join(self.scores, PUtils.scores_file)])
+                      '-scorefile %s' % self.scores_file])
         flags.append('-parser:script_vars '
                      + ' '.join('%s=%s' % (variable, str(value)) for variable, value in flag_variables))
 
@@ -1391,13 +1393,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         int_b_factor = sum(wt_pdb.residue(residue).get_ave_b_factor() for residue in design_residues)
         other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(design_residues), 2)
 
-        idx_slice = pd.IndexSlice
         # initialize design dataframes as empty
         pose_stat_s, protocol_stat_s, sim_series, divergence_stats_s = pd.Series(), pd.Series(), [], pd.Series()
         if os.path.exists(self.scores_file):
-            # Get the scores from all design trajectories
-            all_design_scores = read_scores(os.path.join(self.scores, PUtils.scores_file))
-            all_design_scores = keys_from_trajectory_number(all_design_scores)
+            # Get the scores from the score file on design trajectory metrics
+            all_design_scores = keys_from_trajectory_number(read_scores(self.scores_file))
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Gather mutations for residue specific processing and design sequences
 
@@ -1438,6 +1438,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                     for chain, chain_sequences in all_design_sequences.items()}
             self.log.debug('Final design sequences by chain: %s' % all_design_sequences)
 
+            idx_slice = pd.IndexSlice
             scores_df = pd.DataFrame(all_design_scores).T
             # Gather all columns into specific types for processing and formatting TODO move up
             rename_columns, per_res_columns, hbonds_columns = {}, [], []
