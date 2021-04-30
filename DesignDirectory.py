@@ -1336,7 +1336,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.prepare_rosetta_interface_design()
         self.pickle_info()
 
-    @handle_design_errors(errors=(DesignError,))  # AssertionError))
+    @handle_design_errors(errors=(DesignError, AssertionError))
     def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=False):
         """Retrieve all score information from a DesignDirectory and write results to .csv file
 
