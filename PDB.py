@@ -309,7 +309,7 @@ class PDB(Structure):
                 # if remove_alt_location and alt_location not in ['', 'A']:
                 if alt_location not in ['', 'A']:
                     continue
-                number = int(line[6:11])  # .strip()
+                number = int(line[6:11])
                 atom_type = line[12:16].strip()
                 if line[17:20] == 'MSE':
                     residue_type = 'MET'
@@ -318,17 +318,17 @@ class PDB(Structure):
                 else:
                     residue_type = line[17:20].strip()
                 if multimodel:
-                    if start_of_new_model or line[21:22] != curr_chain_id:  # .strip()
-                        curr_chain_id = line[21:22]  # .strip()
+                    if start_of_new_model or line[21:22] != curr_chain_id:
+                        curr_chain_id = line[21:22]
                         model_chain_id = next(available_chain_ids)
                         start_of_new_model = False
                     chain = model_chain_id
                 else:
-                    chain = line[21:22]  # .strip()
-                residue_number = int(line[22:26])  # .strip()
+                    chain = line[21:22]
+                residue_number = int(line[22:26])
                 code_for_insertion = line[26:27].strip()
-                occ = float(line[54:60])  # .strip()
-                temp_fact = float(line[60:66])  # .strip()
+                occ = float(line[54:60])
+                temp_fact = float(line[60:66])
                 element_symbol = line[76:78].strip()
                 atom_charge = line[78:80].strip()
                 if chain not in chain_ids:
