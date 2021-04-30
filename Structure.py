@@ -693,7 +693,7 @@ class Structure(StructureBase):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
 
         Returns:
-            (str)
+            (str): The amino acid sequence of the Structure Residues
         """
         sequence_list = [residue.type for residue in self.residues]
         return ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
@@ -1042,7 +1042,6 @@ class Structure(StructureBase):
             (float): The distance from the reference point to the furthest point
         """
         if reference:
-            # raise DesignError('This function of %s not possible yet!' % self.furthest_point_from_reference.__name__)
             return np.max(np.linalg.norm(self.coords - reference, axis=1))
         else:
             return np.max(np.linalg.norm(self.coords, axis=1))
@@ -1056,7 +1055,6 @@ class Structure(StructureBase):
             (float): The distance from the reference point to the furthest point
         """
         if reference:
-            # raise DesignError('This function of %s not possible yet!' % self.furthest_point_from_reference.__name__)
             return np.min(np.linalg.norm(self.coords - reference, axis=1))
         else:
             return np.min(np.linalg.norm(self.coords, axis=1))
@@ -1172,7 +1170,7 @@ class Chain(Structure):
         # log=log
 
     @property
-    def sequence(self):
+    def sequence(self):  # Todo if the chain is mutated, this mechanism will cause errors
         try:
             return self._sequence
         except AttributeError:
