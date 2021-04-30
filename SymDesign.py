@@ -1188,9 +1188,10 @@ if __name__ == '__main__':
         # logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.interface_design, command_file))
     # ---------------------------------------------------
     elif args.module == PUtils.analysis:  # -o output, -f figures, -n no_save, -j join
-        save = True
         if args.no_save:
             save = False
+        else:
+            save = True
         # Start pose analysis of all designed files
         out_path = os.path.join(next(iter(design_directories)).program_root, args.output)
         if os.path.exists(args.output):
@@ -1199,7 +1200,8 @@ if __name__ == '__main__':
                             % out_path)
             exit(1)
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.design_analysis, design_directories, threads=threads)
+            zipped_args = zip(design_directories, repeat(args.join), repeat(save), repeat(args.figures))
+            results = SDUtils.mp_starmap(DesignDirectory.design_analysis, zipped_args, threads=threads)
         else:
             for design in design_directories:
                 results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
