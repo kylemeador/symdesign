@@ -1343,6 +1343,7 @@ class PDB(Structure):
             but are fairly similar. Alternatively, the use of a structural match could be used.
             For example, when each chain in an ASU is structurally deviating, but they all share the same sequence
         """
+        assert tolerance <= 1, '%s tolerance cannot be greater than 1!' % self.get_entity_info_from_atoms.__name__
         entity_count = 1
         self.entity_d[entity_count] = {'chains': [self.chains[0]], 'seq': self.chains[0].sequence}
         for chain in self.chains[1:]:
@@ -1363,9 +1364,9 @@ class PDB(Structure):
                 match_score = score / len(self.entity_d[entity]['seq'])  # could also use which ever sequence is greater
                 length_proportion = abs(len(chain.sequence) - len(self.entity_d[entity]['seq'])) \
                     / len(self.entity_d[entity]['seq'])
-                self.log.debug('Chain %s matches Entity %d with %0.2f and length difference of %0.2f'
+                self.log.debug('Chain %s matches Entity %d with %0.2f identity and length difference of %0.2f'
                                % (chain.name, entity, match_score, length_proportion))
-                if match_score > tolerance and length_proportion > tolerance:
+                if match_score >= tolerance and length_proportion <= 1 - tolerance:
                     # if number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
                     self.entity_d[entity]['chains'].append(chain)
