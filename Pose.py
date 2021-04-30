@@ -451,9 +451,9 @@ class SymmetricModel(Model):
                 if np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass) < distance:
                     equivalent_models.append(model)
                     break
-        assert len(equivalent_models) == len(entity.chains), 'The number of equivalent models (%d) does not equal the '\
-                                                             'expected number of chains (%d)!' \
-                                                             % (len(equivalent_models), len(entity.chains))
+        assert len(equivalent_models) == len(entity.chains), \
+            'The number of equivalent models (%d) does not equal the expected number of chains (%d)!'\
+            % (len(equivalent_models), len(entity.chains))
 
         return equivalent_models
 
@@ -759,8 +759,8 @@ class SymmetricModel(Model):
         # print(asu_indices)
         selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
         all_assembly_coords_length = len(asu_indices) * self.number_of_models
-        assert selected_assembly_coords == all_assembly_coords_length, '%s: Ran into an issue indexing.  ' \
-                                                                       % self.symmetric_assembly_is_clash.__name__
+        assert selected_assembly_coords == all_assembly_coords_length, \
+            '%s: Ran into an issue indexing' % self.symmetric_assembly_is_clash.__name__
 
         asu_coord_tree = BallTree(self.coords[asu_indices])
         clash_count = asu_coord_tree.two_point_correlation(self.model_coords[model_indices_without_asu], [distance])
