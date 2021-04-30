@@ -1900,11 +1900,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('No design scores found at %s' % self.scores_file)
 
         other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
-        print(other_pose_metrics)
-        print(other_metrics_s)
         # Combine all series
         pose_s = \
-            pd.concat([pose_stat_s, protocol_stat_s, other_metrics_s, divergence_stats_s] + sim_series).swaplevel(0, 1)
+            pd.concat([other_metrics_s, pose_stat_s, protocol_stat_s, divergence_stats_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([groups], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
