@@ -1379,6 +1379,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Todo fold these into Model and attack these metrics from a Pose object
         #  This will get rid of the self.log
         wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
+        self.log.debug('Reordering wild-type chains')
         wt_pdb.reorder_chains()
 
         design_residues = self.info.get('design_residues', None)
@@ -1389,13 +1390,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:  # This should never happen as we catch at other_pose_metrics...
             raise DesignError('No residues were marked for design. Have you run %s or %s?'
                               % (PUtils.generate_fragments, PUtils.interface_design))
-
+        self.log.debug('Found design residues: %s' % design_residues)
         int_b_factor = sum(wt_pdb.residue(residue).get_ave_b_factor() for residue in design_residues)
         other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(design_residues), 2)
 
         # initialize design dataframes as empty
         pose_stat_s, protocol_stat_s, sim_series, divergence_stats_s = pd.Series(), pd.Series(), [], pd.Series()
         if os.path.exists(self.scores_file):
+            self.log.debug('Pulling scores from file: %s' % self.scores_file)
             # Get the scores from the score file on design trajectory metrics
             all_design_scores = keys_from_trajectory_number(read_scores(self.scores_file))
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
