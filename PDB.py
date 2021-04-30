@@ -1780,7 +1780,7 @@ class PDB(Structure):
         with open(out_path, 'w') as file:
             p = subprocess.Popen(sdf_cmd, stdout=file, stderr=subprocess.DEVNULL)
             p.communicate()
-        assert p.returncode == 0, logger.error('%s: Symmetry Definition File generation failed' % self.filepath)
+        assert p.returncode == 0, '%s: Symmetry Definition File generation failed' % self.filepath
 
         self.format_sdf(out_path=out_path, **kwargs)  # modify_sym_energy=False, energy=2)
 
@@ -1809,10 +1809,10 @@ class PDB(Structure):
                         trunk.append(jump)
                     last_jump = i + 1  # find index of lines where the VRTs and connect_virtuals end. The "last jump"
 
-            assert set(trunk) - set(virtuals) == set(), logger.error('%s: Symmetry Definition File VRTS are malformed'
-                                                                     % self.filepath)
-            assert len(self.chain_id_list) == len(subunits), logger.error('%s: Symmetry Definition File VRTX_base are '
-                                                                          'malformed' % self.filepath)
+            assert set(trunk) - set(virtuals) == set(), '%s: Symmetry Definition File VRTS are malformed' \
+                                                        % self.filepath
+            assert len(self.chain_id_list) == len(subunits), '%s: Symmetry Definition File VRTX_base are malformed' \
+                                                             % self.filepath
 
             # if len(chains) > 1:  #
             if dihedral:

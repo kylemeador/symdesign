@@ -613,9 +613,9 @@ def read_scores(file, key='decoy'):
             if design not in score_dict:
                 score_dict[design] = entry
             else:
-                # to ensure old trajectories don't have lingering protocol info TODO clean Rosetta protocol generation
+                # to ensure old trajectories don't have lingering protocol info
                 for protocol in protocols:
-                    if protocol in entry.keys():
+                    if protocol in entry:  # ensure that the new scores has a protocol before removing the old one.
                         for rm_protocol in protocols:
                             try:
                                 score_dict[design].pop(rm_protocol)
@@ -1448,8 +1448,8 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         logger = start_log(name=__name__, handler=2, level=2,
                            location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     if not des_dir.info:
-        raise DesignError('Has not been initialized for design and therefore can\'t be analyzed. '
-                                         'Initialize and perform interface design if you want to measure this design.')
+        raise DesignError('Has not been initialized for design and therefore can\'t be analyzed. Initialize and perform'
+                          ' interface design if you want to measure this design.')
     # TODO add fraction_buried_atoms
     # Set up pose, ensure proper input
     # global columns_to_remove, columns_to_rename, protocols_of_interest
@@ -2022,8 +2022,8 @@ if __name__ == '__main__':
 
     # Collect all designs to be processed
     all_poses, location = collect_designs(file=args.file, directory=args.directory)
-    assert all_poses != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct '
-                                                'location.' % (PUtils.nano, location))
+    assert all_poses != list(), 'No %s directories found within \'%s\' input! Please ensure correct location'\
+                                % (PUtils.nano, location)
     logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
     logger.info('All pose specific logs are located in their corresponding directories.\nEx: \'%s\'' %
                 os.path.join(all_poses[0].path, os.path.basename(all_poses[0].path) + '.log'))
