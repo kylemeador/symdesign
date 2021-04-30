@@ -1395,7 +1395,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(design_residues), 2)
 
         # initialize empty design dataframes
-        pose_stat_s, protocol_stat_s, sim_series, divergence_stats_s = pd.Series(), pd.Series(), [], pd.Series()
+        pose_stat_s, protocol_stat_s, divergence_stats_s, sim_series = pd.Series(), pd.Series(), pd.Series(), []
         if os.path.exists(self.scores_file):
             self.log.debug('Found design scores in file: %s' % self.scores_file)
             # Get the scores from the score file on design trajectory metrics
@@ -1900,7 +1900,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('No design scores found at %s' % self.scores_file)
 
         other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
-
+        print(other_metrics_s)
         # Combine all series
         pose_s = \
             pd.concat([pose_stat_s, protocol_stat_s, other_metrics_s, divergence_stats_s] + sim_series).swaplevel(0, 1)
