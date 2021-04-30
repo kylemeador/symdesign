@@ -423,7 +423,7 @@ class PDB(Structure):
         if entities and not lazy:
             # create Entities from Chain.Residues
             self.create_entities()
-        self.get_chain_sequences()
+        self.get_chain_sequences()  # Todo maybe depreciate in favor of entities?
 
         # if self.design:  # Todo maybe??
         #     self.process_symmetry()
@@ -1299,7 +1299,17 @@ class PDB(Structure):
                 info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]
                 info['chains'] = [chain for chain in info['chains'] if chain]
 
-        self.update_entity_d()
+        # self.update_entity_d()
+        # For each Entity, gather the sequence of the chain representative
+        # Todo choose the most symmetrically average chain if Entity is symmetric!
+        for entity, info in self.entity_d.items():
+            if info.get('chains'):
+                info['representative'] = info.get('chains')[0]
+            else:
+                raise DesignError('The Entity %s is missing chain information!' % entity)
+            info['seq'] = info['representative'].sequence
+
+        self.update_entity_accession_id()
 
         for entity, info in self.entity_d.items():
             if isinstance(entity, int):
@@ -1324,15 +1334,15 @@ class PDB(Structure):
     #     self.update_entity_sequences()
     #     self.update_entity_accession_id()
 
-    def update_entity_d(self):
-        """Update a complete entity_d with the required information
-        Todo choose the most symmetrically average chain if Entity is symmetric!
-        For each Entity, gather the sequence of the chain representative"""
-        for entity, info in self.entity_d.items():
-            info['representative'] = info['chains'][0]  # We may get an index error someday. If so, fix upstream logic
-            info['seq'] = info['representative'].sequence
-
-        self.update_entity_accession_id()
+    # def update_entity_d(self):
+    #     """Update a complete entity_d with the required information
+    #     Todo choose the most symmetrically average chain if Entity is symmetric!
+    #     For each Entity, gather the sequence of the chain representative"""
+    #     for entity, info in self.entity_d.items():
+    #         info['representative'] = info['chains'][0]  # We may get an index error someday. If so, fix upstream logic
+    #         info['seq'] = info['representative'].sequence
+    #
+    #     self.update_entity_accession_id()
 
     def get_entity_info_from_atoms(self, tolerance=0.9):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
