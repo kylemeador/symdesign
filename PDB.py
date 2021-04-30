@@ -1373,8 +1373,8 @@ class PDB(Structure):
                     new_entity = False  # The entity is not unique, do not add
                     break
             if new_entity:  # no existing entity matches, add new entity
-                self.entity_d[entity_count] = {'chains': [chain], 'seq': chain.sequence}
                 entity_count += 1
+                self.entity_d[entity_count] = {'chains': [chain], 'seq': chain.sequence}
         self.log.info('Entities were generated from ATOM records.')
 
     def get_entity_info_from_api(self, pdb_code=None):
