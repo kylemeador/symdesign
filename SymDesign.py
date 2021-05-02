@@ -419,8 +419,11 @@ def terminate(module, designs, location=None, results=None, output=True):
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
         # program_root = design_directories[0].program_root
-        if not args.output_design_file:
+        if args.output_design_file:
+            designs_file = args.output_design_file
+        else:
             designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, time_stamp))
+
         with open(designs_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design.path for design in success))
         logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
@@ -596,6 +599,10 @@ if __name__ == '__main__':
                                            help='Cluster all designs by their spatial similarity. This can remove '
                                                 'redundancy or be useful in identifying conformationally flexible '
                                                 'docked configurations.')
+    parser_cluster.add_argument('-o', '--output', type=str, default=PUtils.clustered_poses,
+                                help='Name of the output .pkl file containing design clusters Will be saved to the %s/'
+                                     ' folder of the output.\nDefault=%s'
+                                     % (PUtils.data.title(), PUtils.clustered_poses % ('LOCATION', 'TIMESTAMP')))
     # ---------------------------------------------------
     parser_design = subparsers.add_parser(PUtils.interface_design,
                                           help='Gather poses of interest and format for design using sequence '
@@ -1414,8 +1421,11 @@ if __name__ == '__main__':
             for composition_group in compositions.values():
                 cluster_representative_pose_member_map.update(cluster_designs(composition_group))
 
-        pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map, PUtils.clustered_poses,
-                                                  out_path=next(iter(design_directories)).protein_data)
+        if args.output:
+            pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map, args.output, out_path='')
+        else:
+            pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map, PUtils.clustered_poses,
+                                                      out_path=next(iter(design_directories)).protein_data)
         logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
                     % (len(cluster_representative_pose_member_map), len(design_directories), pose_cluster_file))
         logger.info('To utilize the clustering, perform %s and cluster analysis will be applied to the poses to select '
