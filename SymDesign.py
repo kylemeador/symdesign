@@ -415,14 +415,13 @@ def terminate(module, designs, location=None, results=None, output=True):
             location_name = os.path.basename(next(iter(designs)).project_designs)
         else:
             location_name = os.path.splitext(os.path.basename(location))[0]
-        time_stamp = time.strftime('%y%m%d-%H%M%S')
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
         # program_root = design_directories[0].program_root
         if args.output_design_file:
             designs_file = args.output_design_file
         else:
-            designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, time_stamp))
+            designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, timestamp))
 
         with open(designs_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design.path for design in success))
@@ -441,7 +440,7 @@ def terminate(module, designs, location=None, results=None, output=True):
                 # Save Design DataFrame
                 design_df = pd.DataFrame(successes)
                 if args.output == PUtils.analysis_file:
-                    out_path = os.path.join(all_scores, args.output % (location, time_stamp))
+                    out_path = os.path.join(all_scores, args.output % (location, timestamp))
                 else:  # user provided the output path
                     local_dummy = True  # the global out_path should be used
                     # out_path = os.path.join(all_scores, args.output)
@@ -462,7 +461,7 @@ def terminate(module, designs, location=None, results=None, output=True):
                         all_commands[stage].append(os.path.join(design.scripts, '%s.sh' % stage))
 
                 command_files = {stage: SDUtils.write_commands(commands, out_path=program_root,
-                                                               name='%s_%s_%s' % (stage, location_name, time_stamp))
+                                                               name='%s_%s_%s' % (stage, location_name, timestamp))
                                  for stage, commands in all_commands.items()}
                 sbatch_files = {stage: distribute(stage=stage, directory=program_root, file=command_file)
                                 for stage, command_file in command_files.items()}
@@ -733,6 +732,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
+    timestamp = time.strftime('%y%m%d-%H:%M:%S')
     if args.debug:
         # Root logs to stream with level debug
         logger = SDUtils.start_log(level=1)
@@ -1218,6 +1218,7 @@ if __name__ == '__main__':
             out_path = args.output
         else:
             out_path = os.path.join(next(iter(design_directories)).program_root, args.output)
+        print(out_path)
         if os.path.exists(out_path):
             logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
                             'data! Please modify that file or specify a new output name with -o/--output'
@@ -1294,7 +1295,6 @@ if __name__ == '__main__':
         elif args.dataframe:
             # Figure out poses from a dataframe, filters, and weights. Returns pose id's
             selected_poses_df = filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
-            timestamp = time.strftime('%y%m%d-%H:%M:%S')
             selected_poses = selected_poses_df.index.to_list()
             logger.info('%d poses were selected:\n\t%s' % (len(selected_poses_df), '\n\t'.join(selected_poses)))
             if args.filter or args.weight:
@@ -1424,7 +1424,8 @@ if __name__ == '__main__':
         if args.output:
             pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map, args.output, out_path='')
         else:
-            pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map, PUtils.clustered_poses,
+            pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
+                                                      PUtils.clustered_poses % (location, timestamp),
                                                       out_path=next(iter(design_directories)).protein_data)
         logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
                     % (len(cluster_representative_pose_member_map), len(design_directories), pose_cluster_file))
