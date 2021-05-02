@@ -1203,7 +1203,7 @@ if __name__ == '__main__':
         else:
             save = True
         # Start pose analysis of all designed files
-        if args.output.split('/') > 1:  # the path is a full or relative path, we should use it
+        if len(args.output.split('/')) > 1:  # the path is a full or relative path, we should use it
             out_path = args.output
         else:
             out_path = os.path.join(next(iter(design_directories)).program_root, args.output)
