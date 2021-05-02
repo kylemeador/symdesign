@@ -35,7 +35,7 @@ from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB
 from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map, \
     group_compositions
-from ProteinExpression import find_expression_tags
+from ProteinExpression import find_expression_tags, find_all_matching_pdb_expression_tags, add_expression_tag
 from DesignMetrics import filter_pose, select_sequences, master_metrics, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, pdb_to_pose_num
 
@@ -439,9 +439,10 @@ def terminate(module, designs, location=None, results=None, output=True):
                 if args.output == PUtils.analysis_file:
                     out_path = os.path.join(all_scores, args.output % (location, time_stamp))
                 else:  # user provided the output path
-                    # out_path = args.output
-                    out_path = os.path.join(all_scores, args.output)
-                design_df.to_csv(out_path if out_path.endswith('.csv') else '%s.csv' % out_path)
+                    local_dummy = True  # the global out_path should be used
+                    # out_path = os.path.join(all_scores, args.output)
+                out_path = out_path if out_path.endswith('.csv') else '%s.csv' % out_path
+                design_df.to_csv(out_path)
                 logger.info('Analysis of all poses written to %s' % out_path)
                 if save:
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
@@ -516,7 +517,8 @@ if __name__ == '__main__':
                              ' If pose-IDs are specified in a file, say as the result of %s or %s, in addition to the '
                              'pose-ID file, provide your %s working directory to locate the pose-Ids of interest.'
                              % (PUtils.program_name, PUtils.program_name, PUtils.program_name, PUtils.analysis,
-                                PUtils.select_designs, PUtils.program_name), default=None)
+                                PUtils.select_designs, PUtils.program_name),
+                        default=None, nargs=1)  # , nargs='*')  # TODO make list of unknown length
     parser.add_argument('-g', '--guide', action='store_true',
                         help='Access the %s guide! Display the program or module specific guide. Ex: \'%s --guide\' '
                              'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
@@ -707,8 +709,16 @@ if __name__ == '__main__':
     #                            help='Which type of modification?\nChoose from consolidate_degen or pose_map')
     # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
-
+    # these might be helpful for intermixing arguments before/after subparsers... (Modules)
+    # parser.parse_intermixed_args(args=None, namespace=None)
+    # parser.parse_known_intermixed_args
+    unknown_args = None
     args, additional_flags = parser.parse_known_args()
+    # TODO work this into the flags parsing to grab module if included first and program flags if included after
+    # while len(additional_flags) and additional_flags != unknown_args:
+    #     args, additional_flags = parser.parse_known_args(additional_flags, args)
+    #     unknown_args = additional_flags
+    # args, additional_flags = parser.parse_known_args(additional_flags, args)
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
@@ -827,7 +837,7 @@ if __name__ == '__main__':
     elif initialize:
         # Set up DesignDirectories
         if queried_flags['nanohedra_output']:
-            all_poses, location = SDUtils.collect_nanohedra_designs(file=args.file, directory=args.directory)
+            all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
             if queried_flags['design_range']:
                 low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
                 high_range = int((int(queried_flags['design_range'].split('-')[1]) / 100.0) * len(all_poses))
@@ -847,7 +857,7 @@ if __name__ == '__main__':
                     design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
                                           for pose in all_poses[low_range:high_range]]
         else:
-            all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory,
+            all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           project=args.project, single=args.single)
             if queried_flags['design_range']:
                 low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
@@ -938,7 +948,7 @@ if __name__ == '__main__':
                 initial_iter[0] = True
                 design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
             elif args.directory or args.file:
-                all_dock_directories, location = SDUtils.collect_nanohedra_designs(file=args.file,
+                all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
                                                                                    directory=args.directory, dock=True)
                 design_directories = [DesignDirectory.from_nanohedra(dock_dir, mode=args.directory_type,
                                                                      project=args.project, **queried_flags)
@@ -1193,8 +1203,11 @@ if __name__ == '__main__':
         else:
             save = True
         # Start pose analysis of all designed files
-        out_path = os.path.join(next(iter(design_directories)).program_root, args.output)
-        if os.path.exists(args.output):
+        if args.output.split('/') > 1:  # the path is a full or relative path, we should use it
+            out_path = args.output
+        else:
+            out_path = os.path.join(next(iter(design_directories)).program_root, args.output)
+        if os.path.exists(out_path):
             logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
                             'data! Please modify that file or specify a new output name with -o/--output'
                             % out_path)
@@ -1522,7 +1535,7 @@ if __name__ == '__main__':
         outdir = os.path.join(os.path.dirname(program_root), '%sSelectedDesigns' % args.selection_string)
         outdir_traj = os.path.join(outdir, 'Trajectories')
         outdir_res = os.path.join(outdir, 'Residues')
-        logger.info('Your selected design files are located in: %s' % outdir)
+        logger.info('Relevant design files are being copied to the new directory: %s' % outdir)
 
         if not os.path.exists(outdir):
             os.makedirs(outdir)
@@ -1685,14 +1698,14 @@ if __name__ == '__main__':
                 pdb_code = entity.name[:4]
                 # if sequence doesn't have a tag find all compatible tags
                 if not find_expression_tags(pretag_sequences[chain]):  # == dict():
-                    # Todo fix residue
-                    # tag_sequences[pdb_code] = \
-                    #     find_all_matching_pdb_expression_tags(pdb_code,
-                    #                                           oligomer_chain_database_chain_map[entity.chain_id])
-                    # # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
-                    # seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chain])
+                    # Todo test if residue is fixed
+                    tag_sequences[pdb_code] = \
+                        find_all_matching_pdb_expression_tags(pdb_code,
+                                                              oligomer_chain_database_chain_map[entity.chain_id])
+                    # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
+                    seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chain])
                     # Todo v remove
-                    seq = pretag_sequences[chain]
+                    # seq = pretag_sequences[chain]
                 else:  # re-use existing
                     # tag_sequences[pdb_code] = None
                     seq = pretag_sequences[chain]
