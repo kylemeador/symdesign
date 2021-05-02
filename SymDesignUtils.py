@@ -879,7 +879,7 @@ def collect_nanohedra_designs(files=None, directory=None, dock=False):
         all_paths = []
         for file in files:
             _file = file
-            if not os.path.exists(file):
+            if not os.path.exists(_file):
                 _file = os.path.join(os.getcwd(), file)
                 if not os.path.exists(_file):
                     logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
@@ -943,10 +943,10 @@ def collect_designs(files=None, directory=None, project=None, single=None):
         all_paths = []
         for file in files:
             _file = file
-            if not os.path.exists(file):
-                _file = os.path.join(os.getcwd(), files)
+            if not os.path.exists(_file):
+                _file = os.path.join(os.getcwd(), file)
                 if not os.path.exists(_file):
-                    logger.critical('No \'%s\' file found! Please ensure correct location/name!' % files)
+                    logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
                     exit()
             with open(_file, 'r') as f:
                 paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
