@@ -733,7 +733,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
-    timestamp = time.strftime('%y%m%d-%H:%M:%S')
+    timestamp = time.strftime('%y-%m-%d-%H%M%S')
     if args.debug:
         # Root logs to stream with level debug
         logger = SDUtils.start_log(level=1)
