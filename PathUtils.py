@@ -101,6 +101,7 @@ sbatch_template_dir = os.path.join(binaries, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 data_dir = os.path.join(source, data)
+reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')
 uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
 # filter_and_sort = os.path.join(data_dir, 'filter_and_sort_df.csv')
 pdb_uniprot_map = os.path.join(data_dir, 'pdb_uniprot_map')  # TODO
