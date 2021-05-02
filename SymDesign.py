@@ -822,7 +822,7 @@ if __name__ == '__main__':
                 exit(1)
     elif args.module in [PUtils.nano, PUtils.select_designs, PUtils.analysis, PUtils.cluster_poses,
                          'sequence_selection']:
-        queried_flags[args.module] = True  # Todo what is this for?
+        queried_flags[args.module] = True  # Todo what is this for? Analysis in DesignDirectory and ?
         initialize = True
         if args.module == PUtils.select_designs:
             if not args.debug:
@@ -1351,7 +1351,7 @@ if __name__ == '__main__':
                     #      for representative, members in cluster_representative_pose_member_map.items()
                     #      for member in members}
                     pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
-                                                              PUtils.clustered_poses,
+                                                              PUtils.clustered_poses % (location, timestamp),
                                                               out_path=next(iter(design_directories)).protein_data)
                     logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
                                 % (len(cluster_representative_pose_member_map), len(design_directories),
@@ -1376,11 +1376,12 @@ if __name__ == '__main__':
                     else:
                         pose_not_found.append(pose)
 
-                if pose_not_found:
-                    logger.warning('Couldn\'t locate the following poses:\n%s\nWas %s only run on a subset of the poses'
-                                   ' found selected from %s?'
-                                   % ('\n\t'.join(pose_not_found), PUtils.cluster_poses, args.dataframe))
                 final_poses = list(pose_clusters_found.values())
+                if pose_not_found:
+                    logger.warning('Couldn\'t locate the following poses:\n\t%s\nWas %s only run on a subset of the '
+                                   'poses that were selected in %s? Adding all of these to your final poses...'
+                                   % ('\n\t'.join(pose_not_found), PUtils.cluster_poses, args.dataframe))
+                    final_poses.extend(pose_not_found)
                 logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(final_poses))
             else:
                 logger.info('Grabbing all selected poses.')

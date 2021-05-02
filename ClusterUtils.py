@@ -390,7 +390,7 @@ def cluster_transformations(transform1, transform2, distance=1.0):
 
 
 @SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
-def cluster_designs(composition, return_pose_id=True):
+def cluster_designs(composition_designs, return_pose_id=True):
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
@@ -401,7 +401,7 @@ def cluster_designs(composition, return_pose_id=True):
         matching poses as the values
     """
     # format all transforms for the selected compositions
-    stacked_transforms = [design_directory.pose_transformation() for design_directory in composition]
+    stacked_transforms = [design_directory.pose_transformation() for design_directory in composition_designs]
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[1].values()
                                                              for transform in stacked_transforms])
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[2].values()
@@ -417,21 +417,22 @@ def cluster_designs(composition, return_pose_id=True):
     cluster_representative_indices, cluster_labels = cluster_transformations(transformation1, transformation2)
     representative_labels = cluster_labels[cluster_representative_indices]
 
-    # pull out the pose-id from the input composition groups (DesignDirectory)
+    # pull out the pose-id from the input composition_designs groups (DesignDirectory)
     if return_pose_id:  # convert all DesignDirectories to pose-id's
-        composition_map = {str(composition[rep_idx]): [str(composition[idx])
-                                                       for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+        composition_map = {str(composition_designs[rep_idx]): [str(composition_designs[idx])
+                                                               for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
                            for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
                            if rep_label != -1}  # don't add outliers (-1 labels) now
         # add the outliers as separate occurrences
-        composition_map.update({str(composition[idx]): [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
+        composition_map.update({str(composition_designs[idx]): []
+                                for idx in np.flatnonzero(cluster_labels == -1).tolist()})
     else:
-        composition_map = {composition[rep_idx]: [composition[idx]
-                                                  for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+        composition_map = {composition_designs[rep_idx]: [composition_designs[idx]
+                                                          for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
                            for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
                            if rep_label != -1}  # don't add outliers (-1 labels) now
         # add the outliers as separate occurrences
-        composition_map.update({composition[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
+        composition_map.update({composition_designs[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
 
     return composition_map
 
@@ -456,4 +457,7 @@ def invert_cluster_map(cluster_map):
     Returns:
         (dict[mapping[member DesignDirectoryID, representative DesignDirectoryID]])
     """
-    return {pose: cluster_rep for cluster_rep, poses in cluster_map.items() for pose in poses}
+    inverted_map = {pose: cluster_rep for cluster_rep, poses in cluster_map.items() for pose in poses}
+    inverted_map.update({cluster_rep: cluster_rep for cluster_rep in cluster_map})  # to add all outliers
+
+    return inverted_map
