@@ -396,6 +396,7 @@ def terminate(module, designs, location=None, results=None, output=True):
     Returns:
         (None)
     """
+    global out_path, timestamp
     success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
     exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
 
@@ -1218,7 +1219,7 @@ if __name__ == '__main__':
             out_path = args.output
         else:
             out_path = os.path.join(next(iter(design_directories)).program_root, args.output)
-        print(out_path)
+
         if os.path.exists(out_path):
             logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
                             'data! Please modify that file or specify a new output name with -o/--output'
@@ -1280,7 +1281,17 @@ if __name__ == '__main__':
     elif args.module == PUtils.select_designs:
         # -df dataframe, -f filter, -m metric, -p pose_design_file, -s selection_string, -w weight
         # program_root = next(iter(design_directories)).program_root
-        program_root = args.directory
+        if not args.directory:
+            logger.critical('If using a --dataframe for selection, you must include the directory where the designs are'
+                            'located in order to properly select designs. Please specify -d/--directory on the command '
+                            'line')
+            exit(1)
+            program_root = None
+            # Todo change this mechanism so not reliant on args.directory and outputs pose IDs/ Alternatives fix csv
+            #  to output paths
+        else:
+            program_root = args.directory
+
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
             with open(args.pose_design_file) as csv_file:
