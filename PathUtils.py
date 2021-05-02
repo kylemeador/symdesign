@@ -70,7 +70,7 @@ directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx
                       '\nTotal design_symmetry_pg score are located in ./design_symmetry_pg/building_blocks/%s' \
                       % (pdbs_outdir, scores_outdir, scores_outdir)
 variance = 0.8
-clustered_poses = 'ClusteredPoses'
+clustered_poses = '%sClusteredPoses-%s.pkl'
 pdb_source = 'db'  # 'download_pdb'  # TODO set up
 
 # Project paths
