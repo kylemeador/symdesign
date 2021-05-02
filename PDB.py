@@ -15,7 +15,7 @@ from Bio import pairwise2
 from Bio.SeqUtils import IUPACData
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, scout_symmdef, make_symmdef, orient_exe_path, \
-    orient_log_file, orient_dir
+    orient_log_file, orient_dir, reference_aa_file
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Structure import Structure, Chain, Entity, Atom
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_pairs
@@ -1163,14 +1163,14 @@ class PDB(Structure):
             insert_atom_idx = 0
         else:
             try:
-                residue_atoms = self.chain(chain_id).residue(residue_number).atoms()
+                residue_atoms = self.chain(chain_id).residue(residue_number).atoms
                 # residue_atoms = self.get_residue_atoms(chain_id, residue_number)
                 # if residue_atoms:
                 insert_atom_idx = residue_atoms[0].number - 1  # subtract 1 from first atom number to get insertion idx
             # else:  # Atom index is not an insert operation as the location is at the C-term of the chain
-            except AttributeError:  # Atom index is not an insert operation as the location is at the C-term of the chain
+            except AttributeError:  # Atom index is not an insert operation as the index is at the C-term
                 # prior_index = self.getResidueAtoms(chain, residue)[0].number - 1
-                prior_chain_length = self.chain(chain_id).residues[0].atoms()[0].number - 1
+                prior_chain_length = self.chain(chain_id).residues[0].atoms[0].number - 1
                 # chain_atoms = self.chain(chain_id).atoms
                 # chain_atoms = self.get_chain_atoms(chain_id)
 
@@ -1188,10 +1188,7 @@ class PDB(Structure):
 
         # Grab the reference atom coordinates and push into the atom list
         if not self.reference_aa:
-            # TODO load in Residue.py
-            self.reference_aa = PDB.from_file(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data',
-                                                           'AAreference.pdb'),
-                                              log=start_log(handler=3), entities=False)
+            self.reference_aa = PDB.from_file(reference_aa_file, log=None, entities=False)
         insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms())
 
         raise DesignError('This function \'%s\' is currently broken' % self.insert_residue.__name__)  # TODO BROKEN
