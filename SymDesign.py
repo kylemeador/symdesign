@@ -419,7 +419,8 @@ def terminate(module, designs, location=None, results=None, output=True):
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
         # program_root = design_directories[0].program_root
-        designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, time_stamp))
+        if not args.output_design_file:
+            designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, time_stamp))
         with open(designs_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design.path for design in success))
         logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
@@ -524,6 +525,9 @@ if __name__ == '__main__':
                              'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
+    parser.add_argument('-of', '--output_design_file', type=str,
+                        help='If provided, the name of the output designs file. If blank, one will be automatically '
+                             'generated based off input_location, module, and the time.')
     parser.add_argument('-p', '--project', type=os.path.abspath,
                         metavar='/path/to/SymDesignOutput/Projects/your_project',
                         help='If pose names are specified by project instead of directories, which project to use?')
