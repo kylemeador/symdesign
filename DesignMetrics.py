@@ -574,7 +574,7 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
 
 # Current protocols in use in design.xml
 protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'no_constraint_switch']
-protocols_of_interest = ['design_profile', 'no_constraint']
+protocols_of_interest = {'design_profile', 'no_constraint'}
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
 
 # Specific columns of interest to distinguish between design trajectories
@@ -771,7 +771,7 @@ def interface_residue_composition_similarity(series):
     """Calculate the composition difference for pose residue classification
 
     Args:
-        series (pandas.Series): Series with 'interface_area_total', 'core', 'rim', and 'support' indices
+        series (union[pandas.Series, dict]): Container with 'interface_area_total', 'core', 'rim', and 'support' keys
     Returns:
         (float): Average similarity for expected residue classification given the observed classification
     """
@@ -1150,7 +1150,9 @@ def df_filter_index_by_value(df, **kwargs):
     Args:
         df (pandas.DataFrame): DataFrame to filter indices on
     Keyword Args:
-        kwargs (dict): {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
+        kwargs (dict): {column: {'direction': 'min', 'value': 0.3}, ...}
+    Returns:
+        (dict): {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
     """
     for idx in kwargs:
         if kwargs[idx]['direction'] == 'max':
@@ -1161,7 +1163,7 @@ def df_filter_index_by_value(df, **kwargs):
     return kwargs
 
 
-def filter_pose(df_file, filter=None, weight=None, consensus=False):
+def filter_pose(df_file, filter=None, weight=None, consensus=False, sort_df=True):
     """Return the indices from a dataframe that pass an set of filters (optional) and are ranked according to weight as
     specified by user values.
 
@@ -1263,7 +1265,10 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False):
                                  method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
 
         design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
-        weighted_s = design_score_df.sum(axis=1).sort_values(ascending=False)
+        if sort_df:
+            weighted_s = design_score_df.sum(axis=1).sort_values(ascending=False)
+        else:
+            weighted_s = design_score_df.sum(axis=1)
         weighted_df = pd.concat([weighted_s], keys=[('pose', 'sum', 'selection_weight')], axis=1)
         final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
         # designs = weighted_s.index.to_list()
@@ -1935,8 +1940,8 @@ def analyze_output(des_dir, merge_residue_data=False, debug=False, save_trajecto
         pose_stat_s, protocol_stat_s = {}, {}
         for stat in stats_metrics:
             pose_stat_s[stat] = trajectory_df.loc[stat, :]
-            pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=['pose'])
-            pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=[stat])
+            pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=[('pose', stat)])
+            # pose_stat_s[stat] = pd.concat([pose_stat_s[stat]], keys=[stat])
             # Collect protocol specific metrics in series
             suffix = ''
             if stat != 'mean':
