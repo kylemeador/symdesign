@@ -2496,33 +2496,47 @@ def calculate_match_metrics(fragment_matches):
                                   'paired': {'center': {'residues': set()}, 'total': {'residues': set()}},
                                   'total': {'observations': len(fragment_matches), 'center': {}, 'total': {}}}
     for fragment in fragment_matches:
-        center_resnum1, center_resnum2 = fragment['mapped'], fragment['paired']
+        center_resnum1, center_resnum2, match_score = fragment['mapped'], fragment['paired'], fragment['match']
         separated_fragment_metrics['mapped']['center']['residues'].add(center_resnum1)
         separated_fragment_metrics['paired']['center']['residues'].add(center_resnum2)
 
+        # TODO an ideal measure of the central importance would weight central fragment observations to new center
+        #  fragments higher than repeated observations. Say mapped residue 45 to paired 201. If there are two
+        #  observations of this pair, just different ijk indices, then these would take the SUMi->n 1/i*2 additive form.
+        #  If the observation went from residue 45 to paired residue 204, they constitute separate, but less important
+        #  observations as these are part of the same SS and it is implied that if 201 contacts, 204 (and 198) are
+        #  possible. In the case where the interaction goes from a residue to a different secondary structure, then
+        #  this is the most important, say residue 45 to residue 322 on a separate helix. This indicates that
+        #  residue 45 is ideally placed to interact with a separate SS and add them separately to the score
+        #  |
+        #  How the data structure to build this relationship looks is likely a graph, which has significant overlap to
+        #  work I did on the consensus sequence higher order relationships in 8/20. I may find some ground in the middle
+        #  of these two ideas where the graph theory could take hold and a more useful scoring metric could emerge,
+        #  also possibly with a differentiable equation I could relate pose transformations to favorable fragments found
+        #  in the interface.
         if center_resnum1 not in entity1_center_match_scores:
-            entity1_center_match_scores[center_resnum1] = [fragment['match']]
+            entity1_center_match_scores[center_resnum1] = [match_score]
         else:
-            entity1_center_match_scores[center_resnum1].append(fragment['match'])
+            entity1_center_match_scores[center_resnum1].append(match_score)
 
         if center_resnum2 not in entity2_center_match_scores:
-            entity2_center_match_scores[center_resnum2] = [fragment['match']]
+            entity2_center_match_scores[center_resnum2] = [match_score]
         else:
-            entity2_center_match_scores[center_resnum2].append(fragment['match'])
+            entity2_center_match_scores[center_resnum2].append(match_score)
 
         for resnum1, resnum2 in [(fragment['mapped'] + j, fragment['paired'] + j) for j in range(-2, 3)]:
             separated_fragment_metrics['mapped']['total']['residues'].add(resnum1)
             separated_fragment_metrics['paired']['total']['residues'].add(resnum2)
 
             if resnum1 not in entity1_match_scores:
-                entity1_match_scores[resnum1] = [fragment['match']]
+                entity1_match_scores[resnum1] = [match_score]
             else:
-                entity1_match_scores[resnum1].append(fragment['match'])
+                entity1_match_scores[resnum1].append(match_score)
 
             if resnum2 not in entity2_match_scores:
-                entity2_match_scores[resnum2] = [fragment['match']]
+                entity2_match_scores[resnum2] = [match_score]
             else:
-                entity2_match_scores[resnum2].append(fragment['match'])
+                entity2_match_scores[resnum2].append(match_score)
 
         i, j, k = list(map(int, fragment['cluster'].split('_')))
         fragment_i_index_count_d[i] += 1
@@ -2923,6 +2937,7 @@ def process_alignment(bio_alignment, gaps=False):
     """
     alignment_dict = generate_msa_dictionary(bio_alignment)
     alignment_dict['rep'] = add_column_weight(alignment_dict['counts'], gaps=gaps)
+
     return msa_to_prob_distribution(alignment_dict)
 
 
