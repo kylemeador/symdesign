@@ -1288,10 +1288,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                                                          euler_lookup=self.euler_lookup)
         self.log.info('Found %d overlapping fragment pairs at the %s | %s interface.'
                       % (len(ghostfrag_surfacefrag_pairs), entity1.name, entity2.name))
-        fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
-        self.fragment_queries[(entity1, entity2)] = fragment_matches
+        self.fragment_queries[(entity1, entity2)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         # add newly found fragment pairs to the existing fragment observations
-        self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)  # Todo, change so not same as DesignDirectory
+        self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
 
     def score_interface(self, entity1=None, entity2=None):
         if (entity1, entity2) not in self.fragment_queries and (entity2, entity1) not in self.fragment_queries:
@@ -1603,6 +1602,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if write_fragments:
             write_fragment_pairs(self.fragment_pairs, out_path=out_path)
+            frag_file = os.path.join(out_path, PUtils.frag_text_file)
+            if frag_file:
+                os.system('rm %s' % frag_file)  # ensure old file is removed before
             for match_count, (ghost_frag, surface_frag, match) in enumerate(self.fragment_pairs, 1):
                 write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
                                            overlap_error=z_value_from_match_score(match),
@@ -1882,11 +1884,11 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
     """
     fragment_matches = []
     for interface_ghost_frag, interface_mono_frag, match_score in ghostfrag_surffrag_pairs:
-        entity1_surffrag_ch, entity1_surffrag_resnum = interface_ghost_frag.get_aligned_chain_and_residue()
-        entity2_surffrag_ch, entity2_surffrag_resnum = interface_mono_frag.get_central_res_tup()
-        fragment_matches.append({'mapped': entity1_surffrag_resnum, 'match': match_score,
-                                 'paired': entity2_surffrag_resnum, 'cluster': '%d_%d_%d'
-                                                                               % interface_ghost_frag.get_ijk()})
+        surffrag_ch1, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()
+        surffrag_ch2, surffrag_resnum2 = interface_mono_frag.get_central_res_tup()
+        fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
+                                     (surffrag_resnum1, surffrag_resnum2,  match_score,
+                                      '%d_%d_%d' % interface_ghost_frag.get_ijk()))))
     logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
 
