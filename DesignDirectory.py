@@ -167,6 +167,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.analysis = False
         self.skip_logging = False
 
+        self.set_flags(**kwargs)  # has to be set before set_up_design_directory
         # if not self.sym_entry:
         #     self.sym_entry = SymEntry(sym_entry)
             # self.design_symmetry = self.sym_entry.get_result_design_sym()
@@ -243,8 +244,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
                 # design_symmetry (P432)
                 self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
-                self.composition = os.path.join(self.program_root, os.path.basename(self.path.split(os.sep)[-4]))
-                self.project_designs = os.path.join(self.composition, os.path.basename(self.path.split(os.sep)[-2]))
+                self.composition = os.path.join(self.program_root, self.path.split(os.sep)[-4])
+                self.project_designs = os.path.join(self.composition, self.path.split(os.sep)[-2])
                 self.oligomer_names = os.path.basename(self.composition).split('_')
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.path, PUtils.asu)
@@ -294,9 +295,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
 
             self.set_up_design_directory()
-        self.set_flags(**kwargs)
         self.start_log(debug=debug)
-        # self.log.debug('fragment_observations: %s' % self.fragment_observations)
 
     @classmethod
     def from_nanohedra(cls, design_path, mode=None, project=None, **kwargs):  #  nano=True,
@@ -458,7 +457,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
                   number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False, **kwargs):
         # self.design_symmetry = symmetry
-        if sym_entry_number:
+        self.sym_entry = sym_entry
+        if not sym_entry and sym_entry_number:
             # self.sym_entry_number = sym_entry_number
             self.sym_entry = SymEntry(sym_entry_number)
         if symmetry:
@@ -467,7 +467,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('This functionality is not possible yet. Please pass the --symmetry by Symmetry Entry'
                                   ' Number instead (See Laniado & Yeates, 2020).')
                 self.sym_entry = space_group_to_sym_entry[cryst_record_d['space_group']]
-        self.sym_entry = sym_entry
         self.design_selector = design_selector
         self.evolution = design_with_evolution
         self.design_with_fragments = design_with_fragments
@@ -1402,7 +1401,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(design_residues), 2)
 
         # initialize empty design dataframes
-        pose_stat_s, protocol_stat_s, divergence_s, sim_series = pd.Series(), pd.Series(), pd.Series(), []
+        stat_s, divergence_s, sim_series = pd.Series(), pd.Series(), []
         if os.path.exists(self.scores_file):
             self.log.debug('Found design scores in file: %s' % self.scores_file)
             # Get the scores from the score file on design trajectory metrics
@@ -1499,42 +1498,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                   hbonds=interface_hbonds)
             #                                   offset=offset_dict)
 
-            # include the wild type residue information in metrics for sequence comparison
-            wild_type_residue_info = {residue_number: copy.deepcopy(residue_template)
-                                      for residue_number in residue_info[next(iter(residue_info))].keys()}
-            # find the solvent acessible surface area of the separated entities
-            for entity in wt_pdb.entities:
-                entity.get_sasa()
-            for res_number in wild_type_residue_info:
-                # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
-                wild_type_residue_info[res_number] = \
-                    {'energy_delta': None, 'bsa_polar': None, 'bsa_hydrophobic': None,
-                     # Todo implement energy metric for wild-type in refine.sh before refinement of clean_asu_for_refine
-                     'bsa_total': wt_pdb.residue(res_number).sasa, 'protocol': None, 'hbond': None,
-                     'type': cleaned_mutations['reference'][res_number], 'core': None, 'rim': None, 'support': None,
-                     'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
-                     'observed_evolution': None}  # 'hot_spot': None}
-                relative_oligomer_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
-                                                          wild_type_residue_info[res_number]['bsa_total'])
-                if relative_oligomer_sasa < 0.25:
-                    wild_type_residue_info[res_number]['interior'] = 1
-                else:
-                    wild_type_residue_info[res_number]['interior'] = 0
-
             # Calculate amino acid observation percent from residue dict and background SSM's
             obs_d = {profile: {design: mutation_conserved(residue_info, background)
                                for design, residue_info in residue_info.items()}
                      for profile, background in profile_dict.items()}
 
             if 'fragment' in profile_dict:
-                # Only keep residues in observed fragment if fragment information available for them
+                # Keep residues in observed fragment if fragment information available for them
                 obs_d['fragment'] = remove_interior_keys(obs_d['fragment'], issm_residues, keep=True)
 
             # Add observation information into the residue dictionary
             for design, info in residue_info.items():
-                residue_info[design] = weave_sequence_dict(base_dict=info,
-                                                           **{'observed_%s' % profile: obs_d[profile][design]
-                                                              for profile in obs_d})
+                residue_info[design] = weave_sequence_dict(base_dict=info, **{'observed_%s' % profile: bkgnd[design]
+                                                                              for profile, bkgnd in obs_d.items()})
 
             # Find the observed background for each profile, for each design in the pose
             pose_observed_bkd = {profile: {design: per_res_metric(obs_d[profile][design]) for design in obs_d[profile]}
@@ -1550,7 +1526,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             number_hbonds_s = pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()},
                                         name='number_hbonds')
             scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
-            cleaned_mutations.pop('reference')
+            reference_mutations = cleaned_mutations.pop('reference')
             scores_df['number_of_mutations'] = pd.Series({design: len(mutations)
                                                           for design, mutations in cleaned_mutations.items()})
             interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
@@ -1576,32 +1552,26 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for r_class in residue_classificiation:
                 scores_df[r_class] = \
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
-            scores_df['interface_composition_similarity'] = \
-                scores_df.apply(interface_residue_composition_similarity, axis=1)
 
             # Calculate new metrics from combinations of other metrics
             scores_df['total_interface_residues'] = len(interface_residues)
             scores_df = columns_to_new_column(scores_df, summation_pairs)
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
+            scores_df['interface_composition_similarity'] = \
+                scores_df.apply(interface_residue_composition_similarity, axis=1)
             # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
             scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True,
                            errors='ignore')
 
-            # Merge processed dataframes
+            # Process dataframes for missing values and drop refine trajectory
             scores_df[groups] = protocol_s
-            # scores_df = pd.merge(protocol_s, scores_df, left_index=True, right_index=True)
-            # protocol_df = pd.DataFrame(protocol_s)
-            # protocol_df.columns = pd.MultiIndex.from_product([[''], protocol_df.columns])
-            # residue_df = pd.merge(protocol_df, residue_df, left_index=True, right_index=True)
-            # residue_df.columns = residue_df.columns.set_levels(residue_df.columns.levels[0].astype(int), level=0)
-            residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-            residue_df[(groups, groups)] = protocol_s
-
-            # Drop refine trajectory and any designs with nan values
             scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
             residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
-            residue_df = residue_df.dropna(how='all', axis=1)  # remove completely empty columns such as obs_interface
+            # print(residue_df.columns[residue_df.isna().all(axis=0)])
+            # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
+            residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
+            residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
             scores_na_index = scores_df.index[scores_df.isna().any(axis=1)]  # scores_df.where()
             residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
             drop_na_index = np.union1d(scores_na_index, residue_na_index)
@@ -1647,15 +1617,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         {protocol: '%s_%s' % (protocol, stat) for protocol in unique_protocols})
 
             protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats],
-                                         keys=stats_metrics).swaplevel(0, 1)
-            pose_stats_s = pd.concat(pose_stats, keys=list(zip(stat, repeat('pose'))))
-            stat_s = pd.concat(protocol_stats_s + pose_stats_s)
-            # TODO test pd.concat
-            trajectory_df = pd.concat([trajectory_df] + pose_stats + protocol_stats, axis=0)
-            # trajectory_df = trajectory_df.append(pose_stats_s)
-            # this operation adds back consensus to the trajectory_df since it is calculated on scores_df
-            # trajectory_df = pd.concat([trajectory_df] + protocol_stats_s, axis=0)
-            # trajectory_df = trajectory_df.append(protocol_stats_s)
+                                         keys=stats_metrics)  # .swaplevel(0, 1)
+            pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
+            stat_s = pd.concat([protocol_stats_s, pose_stats_s])
+            trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
+            # this concat puts back consensus design to trajectory_df since protocol_stats is calculated on scores_df
 
             # Calculate sequence statistics
             # first for entire pose
@@ -1742,16 +1708,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                                     group1_size=len(designs_by_protocol[prot1]))
                 # self.log.debug(pvalue_df)
                 pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
-                trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)],
-                                          axis=0)
-                # trajectory_df = trajectory_df.append(pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1))
+                trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
                 # Compute sequence differences between each protocol
                 residue_energy_df = \
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'energy_delta']]
 
+                scaler = StandardScaler()
                 res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
-                residue_energy_np = StandardScaler().fit_transform(residue_energy_df.values)
+                residue_energy_np = scaler.fit_transform(residue_energy_df.values)
                 residue_energy_pc = res_pca.fit_transform(residue_energy_np)
                 residue_energy_pc_df = \
                     pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
@@ -1760,7 +1725,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 seq_pca = PCA(PUtils.variance)
                 residue_info.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
                 pairwise_sequence_diff_np = all_vs_all(residue_info, sequence_difference)
-                pairwise_sequence_diff_np = StandardScaler().fit_transform(pairwise_sequence_diff_np)
+                pairwise_sequence_diff_np = scaler.fit_transform(pairwise_sequence_diff_np)
                 seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
                 # Compute the euclidean distance
                 # pairwise_pca_distance_np = pdist(seq_pc)
@@ -1917,19 +1882,46 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # protocol_stat_s = pd.concat([protocol_stat_s] + protocol_stats)
             # stat_s = pd.concat(protocol_stats + [pose_stats_s])
 
-            # Add wild-type sequence metrics to residue_df and sort
-            # wt_df = pd.concat({key: pd.DataFrame(value) for key, value in wild_type_residue_info.items()}).unstack()
-            warnings.simplefilter('ignore')  # 'error')
-            wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
-            residue_df = pd.concat([residue_df, wt_df], sort=False)
-            residue_df = residue_df.sort_index(key=lambda x: x.str.isdigit())
-
             # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
-            if merge_residue_data:
-                trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
             if save_trajectories:
+                trajectory_df.sort_index(inplace=True, axis=1)
+                residue_df.sort_index(inplace=True)
+                # Add wild-type residue information in metrics for sequence comparison
+                # find the solvent acessible surface area of the separated entities
+                for entity in wt_pdb.entities:
+                    entity.get_sasa()
+
+                wild_type_residue_info = {}
+                for res_number in residue_info[next(iter(residue_info))].keys():
+                    # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
+                    wild_type_residue_info[res_number] = \
+                        {'type': reference_mutations[res_number], 'core': None, 'rim': None, 'support': None,
+                         # Todo implement wt energy metric during oligomer refinement?
+                         'interior': 0, 'hbond': None, 'energy_delta': None,
+                         'bsa_total': wt_pdb.residue(res_number).sasa, 'bsa_polar': None, 'bsa_hydrophobic': None,
+                         'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
+                         'observed_evolution': None, 'observed_fragment': None}  # 'hot_spot': None}
+                    relative_oligomer_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
+                                                              wild_type_residue_info[res_number]['bsa_total'])
+                    if relative_oligomer_sasa < 0.25:
+                        wild_type_residue_info[res_number]['interior'] = 1
+                    # if res_number in issm_residues and res_number not in residues_no_frags:
+                    #     wild_type_residue_info[res_number]['observed_fragment'] = None
+
+                wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
+                wt_df.drop(residue_indices_no_frags, inplace=True, axis=1)
+                # only sort once as residues are in same order
+                # wt_df.sort_index(level=0, inplace=True, axis=1, sort_remaining=False)
+                # residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+                residue_df = pd.concat([wt_df, residue_df], sort=False)
+                residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+                residue_df[(groups, groups)] = protocol_s
+                # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
+                if merge_residue_data:
+                    trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
+                else:
+                    residue_df.to_csv(self.residues)
                 trajectory_df.to_csv(self.trajectories)
-                residue_df.to_csv(self.residues)
                 seq_file = pickle_object(all_design_sequences, '%s_Sequences' % str(self), out_path=self.all_scores)
 
             # Create figures
