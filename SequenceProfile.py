@@ -2476,9 +2476,9 @@ def calculate_match_metrics(fragment_matches):
                             'index_count': {index (int): count (int), ...},
                             'multiple_ratio': (float)}
                  'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
-                 'total': {'center': {'score': , 'number': },
-                           'total': {'score': , 'number': },
-                           'index_count': , 'multiple_ratio': , 'observations': (int)}
+                 'total':  {'center': {'score': , 'number': },
+                            'total': {'score': , 'number': },
+                            'index_count': , 'multiple_ratio': , 'observations': (int)}
                  }
         # (tuple): all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap, \
         # central_residues_with_fragment_overlap, multiple_frag_ratio, total_fragment_content
