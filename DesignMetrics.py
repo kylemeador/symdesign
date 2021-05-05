@@ -803,9 +803,9 @@ def interface_residue_composition_similarity(series):
 
 
 residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.},
-                    'sasa': {'polar': {'complex': 0., 'unbound': 0.}, 'hydrophobic': {'complex': 0., 'unbound': 0.},
-                             'total': {'complex': 0., 'unbound': 0.}},
-                    'type': None, 'hbond': 0, 'core': 0, 'interior': 0, 'rim': 0, 'support': 0}  # , 'hot_spot': 0}
+                    'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
+                             'hydrophobic': {'complex': 0., 'unbound': 0.}},
+                    'type': None, 'core': 0, 'rim': 0, 'support': 0, 'interior': 0, 'hbond': 0}  # , 'hot_spot': 0}
 
 
 def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None):
@@ -951,9 +951,6 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
             data['energy_delta'] = round(data['energy']['complex'] - data['energy']['unbound'], 2)
-            data['coordinate_constraint'] = round(data['energy']['cst'], 2)
-            data['residue_favored'] = round(data['energy']['fsp'], 2)
-            data.pop('energy')
             #     - data['energy']['fsp'] - data['energy']['cst']
             # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
             relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
@@ -962,7 +959,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                 # convert sasa measurements into bsa measurements
                 data['bsa_%s' % polarity] = \
                     round(data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex'], 2)
-            data.pop('sasa')
+
             if data['bsa_total'] > 0:
                 if relative_oligomer_sasa < 0.25:
                     data['support'] = 1
@@ -975,6 +972,10 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                     data['interior'] = 1
                 # else:
                 #     residue_data[residue_number]['surface'] = 1
+            data['coordinate_constraint'] = round(data['energy']['cst'], 2)
+            data['residue_favored'] = round(data['energy']['fsp'], 2)
+            data.pop('energy')
+            data.pop('sasa')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
         total_residue_dict[design] = residue_data
