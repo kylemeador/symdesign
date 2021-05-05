@@ -441,7 +441,7 @@ def terminate(module, designs, location=None, results=None, output=True):
                 # Save Design DataFrame
                 design_df = pd.DataFrame(successes)
                 if args.output == PUtils.analysis_file:
-                    out_path = os.path.join(all_scores, args.output % (location, timestamp))
+                    out_path = os.path.join(all_scores, args.output % (os.path.splitext(location)[0], timestamp))
                 else:  # user provided the output path
                     local_dummy = True  # the global out_path should be used
                     # out_path = os.path.join(all_scores, args.output)
