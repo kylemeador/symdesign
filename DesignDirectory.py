@@ -61,6 +61,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # design_symmetry/data (P432/Data)
         self.pdbs = None
         # design_symmetry/data/pdbs (P432/Data/PDBs)
+        self.orient_dir = None
+        # design_symmetry/data/pdbs/oriented (P432/Data/PDBs/oriented)
+        self.refine_dir = None
+        # design_symmetry/data/pdbs/refined (P432/Data/PDBs/refined)
         self.sequences = None
         # design_symmetry/sequences (P432/Sequence_Info)
         # design_symmetry/data/sequences (P432/Data/Sequence_Info)
@@ -111,9 +115,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.consensus_design_pdb = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/designs/clean_asu_for_consensus.pdb
 
-        self.sdf = None
+        self.sdf_dir = None
         # path/to/directory/sdf/
         self.sdfs = {}
+        self.sym_def_file = None
+        self.symmetry_protocol = None
         self.oligomer_names = []
         self.oligomers = []
 
@@ -539,6 +545,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.log.warning('%s: Path does not exist!' % self.path)
         self.protein_data = os.path.join(self.program_root, PUtils.data.title())
         self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
+        self.orient_dir = os.path.join(self.pdbs, 'oriented')
+        self.refine_dir = os.path.join(self.pdbs, 'refined')
+        self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
 
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO db integration
@@ -552,7 +561,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.scripts = os.path.join(self.path, PUtils.scripts)
         self.frags = os.path.join(self.path, PUtils.frag_dir)
         self.data = os.path.join(self.path, PUtils.data)
-        self.sdf = os.path.join(self.path, PUtils.symmetry_def_file_dir)
         self.pose_file = os.path.join(self.path, PUtils.pose_file)
         self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
         self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
@@ -573,12 +581,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.make_path(self.pdbs)
             self.make_path(self.sequences)
 
-        self.make_path(self.all_scores, condition=self.analysis)
-        self.make_path(self.frags, condition=self.query_fragments)
-
-        if os.path.exists(self.frag_file):
+        # if os.path.exists(self.frag_file):
             # if self.info['fragments']:
-            self.gather_fragment_info()
+            # self.gather_fragment_info()
             # self.get_fragment_metrics(from_file=True)
 
     def get_wildtype_file(self):
