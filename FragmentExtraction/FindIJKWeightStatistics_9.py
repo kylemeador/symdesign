@@ -125,12 +125,9 @@ def get_cluster_info(cluster_dict, frag_size=5):
 
 
 def recurse_weights(_dict):
-    def make_frag_dict():
-        # {-2: 0, -1: 0, 0: 0, 1: 0, 2: 0}
-        frag_dict = {k: 0 for k in range(lower, upper + 1)}
-        return frag_dict
     start_key = next(iter(_dict))
-    info = [0.0, 0.0, make_frag_dict(), make_frag_dict()]  # , None: 0
+    frag_d = {k: 0 for k in range(lower, upper + 1)}
+    info = [0.0, 0.0, frag_d, copy.copy(frag_d)]  # , None: 0
     prior_list = ['', [], []]
     last = [start_key.split('_')[0], start_key.split('_')[1], '']
     count = [0, 0, 0]
@@ -208,12 +205,8 @@ def main(database):
                 all_cluster_total_weight_counts[cluster_id][0][index] / all_cluster_total_weight_counts[cluster_id][1],
                 3)
 
-    sorted_all_cluster_total_weight_counts = sorted(all_cluster_total_weight_counts)
-    final_weight_counts = {}
-    for key in sorted_all_cluster_total_weight_counts:
-        new_key = return_cluster_id_string(key)
-        final_weight_counts[new_key] = all_cluster_total_weight_counts[key]
-
+    final_weight_counts = {return_cluster_id_string(key): all_cluster_total_weight_counts[key]
+                           for key in sorted(all_cluster_total_weight_counts)}
     print(final_weight_counts)
 
     with open(os.path.join(database, 'statistics.pkl'), 'wb') as f:
