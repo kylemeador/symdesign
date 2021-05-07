@@ -1033,7 +1033,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             trajectories = ['-no_nstruct_label true']
 
         if variables:
-            # variables = ['-parser:script_vars'] + ['%s=%s' % var_val for var_val in variables]
+            for idx, var_val in enumerate(variables):
+                variable, value = var_val.split('=')
+                variables[idx] = '%s=%s' % (variable, getattr(self.pose, value, ''))
             variables = ['-parser:script_vars'] + variables
         else:
             variables = []
