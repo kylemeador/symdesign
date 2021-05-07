@@ -1214,11 +1214,14 @@ if __name__ == '__main__':
             save = False
         else:
             save = True
+        master_directory = next(iter(design_directories))
+        # ensure analysis write directory exists
+        master_directory.make_path(master_directory.all_scores)
         # Start pose analysis of all designed files
         if len(args.output.split('/')) > 1:  # the path is a full or relative path, we should use it
             out_path = args.output
         else:
-            out_path = os.path.join(next(iter(design_directories)).program_root, args.output)
+            out_path = os.path.join(master_directory.program_root, args.output)
 
         if os.path.exists(out_path):
             logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
