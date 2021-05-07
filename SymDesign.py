@@ -30,13 +30,13 @@ from classes.SymEntry import SymEntry
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import FragmentDatabase
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
-from DesignDirectory import DesignDirectory, set_up_directory_objects, get_sym_entry_from_nanohedra_directory
+from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB
 from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map, \
     group_compositions
 from ProteinExpression import find_expression_tags, find_all_matching_pdb_expression_tags, add_expression_tag
-from DesignMetrics import filter_pose, select_sequences, master_metrics, query_user_for_metrics
+from DesignMetrics import filter_pose, master_metrics, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, pdb_to_pose_num
 
 
@@ -690,12 +690,11 @@ if __name__ == '__main__':
     parser_sequence = subparsers.add_parser('sequence_selection',
                                             help='Generate protein sequences for selected designs. Either -df or -p is '
                                                  'required. If both are provided, -p will be prioritized')
-    parser_sequence.add_argument('-c', '--consensus', action='store_true',
-                                 help='Whether to grab the consensus sequence\nDefault=False')
     parser_sequence.add_argument('-f', '--filter', action='store_true',
                                  help='Whether to filter sequence selection using metrics from DataFrame')
     parser_sequence.add_argument('-ns', '--number_sequences', type=int, default=1, metavar='INT',
                                  help='Number of top sequences to return per pose.\nDefault=1')
+    parser_sequence.add_argument('-p', '--protocol', type=str, help='Which protocol to grab the sequence from')
     parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
                                  help='String to prepend to output for custom sequence selection name')
     parser_sequence.add_argument('-w', '--weight', action='store_true',
@@ -1554,37 +1553,27 @@ if __name__ == '__main__':
         else:
             sequence_weights = None
 
-        if args.consensus:
-            results = list(zip(design_directories, repeat('consensus')))
+        # if args.consensus:
+        #     results = list(zip(design_directories, repeat('consensus')))
+        # else:
+        if args.multi_processing:
+            # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
+            #                     'int_energy_res_summary_delta': 0.25}
+            zipped_args = zip(design_directories, repeat(sequence_weights), repeat(args.number_sequences),
+                              repeat(args.protocol))
+            # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, threads))
+            # returns [[], [], ...]
+            result_mp = SDUtils.mp_starmap(DesignDirectory.select_sequences, zipped_args, threads)
+            results = []
+            for result in result_mp:
+                results.extend(result)
+            # results - contains tuple of (DesignDirectory, design index) for each sequence
+            # could simply return the design index then zip with the directory
         else:
-            if args.multi_processing:
-                # # Calculate the number of threads to use depending on computer resources
-                # threads = SDUtils.calculate_mp_threads(cores=args.cores)
-                # logger.info('Starting multiprocessing using %s threads' % str(threads))
-                # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
-                #                     'int_energy_res_summary_delta': 0.25}
-                zipped_args = zip(design_directories, repeat(sequence_weights), repeat(args.number_sequences))
-                # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, threads))
-                # returns [[], [], ...]
-                result_mp = SDUtils.mp_starmap(select_sequences, zipped_args, threads)
-                results = []
-                for result in result_mp:
-                    results.extend(result)
-                # results - contains tuple of (DesignDirectory, design index) for each sequence
-                # could simply return the design index then zip with the directory
-            else:
-                results = []
-                for des_directory in design_directories:
-                    # returns []
-                    results.extend(select_sequences(des_directory, weights=sequence_weights,
-                                                    number=args.number_sequences))
-                # results = zip(*Ams.select_sequences(des_directory, weights=sequence_weights, number=args.number_sequences)
-                #               for des_directory in design_directories)
-
-        # results = list(results)
-        # failures = [index for index, exception in enumerate(exceptions) if exception]  # Todo move to terminate?
-        # for index in reversed(failures):
-        #     del results[index]
+            results = []
+            for design in design_directories:
+                results.extend(design.select_sequences(weights=sequence_weights, number=args.number_sequences,
+                                                       protocol=args.protocol))
 
         if not args.selection_string:
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
