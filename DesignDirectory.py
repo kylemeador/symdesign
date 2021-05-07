@@ -1,11 +1,10 @@
+import os
 import copy
 import math
-import os
 import shutil
 import subprocess
 from glob import glob
 from itertools import combinations, repeat
-import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +13,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import pdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
@@ -27,11 +27,11 @@ from DesignMetrics import columns_to_rename, read_scores, keys_from_trajectory_n
     necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, \
-    protocols_of_interest, df_permutation_test, residue_template, calc_relative_sa, clean_up_intermediate_columns
-from SequenceProfile import calculate_match_metrics, return_fragment_interface_metrics, parse_pssm, \
-    get_db_aa_frequencies, simplify_mutation_dict, make_mutations_chain_agnostic, weave_sequence_dict, \
-    position_specific_jsd, sequence_difference, jensen_shannon_divergence, multi_chain_alignment, \
-    generate_multiple_mutations  # , format_mutations, generate_sequences
+    protocols_of_interest, df_permutation_test, calc_relative_sa, clean_up_intermediate_columns, \
+    format_fragment_metrics, master_metrics
+from SequenceProfile import parse_pssm, generate_multiple_mutations, get_db_aa_frequencies, simplify_mutation_dict, \
+    make_mutations_chain_agnostic, weave_sequence_dict, position_specific_jsd, sequence_difference, \
+    jensen_shannon_divergence, multi_chain_alignment  # , format_mutations, generate_sequences
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 
@@ -1486,12 +1486,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
             # Replace empty strings with numpy.notanumber (np.nan) and convert remaining to float
             scores_df.replace('', np.nan, inplace=True)
-            scores_df = scores_df.astype(float)  # , copy=False)
+            scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             interface_hbonds = dirty_hbond_processing(all_design_scores)
             #                                         , offset=offset_dict) <- when hbonds are pose numbering
+            # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
             all_mutations = keys_from_trajectory_number(
@@ -1933,6 +1934,154 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         pose_s.name = str(self)
 
         return pose_s
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
+    def select_sequences(self, weights=None, number=1, protocol=None):
+        """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
+         sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
+         sequence with the lowest weight will be selected
+
+        Keyword Args:
+            weights=None (iter): The weights to use in sequence selection
+            number=1 (int): The number of sequences to consider for each design
+            protocol=None (str): Whether a particular design protocol should be chosen
+        Returns:
+            (list[tuple[DesignDirectory, str]]): Containing the selected sequences found
+        """
+        # Load relevant data from the design directory
+        trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
+        trajectory_df.dropna(inplace=True)
+        if protocol:
+            # unique_protocols = trajectory_df['protocol'].unique().tolist()
+            # while True:
+            #     protocol = input(
+            #         'Do you have a protocol that you prefer to pull your designs from? Possible '
+            #         'protocols include:\n%s' % ', '.join(unique_protocols))
+            #     if protocol in unique_protocols:
+            #         break
+            #     else:
+            #         print('%s is not a valid protocol, try again.' % protocol)
+            #
+            # designs = trajectory_df[trajectory_df['protocol'] == protocol].index.to_list()
+            designs = trajectory_df[trajectory_df['protocol'] == protocol].index.to_list()
+            if not designs:
+                raise DesignError('No designs found for protocol %s!' % protocol)
+        else:
+            designs = trajectory_df.index.to_list()
+
+        self.log.info('Number of starting trajectories = %d' % len(trajectory_df))
+
+        if weights:
+            filter_df = pd.DataFrame(master_metrics)
+            # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
+            # _df = trajectory_df.loc[final_indices, :]
+            df = trajectory_df.loc[designs, :]
+            self.log.info('Using weighting parameters: %s' % str(weights))
+            _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
+                        for metric in weights}
+            weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
+            # weights_s = pd.Series(weights)
+            weight_score_s_d = {}
+            for metric in _weights:
+                weight_score_s_d[metric] = \
+                    df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+                                    method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
+
+            # design_score_df = pd.DataFrame(weight_score_s_d)  # Todo simplify
+            score_df = pd.concat(weight_score_s_d.values(), axis=1)
+            design_list = score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+            self.log.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
+
+            return list(zip(repeat(self), design_list[:number]))
+        else:
+            # sequences_pickle = glob(os.path.join(self.all_scores, '%s_Sequences.pkl' % str(self)))
+            # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
+            #                                    os.path.join(self.all_scores, '%s_Sequences.pkl' % str(self))
+            #
+            # all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
+            # {chain: {name: sequence, ...}, ...}
+            all_design_sequences = unpickle(self.design_sequences)
+            chains = list(all_design_sequences.keys())
+            concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains])
+                                      for design in designs]
+            self.log.debug(chains)
+            self.log.debug(concatenated_sequences)
+
+            # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)
+            # Using concatenated sequences makes the values very similar and inflated as most residues are the same
+            # doing min/max normalization to see variation
+            pairwise_sequence_diff_l = [sequence_difference(*seq_pair)
+                                        for seq_pair in combinations(concatenated_sequences, 2)]
+            pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
+            _min = min(pairwise_sequence_diff_l)
+            # _max = max(pairwise_sequence_diff_l)
+            pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
+            # self.log.info(pairwise_sequence_diff_l)
+
+            # PCA analysis of distances
+            pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
+            for k, dist in enumerate(pairwise_sequence_diff_np):
+                i, j = condensed_to_square(k, len(designs))
+                pairwise_sequence_diff_mat[i, j] = dist
+            pairwise_sequence_diff_mat = sym(pairwise_sequence_diff_mat)
+
+            pairwise_sequence_diff_mat = StandardScaler().fit_transform(pairwise_sequence_diff_mat)
+            seq_pca = PCA(PUtils.variance)
+            seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
+            seq_pca_distance_vector = pdist(seq_pc_np)
+            # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+            epsilon = seq_pca_distance_vector.mean() * 0.5
+            self.log.info('Finding maximum neighbors within distance of %f' % epsilon)
+
+            # self.log.info(pairwise_sequence_diff_np)
+            # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
+            # epsilon = math.sqrt(seq_pc_np.myean()) * 0.5
+            # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
+
+            # Find the nearest neighbors for the pairwise distance matrix using the X*X^T (PCA) matrix, linear transform
+            seq_neighbors = BallTree(seq_pc_np)  # Todo make brute force or automatic, not BallTree
+            seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon,
+                                                             count_only=True)  # , sort_results=True)
+            top_count, top_idx = 0, None
+            for count in seq_neighbor_counts:  # idx, enumerate()
+                if count > top_count:
+                    top_count = count
+
+            sorted_seqs = sorted(seq_neighbor_counts, reverse=True)
+            top_neighbor_counts = sorted(set(sorted_seqs[:number]), reverse=True)
+
+            # Find only the designs which match the top x (number) of neighbor counts
+            final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
+                             for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
+            self.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
+                          # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
+                          % '\n'.join('\t%d\t%s' % (neighbors, os.path.join(self.designs, design))
+                                      for design, neighbors in final_designs.items()))
+
+            # self.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(self.designs, seq))
+            #                                                         for i, seq in enumerate(final_designs, 1)))
+
+            # Compute the highest density cluster using DBSCAN algorithm
+            # seq_cluster = DBSCAN(eps=epsilon)
+            # seq_cluster.fit(pairwise_sequence_diff_np)
+            #
+            # seq_pc_df = pd.DataFrame(seq_pc, index=designs, columns=['pc' + str(x + SDUtils.index_offset)
+            #                                                          for x in range(len(seq_pca.components_))])
+            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+
+            # If final designs contains more sequences than specified, find the one with the lowest energy
+            if len(final_designs) > number:
+                energy_s = trajectory_df.loc[final_designs.keys(), 'interface_energy']  # includes solvation energy
+                # try:
+                #     energy_s = pd.Series(energy_s)
+                # except ValueError:
+                #     raise DesignError('no dataframe')
+                energy_s.sort_values(inplace=True)
+                final_seqs = zip(repeat(self), energy_s.index.to_list()[:number])
+            else:
+                final_seqs = zip(repeat(self), final_designs.keys())
+
+            return list(final_seqs)
 
     @staticmethod
     def make_path(path, condition=True):
