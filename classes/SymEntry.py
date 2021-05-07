@@ -364,7 +364,8 @@ class SymEntry:
         """
         # valid_pt_gp_symm_list = ["C2", "C3", "C4", "C5", "C6", "D2", "D3", "D4", "D6", "T", "O", "I"]
         # here allows for D5. Is this bad? .pop('D5') The sym_entries are hardcoded...
-        valid_pt_gp_symm_list = valid_subunit_number.keys()
+        valid_pt_gp_symm_list = list(valid_subunit_number.keys())
+        valid_pt_gp_symm_list.remove('D5')
 
         if self.get_group1_sym() not in valid_pt_gp_symm_list:
             raise ValueError("Invalid Point Group Symmetry")
