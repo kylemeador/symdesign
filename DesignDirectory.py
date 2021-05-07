@@ -16,11 +16,11 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
-from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
-from Query import Flags
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError,\
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, filter_dictionary_keys, \
-    all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table
+    all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym
+from Query import Flags
+from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
 from Pose import Pose
 from DesignMetrics import columns_to_rename, read_scores, keys_from_trajectory_number, join_columns, groups, \
@@ -34,6 +34,7 @@ from SequenceProfile import parse_pssm, generate_multiple_mutations, get_db_aa_f
     jensen_shannon_divergence, multi_chain_alignment  # , format_mutations, generate_sequences
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
+from utils.SymmetryUtils import valid_subunit_number
 
 
 # Globals
@@ -41,6 +42,10 @@ logger = start_log(name=__name__)
 idx_offset = 1
 design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
+relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints false',
+               '-no_optH false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev 0.5',
+               '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate true', '-no_nstruct_label true',
+               '-relax:bb_move false']
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
@@ -860,23 +865,72 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.make_path(self.data)
         pickle_object(self.info, self.serialized_info, out_path='')
 
-    def prepare_rosetta_flags(self, flag_variables, out_path=os.getcwd()):  # stage,
+    def prepare_rosetta_flags(self, symmetry_protocol=None, sym_def_file=None, pdb_path=None, out_path=os.getcwd()):
         """Prepare a protocol specific Rosetta flags file with program specific variables
 
         Args:
-            flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
-            # stage (str): The protocol stage or flag suffix to name the specific flags file
+            symmetry_protocol (str): The type of symmetric protocol to use for Rosetta jobs the flags are valid for
+            sym_def_file (str): The file specifying the symmetry system for Rosetta
         Keyword Args:
             out_path=cwd (str): Disk location to write the flags file
         Returns:
             (str): Disk location of the written flags file
         """
-        flags = copy.deepcopy(rosetta_flags)
-        # flags.extend(flag_options[stage])
-        flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores,  # TODO necessary w/ below?
-                      '-scorefile %s' % self.scores_file])
-        flags.append('-parser:script_vars '
-                     + ' '.join('%s=%s' % (variable, str(value)) for variable, value in flag_variables))
+        # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
+        chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
+        self.log.info('Found the following chain breaks in the ASU:\n\t%s'
+                      % ('\n\t'.join('\tEntity %s, Chain %s Residue %d'
+                                     % (entity.name, entity.chain_id, residue_number)
+                                     for entity, residue_number in list(chain_breaks.items())[:-1])))
+        self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
+
+        # Get ASU distance parameters
+        if self.design_dimension:  # when greater than 0
+            max_com_dist = 0
+            for oligomer in self.oligomers:  # Todo modernize once change load pose to oligomer agnostic
+                com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
+                # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
+                if com_dist > max_com_dist:
+                    max_com_dist = com_dist
+            dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
+            self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
+        else:
+            dist = 0
+
+        if self.evolution:
+            constraint_percent = 0.5
+            free_percent = 1 - constraint_percent
+        else:
+            constraint_percent, free_percent = 0, 1
+
+        variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
+                     ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
+                     ('dist', dist), ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+        design_profile = self.info.get('design_profile')
+        variables.extend([('design_profile', design_profile)] if design_profile else [])
+
+        if not symmetry_protocol:
+            symmetry_protocol = self.symmetry_protocol
+        if not sym_def_file:
+            symmetry_protocol = self.sym_def_file
+        variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
+        out_of_bound_residue = list(chain_breaks.values())[-1] + 50
+        variables.extend([(interface, residues) if residues else (interface, out_of_bound_residue)
+                          for interface, residues in self.interface_residues.items()])
+
+        # assign any additional designable residues
+        if self.pose.required_residues:
+            variables.extend([('required_residues', ','.join(str(res.number) for res in self.pose.required_residues))])
+        else:  # get an out of bounds index
+            variables.extend([('required_residues', out_of_bound_residue)])
+
+        flags = copy.copy(rosetta_flags)
+        if pdb_path:
+            flags.extend(['-out:path:pdb %s' % pdb_path, '-scorefile %s' % self.scores_file])
+        else:
+            flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores,  # TODO necessary?
+                          '-scorefile %s' % self.scores_file])
+        flags.append('-parser:script_vars %s' % ' '.join('%s=%s' % tuple(map(str, var_val)) for var_val in variables))
 
         out_file = os.path.join(out_path, 'flags')
         # out_file = os.path.join(out_path, 'flags_%s' % stage)
@@ -893,74 +947,33 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if force_flags or not os.path.exists(flags):  # Generate a new flags_design file
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
-            if self.design_dimension is not None:  # can be 0
-                protocol = PUtils.protocol[self.design_dimension]
-                self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)'
-                               % str(self.sym_entry_number))
-                if self.design_dimension == 0:  # point
-                    sym_def_file = sdf_lookup(self.sym_entry_number)
-                    main_cmd += ['-symmetry_definition', sym_def_file]
-                else:  # layer or space
-                    sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
-                    main_cmd += ['-symmetry_definition', 'CRYST1']
-                self.log.info('Symmetry Option: %s' % protocol)
-            else:
-                sym_def_file = 'null'
-                protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
-                self.log.critical(
-                    'No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s an ASU it'
-                    ' may be missing crucial interface contacts. Is this what you want?')
-
-            chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
-            self.log.info('Found the following chain breaks in the ASU:\n\t%s'
-                          % ('\n\t'.join('\tEntity %s, Chain %s Residue %d'
-                                         % (entity.name, entity.chain_id, residue_number)
-                                         for entity, residue_number in list(chain_breaks.items())[:-1])))
-            self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
-
-            # Get ASU distance parameters
-            if self.design_dimension:  # when greater than 0
-                max_com_dist = 0
-                for oligomer in self.oligomers:  # Todo modernize once change load pose to oligomer agnostic
-                    com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
-                    # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
-                    if com_dist > max_com_dist:
-                        max_com_dist = com_dist
-                dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
-                self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
-            else:
-                dist = 0
-
-            # assign any additional designable residues
-            if self.pose.required_residues:
-                required = ('required_residues', ','.join(str(residue.number)
-                                                          for residue in self.pose.required_residues))
-            else:  # get an out of bounds index
-                required = ('required_residues', int(list(chain_breaks.values())[-1]) + 50)
-
-            if self.evolution:
-                constraint_percent = 0.5
-                free_percent = 1 - constraint_percent
-            else:
-                constraint_percent, free_percent = 0, 1
-
-            flag_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
-                              ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
-                              ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
-                              required, *self.interface_residue_d.items(),  # interface1 or interface2 variable
-                              ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-            design_profile = self.info.get('design_profile')
-            flag_variables.extend([('design_profile', design_profile)] if design_profile else [])
-
             self.make_path(self.scripts)
-            flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
+            flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            # if self.design_dimension is not None:  # can be 0
+            #     protocol = PUtils.protocol[self.design_dimension]
+            #     self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)'
+            #                    % str(self.sym_entry_number))
+            #     if self.design_dimension == 0:  # point
+            #         sym_def_file = sdf_lookup(self.sym_entry_number)
+            #         main_cmd += ['-symmetry_definition', sym_def_file]
+            #     else:  # layer or space
+            #         sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
+            #         main_cmd += ['-symmetry_definition', 'CRYST1']
+            #     self.log.info('Symmetry Option: %s' % protocol)
+            # else:
+            #     sym_def_file = 'null'
+            #     protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
+            #     self.log.critical(
+            #         'No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s an ASU it'
+            #         ' may be missing crucial interface contacts. Is this what you want?')
+        self.prepare_symmetry_for_rosetta()
+        main_cmd += ['-symmetry_definition',
+                     (self.sym_def_file if self.symmetry_protocol in ['null', 'make_point_group'] else 'CRYST1')]
 
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
-        main_cmd += \
-            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % flags,
-             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
-             '-parser:protocol']
+        main_cmd += ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % flags, '-out:file:score_only',
+                     self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
         metric_cmd_bound = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
                                                     % (PUtils.stage[3], '_DEV' if development else ''))]
         metric_cmd_unbound = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
@@ -996,77 +1009,78 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         # Set up the command base (rosetta bin and database paths)
         main_cmd = copy.copy(script_cmd)
-        if self.design_dimension is not None:  # can be 0
-            protocol = PUtils.protocol[self.design_dimension]
-            self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
-            if self.design_dimension == 0:  # point
-                sym_def_file = sdf_lookup(self.sym_entry_number)
-                main_cmd += ['-symmetry_definition', sym_def_file]
-            else:  # layer or space
-                sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
-                main_cmd += ['-symmetry_definition', 'CRYST1']
-            self.log.info('Symmetry Option: %s' % protocol)
-        else:
-            sym_def_file = 'null'
-            protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
-            self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
-                              ' an ASU it may be missing crucial interface contacts. Is this what you want?')
+        # if self.design_dimension is not None:  # can be 0
+        #     protocol = PUtils.protocol[self.design_dimension]
+        #     self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
+        #     if self.design_dimension == 0:  # point
+        #         sym_def_file = sdf_lookup(self.sym_entry_number)
+        #         main_cmd += ['-symmetry_definition', sym_def_file]
+        #     else:  # layer or space
+        #         sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
+        #         main_cmd += ['-symmetry_definition', 'CRYST1']
+        #     self.log.info('Symmetry Option: %s' % protocol)
+        # else:
+        #     sym_def_file = 'null'
+        #     protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
+        #     self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
+        #                       ' an ASU it may be missing crucial interface contacts. Is this what you want?')
+        self.prepare_symmetry_for_rosetta()
+        main_cmd += ['-symmetry_definition',
+                     (self.sym_def_file if self.symmetry_protocol in ['null', 'make_point_group'] else 'CRYST1')]
 
         if self.nano:  # Todo may need to do this for non Nanohedra inputs
             self.log.info('Input Oligomers: %s' % ', '.join(oligomer.name for oligomer in self.oligomers))
 
-        chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
-        self.log.info('Found the following chain breaks in the ASU:\n\t%s'
-                      % ('\n\t'.join('\tEntity %s, Chain %s Residue %d' % (entity.name, entity.chain_id, residue_number)
-                                     for entity, residue_number in list(chain_breaks.items())[:-1])))
-        self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
-
-        # Get ASU distance parameters
-        if self.design_dimension:  # when greater than 0
-            max_com_dist = 0
-            for oligomer in self.oligomers:  # Todo modernize once change load pose to oligomer agnostic
-                com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
-                # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
-                if com_dist > max_com_dist:
-                    max_com_dist = com_dist
-            dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
-            self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
-        else:
-            dist = 0
-
-        # ------------------------------------------------------------------------------------------------------------
-        # Rosetta Execution formatting
-        # ------------------------------------------------------------------------------------------------------------
-        # Prepare flags file
-        # assign any additional designable residues
-        if self.pose.required_residues:
-            required = ('required_residues', ','.join(str(residue.number) for residue in self.pose.required_residues))
-        else:  # get an out of bounds index
-            required = ('required_residues', int(list(chain_breaks.values())[-1]) + 50)
-
-        if self.evolution:
-            constraint_percent = 0.5
-            free_percent = 1 - constraint_percent
-        else:
-            constraint_percent, free_percent = 0, 1
-
-        flag_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
-                          ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
-                          ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
-                          required, *self.interface_residue_d.items(),  # interface1 or interface2 variable
-                          ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-        design_profile = self.info.get('design_profile')
-        flag_variables.extend([('design_profile', design_profile)] if design_profile else [])
-
+        # chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
+        # self.log.info('Found the following chain breaks in the ASU:\n\t%s'
+        #               % ('\n\t'.join('\tEntity %s, Chain %s Residue %d' % (entity.name, entity.chain_id, residue_number)
+        #                              for entity, residue_number in list(chain_breaks.items())[:-1])))
+        # self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
+        #
+        # # Get ASU distance parameters
+        # if self.design_dimension:  # when greater than 0
+        #     max_com_dist = 0
+        #     for oligomer in self.oligomers:  # Todo modernize once change load pose to oligomer agnostic
+        #         com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
+        #         # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
+        #         if com_dist > max_com_dist:
+        #             max_com_dist = com_dist
+        #     dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
+        #     self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
+        # else:
+        #     dist = 0
+        #
+        # # ------------------------------------------------------------------------------------------------------------
+        # # Rosetta Execution formatting
+        # # ------------------------------------------------------------------------------------------------------------
+        # # Prepare flags file
+        # # assign any additional designable residues
+        # if self.pose.required_residues:
+        #     required = ('required_residues', ','.join(str(residue.number) for residue in self.pose.required_residues))
+        # else:  # get an out of bounds index
+        #     required = ('required_residues', int(list(chain_breaks.values())[-1]) + 50)
+        #
+        # if self.evolution:
+        #     constraint_percent = 0.5
+        #     free_percent = 1 - constraint_percent
+        # else:
+        #     constraint_percent, free_percent = 0, 1
+        #
+        # flag_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
+        #                   ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
+        #                   ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
+        #                   required, *self.interface_residues.items(),  # interface1 or interface2 variable
+        #                   ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+        # design_profile = self.info.get('design_profile')
+        # flag_variables.extend([('design_profile', design_profile)] if design_profile else [])
+        #
+        # self.make_path(self.scripts)
+        # flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
         self.make_path(self.scripts)
-        flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
+        flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
         shell_scripts = []
         # RELAX: Prepare command
-        relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints false',
-                       '-no_optH false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev 0.5',
-                       '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate true', '-no_nstruct_label true',
-                       '-relax:bb_move false']
         relax_cmd = main_cmd + relax_flags + ['@%s' % flags, '-in:file:native', self.refine_pdb] + \
             ['-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
         refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
@@ -1137,7 +1151,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         metric_cmd = main_cmd + \
             ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % flags,
-             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label', 'true',
+             '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[3])]
 
         if self.mpi:
@@ -1233,14 +1247,93 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         pdb.write(out_path=self.asu)
 
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
-    def orient(self):
+    def orient(self, to_design_directory=False):
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         self.symmetry is used to specify the orientation
         """
         pdb = PDB.from_file(self.source, log=self.log)
-        oriented_pdb = pdb.orient(sym=self.design_symmetry, orient_dir=PUtils.orient_dir)
-        out_path = oriented_pdb.write(out_path=self.assembly)
-        # return out_path
+        oriented_pdb = pdb.orient(sym=self.design_symmetry, out_dir=self.orient_dir)
+        if to_design_directory:
+            path = self.assembly
+        else:
+            path = self.orient_dir
+            self.make_path(self.orient_dir)
+        return oriented_pdb.write(out_path=path)
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
+    def refine(self, to_design_directory=False, force_flags=False):
+        """Refine the source PDB using self.symmetry to specify any symmetry"""
+        relax_cmd = copy.copy(script_cmd)
+        stage = PUtils.stage[1]
+        if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
+            flags = os.path.join(self.scripts, 'flags')
+            flag_dir = self.scripts
+            pdb_path = self.refined_pdb
+            additional_flags = []
+            # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
+            self.load_pose()
+            # Todo unnecessary? call self.load_pose with a flag for the type of file? how to reconcile with interface
+            #  design and the asu versus pdb distinction. Can asu be implied by symmetry? Not for a trimer input that
+            #  needs to be oriented and refined
+            # assign designable residues to interface1/interface2 variables, not necessary for non complex PDB jobs
+            self.identify_interface()
+            if self.consensus:
+                # TODO implement pose.consensus here
+                if self.design_with_fragments:
+                    stage = PUtils.stage[5]
+                    refine_pdb = self.consensus_pdb
+                else:
+                    raise DesignError(
+                        'Cannot run consensus design without fragment info and none was found. Did you mean '
+                        'to design without -generate_fragments? You will need to include the flag if you want'
+                        ' to use fragments')
+            else:
+                # Mutate all design positions to Ala before the Refinement
+                # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
+                # mutated_pdb = copy.copy(self.pose.pdb)  # copy method implemented, but incompatible!
+                # Have to use self.pose.pdb as Residue objects in entity_residues are from self.pose.pdb and not copy()!
+                for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
+                    if interface_residue_sets[0]:  # check that there are residues present
+                        for idx, interface_residue_set in enumerate(interface_residue_sets):
+                            self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
+                            for residue in interface_residue_set:
+                                self.log.debug('Mutating %d%s' % (residue.number, residue.type))
+                                if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+                                    self.pose.pdb.mutate_residue(residue=residue, to='A')
+
+                self.pose.pdb.write(out_path=self.refine_pdb)
+                refine_pdb = self.refine_pdb
+                self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
+        else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
+            flags = os.path.join(self.refine_dir, 'refine_flags')
+            flag_dir = self.refine_dir
+            pdb_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
+            # out_put_pdb_path = os.path.join(self.refine_dir, '%s.pdb' % self.pose.name)
+            refine_pdb = self.source
+            additional_flags = ['-no_scorefile', 'true']  # -run:no_scorefile? Todo Test
+
+        if force_flags or not os.path.exists(flags):  # Generate a new flags file
+            self.make_path(flag_dir)
+            flags = self.prepare_rosetta_flags(pdb_path=pdb_path, out_path=self.scripts)
+
+        self.prepare_symmetry_for_rosetta()
+        # RELAX: Prepare command Todo remove in:file:native as it shouldn't be necessary without metrics
+        relax_cmd += relax_flags + additional_flags + \
+            ['-symmetry_definition', (self.sym_def_file if self.symmetry_protocol in ['null', 'make_point_group']
+                                      else 'CRYST1'),
+             '@%s' % flags, '-in:file:native', self.source, '-in:file:s', refine_pdb,
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
+             '-parser:script_vars', 'switch=%s' % stage]
+        self.log.info('%s Command: %s' % (stage.title(), subprocess.list2cmdline(relax_cmd)))
+
+        # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
+        if self.script:
+            write_shell_script(subprocess.list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
+                               status_wrap=self.serialized_info)
+        else:
+            relax_process = subprocess.Popen(relax_cmd)
+            # Wait for Rosetta Consensus command to complete
+            relax_process.communicate()
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
     def find_asu(self):
