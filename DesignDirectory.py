@@ -986,19 +986,89 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                            out_path=self.scripts,  # status_wrap=self.serialized_info,
                            additional=[subprocess.list2cmdline(command) for command in metric_cmds])
 
-    def rosetta_metrics_bound(self):
-        """Generate a script to calculate the metrics for a bound pose using the existing flags_design file"""
-        flags_design = os.path.join(self.scripts, 'flags_%s' % PUtils.stage[2])
-        pdb_list = os.path.join(self.scripts, 'design_files.txt')
-        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
-        main_cmd = copy.copy(script_cmd)
-        metric_cmd = main_cmd + \
-            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % os.path.join(self.path, flags_design),
-             '-out:file:score_only', os.path.join(self.scores, PUtils.scores_file), '-no_nstruct_label true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s_bound.xml' % PUtils.stage[3])]
-        # Todo remove _bound?
-        write_shell_script(subprocess.list2cmdline(generate_files_cmd), name='%s_bound' % PUtils.stage[3],
-                           out_path=self.scripts, additional=[subprocess.list2cmdline(metric_cmd)])
+    def custom_rosetta_script(self, script, force_flags=False, file_list=None, native=None, suffix=None,
+                              score_only=None, variables=None, **kwargs):
+        """Generate a custom script to dispatch to the design using a variety of parameters"""
+        cmd = copy.copy(script_cmd)
+        script_name = os.path.splitext(os.path.basename(script))[0]
+        flags = os.path.join(self.scripts, 'flags')
+        if force_flags or not os.path.exists(flags):  # Generate a new flags_design file
+            # Need to assign the designable residues for each entity to a interface1 or interface2 variable
+            self.identify_interface()
+            self.make_path(self.scripts)
+            flags = self.prepare_rosetta_flags(out_path=self.scripts)
+
+        self.prepare_symmetry_for_rosetta()
+        cmd += ['-symmetry_definition',
+                (self.sym_def_file if self.symmetry_protocol in ['null', 'make_point_group'] else 'CRYST1')]
+
+        if file_list:
+            pdb_input = os.path.join(self.scripts, 'design_files.txt')
+            generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
+        else:
+            pdb_input = self.refined_pdb
+            generate_files_cmd = ['']  # empty command
+
+        if native:
+            native = getattr(self, native, 'refined_pdb')
+        else:
+            native = self.refined_pdb
+
+        # if isinstance(suffix, str):
+        #     suffix = ['-out:suffix', '_%s' % suffix]
+        # if isinstance(suffix, bool):
+        if suffix:
+            suffix = ['-out:suffix', '_%s' % script_name]
+        else:
+            suffix = []
+
+        if score_only:
+            score = ['-out:file:score_only', self.scores_file]
+        else:
+            score = []
+
+        if self.number_of_trajectories:
+            trajectories = ['-nstruct', str(self.number_of_trajectories)]
+        else:
+            trajectories = ['-no_nstruct_label true']
+
+        if variables:
+            # variables = ['-parser:script_vars'] + ['%s=%s' % var_val for var_val in variables]
+            variables = ['-parser:script_vars'] + variables
+        else:
+            variables = []
+
+        cmd += ['-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native, '@%s' % flags] + \
+            score + suffix + trajectories + \
+            ['-parser:protocol', script] + variables
+        write_shell_script(subprocess.list2cmdline(generate_files_cmd),
+                           name=script_name, out_path=self.scripts, additional=[subprocess.list2cmdline(cmd)])
+
+    def prepare_symmetry_for_rosetta(self):
+        """For the specified design, locate/make the symmetry files necessary for Rosetta input
+
+        Returns:
+            (tuple[str, str]): The protocol to generate symmetry, and the location of the symmetry definition file
+        """
+        if self.design_dimension is not None:  # can be 0
+            self.symmetry_protocol = PUtils.protocol[self.design_dimension]
+            self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
+            if self.design_dimension == 0:  # point
+                if self.design_symmetry in ['T', 'O', 'I']:
+                    self.sym_def_file = sdf_lookup(self.sym_entry_number)
+                elif self.design_symmetry in valid_subunit_number.keys():  # todo standardize oriented versions of these
+                    self.make_path(self.sdf_dir)
+                    self.sym_def_file = self.pose.pdb.make_sdf(out_path=self.sdf_dir)
+                else:
+                    raise ValueError('The symmetry %s is unavailable at this time!')
+            else:  # layer or space
+                self.sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
+            self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
+        else:
+            self.sym_def_file = 'null'
+            self.symmetry_protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
+            self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
+                              ' an ASU it may be missing crucial interface contacts. Is this what you want?')
 
     def prepare_rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
