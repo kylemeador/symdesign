@@ -623,12 +623,18 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_interface_metrics = \
         subparsers.add_parser('interface_metrics',
-                              help='Set up RosettaScript to analyze interface metrics from an interface design job')
+                              help='Set up RosettaScript to analyze interface metrics from an interface design job. '
+                                   'If the specific flags should be generated fresh use --force_flags')
     # parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
     #                                       help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
     parser_custom_script = \
-        subparsers.add_parser('custom_script', help='Set up a custom RosettaScripts.xml for designs')
+        subparsers.add_parser('custom_script',
+                              help='Set up a custom RosettaScripts.xml for designs. The custom_script will be provided '
+                                   'to every directory specified and can be run with a number of options specified '
+                                   'below. Additionally, If the script should be run multiple times, include the flag '
+                                   '--number_of_trajectories INT. If the specific flags should be generated fresh use '
+                                   '--force_flags')
     # parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
     #                                       help='Force generation of a new flags file to update script parameters')
     parser_custom_script.add_argument('-l', '--file_list', action='store_true',
@@ -640,8 +646,9 @@ if __name__ == '__main__':
                                                'consensus_pdb', 'consensus_design_pdb'])
     parser_custom_script.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
     parser_custom_script.add_argument('script', type=os.path.abspath, help='The location of the custom script')
-    parser_custom_script.add_argument('--suffix', type=str, help='A custom string to append (by \'_\') to each output '
-                                                                 'file (in .sc and .pdb) to identify this protocol')
+    parser_custom_script.add_argument('--suffix', action='store_true',
+                                      help='Append to each output file (decoy in .sc and .pdb) the script name '
+                                           '(i.e. \'_SCRIPT\') to identify this protocol. No extension will be used')
     parser_custom_script.add_argument('-v', '--variables', type=str, nargs='*',
                                       help='Additional variables that should be populated in the script. Provide a list'
                                            ' of such variables with the format \'varible1=value varible2=value\'. Where'
