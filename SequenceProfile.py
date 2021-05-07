@@ -1,7 +1,6 @@
 import math
 import os
 import subprocess
-import sys
 import time
 from copy import deepcopy, copy
 from glob import glob
@@ -14,7 +13,7 @@ from Bio.SeqUtils import IUPACData
 
 import CommandDistributer
 import PathUtils as PUtils
-from SymDesignUtils import handle_errors_f, unpickle, get_all_base_root_paths, DesignError, start_log
+from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log
 
 
 # Globals
@@ -52,7 +51,6 @@ class SequenceProfile:
         self.fragment_queries = {}
         self.fragment_map = {}
         self.fragment_profile = {}
-        self.fragment_metrics = {}
         self.interface_data_file = None
         self.alpha = {}
 
@@ -140,8 +138,8 @@ class SequenceProfile:
     # def sequence(self, sequence):
     #     self._sequence = sequence
 
-    def add_profile(self, evolution=True, out_path=os.getcwd(), null=False,
-                    fragments=True, fragment_observations=None, entities=None, pdb_numbering=True, **kwargs):
+    def add_profile(self, evolution=True, out_path=os.getcwd(), null=False, fragments=True, **kwargs):
+        #           fragment_observations=None, entities=None, pdb_numbering=True,
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Keyword Args:
@@ -155,26 +153,28 @@ class SequenceProfile:
             self.add_evolutionary_profile(null=null, **kwargs)
 
         if fragments:  # add fragment information to the SequenceProfile
-            if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
-                if entities:
-                    self.add_fragment_query(entity1=entities[0], entity2=entities[1], query=fragment_observations,
-                                            pdb_numbering=pdb_numbering)
-                    # if pdb_numbering:  # Renumber to Pose residue numbering
-                    #     fragment_source = self.renumber_fragments_to_pose(fragment_source)
-                    #     for idx, fragment in enumerate(fragment_source):
-                    #         fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-                    #         fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-                    #         fragment_source[idx] = fragment
-                    # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
-                else:
-                    self.log.error('%s: Argument \'entities\' (tuple) is required if fragment_observations are provided'
-                                   % self.add_profile.__name__)
-                    return None
+            # if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
+            #     if entities:
+            #         self.add_fragment_query(entity1=entities[0], entity2=entities[1], query=fragment_observations,
+            #                                 pdb_numbering=pdb_numbering)
+            #         # if pdb_numbering:  # Renumber to Pose residue numbering
+            #         #     fragment_source = self.renumber_fragments_to_pose(fragment_source)
+            #         #     for idx, fragment in enumerate(fragment_source):
+            #         #         fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
+            #         #         fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
+            #         #         fragment_source[idx] = fragment
+            #         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
+            #     else:
+            #         self.log.error('%s: Argument \'entities\' (tuple) is required if fragment_observations are provided'
+            #                        % self.add_profile.__name__)
+            #         return None
 
-            elif self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
+            if self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
                 self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
                                                    for fragments in idx_d.values() for fragment in fragments])
-            # else:  # eventual problem if not included here.
+            else:
+                raise DesignError('Fragments were specified but have not been added to the SequenceProfile! '
+                                  'The Pose/Entity must call assign_fragments() with fragment information')
 
             # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
@@ -340,7 +340,7 @@ class SequenceProfile:
         p = subprocess.Popen(cmd)
         p.wait()
 
-    @handle_errors_f(errors=(FileNotFoundError,))
+    @handle_errors(errors=(FileNotFoundError,))
     def parse_psiblast_pssm(self):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
         # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_design_profile, CHANGE psiblast lod score parsing
@@ -385,7 +385,7 @@ class SequenceProfile:
         p = subprocess.Popen(cmd)
         p.wait()
 
-    @handle_errors_f(errors=(FileNotFoundError,))
+    @handle_errors(errors=(FileNotFoundError,))
     def parse_hhblits_pssm(self, null_background=True):
         """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
@@ -499,174 +499,6 @@ class SequenceProfile:
             # outfile.write('>%s\n%s\n' % (name, self.structure_sequence))
 
         return self.sequence_file
-
-    def renumber_fragments_to_pose(self, fragments):  # Todo Pose
-        for idx, fragment in enumerate(fragments):
-            # if self.structure.residue_from_pdb_numbering():
-            # only assign the new fragment number info to the fragments if the residue is found
-            map_pose_number = self.structure.residue_number_from_pdb(fragment['mapped'])
-            fragment['mapped'] = map_pose_number if map_pose_number else fragment['mapped']
-            pair_pose_number = self.structure.residue_number_from_pdb(fragment['paired'])
-            fragment['paired'] = pair_pose_number if pair_pose_number else fragment['paired']
-            # fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-            # fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-            fragments[idx] = fragment
-
-        return fragments
-
-    # def return_entity_interface_metrics(self):
-    #     """NOT YET ACCURATE TODO split the fragment info before the interface metric calculation...
-    #     From the calculated fragment queries, return the interface metrics attributed to each entity"""
-    #     metrics_by_query = self.return_fragment_query_metrics()
-    #
-    #     # pre-populate the dictionary with all queried entities
-    #     entity_metrics_d = {query_pair[0]: {} for query_pair in metrics_by_query}
-    #     entity_metrics_d.update({query_pair[1]: {} for query_pair in metrics_by_query})
-    #     # separate the metrics from a query to an entity
-    #     for query_pair, metrics in metrics_by_query.items():
-    #         for entity in query_pair:
-    #             if entity_metrics_d[entity]:
-    #                 for key in entity_metrics_d[entity]:
-    #                     entity_metrics_d[entity][key] += metrics[key]
-    #             else:
-    #                 entity_metrics_d[entity] = metrics
-    #
-    #     return entity_metrics_d
-
-    # 'fragment_cluster_ids': ','.join(clusters),  # Todo
-    # 'total_interface_residues': total_residues,
-    # 'percent_residues_fragment_total': percent_interface_covered,
-    # 'percent_residues_fragment_center': percent_interface_matched,
-
-    def return_fragment_query_metrics(self, total=True, per_interface=False, per_entity=False,
-                                      entity1=None, entity2=None):  # Todo Pose
-        """From the calculated fragment queries, return the interface metrics for each pair
-        Todo Expand to other metrics after design?
-        Return the various metrics calculated by overlapping fragments at the interface of two proteins
-
-        Returns:
-            (dict): {query1: {all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap,
-            central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d}, ... }
-        """
-        # Todo once moved to pose, incorporate these?
-        #  'fragment_cluster_ids': ','.join(clusters),
-        #  'total_interface_residues': total_residues,
-        #  'percent_residues_fragment_total': percent_interface_covered,
-        #  'percent_residues_fragment_center': percent_interface_matched,
-        if per_interface:
-            if not entity1 and not entity2:
-                self.log.error('%s: Entity %s or Entity %s can\'t be None!'
-                               % (self.return_fragment_query_metrics.__name__, entity1.name, entity2.name))
-                return None
-
-            for query_pair, metrics in self.fragment_metrics.items():
-                if entity1 in query_pair and entity2 in query_pair:
-                    return return_fragment_interface_metrics(metrics)
-                else:
-                    self.log.info('Couldn\'t locate query metrics for %s and %s pair' % (entity1.name, entity2.name))
-                    return None
-
-        elif per_entity:
-            return_d = {}
-            for query_pair, metrics in self.fragment_metrics.items():
-                for idx, entity in enumerate(query_pair):
-                    align_type = SequenceProfile.idx_to_alignment_type[idx]
-                    if entity in return_d[entity]:
-                        return_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
-                        return_d[entity]['nanohedra_score_central'] += metrics[align_type]['center']['score']
-                        return_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
-                        return_d[entity]['number_fragment_residues_total'] += metrics[align_type]['total']['number']
-                        return_d[entity]['number_fragment_residues_central'] += metrics[align_type]['center']['number']
-                        return_d[entity]['number_fragments'] += metrics['total']['observations']
-                        return_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
-                        return_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
-                        return_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
-                                                                      metrics[align_type]['index_count'][4] +
-                                                                      metrics[align_type]['index_count'][5])
-                    else:
-                        return_d[entity] = {'nanohedra_score': metrics[align_type]['total']['score'],
-                                            'nanohedra_score_central': metrics[align_type]['center']['score'],
-                                            'multiple_fragment_ratio': metrics[align_type]['multiple_ratio'],
-                                            'number_fragment_residues_total': metrics[align_type]['total']['number'],
-                                            'number_fragment_residues_central': metrics[align_type]['center']['number'],
-                                            'number_fragments': metrics['total']['observations'],
-                                            'percent_fragment_helix': metrics[align_type]['index_count'][1],
-                                            'percent_fragment_strand': metrics[align_type]['index_count'][2],
-                                            'percent_fragment_coil': metrics[align_type]['index_count'][3] +
-                                            metrics[align_type]['index_count'][4] +
-                                            metrics[align_type]['index_count'][5]}
-            for entity in return_d:
-                return_d[entity]['percent_fragment_helix'] /= return_d[entity]['number_fragments']
-                return_d[entity]['percent_fragment_strand'] /= return_d[entity]['number_fragments']
-                return_d[entity]['percent_fragment_coil'] /= return_d[entity]['number_fragments']
-
-            return return_d
-
-        elif total:
-            return_d = {'nanohedra_score': 0.0, 'nanohedra_score_central': 0.0, 'multiple_fragment_ratio': 0.0,
-                        'number_fragment_residues_total': 0, 'number_fragment_residues_central': 0,
-                        'number_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
-                        'percent_fragment_coil': 0.0}
-            for query_pair, metrics in self.fragment_metrics.items():
-                return_d['nanohedra_score'] += metrics['total']['total']['score']
-                return_d['nanohedra_score_central'] += metrics['total']['center']['score']
-                return_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
-                return_d['number_fragment_residues_total'] += metrics['total']['total']['number']
-                return_d['number_fragment_residues_central'] += metrics['total']['center']['number']
-                return_d['number_fragments'] += metrics['total']['observations']
-                return_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
-                return_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
-                return_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
-                                                      metrics['total']['index_count'][4] +
-                                                      metrics['total']['index_count'][5])
-            try:
-                return_d['percent_fragment_helix'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-                return_d['percent_fragment_strand'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-                return_d['percent_fragment_coil'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-            except ZeroDivisionError:
-                pass
-
-            return return_d
-
-    def calculate_fragment_query_metrics(self):  # Todo Pose
-        """From the profile's fragment queries, calculate and store the query metrics per query"""
-        for query_pair, fragment_matches in self.fragment_queries.items():
-            self.fragment_metrics[query_pair] = calculate_match_metrics(fragment_matches)
-
-    # def return_fragment_info(self):
-    #     clusters, residue_numbers, match_scores = [], [], []
-    #     for query_pair, fragments in self.fragment_queries.items():
-    #         for query_idx, entity_name in enumerate(query_pair):
-    #             clusters.extend([fragment['cluster'] for fragment in fragments])
-    #             clusters.extend([fragment['cluster'] for fragment in fragments])
-    #             clusters.extend([fragment['cluster'] for fragment in fragments])
-    #             clusters.extend([fragment['cluster'] for fragment in fragments])
-
-    def add_fragment_query(self, entity1=None, entity2=None, query=None, pdb_numbering=False):  # Todo Pose
-        """This funcion has all sorts of logic pitfalls and may be more trouble than it alleviates. How easy would it
-        be to Todo refactor code to deal with the chain info from the frag match file?"""
-        if pdb_numbering:  # Renumber self.fragment_map and self.fragment_profile to Pose residue numbering
-            query = self.renumber_fragments_to_pose(query)
-            # for idx, fragment in enumerate(fragment_source):
-            #     fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-            #     fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-            #     fragment_source[idx] = fragment
-            if entity1 and entity2 and query:
-                self.fragment_queries[(entity1, entity2)] = query
-        else:
-            entity_pairs = [(self.structure.entity_from_residue(fragment['mapped']),
-                             self.structure.entity_from_residue(fragment['paired'])) for fragment in query]
-            if all([all(pair) for pair in entity_pairs]):
-                for entity_pair, fragment in zip(entity_pairs, query):
-                    if entity_pair in self.fragment_queries:
-                        self.fragment_queries[entity_pair].append(fragment)
-                    else:
-                        self.fragment_queries[entity_pair] = [fragment]
-            else:
-                raise DesignError('%s: Couldn\'t locate Pose Entities passed by residue number. Are the residues in '
-                                  'Pose Numbering? This may be occurring due to fragment queries performed on the PDB '
-                                  'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
-                                  ' modifications' % self.add_fragment_query.__name__)
 
     # fragments
     # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
@@ -1718,7 +1550,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
 #     return outfile_name, p
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
+@handle_errors(errors=(FileNotFoundError,))
 def parse_pssm(file):
     """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
 
@@ -1778,7 +1610,7 @@ def get_lod(aa_freq_dict, bg_dict, round_lod=True):
     return lods
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
+@handle_errors(errors=(FileNotFoundError,))
 def parse_hhblits_pssm(file, null_background=True):
     # Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
     dummy = 0.00
@@ -2065,23 +1897,6 @@ def sequence_difference(seq1, seq2, d=None, matrix='BLOSUM62'):  # TODO AMS
     return s
 
 
-def remove_non_mutations(frequency_msa, residue_list):
-    """Keep residues which are present in provided list
-
-    Args:
-        frequency_msa (dict): {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...}
-        residue_list (list): [15, 16, 18, 20, 34, 35, 67, 108, 119]
-    Returns:
-        mutation_dict (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
-    """
-    mutation_dict = {}
-    for residue in frequency_msa:
-        if residue in residue_list:
-            mutation_dict[residue] = frequency_msa[residue]
-
-    return mutation_dict
-
-
 def return_consensus_design(frequency_sorted_msa):
     for residue in frequency_sorted_msa:
         if residue == 0:
@@ -2096,7 +1911,7 @@ def return_consensus_design(frequency_sorted_msa):
                 frequency_sorted_msa[residue] = None
 
 
-def pos_specific_jsd(msa, background):
+def position_specific_jsd(msa, background):
     """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
 
     Both msa_dictionary and background must be the same index
@@ -2107,25 +1922,24 @@ def pos_specific_jsd(msa, background):
     Returns:
         divergence_dict (dict): {15: 0.732, 16: 0.552, ...}
     """
-    return {residue: res_divergence(msa[residue], background[residue]) for residue in msa if residue in background}
+    return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
 
 
-def res_divergence(position_freq, bgd_freq, jsd_lambda=0.5):
+def distribution_divergence(freq, bgd_freq, lambda_=0.5):
     """Calculate residue specific Jensen-Shannon Divergence value
 
     Args:
-        position_freq (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_freq (dict): {15: {'A': 0, 'R': 0, ...}
+        freq (dict): {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+        bgd_freq (dict): {'A': 0, 'R': 0, ...}
     Keyword Args:
         jsd_lambda=0.5 (float): Value bounded between 0 and 1
     Returns:
-        divergence (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
+        (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
     sum_prob1, sum_prob2 = 0, 0
-    for aa in position_freq:
-        p = position_freq[aa]
-        q = bgd_freq[aa]
-        r = (jsd_lambda * p) + ((1 - jsd_lambda) * q)
+    for item in freq:
+        p, q = freq[item], bgd_freq[item]
+        r = (lambda_ * p) + ((1 - lambda_) * q)
         if r == 0:
             continue
         if q != 0:
@@ -2134,26 +1948,21 @@ def res_divergence(position_freq, bgd_freq, jsd_lambda=0.5):
         if p != 0:
             prob1 = (p * math.log(p / r, 2))
             sum_prob1 += prob1
-    divergence = round(jsd_lambda * sum_prob1 + (1 - jsd_lambda) * sum_prob2, 3)
 
-    return divergence
+    return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
 
 
-def create_bio_msa(sequence_dict):
+def create_bio_msa(named_sequences):
     """
     Args:
-        sequence_dict (dict): {name: sequence, ...}
+        named_sequences (dict): {name: sequence, ...}
             ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
     Returns:
-        new_alignment (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
-                                               SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
+        (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
+                                 SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
     """
-    sequences = [SeqRecord(Seq(sequence_dict[name]), annotations={'molecule_type': 'Protein'}, id=name)
-                 for name in sequence_dict]
-    # sequences = [SeqIO.SeqRecord(Seq(sequence_dict[name], generic_protein), id=name) for name in sequence_dict]
-    new_alignment = MultipleSeqAlignment(sequences)
-
-    return new_alignment
+    return MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+                                 for name, sequence in named_sequences.items()])
 
 
 def make_mutations(seq, mutations, find_orf=True):
@@ -2329,19 +2138,23 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
     return mutations
 
 
+def format_mutations(mutations):
+    return ['%s%d%s' % (mutation['from'], index, mutation['to']) for index, mutation in mutations.items()]
+
+
 def make_mutations_chain_agnostic(mutations):
     """Remove chain identifier from mutation dictionary
 
     Args:
-        mutations (dict): {pdb: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        mutations (dict): {design: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     Returns:
         (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
     flattened_mutations = {}
-    for pdb in mutations:
-        flattened_mutations[pdb] = {}
-        for chain in mutations[pdb]:
-            flattened_mutations[pdb].update(mutations[pdb][chain])
+    for design, chain_mutations in mutations.items():
+        flattened_mutations[design] = {}
+        for chain, mutations in chain_mutations.items():
+            flattened_mutations[design].update(mutations)
 
     return flattened_mutations
 
@@ -2417,217 +2230,33 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
     return weaved_dict
 
 
-def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_prob, resi_divergence, int_divergence):
-    """Make final dictionary indexed to sequence, from same-indexed, residue numbered, sequence dictionaries
+def weave_sequence_dict(base_dict=None, **kwargs):
+    """Weave together a single dictionary with residue numbers as keys, from separate residue keyed, dictionaries
+    All supplied dictionaries must be same integer index for accurate function
 
-    Args:
-        *args (dict)
     Keyword Args:
-        base=None (dict): Original dictionary
-        **kwargs (dict): key=dictionary pairs to include in the final dictionary
-            sorted_freq={15: ['S', 'A', 'T'], ... }, mut_prob={15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...},
-                divergence (dict): {15: 0.732, 16: 0.552, ...}
+        base=None (dict): If a dictionary already exists, pass the dictionary to add residue data to
+        **kwargs (dict): keyword=dictionary pairs. Ex: sorted_freq={16: ['S', 'A', ...], ... },
+            mut_prob={16: {'A': 0.05, 'C': 0.01, ...}, ...}, jsd={16: 0.732, 17: 0.552, ...}
     Returns:
-        weaved_dict (dict): {16: {'freq': {'S': 0.134, 'A': 0.050, ...,} 'jsd': 0.732, 'int_jsd': 0.412}, ...}
+        (dict): {16: {'mut_prob': {'A': 0.05, 'C': 0.01, ...}, 'jsd': 0.732, 'sorted_freq': ['S', 'A', ...]}, ...}
     """
-    if base_dict:
-        weaved_dict = base_dict
-    else:
-        weaved_dict = {}
+    if not base_dict:
+        base_dict = {}
 
-    # print('kwargs', kwargs)
-    for seq_dict in kwargs:
-        # print('seq_dict', seq_dict)
-        for residue in kwargs[seq_dict]:
-            if residue not in weaved_dict:
-                weaved_dict[residue] = {}
+    for observation_type, sequence_data in kwargs.items():
+        for residue, value in sequence_data.items():
+            if residue not in base_dict:
+                base_dict[residue] = {}
             # else:
-            #     weaved_dict[residue][seq_dict] = {}
-            if isinstance(kwargs[seq_dict][residue], dict):  # TODO make endlessly recursive?
-                weaved_dict[residue][seq_dict] = {}
-                for sub_key in kwargs[seq_dict][residue]:  # kwargs[seq_dict][residue]
-                    weaved_dict[residue][seq_dict][sub_key] = kwargs[seq_dict][residue][sub_key]
-            else:
-                weaved_dict[residue][seq_dict] = kwargs[seq_dict][residue]
+            #     weaved_dict[residue][observation_type] = {}
+            # if isinstance(value, dict):  # TODO make endlessly recursive?
+                # base_dict[residue][observation_type] = dict(sub_item for sub_item in value.items())
+                # base_dict[residue][observation_type] = value
+            # else:
+            base_dict[residue][observation_type] = value
 
-    # ensure all residues in weaved_dict have every keyword
-    # missing_keys = {}
-    # for residue in weaved_dict:
-    #     missing_set = set(kwargs.keys()) - set(weaved_dict[residue].keys())
-    #     if missing_set:
-    #         for missing in missing_set:
-    #             weaved_dict[residue][missing] = None
-        # missing_keys[residue] = set(kwargs.keys()) - set(weaved_dict[residue].keys())
-    # for residue in missing_keys:
-
-    return weaved_dict
-
-
-def return_fragment_interface_metrics(metrics, null=False):
-    """For a set of fragment metrics, return the formatted total fragment metrics"""
-    if null:
-        return {'nanohedra_score': 0.0, 'nanohedra_score_central': 0.0, 'multiple_fragment_ratio': 0.0,
-                'number_fragment_residues_total': 0, 'number_fragment_residues_central': 0, 'number_fragments': 0,
-                'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0, 'percent_fragment_coil': 0.0}
-    return {'nanohedra_score': metrics['total']['total']['score'],
-            'nanohedra_score_central': metrics['total']['center']['score'],
-            'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
-            'number_fragment_residues_total': metrics['total']['total']['number'],
-            'number_fragment_residues_central': metrics['total']['center']['number'],
-            'number_fragments': metrics['total']['observations'],
-            'percent_fragment_helix': (metrics['total']['index_count'][1] /
-                                       (metrics['total']['observations'] * 2)),
-            'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
-            'percent_fragment_coil': ((metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
-                                       + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2))}
-
-
-def calculate_match_metrics(fragment_matches):
-    """Return the various metrics calculated by overlapping fragments at the interface of two proteins
-
-    Args:
-        fragment_matches (list[dict]): [{'mapped': entity1_resnum, 'match': score_term, 'paired': entity2_resnum,
-                                         'culster': cluster_id}, ...]
-    Returns:
-        (dict): {'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
-                            'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
-                            'match_scores': {residue number(int): (list[score (float)]), ...},
-                            'index_count': {index (int): count (int), ...},
-                            'multiple_ratio': (float)}
-                 'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
-                 'total': {'center': {'score': , 'number': },
-                           'total': {'score': , 'number': },
-                           'index_count': , 'multiple_ratio': , 'observations': (int)}
-                 }
-        # (tuple): all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap, \
-        # central_residues_with_fragment_overlap, multiple_frag_ratio, total_fragment_content
-    """
-    if not fragment_matches:
-        return None
-
-    fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-    fragment_j_index_count_d = copy(fragment_i_index_count_d)
-    total_fragment_content = copy(fragment_i_index_count_d)
-
-    entity1_match_scores, entity2_match_scores = {}, {}
-    separated_fragment_metrics = {'mapped': {'center': {'residues': set()}, 'total': {'residues': set()}},
-                                  'paired': {'center': {'residues': set()}, 'total': {'residues': set()}},
-                                  'total': {'observations': len(fragment_matches), 'center': {}, 'total': {}}}
-    # interface_residues_with_fragment_overlap = {'mapped': set(), 'paired': set()}
-    for fragment in fragment_matches:
-
-        # interface_residues_with_fragment_overlap['mapped'].add(fragment['mapped'])
-        # interface_residues_with_fragment_overlap['paired'].add(fragment['paired'])
-        separated_fragment_metrics['mapped']['center']['residues'].add(fragment['mapped'])
-        separated_fragment_metrics['paired']['center']['residues'].add(fragment['paired'])
-        covered_residues_pdb1 = [(fragment['mapped'] + j) for j in range(-2, 3)]
-        covered_residues_pdb2 = [(fragment['paired'] + j) for j in range(-2, 3)]
-        for k in range(5):
-            resnum1 = covered_residues_pdb1[k]
-            resnum2 = covered_residues_pdb2[k]
-            separated_fragment_metrics['mapped']['total']['residues'].add(resnum1)
-            separated_fragment_metrics['paired']['total']['residues'].add(resnum2)
-
-            if resnum1 not in entity1_match_scores:
-                entity1_match_scores[resnum1] = [fragment['match']]
-            else:
-                entity1_match_scores[resnum1].append(fragment['match'])
-
-            if resnum2 not in entity2_match_scores:
-                entity2_match_scores[resnum2] = [fragment['match']]
-            else:
-                entity2_match_scores[resnum2].append(fragment['match'])
-
-        fragment_i_index_count_d[int(fragment['cluster'].split('_')[0])] += 1
-        fragment_j_index_count_d[int(fragment['cluster'].split('_')[1])] += 1
-
-    separated_fragment_metrics['mapped']['match_scores'] = entity1_match_scores
-    separated_fragment_metrics['paired']['match_scores'] = entity2_match_scores
-    separated_fragment_metrics['mapped']['index_count'] = fragment_i_index_count_d
-    separated_fragment_metrics['paired']['index_count'] = fragment_j_index_count_d
-
-#     return separated_fragment_metrics
-#     # return entity1_match_scores, entity2_match_scores, interface_residues_with_fragment_overlap, \
-#     #        fragment_i_index_count_d, fragment_j_index_count_d
-#
-#
-# def get_fragment_metrics(separated_fragment_metrics):
-#     """
-#
-#     Args:
-#         separated_fragment_metrics (dict):
-#         {'mapped': {'center': {'residues' (int): (set), 'score': 10.89, 'number':9},
-#                     'total': {'residues' (int): (set), 'score': 41.23, 'number':24},
-#                     'match_scores': {residue number(int): (list[score (float)]), ...},
-#                     'index_count': {index (int): count (int), 2: 0, ...},
-#          'paired': {'center': , 'total': , 'match_scores', 'index_count': },
-#          'total': {number': (int)}
-#          }
-#     Returns:
-#
-#     """
-    # -------------------------------------------
-    # score the interface individually
-    mapped_total_score, mapped_center_score = nanohedra_fragment_match_score(separated_fragment_metrics['mapped'])
-    paired_total_score, paired_center_score = nanohedra_fragment_match_score(separated_fragment_metrics['paired'])
-    # combine
-    all_residue_score = mapped_total_score + paired_total_score
-    center_residue_score = mapped_center_score + paired_center_score
-    # -------------------------------------------
-    # Get the individual number of CENTRAL residues with overlapping fragments given z_value criteria INDIVIDUAL entities
-    mapped_central_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['center']['residues'])
-    paired_central_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['center']['residues'])
-    # combine
-    central_residues_with_fragment_overlap = mapped_central_residues_with_fragment_overlap + \
-        paired_central_residues_with_fragment_overlap
-    # -------------------------------------------
-    # Get the individual  number of TOTAL residues with overlapping fragments given z_value criteria
-    mapped_total_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['total']['residues'])
-    paired_total_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['total']['residues'])
-    # combine
-    total_residues_with_fragment_overlap = mapped_total_residues_with_fragment_overlap + \
-        paired_total_residues_with_fragment_overlap
-    # -------------------------------------------
-    # get the individual multiple fragment observation ratio observed for each side of the fragment query
-    mapped_multiple_frag_ratio = \
-        separated_fragment_metrics['total']['observations'] / mapped_central_residues_with_fragment_overlap
-    paired_multiple_frag_ratio = \
-        separated_fragment_metrics['total']['observations'] / paired_central_residues_with_fragment_overlap
-    # combine
-    multiple_frag_ratio = separated_fragment_metrics['total']['observations'] * 2 / central_residues_with_fragment_overlap
-    # -------------------------------------------
-    # turn individual index counts into paired counts # and percentages <- not accurate if summing later, need counts
-    for index, count in separated_fragment_metrics['mapped']['index_count'].items():
-        total_fragment_content[index] += count
-        # separated_fragment_metrics['mapped']['index'][index_count] = count / separated_fragment_metrics['number']
-    for index, count in separated_fragment_metrics['paired']['index_count'].items():
-        total_fragment_content[index] += count
-        # separated_fragment_metrics['paired']['index'][index_count] = count / separated_fragment_metrics['number']
-    # combined
-    # for index, count in total_fragment_content.items():
-    #     total_fragment_content[index] = count / (separated_fragment_metrics['total']['observations'] * 2)
-    # -------------------------------------------
-    # if paired:
-    separated_fragment_metrics['mapped']['center']['score'] = mapped_center_score
-    separated_fragment_metrics['paired']['center']['score'] = paired_center_score
-    separated_fragment_metrics['mapped']['center']['number'] = mapped_central_residues_with_fragment_overlap
-    separated_fragment_metrics['paired']['center']['number'] = paired_central_residues_with_fragment_overlap
-    separated_fragment_metrics['mapped']['total']['score'] = mapped_total_score
-    separated_fragment_metrics['paired']['total']['score'] = paired_total_score
-    separated_fragment_metrics['mapped']['total']['number'] = mapped_total_residues_with_fragment_overlap
-    separated_fragment_metrics['paired']['total']['number'] = paired_total_residues_with_fragment_overlap
-    separated_fragment_metrics['mapped']['multiple_ratio'] = mapped_multiple_frag_ratio
-    separated_fragment_metrics['paired']['multiple_ratio'] = paired_multiple_frag_ratio
-    #     return separated_fragment_metrics
-    # else:
-    separated_fragment_metrics['total']['center']['score'] = center_residue_score
-    separated_fragment_metrics['total']['center']['number'] = central_residues_with_fragment_overlap
-    separated_fragment_metrics['total']['total']['score'] = all_residue_score
-    separated_fragment_metrics['total']['total']['number'] = total_residues_with_fragment_overlap
-    separated_fragment_metrics['total']['multiple_ratio'] = multiple_frag_ratio
-    separated_fragment_metrics['total']['index_count'] = total_fragment_content
-
-    return separated_fragment_metrics
+    return base_dict
 
 
 # def get_paired_fragment_metrics(separated_fragment_metrics):
@@ -2671,55 +2300,6 @@ def calculate_match_metrics(fragment_matches):
 #     return all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
 #         central_residues_with_fragment_overlap, multiple_frag_ratio, total_fragment_content
 #         # interface_residue_count, percent_interface_matched, percent_interface_covered,
-
-
-def nanohedra_fragment_match_score(fragment_metric_d):
-    """Calculate the Nanohedra score from a dictionary with the 'center' residues and 'match_scores'
-
-    Args:
-
-
-    Returns:
-        (tuple): all_residue_score, center_residue_score
-    """
-    # Generate Nanohedra score for center and all residues
-    all_residue_score, center_residue_score = 0, 0
-    # using match scores from every residue that has been matched
-    for residue_number, res_scores in fragment_metric_d['match_scores'].items():
-        n = 1
-        res_scores_sorted = sorted(res_scores, reverse=True)
-        # if the residue is a central score
-        if residue_number in fragment_metric_d['center']['residues']:  # interface_residue_numbers: <- may be at termini
-            for central_score in res_scores_sorted:
-                center_residue_score += central_score * (1 / float(n))
-                n *= 2
-        else:
-            for peripheral_score in res_scores_sorted:
-                all_residue_score += peripheral_score * (1 / float(n))
-                n *= 2
-    # mapped_all_score, mapped_center_score = all_residue_score + center_residue_score, center_residue_score
-    # # doing this twice seems unnecessary as there is no new fragment information, but residue observations are
-    # # weighted by n, number of observations which differs between entities across the interface
-    # for residue_number, res_scores in separated_fragment_metrics['paired']['center'].items():
-    #     n = 1
-    #     res_scores_sorted = sorted(res_scores, reverse=True)
-    #     if residue_number in separated_fragment_metrics['paired'][
-    #         'center']:  # interface_residue_numbers: <- may be at termini
-    #         for central_score in res_scores_sorted:
-    #             center_residue_score += central_score * (1 / float(n))
-    #             n *= 2
-    #     else:
-    #         for peripheral_score in res_scores_sorted:
-    #             all_residue_score += peripheral_score * (1 / float(n))
-    #             n *= 2
-    #
-    # # individual entity metrics
-    # paired_center_score = center_residue_score - mapped_center_score
-    # paired_all_score = all_residue_score - mapped_all_score + paired_center_score
-    #
-    # # full interface metrics
-    # all_residue_score += center_residue_score
-    return all_residue_score + center_residue_score, center_residue_score
 
 
 # def residue_number_to_object(pdb, residue_dict):  # TODO DEPRECIATE
@@ -2781,7 +2361,7 @@ def weight_sequences(msa_dict, alignment):  # UNUSED
 
 
 def generate_msa_dictionary(alignment, alphabet=IUPACData.protein_letters, weighted_dict=None, weight=False):
-    """Generate an alignment dictinary from a Biopython MultipleSeqAlignment object
+    """Generate an alignment dictionary from a Biopython MultipleSeqAlignment object. One-indexed
 
     Args:
         alignment (MultipleSeqAlignment): List of SeqRecords
@@ -2790,9 +2370,8 @@ def generate_msa_dictionary(alignment, alphabet=IUPACData.protein_letters, weigh
         weighted_dict=None (dict): A weighted sequence dictionary with weights for each alignment sequence
         weight=False (bool): If weights should be used to weight the alignment
     Returns:
-        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
-                                'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {0: {'A': 13, 'C': 1, 'D': 23, ...}, 1: {}, ...})
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS---THLVLK...'},
+                 'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}}
     """
     aligned_seq = str(alignment[0].seq)
     # Add Info to 'meta' record as needed
@@ -2875,36 +2454,19 @@ def msa_to_prob_distribution(alignment_dict):
     return alignment_dict
 
 
-def compute_jsd(msa, bgd_freq, jsd_lambda=0.5):
+def jensen_shannon_divergence(multiple_sequence_alignment, background_aa_probabilities, lambda_=0.5):
     """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
 
     Args:
-        msa (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_freq (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
+        multiple_sequence_alignment (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+        background_aa_probabilities (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
     Keyword Args:
         jsd_lambda=0.5 (float): Value bounded between 0 and 1
     Returns:
-        divergence (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
+        (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
     """
-    divergence_dict = {}
-    for residue in msa:
-        sum_prob1, sum_prob2 = 0, 0
-        for aa in IUPACData.protein_letters:
-            p = msa[residue][aa]
-            q = bgd_freq[aa]
-            r = (jsd_lambda * p) + ((1 - jsd_lambda) * q)
-            if r == 0:
-                continue
-            if q != 0:
-                prob2 = (q * math.log2(q / r))
-                sum_prob2 += prob2
-            if p != 0:
-                prob1 = (p * math.log2(p / r))
-                sum_prob1 += prob1
-        divergence = jsd_lambda * sum_prob1 + (1 - jsd_lambda) * sum_prob2
-        divergence_dict[residue] = round(divergence, 3)
-
-    return divergence_dict
+    return {residue: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
+            for residue, aa_probabilities in multiple_sequence_alignment.items()}
 
 
 def weight_gaps(divergence, representation, alignment_length):  # UNUSED
@@ -2953,7 +2515,7 @@ def window_score(score_dict, window_len, score_lambda=0.5):  # UNUSED
         return window_scores
 
 
-def rank_possibilities(probability_dict):
+def rank_possibilities(probability_dict):  # UNUSED
     """Gather alternative residues and sort them by probability.
 
     Args:
@@ -2974,56 +2536,47 @@ def rank_possibilities(probability_dict):
     return sorted_alternates_dict
 
 
-def process_alignment(bio_alignment_object, gaps=False):
+def process_alignment(bio_alignment, gaps=False):
     """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
     gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
     probability of residue i in the specific column more accurately.
     Args:
-        bio_alignment_object (MultipleSeqAlignment): List of SeqRecords
+        bio_alignment (MultipleSeqAlignment): List of SeqRecords
     Keyword Args:
         gaps=False (bool): Whether gaps (-) should be counted in column weights
     Returns:
-        probability_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
-                                  'query_with_gaps': 'MGS---THLVLK...'}}
-                                  'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
-                                  'rep': {1: 210, 2:211, ...}}
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS---THLVLK...'}}
+                 'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+                 'rep': {1: 210, 2:211, ...}}
     """
-    alignment_dict = generate_msa_dictionary(bio_alignment_object)
+    alignment_dict = generate_msa_dictionary(bio_alignment)
     alignment_dict['rep'] = add_column_weight(alignment_dict['counts'], gaps=gaps)
-    probability_dict = msa_to_prob_distribution(alignment_dict)
 
-    return probability_dict
+    return msa_to_prob_distribution(alignment_dict)
 
 
 def multi_chain_alignment(mutated_sequences):
-    """Combines different chain's Multiple Sequence Alignments into a single MSA
+    """Combines different chain's Multiple Sequence Alignments into a single MSA. One-indexed
 
     Args:
         mutated_sequences (dict): {chain: {name: sequence, ...}
     Returns:
-        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...,
-                                'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {0: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
-                                'rep': {0: 210, 1: 211, 2:211, ...}}
-            Zero-indexed counts and rep dictionary elements
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK..., 'query_with_gaps': 'MGS---THLVLK...'},
+                 'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
+                 'rep': {1: 210, 1: 211, 2:211, ...}}
     """
-    alignment = {chain: create_bio_msa(mutated_sequences[chain]) for chain in mutated_sequences}
-
-    # Combine alignments for all chains from design file Ex: A: 1-102, B: 130. Alignment: 1-232
-    first = True
+    # Combine alignments for all chains from design file Ex: A: 1-102, B: 1-130. Alignment: 1-232
     total_alignment = None
-    for chain in alignment:
-        if first:
-            total_alignment = alignment[chain][:, :]
-            first = False
+    for idx, named_sequences in enumerate(mutated_sequences.values()):
+        if idx == 0:
+            total_alignment = create_bio_msa(named_sequences)[:, :]
         else:
-            total_alignment += alignment[chain][:, :]
+            total_alignment += create_bio_msa(named_sequences)[:, :]
 
     if total_alignment:
         return process_alignment(total_alignment)
     else:
-        logger.error('%s - No sequences were found!' % multi_chain_alignment.__name__)
         raise DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
 
 
@@ -3068,7 +2621,7 @@ def pdb_to_pose_num(reference):
 
 
 def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
-    """Extract mutation data from multiple sequence dictionaries with regard to a reference
+    """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
 
     Args:
         reference (dict[mapping[str, str]]): {chain: sequence, ...}
@@ -3079,24 +2632,24 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
     Returns:
         (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
-    mutations = {}
-    for pdb, sequences in pdb_sequences.items():
-        mutations[pdb] = {}
-        # if pdb == 'ref':
-        # if len(chain_dict[pdb]) > 1:
-        #     for chain in chain_dict[pdb]:
-        # if seq_source == 'compare':
-        #     sequence1, sequence2 = sequences.values()
-        #     generate_mutations(sequence1, sequence2)
-        # else:
-        for chain, sequence in sequences.items():
-            # returns {1: {'from': 'A', 'to': 'K'}, ...}
-            mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
+    #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
+    # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
+    #                    for chain, sequence in chain_sequences.items()}
+    #              for pdb, chain_sequences in pdb_sequences.items()}
+    try:
+        mutations = {}
+        for pdb, chain_sequences in pdb_sequences.items():
+            mutations[pdb] = {}
+            for chain, sequence in chain_sequences.items():
+                mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
+    except KeyError:
+        raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
+                          'reference' % chain)
 
     # add reference sequence mutations
-    for chain, ref_sequence in reference.items():
-        for sequence_idx, aa in enumerate(ref_sequence, 1):
-            mutations['reference'][chain][sequence_idx] = {'from': aa, 'to': aa}
+    mutations['reference'] = {chain: {sequence_idx: {'from': aa, 'to': aa}
+                                      for sequence_idx, aa in enumerate(ref_sequence, 1)}
+                              for chain, ref_sequence in reference.items()}
 
     if pose_num:
         pose_mutations = {}
@@ -3177,18 +2730,18 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
 #     return final_sequence, failures
 
 
-def make_sequences_from_mutations(wild_type, mutation_dict, aligned=False):
+def make_sequences_from_mutations(wild_type, pdb_mutations, aligned=False):
     """Takes a list of sequence mutations and returns the mutated form on wildtype
 
     Args:
         wild_type (str): Sequence to mutate
-        mutation_dict (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
+        pdb_mutations (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
     Keyword Args:
         aligned=False (bool): Whether the input sequences are already aligned
     Returns:
         all_sequences (dict): {name: sequence, ...}
     """
-    return {pdb: make_mutations(wild_type, mutation_dict[pdb], find_orf=not aligned) for pdb in mutation_dict}
+    return {pdb: make_mutations(wild_type, mutations, find_orf=not aligned) for pdb, mutations in pdb_mutations.items()}
 
 
 def generate_sequences(wild_type_sequences, all_design_mutations):
@@ -3203,11 +2756,12 @@ def generate_sequences(wild_type_sequences, all_design_mutations):
     """
     mutated_sequences = {}
     for chain in wild_type_sequences:
-        chain_mutation_dict = {}
-        for pdb in all_design_mutations:
-            if chain in all_design_mutations[pdb]:
-                chain_mutation_dict[pdb] = all_design_mutations[pdb][chain]
-        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_sequences[chain], chain_mutation_dict,
+        # pdb_chain_mutations = {pdb: chain_mutations.get(chain) for pdb, chain_mutations in all_design_mutations.items()}
+        pdb_chain_mutations = {}
+        for pdb, chain_mutations in all_design_mutations.items():
+            if chain in chain_mutations:
+                pdb_chain_mutations[pdb] = all_design_mutations[pdb][chain]
+        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_sequences[chain], pdb_chain_mutations,
                                                                  aligned=True)
 
     return mutated_sequences

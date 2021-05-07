@@ -3,12 +3,14 @@ import logging
 import math
 import multiprocessing as mp
 import operator
+import string
 import pickle
 import subprocess
 from functools import reduce, wraps
 from glob import glob
-from itertools import chain
+from itertools import chain, repeat
 from json import loads, dumps
+from collections import defaultdict
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -17,19 +19,22 @@ from Bio.PDB import PDBParser, Superimposer
 
 # import CommandDistributer
 import PathUtils as PUtils
+from classes.SymEntry import SymEntry
 
 
 # Globals
-from classes.SymEntry import SymEntry
-
 index_offset = 1
 rmsd_threshold = 1.0
-layer_groups = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
-                'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
-                'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
-layer_group_d = {2, 4, 10, 12, 17, 19, 20, 21, 23,
-                 27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
-                 71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
+layer_group_d = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
+                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
+                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
+layer_groups = {2, 4, 10, 12, 17, 19, 20, 21, 23,
+                27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
+                71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
+space_groups = {'P23', 'P4222', 'P321', 'P6322', 'P312', 'P622', 'F23', 'F222', 'P6222', 'I422', 'I213', 'R32', 'P4212',
+                'I432', 'P4132', 'I4132', 'P3', 'P6', 'I4122', 'P4', 'C222', 'P222', 'P432', 'F4132', 'P422', 'P213',
+                'F432', 'P4232'}
+space_group_to_sym_entry = {}
 
 # Todo get SDF files for all commented out
 possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T',  # O32': 'O', 'O42': 'O', 'O43': 'O',
@@ -43,7 +48,8 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        # layer groups
                        # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
                        # space groups  # Todo
-                       'cryst': 'cryst'}
+                       # 'cryst': 'cryst'
+                       }
 # Todo space and cryst
 all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': -1},
                       'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': -2},
@@ -61,6 +67,7 @@ def parse_symmetry_to_sym_entry(symmetry_string):
     elif len(symmetry_string) == 3:  # Rosetta Formatting
         clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
     elif symmetry_string in ['T', 'O']:  # , 'I']:
+        logger.warning('This functionality is not working properly yet!')
         clean_split = [symmetry_string, symmetry_string]  # , symmetry_string]
     else:  # C2, D6, C34
         raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
@@ -92,33 +99,13 @@ def set_dictionary_by_path(root, items, value):
 ##########
 
 
-def handle_errors_f(errors=(Exception, )):
-    """Decorator to wrap a function with try: ... except errors: finally: Specifically for file reading functions
-
-    Keyword Args:
-        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
-    Returns:
-        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
-            raised, else None
-    """
-    def wrapper(func):
-        def wrapped(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except errors as error:
-                return error
-        return wrapped
-    return wrapper
-
-
 def handle_design_errors(errors=(Exception,)):
-    """Decorator to wrap a function with try: ... except errors: finally:
+    """Decorator to wrap a function with try: ... except errors: and log errors to a DesignDirectory
 
     Keyword Args:
         errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
     Returns:
-        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
-            raised, else None
+        (function): Function return upon proper execution, else is error if exception raised, else None
     """
     def wrapper(func):
         @wraps(func)
@@ -128,22 +115,20 @@ def handle_design_errors(errors=(Exception,)):
             except errors as error:
                 args[0].log.error(error)  # Allows exception reporting using DesignDirectory
                 return error
-            # finally:  TODO figure out how to run only when uncaught exception is found
-            #     print('Error occurred in %s' % args[0].path)
         return wrapped
     return wrapper
 
 
 def handle_errors(errors=(Exception,)):
-    """Decorator to wrap a function with try: ... except errors: finally:
+    """Decorator to wrap a function with try: ... except errors:
 
     Keyword Args:
         errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
     Returns:
-        return, error (tuple): [0] is function return upon proper execution, else None, tuple[1] is error if exception
-            raised, else None
+        (function): Function return upon proper execution, else is error if exception raised, else None
     """
     def wrapper(func):
+        @wraps(func)
         def wrapped(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
@@ -161,7 +146,7 @@ def handle_errors(errors=(Exception,)):
 def handle_symmetry(symmetry_entry_number):
     # group = cryst1_record.split()[-1]/
     if symmetry_entry_number not in point_group_sdf_map.keys():
-        if symmetry_entry_number in layer_group_d:  # .keys():
+        if symmetry_entry_number in layer_groups:  # .keys():
             return 2
         else:
             return 3
@@ -175,13 +160,11 @@ def sdf_lookup(symmetry_entry, dummy=False):
     else:
         symmetry_name = point_group_sdf_map[symmetry_entry]
 
-    for root, dirs, files in os.walk(PUtils.symmetry_def_files):
-        for file in files:
-            if symmetry_name in file:
-                return os.path.join(PUtils.symmetry_def_files, file)
+    for file in os.listdir(PUtils.symmetry_def_files):
+        if symmetry_name in file:
+            return os.path.join(PUtils.symmetry_def_files, file)
 
-    logger.warning('Error locating specified symmetry entry: %s' % str(symmetry_entry))
-    return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
+    raise DesignError('Error locating specified symmetry entry: %s' % str(symmetry_entry))
 
 
 #####################
@@ -202,6 +185,7 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True,
     Returns:
         (logging.Logger): Logger object to handle messages
     """
+    # Todo make a mechanism to only emit warning or higher if propagate=True
     # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
     log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
 
@@ -234,27 +218,26 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3, propagate=False)
 
 
-def pretty_format_table(rows, justifications=None):
+def pretty_format_table(rows, justification=None):
     """Present a table in readable format.
 
     Args:
         rows (iter): The rows of data you would like to populate the table
     Keyword Args:
-        justifications=None (list): A list with either 'l', 'r', or 'c' as the text justification values
+        justification=None (list): A list with either 'l'/'left', 'r'/'right', or 'c'/'center' as the text
+        justification values
     """
+    justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center,
+                       'left': str.ljust, 'right': str.rjust, 'center': str.center}
     widths = get_table_column_widths(rows)
-    if not justifications:
-        justifications = list(str.ljust for width in widths)
+    if not justification:
+        justifications = list(str.ljust for _ in widths)
     else:
-        justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center,
-                           'left': str.ljust, 'right': str.rjust, 'center': str.center}
-        try:
-            justifications = []
-            for key in justifications:
-                justifications.append(justification_d[key.lower()])
-        except KeyError:
-            raise KeyError('%s: The justification \'%s\' is not of the allowed types (%s).'
-                           % (pretty_format_table.__name__, key, list(justification_d.keys())))
+        # try:
+        justifications = [justification_d.get(key.lower(), str.ljust) for key in justification]
+        # except KeyError:
+        #     raise KeyError('%s: The justification \'%s\' is not of the allowed types (%s).'
+        #                    % (pretty_format_table.__name__, key, list(justification_d.keys())))
 
     return [' '.join(justifications[idx](str(col), width) for idx, (col, width) in enumerate(zip(row, widths)))
             for row in rows]
@@ -264,7 +247,7 @@ def get_table_column_widths(rows):
     return tuple(max(map(len, map(str, col))) for col in zip(*rows))
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
+# @handle_errors(errors=(FileNotFoundError,))
 def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name:
@@ -297,7 +280,7 @@ def pickle_object(target_object, name, out_path=os.getcwd(), protocol=pickle.HIG
     return file_name
 
 
-def clean_dictionary(dictionary, keys, remove=True):
+def filter_dictionary_keys(dictionary, keys, remove=False):
     """Clean specified keys from a dictionary. Default removes the specified keys
 
     Args:
@@ -347,14 +330,23 @@ def index_intersection(indices):
     """
     final_indices = set()
     # find all set union
-    for metric in indices:
-        final_indices = set(final_indices) | set(indices[metric])
+    for values in indices.values():
+        final_indices = final_indices.union(values)
     # find all set intersection
-    for metric in indices:
-        final_indices = set(final_indices) & set(indices[metric])
+    for values in indices.values():
+        final_indices = final_indices.intersection(values)
 
     return list(final_indices)
 
+
+def digit_keeper():
+    table = defaultdict(type(None))
+    table.update({ord(c): c for c in string.digits})
+
+    return table
+
+
+digit_translate_table = digit_keeper()
 
 ###################
 # Bio.PDB Handling
@@ -502,8 +494,7 @@ def remove_duplicates(_iter):
     return [x for x in _iter if not (x in seen or seen_add(x))]
 
 
-def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash',
-                       status_wrap=None):
+def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash', status_wrap=None):
     """Take a command and write to a name.sh script. By default bash is used as the shell interpreter
 
     Args:
@@ -511,7 +502,7 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
     Keyword Args:
         name='script' (str): The name of the output shell script
         out_path=os.getcwd() (str): The location where the script will be written
-        additional=None (iter): Additional commands also formatted using subprocess.list2cmdline
+        additional=None (list): Additional commands also formatted using subprocess.list2cmdline()
         shell='bash' (str): The shell which should interpret the script
         status_wrap=None (str): The name of a file in which to check and set the status of the command in the shell
     Returns:
@@ -525,10 +516,8 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
                                        'status', '--info', status_wrap, '--set'])
     else:
         check, _set, modifier = '', '', ''
-    if name.endswith('.sh'):
-        name = name[:-3]
 
-    file_name = os.path.join(out_path, '%s.sh' % name)
+    file_name = os.path.join(out_path, name if name.endswith('.sh') else '%s.sh' % name)
     with open(file_name, 'w') as f:
         f.write('#!/bin/%s\n\n%s%s %s\n' % (shell, check, command, modifier))
         if additional:
@@ -570,7 +559,7 @@ def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', out_path=os.getcwd(), ad
     return file_name
 
 
-@handle_errors_f(errors=(FileNotFoundError, ))
+@handle_errors(errors=(FileNotFoundError,))
 def parse_flags_file(directory, name=PUtils.interface_design, flag_variable=None):
     """Returns the design flags passed to Rosetta from a design directory
 
@@ -872,17 +861,30 @@ def get_all_pdb_file_paths(pdb_dir):  # Todo DEPRECIATE
             if '.pdb' in file]
 
 
-def collect_nanohedra_designs(file=None, directory=None, dock=False):
-    if file:
-        _file = file
-        if not os.path.exists(file):
-            _file = os.path.join(os.getcwd(), file)
+def collect_nanohedra_designs(files=None, directory=None, dock=False):
+    """Grab all poses from an input Nanohedra output
+
+    Keyword Args:
+        files=None (iterable): Iterable with disk location of files containing design directories
+        directory=None (str): Disk location of the program directory
+        project=False (bool): Whether or not the designs are in a docking run
+    Returns:
+        (tuple[(list), (str)]): All pose directories found, The location where they are located
+    """
+    if files:
+        all_paths = []
+        for file in files:
+            _file = file
             if not os.path.exists(_file):
-                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
-                exit()
-        with open(_file, 'r') as f:
-            all_paths = [location.strip() for location in f.readlines() if location.strip() != '']
-        location = _file
+                _file = os.path.join(os.getcwd(), file)
+                if not os.path.exists(_file):
+                    logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
+                    exit()
+            with open(_file, 'r') as f:
+                paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
+                            repeat(os.sep))  # only strip the trailing '/' separator in case file names are passed
+            all_paths.extend(paths)
+            location = _file
     elif directory:
         location = directory
         if dock:
@@ -896,7 +898,7 @@ def collect_nanohedra_designs(file=None, directory=None, dock=False):
         all_paths = []
         location = None
 
-    return all_paths, location
+    return sorted(set(all_paths)), location
 
 
 def get_base_nanohedra_dirs(base_dir):
@@ -922,26 +924,31 @@ def get_docked_dirs_from_base(base):
     return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
 
 
-def collect_designs(file=None, directory=None, project=None, single=None):
+def collect_designs(files=None, directory=None, project=None, single=None):
     """Grab all poses from an input source
 
-    Args:
-        directory (str): Disk location of the design directory
     Keyword Args:
-        file=None (str): Disk location of file containing design directories
+        files=None (iterable): Iterable with disk location of files containing design directories
+        directory=None (str): Disk location of the program directory
+        project=None (str): Disk location of a project directory
+        single=None (str): Disk location of a single design directory
     Returns:
-        (list), (location): All pose directories found, Path to where they were located
+        (tuple[(list), (str)]): All pose directories found, The location where they are located
     """
-    if file:
-        _file = file
-        if not os.path.exists(file):
-            _file = os.path.join(os.getcwd(), file)
+    if files:
+        all_paths = []
+        for file in files:
+            _file = file
             if not os.path.exists(_file):
-                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
-                exit()
-        with open(_file, 'r') as f:
-            all_paths = [location.strip() for location in f.readlines() if location.strip() != '']
-        location = _file
+                _file = os.path.join(os.getcwd(), file)
+                if not os.path.exists(_file):
+                    logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
+                    exit()
+            with open(_file, 'r') as f:
+                paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
+                            repeat(os.sep))  # only strip the trailing '/' separator in case file names are passed
+            all_paths.extend(paths)
+            location = _file
     elif directory:
         location = directory
         base_directories = get_base_symdesign_dirs(directory)
@@ -950,7 +957,11 @@ def collect_designs(file=None, directory=None, project=None, single=None):
             all_paths = get_all_file_paths(directory, extension='.pdb')
         else:
             # return all design directories within the base directory ->/base/Projects/project/design
-            all_paths = list(chain.from_iterable([get_symdesign_dirs(base=base) for base in base_directories]))
+            all_paths = []
+            for base in base_directories:
+                all_paths.extend(get_symdesign_dirs(base=base))
+            all_paths = map(os.path.dirname, all_paths)
+
     elif project:
         all_paths = get_symdesign_dirs(project=project)
         location = project
@@ -981,11 +992,11 @@ def get_symdesign_dirs(base=None, project=None, single=None):
     /base(SymDesignOutput)/Projects/project/design
     """
     if single:
-        return sorted(set(map(os.path.dirname, glob('%s/' % single))))
+        return map(os.path.dirname, glob('%s/' % single))  # sorted(set())
     elif project:
-        return sorted(set(map(os.path.dirname, glob('%s/*/' % project))))
+        return map(os.path.dirname, glob('%s/*/' % project))  # sorted(set())
     else:
-        return sorted(set(map(os.path.dirname, glob('%s/*/*/*/' % base))))
+        return map(os.path.dirname, glob('%s/*/*/*/' % base))  # sorted(set())
 
 
 class DesignError(Exception):

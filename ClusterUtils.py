@@ -3,9 +3,12 @@ from itertools import combinations
 from warnings import catch_warnings, simplefilter
 
 import numpy as np
-# from sklearn.preprocessing import StandardScaler
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import MultiTaskLassoCV, LassoCV, MultiTaskElasticNetCV, ElasticNetCV
+from sklearn.metrics import median_absolute_error  # r2_score,
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 import pandas as pd
@@ -13,6 +16,7 @@ from Bio.PDB import PDBParser
 from Bio.PDB.Selection import unfold_entities
 
 import SymDesignUtils as SDUtils
+from DesignMetrics import filter_pose, query_user_for_metrics, nanohedra_metrics
 from utils.GeneralUtils import transform_coordinate_sets
 
 
@@ -236,6 +240,96 @@ def cluster_poses(pose_map):
     return pose_cluster_map
 
 
+def predict_best_pose_from_transformation_cluster(train_trajectories_file, training_clusters):
+    """From full training Nanohedra, Rosetta Sequecnce Design analyzed trajectories, train a linear model to select the
+    best trajectory from a group of clustered poses given only the Nanohedra Metrics
+
+    Args:
+        train_trajectories_file (str): Location of a Cluster Trajectory Analysis .csv with complete metrics for cluster
+        training_clusters (dict): Mapping of cluster representative to cluster members
+
+    Returns:
+        (sklearn.linear_model)
+    """
+    possible_lin_reg = {'MultiTaskLassoCV': MultiTaskLassoCV,
+                        'LassoCV': LassoCV,
+                        'MultiTaskElasticNetCV': MultiTaskElasticNetCV,
+                        'ElasticNetCV': ElasticNetCV}
+    idx_slice = pd.IndexSlice
+    trajectory_df = pd.read_csv(train_trajectories_file, index_col=0, header=[0, 1, 2])
+    # 'dock' category is synonymous with nanohedra metrics
+    trajectory_df = trajectory_df.loc[:, idx_slice[['pose', 'no_constraint'],
+                                                   ['mean', 'dock', 'seq_design'], :]].droplevel(1, axis=1)
+    # scale the data to a standard gaussian distribution for each trajectory independently
+    # Todo ensure this mechanism of scaling is correct for each cluster individually
+    scaler = StandardScaler()
+    train_traj_df = pd.concat([scaler.fit_transform(trajectory_df.loc[cluster_members, :])
+                               for cluster_members in training_clusters.values()], keys=list(training_clusters.keys()),
+                              axis=0)
+
+    # standard_scale_traj_df[train_traj_df.columns] = standard_scale.transform(train_traj_df)
+
+    # select the metrics which the linear model should be trained on
+    nano_traj = train_traj_df.loc[:, nanohedra_metrics]
+
+    # select the Rosetta metrics to train model on
+    # potential_training_metrics = set(train_traj_df.columns).difference(nanohedra_metrics)
+    # rosetta_select_metrics = query_user_for_metrics(potential_training_metrics, mode='design', level='pose')
+    rosetta_metrics = {'shape_complementarity': StandardScaler(),  # I think a gaussian dist is preferable to MixMax
+                       # 'protocol_energy_distance_sum': 0.25,  This will select poses by evolution
+                       'int_composition_similarity': StandardScaler(),  # gaussian preferable to MixMax
+                       'interface_energy': StandardScaler(),  # gaussian preferable to MaxAbsScaler,
+                       # 'observed_evolution': 0.25}  # also selects by evolution
+                       }
+    # assign each metric a weight proportional to it's share of the total weight
+    rosetta_select_metrics = {item: 1 / len(rosetta_metrics) for item in rosetta_metrics}
+    # weighting scheme inherently standardizes the weights between [0, 1] by taking a linear combination of the metrics
+    targets = filter_pose(train_trajectories_file, weight=rosetta_select_metrics)  # weight=True)
+
+    # for proper MultiTask model training, must scale the selected metrics. This is performed on trajectory_df above
+    # targets2d = train_traj_df.loc[:, rosetta_select_metrics.keys()]
+    pose_traj_df = train_traj_df.loc[:, idx_slice['pose', 'int_composition_similarity']]
+    no_constraint_traj_df = \
+        train_traj_df.loc[:, idx_slice['no_constraint',
+                                       set(rosetta_metrics.keys()).difference('int_composition_similarity')]]
+    targets2d = pd.concat([pose_traj_df, no_constraint_traj_df])
+
+    # split training and test dataset
+    trajectory_train, trajectory_test, target_train, target_test = train_test_split(nano_traj, targets, random_state=42)
+    trajectory_train2d, trajectory_test2d, target_train2d, target_test2d = train_test_split(nano_traj, targets2d,
+                                                                                            random_state=42)
+    # calculate model performance with cross-validation, alpha tuning
+    alphas = np.logspace(-10, 10, 21)  # Todo why log space here?
+    # then compare between models based on various model scoring parameters
+    reg_scores, mae_scores = [], []
+    for lin_reg, model in possible_lin_reg.items():
+        if lin_reg.startswith('MultiTask'):
+            trajectory_train, trajectory_test = trajectory_train2d, trajectory_test2d
+            target_train, target_test = target_train2d, target_test2d
+        # else:
+        #     target = target_train
+        test_reg = model(alphas=alphas).fit(trajectory_train, target_train)
+        reg_scores.append(test_reg.score(trajectory_train, target_train))
+        target_test_prediction = test_reg.predict(trajectory_test, target_test)
+        mae_scores.append(median_absolute_error(target_test, target_test_prediction))
+
+
+def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):
+    """
+    Args:
+        test_trajectories_file (str): Location of a Nanohedra Trajectory Analysis .csv with Nanohedra metrics
+        clustered_poses (dict): A set of clustered poses that share similar transformational parameters
+    Returns:
+
+    """
+    test_docking_df = pd.read_csv(test_trajectories_file, index_col=0, header=[0, 1, 2])
+
+    for cluster_representative, cluster_designs in clustered_poses.items():
+        trajectory_df = test_docking_df.loc[cluster_designs, nanohedra_metrics]
+        trajectory_df['model_predict'] = model.predict(trajectory_df)
+        trajectory_df.sort_values('model_predict')
+
+
 def cluster_transformations(transform1, transform2, distance=1.0):
     """Cluster Pose conformations according to their specific transformation parameters to find Poses which occupy
     essentially the same space
@@ -295,18 +389,19 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     return representative_transformation_indices, cluster.labels_
 
 
-def cluster_designs(composition):
+@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
+def cluster_designs(composition_designs, return_pose_id=True):
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
     Args:
         (iterable[DesignDirectory]): The group of DesignDirectory objects to pull transformation data from
     Returns:
-        (dict[mapping[DesignDirectoryID, list[DesignDirectoryID]]): Cluster with the representative as the key and
+        (dict[mapping[DesignDirectoryID, list[DesignDirectoryID]]): Cluster with representative as the key and
         matching poses as the values
     """
     # format all transforms for the selected compositions
-    stacked_transforms = [design_directory.pose_transformation() for design_directory in composition]
+    stacked_transforms = [design_directory.pose_transformation() for design_directory in composition_designs]
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[1].values()
                                                              for transform in stacked_transforms])
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[2].values()
@@ -322,13 +417,22 @@ def cluster_designs(composition):
     cluster_representative_indices, cluster_labels = cluster_transformations(transformation1, transformation2)
     representative_labels = cluster_labels[cluster_representative_indices]
 
-    # pull out the pose-id from the input composition groups (DesignDirectory)
-    composition_map = {str(composition[rep_idx]): [str(composition[idx])
-                                                   for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-                       for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
-                       if rep_label != -1}  # don't add outliers (-1 labels) now
-    # add the outliers as separate occurrences
-    composition_map.update({str(composition[idx]): [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
+    # pull out the pose-id from the input composition_designs groups (DesignDirectory)
+    if return_pose_id:  # convert all DesignDirectories to pose-id's
+        composition_map = {str(composition_designs[rep_idx]): [str(composition_designs[idx])
+                                                               for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+                           for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
+                           if rep_label != -1}  # don't add outliers (-1 labels) now
+        # add the outliers as separate occurrences
+        composition_map.update({str(composition_designs[idx]): []
+                                for idx in np.flatnonzero(cluster_labels == -1).tolist()})
+    else:
+        composition_map = {composition_designs[rep_idx]: [composition_designs[idx]
+                                                          for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+                           for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
+                           if rep_label != -1}  # don't add outliers (-1 labels) now
+        # add the outliers as separate occurrences
+        composition_map.update({composition_designs[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
 
     return composition_map
 
@@ -353,4 +457,7 @@ def invert_cluster_map(cluster_map):
     Returns:
         (dict[mapping[member DesignDirectoryID, representative DesignDirectoryID]])
     """
-    return {pose: cluster_rep for cluster_rep, poses in cluster_map.items() for pose in poses}
+    inverted_map = {pose: cluster_rep for cluster_rep, poses in cluster_map.items() for pose in poses}
+    inverted_map.update({cluster_rep: cluster_rep for cluster_rep in cluster_map})  # to add all outliers
+
+    return inverted_map

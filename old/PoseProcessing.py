@@ -96,7 +96,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # if num_chains != 2:
     if num_chains != len(pdb_codes):
         oligomer_file = glob(os.path.join(des_dir.path, pdb_codes[0] + '_tx_*.pdb'))
-        assert len(oligomer_file) == 1, 'More than one matching file found with %s' % pdb_codes[0] + '_tx_*.pdb'
+        assert len(oligomer_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % pdb_codes[0]
         # assert len(oligomer_file) == 1, '%s: More than one matching file found with %s' % \
         #                                 (des_dir.path, pdb_codes[0] + '_tx_*.pdb')
         first_oligomer = PDB.from_file(oligomer_file[0])
@@ -713,14 +713,13 @@ if __name__ == '__main__':
                 (os.path.basename(__file__),
                  '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
-    assert args.symmetry_group in PUtils.protocol, logger.critical(
-        'Symmetry group \'%s\' is not available. Please choose from %s' %
-        (args.symmetry_group, ', '.join(sym for sym in PUtils.protocol)))
+    assert args.symmetry_group in PUtils.protocol, 'Symmetry group \'%s\' is not available. Please choose from %s' % \
+                                                   (args.symmetry_group, ', '.join(sym for sym in PUtils.protocol))
 
     # Collect all designs to be processed
     all_designs, location = SDUtils.collect_designs(file=args.file, directory=args.directory)
-    assert all_designs != list(), logger.critical('No %s directories found within \'%s\' input! Please ensure correct '
-                                                  'location.' % (PUtils.nano, location))
+    assert all_designs != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
+                                  % (PUtils.nano, location)
     logger.info('%d Poses found in \'%s\'' % (len(all_designs), location))
     all_design_dirs = DesignDirectory.set_up_directory_objects(all_designs)
     logger.info('All pose specific logs are located in their corresponding directories.\nEx: \'%s\'' %

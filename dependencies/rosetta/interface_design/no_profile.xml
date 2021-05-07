@@ -2,22 +2,24 @@
 
 	<SCOREFXNS>
 		# patched version, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%">
+		<ScoreFunction name="2015_nano_cst" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
 		</ScoreFunction>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
-		# used for selecting residues on one side of the interface
-		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="1" reverse="0"/> # %%interface1%%
+		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+<!--		<SymmetricalResidue name="interface1_sym" selector="interface1"/>-->
 		# same, but for residues from chain "B"
-		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="1" reverse="0"/> # %%interface2%%
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+<!--		<SymmetricalResidue name="interface2_sym" selector="interface2"/>-->
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
-		# other residues that may be designable
-		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/> # %%interface2%%
+		# other residues that may be designable, excluding symmetric copies
+		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		# all designable residues
 		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
 		# the negation of all designable residues
@@ -29,8 +31,6 @@
 	<TASKOPERATIONS>
 		# standard task operation to pull in commandline options
 		<InitializeFromCommandline name="init"/>
-		# initialize a pose with the input residues
-		<IncludeCurrent name="include_current"/>
 		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
 		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
 		# standard operation to restrict all residues to repacking
@@ -40,7 +40,7 @@
 		# restrict all non-interface residues to no repacking and no design
 		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
-		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/> # %%interface1%%,%%interface2%%
+		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 	</TASKOPERATIONS>
 
 	<MOVE_MAP_FACTORIES>
@@ -51,13 +51,13 @@
 
 	<MOVERS>
 		# set all interface residues to GLY, leave everything else untouched
-		<SymPackRotamersMover name="design_start" scorefxn="2015_nano" task_operations="init,vrt,include_current,design_start,not_designable_no_repack"/>
+		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
 		# the main routine to perform metropolis criteria monte carlo
-		<FastDesign name="int_design" scorefxn="2015_nano" disable_design="false" task_operations="init,vrt,include_current,des_around_total" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+		<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,des_around_total" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 		# sample all rotamers to find minimum
-		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/>
+		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>
 		# minimize all residues in design_map (move map)
-		<SymMinMover name="min" scorefxn="2015_nano" movemap_factory="design_map"/> # bb="0" chi="1"
+		<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
 		# the main protocol to loop over for interface design
 		<ParsedProtocol name="rotamer_trials_min_mover">
 			<Add mover_name="RT"/>

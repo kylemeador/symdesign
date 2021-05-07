@@ -19,3 +19,4 @@ if __name__ == '__main__':
 
     with open(args.out_path, 'w') as f:
         f.write('\n'.join(pdb for pdb in get_all_pdb_file_paths(args.directory)))
+        f.write('\n')

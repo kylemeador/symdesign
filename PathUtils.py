@@ -58,18 +58,19 @@ design_directory = 'Designs'
 
 data = 'data'
 pdbs_outdir = 'designs'  # was rosetta_pdbs/ 1/25/21
+all_scores = 'AllScores'
 scores_outdir = 'scores'
 scripts = 'scripts'
 scores_file = 'design_scores.sc'  # was all_scores.sc 1/25/21
 pose_metrics_file = 'pose_scores.sc'  # UNUSED
-analysis_file = 'AllDesignPoseMetrics-%s.csv'
+analysis_file = '%sPoseMetrics-%s.csv'
 directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\n' \
                       'Ex:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
                       '\nIn design directory \'tx_c/\', output is located in \'%s\' and \'%s\'.' \
                       '\nTotal design_symmetry_pg score are located in ./design_symmetry_pg/building_blocks/%s' \
                       % (pdbs_outdir, scores_outdir, scores_outdir)
 variance = 0.8
-clustered_poses = 'ClusteredPoses'
+clustered_poses = '%sClusteredPoses-%s.pkl'
 pdb_source = 'db'  # 'download_pdb'  # TODO set up
 
 # Project paths
@@ -96,10 +97,11 @@ orient_log_file = 'orient_oligomer_log.txt'
 stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 binaries = os.path.join(dependency_dir, 'bin')
 list_pdb_files = os.path.join(binaries, 'list_files_in_directory.py')
-sbatch_templates = os.path.join(binaries, 'sbatch')
+sbatch_template_dir = os.path.join(binaries, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 data_dir = os.path.join(source, data)
+reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')
 uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
 # filter_and_sort = os.path.join(data_dir, 'filter_and_sort_df.csv')
 pdb_uniprot_map = os.path.join(data_dir, 'pdb_uniprot_map')  # TODO
@@ -156,23 +158,27 @@ uniclustdb = os.path.join(dependency_dir, 'hh-suite/databases', 'UniRef30_2020_0
 # uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
 # Rosetta Scripts and Misc Files
 rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
-symmetry_def_file_dir = 'sdf'
-symmetry_def_files = os.path.join(rosetta_scripts, symmetry_def_file_dir)
-sym_weights = (os.path.join(rosetta_scripts, 'ref2015_sym.wts_patch'))
+symmetry_def_file_dir = 'rosetta_symmetry_definition_files'
+symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
+sym_weights = 'ref2015_sym.wts_patch'
+solvent_weights = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 protocol = {-1: 'null', 0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 
 # Cluster Dependencies and Multiprocessing
-sbatch_templates = {stage[1]: os.path.join(sbatch_templates, stage[1]),
-                    stage[2]: os.path.join(sbatch_templates, stage[2]),
-                    stage[3]: os.path.join(sbatch_templates, stage[2]),
-                    stage[4]: os.path.join(sbatch_templates, stage[1]),
-                    stage[5]: os.path.join(sbatch_templates, stage[1]),
-                    nano: os.path.join(sbatch_templates, nano),
-                    stage[6]: os.path.join(sbatch_templates, stage[6]),
-                    stage[7]: os.path.join(sbatch_templates, stage[6]),
-                    stage[8]: os.path.join(sbatch_templates, stage[6]),
-                    stage[9]: os.path.join(sbatch_templates, stage[6])}
+sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
+                    stage[2]: os.path.join(sbatch_template_dir, stage[2]),
+                    stage[3]: os.path.join(sbatch_template_dir, stage[2]),
+                    stage[4]: os.path.join(sbatch_template_dir, stage[1]),
+                    stage[5]: os.path.join(sbatch_template_dir, stage[1]),
+                    nano: os.path.join(sbatch_template_dir, nano),
+                    stage[6]: os.path.join(sbatch_template_dir, stage[6]),
+                    stage[7]: os.path.join(sbatch_template_dir, stage[6]),
+                    stage[8]: os.path.join(sbatch_template_dir, stage[6]),
+                    stage[9]: os.path.join(sbatch_template_dir, stage[6]),
+                    'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
+                    'interface_metrics': os.path.join(sbatch_template_dir, stage[2])
+                    }
 
 
 def help(module):  # command is SymDesign.py

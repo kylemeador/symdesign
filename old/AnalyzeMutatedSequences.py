@@ -8,10 +8,10 @@ import os
 # generic_protein = None
 
 import PathUtils as PUtils
-from SymDesignUtils import start_log, clean_dictionary
+from SymDesignUtils import start_log, filter_dictionary_keys
 from PDB import PDB
-from SequenceProfile import remove_non_mutations, pos_specific_jsd, weave_mutation_dict, \
-    SequenceProfile, compute_jsd, rank_possibilities
+from SequenceProfile import position_specific_jsd, weave_mutation_dict, \
+    SequenceProfile, jensen_shannon_divergence, rank_possibilities
 
 # Globals
 logger = start_log(name=__name__)
@@ -21,7 +21,7 @@ db = PUtils.biological_fragmentDB
 def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unused Todo SequenceProfile.py
     if residues:
         keep_residues = residues
-        mutation_probabilities = remove_non_mutations(alignment_dict['counts'], keep_residues)
+        mutation_probabilities = filter_dictionary_keys(alignment_dict['counts'], keep_residues)
     else:
         mutation_probabilities = alignment_dict['counts']
     #     design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
@@ -31,16 +31,16 @@ def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unuse
 
     # Calculate Jensen Shannon Divergence from DSSM using the occurrence data in col 2 and design Mutations
     dssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.dssm))
-    residue_divergence_values = pos_specific_jsd(mutation_probabilities, dssm)
+    residue_divergence_values = position_specific_jsd(mutation_probabilities, dssm)
 
     interface_bkgd = SequenceProfile.get_db_aa_frequencies(db)
-    interface_divergence_values = compute_jsd(mutation_probabilities, interface_bkgd)
+    interface_divergence_values = jensen_shannon_divergence(mutation_probabilities, interface_bkgd)
 
     if os.path.exists(os.path.join(des_dir.path, PUtils.pssm)):
         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.path, PUtils.pssm))
     else:
         pssm = SequenceProfile.parse_pssm(os.path.join(des_dir.composition, PUtils.pssm))
-    evolution_divergence_values = pos_specific_jsd(mutation_probabilities, pssm)
+    evolution_divergence_values = position_specific_jsd(mutation_probabilities, pssm)
 
     final_mutation_dict = weave_mutation_dict(ranked_frequencies, mutation_probabilities, evolution_divergence_values,
                                               interface_divergence_values)
@@ -74,7 +74,7 @@ def get_pdb_sequences(pdb, chain=None, source='atom'):
     # for _chain in pdb.chain_id_list:
     #     seq_dict[_chain] =
     if chain:
-        seq_dict = clean_dictionary(seq_dict, chain, remove=False)
+        seq_dict = filter_dictionary_keys(seq_dict, chain)
 
     return seq_dict
 

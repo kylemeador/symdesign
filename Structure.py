@@ -1,3 +1,4 @@
+import subprocess
 from copy import copy  # , deepcopy
 from collections.abc import Iterable
 from random import random, randint
@@ -8,6 +9,7 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
 from Bio.SeqUtils import IUPACData
 
+from PathUtils import free_sasa_exe_path
 from SymDesignUtils import start_log, null_log, DesignError
 from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
@@ -39,6 +41,7 @@ class Structure(StructureBase):
         self._residue_indices = None
         self.name = name
         self.secondary_structure = None
+        self.sasa = None
 
         if log:
             self.log = log
@@ -151,7 +154,7 @@ class Structure(StructureBase):
 
     def set_atoms(self, atoms):
         """Set the Structure atom indices, atoms to an Atoms object, and create Residue objects"""
-        self.atom_indices = [atom.index for atom in atoms]
+        self.atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
         self.atoms = atoms
         # self.atom_indices = list(range(len(atom_list)))  # can't set here as may contain other atoms
         self.create_residues()
@@ -445,7 +448,6 @@ class Structure(StructureBase):
 
     def renumber_atoms(self):
         """Renumber all atom entries one-indexed according to list order"""
-        self.log.debug('Atoms in %s were renumbered from 1 to %s' % (self.name, self.number_of_atoms))
         atoms = self.atoms
         for idx, atom in enumerate(atoms, 1):
             atoms[idx - 1].number = idx
@@ -491,7 +493,11 @@ class Structure(StructureBase):
     def set_residues(self, residues):
         """Set the Structure Residues to Residues object. Set the Structure Atoms and atom_indices"""
         self.residues = residues
-        self.atom_indices = [atom.index for residue in self.residues for atom in residue.atoms]
+        # self.atom_indices = [atom.index for residue in self.residues for atom in residue.atoms]
+        atom_indices = []
+        for residue in self.residues:
+            atom_indices.extend(residue.atom_indices)
+        self.atom_indices = atom_indices
         self.atoms = self.residues[0]._atoms
 
     def add_residues(self, residue_list):
@@ -607,12 +613,15 @@ class Structure(StructureBase):
     def renumber_residues(self):
         """Starts numbering Residues at 1 and number sequentially until last Residue"""
         atoms = self.atoms
-        last_atom_index = len(self.atoms)
+        last_atom_index = len(atoms)
         idx = 0  # offset , 1
         for i, residue in enumerate(self.residues, 1):
             # current_res_num = self.atoms[idx].residue_number
+            # try:
             current_res_num = residue.number
-            while atoms[idx].residue_number == current_res_num:
+            # except AttributeError:
+            #     print('\n'.join(str(atom) for atom in residue.atoms))
+            while atoms[idx].residue_number == current_res_num:  # Todo remove once residue_number is Residue.attribute
                 atoms[idx].residue_number = i  # + offset
                 idx += 1
                 if idx == last_atom_index:
@@ -661,6 +670,7 @@ class Structure(StructureBase):
         # self.log.debug('Range of indices in Atoms: %s' % self._atoms.atoms.shape[0])
         # self.log.debug('Last Residue atom_indices: %s' % self._residues.residues[-1].atom_indices)
         self._atoms.delete(delete_indices)
+        self._coords.delete(delete_indices)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         # try:
         atom_delete_index = self._atom_indices.index(delete_indices[0])
@@ -683,7 +693,7 @@ class Structure(StructureBase):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
 
         Returns:
-            (str)
+            (str): The amino acid sequence of the Structure Residues
         """
         sequence_list = [residue.type for residue in self.residues]
         return ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
@@ -809,6 +819,75 @@ class Structure(StructureBase):
             return True
         else:
             return False
+
+    def get_sasa(self, probe_radius=1.4):  # , sasa_thresh=0):
+        """Use FreeSASA to calculate the surface area of residues in the Structure object.
+        Entities/chains could have this, but don't currently"""
+        # SEQ A    1 MET :   74.46
+        # SEQ A    2 LYS :   96.30
+        # SEQ A    3 VAL :    0.00
+        # SEQ A    4 VAL :    0.00
+        # SEQ A    5 VAL :    0.00
+        # SEQ A    6 GLN :    0.00
+        # SEQ A    7 ILE :    0.00
+        # SEQ A    8 LYS :    0.87
+        # SEQ A    9 ASP :    1.30
+        # SEQ A   10 PHE :   64.55
+        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius)],
+                             stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+        out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
+
+        # self.sasa = [float(line[16:]) for line in out.decode('utf-8').split('\n') if line[:3] == 'SEQ']
+        residues = self.residues
+        idx = 0
+        for line in out.decode('utf-8').split('\n'):
+            if line[:3] == 'SEQ':
+                residues[idx].sasa = float(line[16:])
+                idx += 1
+
+        self.sasa = sum([residue.sasa for residue in self.residues])
+        # for line in out.decode('utf-8').split('\n'):
+        #     if line[:3] == 'SEQ':
+        #         self.sasa_chain.append(line[4:5])
+        #         self.sasa_residues.append(int(line[5:10]))
+        #         self.sasa.append(float(line[16:]))
+
+    def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
+        """Get the residues who reside on the surface of the molecule
+
+        Returns:
+            (list[int]): The surface residue numbers
+        """
+        if not self.sasa:
+            self.get_sasa(probe_radius=probe_radius)  # , sasa_thresh=sasa_thresh)
+
+        # Todo make dynamic based on relative threshold seen with Levy 2010
+        # return [residue.number for residue, sasa in zip(self.residues, self.sasa) if sasa > sasa_thresh]
+        return [residue.number for residue in self.residues if residue.sasa > sasa_thresh]
+
+    # def get_residue_surface_area(self, residue_number, probe_radius=2.2):
+    #     """Get the surface area for specified residues
+    #
+    #     Returns:
+    #         (float): Angstrom^2 of surface area
+    #     """
+    #     if not self.sasa:
+    #         self.get_sasa(probe_radius=probe_radius)
+    #
+    #     # return self.sasa[self.residues.index(residue_number)]
+    #     return self.sasa[self.residues.index(residue_number)]
+
+    def get_surface_area_residues(self, numbers, probe_radius=2.2):
+        """Get the surface area for specified residues
+
+        Returns:
+            (float): Angstrom^2 of surface area
+        """
+        if not self.sasa:
+            self.get_sasa(probe_radius=probe_radius)
+
+        # return sum([sasa for residue_number, sasa in zip(self.sasa_residues, self.sasa) if residue_number in numbers])
+        return sum([residue.sasa for residue in self.residues if residue.number in numbers])
 
     # def stride(self, chain=None):
     #     # REM  -------------------- Secondary structure summary -------------------  XXXX
@@ -963,7 +1042,6 @@ class Structure(StructureBase):
             (float): The distance from the reference point to the furthest point
         """
         if reference:
-            # raise DesignError('This function of %s not possible yet!' % self.furthest_point_from_reference.__name__)
             return np.max(np.linalg.norm(self.coords - reference, axis=1))
         else:
             return np.max(np.linalg.norm(self.coords, axis=1))
@@ -977,36 +1055,41 @@ class Structure(StructureBase):
             (float): The distance from the reference point to the furthest point
         """
         if reference:
-            # raise DesignError('This function of %s not possible yet!' % self.furthest_point_from_reference.__name__)
             return np.min(np.linalg.norm(self.coords - reference, axis=1))
         else:
             return np.min(np.linalg.norm(self.coords, axis=1))
 
-    def write(self, out_path=None, header=None, file_handle=None, pdb_number=False):
-        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-        one was written"""
+    def return_atom_string(self, **kwargs):
+        """Provide the Structure Atoms as a PDB file string"""
         # atom_atrings = '\n'.join(str(atom) for atom in self.atoms)
         # '%d, %d, %d' % tuple(element.tolist())
         # '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
         # atom_atrings = '\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-        atom_atrings = '\n'.join(atom.__str__(pdb=pdb_number) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-                                 for atom, coord in zip(self.atoms, self.coords.tolist()))
+        return '\n'.join(atom.__str__(**kwargs) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
+                         for atom, coord in zip(self.atoms, self.coords.tolist()))
 
+    def write(self, out_path=None, header=None, file_handle=None, **kwargs):
+        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
+        one was written
+
+        Returns:
+            (str): The name of the written file
+        """
         def write_header(location):
             if header and isinstance(header, Iterable):
                 if isinstance(header, str):
                     location.write(header)
-                # else:
+                # else:  # TODO
                 #     location.write('\n'.join(header))
 
         if file_handle:
             # write_header(file_handle)
-            file_handle.write('%s\n' % atom_atrings)
+            file_handle.write('%s\n' % self.return_atom_string(**kwargs))
 
         if out_path:
             with open(out_path, 'w') as outfile:
                 write_header(outfile)
-                outfile.write('%s\n' % atom_atrings)
+                outfile.write('%s\n' % self.return_atom_string(**kwargs))
 
             return out_path
 
@@ -1087,7 +1170,7 @@ class Chain(Structure):
         # log=log
 
     @property
-    def sequence(self):
+    def sequence(self):  # Todo if the chain is mutated, this mechanism will cause errors
         try:
             return self._sequence
         except AttributeError:
@@ -1529,35 +1612,64 @@ class Residue:
 
     @property
     def number(self):  # Todo make property of residue
-        return self.ca.residue_number
+        try:
+            return self.ca.residue_number
+        except AttributeError:
+            return self.n.residue_number
 
     @property
     def number_pdb(self):  # Todo make property of residue
-        return self.ca.pdb_residue_number
+        try:
+            return self.ca.pdb_residue_number
+        except AttributeError:
+            return self.n.pdb_residue_number
 
     @property
     def chain(self):  # Todo make property of residue
-        return self.ca.chain
+        try:
+            return self.ca.chain
+        except AttributeError:
+            return self.n.chain
 
     @property
     def type(self):  # Todo make property of residue
-        return self.ca.residue_type
+        try:
+            return self.ca.residue_type
+        except AttributeError:
+            return self.n.chain
 
     @property
     def secondary_structure(self):
-        return self._secondary_structure
+        try:
+            return self._secondary_structure
+        except AttributeError:
+            raise DesignError('This residue has no \'.secondary_structure\' attribute! Ensure you call '
+                              'Structure.get_secondary_structure() on your Structure before you request Residue '
+                              'specific secondary structure information')
 
     @secondary_structure.setter
     def secondary_structure(self, ss_code):
         self._secondary_structure = ss_code
 
     @property
+    def sasa(self):
+        try:
+            return self._sasa
+        except AttributeError:
+            raise DesignError('Residue %d%s has no \'.sasa\' attribute! Ensure you call Structure.get_sasa() on your '
+                              'Structure before you request Residue specific sasa information'
+                              % (self.number, self.chain))
+
+    @sasa.setter
+    def sasa(self, sasa):
+        self._sasa = sasa
+
+    @property
     def number_of_atoms(self):
         return len(self._atom_indices)
 
     def get_ave_b_factor(self):
-        temp = sum(atom.temp_fact for atom in self.atoms)
-        return round(temp / float(self.number_of_atoms), 2)
+        return sum(atom.temp_fact for atom in self.atoms) / float(self.number_of_atoms)
 
     def distance(self, other_residue):  # Todo make for Ca to Ca
         min_dist = float('inf')
@@ -1605,9 +1717,11 @@ class Residue:
             return self.__key() == other.__key()
         return NotImplemented
 
-    def __str__(self):
-        return '\n'.join(str(atom) % ('{:5d}'.format(idx + 1), '{:3s}'.format(self.type), self.chain,
-                                      '{:4d}'.format(self.number), '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
+    def __str__(self, pdb=False, chain=None, **kwargs):  # type=None, number=None, **kwargs
+        residue_strings = '{:3s}'.format(self.type), (chain or self.chain), \
+                          '{:4d}'.format(getattr(self, 'number%s' % ('_pdb' if pdb else '')))
+        return '\n'.join(str(atom) % ('{:5d}'.format(idx + 1), *residue_strings,
+                                      '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
                          for atom, idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
 
     def __hash__(self):
@@ -1820,6 +1934,9 @@ class Atoms:
 
         return other
 
+    def __len__(self):
+        return self.atoms.shape[0]
+
 
 class Atom:
     """An Atom container with the full Structure coordinates and the Atom unique data. Pass a reference to the full
@@ -1972,20 +2089,17 @@ class Atom:
     def __key(self):
         return self.number, self.type
 
-    def __str__(self, pdb=False):
+    def __str__(self, pdb=False, chain=None, **kwargs):  # type=None, number=None, **kwargs
         """Represent Atom in PDB format"""
         # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
         # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
         # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
         # return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        if pdb:
-            residue_number = self.pdb_residue_number
-        else:
-            residue_number = self.residue_number
+        # Todo ^ For future implement in residue writes
         return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-               .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, self.chain,
-                       residue_number, self.code_for_insertion,  # self.x, self.y, self.z,
+               .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, (chain or self.chain),
+                       getattr(self, '%sresidue_number' % ('pdb_' if pdb else '')), self.code_for_insertion,
                        self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
 
     def __eq__(self, other):
@@ -2011,6 +2125,9 @@ class Coords:
     @coords.setter
     def coords(self, coords):
         self._coords = np.array(coords)
+
+    def delete(self, indices):
+        self._coords = np.delete(self._coords, indices, axis=0)
 
     def __len__(self):
         return self.coords.shape[0]

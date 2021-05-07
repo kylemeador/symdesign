@@ -29,7 +29,7 @@ def merge_pose_pdbs(des_dir, frags=True):
         assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
         oligomers[name] = PDB(file=name_pdb_file[0])
         oligomers[name].name = name
-        oligomers[name].reorder_chains(exclude_chains_list=taken_chains)
+        oligomers[name].reorder_chains(exclude_chains=taken_chains)
         taken_chains += oligomers[name].chain_id_list
     new_pdb = PDB(atoms=[oligomers[oligomer].atoms for oligomer in oligomers])
 
@@ -39,7 +39,7 @@ def merge_pose_pdbs(des_dir, frags=True):
         frags_d = {}
         for i, frags in enumerate(frag_pdbs):
             frags_d[i] = PDB(file=frags)
-            frags_d[i].reorder_chains(exclude_chains_list=taken_chains)
+            frags_d[i].reorder_chains(exclude_chains=taken_chains)
             taken_chains += frags_d[i].chain_id_list
         for frags in frags_d:
             new_pdb.read_atom_list(frags_d[frags].atoms)
@@ -72,8 +72,8 @@ if __name__ == '__main__':
         logger = SDUtils.start_log(name='main', level=2)
 
     all_poses, location = SDUtils.collect_designs(file=args.file, directory=args.directory)
-    assert all_poses != list(), logger.critical('No %s directories found within \'%s\'! Please ensure correct location'
-                                                % (PUtils.nano.title(), location))
+    assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \
+                      % (PUtils.nano.title(), location)
 
     all_design_directories = DesignDirectory.set_up_directory_objects(all_poses, symmetry=args.design_string)
     logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))

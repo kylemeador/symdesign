@@ -8,6 +8,9 @@ from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start
 from utils.MysqlPython import Mysql
 
 
+# Globals
+# for checking out the options to read and write Rosetta runs to a relational DB such as MySQL
+# https://new.rosettacommons.org/docs/latest/rosetta_basics/options/Database-options
 logger = start_log(name=__name__)
 index_offset = 1
 
@@ -233,10 +236,7 @@ class FragmentDatabase(FragmentDB):
 
             for cluster_directory in directories:
                 cluster_id = os.path.basename(cluster_directory)
-                filename = os.path.join(cluster_directory, '%s.pkl' % cluster_id)
-                self.cluster_info[cluster_id] = unpickle(filename)
-
-            # return self.cluster_info
+                self.cluster_info[cluster_id] = unpickle(os.path.join(cluster_directory, '%s.pkl' % cluster_id))
 
     @staticmethod
     def get_cluster_id(cluster_id, index=3):
