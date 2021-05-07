@@ -815,6 +815,7 @@ class PDB(Structure):
             pdb_file_name = os.path.basename(self.filepath)
         else:
             pdb_file_name = self.name
+        # Todo change output to logger with potential for file and stdout
         error_string = 'orient_oligomer could not orient %s check %s for more information\n' \
                        % (pdb_file_name, orient_log)
         with open(orient_log, 'a+') as log_f:
@@ -860,8 +861,8 @@ class PDB(Structure):
                     new_pdb = PDB.from_file(orient_output)
             else:
                 raise RuntimeError(error_string)
-
             clean_orient_input_output()
+
             return new_pdb
 
     def sample_rot_tx_dof_coords(self, rot_step_deg=1, rot_range_deg=0, tx_step=1, start_tx_range=0, end_tx_range=0, axis="z", rotational_setting_matrix=None, degeneracy=None):
@@ -1692,9 +1693,10 @@ class PDB(Structure):
         # return asu_file_name
 
     def __len__(self):
-        return len([0 for residue in self.residues])
+        return self.number_of_residues
 
     def scout_symmetry(self):
+        """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file"""
         self.find_chain_symmetry()
         self.find_max_chain_symmetry()
 
@@ -1702,10 +1704,10 @@ class PDB(Structure):
         """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
 
         Requirements - all chains are the same length
-        This script translates the PDB center of mass to the origin then uses quaternion geometry to solve for the rotations
-        which superimpose chains provided by -i onto a designated chain (usually A). It returns the order of the rotation
-        as well as the axis along which the rotation must take place. The axis of the rotation only needs to be translated
-        to the center of mass to recapitulate the specific symmetry operation.
+        This script translates the PDB center of mass to the origin then uses quaternion geometry to solve for the
+        rotations which superimpose chains provided by -i onto a designated chain (usually A). It returns the order of
+        the rotation as well as the axis along which the rotation must take place. The axis of the rotation only needs
+        to be translated to the center of mass to recapitulate the specific symmetry operation.
 
         > perl $SymDesign/dependencies/rosetta/sdf/scout_symmdef_file.pl -p 3l8r_1ho1/DEGEN_1_1/ROT_36_1/tx_4/1ho1_tx_4.pdb
             -i B C D E F G H
@@ -1713,7 +1715,7 @@ class PDB(Structure):
         """
         # Todo Create a temporary pdb file for the operation then remove file. This is necessary for changes since parsing
         scout_cmd = ['perl', scout_symmdef, '-p', self.filepath, '-a', self.chain_id_list[0], '-i'] + self.chain_id_list[1:]
-        logger.info(subprocess.list2cmdline(scout_cmd))
+        self.log.info(subprocess.list2cmdline(scout_cmd))
         p = subprocess.run(scout_cmd, capture_output=True)
         # Todo institute a check to ensure proper output
         lines = p.stdout.decode('utf-8').strip().split('\n')
@@ -1754,39 +1756,51 @@ class PDB(Structure):
         else:
             return False
 
-    def make_sdf(self, out_path=os.getcwd(), **kwargs):  # modify_sym_energy=False, energy=2):
+    def make_sdf(self, out_path=os.getcwd(), **kwargs):
         """Use the make_symmdef_file.pl script from Rosetta on an input structure
 
         perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb -i B -q
 
         Keyword Args:
+            out_path=os.getcwd() (str): The location the symmetry definition file should be written
+            dihedral=False (bool): Whether the assembly is in dihedral symmetry
             modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
-            energy=2 (int): The scaler to modify the energy by
+            energy=2 (int): Scalar to modify the Rosetta energy by
         Returns:
             (str): Symmetry definition filename
         """
+        # if not self.symmetry:
         self.scout_symmetry()
         if self.is_dihedral():
             chains = '%s %s' % (self.max_symmetry, self.dihedral_chain)
             kwargs['dihedral'] = True
         else:
             chains = self.max_symmetry
+        # else:
 
         sdf_cmd = ['perl', make_symmdef, '-p', self.filepath, '-a', self.chain_id_list[0], '-i', chains, '-q']
-        logger.info(subprocess.list2cmdline(sdf_cmd))
-        with open(out_path, 'w') as file:
+        self.log.info('Creating symmetry definition file: %s' % subprocess.list2cmdline(sdf_cmd))
+        out_file = os.path.join(out_path, '%s.sdf' % self.name)
+        with open(out_file, 'w') as file:
             p = subprocess.Popen(sdf_cmd, stdout=file, stderr=subprocess.DEVNULL)
             p.communicate()
-        assert p.returncode == 0, '%s: Symmetry Definition File generation failed' % self.filepath
+        assert p.returncode == 0, '%s: Symmetry definition file creation failed' % self.filepath
 
-        self.format_sdf(out_path=out_path, **kwargs)  # modify_sym_energy=False, energy=2)
+        self.format_sdf(filename=out_file, **kwargs)  # modify_sym_energy=False, energy=2)
 
-        return out_path
+        return out_file
 
-    def format_sdf(self, out_path=None, dihedral=False, modify_sym_energy=False, energy=2):
-        """Ensure proper sdf formatting before proceeding"""
+    def format_sdf(self, filename=None, dihedral=False, modify_sym_energy=False, energy=2):
+        """Ensure proper sdf formatting before proceeding
+
+        Keyword Args:
+            filename=None (str): The location the symmetry definition file should be written
+            dihedral=False (bool): Whether the assembly is in dihedral symmetry
+            modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
+            energy=2 (int): Scalar to modify the Rosetta energy by
+        """
         subunits, virtuals, jumps_com, jumps_subunit, trunk = [], [], [], [], []
-        with open(out_path, 'r+') as file:
+        with open(filename, 'r+') as file:
             lines = file.readlines()
             for i in range(len(lines)):
                 if lines[i].startswith('xyz'):
@@ -1840,20 +1854,20 @@ class PDB(Structure):
                             % tuple(jump_subunit for jump_subunit in jumps_subunit_to_add)
                 lines[-1] += '\n'
             if modify_sym_energy:
-                # new energy should equal the energy multiplier times the scoring subunit plus additional complex subunits,
-                # so num_subunits - 1
-                new_energy = 'E = %d*%s + ' % (energy, subunits[0])  # assumes that subunits are read in alphanumerical order
+                # new energy should equal the energy multiplier times the scoring subunit plus additional complex
+                # subunits, so num_subunits - 1
+                new_energy = 'E = %d*%s + ' % (energy, subunits[0])  # assumes subunits are read in alphanumerical order
                 new_energy += ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:]))
-                lines[1] = new_energy + '\n'
+                lines[1] = '%s\n' % new_energy
 
             file.seek(0)
             for line in lines:
                 file.write(line)
             file.truncate()
             if count != 0:
-                logger.warning('%s: Symmetry Definition File for %s missing %d lines, fix was attempted. Modelling may '
-                               'be affected for pose'
-                               % (os.path.dirname(self.filepath), os.path.basename(self.filepath), count))
+                self.log.warning('%s: Symmetry Definition File for %s missing %d lines, fix was attempted. Modelling may '
+                                 'be affected for pose'
+                                 % (os.path.dirname(self.filepath), os.path.basename(self.filepath), count))
 
     @staticmethod
     def get_cryst_record(file):

@@ -160,13 +160,11 @@ def sdf_lookup(symmetry_entry, dummy=False):
     else:
         symmetry_name = point_group_sdf_map[symmetry_entry]
 
-    for root, dirs, files in os.walk(PUtils.symmetry_def_files):
-        for file in files:
-            if symmetry_name in file:
-                return os.path.join(PUtils.symmetry_def_files, file)
+    for file in os.listdir(PUtils.symmetry_def_files):
+        if symmetry_name in file:
+            return os.path.join(PUtils.symmetry_def_files, file)
 
-    logger.warning('Error locating specified symmetry entry: %s' % str(symmetry_entry))
-    return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
+    raise DesignError('Error locating specified symmetry entry: %s' % str(symmetry_entry))
 
 
 #####################
@@ -518,10 +516,8 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
                                        'status', '--info', status_wrap, '--set'])
     else:
         check, _set, modifier = '', '', ''
-    if name.endswith('.sh'):
-        name = name[:-3]
 
-    file_name = os.path.join(out_path, '%s.sh' % name)
+    file_name = os.path.join(out_path, name if name.endswith('.sh') else '%s.sh' % name)
     with open(file_name, 'w') as f:
         f.write('#!/bin/%s\n\n%s%s %s\n' % (shell, check, command, modifier))
         if additional:

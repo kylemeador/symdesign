@@ -2399,49 +2399,32 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
 
 
 def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_prob, resi_divergence, int_divergence):
-    """Make final dictionary indexed to sequence, from same-indexed, residue numbered, sequence dictionaries
+    """Weave together a single dictionary with residue numbers as keys, from separate residue keyed, dictionaries
+    All supplied dictionaries must be same integer index for accurate function
 
-    Args:
-        *args (dict)
     Keyword Args:
-        base=None (dict): Original dictionary
-        **kwargs (dict): key=dictionary pairs to include in the final dictionary
-            sorted_freq={15: ['S', 'A', 'T'], ... }, mut_prob={15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...},
-                divergence (dict): {15: 0.732, 16: 0.552, ...}
+        base=None (dict): If a dictionary already exists, pass the dictionary to add residue data to
+        **kwargs (dict): keyword=dictionary pairs. Ex: sorted_freq={16: ['S', 'A', ...], ... },
+            mut_prob={16: {'A': 0.05, 'C': 0.01, ...}, ...}, jsd={16: 0.732, 17: 0.552, ...}
     Returns:
-        weaved_dict (dict): {16: {'freq': {'S': 0.134, 'A': 0.050, ...,} 'jsd': 0.732, 'int_jsd': 0.412}, ...}
+        (dict): {16: {'mut_prob': {'A': 0.05, 'C': 0.01, ...}, 'jsd': 0.732, 'sorted_freq': ['S', 'A', ...]}, ...}
     """
-    if base_dict:
-        weaved_dict = base_dict
-    else:
-        weaved_dict = {}
+    if not base_dict:
+        base_dict = {}
 
-    # print('kwargs', kwargs)
-    for seq_dict in kwargs:
-        # print('seq_dict', seq_dict)
-        for residue in kwargs[seq_dict]:
-            if residue not in weaved_dict:
-                weaved_dict[residue] = {}
+    for observation_type, sequence_data in kwargs.items():
+        for residue, value in sequence_data.items():
+            if residue not in base_dict:
+                base_dict[residue] = {}
             # else:
-            #     weaved_dict[residue][seq_dict] = {}
-            if isinstance(kwargs[seq_dict][residue], dict):  # TODO make endlessly recursive?
-                weaved_dict[residue][seq_dict] = {}
-                for sub_key in kwargs[seq_dict][residue]:  # kwargs[seq_dict][residue]
-                    weaved_dict[residue][seq_dict][sub_key] = kwargs[seq_dict][residue][sub_key]
-            else:
-                weaved_dict[residue][seq_dict] = kwargs[seq_dict][residue]
+            #     weaved_dict[residue][observation_type] = {}
+            # if isinstance(value, dict):  # TODO make endlessly recursive?
+                # base_dict[residue][observation_type] = dict(sub_item for sub_item in value.items())
+                # base_dict[residue][observation_type] = value
+            # else:
+            base_dict[residue][observation_type] = value
 
-    # ensure all residues in weaved_dict have every keyword
-    # missing_keys = {}
-    # for residue in weaved_dict:
-    #     missing_set = set(kwargs.keys()) - set(weaved_dict[residue].keys())
-    #     if missing_set:
-    #         for missing in missing_set:
-    #             weaved_dict[residue][missing] = None
-        # missing_keys[residue] = set(kwargs.keys()) - set(weaved_dict[residue].keys())
-    # for residue in missing_keys:
-
-    return weaved_dict
+    return base_dict
 
 
 def return_fragment_interface_metrics(metrics, null=False):
