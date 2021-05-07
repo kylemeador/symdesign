@@ -856,7 +856,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.required_indices = set()
         self.required_residues = None
         self.interface_residues = {}
-        self.interface_split = {}
+        self.interface_split = {}  # {1: '23A,45A,46A,...' , 2: '234B,236B,239B,...'}
         # self.handle_flags(**kwargs)
         # self.ignore_clashes = False
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
@@ -1131,8 +1131,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
         pdb_atoms = self.pdb.atoms
-        number_of_atoms = self.number_of_atoms
-        self.log.debug('Number of atoms in PDB: %s' % number_of_atoms)
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         # entity1_atoms = entity1.get_atoms()  # if passing by Structure
@@ -1156,10 +1154,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if self.symmetry:
             sym_string = 'symmetric '
+            number_of_atoms = self.number_of_atoms
+            self.log.debug('Number of atoms in PDB: %s' % number_of_atoms)
             # get all symmetric indices
             entity2_indices = [idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
                                for idx in entity2_indices]
-            pdb_atoms = [atom for model in range(self.number_of_models) for atom in pdb_atoms]
+            pdb_atoms = [atom for _ in range(self.number_of_models) for atom in pdb_atoms]
             self.log.debug('Number of atoms in expanded assembly PDB: %s' % len(pdb_atoms))
             # pdb_residues = [residue for model in range(self.number_of_models) for residue in pdb_residues]
             # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
@@ -1169,11 +1169,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 remove_indices = self.find_asu_equivalent_symmetry_mate_indices()
                 # entity2_indices = [idx for idx in entity2_indices if asu_indices[0] > idx or idx > asu_indices[-1]]
                 remove_indices += self.find_intra_oligomeric_symmetry_mate_indices(entity2)
+                self.log.debug('Removing %d indices from symmetric query due to detected oligomer: %s'
+                               % (len(remove_indices), remove_indices))
+                self.log.debug('Number of Entity2 indices before oligomer removal: %s' % len(entity2_indices))
                 entity2_indices = list(set(entity2_indices) - set(remove_indices))
-                # self.log.info('Number of Entity2 indices: %s' % len(entity2_indices))
+                self.log.debug('Number of Entity2 indices remaining: %s' % len(entity2_indices))
             entity2_coords = self.model_coords[entity2_indices]  # only get the coordinate indices we want
         elif entity1 == entity2:
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
+            self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
+                             ' detected!')
             return None
         else:
             sym_string = ' '
@@ -1201,11 +1206,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         else:  # solve symmetric results for asymmetric contacts
             asymmetric_contacting_pairs, found_pairs = [], []
             for pair1, pair2 in contacting_pairs:
-                # add both pair orientations (1, 2) or (2, 1) regardless
-                found_pairs.extend([(pair1, pair2), (pair2, pair1)])
                 # only add to contacting pair if we have never observed either
                 if (pair1, pair2) not in found_pairs or (pair2, pair1) not in found_pairs:
                     asymmetric_contacting_pairs.append((pair1, pair2))
+                # add both pair orientations (1, 2) or (2, 1) regardless
+                found_pairs.extend([(pair1, pair2), (pair2, pair1)])
 
             return asymmetric_contacting_pairs
 
@@ -1223,13 +1228,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # entity1_residues, entity2_residues = \
         entity1_residue_numbers, entity2_residue_numbers = \
             split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
-        if not entity1_residue_numbers or not entity2_residue_numbers:
         # if not entity1_residues or not entity2_residues:
+        if not entity1_residue_numbers or not entity2_residue_numbers:
             self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
             self.interface_residues[(entity1, entity2)] = ([], [])
             return None
         else:
+            if entity1 == entity2:
+                # separate the residue numbers so that only one interface gets the numbers?
+                dummy = True  # Todo
             self.log.info('At Entity %s | Entity %s interface:\t%s found residue numbers: %s'
                           # % (entity1.name, entity2.name, entity1.name, ', '.join(str(res.number)
                           #                                                        for res in entity1_residues)))
@@ -1417,11 +1425,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
                               ' for more information.')
 
-        self.interface_split = \
-            {key + 1: ','.join('%d%s' % (residue.number, entity.chain_id)
-                               for entity, residues in interface_entities.items()
-                               for residue in residues) for key, interface_entities in interface_residue_d.items()
-             if key != 'self'}
+        self.interface_split = {key + 1: [(res.number, entity.chain_id) for entity, residues in entity_residues.items()
+                                          for res in residues]
+                                for key, entity_residues in interface_residue_d.items() if key != 'self'}
+        self.interface_split = {number: ','.join('%d%s' % residue_entity
+                                                 for residue_entity in sorted(residue_entities, key=lambda tup: tup[0]))
+                                for number, residue_entities in self.interface_split.items()}
+        # self.interface_split = \
+        #     {interface_number + 1: ','.join('%d%s' % (residue.number, entity.chain_id)
+        #                                     for entity, residues in entity_residues.items() for residue in residues)
+        #      for interface_number, entity_residues in interface_residue_d.items() if interface_number != 'self'}
         self.log.debug('The interface is split as: %s' % self.interface_split)
         if self.interface_split[1] == '':
             raise DesignError('Interface was unable to be split because no residues were found on one side of the'
@@ -1492,7 +1505,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 # inherently gets interface residues for the designable entities
                 self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
                 # self.check_interface_topology()  # already done above
-                design_dir.info['fragments'] = True
             else:  # No fragment query, add existing fragment information to the pose
                 # if fragments_exist:
                 if not self.frag_db:
