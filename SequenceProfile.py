@@ -1,7 +1,6 @@
 import math
 import os
 import subprocess
-import sys
 import time
 from copy import deepcopy, copy
 from glob import glob
@@ -52,7 +51,6 @@ class SequenceProfile:
         self.fragment_queries = {}
         self.fragment_map = {}
         self.fragment_profile = {}
-        self.fragment_metrics = {}
         self.interface_data_file = None
         self.alpha = {}
 
@@ -140,8 +138,8 @@ class SequenceProfile:
     # def sequence(self, sequence):
     #     self._sequence = sequence
 
-    def add_profile(self, evolution=True, out_path=os.getcwd(), null=False,
-                    fragments=True, fragment_observations=None, entities=None, pdb_numbering=True, **kwargs):
+    def add_profile(self, evolution=True, out_path=os.getcwd(), null=False, fragments=True, **kwargs):
+        #           fragment_observations=None, entities=None, pdb_numbering=True,
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Keyword Args:
@@ -155,26 +153,28 @@ class SequenceProfile:
             self.add_evolutionary_profile(null=null, **kwargs)
 
         if fragments:  # add fragment information to the SequenceProfile
-            if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
-                if entities:
-                    self.add_fragment_query(entity1=entities[0], entity2=entities[1], query=fragment_observations,
-                                            pdb_numbering=pdb_numbering)
-                    # if pdb_numbering:  # Renumber to Pose residue numbering
-                    #     fragment_source = self.renumber_fragments_to_pose(fragment_source)
-                    #     for idx, fragment in enumerate(fragment_source):
-                    #         fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-                    #         fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-                    #         fragment_source[idx] = fragment
-                    # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
-                else:
-                    self.log.error('%s: Argument \'entities\' (tuple) is required if fragment_observations are provided'
-                                   % self.add_profile.__name__)
-                    return None
+            # if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
+            #     if entities:
+            #         self.add_fragment_query(entity1=entities[0], entity2=entities[1], query=fragment_observations,
+            #                                 pdb_numbering=pdb_numbering)
+            #         # if pdb_numbering:  # Renumber to Pose residue numbering
+            #         #     fragment_source = self.renumber_fragments_to_pose(fragment_source)
+            #         #     for idx, fragment in enumerate(fragment_source):
+            #         #         fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
+            #         #         fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
+            #         #         fragment_source[idx] = fragment
+            #         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
+            #     else:
+            #         self.log.error('%s: Argument \'entities\' (tuple) is required if fragment_observations are provided'
+            #                        % self.add_profile.__name__)
+            #         return None
 
-            elif self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
+            if self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
                 self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
                                                    for fragments in idx_d.values() for fragment in fragments])
-            # else:  # eventual problem if not included here.
+            else:
+                raise DesignError('Fragments were specified but have not been added to the SequenceProfile! '
+                                  'The Pose/Entity must call assign_fragments() with fragment information')
 
             # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
@@ -499,174 +499,6 @@ class SequenceProfile:
             # outfile.write('>%s\n%s\n' % (name, self.structure_sequence))
 
         return self.sequence_file
-
-    def renumber_fragments_to_pose(self, fragments):  # Todo Pose
-        for idx, fragment in enumerate(fragments):
-            # if self.structure.residue_from_pdb_numbering():
-            # only assign the new fragment number info to the fragments if the residue is found
-            map_pose_number = self.structure.residue_number_from_pdb(fragment['mapped'])
-            fragment['mapped'] = map_pose_number if map_pose_number else fragment['mapped']
-            pair_pose_number = self.structure.residue_number_from_pdb(fragment['paired'])
-            fragment['paired'] = pair_pose_number if pair_pose_number else fragment['paired']
-            # fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-            # fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-            fragments[idx] = fragment
-
-        return fragments
-
-    # def return_entity_interface_metrics(self):
-    #     """NOT YET ACCURATE TODO split the fragment info before the interface metric calculation...
-    #     From the calculated fragment queries, return the interface metrics attributed to each entity"""
-    #     metrics_by_query = self.return_fragment_query_metrics()
-    #
-    #     # pre-populate the dictionary with all queried entities
-    #     entity_metrics_d = {query_pair[0]: {} for query_pair in metrics_by_query}
-    #     entity_metrics_d.update({query_pair[1]: {} for query_pair in metrics_by_query})
-    #     # separate the metrics from a query to an entity
-    #     for query_pair, metrics in metrics_by_query.items():
-    #         for entity in query_pair:
-    #             if entity_metrics_d[entity]:
-    #                 for key in entity_metrics_d[entity]:
-    #                     entity_metrics_d[entity][key] += metrics[key]
-    #             else:
-    #                 entity_metrics_d[entity] = metrics
-    #
-    #     return entity_metrics_d
-
-    # 'fragment_cluster_ids': ','.join(clusters),  # Todo
-    # 'total_interface_residues': total_residues,
-    # 'percent_residues_fragment_total': percent_interface_covered,
-    # 'percent_residues_fragment_center': percent_interface_matched,
-
-    def return_fragment_query_metrics(self, total=True, per_interface=False, per_entity=False,
-                                      entity1=None, entity2=None):  # Todo Pose
-        """From the calculated fragment queries, return the interface metrics for each pair
-        Todo Expand to other metrics after design?
-        Return the various metrics calculated by overlapping fragments at the interface of two proteins
-
-        Returns:
-            (dict): {query1: {all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap,
-            central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d}, ... }
-        """
-        # Todo once moved to pose, incorporate these?
-        #  'fragment_cluster_ids': ','.join(clusters),
-        #  'total_interface_residues': total_residues,
-        #  'percent_residues_fragment_total': percent_interface_covered,
-        #  'percent_residues_fragment_center': percent_interface_matched,
-        if per_interface:
-            if not entity1 and not entity2:
-                self.log.error('%s: Entity %s or Entity %s can\'t be None!'
-                               % (self.return_fragment_query_metrics.__name__, entity1.name, entity2.name))
-                return None
-
-            for query_pair, metrics in self.fragment_metrics.items():
-                if entity1 in query_pair and entity2 in query_pair:
-                    return return_fragment_interface_metrics(metrics)
-                else:
-                    self.log.info('Couldn\'t locate query metrics for %s and %s pair' % (entity1.name, entity2.name))
-                    return None
-
-        elif per_entity:
-            return_d = {}
-            for query_pair, metrics in self.fragment_metrics.items():
-                for idx, entity in enumerate(query_pair):
-                    align_type = SequenceProfile.idx_to_alignment_type[idx]
-                    if entity in return_d[entity]:
-                        return_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
-                        return_d[entity]['nanohedra_score_central'] += metrics[align_type]['center']['score']
-                        return_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
-                        return_d[entity]['number_fragment_residues_total'] += metrics[align_type]['total']['number']
-                        return_d[entity]['number_fragment_residues_central'] += metrics[align_type]['center']['number']
-                        return_d[entity]['number_fragments'] += metrics['total']['observations']
-                        return_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
-                        return_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
-                        return_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
-                                                                      metrics[align_type]['index_count'][4] +
-                                                                      metrics[align_type]['index_count'][5])
-                    else:
-                        return_d[entity] = {'nanohedra_score': metrics[align_type]['total']['score'],
-                                            'nanohedra_score_central': metrics[align_type]['center']['score'],
-                                            'multiple_fragment_ratio': metrics[align_type]['multiple_ratio'],
-                                            'number_fragment_residues_total': metrics[align_type]['total']['number'],
-                                            'number_fragment_residues_central': metrics[align_type]['center']['number'],
-                                            'number_fragments': metrics['total']['observations'],
-                                            'percent_fragment_helix': metrics[align_type]['index_count'][1],
-                                            'percent_fragment_strand': metrics[align_type]['index_count'][2],
-                                            'percent_fragment_coil': metrics[align_type]['index_count'][3] +
-                                            metrics[align_type]['index_count'][4] +
-                                            metrics[align_type]['index_count'][5]}
-            for entity in return_d:
-                return_d[entity]['percent_fragment_helix'] /= return_d[entity]['number_fragments']
-                return_d[entity]['percent_fragment_strand'] /= return_d[entity]['number_fragments']
-                return_d[entity]['percent_fragment_coil'] /= return_d[entity]['number_fragments']
-
-            return return_d
-
-        elif total:
-            return_d = {'nanohedra_score': 0.0, 'nanohedra_score_central': 0.0, 'multiple_fragment_ratio': 0.0,
-                        'number_fragment_residues_total': 0, 'number_fragment_residues_central': 0,
-                        'number_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
-                        'percent_fragment_coil': 0.0}
-            for query_pair, metrics in self.fragment_metrics.items():
-                return_d['nanohedra_score'] += metrics['total']['total']['score']
-                return_d['nanohedra_score_central'] += metrics['total']['center']['score']
-                return_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
-                return_d['number_fragment_residues_total'] += metrics['total']['total']['number']
-                return_d['number_fragment_residues_central'] += metrics['total']['center']['number']
-                return_d['number_fragments'] += metrics['total']['observations']
-                return_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
-                return_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
-                return_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
-                                                      metrics['total']['index_count'][4] +
-                                                      metrics['total']['index_count'][5])
-            try:
-                return_d['percent_fragment_helix'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-                return_d['percent_fragment_strand'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-                return_d['percent_fragment_coil'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-            except ZeroDivisionError:
-                pass
-
-            return return_d
-
-    def calculate_fragment_query_metrics(self):  # Todo Pose
-        """From the profile's fragment queries, calculate and store the query metrics per query"""
-        for query_pair, fragment_matches in self.fragment_queries.items():
-            self.fragment_metrics[query_pair] = calculate_match_metrics(fragment_matches)
-
-    # def return_fragment_info(self):
-    #     clusters, residue_numbers, match_scores = [], [], []
-    #     for query_pair, fragments in self.fragment_queries.items():
-    #         for query_idx, entity_name in enumerate(query_pair):
-    #             clusters.extend([fragment['cluster'] for fragment in fragments])
-    #             clusters.extend([fragment['cluster'] for fragment in fragments])
-    #             clusters.extend([fragment['cluster'] for fragment in fragments])
-    #             clusters.extend([fragment['cluster'] for fragment in fragments])
-
-    def add_fragment_query(self, entity1=None, entity2=None, query=None, pdb_numbering=False):  # Todo Pose
-        """This funcion has all sorts of logic pitfalls and may be more trouble than it alleviates. How easy would it
-        be to Todo refactor code to deal with the chain info from the frag match file?"""
-        if pdb_numbering:  # Renumber self.fragment_map and self.fragment_profile to Pose residue numbering
-            query = self.renumber_fragments_to_pose(query)
-            # for idx, fragment in enumerate(fragment_source):
-            #     fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-            #     fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-            #     fragment_source[idx] = fragment
-            if entity1 and entity2 and query:
-                self.fragment_queries[(entity1, entity2)] = query
-        else:
-            entity_pairs = [(self.structure.entity_from_residue(fragment['mapped']),
-                             self.structure.entity_from_residue(fragment['paired'])) for fragment in query]
-            if all([all(pair) for pair in entity_pairs]):
-                for entity_pair, fragment in zip(entity_pairs, query):
-                    if entity_pair in self.fragment_queries:
-                        self.fragment_queries[entity_pair].append(fragment)
-                    else:
-                        self.fragment_queries[entity_pair] = [fragment]
-            else:
-                raise DesignError('%s: Couldn\'t locate Pose Entities passed by residue number. Are the residues in '
-                                  'Pose Numbering? This may be occurring due to fragment queries performed on the PDB '
-                                  'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
-                                  ' modifications' % self.add_fragment_query.__name__)
 
     # fragments
     # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
@@ -2398,7 +2230,7 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
     return weaved_dict
 
 
-def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_prob, resi_divergence, int_divergence):
+def weave_sequence_dict(base_dict=None, **kwargs):
     """Weave together a single dictionary with residue numbers as keys, from separate residue keyed, dictionaries
     All supplied dictionaries must be same integer index for accurate function
 
@@ -2425,175 +2257,6 @@ def weave_sequence_dict(base_dict=None, **kwargs):  # *args, # sorted_freq, mut_
             base_dict[residue][observation_type] = value
 
     return base_dict
-
-
-def return_fragment_interface_metrics(metrics, null=False):
-    """For a set of fragment metrics, return the formatted total fragment metrics"""
-    if null:
-        return {'nanohedra_score': 0.0, 'nanohedra_score_central': 0.0, 'multiple_fragment_ratio': 0.0,
-                'number_fragment_residues_total': 0, 'number_fragment_residues_central': 0, 'number_fragments': 0,
-                'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0, 'percent_fragment_coil': 0.0}
-    return {'nanohedra_score': metrics['total']['total']['score'],
-            'nanohedra_score_central': metrics['total']['center']['score'],
-            'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
-            'number_fragment_residues_total': metrics['total']['total']['number'],
-            'number_fragment_residues_central': metrics['total']['center']['number'],
-            'number_fragments': metrics['total']['observations'],
-            'percent_fragment_helix': (metrics['total']['index_count'][1] /
-                                       (metrics['total']['observations'] * 2)),
-            'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
-            'percent_fragment_coil': ((metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
-                                       + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2))}
-
-
-def calculate_match_metrics(fragment_matches):
-    """Return the various metrics calculated by overlapping fragments at the interface of two proteins
-
-    Args:
-        fragment_matches (list[dict]): [{'mapped': entity1_resnum, 'match': score_term, 'paired': entity2_resnum,
-                                         'culster': cluster_id}, ...]
-    Returns:
-        (dict): {'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
-                            'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
-                            'match_scores': {residue number(int): (list[score (float)]), ...},
-                            'index_count': {index (int): count (int), ...},
-                            'multiple_ratio': (float)}
-                 'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
-                 'total':  {'center': {'score': , 'number': },
-                            'total': {'score': , 'number': },
-                            'index_count': , 'multiple_ratio': , 'observations': (int)}
-                 }
-        # (tuple): all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap, \
-        # central_residues_with_fragment_overlap, multiple_frag_ratio, total_fragment_content
-    """
-    if not fragment_matches:
-        return None
-
-    fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-    fragment_j_index_count_d = copy(fragment_i_index_count_d)
-    total_fragment_content = copy(fragment_i_index_count_d)
-
-    entity1_center_match_scores, entity2_center_match_scores = {}, {}
-    entity1_match_scores, entity2_match_scores = {}, {}
-    separated_fragment_metrics = {'mapped': {'center': {'residues': set()}, 'total': {'residues': set()}},
-                                  'paired': {'center': {'residues': set()}, 'total': {'residues': set()}},
-                                  'total': {'observations': len(fragment_matches), 'center': {}, 'total': {}}}
-    for fragment in fragment_matches:
-        center_resnum1, center_resnum2, match_score = fragment['mapped'], fragment['paired'], fragment['match']
-        separated_fragment_metrics['mapped']['center']['residues'].add(center_resnum1)
-        separated_fragment_metrics['paired']['center']['residues'].add(center_resnum2)
-
-        # TODO an ideal measure of the central importance would weight central fragment observations to new center
-        #  fragments higher than repeated observations. Say mapped residue 45 to paired 201. If there are two
-        #  observations of this pair, just different ijk indices, then these would take the SUMi->n 1/i*2 additive form.
-        #  If the observation went from residue 45 to paired residue 204, they constitute separate, but less important
-        #  observations as these are part of the same SS and it is implied that if 201 contacts, 204 (and 198) are
-        #  possible. In the case where the interaction goes from a residue to a different secondary structure, then
-        #  this is the most important, say residue 45 to residue 322 on a separate helix. This indicates that
-        #  residue 45 is ideally placed to interact with a separate SS and add them separately to the score
-        #  |
-        #  How the data structure to build this relationship looks is likely a graph, which has significant overlap to
-        #  work I did on the consensus sequence higher order relationships in 8/20. I may find some ground in the middle
-        #  of these two ideas where the graph theory could take hold and a more useful scoring metric could emerge,
-        #  also possibly with a differentiable equation I could relate pose transformations to favorable fragments found
-        #  in the interface.
-        if center_resnum1 not in entity1_center_match_scores:
-            entity1_center_match_scores[center_resnum1] = [match_score]
-        else:
-            entity1_center_match_scores[center_resnum1].append(match_score)
-
-        if center_resnum2 not in entity2_center_match_scores:
-            entity2_center_match_scores[center_resnum2] = [match_score]
-        else:
-            entity2_center_match_scores[center_resnum2].append(match_score)
-
-        for resnum1, resnum2 in [(fragment['mapped'] + j, fragment['paired'] + j) for j in range(-2, 3)]:
-            separated_fragment_metrics['mapped']['total']['residues'].add(resnum1)
-            separated_fragment_metrics['paired']['total']['residues'].add(resnum2)
-
-            if resnum1 not in entity1_match_scores:
-                entity1_match_scores[resnum1] = [match_score]
-            else:
-                entity1_match_scores[resnum1].append(match_score)
-
-            if resnum2 not in entity2_match_scores:
-                entity2_match_scores[resnum2] = [match_score]
-            else:
-                entity2_match_scores[resnum2].append(match_score)
-
-        i, j, k = list(map(int, fragment['cluster'].split('_')))
-        fragment_i_index_count_d[i] += 1
-        fragment_j_index_count_d[j] += 1
-
-    separated_fragment_metrics['mapped']['center_match_scores'] = entity1_center_match_scores
-    separated_fragment_metrics['paired']['center_match_scores'] = entity2_center_match_scores
-    separated_fragment_metrics['mapped']['match_scores'] = entity1_match_scores
-    separated_fragment_metrics['paired']['match_scores'] = entity2_match_scores
-    separated_fragment_metrics['mapped']['index_count'] = fragment_i_index_count_d
-    separated_fragment_metrics['paired']['index_count'] = fragment_j_index_count_d
-    # -------------------------------------------
-    # score the interface individually
-    mapped_total_score, mapped_center_score = nanohedra_fragment_match_score(separated_fragment_metrics['mapped'])
-    paired_total_score, paired_center_score = nanohedra_fragment_match_score(separated_fragment_metrics['paired'])
-    # combine
-    all_residue_score = mapped_total_score + paired_total_score
-    center_residue_score = mapped_center_score + paired_center_score
-    # -------------------------------------------
-    # Get individual number of CENTRAL residues with overlapping fragments given z_value criteria
-    mapped_central_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['center']['residues'])
-    paired_central_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['center']['residues'])
-    # combine
-    central_residues_with_fragment_overlap = \
-        mapped_central_residues_with_fragment_overlap + paired_central_residues_with_fragment_overlap
-    # -------------------------------------------
-    # Get the individual number of TOTAL residues with overlapping fragments given z_value criteria
-    mapped_total_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['total']['residues'])
-    paired_total_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['total']['residues'])
-    # combine
-    total_residues_with_fragment_overlap = \
-        mapped_total_residues_with_fragment_overlap + paired_total_residues_with_fragment_overlap
-    # -------------------------------------------
-    # get the individual multiple fragment observation ratio observed for each side of the fragment query
-    mapped_multiple_frag_ratio = \
-        separated_fragment_metrics['total']['observations'] / mapped_central_residues_with_fragment_overlap
-    paired_multiple_frag_ratio = \
-        separated_fragment_metrics['total']['observations'] / paired_central_residues_with_fragment_overlap
-    # combine
-    multiple_frag_ratio = \
-        separated_fragment_metrics['total']['observations'] * 2 / central_residues_with_fragment_overlap
-    # -------------------------------------------
-    # turn individual index counts into paired counts # and percentages <- not accurate if summing later, need counts
-    for index, count in separated_fragment_metrics['mapped']['index_count'].items():
-        total_fragment_content[index] += count
-        # separated_fragment_metrics['mapped']['index'][index_count] = count / separated_fragment_metrics['number']
-    for index, count in separated_fragment_metrics['paired']['index_count'].items():
-        total_fragment_content[index] += count
-        # separated_fragment_metrics['paired']['index'][index_count] = count / separated_fragment_metrics['number']
-    # combined
-    # for index, count in total_fragment_content.items():
-    #     total_fragment_content[index] = count / (separated_fragment_metrics['total']['observations'] * 2)
-    # -------------------------------------------
-    # if paired:
-    separated_fragment_metrics['mapped']['center']['score'] = mapped_center_score
-    separated_fragment_metrics['paired']['center']['score'] = paired_center_score
-    separated_fragment_metrics['mapped']['center']['number'] = mapped_central_residues_with_fragment_overlap
-    separated_fragment_metrics['paired']['center']['number'] = paired_central_residues_with_fragment_overlap
-    separated_fragment_metrics['mapped']['total']['score'] = mapped_total_score
-    separated_fragment_metrics['paired']['total']['score'] = paired_total_score
-    separated_fragment_metrics['mapped']['total']['number'] = mapped_total_residues_with_fragment_overlap
-    separated_fragment_metrics['paired']['total']['number'] = paired_total_residues_with_fragment_overlap
-    separated_fragment_metrics['mapped']['multiple_ratio'] = mapped_multiple_frag_ratio
-    separated_fragment_metrics['paired']['multiple_ratio'] = paired_multiple_frag_ratio
-    #     return separated_fragment_metrics
-    # else:
-    separated_fragment_metrics['total']['center']['score'] = center_residue_score
-    separated_fragment_metrics['total']['center']['number'] = central_residues_with_fragment_overlap
-    separated_fragment_metrics['total']['total']['score'] = all_residue_score
-    separated_fragment_metrics['total']['total']['number'] = total_residues_with_fragment_overlap
-    separated_fragment_metrics['total']['multiple_ratio'] = multiple_frag_ratio
-    separated_fragment_metrics['total']['index_count'] = total_fragment_content
-
-    return separated_fragment_metrics
 
 
 # def get_paired_fragment_metrics(separated_fragment_metrics):
@@ -2637,37 +2300,6 @@ def calculate_match_metrics(fragment_matches):
 #     return all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
 #         central_residues_with_fragment_overlap, multiple_frag_ratio, total_fragment_content
 #         # interface_residue_count, percent_interface_matched, percent_interface_covered,
-
-
-def nanohedra_fragment_match_score(fragment_metric_d):
-    """Calculate the Nanohedra score from a dictionary with the 'center' residues and 'match_scores'
-
-    Args:
-        fragment_metric_d (dict): {'center': {'residues' (int): (set)},
-                                   'total': {'residues' (int): (set)},
-                                   'center_match_scores': {residue number(int): (list[score (float)]), ...},
-                                   'match_scores': {residue number(int): (list[score (float)]), ...},
-                                   'index_count': {index (int): count (int), ...}}
-    Returns:
-        (tuple): all_residue_score, center_residue_score
-    """
-    # Generate Nanohedra score for center and all residues
-    all_residue_score, center_residue_score = 0, 0
-    # using match scores from every residue that has been matched
-    for residue_number, res_scores in fragment_metric_d['match_scores'].items():
-        n = 1
-        for peripheral_score in sorted(res_scores, reverse=True):
-            all_residue_score += peripheral_score * (1 / float(n))
-            n *= 2
-
-    # using match scores from every central residue that has been matched
-    for residue_number, res_scores in fragment_metric_d['center_match_scores'].items():
-        n = 1
-        for central_score in sorted(res_scores, reverse=True):
-            center_residue_score += central_score * (1 / float(n))
-            n *= 2
-
-    return all_residue_score + center_residue_score, center_residue_score
 
 
 # def residue_number_to_object(pdb, residue_dict):  # TODO DEPRECIATE
