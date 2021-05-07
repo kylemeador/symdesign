@@ -452,7 +452,7 @@ def terminate(module, designs, location=None, results=None, output=True):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
-                        PUtils.nano: [PUtils.nano], 'metrics_bound': ['metrics_bound'],
+                        PUtils.nano: [PUtils.nano], 'custom_script': [args.script],
                         'interface_metrics': ['interface_metrics']}
         if module in module_files:
             if len(success) > 0:
@@ -548,6 +548,8 @@ if __name__ == '__main__':
                                             'enter:\t%s\n\nTo get help with Module flags enter:\t%s\n, Any Module '
                                             '--guide or --help can be accessed in this way.'
                                             % (PUtils.submodule_guide, PUtils.submodule_help))
+    parser.add_argument('-F', '--force_flags', action='store_true',
+                        help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
     parser_query = subparsers.add_parser('query', help='Query %s.py docking entries' % PUtils.nano.title())
     # ---------------------------------------------------
@@ -621,12 +623,32 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_interface_metrics = \
         subparsers.add_parser('interface_metrics',
-                              help='Set up scripts to analyze interface metrics from an interface design job')
-    parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
-                                          help='Force generation of a new flags_design file')
+                              help='Set up RosettaScript to analyze interface metrics from an interface design job')
+    # parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
+    #                                       help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
-    parser_metrics_bound = \
-        subparsers.add_parser('metrics_bound', help='Set up scripts to analyze bound interface metrics')
+    parser_custom_script = \
+        subparsers.add_parser('custom_script', help='Set up a custom RosettaScripts.xml for designs')
+    # parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
+    #                                       help='Force generation of a new flags file to update script parameters')
+    parser_custom_script.add_argument('-l', '--file_list', action='store_true',
+                                      help='Whether to use already produced designs in the designs/ directory')
+    parser_custom_script.add_argument('-n', '--native', type=str,
+                                      help='What structure to use as a \'native\' structure for Rosetta reference '
+                                           'calculations. Default=refined_pdb',
+                                      choices=['source', 'asu', 'assembly', 'refine_pdb', 'refined_pdb',
+                                               'consensus_pdb', 'consensus_design_pdb'])
+    parser_custom_script.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
+    parser_custom_script.add_argument('script', type=os.path.abspath, help='The location of the custom script')
+    parser_custom_script.add_argument('--suffix', type=str, help='A custom string to append (by \'_\') to each output '
+                                                                 'file (in .sc and .pdb) to identify this protocol')
+    parser_custom_script.add_argument('-v', '--variables', type=str, nargs='*',
+                                      help='Additional variables that should be populated in the script. Provide a list'
+                                           ' of such variables with the format \'varible1=value varible2=value\'. Where'
+                                           ' %%variable1%% is a RosettaScripts variable and value is either a known '
+                                           'value or an attribute available to the Pose object. For variables that must'
+                                           ' be calculated on the fly for each design, please modify the Pose.py class '
+                                           'to produce a method that can generate an attribute with the specified name')
     # ---------------------------------------------------
     parser_analysis = subparsers.add_parser(PUtils.analysis,
                                             help='Analyze all designs specified. %s --guide %s will inform you about '
@@ -811,7 +833,7 @@ if __name__ == '__main__':
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
-                       'interface_metrics', 'metrics_bound', 'rename_chains', 'status']:
+                       'interface_metrics', 'custom_script', 'rename_chains', 'status']:
         initialize = True
         if args.module in ['orient', 'expand_asu']:
             if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
@@ -1140,13 +1162,19 @@ if __name__ == '__main__':
         terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
-    elif args.module == 'metrics_bound':
+    elif args.module == 'custom_script':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.rosetta_metrics_bound, design_directories, threads=threads)
+            zipped_args = zip(design_directories, repeat(args.script), repeat(args.force_flags),
+                              repeat(args.file_list), repeat(args.native), repeat(args.suffix), repeat(args.score_only),
+                              repeat(args.variables))
+            results = SDUtils.mp_starmap(DesignDirectory.custom_rosetta_script, zipped_args, threads=threads)
         else:
             for design in design_directories:
-                results.append(design.rosetta_metrics_bound())
+                results.append(design.custom_rosetta_script(args.script, force_flags=args.force_flags,
+                                                            file_list=args.file_list, native=args.native,
+                                                            suffix=args.suffix, score_only=args.score_only,
+                                                            variables=args.variables))
 
         terminate(args.module, design_directories, location=location, results=results)
 
