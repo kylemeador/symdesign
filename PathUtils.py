@@ -158,8 +158,8 @@ uniclustdb = os.path.join(dependency_dir, 'hh-suite/databases', 'UniRef30_2020_0
 # uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
 # Rosetta Scripts and Misc Files
 rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
-symmetry_def_file_dir = 'sdf'
-symmetry_def_files = os.path.join(rosetta_scripts, symmetry_def_file_dir)
+symmetry_def_file_dir = 'rosetta_symmetry_definition_files'
+symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
 sym_weights = 'ref2015_sym.wts_patch'
 solvent_weights = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
