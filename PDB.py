@@ -854,7 +854,8 @@ class PDB(Structure):
             log_f.write('%s\n' % stderr)
             if os.path.exists(orient_output) and os.stat(orient_output).st_size != 0:
                 if generate_oriented_pdb:
-                    oriented_file = os.path.join(out_dir, pdb_file_name)
+                    oriented_file = os.path.join(out_dir, (pdb_file_name if pdb_file_name.endswith('.pdb')
+                                                           else '%s.pdb' % pdb_file_name))
                     move(orient_output, oriented_file)
                     new_pdb = None
                 else:
