@@ -438,13 +438,15 @@ def cluster_designs(composition_designs, return_pose_id=True):
 
 
 def group_compositions(design_directories):
+    """From a set of DesignDirectories, find all the compositions and group together"""
     compositions = {}
     for design in design_directories:
         design.gather_pose_metrics()
-        if compositions.get(design.composition, None):
-            compositions[design.composition].append(design)
+        oligomer_names = tuple(compositions.get(design.oligomer_names))
+        if compositions.get(oligomer_names, None):
+            compositions[oligomer_names].append(design)
         else:
-            compositions[design.composition] = [design]
+            compositions[oligomer_names] = [design]
 
     return compositions
 
