@@ -1,8 +1,9 @@
 import copy
+import math
 import os
 import pickle
 from glob import glob
-from itertools import chain as iter_chain, combinations_with_replacement
+from itertools import chain as iter_chain, combinations_with_replacement, combinations
 from math import sqrt, cos, sin
 
 import numpy as np
@@ -990,6 +991,45 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.log.debug('Found entities: %s' % list(entity.name for entity in current_pdb_entities))
 
         self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb, log=self.log)
+
+    def get_contacting_asu(self, distance=8):
+        """From the Pose PDB and the associated active Entities, find the maximal contacting ASU for each of the
+        entities
+
+        Keyword Args:
+            distance=8 (int): The distance to check for contacts
+        Returns:
+            (PDB)
+        """
+        idx = 1
+        chain_combinations, entity_combinations = [], []
+        contact_count = np.zeros((math.prod([len(ent.chains) for ent in self.active_entities])))
+        for entity1, entity2 in combinations(self.active_entities, 2):
+            for chain1 in entity1.chains:
+                chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
+                for chain2 in entity2.chains:
+                    chain_combinations.append((chain1, chain2))
+                    entity_combinations.append((entity1, entity2))
+                    contact_count[idx] = chain_cb_coord_tree.two_point_correlation(chain2.get_cb_coords(),
+                                                                                   [distance])[0]
+                    idx += 1
+        max_contact_idx = contact_count.argmax()
+        additional_chains = []
+        max_chains = list(chain_combinations[max_contact_idx])
+        if len(max_chains) != len(self.active_entities):
+            selected_chain_indices = [idx for idx, chain_pair in enumerate(chain_combinations)
+                                      if max_chains[0] in chain_pair or max_chains[1] in chain_pair]
+            remaining_entities = set(self.active_entities).difference(entity_combinations[max_contact_idx])
+            for entity in remaining_entities:  # get the maximum contacts and the associated entity and chain indices
+                remaining_indices = [idx for idx, entity_pair in enumerate(entity_combinations)
+                                     if entity in entity_pair]
+                pair_position = [0 if entity_pair[0] == entity else 1
+                                 for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair]
+                viable_remaining_indices = list(set(remaining_indices).intersection(selected_chain_indices))
+                max_index = contact_count[viable_remaining_indices].argmax()
+                additional_chains.append(chain_combinations[max_index][pair_position[max_index]])
+
+        return PDB.from_chains(max_chains + additional_chains, name='asu', log=self.log, lazy=True)
 
     def entity(self, entity):
         return self.pdb.entity(entity)
