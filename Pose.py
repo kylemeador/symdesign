@@ -1896,9 +1896,8 @@ def fetch_pdb_file(pdb_code, location=PUtils.pdb_db, out_dir=os.getcwd(), asu=Tr
         out_dir=os.getcwd() (str): The location to save retrieved files if fetched from PDB
         asu=False (bool): Whether to fetch the ASU
     Returns:
-        (str): path/to/your_pdb.pdb (alphabetical characters in lowercase)
+        (str): path/to/your_pdb.pdb if located/downloaded successfully (alphabetical characters in lowercase)
     """
-    # if PUtils.pdb_source == 'download_pdb':
     if location == PUtils.pdb_db and asu:
         get_pdb = (lambda pdb_code, out_dir=None, asu=None:
                    glob(os.path.join(out_dir, 'pdb%s.ent' % pdb_code.split('_')[0].lower())))

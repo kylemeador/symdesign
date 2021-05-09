@@ -136,16 +136,19 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         (str): The name of the sbatch script that was written
     """
     if not stage:
+        # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
+        #                      Could add a hyperthreading=True parameter to remove process scale
+        #     command_divisor = process_scale
+        # else:
         raise DesignError('No --stage specified. Required!!!')
 
     if file:  # or directory: Todo
         # here using collect directories get the commands from the provided file
-        _commands, location = collect_designs(file=file, directory=directory)
+        _commands, location = collect_designs(files=[file], directory=directory)
     else:
         raise DesignError('Error: You must pass a file containing a list of commands to process. This is '
-                          'typically output to a \'[stage].cmds\' file. Ensure that this file exists and '
-                          'resubmit with -f \'[stage].cmds\'\n')
-        #             ', replacing stage with the desired stage.')
+                          'typically output to a \'STAGE.cmds\' file. Ensure that this file exists and '
+                          'resubmit with -f \'STAGE.cmds\'\n')
 
     # Automatically detect if the commands file has executable scripts or errors
     script_present = None
@@ -183,8 +186,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
 
     command_divisor = process_scale[stage]
     with open(filename, 'w') as new_f:
-        for template_line in template_sbatch:
-            new_f.write(template_line)
+        new_f.write('\n'.join(template_sbatch))
         out = 'output=%s/%s' % (output, '%A_%a.out')
         new_f.write('%s%s\n' % (PUtils.sb_flag, out))
         array = 'array=1-%d%%%d' % (int(len(_commands) / command_divisor + 0.5), max_jobs)
