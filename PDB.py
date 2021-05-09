@@ -794,7 +794,8 @@ class PDB(Structure):
 
     def orient(self, sym=None, out_dir=os.getcwd(), generate_oriented_pdb=False):
         """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axis defined by symmetry
-        file
+        file. Automatically produces files in PDB numbering for proper orient execution
+
         Keyword Args:
             generate_oriented_pdb=False (bool): Whether to save a oriented PDB file to the out_dir
         Returns:
