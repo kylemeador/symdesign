@@ -1820,22 +1820,20 @@ def subdirectory(name):  # TODO PDBdb
     return name
 
 
-def download_pdb(pdb, location=os.getcwd(), asu=False):
-    """Download a pdbs from a file, a supplied list, or a single entry
+def fetch_pdb(pdb, out_dir=os.getcwd(), asu=False):
+    """Download pdbs from a file, a supplied list, or a single entry
 
     Args:
-        pdb (str, list): PDB's of interest. If asu=False, code_# is format for biological assembly specific pdb.
-            Ex: 1bkh_2 fetches 1BKH biological assembly 2
+        pdb (union[str, list]): PDB's of interest. If asu=False, code_# is format for biological assembly specific pdb.
+            Ex: 1bkh_2 fetches 1bkh biological assembly 2
     Keyword Args:
+        out_dir=os.getcwd() (str): The location to download files to
         asu=False (bool): Whether or not to download the asymmetric unit file
     Returns:
         (None)
     """
-    clean_list = to_iterable(pdb)
-
-    failures = []
-    for pdb in clean_list:
-        clean_pdb = pdb[0:4]  # .upper() redundant call
+    for pdb in to_iterable(pdb):
+        clean_pdb = pdb[0:4].lower()
         if asu:
             assembly = ''
         else:
@@ -1846,18 +1844,16 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
                 assembly = '1'
 
         clean_pdb = '%s.pdb%s' % (clean_pdb, assembly)
-        file_name = os.path.join(location, clean_pdb)
+        file_name = os.path.join(out_dir, clean_pdb)
         current_file = glob(file_name)
         # current_files = os.listdir(location)
         # if clean_pdb not in current_files:
         if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
+            # Always returns files in lowercase
+            status = os.system('wget -O %s https://files.rcsb.org/download/%s' % (file_name, clean_pdb))
             # TODO subprocess.POPEN()
-            status = os.system('wget -O %s http://files.rcsb.org/download/%s' % (file_name, clean_pdb))
             if status != 0:
-                failures.append(pdb)
-
-    if failures:
-        logger.error('PDB download ran into the following failures:\n%s' % ', '.join(failures))
+                logger.error('PDB download failed for: %s' % pdb)
 
     return file_name  # Todo if list then will only return the last file
 
@@ -1890,33 +1886,36 @@ def download_pdb(pdb, location=os.getcwd(), asu=False):
 #     return oligomers
 
 
-def retrieve_pdb_file_path(code, directory=PUtils.pdb_db):
+def fetch_pdb_file(pdb_code, location=PUtils.pdb_db, asu=True):
     """Fetch PDB object of each chain from PDBdb or PDB server
 
-        Args:
-            code (iter): Any iterable of PDB codes
-        Keyword Args:
-            location= : Location of the  on disk
-        Returns:
-            (str): path/to/your_pdb.pdb
-        """
-    if PUtils.pdb_source == 'download_pdb':
-        get_pdb = download_pdb
-        # doesn't return anything at the moment
-    else:
-        get_pdb = (lambda pdb_code, location=None: glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
-        # The below set up is my local pdb and the format of escher. cassini is slightly different, ughhh
+    Args:
+        pdb_code (iter): The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
+    Keyword Args:
+        location=PathUtils.pdb_db (str): Location of a local PDB mirror if one is linked on disk
+        asu=False (bool): Whether to fetch the ASU
+    Returns:
+        (str): path/to/your_pdb.pdb (alphabetical characters in lowercase)
+    """
+    # if PUtils.pdb_source == 'download_pdb':
+    if PUtils.pdb_db and asu:
+        get_pdb = (lambda pdb_code, out_dir=None, asu=None:
+                   glob(os.path.join(out_dir, 'pdb%s.ent' % pdb_code.split('_')[0].lower())))
+        #                                      remove any biological assembly data and make lowercase
+        # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code),
         #                                                      '%s.pdb' % pdb_code)))
-        # returns a list with matching file (should only be one)
+    else:
+        get_pdb = fetch_pdb
 
-    # pdb_file = get_pdb(code, location)
-    pdb_file = get_pdb(code, location=directory)
-    # pdb_file = get_pdb(code, location=des_dir.pdbs)
-    assert len(pdb_file) == 1, 'More than one matching file found for PDB: %s' % code
-    assert pdb_file != list(), 'No matching file found for PDB: %s' % code
-
-    return pdb_file[0]
+    # return a list with matching files (should only be one)
+    pdb_file = get_pdb(pdb_code, out_dir=location, asu=asu)
+    if not pdb_file:
+        logger.warning('No matching file found for PDB: %s' % pdb_code)
+    elif len(pdb_file) > 1:
+        logger.warning('More than one matching file found for PDB \'%s\'. Retrieving %s' % (pdb_code, pdb_file[0]))
+    else:
+        return pdb_file[0]
 
 
 def construct_cb_atom_tree(pdb1, pdb2, distance=8):
