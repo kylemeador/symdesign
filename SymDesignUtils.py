@@ -56,7 +56,7 @@ all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': -1}
                       'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}}}
 
 point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7: 'O32', 13: 'O42', 56: 'O43',
-                       -1: 'T3', -2: 'O3'}
+                       }
 
 
 def parse_symmetry_to_sym_entry(symmetry_string):
@@ -154,17 +154,27 @@ def handle_symmetry(symmetry_entry_number):
         return 0
 
 
-def sdf_lookup(symmetry_entry, dummy=False):
-    if not symmetry_entry or dummy:
+def sdf_lookup(symmetry=None):
+    """From the set of possible point groups, locate the proper symmetry definition file depending on the specified
+    symmetry. If none specified (default) a viable, but completely garbage symmetry definition file will be returned
+
+    Keyword Args:
+        symmetry=None (union[str, int]): Can be one of the valid_point_groups or a point group SymmetryEntry number
+    Returns:
+        (str): The location of the symmetry definition file on disk
+    """
+    if not symmetry:
         return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
+    elif isinstance(symmetry, int):
+        symmetry_name = point_group_sdf_map[symmetry]
     else:
-        symmetry_name = point_group_sdf_map[symmetry_entry]
+        symmetry_name = symmetry
 
     for file in os.listdir(PUtils.symmetry_def_files):
         if symmetry_name in file:
             return os.path.join(PUtils.symmetry_def_files, file)
 
-    raise DesignError('Error locating specified symmetry entry: %s' % str(symmetry_entry))
+    raise DesignError('Error locating specified symmetry entry: %s' % symmetry_name)
 
 
 #####################
