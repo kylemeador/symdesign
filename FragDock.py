@@ -645,27 +645,28 @@ if __name__ == '__main__':
 
         try:
             # Output Directory  # Todo DesignDirectory
-            outdir = os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name))
+            building_blocks = '%s_%s' % (pdb1_name, pdb2_name)
+            outdir = os.path.join(master_outdir, building_blocks)
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
 
-            log_file_path = os.path.join(outdir, '%s_%s_log.txt' % (pdb1_name, pdb2_name))
-            log = start_log(name='%s_%s' % (pdb1_name, pdb2_name), handler=2, location=log_file_path, format_log=False)
+            log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
+            bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
             if os.path.exists(log_file_path):
                 resume = True
-                log.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
+                bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
             else:
                 resume = False
 
             # Write to Logfile
             if not resume:
-                log.info('DOCKING %s TO %s' % (pdb1_name, pdb2_name))
-                log.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (pdb1_path, pdb2_path))
+                bb_logger.info('DOCKING %s TO %s' % (pdb1_name, pdb2_name))
+                bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (pdb1_path, pdb2_path))
 
             nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path,
                            rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
                            output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                           min_matched=min_matched, log=log, resume=resume, keep_time=timer)
+                           min_matched=min_matched, log=bb_logger, resume=resume, keep_time=timer)
 
             with open(master_log_filepath, 'a+') as master_log_file:
                 master_log_file.write('COMPLETE ==> %s\n\n'
