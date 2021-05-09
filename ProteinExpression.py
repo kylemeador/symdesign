@@ -42,7 +42,7 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate fin
 
     partner_sequences = []
     for matching_pdb in pdb_chain_d:
-        partner_pdb = PDB.from_file(Pose.retrieve_pdb_file_path(matching_pdb), log=None, )
+        partner_pdb = PDB.from_file(Pose.fetch_pdb_file(matching_pdb), log=None, )
         # partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
         #                                                       chain=pdb_chain_d[matching_pdb], source='seqres')
         partner_sequences.append(partner_pdb.reference_sequence[pdb_chain_d[matching_pdb]])
