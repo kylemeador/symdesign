@@ -1,0 +1,3 @@
+The format of data in files in data/
+QSbio_GreaterThanHigh_Assemblies.pkl
+{PDBID(str): (list[AssemblyNumber(int)]), ...}
