@@ -1886,19 +1886,20 @@ def fetch_pdb(pdb, out_dir=os.getcwd(), asu=False):
 #     return oligomers
 
 
-def fetch_pdb_file(pdb_code, location=PUtils.pdb_db, asu=True):
+def fetch_pdb_file(pdb_code, location=PUtils.pdb_db, out_dir=os.getcwd(), asu=True):
     """Fetch PDB object of each chain from PDBdb or PDB server
 
     Args:
         pdb_code (iter): The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
     Keyword Args:
         location=PathUtils.pdb_db (str): Location of a local PDB mirror if one is linked on disk
+        out_dir=os.getcwd() (str): The location to save retrieved files if fetched from PDB
         asu=False (bool): Whether to fetch the ASU
     Returns:
         (str): path/to/your_pdb.pdb (alphabetical characters in lowercase)
     """
     # if PUtils.pdb_source == 'download_pdb':
-    if PUtils.pdb_db and asu:
+    if location == PUtils.pdb_db and asu:
         get_pdb = (lambda pdb_code, out_dir=None, asu=None:
                    glob(os.path.join(out_dir, 'pdb%s.ent' % pdb_code.split('_')[0].lower())))
         #                                      remove any biological assembly data and make lowercase
@@ -1909,7 +1910,7 @@ def fetch_pdb_file(pdb_code, location=PUtils.pdb_db, asu=True):
         get_pdb = fetch_pdb
 
     # return a list with matching files (should only be one)
-    pdb_file = get_pdb(pdb_code, out_dir=location, asu=asu)
+    pdb_file = get_pdb(pdb_code, out_dir=out_dir, asu=asu)
     if not pdb_file:
         logger.warning('No matching file found for PDB: %s' % pdb_code)
     elif len(pdb_file) > 1:
