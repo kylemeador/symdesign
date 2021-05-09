@@ -104,15 +104,17 @@ def verify_pisa(pisa_d, pdb_code):
     return None
 
 
-def sort_pdb_interfaces_by_contact_type(pisa_d, interface_number_set, assembly_confirmed=None):
-    """From a PISA entry, find all interfaces and sort into corresponding Biological assemblies, Crystal Contacts, and
-    other contacts. Other contacts are Biological assemblies that are not confirmed but hypothesized as biological.
-    When finding other candidate interfaces, we have to look for alternative interface ID's as the multimers and
-    ParsePisa may have different set, complex biological assembly references.
+def sort_pdb_interfaces_by_contact_type(pisa_d, interface_numbers, assembly_confirmed=None):
+    """From a PISA entry, find all PDB interfaces and sort into corresponding Biological assemblies, Crystal Contacts,
+    and 'other' contacts. Other contacts are Biological assemblies that are not statistically confirmed, but
+    hypothesized as biologically significant. When finding candidate other interfaces, we have to look for alternative
+    interface ID's as the multimers and ParsePisa may have a different set of complex biological assembly references.
 
     Args:
         pisa_d (dict): {'multimers': {}, 'interfaces': {}, 'chains': {})
-
+        interface_numbers (set): The set of PISA interfaces of interest
+    Keyword Args:
+        assembly_confirmed=None (iterable): Collection of PDB assemblies (int) that are confirmed oligomers
     Returns:
         (dict): {'bio': {}, 'xtal': {}, 'unknown_bio': {}}
     """
@@ -156,15 +158,16 @@ def sort_pdb_interfaces_by_contact_type(pisa_d, interface_number_set, assembly_c
                         #     all_possible_bio_int.remove(interface)
 
             final_unknown_bio_int = set(not_bio_int)
-            # take the intersection (&) of interface_number_set and bio_int to account for the BA id versus ParsePisa id
-            final_bio_int = interface_number_set & (all_possible_bio_int - final_unknown_bio_int)
-            final_xtal_int = interface_number_set - final_bio_int
+            # take the intersection (&) of interface_numbers and bio_int to account for the BA id versus ParsePisa id
+            final_bio_int = interface_numbers.intersection(all_possible_bio_int.difference(final_unknown_bio_int))
+            final_xtal_int = interface_numbers.difference(final_bio_int)
         else:  # the pdb does not have a confirmed assembly
-            # take the difference (-) of interface_number_set and all_possible_bio_int
+            # take the difference of interface_numbers and all_possible_bio_int
             final_unknown_bio_int = all_possible_bio_int
-            final_xtal_int = interface_number_set - final_unknown_bio_int  # all interface identified, minus possible BA
+            # all interface identified, minus possible BA
+            final_xtal_int = interface_numbers.difference(final_unknown_bio_int)
     else:  # we have a monomer and all interface are xtal
-        final_xtal_int = interface_number_set
+        final_xtal_int = interface_numbers
 
     return {'homo': final_bio_int, 'xtal': final_xtal_int, 'unknown_bio': final_unknown_bio_int}  # 'bio'
 
@@ -329,20 +332,21 @@ if __name__ == '__main__':
     qsbio_confirmed_d = unpickle(qs_bio)  # Todo make each list of interface ids a set()
     qsbio_monomers = to_iterable(qs_bio_monomers_file)  # Todo remove monomers from confirmed assemblies in source
     qsbio_monomers_d = {}
-    for pdb_ass in qsbio_monomers:
-        pdb_ass = pdb_ass.split('_')
-        if pdb_ass[0] in qsbio_monomers_d:
-            qsbio_monomers_d[pdb_ass[0]].add(pdb_ass[1])
+    for pdb_assembly in qsbio_monomers:
+        pdb, assembly = pdb_assembly.split('_')
+        if pdb in qsbio_monomers_d:
+            qsbio_monomers_d[pdb].add(assembly)
         else:
-            qsbio_monomers_d[pdb_ass[0]] = set(pdb_ass[1])
+            qsbio_monomers_d[pdb] = set(assembly)
 
     print('The number of monomers found in %s: %d' % (qs_bio_monomers_file, len(qsbio_monomers_d)))
+    # remove monomeric assemblies from qsbio_confirmed_oligomers
     for pdb, assemblies in qsbio_monomers_d.items():
         for assembly in assemblies:
             if pdb in qsbio_confirmed_d:
                 if assembly in qsbio_confirmed_d[pdb]:
                     qsbio_confirmed_d[pdb].remove(assembly)
-        if not qsbio_confirmed_d[pdb]:  # if the list is now empty, remove it from the dictionary
+        if not qsbio_confirmed_d[pdb]:  # if the values list is now empty, remove the pdb from the dictionary
             qsbio_confirmed_d.pop(pdb)
 
     # Current, DEPRECIATE!

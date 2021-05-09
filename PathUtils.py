@@ -71,7 +71,7 @@ directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx
                       % (pdbs_outdir, scores_outdir, scores_outdir)
 variance = 0.8
 clustered_poses = '%sClusteredPoses-%s.pkl'
-pdb_source = 'db'  # 'download_pdb'  # TODO set up
+pdb_source = 'db'  # 'fetch_pdb'  # TODO set up
 
 # Project paths
 source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
@@ -107,12 +107,13 @@ uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
 pdb_uniprot_map = os.path.join(data_dir, 'pdb_uniprot_map')  # TODO
 # uniprot_pdb_map = os.path.join(data_dir, 'uniprot_pdb_map')  # TODO
 affinity_tags = os.path.join(data_dir, 'modified-affinity-tags.csv')
-qsbio = os.path.join(data_dir, 'QSbio_Assemblies')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
 database = os.path.join(data_dir, 'databases')
 pdb_db = os.path.join(database, 'pdbDB')  # pointer to pdb database
 pisa_db = os.path.join(database, 'pisaDB')  # pointer to pisa database
-qs_bio = os.path.join(data, 'QSbio_GreaterThanHigh_Assemblies.pkl')
-qs_bio_monomers_file = os.path.join(data, 'QSbio_Monomers.csv')
+# Todo
+#  qsbio = os.path.join(data_dir, 'QSbioAssemblies.pkl')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
+qs_bio = os.path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
+qs_bio_monomers_file = os.path.join(data_dir, 'QSbio_Monomers.csv')
 
 # TODO script this file creation ?
 #  qsbio_data_url = 'https://www.weizmann.ac.il/sb/faculty_pages/ELevy/downloads/QSbio.xlsx'
@@ -124,7 +125,7 @@ qs_bio_monomers_file = os.path.join(data, 'QSbio_Monomers.csv')
 #  qsbio_df = pd.DataFrame(response.content)
 #  qsbio_df.groupby('QSBio Confidence', inplace=True)
 #  greater_than_high_df = qsbio_df[qsbio_df['QSBio Confidence'] in ['Very high', 'High']
-#
+#  oligomeric_assemblies = greater_than_high_df.drop(qsbio_monomers, errors='ignore')
 #  for pdb_code in qs_bio:
 #      qs_bio[pdb_code] = set(int(ass_id) for ass_id in qs_bio[pdb_code])
 
