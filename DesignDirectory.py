@@ -201,8 +201,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.building_block_logs = []
             self.building_block_dirs = []
 
-            self.cannonical_pdb1 = None  # cannonical pdb orientation
-            self.cannonical_pdb2 = None
+            self.canonical_pdb1 = None  # canonical pdb orientation
+            self.canonical_pdb2 = None
             # self.pdb_dir1_path = None
             # self.pdb_dir2_path = None
             self.rot_step_deg1 = None  # TODO
@@ -907,9 +907,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 elif 'CRYST1 RECORD:' in line:
                     self.cryst_record = line[15:].strip()
                 elif line[:31] == 'Canonical Orientation PDB1 Path':
-                    self.cannonical_pdb1 = line[:31].strip()
+                    self.canonical_pdb1 = line[:31].strip()
                 elif line[:31] == 'Canonical Orientation PDB2 Path':
-                    self.cannonical_pdb2 = line[:31].strip()
+                    self.canonical_pdb2 = line[:31].strip()
 
     def pickle_info(self):
         self.make_path(self.data)
@@ -1448,7 +1448,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         if force_flags or not os.path.exists(flags):  # Generate a new flags file
             self.make_path(flag_dir)
-            flags = self.prepare_rosetta_flags(pdb_path=pdb_path, out_path=self.scripts)
+            flags = self.prepare_rosetta_flags(pdb_path=pdb_path, out_path=flag_dir)
 
         self.prepare_symmetry_for_rosetta()
         # RELAX: Prepare command Todo remove in:file:native as it shouldn't be necessary without metrics
