@@ -70,6 +70,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # design_symmetry/data/pdbs (P432/Data/PDBs)
         self.orient_dir = None
         # design_symmetry/data/pdbs/oriented (P432/Data/PDBs/oriented)
+        self.orient_asu_dir = None
+        # design_symmetry/data/pdbs/oriented (P432/Data/PDBs/oriented_asu)
         self.refine_dir = None
         # design_symmetry/data/pdbs/refined (P432/Data/PDBs/refined)
         self.sequences = None
@@ -215,7 +217,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 nanohedra_root = design_path.split(os.sep)[-5]
                 # design_symmetry (P432)
                 self.composition = design_path[:design_path.find(design_path.split(os.sep)[-3]) - 1]
-                self.oligomer_names = os.path.basename(self.composition).split('_')
+                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
                 # self.pose_id = design_path[design_path.find(design_path.split(os.sep)[-3]) - 1:].replace(os.sep, '-')
                 self.pose_id = '-'.join(design_path.split(os.sep)[-4:])  # [-5:-1] because of trailing os.sep
                 self.name = self.pose_id
@@ -285,7 +287,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
                 self.composition = os.path.join(self.program_root, self.path.split(os.sep)[-4])
                 self.project_designs = os.path.join(self.composition, self.path.split(os.sep)[-2])
-                self.oligomer_names = os.path.basename(self.composition).split('_')
+                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.path, PUtils.asu)
                 self.set_up_design_directory()
@@ -580,6 +582,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.protein_data = os.path.join(self.program_root, PUtils.data.title())
         self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
+        self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
         self.refine_dir = os.path.join(self.pdbs, 'refined')
         self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
