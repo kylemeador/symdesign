@@ -902,6 +902,7 @@ if __name__ == '__main__':
                 # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
                 master_output = next(iter(design_directories))
                 orient_directory = master_output.orient_dir
+                orient_asu_directory = master_output.orient_asu_dir
                 args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
                 if args.orient:
                     logger.info('The required files for %s designs are being collected and oriented if necessary'
@@ -918,7 +919,14 @@ if __name__ == '__main__':
                             pdb_path = fetch_pdb_file('%s_%d' % (oligomer, biological_assemblies[0]),
                                                       out_dir=master_output.pdbs, asu=False)
                             if pdb_path:
-                                orient_pdb_file(pdb_path, log=orient_log, sym=symmetry, out_dir=orient_directory)
+                                orient_file = orient_pdb_file(pdb_path, log=orient_log, sym=symmetry,
+                                                              out_dir=orient_directory)
+                                if not orient_file:
+                                    continue
+                                # extract the asu from the oriented file for symmetric refinement
+                                oriented_pdb = PDB.from_file(orient_file, log=None)
+                                oriented_pdb.entities[0].write(out_path=os.path.join(orient_asu_directory,
+                                                                                     '%s.pdb' % oriented_pdb.name))
                             else:
                                 logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
                                                'downloading it from the PDB. Attempting to copy from %s job data source'
@@ -951,10 +959,11 @@ if __name__ == '__main__':
                     for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
                         symmetry = getattr(master_output.sym_entry, 'group%d' % idx)
                         sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
-                        for orient_file in os.listdir(orient_directory):
-                            if os.path.basename(orient_file) in required_oligomers:
-                                if orient_file not in refine_files:
-                                    oligomers_to_refine.append((orient_file, symmetry))
+                        for orient_asu_file in os.listdir(orient_asu_directory):
+                            if os.path.basename(orient_asu_file) in required_oligomers:
+                                if orient_asu_file not in refine_files:
+                                    oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file),
+                                                                symmetry))
 
                     while oligomers_to_refine:  # If no files found unrefined, we should proceed
                         logger.info('The following oriented oligomers are not yet refined:\n\t%s'
@@ -974,15 +983,16 @@ if __name__ == '__main__':
                             if not os.path.exists(flags_file):
                                 flags = copy.copy(rosetta_flags) + relax_flags
                                 flags.extend(['-out:path:pdb %s' % refine_directory, '-no_scorefile true'])  # Todo test
-                                flags.remove('-output_only_asymmetric_unit true')  # Todo probably want full oligomers
+                                flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
                                 with open(flags_file, 'w') as f:
                                     f.write('%s\n' % '\n'.join(flags))
 
                             refine_cmd = ['@%s' % flags_file, '-parser:protocol',
                                           os.path.join(PUtils.rosetta_scripts, '%s_oligomer.xml' % PUtils.stage[1]),
                                           '-parser:script_vars'] + script_cmd
-                            refine_cmds = [refine_cmd + ['sdf=%s' % sym_def_files[symmetry], '-in:file:s', orient_file]
-                                           for orient_file, symmetry in oligomers_to_refine]
+                            refine_cmds = \
+                                [refine_cmd + ['sdf=%s' % sym_def_files[symmetry], '-in:file:s', orient_asu_file]
+                                 for orient_asu_file, symmetry in oligomers_to_refine]
 
                             refine_script = SDUtils.write_shell_script('', name=PUtils.stage[1], out_path=refine_directory,
                                                                        additional=[subprocess.list2cmdline(command)
