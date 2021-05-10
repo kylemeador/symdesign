@@ -949,8 +949,13 @@ if __name__ == '__main__':
                                 % (master_outdir.orient_dir, ', '.join(required_oligomers), symmetry))
                     for oligomer in required_oligomers:
                         biological_assemblies = qsbio_confirmed.get(oligomer)  # v first assembly in list
-                        pdb_path = fetch_pdb_file('%s_%d' % (oligomer, biological_assemblies[0]),
-                                                  out_dir=master_outdir.pdbs, asu=False)
+                        if biological_assemblies:
+                            assembly = biological_assemblies[0]
+                        else:
+                            logger.warning('No confirmed biological assembly was found for %s. Using the first assembly'
+                                           ' listed in the PDB' % oligomer)
+                            assembly = '1'
+                        pdb_path = fetch_pdb_file('%s_%d' % (oligomer, assembly), out_dir=master_outdir.pdbs, asu=False)
                         if pdb_path:
                             orient_file = orient_pdb_file(pdb_path, log=orient_log, sym=symmetry,
                                                           out_dir=master_outdir.orient_dir)
