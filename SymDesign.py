@@ -9,6 +9,7 @@ import datetime
 import os
 import shutil
 import subprocess
+import sys
 import time
 from csv import reader
 from glob import glob
@@ -874,9 +875,18 @@ if __name__ == '__main__':
     if not args.directory and not args.file and not args.project and not args.single:
         raise SDUtils.DesignError('No designs were specified!\nPlease specify --directory, --file, '
                                   '--project, or --single to locate designs of interest and run your command again')
+
+    if args.multi_processing:
+        # Calculate the number of threads to use depending on computer resources
+        threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
+        logger.info('Starting multiprocessing using %d threads' % threads)
+    else:
+        threads = 1
+        logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
+
     # elif queried_flags['directory_type'] in [PUtils.interface_design, PUtils.select_designs, PUtils.analysis,
     #                                          PUtils.cluster_poses, 'sequence_selection']:
-    elif initialize:
+    if initialize:
         # Set up DesignDirectories
         if queried_flags['nanohedra_output']:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
@@ -914,6 +924,8 @@ if __name__ == '__main__':
                                                    location=os.path.join(orient_directory, PUtils.orient_log_file))
                     for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
                         symmetry = getattr(master_output.sym_entry, 'group%d' % idx)
+                        logger.info('Orienting PDB files to %s with %s symmetry: %s'
+                                    % (orient_directory, ', '.join(required_oligomers), symmetry))
                         for oligomer in required_oligomers:
                             biological_assemblies = qsbio_confirmed.get(oligomer)  # v first assembly in list
                             pdb_path = fetch_pdb_file('%s_%d' % (oligomer, biological_assemblies[0]),
@@ -971,10 +983,10 @@ if __name__ == '__main__':
                         refine_input = input('Would you like to refine them now? If you plan on performing sequence design '
                                              'on designs containing them, it is highly recommended you perform refinement.'
                                              'Indicate [y/n].%s' % input_string)
-                        if not bool_d[refine_input]:  # Todo make input crash proof
+                        if not bool_d[refine_input.lower()]:  # Todo make input crash proof
                             confirm = input('Your asymmetric units are going to be generated with unrefined coordinates'
                                             '. Confirm one more time to continue. Indicate [y/n].%s' % input_string)
-                            if bool_d[confirm]:  # Todo make input crash proof
+                            if bool_d[confirm.lower()]:  # Todo make input crash proof
                                 break
                         else:
                             # generate sbatch refine command
@@ -1000,6 +1012,8 @@ if __name__ == '__main__':
                             # TODO we must write sbatch, then run before we make ASU's. how to handle this?
                             refine_sbatch = distribute(stage='refine_oligomer', directory=master_output,
                                                        file=refine_script)
+                            logger.info('The located designs require preprocessing before design related modules can be'
+                                        ' used. Please follow the instructions below to refine your input files')
                             logger.critical(
                                 'Ensure the created SBATCH script is correct. Specifically, check that the job array '
                                 'and any node specifications are accurate. You can look at the SBATCH manual (man '
@@ -1007,7 +1021,10 @@ if __name__ == '__main__':
                                 'unsure.')
                             logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
                                         % ('\n\t'.join('sbatch %s' % refine_sbatch)))
-                            terminate(args.module, design_directories)
+                            logger.info('After completion of the refinement sbatch script, re-run your %s command:'
+                                        '\n\t%s\nto finish set up of the designs of interest.'
+                                        % (PUtils.program_name, ' '.join(sys.argv)))
+                            terminate(args.module, design_directories, output=False)
                             # break
                             # The next time this directory is initialized, there will be no refine files left hopefully
                             # then this while loop won't be triggered and DesignDirectory initialization will proceed
@@ -1032,7 +1049,14 @@ if __name__ == '__main__':
                 else:
                     design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
 
-        if not design_directories:
+        if design_directories:
+            # setup_design_directories(design_directories)
+            if args.multi_processing:
+                SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
+            else:
+                for design in design_directories:
+                    design.set_up_design_directory()
+        else:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s?'
                                       % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
@@ -1042,82 +1066,83 @@ if __name__ == '__main__':
             logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
                         % design_directories[0].log.handlers[0].baseFilename)
 
+    elif args.module == PUtils.nano:  # Todo consolidate this operation with above and nano orient
+        # Getting PDB1 and PDB2 File paths
+        if args.pdb_path1:
+            if not args.entry:
+                logger.critical('If using --pdb_path1 (-d1) and/or --pdb_path2 (-d2), please specify --entry as '
+                                'well. --entry can be found using the module \'%s query\'' % PUtils.program_command)
+                exit()
+            else:
+                sym_entry = SymEntry(args.entry)
+                oligomer_symmetry_1 = sym_entry.get_group1_sym()
+                oligomer_symmetry_2 = sym_entry.get_group2_sym()
+
+            # Orient Input Oligomers to Canonical Orientation
+            logger.info('Orienting PDB\'s for Nanohedra Docking')
+            oriented_pdb1_out_dir = os.path.join(os.path.dirname(args.pdb_path1), '%s_oriented_with_%s_symmetry'
+                                                 % (os.path.basename(args.pdb_path1), oligomer_symmetry_1))
+            if not os.path.exists(oriented_pdb1_out_dir):
+                os.makedirs(oriented_pdb1_out_dir)
+
+            if '.pdb' in args.pdb_path1:
+                pdb1_filepaths = [args.pdb_path1]
+            else:
+                pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.pdb_path1)
+            orient_log = SDUtils.start_log(name='orient', handler=2,
+                                           location=os.path.join(os.path.dirname(args.pdb_path1),
+                                                                 PUtils.orient_log_file))
+            pdb1_oriented_filepaths = [orient_pdb_file(pdb_path, log=orient_log, sym=oligomer_symmetry_1,
+                                                       out_dir=oriented_pdb1_out_dir)
+                                       for pdb_path in pdb1_filepaths]
+            logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
+            # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
+
+            if args.pdb_path2:
+                if args.pdb_path1 != args.pdb_path2:
+                    oriented_pdb2_out_dir = os.path.join(os.path.dirname(args.pdb_path2),
+                                                         '%s_oriented_with_%s_symmetry'
+                                                         % (os.path.basename(args.pdb_path2), oligomer_symmetry_2))
+                    if not os.path.exists(oriented_pdb2_out_dir):
+                        os.makedirs(oriented_pdb2_out_dir)
+
+                    if '.pdb' in args.pdb_path2:
+                        pdb2_filepaths = [args.pdb_path2]
+                    else:
+                        pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.pdb_path2)
+                    pdb2_oriented_filepaths = [orient_pdb_file(pdb_path, log=orient_log, sym=oligomer_symmetry_2,
+                                                               out_dir=oriented_pdb2_out_dir)
+                                               for pdb_path in pdb2_filepaths]
+
+                    pdb_pairs = list(product(filter(None, pdb1_oriented_filepaths),
+                                             filter(None, pdb2_oriented_filepaths)))
+                    # pdb_pairs = list(product(pdb1_oriented_filepaths, pdb2_oriented_filepaths))
+                    # pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir),
+                    #                          SDUtils.get_all_pdb_file_paths(oriented_pdb2_out_dir)))
+                    location = '%s & %s' % (args.pdb_path1, args.pdb_path2)
+            else:
+                pdb_pairs = list(combinations(filter(None, pdb1_oriented_filepaths), 2))
+                # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
+                # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
+                location = args.pdb_path1
+            initial_iter = [False for _ in range(len(pdb_pairs))]
+            initial_iter[0] = True
+            design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
+        elif args.directory or args.file:
+            all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
+                                                                               directory=args.directory, dock=True)
+            design_directories = [DesignDirectory.from_nanohedra(dock_dir, mode=args.directory_type,
+                                                                 project=args.project, **queried_flags)
+                                  for dock_dir in all_dock_directories]
+            if len(design_directories) == 0:
+                raise SDUtils.DesignError('No docking directories/files were found!\n'
+                                          'Please specify --directory1, and/or --directory2 or --directory or '
+                                          '--file. See %s' % PUtils.help(args.module))
+
+        logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
+                                                                                       location))
     else:
-        if args.module == PUtils.nano:  # Todo consolidate this operation with above and nano orient
-            # Getting PDB1 and PDB2 File paths
-            if args.pdb_path1:
-                if not args.entry:
-                    logger.critical('If using --pdb_path1 (-d1) and/or --pdb_path2 (-d2), please specify --entry as '
-                                    'well. --entry can be found using the module \'%s query\'' % PUtils.program_command)
-                    exit()
-                else:
-                    sym_entry = SymEntry(args.entry)
-                    oligomer_symmetry_1 = sym_entry.get_group1_sym()
-                    oligomer_symmetry_2 = sym_entry.get_group2_sym()
-
-                # Orient Input Oligomers to Canonical Orientation
-                logger.info('Orienting PDB\'s for Nanohedra Docking')
-                oriented_pdb1_out_dir = os.path.join(os.path.dirname(args.pdb_path1), '%s_oriented_with_%s_symmetry'
-                                                     % (os.path.basename(args.pdb_path1), oligomer_symmetry_1))
-                if not os.path.exists(oriented_pdb1_out_dir):
-                    os.makedirs(oriented_pdb1_out_dir)
-
-                if '.pdb' in args.pdb_path1:
-                    pdb1_filepaths = [args.pdb_path1]
-                else:
-                    pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.pdb_path1)
-                orient_log = SDUtils.start_log(name='orient', handler=2,
-                                               location=os.path.join(os.path.dirname(args.pdb_path1),
-                                                                     PUtils.orient_log_file))
-                pdb1_oriented_filepaths = [orient_pdb_file(pdb_path, log=orient_log, sym=oligomer_symmetry_1,
-                                                           out_dir=oriented_pdb1_out_dir)
-                                           for pdb_path in pdb1_filepaths]
-                logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
-                # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
-
-                if args.pdb_path2:
-                    if args.pdb_path1 != args.pdb_path2:
-                        oriented_pdb2_out_dir = os.path.join(os.path.dirname(args.pdb_path2),
-                                                             '%s_oriented_with_%s_symmetry'
-                                                             % (os.path.basename(args.pdb_path2), oligomer_symmetry_2))
-                        if not os.path.exists(oriented_pdb2_out_dir):
-                            os.makedirs(oriented_pdb2_out_dir)
-
-                        if '.pdb' in args.pdb_path2:
-                            pdb2_filepaths = [args.pdb_path2]
-                        else:
-                            pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.pdb_path2)
-                        pdb2_oriented_filepaths = [orient_pdb_file(pdb_path, log=orient_log, sym=oligomer_symmetry_2,
-                                                                   out_dir=oriented_pdb2_out_dir)
-                                                   for pdb_path in pdb2_filepaths]
-
-                        pdb_pairs = list(product(filter(None, pdb1_oriented_filepaths),
-                                                 filter(None, pdb2_oriented_filepaths)))
-                        # pdb_pairs = list(product(pdb1_oriented_filepaths, pdb2_oriented_filepaths))
-                        # pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir),
-                        #                          SDUtils.get_all_pdb_file_paths(oriented_pdb2_out_dir)))
-                        location = '%s & %s' % (args.pdb_path1, args.pdb_path2)
-                else:
-                    pdb_pairs = list(combinations(filter(None, pdb1_oriented_filepaths), 2))
-                    # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
-                    # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
-                    location = args.pdb_path1
-                initial_iter = [False for _ in range(len(pdb_pairs))]
-                initial_iter[0] = True
-                design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
-            elif args.directory or args.file:
-                all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
-                                                                                   directory=args.directory, dock=True)
-                design_directories = [DesignDirectory.from_nanohedra(dock_dir, mode=args.directory_type,
-                                                                     project=args.project, **queried_flags)
-                                      for dock_dir in all_dock_directories]
-                if len(design_directories) == 0:
-                    raise SDUtils.DesignError('No docking directories/files were found!\n'
-                                              'Please specify --directory1, and/or --directory2 or --directory or '
-                                              '--file. See %s' % PUtils.help(args.module))
-
-            logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
-                                                                                           location))
+        raise SDUtils.DesignError('This logic is impossible?!')
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
@@ -1133,14 +1158,6 @@ if __name__ == '__main__':
         for design in design_directories:
             design.connect_db(frag_db=fragment_db)
             design.euler_lookup = euler_lookup
-
-    if args.multi_processing:
-        # Calculate the number of threads to use depending on computer resources
-        threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
-        logger.info('Starting multiprocessing using %s threads' % str(threads))
-    else:
-        threads = 1
-        logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
 
     # -----------------------------------------------------------------------------------------------------------------
     # Ensure all Nanohedra Directories are set up by performing required transformation, then saving the pose
