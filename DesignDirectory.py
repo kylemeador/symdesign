@@ -572,12 +572,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
         self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
         self.refine_dir = os.path.join(self.pdbs, 'refined')
-        self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
+        # self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO db integration
         self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
         self.design_sequences = os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
+
+        # Ensure directories are only created once Pose Processing is called
+        # self.make_path(self.protein_data)
+        # self.make_path(self.pdbs)
+        # self.make_path(self.orient_dir)
+        # self.make_path(self.orient_asu_dir)
+        # self.make_path(self.refine_dir)
+        # self.make_path(self.sdf_dir)
 
     @handle_design_errors(errors=(DesignError, ))
     def set_up_design_directory(self):
@@ -627,11 +635,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.oligomer_names = self.info.get('oligomer_names')
             # if 'design' in self.info and self.info['design']:  # Todo, respond to the state
             #     dummy = True
-        else:  # Ensure directories are only created once Pose Processing is called
-            # self.log.debug('Setting up DesignDirectory for design: %s' % self.source)
-            self.make_path(self.protein_data)
-            self.make_path(self.pdbs)
-            self.make_path(self.sequences)
 
         self.start_log()
         # if os.path.exists(self.frag_file):
