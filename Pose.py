@@ -1590,7 +1590,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             #  won't matter for each entity. right?
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
             if entity not in self.active_entities:  # we shouldn't design, add a null profile instead
-                entity.add_profile(null=True, out_path=design_dir.sequences)
+                entity.add_profile(null=True)
             else:
                 entity.add_profile(evolution=evolution, fragments=fragments, out_path=design_dir.sequences)
 

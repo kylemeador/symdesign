@@ -121,7 +121,7 @@ def run(cmd, log_file_name, srun=None, program='bash'):
 
 
 def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, failure_file=None, max_jobs=80,
-               **kwargs):
+               number_of_commands=None, **kwargs):
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Keyword Args:
@@ -130,8 +130,8 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         file=None (str): The location of the file which contains your commands to distribute through an sbatch array
         success_file=None (str): What file to write the successful jobs to for job organization
         failure_file=None (str): What file to write the failed jobs to for job organization
-        max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once from
-        your array
+        max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once
+        number_of_commands=None (int): The size of the job array
     Returns:
         (str): The name of the sbatch script that was written
     """
@@ -142,30 +142,31 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         # else:
         raise DesignError('No --stage specified. Required!!!')
 
-    if file:  # or directory: Todo
+    if number_of_commands:
+        _commands = [0 for _ in range(number_of_commands)]
+    elif file:
         # here using collect directories get the commands from the provided file
         _commands, location = collect_designs(files=[file], directory=directory)
+        # Automatically detect if the commands file has executable scripts or errors
+        script_present = None
+        for idx, _command in enumerate(_commands):
+            if not os.path.exists(_command):  # check for any missing commands and report
+                raise DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
+                                  % (file, idx + 1, _command))
+            if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
+                if idx != 0 and script_present:  # There was a change from script files to non-script files
+                    raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
+                                      'or not. Cannot mix!\n' % (file, idx + 1))
+                # break
+            else:  # the command string is a shell script
+                if idx != 0 and not script_present:  # There was a change from non-script files to script files
+                    raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
+                                      'or not. Cannot mix!\n' % (file, idx + 1))
+                script_present = '-c'
     else:
-        raise DesignError('Error: You must pass a file containing a list of commands to process. This is '
-                          'typically output to a \'STAGE.cmds\' file. Ensure that this file exists and '
-                          'resubmit with -f \'STAGE.cmds\'\n')
-
-    # Automatically detect if the commands file has executable scripts or errors
-    script_present = None
-    for idx, _command in enumerate(_commands):
-        if not os.path.exists(_command):  # check for any missing commands and report
-            raise DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
-                              % (file, idx + 1, _command))
-        if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
-            if idx != 0 and script_present:  # There was a change from script files to non-script files
-                raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                  'or not. Cannot mix!\n' % (file, idx + 1))
-            # break
-        else:  # the command string is a shell script
-            if idx != 0 and not script_present:  # There was a change from non-script files to script files
-                raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                  'or not. Cannot mix!\n' % (file, idx + 1))
-            script_present = '-c'
+        raise DesignError('You must pass number_of_commands or file which contains a list of commands to process')
+        # 'A file is typically output as a \'STAGE.cmds\' file. Ensure that this file exists and resubmit with
+        # -f \'STAGE.cmds\'\n')
 
     # Create success and failures files
     name = os.path.basename(os.path.splitext(file)[0])
@@ -173,23 +174,19 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         success_file = os.path.join(directory, '%s_%s_success.log' % (name, PUtils.sbatch))
     if not failure_file:
         failure_file = os.path.join(directory, '%s_%s_failures.log' % (name, PUtils.sbatch))
-
-    # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
-    with open(PUtils.sbatch_templates[stage]) as template_f:
-        template_sbatch = template_f.readlines()
-
-    # Make sbatch file from template, array details, and command distribution script
-    filename = os.path.join(directory, '%s_%s.sh' % (name, PUtils.sbatch))
     output = os.path.join(directory, 'sbatch_output')
     if not os.path.exists(output):
         os.mkdir(output)
 
-    command_divisor = process_scale[stage]
+    # Make sbatch file from template, array details, and command distribution script
+    filename = os.path.join(directory, '%s_%s.sh' % (name, PUtils.sbatch))
     with open(filename, 'w') as new_f:
-        new_f.write('\n'.join(template_sbatch))
+        # grab and write sbatch template
+        with open(PUtils.sbatch_templates[stage]) as template_f:
+            new_f.write('\n'.join(template_f.readlines()))
         out = 'output=%s/%s' % (output, '%A_%a.out')
         new_f.write('%s%s\n' % (PUtils.sb_flag, out))
-        array = 'array=1-%d%%%d' % (int(len(_commands) / command_divisor + 0.5), max_jobs)
+        array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[stage] + 0.5), max_jobs)
         new_f.write('%s%s\n' % (PUtils.sb_flag, array))
         new_f.write('\npython %s --stage %s distribute --success_file %s --failure_file %s --command_file %s %s\n' %
                     (PUtils.cmd_dist, stage, success_file, failure_file, file, (script_present or '')))
