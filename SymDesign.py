@@ -843,7 +843,7 @@ if __name__ == '__main__':
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
                        'interface_metrics', 'custom_script', 'rename_chains', 'status']:
-        initialize, construct_pose = True, True  # set up design directories and construct a pose if nanohedra
+        initialize = True  # set up design directories
         if args.module in ['orient', 'expand_asu']:
             if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
                 queried_flags['output_assembly'] = True
@@ -908,130 +908,6 @@ if __name__ == '__main__':
                     queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
                     design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
                                           for pose in all_poses[low_range:high_range]]
-
-                # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
-                master_output = next(iter(design_directories))
-                orient_directory = master_output.orient_dir
-                orient_asu_directory = master_output.orient_asu_dir
-                args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
-                if args.orient:
-                    logger.info('The required files for %s designs are being collected and oriented if necessary'
-                                % PUtils.nano)
-                    required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
-                    required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
-                    qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
-                    orient_log = SDUtils.start_log(name='orient', handler=2,
-                                                   location=os.path.join(orient_directory, PUtils.orient_log_file))
-                    for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
-                        symmetry = getattr(master_output.sym_entry, 'group%d' % idx)
-                        logger.info('Orienting PDB files to %s with %s symmetry: %s'
-                                    % (orient_directory, ', '.join(required_oligomers), symmetry))
-                        for oligomer in required_oligomers:
-                            biological_assemblies = qsbio_confirmed.get(oligomer)  # v first assembly in list
-                            pdb_path = fetch_pdb_file('%s_%d' % (oligomer, biological_assemblies[0]),
-                                                      out_dir=master_output.pdbs, asu=False)
-                            if pdb_path:
-                                orient_file = orient_pdb_file(pdb_path, log=orient_log, sym=symmetry,
-                                                              out_dir=orient_directory)
-                                if not orient_file:
-                                    continue
-                                # extract the asu from the oriented file for symmetric refinement
-                                oriented_pdb = PDB.from_file(orient_file, log=None)
-                                oriented_pdb.entities[0].write(out_path=os.path.join(orient_asu_directory,
-                                                                                     '%s.pdb' % oriented_pdb.name))
-                            else:
-                                logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
-                                               'downloading it from the PDB. Attempting to copy from %s job data source'
-                                               % (pdb_path, PUtils.nano))
-                                raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
-                                                          'canonical_pdb1/2 attribute of DesignDirectory to pull the'
-                                                          'pdb file source.')
-                    # required_oriented_files = required_oligomers1.union(required_oligomers2)
-                    # missing_oriented_files = required_oriented_files.difference(os.listdir(orient_directory))
-                    # if missing_oriented_files:
-                    #     for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
-                    #         symmetry = getattr(master_output.sym_entry, 'group%d' % idx)
-                    #         for oligomer in required_oligomers:
-                    #             if oligomer in missing_oriented_files:
-                    #                 biological_assemblies = qsbio_confirmed.get(oligomer)
-                    #                 pdb = PDB.from_file(fetch_pdb_file('%s_%d' % (oligomer, biological_assemblies[0])),
-                    #                                     log=None, entities=False, lazy=True)  # first assembly ^ in list
-                    #                 pdb.orient(sym=symmetry, out_dir=orient_directory, generate_oriented_pdb=True)
-                if args.refine:
-                    # later if sequence design is attempted, ensure all of these are present in the self.refine_dir
-                    logger.info('The required files for %s based designs are being refined into the Rosetta '
-                                'Scorefunction for proper sequence design structural initiation.'
-                                % PUtils.nano)
-                    # for design in design_directories:
-                    refine_directory = master_output.refine_dir
-                    refine_files = os.listdir(refine_directory)
-                    required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
-                    required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
-                    oligomers_to_refine, sym_def_files = [], {}
-                    for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
-                        symmetry = getattr(master_output.sym_entry, 'group%d' % idx)
-                        sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
-                        for orient_asu_file in os.listdir(orient_asu_directory):
-                            if os.path.basename(orient_asu_file) in required_oligomers:
-                                if orient_asu_file not in refine_files:
-                                    oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file),
-                                                                symmetry))
-
-                    while oligomers_to_refine:  # If no files found unrefined, we should proceed
-                        logger.info('The following oriented oligomers are not yet refined:\n\t%s'
-                                    % ', '.join(map(os.path.basename, [file for file, sym in oligomers_to_refine])))
-                        refine_input = input('Would you like to refine them now? If you plan on performing sequence design '
-                                             'on designs containing them, it is highly recommended you perform refinement.'
-                                             'Indicate [y/n].%s' % input_string)
-                        if not bool_d[refine_input.lower()]:  # Todo make input crash proof
-                            confirm = input('Your asymmetric units are going to be generated with unrefined coordinates'
-                                            '. Confirm one more time to continue. Indicate [y/n].%s' % input_string)
-                            if bool_d[confirm.lower()]:  # Todo make input crash proof
-                                break
-                        else:
-                            # generate sbatch refine command
-                            # orient_files, symmetries = zip(*oligomers_to_refine)
-                            flags_file = os.path.join(refine_directory, 'refine_flags')
-                            if not os.path.exists(flags_file):
-                                flags = copy.copy(rosetta_flags) + relax_flags
-                                flags.extend(['-out:path:pdb %s' % refine_directory, '-no_scorefile true'])  # Todo test
-                                flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                                with open(flags_file, 'w') as f:
-                                    f.write('%s\n' % '\n'.join(flags))
-
-                            refine_cmd = ['@%s' % flags_file, '-parser:protocol',
-                                          os.path.join(PUtils.rosetta_scripts, '%s_oligomer.xml' % PUtils.stage[1]),
-                                          '-parser:script_vars'] + script_cmd
-                            refine_cmds = \
-                                [refine_cmd + ['sdf=%s' % sym_def_files[symmetry], '-in:file:s', orient_asu_file]
-                                 for orient_asu_file, symmetry in oligomers_to_refine]
-
-                            refine_script = SDUtils.write_shell_script('', name=PUtils.stage[1], out_path=refine_directory,
-                                                                       additional=[subprocess.list2cmdline(command)
-                                                                                   for command in refine_cmds])
-                            # TODO we must write sbatch, then run before we make ASU's. how to handle this?
-                            refine_sbatch = distribute(stage='refine_oligomer', directory=master_output,
-                                                       file=refine_script)
-                            logger.info('The located designs require preprocessing before design related modules can be'
-                                        ' used. Please follow the instructions below to refine your input files')
-                            logger.critical(
-                                'Ensure the created SBATCH script is correct. Specifically, check that the job array '
-                                'and any node specifications are accurate. You can look at the SBATCH manual (man '
-                                'sbatch or sbatch --help) to understand the variables or ask for help if you are still '
-                                'unsure.')
-                            logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
-                                        % ('\n\t'.join('sbatch %s' % refine_sbatch)))
-                            logger.info('After completion of the refinement sbatch script, re-run your %s command:'
-                                        '\n\t%s\nto finish set up of the designs of interest.'
-                                        % (PUtils.program_name, ' '.join(sys.argv)))
-                            terminate(args.module, design_directories, output=False)
-                            # break
-                            # The next time this directory is initialized, there will be no refine files left hopefully
-                            # then this while loop won't be triggered and DesignDirectory initialization will proceed
-                # ensure nanohedra_initialization
-                # args.module = 'nanohedra_initialization'
-                nanohedra_initialization = True
-
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           project=args.project, single=args.single)
@@ -1048,6 +924,134 @@ if __name__ == '__main__':
                                           for pose in all_poses[low_range:high_range]]
                 else:
                     design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
+
+        master_outdir = next(iter(design_directories))  # from collect_designs? (when not from file) or multiple dirs
+        master_outdir.make_path(master_outdir.protein_data)
+        master_outdir.make_path(master_outdir.pdbs)
+        if queried_flags['nanohedra_output']:
+            # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
+            master_outdir.make_path(master_outdir.orient_dir)
+            master_outdir.make_path(master_outdir.orient_asu_dir)
+            # orient_directory = master_outdir.orient_dir
+            orient_asu_directory = master_outdir.orient_asu_dir
+            args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
+            if args.orient:
+                logger.info('The required files for %s designs are being collected and oriented if necessary'
+                            % PUtils.nano)
+                required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
+                required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
+                qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
+                orient_log = SDUtils.start_log(name='orient', handler=2,
+                                               location=os.path.join(master_outdir.orient_dir, PUtils.orient_log_file))
+                for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
+                    symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
+                    logger.info('Orienting PDB files to %s with %s symmetry: %s'
+                                % (master_outdir.orient_dir, ', '.join(required_oligomers), symmetry))
+                    for oligomer in required_oligomers:
+                        biological_assemblies = qsbio_confirmed.get(oligomer)  # v first assembly in list
+                        pdb_path = fetch_pdb_file('%s_%d' % (oligomer, biological_assemblies[0]),
+                                                  out_dir=master_outdir.pdbs, asu=False)
+                        if pdb_path:
+                            orient_file = orient_pdb_file(pdb_path, log=orient_log, sym=symmetry,
+                                                          out_dir=master_outdir.orient_dir)
+                            if not orient_file:
+                                continue
+                            # extract the asu from the oriented file for symmetric refinement
+                            oriented_pdb = PDB.from_file(orient_file, log=None)
+                            oriented_pdb.entities[0].write(out_path=os.path.join(master_outdir.orient_asu_dir,
+                                                                                 '%s.pdb' % oriented_pdb.name))
+                        else:
+                            logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
+                                           'downloading it from the PDB. Attempting to copy from %s job data source'
+                                           % (pdb_path, PUtils.nano))
+                            raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
+                                                      'canonical_pdb1/2 attribute of DesignDirectory to pull the'
+                                                      'pdb file source.')
+                # required_oriented_files = required_oligomers1.union(required_oligomers2)
+                # missing_oriented_files = required_oriented_files.difference(os.listdir(orient_directory))
+                # if missing_oriented_files:
+                #     for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
+                #         symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
+                #         for oligomer in required_oligomers:
+                #             if oligomer in missing_oriented_files:
+                #                 biological_assemblies = qsbio_confirmed.get(oligomer)
+                #                 pdb = PDB.from_file(fetch_pdb_file('%s_%d' % (oligomer, biological_assemblies[0])),
+                #                                     log=None, entities=False, lazy=True)  # first assembly ^ in list
+                #                 pdb.orient(sym=symmetry, out_dir=orient_directory, generate_oriented_pdb=True)
+            if args.refine:
+                # later if sequence design is attempted, ensure all of these are present in the self.refine_dir
+                logger.info('The required files for %s based designs are being refined into the Rosetta '
+                            'Scorefunction for proper sequence design structural initiation.'
+                            % PUtils.nano)
+                master_outdir.make_path(master_outdir.refine_dir)
+                # refine_directory = master_outdir.refine_dir
+                refine_files = os.listdir(master_outdir.refine_dir)
+                required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
+                required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
+                oligomers_to_refine, sym_def_files = [], {}
+                for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
+                    symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
+                    sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
+                    for orient_asu_file in os.listdir(orient_asu_directory):
+                        if os.path.basename(orient_asu_file) in required_oligomers:
+                            if orient_asu_file not in refine_files:
+                                oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file),
+                                                            symmetry))
+
+                while oligomers_to_refine:  # If no files found unrefined, we should proceed
+                    logger.info('The following oriented oligomers are not yet refined:\n\t%s'
+                                % ', '.join(map(os.path.basename, [file for file, sym in oligomers_to_refine])))
+                    refine_input = input('Would you like to refine them now? If you plan on performing sequence design '
+                                         'on designs containing them, it is highly recommended you perform refinement.'
+                                         'Indicate [y/n].%s' % input_string)
+                    if not bool_d[refine_input.lower()]:  # Todo make input crash proof
+                        confirm = input('Your asymmetric units are going to be generated with unrefined coordinates'
+                                        '. Confirm one more time to continue. Indicate [y/n].%s' % input_string)
+                        if bool_d[confirm.lower()]:  # Todo make input crash proof
+                            break
+                    else:
+                        # generate sbatch refine command
+                        # orient_files, symmetries = zip(*oligomers_to_refine)
+                        flags_file = os.path.join(master_outdir.refine_dir, 'refine_flags')
+                        if not os.path.exists(flags_file):
+                            flags = copy.copy(rosetta_flags) + relax_flags
+                            flags.extend(['-out:path:pdb %s' % master_outdir.refine_dir, '-no_scorefile true'])  # Todo test
+                            flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
+                            with open(flags_file, 'w') as f:
+                                f.write('%s\n' % '\n'.join(flags))
+
+                        refine_cmd = ['@%s' % flags_file, '-parser:protocol',
+                                      os.path.join(PUtils.rosetta_scripts, '%s_oligomer.xml' % PUtils.stage[1]),
+                                      '-parser:script_vars'] + script_cmd
+                        refine_cmds = \
+                            [refine_cmd + ['sdf=%s' % sym_def_files[symmetry], '-in:file:s', orient_asu_file]
+                             for orient_asu_file, symmetry in oligomers_to_refine]
+
+                        commands_file = SDUtils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds],
+                                                               name='refine_oligomers_%s' % timestamp,
+                                                               out_path=master_outdir.refine_dir)
+                        refine_sbatch = \
+                            distribute(file=commands_file, directory=master_outdir.program_root, stage='refine',
+                                       number_of_commands=len(refine_cmds), max_jobs=int(len(refine_cmds) / 2 + 0.5))
+                        logger.info('The located designs require preprocessing before design related modules can be'
+                                    ' used. Please follow the instructions below to refine your input files')
+                        logger.critical(
+                            'Ensure the created SBATCH script is correct. Specifically, check that the job array '
+                            'and any node specifications are accurate. You can look at the SBATCH manual (man '
+                            'sbatch or sbatch --help) to understand the variables or ask for help if you are still '
+                            'unsure.')
+                        logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
+                                    % ('\n\t'.join('sbatch %s' % refine_sbatch)))
+                        logger.info('After completion of the refinement sbatch script, re-run your %s command:'
+                                    '\n\t%s\nto finish set up of the designs of interest.'
+                                    % (PUtils.program_name, ' '.join(sys.argv)))
+                        terminate(args.module, design_directories, output=False)
+                        # break
+                        # The next time this directory is initialized, there will be no refine files left hopefully
+                        # then this while loop won't be triggered and DesignDirectory initialization will proceed
+            # ensure nanohedra_initialization
+            # args.module = 'nanohedra_initialization'
+            nanohedra_initialization = True
 
         if design_directories:
             # setup_design_directories(design_directories)
@@ -1138,9 +1142,9 @@ if __name__ == '__main__':
                 raise SDUtils.DesignError('No docking directories/files were found!\n'
                                           'Please specify --directory1, and/or --directory2 or --directory or '
                                           '--file. See %s' % PUtils.help(args.module))
-
-        logger.info('%d unique building block docking combinations found in \'%s\'' % (len(design_directories),
-                                                                                       location))
+        master_outdir = next(iter(design_directories))
+        logger.info('%d unique building block docking combinations found in \'%s\''
+                    % (len(design_directories), location))
     else:
         raise SDUtils.DesignError('This logic is impossible?!')
 
@@ -1341,6 +1345,7 @@ if __name__ == '__main__':
                 logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
                                 '(the backbone of -design_with_evolution)! Please allocate the job to a computer with'
                                 'more memory or the process will fail. Otherwise, select -design_with_evolution False')
+            master_outdir.make_path(master_outdir.sequences)
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads=threads)
