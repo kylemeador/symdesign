@@ -199,7 +199,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.nano:
             # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
             if not os.path.exists(self.source_path):
-                raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.path)
+                raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
             # v used in dock_dir set up
             self.building_block_logs = []
             self.building_block_dirs = []
@@ -214,41 +214,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose_id = None
             # self.fragment_cluster_freq_d = {}
 
-            if self.construct_pose:
-                nanohedra_root = self.source_path.split(os.sep)[-5]
-                # design_symmetry (P432)
-                self.composition = self.source_path[:self.source_path.find(self.source_path.split(os.sep)[-3]) - 1]
-                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
-                # self.pose_id = self.source_path[self.source_path.find(self.source_path.split(os.sep)[-3]) - 1:]\
-                #     .replace(os.sep, '-')
-                self.pose_id = '-'.join(self.source_path.split(os.sep)[-4:])  # [-5:-1] because of trailing os.sep
-                self.name = self.pose_id
-                # design_symmetry/building_blocks (P432/4ftd_5tch)
-                self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
-                self.projects = os.path.join(self.program_root, PUtils.projects)
-                self.info['nanohedra'] = True
-                self.info['oligomer_names'] = self.oligomer_names  # Todo ensure all routes of contruction pickle this!
-                # make the newly required files
-                self.make_path(self.program_root)
-                self.make_path(self.projects)
-
-                self.project_designs = os.path.join(self.projects, '%s_%s' % (nanohedra_root, PUtils.design_directory))
-                if not os.path.exists(self.project_designs):
-                    # make new project_designs directory and copy the master log
-                    os.makedirs(self.project_designs)
-                    shutil.copy(os.path.join(nanohedra_root, PUtils.master_log), self.project_designs)
-
-                self.path = os.path.join(self.project_designs, self.name)
-                # self.set_up_design_directory()
-                # shutil.copy(self.pose_file, self.path)
-                # shutil.copy(self.frag_file, self.path)
-
-                # populate the transformation dictionary
-                # self.gather_pose_metrics()  # is this necessary yet?
-                # self.source = self.asu
-                # self.nano_master_log = os.path.join(self.project_designs, PUtils.master_log)
-                # ^ /program_root/projects/project_designs/design<- self.path /design.pdb
-            elif self.dock:
+            if self.dock:
                 # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
                 # using typical directory structuring
                 # self.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implement?
@@ -270,21 +236,57 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_dirs[k].append(bb_dir)
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-                # else:  # if self.directory_type in [PUtils.interface_design, 'filter', 'analysis']:
+            elif self.construct_pose:
+                self.info['nanohedra'] = True
+                path_components = self.source_path.split(os.sep)
+                nanohedra_root = path_components[-5]
+                # design_symmetry (P432)
+                # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
+                #     .replace(os.sep, '-')
+                self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
+                self.projects = os.path.join(self.program_root, PUtils.projects)
+                self.project_designs = os.path.join(self.projects, '%s_%s' % (nanohedra_root, PUtils.design_directory))
+                # make the newly required files
+                self.make_path(self.program_root)
+                self.make_path(self.projects)
+                self.make_path(self.project_designs)
+                # copy the master log
+                if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
+                    shutil.copy(os.path.join(nanohedra_root, PUtils.master_log), self.project_designs)
+
+                self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
+                # design_symmetry/building_blocks (P432/4ftd_5tch)
+                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+                self.info['oligomer_names'] = self.oligomer_names  # Todo ensure all routes of contruction pickle this!
+
+                self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
+                self.name = self.pose_id
+                self.path = os.path.join(self.project_designs, self.name)
+
+                # self.set_up_design_directory()
+                # shutil.copy(self.pose_file, self.path)
+                # shutil.copy(self.frag_file, self.path)
+                # populate the transformation dictionary
+                # self.gather_pose_metrics()  # is this necessary yet?
+                # self.source = self.asu
+                # self.nano_master_log = os.path.join(self.project_designs, PUtils.master_log)
+                # ^ /program_root/projects/project_designs/design<- self.path /design.pdb
+            # else:  # if self.directory_type in [PUtils.interface_design, 'filter', 'analysis']:
             else:
                 # May have issues with the number of open log files
                 # if self.directory_type == 'filter':
                 #     self.skip_logging = True
                 # else:
                 #     self.skip_logging = True
-                self.program_root = self.path[:self.path.find(self.path.split(os.sep)[-4]) - 1]
+                path_components = self.source_path.split(os.sep)
+                self.program_root = self.source_path[:self.source_path.find(path_components[-4]) - 1]
                 # design_symmetry (P432)
                 # self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
-                self.composition = os.path.join(self.program_root, self.path.split(os.sep)[-4])
-                self.project_designs = os.path.join(self.composition, self.path.split(os.sep)[-2])
+                self.composition = os.path.join(self.program_root, path_components[-4])
+                self.project_designs = os.path.join(self.composition, path_components[-2])
                 self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
-                self.source = os.path.join(self.path, PUtils.asu)
+                self.source = os.path.join(self.source_path, PUtils.asu)
                 # self.set_up_design_directory()
             # else:
             #     raise DesignError('%s: %s is not an available directory_type. Choose from %s...\n'
@@ -308,15 +310,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
-                self.make_path(self.path)
+                # self.make_path(self.path)
 
                 shutil.copy(self.source_path, self.path)
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
                 self.path = self.source_path
-                self.program_root = '/%s' % os.path.join(*self.path.split(os.sep)[:-3])
-                self.projects = '/%s' % os.path.join(*self.path.split(os.sep)[:-2])
-                self.project_designs = '/%s' % os.path.join(*self.path.split(os.sep)[:-1])
+                self.project_designs = os.path.dirname(self.path)
+                self.projects = os.path.dirname(self.project_designs)
+                self.program_root = os.path.dirname(self.projects)
+                # path_components = self.path.split(os.sep)
+                # self.program_root = '/%s' % os.path.join(*path_components[:-3])
+                # self.projects = '/%s' % os.path.join(*path_components[:-2])
+                # self.project_designs = '/%s' % os.path.join(*path_components[:-1])
             # self.set_up_design_directory()
+        self.link_master_directory()
 
     @classmethod
     def from_nanohedra(cls, design_path, project=None, **kwargs):
@@ -556,14 +563,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.path = os.path.join(self.program_root, pose_id.replace('Projects-', 'Projects%s' % os.sep).replace(
             '_Designs-', '_Designs%s' % os.sep).replace('-', os.sep))
 
-    @handle_design_errors(errors=(DesignError, ))
-    def set_up_design_directory(self):
-        """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
+    def link_master_directory(self):
+        """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes"""
         if not os.path.exists(self.program_root):
             raise DesignError('Path does not exist!\n\t%s' % self.program_root)
-        self.make_path(self.path)
-        # if not os.path.exists(self.path):
-        #     raise DesignError('Path does not exist!\n\t%s' % self.path)
         self.protein_data = os.path.join(self.program_root, PUtils.data.title())
         self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
@@ -571,12 +574,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.refine_dir = os.path.join(self.pdbs, 'refined')
         self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
-
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO db integration
         self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
         self.design_sequences = os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
 
+    @handle_design_errors(errors=(DesignError, ))
+    def set_up_design_directory(self):
+        """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
+        self.make_path(self.path)
+        # if not os.path.exists(self.path):
+        #     raise DesignError('Path does not exist!\n\t%s' % self.path)
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.scores_file = os.path.join(self.scores, PUtils.scores_file)
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
