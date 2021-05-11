@@ -274,6 +274,13 @@ if __name__ == '__main__':
         specific_commands = list(map(str.strip, all_commands[cmd_slice:final_cmd_slice]))
 
         # Prepare Commands
+        if len(specific_commands[0].split()) > 1:
+            # the command provided probably has an attached program type. Set to None, then split to a list
+            program = None
+            specific_commands = [cmd.split() for cmd in specific_commands]
+        else:
+            program = 'bash'
+
         # command_name = args.stage + '.sh'
         # python2.7 compatibility
         def path_maker(path_name):  # Todo depreciate
@@ -288,13 +295,6 @@ if __name__ == '__main__':
             log_files = [args.log_file for cmd in command_paths]
         else:
             log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
-
-        if len(specific_commands[0].split()) > 1:
-            # the command provided probably has an attached program type. Set to None, then split to a list
-            program = None
-            specific_commands = [cmd.split() for cmd in specific_commands]
-        else:
-            program = 'bash'
 
         iteration = 0
         complete = False
