@@ -16,6 +16,9 @@ from SequenceProfile import SequenceProfile
 
 
 # globals
+from classes.SymEntry import identity_matrix, get_rot_matrices, RotRangeDict, flip_x_matrix, get_degen_rotmatrices
+from utils.GeneralUtils import transform_coordinate_sets
+
 logger = start_log(name=__name__)
 
 
@@ -1277,6 +1280,59 @@ class Entity(Chain, SequenceProfile):  # Structure):
             self.api_entry (dict): {chain: db_reference, ...}
         """
         self.api_entry = get_pdb_info_by_entity(self.name)
+
+    def make_oligomer(self, sym=None, rotation=None, translation=None, rotation2=None, translation2=None):
+        #                   transform=None):
+        """Given a symmetry and an optional transformational mapping, generate oligomeric copies of the Entity as chains
+
+        Assumes that the symmetric system treats the canonical symmetric axis as the Z-axis, transforms the
+        Entity to the Z-axis, performs the required oligomeric rotations, then reverses the operations back to original
+        reference frame
+
+        Sets:
+            self.chains
+        """
+        # if transform:
+        #     translation, rotation, ext_translation, setting_rotation
+        origin = np.array([0., 0., 0.])
+        if not rotation:
+            rotation = identity_matrix
+        if not translation:
+            translation = origin
+        if not rotation2:
+            rotation2 = identity_matrix
+        if not translation2:
+            translation2 = origin
+
+        if 'D' in sym:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
+            rotation_matrices_only = get_rot_matrices(RotRangeDict[sym.replace('D', 'C')], 'z', 360)
+            # apparently passing the degeneracy matrix first without any specification towards the row/column major
+            # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
+            # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
+            rotation_matrices = get_degen_rotmatrices(flip_x_matrix, rotation_matrices_only)
+        else:
+            rotation_matrices = get_rot_matrices(RotRangeDict[sym], 'z', 360)
+        # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
+        inv_rotation = np.linalg.inv(rotation)
+
+        inv_setting = np.linalg.inv(rotation2)
+        # entity_inv = entity.return_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
+        # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
+        # and undo symmetry expansion matrices
+        centered_coords = transform_coordinate_sets(self.coords, translation=-translation2, rotation=inv_setting,
+                                                    translation2=-translation, rotation2=inv_rotation)
+
+        # inv_entity_coords = transform_coordinate_sets(centered_entity_coords, rotation=inv_expand_matrix,
+        #                                               rotation2=inv_set_matrix[group])
+        for rot in rotation_matrices[1:]:  # exclude the first rotation matrix as it is identity
+            rot_centered_coords = transform_coordinate_sets(centered_coords, rotation=rot)
+            new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
+                                                   rotation2=rotation2, translation2=translation2)
+            # final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=translation2)
+            # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
+            sub_symmetry_mate_pdb = self.__copy__()
+            sub_symmetry_mate_pdb.replace_coords(new_coords)
+            self.chains.append(sub_symmetry_mate_pdb)
 
     # def __key(self):
     #     return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
