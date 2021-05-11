@@ -112,7 +112,8 @@ pdb_db = os.path.join(database, 'pdbDB')  # pointer to pdb database
 pisa_db = os.path.join(database, 'pisaDB')  # pointer to pisa database
 # Todo
 #  qsbio = os.path.join(data_dir, 'QSbioAssemblies.pkl')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
-qs_bio = os.path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
+# qs_bio = os.path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
+qs_bio = os.path.join(data_dir, 'QSbioHighConfidenceAssemblies.pkl')
 qs_bio_monomers_file = os.path.join(data_dir, 'QSbio_Monomers.csv')
 
 # TODO script this file creation ?

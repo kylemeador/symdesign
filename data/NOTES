@@ -1,3 +1,5 @@
 The format of data in files in data/
 QSbio_GreaterThanHigh_Assemblies.pkl
-{PDBID(str): (list[AssemblyNumber(int)]), ...}
+{uppercase PDBID(str): (list[AssemblyNumber(str of integers)]), ...}
+QSbioHighConfidenceAssemblies.pkl
+{lowercase PDBID(str): (list[AssemblyNumber(int)]), ...}
