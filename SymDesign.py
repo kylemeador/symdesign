@@ -1035,10 +1035,10 @@ if __name__ == '__main__':
 
                         refine_cmd = ['@%s' % flags_file, '-parser:protocol',
                                       os.path.join(PUtils.rosetta_scripts, '%s_oligomer.xml' % PUtils.stage[1]),
-                                      '-parser:script_vars'] + script_cmd
+                                      '-parser:script_vars']
                         refine_cmds = \
-                            [refine_cmd + ['sdf=%s' % sym_def_files[symmetry], '-in:file:s', orient_asu_file]
-                             for orient_asu_file, symmetry in set_oligomers_to_refine]
+                            [script_cmd + refine_cmd + ['sdf=%s' % sym_def_files[sym], '-in:file:s', orient_asu_file]
+                             for orient_asu_file, sym in set_oligomers_to_refine]
 
                         commands_file = SDUtils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds],
                                                                name='refine_oligomers_%s' % timestamp,
