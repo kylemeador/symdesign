@@ -1830,8 +1830,9 @@ def fetch_pdb(pdb, out_dir=os.getcwd(), asu=False):
         out_dir=os.getcwd() (str): The location to download files to
         asu=False (bool): Whether or not to download the asymmetric unit file
     Returns:
-        (None)
+        (str): Filename of the retrieved file, if pdb is a list then will only return the last filename
     """
+    file_name = None
     for pdb in to_iterable(pdb):
         clean_pdb = pdb[0:4].lower()
         if asu:
@@ -1850,12 +1851,12 @@ def fetch_pdb(pdb, out_dir=os.getcwd(), asu=False):
         # if clean_pdb not in current_files:
         if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
             # Always returns files in lowercase
-            status = os.system('wget -O %s https://files.rcsb.org/download/%s' % (file_name, clean_pdb))
+            status = os.system('wget -q -O %s https://files.rcsb.org/download/%s' % (file_name, clean_pdb))
             # TODO subprocess.POPEN()
             if status != 0:
                 logger.error('PDB download failed for: %s' % pdb)
 
-    return file_name  # Todo if list then will only return the last file
+    return file_name
 
 
 # def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
@@ -1912,10 +1913,10 @@ def fetch_pdb_file(pdb_code, location=PUtils.pdb_db, out_dir=os.getcwd(), asu=Tr
     pdb_file = get_pdb(pdb_code, out_dir=out_dir, asu=asu)
     if not pdb_file:
         logger.warning('No matching file found for PDB: %s' % pdb_code)
-    elif len(pdb_file) > 1:
-        logger.warning('More than one matching file found for PDB \'%s\'. Retrieving %s' % (pdb_code, pdb_file[0]))
+    # elif len(pdb_file) > 1:
+    #     logger.warning('More than one matching file found for PDB \'%s\'. Retrieving %s' % (pdb_code, pdb_file[0]))
     else:
-        return pdb_file[0]
+        return pdb_file  # [0]
 
 
 def construct_cb_atom_tree(pdb1, pdb2, distance=8):
