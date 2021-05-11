@@ -7,6 +7,7 @@ from itertools import chain as iter_chain, combinations_with_replacement, combin
 from math import sqrt, cos, sin
 
 import numpy as np
+import requests
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
@@ -1851,9 +1852,14 @@ def fetch_pdb(pdb, out_dir=os.getcwd(), asu=False):
         # if clean_pdb not in current_files:
         if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
             # Always returns files in lowercase
-            status = os.system('wget -q -O %s https://files.rcsb.org/download/%s' % (file_name, clean_pdb))
+            # status = os.system('wget -q -O %s https://files.rcsb.org/download/%s' % (file_name, clean_pdb))
             # TODO subprocess.POPEN()
-            if status != 0:
+            file_request = requests.get('https://files.rcsb.org/download/%s' % clean_pdb)
+            # if status != 0:
+            if file_request.status_code == 200:
+                with open(file_name, 'wb') as f:
+                    f.write(file_request.content)
+            else:
                 logger.error('PDB download failed for: %s' % pdb)
 
     return file_name
