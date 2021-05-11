@@ -17,10 +17,5 @@ p_aa_pp *= 0.5
 fa_dun *= 0.5
 yhh_planarity *= 0.5
 ref *= 0.5
-# do these modify? I think if the ref2015_cst.wts is used it should modify them as opposed reweighting after definition
-coordinate_constraint *= 0.5
-atom_pair_constraint *= 0.5
-angle_constraint *= 0.5
-dihedral_constraint *= 0.5
-res_type_constraint *= 0.5
-metalbinding_constraint *= 0.5
+# coordinate_constraint *= 0.5
+# res_type_constraint *= 0.5
