@@ -112,8 +112,9 @@ def run(cmd, log_file_name, program=None, srun=None):
     #     log_file = os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log')
     cluster_prefix = srun if srun else []
     program = [program] if program else []
+    command = [cmd] if isinstance(cmd, str) else cmd
     with open(log_file_name, 'a') as log_f:
-        p = subprocess.Popen(cluster_prefix + program + [cmd], stdout=log_f, stderr=log_f)
+        p = subprocess.Popen(cluster_prefix + program + command, stdout=log_f, stderr=log_f)
         p.wait()
 
     if p.returncode == 0:
@@ -284,12 +285,14 @@ if __name__ == '__main__':
             command_paths = list(map(path_maker, specific_commands))
 
         if args.log_file:
-            log_files = [args.log_file for design_directory in command_paths]
+            log_files = [args.log_file for cmd in command_paths]
         else:
             log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
 
-        if len(specific_commands[0].split()) > 1:  # the command provided probably has an attached program type
+        if len(specific_commands[0].split()) > 1:
+            # the command provided probably has an attached program type. Set to None, then split to a list
             program = None
+            specific_commands = [cmd.split() for cmd in specific_commands]
         else:
             program = 'bash'
 
