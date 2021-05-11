@@ -6,6 +6,7 @@ import argparse
 import os
 import signal
 import subprocess
+from itertools import repeat
 
 import PathUtils as PUtils
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors
@@ -95,7 +96,7 @@ def create_file(file):
             dummy = True
 
 
-def run(cmd, log_file_name, srun=None, program='bash'):
+def run(cmd, log_file_name, program='bash', srun=None):
     """Executes specified command and appends command results to log file
 
     Args:
@@ -286,13 +287,18 @@ if __name__ == '__main__':
         else:
             log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
 
+        if len(specific_commands[0].split()) > 1:  # the command provided probably has an attached program type
+            program = ''
+        else:
+            program = 'bash'
+
         iteration = 0
         complete = False
         # while not complete:
         #     allocation = ['srun', '-c', 1, '-p', 'long', '--mem-per-cpu', CUtils.memory_scale[args.stage]]
         #     allocation = None
         #     zipped_commands = zip(command_paths, log_files, repeat(allocation))
-        zipped_commands = zip(command_paths, log_files)
+        zipped_commands = zip(command_paths, log_files, repeat(program))
 
         # Ensure all log files exist
         for log_file in log_files:
@@ -311,7 +317,7 @@ if __name__ == '__main__':
         if number_of_commands > 1:  # set by CUtils.process_scale
             results = mp_starmap(run, zipped_commands, threads=number_of_commands)
         else:
-            results = [run(*command_pair) for command_pair in zipped_commands]
+            results = [run(*command) for command in zipped_commands]
         #    iteration += 1
 
         # Write out successful and failed commands
