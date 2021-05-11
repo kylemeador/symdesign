@@ -96,14 +96,14 @@ def create_file(file):
             dummy = True
 
 
-def run(cmd, log_file_name, program='bash', srun=None):
+def run(cmd, log_file_name, program=None, srun=None):
     """Executes specified command and appends command results to log file
 
     Args:
         cmd (str): The name of a command file which should be executed by the system
         log_file_name (str): Location on disk of log file
     Keyword Args:
-        program='bash' (str): The interpreter for said command
+        program=None (str): The interpreter for said command
     Returns:
         (bool): Whether or not command executed successfully
     """
@@ -111,8 +111,9 @@ def run(cmd, log_file_name, program='bash', srun=None):
     # if not log_file:
     #     log_file = os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log')
     cluster_prefix = srun if srun else []
+    program = [program] if program else []
     with open(log_file_name, 'a') as log_f:
-        p = subprocess.Popen(cluster_prefix + [program, cmd], stdout=log_f, stderr=log_f)
+        p = subprocess.Popen(cluster_prefix + program + [cmd], stdout=log_f, stderr=log_f)
         p.wait()
 
     if p.returncode == 0:
@@ -288,7 +289,7 @@ if __name__ == '__main__':
             log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
 
         if len(specific_commands[0].split()) > 1:  # the command provided probably has an attached program type
-            program = ''
+            program = None
         else:
             program = 'bash'
 
