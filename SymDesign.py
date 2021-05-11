@@ -1013,7 +1013,8 @@ if __name__ == '__main__':
                 set_oligomers_to_refine = set(oligomers_to_refine)
                 while set_oligomers_to_refine:  # If no files found unrefined, we should proceed
                     logger.info('The following oriented oligomers are not yet refined:\n\t%s'
-                                % ', '.join([os.path.splitext(file)[0] for file, sym in set_oligomers_to_refine]))
+                                % ', '.join([os.path.splitext(os.path.basename(file))[0]
+                                             for file, sym in set_oligomers_to_refine]))
                     refine_input = input('Would you like to refine them now? If you plan on performing sequence design '
                                          'on designs containing them, it is highly recommended you perform refinement.'
                                          'Indicate [y/n].%s' % input_string)
