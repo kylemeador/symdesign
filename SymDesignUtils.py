@@ -113,7 +113,10 @@ def handle_design_errors(errors=(Exception,)):
             try:
                 return func(*args, **kwargs)
             except errors as error:
-                args[0].log.error(error)  # Allows exception reporting using DesignDirectory
+                design_directory = args[0]
+                design_directory.log.error(error)  # Allows exception reporting using DesignDirectory
+                design_directory.info['error'] = error  # include the error code in the design state
+
                 return error
         return wrapped
     return wrapper
