@@ -1384,7 +1384,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.pose = Pose.from_asu_file(self.source, symmetry=self.design_symmetry, log=self.log,
         #                                design_selector=self.design_selector, frag_db=self.frag_db,
         #                                ignore_clashes=self.ignore_clashes)
-        # self.get_oligomers()
+        else:
+            self.get_oligomers()
         # if not self.oligomers:
         #     raise DesignError('No oligomers were found for this design! Cannot initialize pose without oligomers')
         self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
