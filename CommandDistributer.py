@@ -184,7 +184,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
     with open(filename, 'w') as new_f:
         # grab and write sbatch template
         with open(PUtils.sbatch_templates[stage]) as template_f:
-            new_f.write('\n'.join(template_f.readlines()))
+            new_f.write(''.join(template_f.readlines()))
         out = 'output=%s/%s' % (output, '%A_%a.out')
         new_f.write('%s%s\n' % (PUtils.sb_flag, out))
         array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[stage] + 0.5), max_jobs)

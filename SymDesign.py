@@ -399,8 +399,9 @@ def terminate(module, designs, location=None, results=None, output=True):
         (None)
     """
     global out_path, timestamp
-    success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
-    exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
+    if results:
+        success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
+        exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
 
     exit_code = 0
     if exceptions:
@@ -1043,15 +1044,16 @@ if __name__ == '__main__':
                         refine_sbatch = \
                             distribute(file=commands_file, directory=master_outdir.program_root, stage='refine',
                                        number_of_commands=len(refine_cmds), max_jobs=int(len(refine_cmds) / 2 + 0.5))
+                        print('\n' * 3)
                         logger.info('The located designs require preprocessing before design related modules can be'
                                     ' used. Please follow the instructions below to refine your input files')
                         logger.critical(
-                            'Ensure the created SBATCH script is correct. Specifically, check that the job array '
+                            'Ensure the below created SBATCH script is correct. Specifically, check that the job array '
                             'and any node specifications are accurate. You can look at the SBATCH manual (man '
                             'sbatch or sbatch --help) to understand the variables or ask for help if you are still '
                             'unsure.')
                         logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
-                                    % ('\n\t'.join('sbatch %s' % refine_sbatch)))
+                                    % 'sbatch %s' % refine_sbatch)
                         logger.info('After completion of the refinement sbatch script, re-run your %s command:'
                                     '\n\t%s\nto finish set up of the designs of interest.'
                                     % (PUtils.program_name, ' '.join(sys.argv)))
