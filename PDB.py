@@ -381,6 +381,8 @@ class PDB(Structure):
 
         self.chain_id_list = chain_ids
         self.log.debug('Multimodel %s, Chains %s' % (True if multimodel else False, self.chain_id_list))
+        if not atom_info:
+            raise DesignError('The file %s has no atom records!' % self.filepath)
         self.process_pdb(atoms=[Atom.from_info(*info) for info in atom_info], coords=coords,
                          seqres=seq_res_lines, multimodel=multimodel, lazy=lazy, **kwargs)
 
