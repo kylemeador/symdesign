@@ -50,7 +50,7 @@ relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 
-    def __init__(self, design_path, nano=False, construct_pose=True, pose_id=None, dock=False, root=None,
+    def __init__(self, design_path, nano=False, construct_pose=False, pose_id=None, dock=False, root=None,
                  **kwargs):  # project=None,
         if pose_id:  # Todo may not be compatible P432
             self.program_root = root

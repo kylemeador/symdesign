@@ -843,7 +843,7 @@ if __name__ == '__main__':
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
                        'interface_metrics', 'custom_script', 'rename_chains', 'status']:
-        initialize = True  # set up design directories
+        initialize, construct_pose = True, True  # set up design directories
         if args.module in ['orient', 'expand_asu']:
             if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
                 queried_flags['output_assembly'] = True
@@ -854,14 +854,14 @@ if __name__ == '__main__':
     elif args.module in [PUtils.nano, PUtils.select_designs, PUtils.analysis, PUtils.cluster_poses,
                          'sequence_selection']:
         queried_flags[args.module] = True  # Todo what is this for? Analysis (No more) in DesignDirectory and ?
-        initialize = True
+        initialize, construct_pose = True, False
         if args.module == PUtils.select_designs:
             if not args.debug:
                 queried_flags['skip_logging'] = True  # automatically skip logging if opening a large number of files
             if not args.metric:
                 initialize = False
     else:  # ['distribute', 'query', 'guide', 'flags', 'residue_selector']
-        initialize = False
+        initialize, construct_pose = False, False
 
     if not args.guide and args.module not in ['distribute', 'query', 'guide', 'flags', 'residue_selector']:
         options_table = SDUtils.pretty_format_table(queried_flags.items())
@@ -901,12 +901,13 @@ if __name__ == '__main__':
                     base_directory = args.directory
                     queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
                     design_directories = [DesignDirectory.from_pose_id(pose_id=pose, nano=True, root=args.directory,
-                                                                       **queried_flags)
+                                                                       construct_pose=construct_pose, **queried_flags)
                                           for pose in all_poses[low_range:high_range]]
                 else:
                     base_directory = '/%s' % os.path.join(*all_poses[0].split(os.sep)[:-4])
                     queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
-                    design_directories = [DesignDirectory.from_nanohedra(pose, **queried_flags)
+                    design_directories = [DesignDirectory.from_nanohedra(pose, construct_pose=construct_pose,
+                                                                         **queried_flags)
                                           for pose in all_poses[low_range:high_range]]
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
