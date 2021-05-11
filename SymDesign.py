@@ -399,6 +399,10 @@ def terminate(module, designs, location=None, results=None, output=True):
         (None)
     """
     global out_path, timestamp
+    # save any information found during the design command to it's serialized state
+    for design in designs:
+        design.pickle_info()
+
     if results:
         success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
         exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
