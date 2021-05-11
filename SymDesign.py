@@ -940,6 +940,7 @@ if __name__ == '__main__':
                             % PUtils.nano)
                 required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
                 required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
+                orient_files = [os.path.splitext(file)[0] for file in os.listdir(master_outdir.orient_dir)]
                 qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
                 orient_log = SDUtils.start_log(name='orient', handler=2,
                                                location=os.path.join(master_outdir.orient_dir, PUtils.orient_log_file))
@@ -948,13 +949,16 @@ if __name__ == '__main__':
                     logger.info('Orienting PDB files to %s with %s symmetry: %s'
                                 % (master_outdir.orient_dir, symmetry, ', '.join(required_oligomers)))
                     for oligomer in required_oligomers:
-                        biological_assemblies = qsbio_confirmed.get(oligomer)  # v first assembly in list
-                        if biological_assemblies:
+                        if oligomer in orient_files:
+                            continue
+                        biological_assemblies = qsbio_confirmed.get(oligomer)
+                        if biological_assemblies:  # v first assembly in list
                             assembly = biological_assemblies[0]
                         else:
                             logger.warning('No confirmed biological assembly was found for %s. Using the first assembly'
                                            ' listed in the PDB' % oligomer)
                             assembly = 1
+                        logger.debug('Fetching oligomer %s from PDB' % oligomer)
                         pdb_path = fetch_pdb_file('%s_%d' % (oligomer, assembly), out_dir=master_outdir.pdbs, asu=False)
                         if pdb_path:
                             orient_file = orient_pdb_file(pdb_path, log=orient_log, sym=symmetry,
