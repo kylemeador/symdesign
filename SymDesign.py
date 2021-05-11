@@ -402,6 +402,8 @@ def terminate(module, designs, location=None, results=None, output=True):
     if results:
         success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
         exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
+    else:
+        success, exceptions = [], []
 
     exit_code = 0
     if exceptions:
@@ -1008,10 +1010,10 @@ if __name__ == '__main__':
                         base_pdb_code = os.path.splitext(orient_asu_file)[0]
                         if base_pdb_code in required_oligomers and base_pdb_code not in refine_files:
                             oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file), symmetry))
-
-                while oligomers_to_refine:  # If no files found unrefined, we should proceed
+                set_oligomers_to_refine = set(oligomers_to_refine)
+                while set_oligomers_to_refine:  # If no files found unrefined, we should proceed
                     logger.info('The following oriented oligomers are not yet refined:\n\t%s'
-                                % ', '.join(map(os.path.basename, [file for file, sym in oligomers_to_refine])))
+                                % ', '.join([os.path.splitext(file)[0] for file, sym in set_oligomers_to_refine]))
                     refine_input = input('Would you like to refine them now? If you plan on performing sequence design '
                                          'on designs containing them, it is highly recommended you perform refinement.'
                                          'Indicate [y/n].%s' % input_string)
@@ -1036,7 +1038,7 @@ if __name__ == '__main__':
                                       '-parser:script_vars'] + script_cmd
                         refine_cmds = \
                             [refine_cmd + ['sdf=%s' % sym_def_files[symmetry], '-in:file:s', orient_asu_file]
-                             for orient_asu_file, symmetry in oligomers_to_refine]
+                             for orient_asu_file, symmetry in set_oligomers_to_refine]
 
                         commands_file = SDUtils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds],
                                                                name='refine_oligomers_%s' % timestamp,
