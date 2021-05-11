@@ -233,12 +233,14 @@ if __name__ == '__main__':
                                    help='Whether command file has commands already')
     parser_distirbute.add_argument('-f', '--command_file',
                                    help='File with command(s) to be distributed. Required', required=True)
-    parser_distirbute.add_argument('-y', '--success_file',
-                                   help='The disk location of output file containing successful commands')
+    parser_distirbute.add_argument('-l', '--log_file', type=str, default=None,
+                                   help='The name of the log file to append command stdout and stderr')
     parser_distirbute.add_argument('-n', '--failure_file',
                                    help='The disk location of output file containing failed commands')
     parser_distirbute.add_argument('-S', '--srun', action='store_true',
                                    help='Utilize srun to allocate resources, launch the job and communicate with SLURM')
+    parser_distirbute.add_argument('-y', '--success_file',
+                                   help='The disk location of output file containing successful commands')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Check the status of the command')
     parser_status.add_argument('-c', '--check', action='store_true', help='Check the status of the command')
@@ -279,7 +281,11 @@ if __name__ == '__main__':
         else:  # Todo, depreciate this mechanism
             command_paths = list(map(path_maker, specific_commands))
 
-        log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
+        if args.log_file:
+            log_files = [args.log_file for design_directory in command_paths]
+        else:
+            log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
+
         iteration = 0
         complete = False
         # while not complete:
