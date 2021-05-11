@@ -946,7 +946,7 @@ if __name__ == '__main__':
                 for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
                     symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
                     logger.info('Orienting PDB files to %s with %s symmetry: %s'
-                                % (master_outdir.orient_dir, ', '.join(required_oligomers), symmetry))
+                                % (master_outdir.orient_dir, symmetry, ', '.join(required_oligomers)))
                     for oligomer in required_oligomers:
                         biological_assemblies = qsbio_confirmed.get(oligomer)  # v first assembly in list
                         if biological_assemblies:
