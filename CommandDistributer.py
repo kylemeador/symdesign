@@ -144,6 +144,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
 
     if number_of_commands:
         _commands = [0 for _ in range(number_of_commands)]
+        script_present = '-c'
     elif file:
         # here using collect directories get the commands from the provided file
         _commands, location = collect_designs(files=[file], directory=directory)
@@ -266,7 +267,6 @@ if __name__ == '__main__':
         else:
             final_cmd_slice = cmd_slice + process_scale[args.stage]
         specific_commands = list(map(str.strip, all_commands[cmd_slice:final_cmd_slice]))
-        number_of_commands = len(specific_commands)
 
         # Prepare Commands
         # command_name = args.stage + '.sh'
@@ -301,6 +301,7 @@ if __name__ == '__main__':
         signal.signal(signal.SIGTERM, exit_gracefully)
         # while not monitor.kill_now:
 
+        number_of_commands = len(specific_commands)  # different from process scale as this could reflect edge cases
         if number_of_commands > 1:  # set by CUtils.process_scale
             results = mp_starmap(run, zipped_commands, threads=number_of_commands)
         else:
