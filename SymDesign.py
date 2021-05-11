@@ -995,6 +995,7 @@ if __name__ == '__main__':
                             % PUtils.nano)
                 master_outdir.make_path(master_outdir.refine_dir)
                 # refine_directory = master_outdir.refine_dir
+                oriented_asu_files = os.listdir(orient_asu_directory)
                 refine_files = os.listdir(master_outdir.refine_dir)
                 required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
                 required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
@@ -1002,11 +1003,10 @@ if __name__ == '__main__':
                 for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
                     symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
                     sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
-                    for orient_asu_file in os.listdir(orient_asu_directory):
-                        if os.path.basename(orient_asu_file) in required_oligomers:
-                            if orient_asu_file not in refine_files:
-                                oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file),
-                                                            symmetry))
+                    for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
+                        base_pdb_code = os.path.basename(orient_asu_file)
+                        if base_pdb_code in required_oligomers and base_pdb_code not in refine_files:
+                            oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file), symmetry))
 
                 while oligomers_to_refine:  # If no files found unrefined, we should proceed
                     logger.info('The following oriented oligomers are not yet refined:\n\t%s'
@@ -1061,6 +1061,7 @@ if __name__ == '__main__':
                         # then this while loop won't be triggered and DesignDirectory initialization will proceed
             # ensure nanohedra_initialization
             # args.module = 'nanohedra_initialization'
+            nanohedra_initialization = False  # TODO remove temporary break while debugging
             nanohedra_initialization = True
 
         if design_directories:
