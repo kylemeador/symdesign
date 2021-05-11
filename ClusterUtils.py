@@ -401,7 +401,7 @@ def cluster_designs(composition_designs, return_pose_id=True):
         matching poses as the values
     """
     # format all transforms for the selected compositions
-    stacked_transforms = [design_directory.pose_transformation() for design_directory in composition_designs]
+    stacked_transforms = [design_directory.pose_transformation for design_directory in composition_designs]
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[1].values()
                                                              for transform in stacked_transforms])
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[2].values()
@@ -441,8 +441,8 @@ def group_compositions(design_directories):
     """From a set of DesignDirectories, find all the compositions and group together"""
     compositions = {}
     for design in design_directories:
-        design.gather_pose_metrics()
-        oligomer_names = tuple(compositions.get(design.oligomer_names))
+        # design.gather_pose_metrics()
+        oligomer_names = tuple(design.oligomer_names)
         if compositions.get(oligomer_names, None):
             compositions[oligomer_names].append(design)
         else:
