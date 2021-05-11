@@ -1004,7 +1004,7 @@ if __name__ == '__main__':
                     symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
                     sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
                     for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
-                        base_pdb_code = os.path.basename(orient_asu_file)
+                        base_pdb_code = os.path.splitext(orient_asu_file)[0]
                         if base_pdb_code in required_oligomers and base_pdb_code not in refine_files:
                             oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file), symmetry))
 
@@ -1062,7 +1062,7 @@ if __name__ == '__main__':
             # ensure nanohedra_initialization
             # args.module = 'nanohedra_initialization'
             nanohedra_initialization = False  # TODO remove temporary break while debugging
-            nanohedra_initialization = True
+            # nanohedra_initialization = True
 
         if design_directories:
             # setup_design_directories(design_directories)
