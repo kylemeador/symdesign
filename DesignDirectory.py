@@ -464,6 +464,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.gather_pose_metrics()
             self.info['pose_transformation'] = self.transform_d
 
+        self.log.debug('Using transformation parameters: %s' % self.transform_d)
         return self.transform_d
 
     # def pdb_input_parameters(self):
@@ -691,53 +692,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     # def return_fragment_metrics(self):
     #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
-
-    def transform_oligomers_to_pose(self, refined=True, oriented=False, **kwargs):
-        """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
-        to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
-        refined source directory if the oligomers exist there, if they don't, the oriented directory will be used as the
-        source if it exists. Finally, the DesignDirectory will be used as a back up
-
-        Keyword Args:
-            refined=True (bool): Whether to use the refined pdb from the refined pdb source directory
-            oriented=false (bool): Whether to use the oriented pdb from the oriented pdb source directory
-        """
-        self.get_oligomers(refined=refined, oriented=oriented)
-        self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
-                          for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
-
-    def get_oligomers(self, refined=False, oriented=False):
-        """Retrieve oligomeric files from either the design directory, the oriented directory, or the refined directory
-        and load them for further processing
-
-        Sets:
-            self.oligomers (list[PDB])
-        """
-        if refined:  # prioritize the refined version
-            path = self.refine_dir
-            for oligomer in self.oligomer_names:
-                if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
-                    oriented = True  # fall back to the oriented version
-                    break
-        if oriented:
-            path = self.orient_dir
-            for oligomer in self.oligomer_names:
-                if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
-                    path = self.path
-
-        if not refined and not oriented:
-            path = self.path
-
-        idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
-        self.oligomers, oligomer_files = [], []  # for every call we should reset the list
-        for idx, name in enumerate(self.oligomer_names, 1):
-            oligomer_files.extend(glob(os.path.join(path, '%s*.pdb*' % name)))  # first * is for DesignDirectory
-        assert len(oligomer_files) == idx, \
-            'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
-            % (idx, len(oligomer_files), os.path.join(path, '*.pdb*'), oligomer_files)
-        for file in oligomer_files:
-            self.oligomers.append(PDB.from_file(file, name=os.path.basename(file).split(os.sep)[0], log=self.log))
-        self.log.debug('%d matching oligomers found' % len(self.oligomers))
 
     def get_fragment_metrics(self):
         """Set/get fragment metrics for all fragment observations in the design"""
@@ -1369,6 +1323,58 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
         # write_commands(shell_scripts, name=PUtils.interface_design, out_path=self.scripts)
 
+    def transform_oligomers_to_pose(self, refined=True, oriented=False, **kwargs):
+        """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
+        to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
+        refined source directory if the oligomers exist there, if they don't, the oriented directory will be used as the
+        source if it exists. Finally, the DesignDirectory will be used as a back up
+
+        Keyword Args:
+            refined=True (bool): Whether to use the refined pdb from the refined pdb source directory
+            oriented=false (bool): Whether to use the oriented pdb from the oriented pdb source directory
+        """
+        self.get_oligomers(refined=refined, oriented=oriented)
+        # for oligomer in self.oligomers:
+        #     oligomer.write(out_path=os.path.join(self.path, 'not_tsfmd_%s' % os.path.basename(oligomer.filepath)))
+        self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
+                          for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
+        self.log.debug('Oligomers were transformed to the found docking parameters')
+
+    def get_oligomers(self, refined=False, oriented=False):
+        """Retrieve oligomeric files from either the design directory, the oriented directory, or the refined directory
+        and load them for further processing
+
+        Sets:
+            self.oligomers (list[PDB])
+        """
+        if refined:  # prioritize the refined version
+            path = self.refine_dir
+            for oligomer in self.oligomer_names:
+                if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
+                    oriented = True  # fall back to the oriented version
+                    self.log.debug('Couldn\'t find oligomers in the refined directory')
+                    break
+        if oriented:
+            path = self.orient_dir
+            for oligomer in self.oligomer_names:
+                if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
+                    path = self.path
+                    self.log.debug('Couldn\'t find oligomers in the oriented directory')
+
+        if not refined and not oriented:
+            path = self.path
+
+        idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
+        self.oligomers, oligomer_files = [], []  # for every call we should reset the list
+        for idx, name in enumerate(self.oligomer_names, 1):
+            oligomer_files.extend(glob(os.path.join(path, '%s*.pdb*' % name)))  # first * is for DesignDirectory
+        assert len(oligomer_files) == idx, \
+            'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
+            % (idx, len(oligomer_files), os.path.join(path, '*.pdb*'), oligomer_files)
+        for file in oligomer_files:
+            self.oligomers.append(PDB.from_file(file, name=os.path.basename(file).split(os.sep)[0], log=self.log))
+        self.log.debug('%d matching oligomers found' % len(self.oligomers))
+
     def load_pose(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
@@ -1388,14 +1394,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     self.pose.asu = self.pose.pdb  # set the asu
         #     self.pose.generate_symmetric_assembly()
         # else:
-        if not os.path.exists(self.source):  # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
+        if not self.source or not os.path.exists(self.source):
+            # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             # raise DesignError('No source file was found for this design! Cannot initialize pose without a source')
             self.transform_oligomers_to_pose()
             # else:
             #     self.get_oligomers()
 
             # unnecessary with a transform_d stored in the design state
-            # write out oligomers to the designdirectory
+            # # write out oligomers to the designdirectory
             # for oligomer in self.oligomers:
             #     oligomer.write(out_path=os.path.join(self.path, os.path.basename(oligomer.filepath)))
 

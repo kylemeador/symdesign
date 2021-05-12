@@ -783,12 +783,10 @@ class PDB(Structure):
         Returns:
             (str): The name of the written file
         """
-        if self.cryst_record:
-            header = self.cryst_record
-        else:
-            header = None
+        if not kwargs.get('header') and self.cryst_record:
+            kwargs['header'] = self.cryst_record
 
-        return super().write(out_path=out_path, header=header, **kwargs)
+        return super().write(out_path=out_path, **kwargs)
 
     def get_chain_sequences(self):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}

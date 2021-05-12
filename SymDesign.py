@@ -461,7 +461,7 @@ def terminate(module, designs, location=None, results=None, output=True):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
-                        PUtils.nano: [PUtils.nano], 'custom_script': [args.script],
+                        PUtils.nano: [PUtils.nano], 'custom_script': [args.script] if getattr(args, 'script', None) else [],
                         'interface_metrics': ['interface_metrics'],  # 'nanohedra_initialization': PUtils.stage[1]
                         }
         if module in module_files:
@@ -1024,7 +1024,7 @@ if __name__ == '__main__':
                                          'Indicate [y/n].%s' % input_string)
                     if not bool_d[refine_input.lower()]:  # Todo make input crash proof
                         confirm = input('Your asymmetric units are going to be generated with unrefined coordinates'
-                                        '. Confirm one more time to continue. Indicate [y/n].%s' % input_string)
+                                        '. Confirm \'y\' one more time to continue. Indicate [y/n].%s' % input_string)
                         if bool_d[confirm.lower()]:  # Todo make input crash proof
                             break
                     else:

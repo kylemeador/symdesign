@@ -1034,7 +1034,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         current_pdb_entities = self.entities
         for idx, entity in enumerate(pdb.entities):
             current_pdb_entities.append(entity)
-        self.log.debug('Found entities: %s' % list(entity.name for entity in current_pdb_entities))
+        self.log.debug('Adding the entities \'%s\' to the Pose'
+                       % ', '.join(list(entity.name for entity in current_pdb_entities)))
 
         self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb, log=self.log)
 
@@ -1045,11 +1046,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Keyword Args:
             distance=8 (int): The distance to check for contacts
         Returns:
-            (PDB)
+            (PDB): The PDB object with the minimal set of Entities containing the maximally touching configuration
         """
-        idx = 1
+        idx = 0
         chain_combinations, entity_combinations = [], []
-        contact_count = np.zeros((math.prod([len(ent.chains) for ent in self.active_entities])))
+        contact_count = np.zeros((math.prod([len(entity.chains) for entity in self.active_entities])))
         for entity1, entity2 in combinations(self.active_entities, 2):
             for chain1 in entity1.chains:
                 chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
