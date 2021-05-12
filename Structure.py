@@ -1223,9 +1223,9 @@ class Entity(Chain, SequenceProfile):  # Structure):
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          structure=self, **kwargs)
         # self.chain_id = representative.name
-        self.chains = chains  # [Chain objs]
-        # Todo set up captain chain and mate chain dependency
         self.chain_representative = representative
+        # Todo set up captain chain and mate chain dependency
+        self.chains = chains  # [Chain objs]
         self.api_entry = None
         if sequence:
             self.reference_sequence = sequence
@@ -1238,10 +1238,13 @@ class Entity(Chain, SequenceProfile):  # Structure):
             self.uniprot_id = '%s%d' % ('R', randint(10000, 99999))  # Make a pseudo UniProtID
 
     @classmethod
-    def from_representative(cls, representative=None, chains=None, uniprot_id=None, **kwargs):  # name=None, log=None,
-        # coords=None
-        return cls(representative=representative, chains=chains, uniprot_id=uniprot_id, **kwargs)  # name=name, log=log
-        # coords=coords
+    def from_representative(cls, representative=None, chains=None, uniprot_id=None, **kwargs):
+        #                   name=None, log=None, coords=None
+        if isinstance(representative, Structure):
+            return cls(representative=representative, chains=chains, uniprot_id=uniprot_id, **kwargs)
+        else:
+            raise DesignError('When initializing an Entity, you must pass a representative Structure object. This is '
+                              'typically a Chain, but could be another collection of residues in a Structure object')
 
     @property
     def chain_id(self):
@@ -1330,7 +1333,7 @@ class Entity(Chain, SequenceProfile):  # Structure):
                                                    rotation2=rotation2, translation2=translation2)
             # final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=translation2)
             # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
-            sub_symmetry_mate_pdb = self.__copy__()
+            sub_symmetry_mate_pdb = self.chain_representative.__copy__()
             sub_symmetry_mate_pdb.replace_coords(new_coords)
             self.chains.append(sub_symmetry_mate_pdb)
 
