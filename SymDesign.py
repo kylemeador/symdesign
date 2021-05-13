@@ -474,7 +474,8 @@ def terminate(module, designs, location=None, results=None, output=True):
                 command_files = {stage: SDUtils.write_commands(commands, out_path=program_root,
                                                                name='%s_%s_%s' % (stage, location_name, timestamp))
                                  for stage, commands in all_commands.items()}
-                sbatch_files = {stage: distribute(stage=stage, directory=program_root, file=command_file)
+                sbatch_files = {stage: distribute(stage=(stage if module != 'custom_script' else [PUtils.stage[2]]),
+                                                  directory=program_root, file=command_file)  # sbatch template ^
                                 for stage, command_file in command_files.items()}
                 logger.critical(
                     'Ensure the created SBATCH script(s) are correct. Specifically, check that the job array and any'
@@ -656,14 +657,17 @@ if __name__ == '__main__':
                                                'consensus_pdb', 'consensus_design_pdb'])
     parser_custom_script.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
     parser_custom_script.add_argument('script', type=os.path.abspath, help='The location of the custom script')
-    parser_custom_script.add_argument('--suffix', action='store_true',
-                                      help='Append to each output file (decoy in .sc and .pdb) the script name '
-                                           '(i.e. \'_SCRIPT\') to identify this protocol. No extension will be used')
+    parser_custom_script.add_argument('--suffix', action='store_true', metavar='SUFFIX',
+                                      help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
+                                           '\'decoy_SUFFIX\') to identify this protocol. No extension will be included')
     parser_custom_script.add_argument('-v', '--variables', type=str, nargs='*',
                                       help='Additional variables that should be populated in the script. Provide a list'
-                                           ' of such variables with the format \'varible1=value varible2=value\'. Where'
-                                           ' %%variable1%% is a RosettaScripts variable and value is either a known '
-                                           'value or an attribute available to the Pose object. For variables that must'
+                                           ' of such variables with the format \'variable1=value variable2=value\'. '
+                                           'Where variable1 is a RosettaScripts %%%variable1%%% and value is a' 
+                                           # ' either a'  # Todo
+                                           ' known value'
+                                           # ' or an attribute available to the Pose object'
+                                           '. For variables that must'
                                            ' be calculated on the fly for each design, please modify the Pose.py class '
                                            'to produce a method that can generate an attribute with the specified name')
     # ---------------------------------------------------

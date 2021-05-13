@@ -6,7 +6,6 @@ import argparse
 import os
 import signal
 import subprocess
-from itertools import repeat
 
 import PathUtils as PUtils
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors
@@ -96,14 +95,14 @@ def create_file(file):
             dummy = True
 
 
-def run(cmd, log_file_name, program=None, srun=None):
+def run(cmd, log_file_name, srun=None, program='bash'):
     """Executes specified command and appends command results to log file
 
     Args:
         cmd (str): The name of a command file which should be executed by the system
         log_file_name (str): Location on disk of log file
     Keyword Args:
-        program=None (str): The interpreter for said command
+        program='bash' (str): The interpreter for said command
     Returns:
         (bool): Whether or not command executed successfully
     """
@@ -111,10 +110,8 @@ def run(cmd, log_file_name, program=None, srun=None):
     # if not log_file:
     #     log_file = os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log')
     cluster_prefix = srun if srun else []
-    program = [program] if program else []
-    command = [cmd] if isinstance(cmd, str) else cmd
     with open(log_file_name, 'a') as log_f:
-        p = subprocess.Popen(cluster_prefix + program + command, stdout=log_f, stderr=log_f)
+        p = subprocess.Popen(cluster_prefix + [program, cmd], stdout=log_f, stderr=log_f)
         p.wait()
 
     if p.returncode == 0:
@@ -124,7 +121,7 @@ def run(cmd, log_file_name, program=None, srun=None):
 
 
 def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, failure_file=None, max_jobs=80,
-               number_of_commands=None, **kwargs):
+               **kwargs):
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Keyword Args:
@@ -133,44 +130,39 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         file=None (str): The location of the file which contains your commands to distribute through an sbatch array
         success_file=None (str): What file to write the successful jobs to for job organization
         failure_file=None (str): What file to write the failed jobs to for job organization
-        max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once
-        number_of_commands=None (int): The size of the job array
+        max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once from
+        your array
     Returns:
         (str): The name of the sbatch script that was written
     """
     if not stage:
-        # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
-        #                      Could add a hyperthreading=True parameter to remove process scale
-        #     command_divisor = process_scale
-        # else:
         raise DesignError('No --stage specified. Required!!!')
 
-    if number_of_commands:
-        _commands = [0 for _ in range(number_of_commands)]
-        script_present = '-c'
-    elif file:
+    if file:  # or directory: Todo
         # here using collect directories get the commands from the provided file
-        _commands, location = collect_designs(files=[file], directory=directory)
-        # Automatically detect if the commands file has executable scripts or errors
-        script_present = None
-        for idx, _command in enumerate(_commands):
-            if not os.path.exists(_command):  # check for any missing commands and report
-                raise DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
-                                  % (file, idx + 1, _command))
-            if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
-                if idx != 0 and script_present:  # There was a change from script files to non-script files
-                    raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                      'or not. Cannot mix!\n' % (file, idx + 1))
-                # break
-            else:  # the command string is a shell script
-                if idx != 0 and not script_present:  # There was a change from non-script files to script files
-                    raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                      'or not. Cannot mix!\n' % (file, idx + 1))
-                script_present = '-c'
+        _commands, location = collect_designs(files=file, directory=directory)
     else:
-        raise DesignError('You must pass number_of_commands or file which contains a list of commands to process')
-        # 'A file is typically output as a \'STAGE.cmds\' file. Ensure that this file exists and resubmit with
-        # -f \'STAGE.cmds\'\n')
+        raise DesignError('Error: You must pass a file containing a list of commands to process. This is '
+                          'typically output to a \'[stage].cmds\' file. Ensure that this file exists and '
+                          'resubmit with -f \'[stage].cmds\'\n')
+        #             ', replacing stage with the desired stage.')
+
+    # Automatically detect if the commands file has executable scripts or errors
+    script_present = None
+    for idx, _command in enumerate(_commands):
+        if not os.path.exists(_command):  # check for any missing commands and report
+            raise DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
+                              % (file, idx + 1, _command))
+        if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
+            if idx != 0 and script_present:  # There was a change from script files to non-script files
+                raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
+                                  'or not. Cannot mix!\n' % (file, idx + 1))
+            # break
+        else:  # the command string is a shell script
+            if idx != 0 and not script_present:  # There was a change from non-script files to script files
+                raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
+                                  'or not. Cannot mix!\n' % (file, idx + 1))
+            script_present = '-c'
 
     # Create success and failures files
     name = os.path.basename(os.path.splitext(file)[0])
@@ -178,19 +170,24 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         success_file = os.path.join(directory, '%s_%s_success.log' % (name, PUtils.sbatch))
     if not failure_file:
         failure_file = os.path.join(directory, '%s_%s_failures.log' % (name, PUtils.sbatch))
+
+    # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
+    with open(PUtils.sbatch_templates[stage]) as template_f:
+        template_sbatch = template_f.readlines()
+
+    # Make sbatch file from template, array details, and command distribution script
+    filename = os.path.join(directory, '%s_%s.sh' % (name, PUtils.sbatch))
     output = os.path.join(directory, 'sbatch_output')
     if not os.path.exists(output):
         os.mkdir(output)
 
-    # Make sbatch file from template, array details, and command distribution script
-    filename = os.path.join(directory, '%s_%s.sh' % (name, PUtils.sbatch))
+    command_divisor = process_scale[stage]
     with open(filename, 'w') as new_f:
-        # grab and write sbatch template
-        with open(PUtils.sbatch_templates[stage]) as template_f:
-            new_f.write(''.join(template_f.readlines()))
+        for template_line in template_sbatch:
+            new_f.write(template_line)
         out = 'output=%s/%s' % (output, '%A_%a.out')
         new_f.write('%s%s\n' % (PUtils.sb_flag, out))
-        array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[stage] + 0.5), max_jobs)
+        array = 'array=1-%d%%%d' % (int(len(_commands) / command_divisor + 0.5), max_jobs)
         new_f.write('%s%s\n' % (PUtils.sb_flag, array))
         new_f.write('\npython %s --stage %s distribute --success_file %s --failure_file %s --command_file %s %s\n' %
                     (PUtils.cmd_dist, stage, success_file, failure_file, file, (script_present or '')))
@@ -236,14 +233,12 @@ if __name__ == '__main__':
                                    help='Whether command file has commands already')
     parser_distirbute.add_argument('-f', '--command_file',
                                    help='File with command(s) to be distributed. Required', required=True)
-    parser_distirbute.add_argument('-l', '--log_file', type=str, default=None,
-                                   help='The name of the log file to append command stdout and stderr')
+    parser_distirbute.add_argument('-y', '--success_file',
+                                   help='The disk location of output file containing successful commands')
     parser_distirbute.add_argument('-n', '--failure_file',
                                    help='The disk location of output file containing failed commands')
     parser_distirbute.add_argument('-S', '--srun', action='store_true',
                                    help='Utilize srun to allocate resources, launch the job and communicate with SLURM')
-    parser_distirbute.add_argument('-y', '--success_file',
-                                   help='The disk location of output file containing successful commands')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Check the status of the command')
     parser_status.add_argument('-c', '--check', action='store_true', help='Check the status of the command')
@@ -272,15 +267,9 @@ if __name__ == '__main__':
         else:
             final_cmd_slice = cmd_slice + process_scale[args.stage]
         specific_commands = list(map(str.strip, all_commands[cmd_slice:final_cmd_slice]))
+        number_of_commands = len(specific_commands)
 
         # Prepare Commands
-        if len(specific_commands[0].split()) > 1:
-            # the command provided probably has an attached program type. Set to None, then split to a list
-            program = None
-            specific_commands = [cmd.split() for cmd in specific_commands]
-        else:
-            program = 'bash'
-
         # command_name = args.stage + '.sh'
         # python2.7 compatibility
         def path_maker(path_name):  # Todo depreciate
@@ -291,18 +280,14 @@ if __name__ == '__main__':
         else:  # Todo, depreciate this mechanism
             command_paths = list(map(path_maker, specific_commands))
 
-        if args.log_file:
-            log_files = [args.log_file for cmd in command_paths]
-        else:
-            log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
-
+        log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
         iteration = 0
         complete = False
         # while not complete:
         #     allocation = ['srun', '-c', 1, '-p', 'long', '--mem-per-cpu', CUtils.memory_scale[args.stage]]
         #     allocation = None
         #     zipped_commands = zip(command_paths, log_files, repeat(allocation))
-        zipped_commands = zip(command_paths, log_files, repeat(program))
+        zipped_commands = zip(command_paths, log_files)
 
         # Ensure all log files exist
         for log_file in log_files:
@@ -317,11 +302,10 @@ if __name__ == '__main__':
         signal.signal(signal.SIGTERM, exit_gracefully)
         # while not monitor.kill_now:
 
-        number_of_commands = len(specific_commands)  # different from process scale as this could reflect edge cases
         if number_of_commands > 1:  # set by CUtils.process_scale
             results = mp_starmap(run, zipped_commands, threads=number_of_commands)
         else:
-            results = [run(*command) for command in zipped_commands]
+            results = [run(*command_pair) for command_pair in zipped_commands]
         #    iteration += 1
 
         # Write out successful and failed commands
