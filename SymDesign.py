@@ -1020,11 +1020,12 @@ if __name__ == '__main__':
                                 % ', '.join([os.path.splitext(os.path.basename(file))[0]
                                              for file, sym in set_oligomers_to_refine]))
                     refine_input = input('Would you like to refine them now? If you plan on performing sequence design '
-                                         'on designs containing them, it is highly recommended you perform refinement.'
+                                         'on designs containing them, it is highly recommended you perform refinement. '
                                          'Indicate [y/n].%s' % input_string)
                     if not bool_d[refine_input.lower()]:  # Todo make input crash proof
-                        confirm = input('Your asymmetric units are going to be generated with unrefined coordinates'
-                                        '. Confirm \'y\' one more time to continue. Indicate [y/n].%s' % input_string)
+                        confirm = input('To confirm, asymmetric units are going to be generated with unrefined '
+                                        'coordinates. Confirm \'y\' one more time to proceed regardless. '
+                                        'Indicate [y/n].%s' % input_string)
                         if bool_d[confirm.lower()]:  # Todo make input crash proof
                             break
                     else:
