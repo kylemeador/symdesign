@@ -399,8 +399,6 @@ def terminate(module, designs, location=None, results=None, output=True):
     global out_path, timestamp
     success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
     exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
-    print(designs[0])
-    print(success[0])
 
     exit_code = 0
     if exceptions:
@@ -454,7 +452,8 @@ def terminate(module, designs, location=None, results=None, output=True):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
-                        PUtils.nano: [PUtils.nano], 'custom_script': [os.path.basename(args.script)],
+                        PUtils.nano: [PUtils.nano],
+                        'custom_script': [os.path.splitext(os.path.basename(args.script))[0]],
                         'interface_metrics': ['interface_metrics']}
         if module in module_files:
             if len(success) > 0:
@@ -1184,7 +1183,7 @@ if __name__ == '__main__':
                                                             file_list=args.file_list, native=args.native,
                                                             suffix=args.suffix, score_only=args.score_only,
                                                             variables=args.variables))
-        print(design_directories[0])
+
         terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
