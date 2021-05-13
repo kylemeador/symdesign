@@ -28,9 +28,11 @@ add_fragment_profile_instructions = 'To add fragment information, call Pose.gene
 
 
 class SequenceProfile:
+    """Contains the sequence information for a Structural unit. Should always be subclassed by an object like an Entity,
+    basically any structure object with a .reference_sequence attribute could be used"""
     idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
 
-    def __init__(self, structure=None, log=None, **kwargs):
+    def __init__(self, log=None, **kwargs):
         super().__init__(**kwargs)  # log=log,
         # if log:
         #     self.log = log
@@ -39,8 +41,6 @@ class SequenceProfile:
         #     self.log = start_log()
 
         # self.sequence = None
-        # self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
-        # self.structure_sequence = None
         self.sequence_source = None
         self.sequence_file = None
         self.pssm_file = None
@@ -54,38 +54,28 @@ class SequenceProfile:
         self.interface_data_file = None
         self.alpha = {}
 
-        # if structure:
-        self.structure = structure
-
     @classmethod
     def from_structure(cls, structure=None):
         return cls(structure=structure)
 
-    @property
-    def name(self):
-        return self.structure.name
-
-    @name.setter
-    def name(self, name):
-        self.structure.name = name
+    # @property
+    # def name(self):
+    #     # return self._name
+    #
+    # @name.setter
+    # def name(self, name):
+    #     # self._name = name
 
     @property
     def profile_length(self):
-        # Todo in future, this wouldn't handle profile size modifications. Same issue as Structure number_of properties
-        try:
-            return self._profile_length
-        except AttributeError:
-            self.profile_length = self.structure.number_of_residues
-            return self._profile_length
-
-    @profile_length.setter
-    def profile_length(self, length):
-        self._profile_length = length
+        # return self.structure.number_of_residues
+        return self.number_of_residues
 
     @property
     def entity_offset(self):
         """Return the starting index for the Entitiy based on pose numbering of the residues"""
-        return self.structure.residues[0].number - 1
+        # return self.structure.residues[0].number - 1
+        return self.residues[0].number - 1
 
     # @entity_offset.setter
     # def entity_offset(self, offset):
@@ -96,7 +86,8 @@ class SequenceProfile:
 
     @property
     def structure_sequence(self):
-        return self.structure.get_structure_sequence()
+        # return self.structure.get_structure_sequence()
+        return self.get_structure_sequence()
 
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
@@ -183,8 +174,8 @@ class SequenceProfile:
         if evolution:  # add evolutionary information to the SequenceProfile
             self.add_evolutionary_profile(out_path=out_path, **kwargs)
             self.verify_profile()
-            # TODO currently using self.structure.reference_sequence which could be ATOM, could be SEQRES.
-            #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequnce
+            # TODO currently using self.reference_sequence which could be ATOM, could be SEQRES.
+            #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequence
             #  processing
             # Todo currently using favor_fragments as mechanism if fragments exist, this is overloaded and not intended
         self.calculate_design_profile(boltzmann=True, favor_fragments=fragments)
@@ -200,7 +191,8 @@ class SequenceProfile:
 
             if not rerun:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
-                for idx, residue in enumerate(self.structure.residues, 1):
+                for idx, residue in enumerate(self.residues, 1):
+                # for idx, residue in enumerate(self.residues, 1):  # Todo
                     profile_res_type = self.evolutionary_profile[idx]['type']
                     pose_res_type = IUPACData.protein_letters_3to1[residue.type.title()]
                     if profile_res_type != pose_res_type:
@@ -275,8 +267,9 @@ class SequenceProfile:
 
         if not self.sequence_file:
             # Extract/Format Sequence Information. This will be SEQRES if available
-            self.log.debug('%s Sequence=%s' % (self.name, self.structure.reference_sequence))
-            self.write_fasta_file(self.structure.reference_sequence, name='%s' % self.name, out_path=out_path)
+            self.log.debug('%s Sequence=%s' % (self.name, self.reference_sequence))
+            # self.log.debug('%s Sequence=%s' % (self.name, self.reference_sequence))  # Todo
+            self.write_fasta_file(self.reference_sequence, name='%s' % self.name, out_path=out_path)
             self.log.debug('%s fasta file: %s' % (self.name, self.sequence_file))
 
         if not self.pssm_file:
@@ -512,7 +505,7 @@ class SequenceProfile:
             if self.fragment_queries:  # Todo refactor this to Pose
                 for query_pair, fragments in self.fragment_queries.items():
                     for query_idx, entity in enumerate(query_pair):
-                        if entity.name == self.structure.name:
+                        if entity.name == self.name:
                             # add to fragment map
                             self.assign_fragments(fragments=fragments,
                                                   alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
@@ -851,7 +844,7 @@ class SequenceProfile:
                                for cluster in fragment_source}  # orange mapped to cluster tag
         frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
 
-        frag_residue_object_d = residue_number_to_object(self.structure, frag_cluster_residue_d)
+        frag_residue_object_d = residue_number_to_object(self, frag_cluster_residue_d)
 
         # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
         # # TODO all_frags
