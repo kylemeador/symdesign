@@ -399,6 +399,8 @@ def terminate(module, designs, location=None, results=None, output=True):
     global out_path, timestamp
     success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
     exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
+    print(designs[0])
+    print(success[0])
 
     exit_code = 0
     if exceptions:
@@ -452,15 +454,12 @@ def terminate(module, designs, location=None, results=None, output=True):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
-                        PUtils.nano: [PUtils.nano], 'custom_script': [args.script],
+                        PUtils.nano: [PUtils.nano], 'custom_script': [os.path.basename(args.script)],
                         'interface_metrics': ['interface_metrics']}
         if module in module_files:
             if len(success) > 0:
-                all_commands = {stage: [] for stage in module_files[module]}
-                for design in success:
-                    for stage in all_commands:
-                        all_commands[stage].append(os.path.join(design.scripts, '%s.sh' % stage))
-
+                all_commands = {stage: [os.path.join(design.scripts, '%s.sh' % stage) for design in success]
+                                for stage in module_files[module]}
                 command_files = {stage: SDUtils.write_commands(commands, out_path=program_root,
                                                                name='%s_%s_%s' % (stage, location_name, timestamp))
                                  for stage, commands in all_commands.items()}
@@ -1185,7 +1184,7 @@ if __name__ == '__main__':
                                                             file_list=args.file_list, native=args.native,
                                                             suffix=args.suffix, score_only=args.score_only,
                                                             variables=args.variables))
-
+        print(design_directories[0])
         terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
