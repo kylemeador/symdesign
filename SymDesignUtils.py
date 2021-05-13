@@ -541,11 +541,17 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
 
 
 def write_commands(command_list, name='all_commands', out_path=os.getcwd()):
-    if len(command_list) > 1:
-        extension = '.cmds'
-    else:
-        extension = '.cmd'
-    file = os.path.join(out_path, name + extension)
+    """Write a list of commands out to a file
+
+    Args:
+        command_list (iterable): An iterable with the commands as values
+    Keyword Args:
+        name='all_commands' (str): The name of the file. Will be appended with '.cmd(s)'
+        out_path=os.getcwd(): The directory where the file will be written
+    Returns:
+        (str): The filename of the new file
+    """
+    file = os.path.join(out_path, '%s.cmds' % name if len(command_list) > 1 else '%s.cmd' % name)
     with open(file, 'w') as f:
         f.write('%s\n' % '\n'.join(command for command in command_list))
 
