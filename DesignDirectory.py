@@ -1059,7 +1059,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
         else:
             pdb_input = self.refined_pdb
-            generate_files_cmd = ['']  # empty command
+            generate_files_cmd = []  # empty command
 
         if native:
             native = getattr(self, native, 'refined_pdb')
