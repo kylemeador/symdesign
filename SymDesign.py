@@ -462,7 +462,7 @@ def terminate(module, designs, location=None, results=None, output=True):
                 command_files = {stage: SDUtils.write_commands(commands, out_path=program_root,
                                                                name='%s_%s_%s' % (stage, location_name, timestamp))
                                  for stage, commands in all_commands.items()}
-                sbatch_files = {stage: distribute(stage=(stage if module != 'custom_script' else [PUtils.stage[2]]),
+                sbatch_files = {stage: distribute(stage=(stage if module != 'custom_script' else PUtils.stage[2]),
                                                   directory=program_root, file=command_file)  # sbatch template ^
                                 for stage, command_file in command_files.items()}
                 logger.critical(
