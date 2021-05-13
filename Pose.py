@@ -250,7 +250,7 @@ class SymmetricModel(Model):
             return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
             surrounding_uc=False (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
-        if self.dimension == 0:  # symmetry in ['T', 'O', 'I']: Todo add other point groups
+        if self.dimension == 0:
             self.get_point_group_coords(return_side_chains=return_side_chains)
         else:
             self.expand_uc_coords(surrounding_uc=surrounding_uc, return_side_chains=return_side_chains)
@@ -395,11 +395,11 @@ class SymmetricModel(Model):
     def return_assembly_symmetry_mates(self, **kwargs):
         """Return all symmetry mates in self.models (list[Structure]). Chain names will match the ASU"""
         count = 0
-        while len(self.models) != self.number_of_models:  # Todo clarify we haven't generated the mates yet
-            self.get_assembly_symmetry_mates(**kwargs)
+        while len(self.models) != self.number_of_models:
             if count == 1:
                 raise DesignError('%s: The assembly couldn\'t be returned'
                                   % self.return_assembly_symmetry_mates.__name__)
+            self.get_assembly_symmetry_mates(**kwargs)
             count += 1
 
         return self.models
@@ -934,13 +934,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             for entity in self.entities:
                 entity.attach_fragment_database(db=frag_db)
 
-        euler_lookup = kwargs.get('euler_lookup')
-        if euler_lookup:
-            self.euler_lookup = euler_lookup
-        else:
-            self.euler_lookup = None
-            # for entity in self.entities:  # No need to attach to entities
-            #     entity.euler_lookup = euler_lookup
+        self.euler_lookup = kwargs.get('euler_lookup', None)
+        # for entity in self.entities:  # No need to attach to entities
+        #     entity.euler_lookup = euler_lookup
 
         symmetry_kwargs = self.pdb.symmetry.copy()
         symmetry_kwargs.update(kwargs)
@@ -981,8 +977,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if not self.ignore_clashes:
             if pdb.is_clash():
                 raise DesignError('%s contains Backbone clashes! See the log for more details' % self.name)
-        # add structure to the SequenceProfile
-        self.structure = pdb
+        # # add structure to the SequenceProfile
+        # self.structure = pdb
         # set up coordinate information for SymmetricModel
         self.coords = pdb._coords
         self.pdbs_d[pdb.name] = pdb
@@ -1015,6 +1011,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def active_chains(self):
         return [chain for entity in self.active_entities for chain in entity.chains]
 
+    @property
+    def residues(self):
+        return self.pdb.residues
+
+    @property
+    def reference_sequence(self):
+        return ''.join(self.pdb.reference_sequence.values())
+
     # def find_center_of_mass(self):
     #     """Retrieve the center of mass for the specified Structure"""
     #     if self.symmetry:
@@ -1026,6 +1030,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def add_pdb(self, pdb):
         """Add a PDB to the Pose PDB as well as the member PDB container"""
+        # self.debug_pdb(tag='add_pdb')  # here, pdb chains are still in the oriented configuration
         self.pdbs_d[pdb.name] = pdb
         self.add_entities_to_pose(pdb)
 
@@ -1048,6 +1053,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Returns:
             (PDB): The PDB object with the minimal set of Entities containing the maximally touching configuration
         """
+        # self.debug_pdb(tag='get_contacting')
         idx = 0
         chain_combinations, entity_combinations = [], []
         contact_count = np.zeros((math.prod([len(entity.chains) for entity in self.active_entities])))
@@ -1076,7 +1082,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 max_index = contact_count[viable_remaining_indices].argmax()
                 additional_chains.append(chain_combinations[max_index][pair_position[max_index]])
 
-        return PDB.from_chains(max_chains + additional_chains, name='asu', log=self.log, lazy=True)
+        return PDB.from_chains(max_chains + additional_chains, name='asu', log=self.log)
 
     def entity(self, entity):
         return self.pdb.entity(entity)
@@ -1766,14 +1772,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def renumber_fragments_to_pose(self, fragments):
         for idx, fragment in enumerate(fragments):
-            # if self.structure.residue_from_pdb_numbering():
+            # if self.pdb.residue_from_pdb_numbering():
             # only assign the new fragment number info to the fragments if the residue is found
-            map_pose_number = self.structure.residue_number_from_pdb(fragment['mapped'])
+            map_pose_number = self.pdb.residue_number_from_pdb(fragment['mapped'])
             fragment['mapped'] = map_pose_number if map_pose_number else fragment['mapped']
-            pair_pose_number = self.structure.residue_number_from_pdb(fragment['paired'])
+            pair_pose_number = self.pdb.residue_number_from_pdb(fragment['paired'])
             fragment['paired'] = pair_pose_number if pair_pose_number else fragment['paired']
-            # fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-            # fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
+            # fragment['mapped'] = self.pdb.residue_number_from_pdb(fragment['mapped'])
+            # fragment['paired'] = self.pdb.residue_number_from_pdb(fragment['paired'])
             fragments[idx] = fragment
 
         return fragments
@@ -1785,14 +1791,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if pdb_numbering:  # Renumber self.fragment_map and self.fragment_profile to Pose residue numbering
             query = self.renumber_fragments_to_pose(query)
             # for idx, fragment in enumerate(fragment_source):
-            #     fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-            #     fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
+            #     fragment['mapped'] = self.pdb.residue_number_from_pdb(fragment['mapped'])
+            #     fragment['paired'] = self.pdb.residue_number_from_pdb(fragment['paired'])
             #     fragment_source[idx] = fragment
             if entity1 and entity2 and query:
                 self.fragment_queries[(entity1, entity2)] = query
         else:
-            entity_pairs = [(self.structure.entity_from_residue(fragment['mapped']),
-                             self.structure.entity_from_residue(fragment['paired'])) for fragment in query]
+            entity_pairs = [(self.pdb.entity_from_residue(fragment['mapped']),
+                             self.pdb.entity_from_residue(fragment['paired'])) for fragment in query]
             if all([all(pair) for pair in entity_pairs]):
                 for entity_pair, fragment in zip(entity_pairs, query):
                     if entity_pair in self.fragment_queries:
@@ -1854,6 +1860,20 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 'uc_dimensions': self.__dict__['uc_dimensions'],
                 'expand_matrices': self.__dict__['expand_matrices'],
                 'dimension': self.__dict__['dimension']}
+
+    def debug_pdb(self, tag=None):
+        """Write out all Structure objects for the Pose PDB"""
+        with open('%sDEBUG_POSE_PDB_%s.pdb' % ('%s_' % tag if tag else '', self.pdb.name), 'w') as f:
+            idx = 0
+            for ent_idx, entity in enumerate(self.pdb.entities, 1):
+                f.write('REMARK 999   Entity %d - ID %s\n' % (ent_idx, entity.name))
+                entity.write(file_handle=f, chain=PDB.available_letters[idx])
+                idx += 1
+                for ch_idx, chain in enumerate(entity.chains, 1):
+                    f.write('REMARK 999   Entity %d - ID %s   Chain %d - ID %s\n'
+                            % (ent_idx, entity.name, ch_idx, chain.name))
+                    chain.write(file_handle=f, chain=PDB.available_letters[idx])
+                    idx += 1
 
     # def get_interface_surface_area(self):
     #     # pdb1_interface_sa = entity1.get_surface_area_residues(entity1_residue_numbers)
