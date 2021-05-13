@@ -964,7 +964,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not symmetry_protocol:
             symmetry_protocol = self.symmetry_protocol
         if not sym_def_file:
-            symmetry_protocol = self.sym_def_file
+            sym_def_file = self.sym_def_file
         variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
         out_of_bound_residue = list(chain_breaks.values())[-1] + 50
         variables.extend([(interface, residues) if residues else (interface, out_of_bound_residue)
