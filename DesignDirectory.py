@@ -1404,7 +1404,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # unnecessary with a transform_d stored in the design state
             # # write out oligomers to the designdirectory
             # for oligomer in self.oligomers:
-            #     oligomer.write(out_path=os.path.join(self.path, os.path.basename(oligomer.filepath)))
+            #     oligomer.write(out_path=os.path.join(self.path, 'TSFMD_%s' % os.path.basename(oligomer.filepath)))
+            # # write out oligomer chains to the designdirectory
+            # for oligomer in self.oligomers:
+            #     with open(os.path.join(self.path, 'CHAINS_%s' % os.path.basename(oligomer.filepath)), 'w') as f:
+            #         for chain in oligomer.chains:
+            #             chain.write(file_handle=f)
+            #     with open(os.path.join(self.path, 'ENTITY_CHAINS_%s' % os.path.basename(oligomer.filepath)), 'w') as f:
+            #         for entity in oligomer.entities:
+            #             for chain in entity.chains:
+            #                 chain.write(file_handle=f)
+            # # BOTH OF THESE PRODUCE THE SAME FILE WITH THE OLIGOMER TRANSFORMED
+            # # SOMETHING IS HAPPENING WHEN THE POSE IS INITIALIZED CAUSING IT TO REVERT TO A NON TRANSFORMED VERSION?!
 
             self.pose = Pose.from_pdb(self.oligomers[0], sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
@@ -1430,6 +1441,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pose.generate_symmetric_assembly()
         # Save renumbered PDB to clean_asu.pdb
         if not os.path.exists(self.asu):
+            # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily the most contacting
             # self.pose.pdb.write(out_path=self.asu)
             new_asu = self.pose.get_contacting_asu()
             new_asu.write(out_path=self.asu, header=self.cryst_record)
