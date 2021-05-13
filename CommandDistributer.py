@@ -140,7 +140,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
 
     if file:  # or directory: Todo
         # here using collect directories get the commands from the provided file
-        _commands, location = collect_designs(files=file, directory=directory)
+        _commands, location = collect_designs(files=[file], directory=directory)
     else:
         raise DesignError('Error: You must pass a file containing a list of commands to process. This is '
                           'typically output to a \'[stage].cmds\' file. Ensure that this file exists and '
