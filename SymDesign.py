@@ -657,7 +657,7 @@ if __name__ == '__main__':
                                                'consensus_pdb', 'consensus_design_pdb'])
     parser_custom_script.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
     parser_custom_script.add_argument('script', type=os.path.abspath, help='The location of the custom script')
-    parser_custom_script.add_argument('--suffix', action='store_true', metavar='SUFFIX',
+    parser_custom_script.add_argument('--suffix', type=str, metavar='SUFFIX',
                                       help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
                                            '\'decoy_SUFFIX\') to identify this protocol. No extension will be included')
     parser_custom_script.add_argument('-v', '--variables', type=str, nargs='*',
