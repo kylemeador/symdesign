@@ -45,6 +45,7 @@ class Structure(StructureBase):
         self.name = name
         self.secondary_structure = None
         self.sasa = None
+        self.structure_containers = []
 
         if log:
             self.log = log
@@ -137,7 +138,11 @@ class Structure(StructureBase):
 
     def start_indices(self, dtype=None, at=0):
         """Modify the Structure container indices by a set integer amount"""
-        indices = getattr(self, '%s_indices' % dtype)
+        try:
+            indices = getattr(self, '%s_indices' % dtype)
+        except AttributeError:
+            raise AttributeError('The type %s_indices was not found the Structure object. Possible values of dtype are '
+                                 'atom or residue' % dtype)
         first_index = indices[0]
         setattr(self, '%s_indices' % dtype, [at + idx - first_index for idx in indices])
         # setattr(self, '%s_indices' % dtype, [idx + integer for idx in indices])  # modify my integer
@@ -280,10 +285,15 @@ class Structure(StructureBase):
         # Todo need to add the atoms to coords
 
     def update_attributes(self, **kwargs):
-        # self.set_structure_attributes(self.atoms, **kwargs)
-        for kwarg, value in kwargs.items():
-            setattr(self, kwarg, value)
-        # self.set_structure_attributes(self.residues, **kwargs)
+        """Update attributes specified by keyword args for all member containers"""
+        for structure_type in self.structure_containers:
+            structure = getattr(self, structure_type)
+            print('Updating %s attributes %s' % (structure, kwargs))
+            self.set_structure_attributes(structure, **kwargs)
+        # # self.set_structure_attributes(self.atoms, **kwargs)
+        # for kwarg, value in kwargs.items():
+        #     setattr(self, kwarg, value)
+        # # self.set_structure_attributes(self.residues, **kwargs)
 
     def set_atoms_attributes(self, **kwargs):  # Same function in Residue
         """Set attributes specified by key, value pairs for all Atoms in the Structure"""
@@ -722,6 +732,15 @@ class Structure(StructureBase):
 
     def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
         """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space
+
+        Transformation proceeds by matrix multiplication with the order of operations as: rotation, translation,
+        rotation2, translation2
+
+        Keyword Args:
+            rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
+            translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
+            rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
+            translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
         Returns:
             (Structure)
         """
@@ -1075,6 +1094,10 @@ class Structure(StructureBase):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written
 
+        Keyword Args:
+            out_path=None (str):
+            header=None (str):
+            file_handle=None (FileObject) #todo:
         Returns:
             (str): The name of the written file
         """
@@ -1137,11 +1160,21 @@ class Structure(StructureBase):
 
         return fragments
 
-    @staticmethod
-    def copy_structures(structures):
-        for structure in structures:
+    # def copy_structures(self):
+    #     # super().copy_structures([self.chains])
+    #     super().copy_structures(self.structure_containers)
+
+    def copy_structures(self):  # this is hybrid of above and below
+        for structure_type in self.structure_containers:
+            structure = getattr(self, structure_type)
             for idx, instance in enumerate(structure):
                 structure[idx] = copy(instance)
+
+    # @staticmethod
+    # def copy_structures(structures):
+    #     for structure in structures:
+    #         for idx, instance in enumerate(structure):
+    #             structure[idx] = copy(instance)
 
     def __key(self):
         return (self.name, *self._residue_indices)
@@ -1153,6 +1186,7 @@ class Structure(StructureBase):
         for attr, value in other.__dict__.items():
             other.__dict__[attr] = copy(value)
         other.set_structure_attributes(other.residues, coords=other._coords)
+
         return other
 
     def __eq__(self, other):
@@ -1195,17 +1229,22 @@ class Chain(Structure):
     # def __key(self):
     #     return (self.name, self._residue_indices)
 
-    def __copy__(self):
-        """Overwrite Structure.__copy__() with standard copy() method"""
-        other = self.__class__.__new__(self.__class__)
-        other.__dict__ = self.__dict__.copy()
-        # for attr, value in other.__dict__.items():
-        #     other.__dict__[attr] = copy(value)
+    # def __copy__(self):
+    #     """Overwrite Structure.__copy__() with standard copy() method.
+    #     This fails to update any attributes such as .residues or .coords, so these must be provided by another method.
+    #     Theoretically, these should be updated regardless.
+    #     If the Structure is owned by another Structure (Entity, PDB), the shared object will override the
+    #     copy, but not implementing them removes the usability of making a copy for this Structure itself.
+    #     """
+    #     other = self.__class__.__new__(self.__class__)
+    #     other.__dict__ = self.__dict__.copy()
+    #     # for attr, value in other.__dict__.items():
+    #     #     other.__dict__[attr] = copy(value)
+    #
+    #     return other
 
-        return other
 
-
-class Entity(Chain, SequenceProfile):  # Structure):
+class Entity(Chain, SequenceProfile):
     """Entity
     Initialize with Keyword Args:
         representative=None (Chain): The Chain that should represent the Entity
@@ -1220,12 +1259,14 @@ class Entity(Chain, SequenceProfile):  # Structure):
 
         # assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
         #                                           'Chain object as the representative!'
-        super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
-                         structure=self, **kwargs)
+        # Todo test set up captain chain and mate chain dependency
+        self.captain_chain = False
+        super().__init__(residues=representative._residues, residue_indices=representative.residue_indices, **kwargs)
         # self.chain_id = representative.name
-        self.chain_representative = representative
-        # Todo set up captain chain and mate chain dependency
         self.chains = chains  # [Chain objs]
+        self.chain_representative = representative
+        # self.structure_containers.append(self.chains)
+        self.structure_containers.append('chains')
         self.api_entry = None
         if sequence:
             self.reference_sequence = sequence
@@ -1245,6 +1286,27 @@ class Entity(Chain, SequenceProfile):  # Structure):
         else:
             raise DesignError('When initializing an Entity, you must pass a representative Structure object. This is '
                               'typically a Chain, but could be another collection of residues in a Structure object')
+
+    @Structure.coords.setter
+    def coords(self, coords):
+        if isinstance(coords, Coords):
+            if self.captain_chain:
+                # the chain coordinates (mates) are dependent on the representative (captain), transform accordingly
+                # if isinstance(coords, Coords):  # Need to prevent bad call upon set...
+                rmsd, rot, tx, rescale = superposition3d(coords.coords, self._coords.coords)
+                self._coords = coords
+                # self.update_attributes(coords=self._coords)
+                for chain in self.chains:
+                    new_coords = np.matmul(self._coords.coords, np.transpose(rot))
+                    new_coords += tx
+                    # new_coords = self._coords.coords + tx
+                    # new_coords = np.matmul(new_coords, np.transpose(rot))
+                    chain.coords = new_coords
+            else:
+                self._coords = coords
+        else:
+            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
     def chain_id(self):
@@ -1270,7 +1332,7 @@ class Entity(Chain, SequenceProfile):  # Structure):
 
     def retrieve_sequence_from_api(self, entity_id=None):
         if not entity_id:
-            self.log.warning('For Entity method \'%s\', the entity_id must be passed!'
+            self.log.warning('For Entity method .%s, the entity_id must be passed!'
                              % self.retrieve_sequence_from_api.__name__)
             return None
         self.reference_sequence = get_sequence_by_entity_id(entity_id)
@@ -1336,6 +1398,31 @@ class Entity(Chain, SequenceProfile):  # Structure):
             sub_symmetry_mate_pdb = self.chain_representative.__copy__()
             sub_symmetry_mate_pdb.replace_coords(new_coords)
             self.chains.append(sub_symmetry_mate_pdb)
+
+        self.captain_chain = True
+    # def update_attributes(self, **kwargs):
+    #     """Update attributes specified by keyword args for all member containers"""
+    #     # super().update_attributes(**kwargs)  # this is required to set the base Structure with the kwargs
+    #     # self.set_structure_attributes(self.chains, **kwargs)
+    #     for structure in self.structure_containers:
+    #         self.set_structure_attributes(structure, **kwargs)
+
+    # def copy_structures(self):
+    #     # super().copy_structures([self.chains])
+    #     super().copy_structures(self.structure_containers)
+
+    def __copy__(self):
+        other = super().__copy__()
+        # create a copy of all chains
+        # structures = [other.chains]
+        # other.copy_structures(structures)
+        other.copy_structures()  # NEVERMIND uses self.structure_containers... does this use Entity version?
+        # these were updated in the super().__copy__, now need to set attributes in copied chains
+        # other.update_attributes(residues=copy(self._residues), coords=copy(self._coords))
+        # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
+        other.update_attributes(residues=other._residues, coords=other._coords)
+
+        return other
 
     # def __key(self):
     #     return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
@@ -1923,7 +2010,16 @@ class MonoFragment:
         return self.central_residue.chain
 
     def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
-        """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space
+        """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space.
+
+        Transformation proceeds by matrix multiplication with the order of operations as: rotation, translation,
+        rotation2, translation2
+
+        Keyword Args:
+            rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
+            translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
+            rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
+            translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
         Returns:
             (Structure)
         """
@@ -1943,6 +2039,7 @@ class MonoFragment:
 
         new_structure = copy(self)
         new_structure.guide_coords = new_coords
+
         return new_structure
 
     def get_ghost_fragments(self, intfrag_cluster_rep, kdtree_oligomer_backbone, intfrag_cluster_info, clash_dist=2.2):

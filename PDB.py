@@ -70,6 +70,8 @@ class PDB(Structure):
         # self.sasa_residues = []
         # self.sasa = []
         self.space_group = None
+        # self.structure_containers.extend([self.chains, self.entities])
+        self.structure_containers.extend(['chains', 'entities'])
         self.uc_dimensions = []
         self.max_symmetry = None
         self.dihedral_chain = None
@@ -117,14 +119,15 @@ class PDB(Structure):
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([chain.coords for chain in chains]))
                 # set residue attributes
-                self.residues = copy(self._residues)  # have to copy the Residues (Residue's) to set new attributes
+                # have to copy Residues object to set new attributes on Residue's
+                self.residues = copy(self._residues)
                 self.set_structure_attributes(self.residues, _atoms=self._atoms)
-                #                                       done in set_coords -> , coords=self._coords)
-                # indices according to new Atoms/Coords index
+                # index according to new Atoms/Coords index, _coords=self._coords) <-done in set_coords
                 self._residues.reindex_residues()
 
                 self.chains = copy(chains)
-                self.copy_structures([self.chains])
+                # self.copy_structures([self.chains])
+                self.copy_structures()
                 self.chains[0].start_indices(dtype='atom', at=0)
                 self.chains[0].start_indices(dtype='residue', at=0)
                 for prior_idx, chain in enumerate(self.chains[1:]):
@@ -132,8 +135,12 @@ class PDB(Structure):
                     chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers
                 self.update_attributes(atoms=self._atoms, residues=self._residues, coords=self._coords)
+                # rename chains
+                self.reorder_chains()
+
                 if not kwargs.get('lazy', False):  # Todo change lazy to pose
                     self.renumber_pdb()
+                    # self.create_entities()  # TODO with process_pdb
 
             elif isinstance(entities, list):  # Todo overloaded, may not function properly without process_pdb
                 # there was a strange error when this function was passed three entities, 2 and 3 were the same,
@@ -150,14 +157,17 @@ class PDB(Structure):
                 self.residue_indices = list(range(len(residues)))
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
                 # set residue attributes
-                self.residues = copy(self._residues)  # have to copy Residues object (Residue's) to set new attributes
+                # have to copy Residues object to set new attributes on Residue's
+                self.residues = copy(self._residues)
                 self.set_structure_attributes(self.residues, _atoms=self._atoms)
-                #                                       done in set_coords -> , coords=self._coords)
-                # indices according to new Atoms/Coords index
+                # index according to new Atoms/Coords index, _coords=self._coords) <-done in set_coords
                 self._residues.reindex_residues()
 
                 self.entities = copy(entities)
-                self.copy_structures([self.entities])
+                # self.chains = copy(chains)
+                # self.copy_structures([self.entities])
+                self.copy_structures()
+                # print('Entity %s start indices' % self.entities[0].name, self.entities[0].atom_indices)
                 self.entities[0].start_indices(dtype='atom', at=0)
                 self.entities[0].start_indices(dtype='residue', at=0)
                 for prior_idx, entity in enumerate(self.entities[1:]):
@@ -168,6 +178,7 @@ class PDB(Structure):
                 # set each successive Entity to have an incrementally higher chain id
                 for idx, entity in enumerate(self.entities):
                     # entity.set_residues_attributes(chain=PDB.available_letters[idx])  # Todo upon residue identifiers
+                    # print('Entity %s update indices' % entity.name, entity.atom_indices)
                     entity.set_atoms_attributes(chain=PDB.available_letters[idx])
                     entity.chain_id = PDB.available_letters[idx]
                     self.log.debug('Entity %s new chain identifier %s' % (entity.name, entity.residues[0].chain))
@@ -208,12 +219,6 @@ class PDB(Structure):
     #     # new_pdb.update_attributes(coords=new_pdb._coords)
     #
     #     return new_pdb
-
-    def update_attributes(self, **kwargs):
-        """Update PDB attributes for all member containers specified by keyword args"""
-        # super().update_attributes(**kwargs)  # this is required to set the base Structure with the kwargs
-        self.set_structure_attributes(self.chains, **kwargs)
-        self.set_structure_attributes(self.entities, **kwargs)
 
     # def set_chain_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all Chains in the Structure"""
@@ -617,9 +622,7 @@ class PDB(Structure):
     #     self.get_chain_sequences()
 
     def reorder_chains(self, exclude_chains=None):
-        """Renames chains starting from the first chain as A and the last as
-        PDB.available_letters[len(self.chain_id_list) - 1]
-        Caution, doesn't update self.reference_sequence chain info
+        """Renames chains using PDB.available_letter. Caution, doesn't update self.reference_sequence chain info
         """
         if exclude_chains:
             available_chains = list(set(PDB.available_letters).difference(exclude_chains))
@@ -632,7 +635,7 @@ class PDB(Structure):
         for idx, chain in enumerate(self.chains):
             chain.name = self.chain_id_list[idx]
             chain.set_atoms_attributes(chain=self.chain_id_list[idx])
-            # Todo edit ^ this mechanism to set_residue_attributes!
+            # chain.set_residues_attributes(chain=self.chain_id_list[idx])  # TODO use this upon residue mech switch
         self.get_chain_sequences()
 
     def renumber_pdb(self):
@@ -1898,15 +1901,40 @@ class PDB(Structure):
         space_group = cryst1_string[55:66].strip()  # not in
         return [a, b, c, ang_a, ang_b, ang_c], space_group
 
+    # def update_attributes(self, **kwargs):
+    #     """Update PDB attributes for all member containers specified by keyword args"""
+    #     # super().update_attributes(**kwargs)  # this is required to set the base Structure with the kwargs
+    #     self.set_structure_attributes(self.chains, **kwargs)
+    #     self.set_structure_attributes(self.entities, **kwargs)
+    #
+    # def copy_structures(self):
+    #     super().copy_structures([self.entities, self.chains])
+
     def __copy__(self):
         other = super().__copy__()
-        # create a copy of all the chains and all the entities
-        structures = [other.chains, other.entities]
-        other.copy_structures(structures)
+        # create a copy of all chains and entities
+        # structures = [other.chains, other.entities]
+        # other.copy_structures(structures)
+        other.copy_structures()  # NEVERMIND uses self.structure_containers... does this use PDB version?
         # these were updated in the super().__copy__, now need to set attributes in copied chains and entities
         # other.update_attributes(residues=copy(self._residues), coords=copy(self._coords))
-        # This style v accomplishes the update that the super().__copy__() started
-        other.update_attributes(residues=other._residues, coords=other._coords)
+        # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
+        print('Updating new copy of \'%s\' attributes' % self.name)
+        other.update_attributes(_residues=other._residues, coords=other._coords)
+        memory_l = [self, self.chains[0], self.entities[0], self.entities[0].chains[0]]
+        memory_o = [other, other.chains[0], other.entities[0], other.entities[0].chains[0]]
+        print('The id in memory of self : %s\nstored coordinates is: %s' % (memory_l, list(map(getattr, memory_l, repeat('_coords')))))
+        print('The id in memory of other: %s\nstored coordinates is: %s' % (memory_o, list(map(getattr, memory_o, repeat('_coords')))))
+        # This routine replaces the .chains attribute of .entities, Entity container for all chains that are PDB copies
+        for idx_ch, chain in enumerate(self.chains):
+            for idx_ent, entity in enumerate(self.entities):
+                if chain in entity.chains:
+                    equivalent_idx = entity.chains.index(chain)
+                    other.entities[idx_ent].chains.pop(equivalent_idx)
+                    other.entities[idx_ent].chains.insert(equivalent_idx, other.chains[idx_ch])
+                    # break  # There shouldn't be any chains which belong to multiple Entities
+        memory_n = [other, other.chains[0], other.entities[0], other.entities[0].chains[0]]
+        print('The id in memory of Nothr: %s\nstored coordinates is: %s' % (memory_n, list(map(getattr, memory_n, repeat('_coords')))))
 
         return other
 
