@@ -2,7 +2,7 @@
 
 	<SCOREFXNS>
 		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%">
+		<ScoreFunction name="2015_nano_hbnet_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
 			<Reweight scoretype="hbnet" weight="0.5" />
 			<Reweight scoretype="buried_unsatisfied_penalty" weight="0.5" />
@@ -67,13 +67,13 @@
 	
 	<MOVERS>
 		# set all interface residues to GLY, leave everything else untouched
-		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
+		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_hbnet_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
 		# the main routine to perform metropolis criteria monte carlo
-		<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff,des_around_total" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+		<FastDesign name="int_design" scorefxn="2015_nano_hbnet_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff,des_around_total" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 		# sample all rotamers to find minimum
-		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>
+		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_hbnet_cst" task_operations="init,rtr"/>
 		# minimize all residues in design_map (move map)
-		<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
+		<SymMinMover name="min" scorefxn="2015_nano_hbnet_cst" movemap_factory="design_map"/> # bb="0" chi="1"
 		# the main protocol to loop over for interface design
 		<ParsedProtocol name="rotamer_trials_min_mover">
 			<Add mover_name="RT"/>
