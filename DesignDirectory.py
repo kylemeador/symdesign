@@ -150,6 +150,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.interface_residues = {'interface1': None, 'interface2': None}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
 
+        self.center_residue_numbers = []  # TODO MOVE Metrics
+        self.total_residue_numbers = []  # TODO MOVE Metrics
         self.all_residue_score = None  # TODO MOVE Metrics
         self.center_residue_score = None  # TODO MOVE Metrics
         self.high_quality_int_residues_matched = None  # TODO MOVE Metrics
@@ -728,6 +730,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #     raise DesignError('Something is wrong in Design logic. This error shouldn\'t be reached.')
             #     # return None
 
+        self.center_residue_numbers = frag_metrics['center_residues']
+        self.total_residue_numbers = frag_metrics['total_residues']
         self.all_residue_score = frag_metrics['nanohedra_score']
         self.center_residue_score = frag_metrics['nanohedra_score_center']
         self.fragment_residues_total = frag_metrics['number_fragment_residues_total']
@@ -975,6 +979,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             variables.extend([('required_residues', ','.join(str(res.number) for res in self.pose.required_residues))])
         else:  # get an out of bounds index
             variables.extend([('required_residues', out_of_bound_residue)])
+
+        # allocate any "core" residues based on central fragment information
+        if self.pose.required_residues:
+            variables.extend([('core_residues', ','.join(map(str, self.center_residue_numbers)))])
+        else:  # get an out of bounds index
+            variables.extend([('core_residues', out_of_bound_residue)])
 
         flags = copy.copy(rosetta_flags)
         if pdb_path:
