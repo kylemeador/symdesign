@@ -981,7 +981,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             variables.extend([('required_residues', out_of_bound_residue)])
 
         # allocate any "core" residues based on central fragment information
-        if self.pose.required_residues:
+        if self.center_residue_numbers:
             variables.extend([('core_residues', ','.join(map(str, self.center_residue_numbers)))])
         else:  # get an out of bounds index
             variables.extend([('core_residues', out_of_bound_residue)])
