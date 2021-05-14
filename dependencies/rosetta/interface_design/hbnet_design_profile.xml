@@ -62,7 +62,7 @@
 		#
 		# will turn off write_network_pdbs="1" when implemented in protocols
 		# may not need required_residues which gets pulled from design around total. start_selector would prevent much downside though
-		<HBNet name="hbnet_mover" scorefxn="2015_nano_cst" hb_threshold="-0.5" start_selector="core_residues" min_network_size="3" max_unsat_Hpol="1" write_network_pdbs="1" monte_carlo="true" task_operations="init,vrt,pssm_cutoff,des_around_total"/>
+		<HBNet name="hbnet" scorefxn="2015_nano_cst" hb_threshold="-0.5" start_selector="core_residues" min_network_size="3" max_unsat_Hpol="1" write_network_pdbs="1" monte_carlo="true" task_operations="init,vrt,pssm_cutoff,des_around_total"/>
         <MultiplePoseMover name="hbnet_multipose" max_input_poses="10">
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
