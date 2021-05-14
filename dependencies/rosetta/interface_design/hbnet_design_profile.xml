@@ -25,6 +25,8 @@
 		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
 		# the negation of all designable residues
 		<Not name="not_designable" selector="all_designable"/>
+		# all residues
+		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 
 	<TASKOPERATIONS>
@@ -50,8 +52,6 @@
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen" native="true" residue_selector="full_pose" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false"/> # bounded_width="0". sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
-
-
 
 		# set all interface residues to GLY, leave everything else untouched
 		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
