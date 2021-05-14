@@ -96,6 +96,10 @@
 		<LoopOver name="design_loop" iterations="4" mover_name="design_block"/>
 	</MOVERS>
 
+	<FILTERS>
+		<Time name="time"/>
+	</FILTERS>
+
 	<PROTOCOLS>
 		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry_switch"/>

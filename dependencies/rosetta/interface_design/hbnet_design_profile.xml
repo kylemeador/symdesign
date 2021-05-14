@@ -158,6 +158,10 @@
         </MultiplePoseMover>
 	</MOVERS>
 
+	<FILTERS>
+		<Time name="time"/>
+	</FILTERS>
+
 	<PROTOCOLS>
 		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry_switch"/>
