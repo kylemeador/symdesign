@@ -947,6 +947,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if force_flags or not os.path.exists(flags):  # Generate a new flags_design file
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
+            self.prepare_symmetry_for_rosetta()
             self.make_path(self.scripts)
             flags = self.prepare_rosetta_flags(out_path=self.scripts)
             # if self.design_dimension is not None:  # can be 0
@@ -966,9 +967,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #     self.log.critical(
             #         'No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s an ASU it'
             #         ' may be missing crucial interface contacts. Is this what you want?')
-        self.prepare_symmetry_for_rosetta()
-        main_cmd += ['-symmetry_definition',
-                     (self.sym_def_file if self.symmetry_protocol in ['null', 'make_point_group'] else 'CRYST1')]
+        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
 
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
@@ -995,12 +994,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if force_flags or not os.path.exists(flags):  # Generate a new flags_design file
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
+            self.prepare_symmetry_for_rosetta()
             self.make_path(self.scripts)
             flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
-        self.prepare_symmetry_for_rosetta()
-        cmd += ['-symmetry_definition',
-                (self.sym_def_file if self.symmetry_protocol in ['null', 'make_point_group'] else 'CRYST1')]
+        cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
 
         if file_list:
             pdb_input = os.path.join(self.scripts, 'design_files.txt')
@@ -1096,9 +1094,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
         #     self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
         #                       ' an ASU it may be missing crucial interface contacts. Is this what you want?')
-        self.prepare_symmetry_for_rosetta()
-        main_cmd += ['-symmetry_definition',
-                     (self.sym_def_file if self.symmetry_protocol in ['null', 'make_point_group'] else 'CRYST1')]
+        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
 
         if self.nano:  # Todo may need to do this for non Nanohedra inputs
             self.log.info('Input Oligomers: %s' % ', '.join(oligomer.name for oligomer in self.oligomers))
@@ -1148,6 +1144,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #
         # self.make_path(self.scripts)
         # flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
+        self.prepare_symmetry_for_rosetta()
         self.make_path(self.scripts)
         flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
@@ -1385,17 +1382,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             additional_flags = ['-no_scorefile', 'true']  # -run:no_scorefile? Todo Test
 
         if force_flags or not os.path.exists(flags):  # Generate a new flags file
+            self.prepare_symmetry_for_rosetta()
             self.make_path(flag_dir)
             flags = self.prepare_rosetta_flags(pdb_path=pdb_path, out_path=self.scripts)
 
-        self.prepare_symmetry_for_rosetta()
         # RELAX: Prepare command Todo remove in:file:native as it shouldn't be necessary without metrics
-        relax_cmd += relax_flags + additional_flags + \
-            ['-symmetry_definition', (self.sym_def_file if self.symmetry_protocol in ['null', 'make_point_group']
-                                      else 'CRYST1'),
-             '@%s' % flags, '-in:file:native', self.source, '-in:file:s', refine_pdb,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
-             '-parser:script_vars', 'switch=%s' % stage]
+        relax_cmd += relax_flags + ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [] + \
+            additional_flags + ['@%s' % flags, '-in:file:native', self.source, '-in:file:s', refine_pdb,
+                                '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
+                                '-parser:script_vars', 'switch=%s' % stage]
         self.log.info('%s Command: %s' % (stage.title(), subprocess.list2cmdline(relax_cmd)))
 
         # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
