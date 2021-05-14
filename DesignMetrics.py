@@ -1458,13 +1458,16 @@ def format_fragment_metrics(metrics, null=False):
     """For a set of fragment metrics, return the formatted total fragment metrics
 
     Returns:
-        (dict): {nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
+        (dict): {center_residues, total_residues,
+                 nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
                  number_fragment_residues_center, number_fragments, percent_fragment_helix, percent_fragment_strand,
                  percent_fragment_coil}
     """
     if null:
         return fragment_metric_template
-    return {'nanohedra_score': metrics['total']['total']['score'],
+    return {'center_residues': metrics['mapped']['center']['residues'] + metrics['paired']['center']['residues'],
+            'total_residues': metrics['mapped']['total']['residues'] + metrics['paired']['total']['residues'],
+            'nanohedra_score': metrics['total']['total']['score'],
             'nanohedra_score_center': metrics['total']['center']['score'],
             'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
             'number_fragment_residues_total': metrics['total']['total']['number'],
