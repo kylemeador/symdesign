@@ -1208,11 +1208,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         else:  # solve symmetric results for asymmetric contacts
             asymmetric_contacting_pairs, found_pairs = [], []
             for pair1, pair2 in contacting_pairs:
+                # add both pair orientations (1, 2) or (2, 1) regardless
+                found_pairs.extend([(pair1, pair2), (pair2, pair1)])
                 # only add to contacting pair if we have never observed either
                 if (pair1, pair2) not in found_pairs or (pair2, pair1) not in found_pairs:
                     asymmetric_contacting_pairs.append((pair1, pair2))
-                # add both pair orientations (1, 2) or (2, 1) regardless
-                found_pairs.extend([(pair1, pair2), (pair2, pair1)])
 
             return asymmetric_contacting_pairs
 
@@ -1621,71 +1621,69 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 self.fragment_metrics[query_pair] = calculate_match_metrics(fragment_matches)
 
         if by_interface:
-            if not entity1 and not entity2:
+            if entity1 and entity2:
+                for query_pair, metrics in self.fragment_metrics.items():
+                    if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
+                        return format_fragment_metrics(metrics)
+                self.log.info('Couldn\'t locate query metrics for Entity pair %s, %s' % (entity1.name, entity2.name))
+            else:
                 self.log.error('%s: entity1 or entity1 can\'t be None!' % self.return_fragment_metrics.__name__)
-                return None
 
-            for query_pair, metrics in self.fragment_metrics.items():
-                # if entity1 in query_pair and entity2 in query_pair:
-                if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
-                    return format_fragment_metrics(metrics)
-            self.log.info('Couldn\'t locate query metrics for Entity pair %s, %s' % (entity1.name, entity2.name))
-            return None
-
+            return fragment_metric_template
         elif by_entity:
-            return_d = {}
+            metric_d = {}
             for query_pair, metrics in self.fragment_metrics.items():
                 for idx, entity in enumerate(query_pair):
-                    if entity not in return_d:
-                        return_d[entity] = fragment_metric_template
+                    if entity not in metric_d:
+                        metric_d[entity] = fragment_metric_template
 
                     align_type = SequenceProfile.idx_to_alignment_type[idx]
-                    return_d[entity]['center_residues'] += metrics[align_type]['center']['residues']
-                    return_d[entity]['total_residues'] += metrics[align_type]['total']['residues']
-                    return_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
-                    return_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
-                    return_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
-                    return_d[entity]['number_fragment_residues_total'] += metrics[align_type]['total']['number']
-                    return_d[entity]['number_fragment_residues_center'] += metrics[align_type]['center']['number']
-                    return_d[entity]['number_fragments'] += metrics['total']['observations']
-                    return_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
-                    return_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
-                    return_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
+                    metric_d[entity]['center_residues'] += metrics[align_type]['center']['residues']
+                    metric_d[entity]['total_residues'] += metrics[align_type]['total']['residues']
+                    metric_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
+                    metric_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
+                    metric_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
+                    metric_d[entity]['number_fragment_residues_total'] += metrics[align_type]['total']['number']
+                    metric_d[entity]['number_fragment_residues_center'] += metrics[align_type]['center']['number']
+                    metric_d[entity]['number_fragments'] += metrics['total']['observations']
+                    metric_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
+                    metric_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
+                    metric_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
                                                                   metrics[align_type]['index_count'][4] +
                                                                   metrics[align_type]['index_count'][5])
-            for entity in return_d:
-                return_d[entity]['percent_fragment_helix'] /= return_d[entity]['number_fragments']
-                return_d[entity]['percent_fragment_strand'] /= return_d[entity]['number_fragments']
-                return_d[entity]['percent_fragment_coil'] /= return_d[entity]['number_fragments']
+            for entity in metric_d:
+                metric_d[entity]['percent_fragment_helix'] /= metric_d[entity]['number_fragments']
+                metric_d[entity]['percent_fragment_strand'] /= metric_d[entity]['number_fragments']
+                metric_d[entity]['percent_fragment_coil'] /= metric_d[entity]['number_fragments']
 
-            return return_d
-
+            return metric_d
         else:
-            return_d = fragment_metric_template
+            metric_d = fragment_metric_template
             for query_pair, metrics in self.fragment_metrics.items():
-                return_d['center_residues'] += \
+                metric_d['center_residues'] += \
                     metrics['mapped']['center']['residues'] + metrics['paired']['center']['residues']
-                return_d['total_residues'] += \
+                metric_d['total_residues'] += \
                     metrics['mapped']['total']['residues'] + metrics['paired']['total']['residues']
-                return_d['nanohedra_score'] += metrics['total']['total']['score']
-                return_d['nanohedra_score_center'] += metrics['total']['center']['score']
-                return_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
-                return_d['number_fragment_residues_total'] += metrics['total']['total']['number']
-                return_d['number_fragment_residues_center'] += metrics['total']['center']['number']
-                return_d['number_fragments'] += metrics['total']['observations']
-                return_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
-                return_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
-                return_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
+                metric_d['nanohedra_score'] += metrics['total']['total']['score']
+                metric_d['nanohedra_score_center'] += metrics['total']['center']['score']
+                metric_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
+                metric_d['number_fragment_residues_total'] += metrics['total']['total']['number']
+                metric_d['number_fragment_residues_center'] += metrics['total']['center']['number']
+                metric_d['number_fragments'] += metrics['total']['observations']
+                metric_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
+                metric_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
+                metric_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
                                                       metrics['total']['index_count'][4] +
                                                       metrics['total']['index_count'][5])
             try:
-                return_d['percent_fragment_helix'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-                return_d['percent_fragment_strand'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-                return_d['percent_fragment_coil'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
+                metric_d['percent_fragment_helix'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
+                metric_d['percent_fragment_strand'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
+                metric_d['percent_fragment_coil'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
             except ZeroDivisionError:
-                pass
+                metric_d['percent_fragment_helix'], metric_d['percent_fragment_strand'], \
+                    metric_d['percent_fragment_coil'] = 0, 0, 0
 
-            return return_d
+            return metric_d
 
     # def calculate_fragment_query_metrics(self):
     #     """From the profile's fragment queries, calculate and store the query metrics per query"""
