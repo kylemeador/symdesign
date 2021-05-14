@@ -1025,6 +1025,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         main_cmd += ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % flags, '-out:file:score_only',
                      self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
+        if self.mpi:
+            main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
+            self.script = True
+
         metric_cmd_bound = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
                                                     % (PUtils.stage[3], '_DEV' if development else ''))]
         metric_cmd_unbound = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
@@ -1093,6 +1097,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         cmd += ['-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native, '@%s' % flags] + \
             score + suffix + trajectories + \
             ['-parser:protocol', script] + variables
+        if self.mpi:
+            cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + cmd
+            self.script = True
+
         write_shell_script(subprocess.list2cmdline(generate_files_cmd),
                            name=script_name, out_path=self.scripts, additional=[subprocess.list2cmdline(cmd)])
 
