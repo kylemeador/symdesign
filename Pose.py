@@ -1579,6 +1579,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # self.solve_consensus()  # Todo
         # -------------------------------------------------------------------------
 
+    def return_fragment_observations(self):
+        """Return the fragment observations identified on the pose regardless of Entity binding
+
+        Returns:
+            (list[dict]): [{'mapped': int, 'paired': int, 'cluster': str, 'match': float}, ...]
+        """
+        observations = []
+        for query_pair, fragment_matches in self.fragment_queries.items():
+            observations.extend(fragment_matches)
+
+        # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
+        return observations
+
     def return_fragment_metrics(self, fragments=None, by_interface=False, entity1=None, entity2=None, by_entity=False):
         """From self.fragment_queries, return the specified fragment metrics. By default returns the entire Pose
 
@@ -1603,8 +1616,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             return format_fragment_metrics(calculate_match_metrics(fragments))
 
         # self.calculate_fragment_query_metrics()  # populates self.fragment_metrics
-        for query_pair, fragment_matches in self.fragment_queries.items():
-            self.fragment_metrics[query_pair] = calculate_match_metrics(fragment_matches)
+        if not self.fragment_metrics:
+            for query_pair, fragment_matches in self.fragment_queries.items():
+                self.fragment_metrics[query_pair] = calculate_match_metrics(fragment_matches)
 
         if by_interface:
             if not entity1 and not entity2:
@@ -1626,6 +1640,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                         return_d[entity] = fragment_metric_template
 
                     align_type = SequenceProfile.idx_to_alignment_type[idx]
+                    return_d[entity]['center_residues'] += metrics[align_type]['center']['residues']
+                    return_d[entity]['total_residues'] += metrics[align_type]['total']['residues']
                     return_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
                     return_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
                     return_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
@@ -1647,6 +1663,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         else:
             return_d = fragment_metric_template
             for query_pair, metrics in self.fragment_metrics.items():
+                return_d['center_residues'] += \
+                    metrics['mapped']['center']['residues'] + metrics['paired']['center']['residues']
+                return_d['total_residues'] += \
+                    metrics['mapped']['total']['residues'] + metrics['paired']['total']['residues']
                 return_d['nanohedra_score'] += metrics['total']['total']['score']
                 return_d['nanohedra_score_center'] += metrics['total']['center']['score']
                 return_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']

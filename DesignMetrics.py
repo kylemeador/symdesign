@@ -583,7 +583,8 @@ residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0
                     'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
                              'hydrophobic': {'complex': 0., 'unbound': 0.}},
                     'type': None, 'core': 0, 'rim': 0, 'support': 0, 'interior': 0, 'hbond': 0}  # , 'hot_spot': 0}
-fragment_metric_template = {'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
+fragment_metric_template = {'center_residues': [], 'total_residues': [],
+                            'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
                             'number_fragment_residues_total': 0, 'number_fragment_residues_center': 0,
                             'number_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
                             'percent_fragment_coil': 0.0}
@@ -1279,8 +1280,8 @@ def calculate_match_metrics(fragment_matches):
         fragment_matches (list[dict]): [{'mapped': entity1_resnum, 'match': score_term, 'paired': entity2_resnum,
                                          'culster': cluster_id}, ...]
     Returns:
-        (dict): {'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
-                            'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
+        (dict): {'mapped': {'center': {'residues': (set[int]), 'score': (float), 'number': (int)},
+                            'total': {'residues': (set[int]), 'score': (float), 'number': (int)},
                             'match_scores': {residue number(int): (list[score (float)]), ...},
                             'index_count': {index (int): count (int), ...},
                             'multiple_ratio': (float)}
