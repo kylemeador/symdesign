@@ -1010,6 +1010,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
             self.prepare_symmetry_for_rosetta()
+            self.get_fragment_metrics()
             self.make_path(self.scripts)
             flags = self.prepare_rosetta_flags(out_path=self.scripts)
             # if self.design_dimension is not None:  # can be 0
@@ -1061,6 +1062,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
             self.prepare_symmetry_for_rosetta()
+            self.get_fragment_metrics()
             self.make_path(self.scripts)
             flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
@@ -1215,6 +1217,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.make_path(self.scripts)
         # flags = self.prepare_rosetta_flags(flag_variables, out_path=self.scripts)
         self.prepare_symmetry_for_rosetta()
+        self.get_fragment_metrics()
         self.make_path(self.scripts)
         flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
@@ -1546,6 +1549,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         if force_flags or not os.path.exists(flags):  # Generate a new flags file
             self.prepare_symmetry_for_rosetta()
+            self.get_fragment_metrics()
             self.make_path(flag_dir)
             flags = self.prepare_rosetta_flags(pdb_path=pdb_path, out_path=flag_dir)
 
