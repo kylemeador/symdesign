@@ -1730,8 +1730,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                         metric_d[entity] = fragment_metric_template
 
                     align_type = SequenceProfile.idx_to_alignment_type[idx]
-                    metric_d[entity]['center_residues'] += metrics[align_type]['center']['residues']
-                    metric_d[entity]['total_residues'] += metrics[align_type]['total']['residues']
+                    metric_d[entity]['center_residues'].union(metrics[align_type]['center']['residues'])
+                    metric_d[entity]['total_residues'].union(metrics[align_type]['total']['residues'])
                     metric_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
                     metric_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
                     metric_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
@@ -1752,10 +1752,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         else:
             metric_d = fragment_metric_template
             for query_pair, metrics in self.fragment_metrics.items():
-                metric_d['center_residues'] += \
-                    metrics['mapped']['center']['residues'] + metrics['paired']['center']['residues']
-                metric_d['total_residues'] += \
-                    metrics['mapped']['total']['residues'] + metrics['paired']['total']['residues']
+                metric_d['center_residues'].union(
+                    metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']))
+                metric_d['total_residues'].union(
+                    metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']))
                 metric_d['nanohedra_score'] += metrics['total']['total']['score']
                 metric_d['nanohedra_score_center'] += metrics['total']['center']['score']
                 metric_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
