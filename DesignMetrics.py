@@ -583,7 +583,7 @@ residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0
                     'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
                              'hydrophobic': {'complex': 0., 'unbound': 0.}},
                     'type': None, 'core': 0, 'rim': 0, 'support': 0, 'interior': 0, 'hbond': 0}  # , 'hot_spot': 0}
-fragment_metric_template = {'center_residues': [], 'total_residues': [],
+fragment_metric_template = {'center_residues': set(), 'total_residues': set(),
                             'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
                             'number_fragment_residues_total': 0, 'number_fragment_residues_center': 0,
                             'number_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
@@ -1465,8 +1465,8 @@ def format_fragment_metrics(metrics, null=False):
     """
     if null:
         return fragment_metric_template
-    return {'center_residues': metrics['mapped']['center']['residues'] + metrics['paired']['center']['residues'],
-            'total_residues': metrics['mapped']['total']['residues'] + metrics['paired']['total']['residues'],
+    return {'center_residues': metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']),
+            'total_residues': metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']),
             'nanohedra_score': metrics['total']['total']['score'],
             'nanohedra_score_center': metrics['total']['center']['score'],
             'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
