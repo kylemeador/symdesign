@@ -28,7 +28,7 @@ from DesignMetrics import columns_to_rename, read_scores, keys_from_trajectory_n
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, \
     protocols_of_interest, df_permutation_test, calc_relative_sa, clean_up_intermediate_columns, \
-    format_fragment_metrics, master_metrics
+    master_metrics, fragment_metric_template
 from SequenceProfile import parse_pssm, generate_multiple_mutations, get_db_aa_frequencies, simplify_mutation_dict, \
     make_mutations_chain_agnostic, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, multi_chain_alignment  # , format_mutations, generate_sequences
@@ -656,7 +656,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
                 else:
                     # no fragments were found in file and might not be present, set frag_metrics empty
-                    frag_metrics = format_fragment_metrics(None, null=True)
+                    frag_metrics = fragment_metric_template
             else:
                 self.log.debug('No fragment observations found on file, getting fragment info from Pose')
                 frag_metrics = self.pose.return_fragment_metrics()
@@ -1594,7 +1594,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if os.path.exists(self.scores_file):
             self.log.debug('Found design scores in file: %s' % self.scores_file)
             # Get the scores from the score file on design trajectory metrics
-            all_design_scores = keys_from_trajectory_number(read_scores(self.scores_file))
+            # all_design_scores = keys_from_trajectory_number(read_scores(self.scores_file))
+            all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Gather mutations for residue specific processing and design sequences
 
@@ -1619,8 +1620,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                                     for chain, mutations in chain_mutations.items()}
             #                                            for design, chain_mutations in sequence_mutations.items()})
             # all_design_sequences = generate_sequences(wt_pdb.atom_sequences, sequence_mutations)
-            all_design_sequences = {chain: keys_from_trajectory_number(named_sequences)
-                                    for chain, named_sequences in all_design_sequences.items()}
+            # all_design_sequences = {chain: keys_from_trajectory_number(named_sequences)
+            #                         for chain, named_sequences in all_design_sequences.items()}
 
             self.log.debug('Design sequences by chain: %s' % all_design_sequences)
             self.log.debug('All designs with sequences: %s'
@@ -1677,8 +1678,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-            all_mutations = keys_from_trajectory_number(
-                generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences))
+            # all_mutations = keys_from_trajectory_number(
+            #     generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences))
+            all_mutations = generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences)
             all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
             cleaned_mutations = simplify_mutation_dict(all_mutations_no_chains)
             residue_info = dirty_residue_processing(all_design_scores, cleaned_mutations, hbonds=interface_hbonds)
