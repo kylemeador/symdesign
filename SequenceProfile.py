@@ -49,6 +49,7 @@ class SequenceProfile:
         self.profile = {}  # design specific scoring matrix
         self.frag_db = None
         self.fragment_queries = {}
+        # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
         self.fragment_map = {}
         self.fragment_profile = {}
         self.interface_data_file = None
