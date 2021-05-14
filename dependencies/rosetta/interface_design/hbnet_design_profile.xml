@@ -63,7 +63,7 @@
 		# will turn off write_network_pdbs="1" when implemented in protocols
 		# may not need required_residues which gets pulled from design around total. start_selector would prevent much downside though
 		<HBNet name="hbnet_mover" scorefxn="2015_nano_cst" hb_threshold="-0.5" start_selector="core_residues" min_network_size="3" max_unsat_Hpol="1" write_network_pdbs="1" monte_carlo="true" task_operations="init,vrt,pssm_cutoff,des_around_total"/>
-        <MultiplePoseMover name="hbnet_multipose" max_input_poses="20">
+        <MultiplePoseMover name="hbnet_multipose" max_input_poses="10">
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
 
@@ -122,7 +122,7 @@
 					# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
 					<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 					# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
-					<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/>
+					<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 				</TASKOPERATIONS>
 
 				<MOVE_MAP_FACTORIES>
@@ -131,6 +131,7 @@
 					</MoveMapFactory>
 				</MOVE_MAP_FACTORIES>
 
+<!--				<IMPORT movers="int_design" filters="time, ..."/>-->
 				<MOVERS>
 					# the main routine to perform metropolis criteria monte carlo
 					<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff,des_around_total,hbnet_rtr" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
