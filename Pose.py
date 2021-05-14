@@ -1208,11 +1208,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         else:  # solve symmetric results for asymmetric contacts
             asymmetric_contacting_pairs, found_pairs = [], []
             for pair1, pair2 in contacting_pairs:
+                # add both pair orientations (1, 2) or (2, 1) regardless
+                found_pairs.extend([(pair1, pair2), (pair2, pair1)])
                 # only add to contacting pair if we have never observed either
                 if (pair1, pair2) not in found_pairs or (pair2, pair1) not in found_pairs:
                     asymmetric_contacting_pairs.append((pair1, pair2))
-                # add both pair orientations (1, 2) or (2, 1) regardless
-                found_pairs.extend([(pair1, pair2), (pair2, pair1)])
 
             return asymmetric_contacting_pairs
 
