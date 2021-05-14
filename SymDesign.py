@@ -453,7 +453,7 @@ def terminate(module, designs, location=None, results=None, output=True):
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
                         PUtils.nano: [PUtils.nano],
-                        'custom_script': [os.path.splitext(os.path.basename(args.script))[0]],
+                        'custom_script': [os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]],
                         'interface_metrics': ['interface_metrics']}
         if module in module_files:
             if len(success) > 0:
