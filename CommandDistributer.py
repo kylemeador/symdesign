@@ -171,6 +171,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
     if not failure_file:
         failure_file = os.path.join(directory, '%s_%s_failures.log' % (name, PUtils.sbatch))
 
+    # Todo check for mpi flag and set up sbatch accordingly. Must include a multiplier for the number of CPU's
     # Grab sbatch template and stage cpu divisor to facilitate array set up and command distribution
     with open(PUtils.sbatch_templates[stage]) as template_f:
         template_sbatch = template_f.readlines()
