@@ -840,7 +840,7 @@ if __name__ == '__main__':
             raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
                                       '\n\t%s\nCorrect your flags and try again'
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
-    if queried_flags['sym_entry']:
+    if queried_flags.get('sym_entry'):
         queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
 
     # TODO consolidate this check
