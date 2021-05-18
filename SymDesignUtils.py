@@ -1024,9 +1024,14 @@ class DesignError(Exception):
 ######################
 
 
-def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2):
+def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2.0):
     """Calculate the overlap between two sets of coordinates given a reference rmsd
 
+    Keyword Args:
+        coords1=None (numpy.ndarray): The first set of coordinates
+        coords2=None (numpy.ndarray): The second set of coordinates
+        coords_rmsd_reference=None (numpy.ndarray): The reference RMSD to compared each pair of coordinates against
+        max_z_value=2.0 (float): The z-score deviation threshold of the overlap to be considered a match
     Returns:
         (numpy.ndarray): The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value
     """

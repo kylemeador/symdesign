@@ -1301,7 +1301,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
-            surface_frags2 = list(iter_chain.from_iterable(surface_frags2_nested))
+            # surface_frags2 = list(iter_chain.from_iterable(surface_frags2_nested))
+            surface_frags2 = []
+            for frag_mates in surface_frags2_nested:
+                surface_frags2.extend(frag_mates)
             self.log.debug('Entity 2 Symmetry expanded fragment count: %d' % len(surface_frags2))
 
         entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
@@ -2002,7 +2005,7 @@ def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
 def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2, fragdb=None,
                                        euler_lookup=None, max_z_value=2):
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
-    """From a Structure Entity, score the interface between them according to Nanohedra's fragment matching"""
+    """From two Structure's, score the interface between them according to Nanohedra's fragment matching"""
     if not fragdb:
         fragdb = FragmentDB()
         fragdb.get_monofrag_cluster_rep_dict()
