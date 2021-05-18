@@ -30,6 +30,7 @@ extras_flags = {'default': [],
                                 '-multithreading:interaction_graph_threads ' + str(num_thread_per_process)],
                 'mpi': [],
                 'cxx11threadmpi': ['-multithreading:total_threads ' + str(num_thread_per_process)]}
+# Todo modify .linuxgccrelease depending on os
 script_cmd = [os.path.join(PUtils.rosetta, 'source/bin/rosetta_scripts.%s.linuxgccrelease' % PUtils.rosetta_extras),
               '-database', os.path.join(PUtils.rosetta, 'database')]
 rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
@@ -37,6 +38,7 @@ rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
      # '-overwrite',
      '-linmem_ig 10', '-out:file:scorefile_format json', '-output_only_asymmetric_unit true', '-no_chainend_ter true',
      '-write_seqres_records true', '-output_pose_energies_table false', '-output_pose_cache_data false',
+     '-holes::dalphaball %s' % PUtils.dalphaball if os.path.exists(PUtils.dalphaball) else '',
      '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB VirtualNTerm '
      'VirtualDNAPhosphate CTermConnect sc_orbitals pro_hydroxylated_case1 N_acetylated C_methylamidated cys_acetylated'
      'pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated tyr_phosphorylated tyr_diiodinated tyr_sulfated'
