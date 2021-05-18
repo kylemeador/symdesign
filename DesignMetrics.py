@@ -487,12 +487,12 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interf
                                  'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
                                  'interface_energy_2_unbound',
                                  ]
-
+protocol_specific_columns = ['HBNet_NumUnsatHpol', 'HBNet_Saturation', 'HBNet_Score']
 # Some of these are unneeded now, but hanging around in case renaming occurred
 unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_total',
                'int_area_ex_asu_hydrophobic', 'int_area_ex_asu_polar', 'int_area_ex_asu_total',
                'int_energy_context_asu', 'int_energy_context_unbound',
-               'coordinate_constraint', 'int_energy_res_summary_asu', 'int_energy_res_summary_unbound',
+               'int_energy_res_summary_asu', 'int_energy_res_summary_unbound',
                'interaction_energy', 'interaction_energy_asu', 'interaction_energy_oligomerA',
                'interaction_energy_oligomerB', 'interaction_energy_unbound', 'res_type_constraint', 'time', 'REU',
                'full_stability_complex', 'full_stability_oligomer', 'fsp_total_stability',
@@ -509,6 +509,8 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                'decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
                'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
                # 'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'buns_total',
+               'angle_constraint', 'atom_pair_constraint', 'chainbreak', 'coordinate_constraint', 'dihedral_constraint',
+               'metalbinding_constraint', 'rmsd'
                ]
 # remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unbound']
 #                'full_stability_oligomer_A', 'full_stability_oligomer_B']

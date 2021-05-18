@@ -28,7 +28,7 @@ from DesignMetrics import columns_to_rename, read_scores, keys_from_trajectory_n
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, \
     protocols_of_interest, df_permutation_test, calc_relative_sa, clean_up_intermediate_columns, \
-    master_metrics, fragment_metric_template
+    master_metrics, fragment_metric_template, protocol_specific_columns
 from SequenceProfile import parse_pssm, generate_multiple_mutations, get_db_aa_frequencies, simplify_mutation_dict, \
     make_mutations_chain_agnostic, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, multi_chain_alignment  # , format_mutations, generate_sequences
@@ -1816,6 +1816,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
             # Replace empty strings with numpy.notanumber (np.nan) and convert remaining to float
             scores_df.replace('', np.nan, inplace=True)
+            scores_df.fillna(dict(zip(protocol_specific_columns, repeat(0))), inplace=True)
             scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
             # TODO remove dirty when columns are correct (after P432)
