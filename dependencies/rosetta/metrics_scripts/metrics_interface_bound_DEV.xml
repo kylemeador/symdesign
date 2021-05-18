@@ -224,9 +224,9 @@
 
 	<PROTOCOLS>
 		<Add mover_name="save_nanohedra"/>
-		<Add mover_name="remove_non_interface"/>
-		<Add filter_name="R_interface_holes"/>
-		<Add mover_name="restore_nanohedra"/>
+<!--		<Add mover_name="remove_non_interface"/>-->
+<!--		<Add filter_name="R_interface_holes"/>-->
+<!--		<Add mover_name="restore_nanohedra"/>-->
 		## ASU analysis
 		<Add mover_name="extract_asu"/>
 <!--		<Add filter_name="R_interface_area_all_asu_hydrophobic" report_at_end="false"/>-->
