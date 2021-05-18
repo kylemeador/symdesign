@@ -595,6 +595,11 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_fragments = subparsers.add_parser(PUtils.generate_fragments,
                                              help='Generate fragment overlap for poses of interest.')
+    # parser_design.add_argument('-i', '--fragment_database', type=str,
+    #                            help='Database to match fragments for interface specific scoring matrices. One of %s'
+    #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
+    #                                                   list(PUtils.frag_directory.keys())[0]),
+    #                            default=list(PUtils.frag_directory.keys())[0])
     # ---------------------------------------------------
     parser_cluster = subparsers.add_parser(PUtils.cluster_poses,
                                            help='Cluster all designs by their spatial similarity. This can remove '
@@ -615,10 +620,6 @@ if __name__ == '__main__':
     #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
     #                                                   list(PUtils.frag_directory.keys())[0]),
     #                            default=list(PUtils.frag_directory.keys())[0])
-    # parser_design.add_argument('-x', '--suspend', action='store_true',
-    #                            help='Should Rosetta design trajectory be suspended?\nDefault=False')
-    # parser_design.add_argument('-p', '--mpi', action='store_true',
-    #                            help='Should job be set up for cluster submission?\nDefault=False')
     # ---------------------------------------------------
     parser_interface_metrics = \
         subparsers.add_parser('interface_metrics',
@@ -651,7 +652,7 @@ if __name__ == '__main__':
     parser_custom_script.add_argument('-v', '--variables', type=str, nargs='*',
                                       help='Additional variables that should be populated in the script. Provide a list'
                                            ' of such variables with the format \'variable1=value variable2=value\'. '
-                                           'Where variable1 is a RosettaScripts %%%variable1%%% and value is a' 
+                                           'Where variable1 is a RosettaScripts %%%%variable1%%%% and value is a' 
                                            # ' either a'  # Todo
                                            ' known value'
                                            # ' or an attribute available to the Pose object'
@@ -861,6 +862,8 @@ if __name__ == '__main__':
                 initialize = False
     else:  # ['distribute', 'query', 'guide', 'flags', 'residue_selector']
         initialize = False
+        if args.module == 'query':
+            args.directory = True
 
     if not args.guide and args.module not in ['distribute', 'query', 'guide', 'flags', 'residue_selector']:
         options_table = SDUtils.pretty_format_table(queried_flags.items())
@@ -1146,7 +1149,7 @@ if __name__ == '__main__':
         # else:
         #     logger.error('No \'%s\' commands were written!' % PUtils.nano)
     # ---------------------------------------------------
-    elif args.module == PUtils.generate_fragments:  # -i fragment_library, -p mpi, -x suspend
+    elif args.module == PUtils.generate_fragments:  # -i fragment_library
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
@@ -1187,7 +1190,7 @@ if __name__ == '__main__':
         terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
-    elif args.module == PUtils.interface_design:  # -i fragment_library, -p mpi, -x suspend
+    elif args.module == PUtils.interface_design:  # -i fragment_library
         # if args.mpi:  # Todo implement
         #     # extras = ' mpi %d' % CommmandDistributer.mpi
         #     logger.info(

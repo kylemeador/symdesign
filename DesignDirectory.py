@@ -502,9 +502,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.sym_entry = SymEntry(sym_entry_number)
         if symmetry:
             if symmetry == 'cryst':
-                cryst_record_d = PDB.get_cryst_record(self.source)
-                raise DesignError('This functionality is not possible yet. Please pass the --symmetry by Symmetry Entry'
+                raise DesignError('This functionality is not possible yet. Please pass --symmetry by Symmetry Entry'
                                   ' Number instead (See Laniado & Yeates, 2020).')
+                cryst_record_d = PDB.get_cryst_record(self.source)  # Todo must get self.source before attempt this call
                 self.sym_entry = space_group_to_sym_entry[cryst_record_d['space_group']]
         self.design_selector = design_selector
         self.evolution = design_with_evolution
