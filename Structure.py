@@ -2042,6 +2042,9 @@ class MonoFragment:
 
         return new_structure
 
+    def replace_coords(self, new_coords):  # makes compatible with pose symmetry operations. Same as @coords.setter
+        self.guide_coords = new_coords
+
     def get_ghost_fragments(self, intfrag_cluster_rep, kdtree_oligomer_backbone, intfrag_cluster_info, clash_dist=2.2):
         """Find all the GhostFragments associated with the MonoFragment that don't clash with the original structure
         backbone
