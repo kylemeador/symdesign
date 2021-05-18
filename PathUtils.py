@@ -153,6 +153,8 @@ intfrag_cluster_info_dirpath = os.path.join(fragment_db, "IJK_ClusteredInterface
 
 # External Program Dependencies
 make_symmdef = os.path.join(rosetta, 'source/src/apps/public/symmetry/make_symmdef_file.pl')
+# Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
+dalphaball = os.path.join(rosetta, 'source/external/DAlpahBall/DAlphaBall.gcc')
 alignmentdb = os.path.join(dependency_dir, 'ncbi_databases/uniref90')
 # alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
 # TODO set up hh-suite in source or elsewhere on system and dynamically modify config file
