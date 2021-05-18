@@ -13,7 +13,7 @@ from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_ov
     start_log, null_log, possible_symmetries, match_score_from_z_value, split_interface_pairs
 from classes.SymEntry import get_rot_matrices, RotRangeDict, get_degen_rotmatrices
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
-from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
+from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues
 from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
@@ -199,10 +199,12 @@ class SymmetricModel(Model):
                 self.uc_dimensions = uc_dimensions
                 self.symmetry = ''.join(symmetry.split())
 
-            if symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
+            if symmetry in pg_cryst1_fmt_dict:  # not available yet for non-Nanohedra PG's
                 self.dimension = 2
-            elif symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
+                self.symmetry = symmetry
+            elif symmetry in sg_cryst1_fmt_dict:  # not available yet for non-Nanohedra SG's
                 self.dimension = 3
+                self.symmetry = symmetry
             elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
                 self.symmetry = possible_symmetries[symmetry]
                 self.dimension = 0
@@ -334,7 +336,7 @@ class SymmetricModel(Model):
     def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
         # self.models = [self.asu]
-        self.number_of_models = zvalue_dict[self.symmetry]
+        self.number_of_models = sg_zvalues[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type  # todo
             # get_pdb_coords = getattr(PDB, 'coords')
             self.coords_type = 'all'
@@ -377,7 +379,7 @@ class SymmetricModel(Model):
         surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
                                    for y_shift in [0, 1, -1] for z_shift in z_shifts]
         self.model_coords = Coords(self.frac_to_cart(surrounding_frac_coords))
-        self.number_of_models = zvalue_dict[self.symmetry] * uc_number
+        self.number_of_models = sg_zvalues[self.symmetry] * uc_number
 
     def return_assembly_symmetry_mates(self, **kwargs):
         """Return all symmetry mates in self.models (list[Structure]). Chain names will match the ASU"""
@@ -404,8 +406,8 @@ class SymmetricModel(Model):
         #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
 
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
-        if not surrounding_uc and self.symmetry in zvalue_dict:
-            number_of_models = zvalue_dict[self.symmetry]  # set to the uc only
+        if not surrounding_uc and self.symmetry in sg_zvalues:
+            number_of_models = sg_zvalues[self.symmetry]  # set to the uc only
         else:
             number_of_models = self.number_of_models
 
@@ -423,10 +425,17 @@ class SymmetricModel(Model):
         """
         template_atom_coords = self.asu.residues[0].ca_coords
         template_atom_index = self.asu.residues[0].ca_index
-        for model_number in range(self.number_of_models):
-            if (template_atom_coords ==
-                    self.model_coords[(model_number * len(self.coords)) + template_atom_index]).all():
-                return model_number
+        # print(template_atom_index)
+        # print(template_atom_coords)
+        coords_length = len(self.coords)
+        for model_num in range(self.number_of_models):
+            # print(self.model_coords[(model_num * coords_length) + template_atom_index])
+            # print(template_atom_coords ==
+            #         self.model_coords[(model_num * coords_length) + template_atom_index])
+            if np.allclose(template_atom_coords, self.model_coords[(model_num * coords_length) + template_atom_index]):
+            # if (template_atom_coords ==
+            #         self.model_coords[(model_num * coords_length) + template_atom_index]).all():
+                return model_num
 
         self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_model.__name__)
 
@@ -530,9 +539,12 @@ class SymmetricModel(Model):
         asu_frac_coords = self.cart_to_frac(coords)
         coords_length = len(coords)
         model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
-        for idx, (rot, tx) in enumerate(self.expand_matrices):
+        # Todo pickled operators don't have identity, so we should add the asu.
+        model_coords[:coords_length] = asu_frac_coords
+        for idx, (rot, tx) in enumerate(self.expand_matrices, 1):  # since no identity, start idx at 1
             rt_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + tx
             model_coords[idx * coords_length: (idx + 1) * coords_length] = rt_asu_frac_coords
+
         if fractional:
             return model_coords
         else:
@@ -542,10 +554,10 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
             # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'coords')
+            pdb_coords = pdb.coords
         else:
             # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+            pdb_coords = pdb.get_backbone_and_cb_coords()
 
         # # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
         # asu_cart_coords = extract_pdb_coords(pdb)
@@ -558,13 +570,13 @@ class SymmetricModel(Model):
         #     sym_frac_coords.extend(tr_asu_frac_coords)
         #     # tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords)
         # sym_cart_coords = self.frac_to_cart(sym_frac_coords)
-        pdb_coords = extract_pdb_coords(pdb)
+        # pdb_coords = extract_pdb_coords(pdb)
         sym_cart_coords = self.return_unit_cell_coords(pdb_coords)
 
         coords_length = len(pdb_coords)
         sym_mates = []
         # for coord_set in sym_cart_coords:
-        for model in self.number_of_models:
+        for model in range(self.number_of_models):
             symmetry_mate_pdb = copy.copy(pdb)
             symmetry_mate_pdb.replace_coords(sym_cart_coords[model * coords_length: (model + 1) * coords_length])
             sym_mates.append(symmetry_mate_pdb)
@@ -575,10 +587,10 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
             # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'coords')
+            pdb_coords = pdb.coords
         else:
             # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+            pdb_coords = pdb.get_backbone_and_cb_coords()
 
         if self.dimension == 3:
             z_shifts, uc_number = [0, 1, -1], 9
@@ -587,7 +599,7 @@ class SymmetricModel(Model):
         else:
             return None
 
-        pdb_coords = extract_pdb_coords(pdb)
+        # pdb_coords = extract_pdb_coords(pdb)
         uc_frac_coords = self.return_unit_cell_coords(pdb_coords, fractional=True)
         surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
                                    for y_shift in [0, 1, -1] for z_shift in z_shifts]
@@ -598,13 +610,13 @@ class SymmetricModel(Model):
         sym_mates = []
         for coord_set in surrounding_cart_coords:
             # for model in self.number_of_models:
-            for model in zvalue_dict[self.symmetry]:
+            for model in range(sg_zvalues[self.symmetry]):
                 symmetry_mate_pdb = copy.copy(pdb)
                 symmetry_mate_pdb.replace_coords(coord_set[(model * coords_length): ((model + 1) * coords_length)])
                 sym_mates.append(symmetry_mate_pdb)
 
-        assert len(sym_mates) == uc_number * zvalue_dict[self.symmetry], \
-            'Number of models %d is incorrect! Should be %d' % (len(sym_mates), uc_number * zvalue_dict[self.symmetry])
+        assert len(sym_mates) == uc_number * sg_zvalues[self.symmetry], \
+            'Number of models %d is incorrect! Should be %d' % (len(sym_mates), uc_number * sg_zvalues[self.symmetry])
         return sym_mates
 
     def assign_entities_to_sub_symmetry(self):
@@ -634,7 +646,7 @@ class SymmetricModel(Model):
             #  finding that point group a priori due to a random collection of centers of mass that belong to it and
             #  their orientation with respect to the cell origin. In Nanohedra, the origin will work for many symmetries
             if self.dimension > 0:
-                assert self.number_of_models == zvalue_dict[self.symmetry], 'Cannot have more models than a single UC!'
+                assert self.number_of_models == sg_zvalues[self.symmetry], 'Cannot have more models than a single UC!'
             ext_tx = self.symmetric_center_of_mass  # only for unit cell or point group symmetry NOT surrounding
         # find the approximate scalar translation of the asu center of mass from the reference symmetry origin
         approx_entity_com_reference = np.linalg.norm(all_entities_com - ext_tx)
@@ -833,8 +845,8 @@ class SymmetricModel(Model):
 
     @staticmethod
     def get_sg_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS')):
-        sg_op_filepath = os.path.join(expand_matrix_dir, sym_type + '.pickle')
-        with open(sg_op_filepath, "rb") as sg_op_file:
+        sg_op_filepath = os.path.join(expand_matrix_dir, '%s.pickle' % sym_type)
+        with open(sg_op_filepath, 'rb') as sg_op_file:
             sg_sym_op = pickle.load(sg_op_file)
 
         return sg_sym_op
