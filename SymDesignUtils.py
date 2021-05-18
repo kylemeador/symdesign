@@ -306,7 +306,7 @@ def filter_dictionary_keys(dictionary, keys, remove=False):
     """
     if remove:
         for key in keys:
-            dictionary.pop(key)
+            dictionary.pop(key, None)
 
         return dictionary
     else:
@@ -327,10 +327,7 @@ def remove_interior_keys(dictionary, keys, keep=False):
     if not keep:
         for entry in dictionary:
             for key in keys:
-                try:
-                    dictionary[entry].pop(key)
-                except KeyError:
-                    pass
+                dictionary[entry].pop(key, None)
 
         return dictionary
     else:

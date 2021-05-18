@@ -976,8 +976,7 @@ class SequenceProfile:
                         remove_mutation_list.append(entry)
 
         for entry in remove_mutation_list:
-            if entry in mutations:
-                mutations.pop(entry)
+            mutations.pop(entry, None)
 
         return mutations
 
@@ -2126,8 +2125,7 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
                     remove_mutation_list.append(entry)
 
     for entry in remove_mutation_list:
-        if entry in mutations:
-            mutations.pop(entry)
+        mutations.pop(entry, None)
 
     return mutations
 
