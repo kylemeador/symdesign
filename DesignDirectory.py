@@ -1720,7 +1720,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             number_hbonds_s = pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()},
                                         name='number_hbonds')
             scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
-            reference_mutations = cleaned_mutations.pop('reference')
+            reference_mutations = cleaned_mutations.pop('reference', None)
             scores_df['number_of_mutations'] = pd.Series({design: len(mutations)
                                                           for design, mutations in cleaned_mutations.items()})
             interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
@@ -1778,7 +1778,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 scores_df.drop(drop_na_index, inplace=True, errors='ignore')
                 residue_df.drop(drop_na_index, inplace=True, errors='ignore')
                 for idx in drop_na_index:
-                    residue_info.pop(idx)
+                    residue_info.pop(idx, None)
                 self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             other_pose_metrics['observations'] = len(scores_df)
@@ -1917,7 +1917,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                  columns=['pc%d' % idx for idx, _ in enumerate(res_pca.components_, 1)])
 
                 seq_pca = PCA(PUtils.variance)
-                residue_info.pop(PUtils.stage[1])  # Remove refine from analysis before PC calculation
+                residue_info.pop(PUtils.stage[1], None)  # Remove refine from analysis before PC calculation
                 pairwise_sequence_diff_np = all_vs_all(residue_info, sequence_difference)
                 pairwise_sequence_diff_np = scaler.fit_transform(pairwise_sequence_diff_np)
                 seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)

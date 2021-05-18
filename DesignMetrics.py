@@ -614,10 +614,7 @@ def read_scores(file, key='decoy'):
                 for protocol in protocols:
                     if protocol in entry:  # ensure that the new scores has a protocol before removing the old one.
                         for rm_protocol in protocols:
-                            try:
-                                score_dict[design].pop(rm_protocol)
-                            except KeyError:
-                                pass
+                            score_dict[design].pop(rm_protocol, None)
                 score_dict[design].update(entry)
 
     return score_dict
