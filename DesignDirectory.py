@@ -1907,8 +1907,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Process dataframes for missing values and drop refine trajectory if present
             scores_df[groups] = protocol_s
-            scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
-            residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
+            refine_index = scores_df[scores_df[groups] == PUtils.stage[1]].index
+            # scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
+            # residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
+            scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+            residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
             # print(residue_df.columns[residue_df.isna().all(axis=0)])
             # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
             residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
@@ -1951,16 +1954,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for idx, stat in enumerate(stats_metrics):
                 pose_stats.append(getattr(trajectory_df, stat)().rename(stat))
                 protocol_stats.append(getattr(protocol_groups, stat)())
-                if stat == 'mean':
-                    protocol_stats[idx]['observations'] = protocol_groups.size()
-                else:
-                    protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
-                        {protocol: '%s_%s' % (protocol, stat) for protocol in unique_protocols})
 
+            protocol_stats[stats_metrics.index('mean')]['observations'] = protocol_groups.size()
             protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats],
                                          keys=stats_metrics)  # .swaplevel(0, 1)
             pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
             stat_s = pd.concat([protocol_stats_s, pose_stats_s])
+            # change statistic names for all df that are not groupby means
+            for idx, stat in enumerate(stats_metrics):
+                if stat != 'mean':
+                    protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
+                        {protocol: '%s_%s' % (protocol, stat) for protocol in unique_protocols})
             trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
             # this concat puts back consensus design to trajectory_df since protocol_stats is calculated on scores_df
 
