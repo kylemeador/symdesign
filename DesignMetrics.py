@@ -971,25 +971,28 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
     return total_residue_dict
 
 
-def mutation_conserved(residue_info, background):
+def mutation_conserved(residue_info, bkgnd):
     """Process residue mutations compared to evolutionary background. Returns 1 if residue is observed in background
 
     Both residue_dict and background must be same index
     Args:
         residue_info (dict): {15: {'type': 'T', ...}, ...}
-        background (dict): {0: {'A': 0, 'R': 0, ...}, ...}
+        bkgnd (dict): {0: {'A': 0, 'R': 0, ...}, ...}
     Returns:
         conservation_dict (dict): {15: 1, 21: 0, 25: 1, ...}
     """
-    conservation_dict = {}
-    for residue, info in residue_info.items():
-        residue_background = background.get(residue)
-        if residue_background and residue_background[info['type']] > 0:
-            conservation_dict[residue] = 1
-        else:
-            conservation_dict[residue] = 0
-
-    return conservation_dict
+    return {res: 1 if bkgnd[res][info['type']] > 0 else 0 for res, info in residue_info.items() if res in bkgnd}
+    # conservation_dict = {}
+    # for residue, info in residue_info.items():
+    #     residue_background = background.get(residue, None)
+    #     if not residue_background:
+    #         continue
+    #     if residue_background[info['type']] > 0:
+    #         conservation_dict[residue] = 1
+    #     else:
+    #         conservation_dict[residue] = 0
+    #
+    # return conservation_dict
 
 
 def per_res_metric(sequence_metrics, key=None):
