@@ -554,6 +554,8 @@ class SequenceProfile:
         for fragment in fragments:
             residue_number = fragment[alignment_type] - self.entity_offset
             for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
+                if residue_number + j <= 0 or residue_number > self.profile_length:
+                    continue
                 self.fragment_map[residue_number + j][j].append({'chain': alignment_type,
                                                                  'cluster': fragment['cluster'],
                                                                  'match': fragment['match']})
