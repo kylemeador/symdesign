@@ -1063,7 +1063,7 @@ class SequenceProfile:
         """
         lods = {aa: None for aa in aa_freq}
         for aa in aa_freq:
-            if aa not in ['stats', 'match', 'lod']:
+            if aa not in ['stats', 'match', 'lod', 'type']:
                 if aa_freq[aa] == 0:
                     lods[aa] = -9
                 else:
