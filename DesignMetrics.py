@@ -1296,6 +1296,7 @@ def calculate_match_metrics(fragment_matches):
         # central_residues_with_fragment_overlap, multiple_frag_ratio, total_fragment_content
     """
     if not fragment_matches:
+        # raise DesignError('No fragment matches were passed! Can\'t calculate match metrics')
         return None
 
     fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}

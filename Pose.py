@@ -1643,6 +1643,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if by_interface:
             if entity1 and entity2:
                 for query_pair, metrics in self.fragment_metrics.items():
+                    if not metrics:
+                        continue
                     if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
                         return format_fragment_metrics(metrics)
                 self.log.info('Couldn\'t locate query metrics for Entity pair %s, %s' % (entity1.name, entity2.name))
@@ -1653,6 +1655,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         elif by_entity:
             metric_d = {}
             for query_pair, metrics in self.fragment_metrics.items():
+                if not metrics:
+                    continue
                 for idx, entity in enumerate(query_pair):
                     if entity not in metric_d:
                         metric_d[entity] = fragment_metric_template
@@ -1680,6 +1684,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         else:
             metric_d = fragment_metric_template
             for query_pair, metrics in self.fragment_metrics.items():
+                if not metrics:
+                    continue
                 metric_d['center_residues'].union(
                     metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']))
                 metric_d['total_residues'].union(
