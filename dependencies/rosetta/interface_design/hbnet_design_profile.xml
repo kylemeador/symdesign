@@ -46,7 +46,7 @@
 		<OperateOnResidueSubset name="not_core_no_repack" selector="not_core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
-		<SeqprofConsensus name="evolution_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus name="evolution_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/>
 		<SeqprofConsensus name="fssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 	</TASKOPERATIONS>
@@ -175,7 +175,7 @@
 					# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
 					<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 					# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
-					<SeqprofConsensus name="evolution_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+					<SeqprofConsensus name="evolution_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 					<SeqprofConsensus name="fssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 				</TASKOPERATIONS>
 				<MOVE_MAP_FACTORIES>
@@ -268,7 +268,7 @@
 					# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
 					<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 					# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
-					<SeqprofConsensus name="evolution_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+					<SeqprofConsensus name="evolution_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 					<SeqprofConsensus name="fssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 					<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 				</TASKOPERATIONS>
