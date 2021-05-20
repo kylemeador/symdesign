@@ -1,5 +1,5 @@
-import math
 import os
+from math import floor, exp, log, log2
 import subprocess
 import time
 from copy import deepcopy, copy
@@ -19,10 +19,10 @@ from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, Des
 # Globals
 logger = start_log(name=__name__)
 index_offset = 1
-alph_3_aa_list = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 aa_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0,
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
-aa_weight_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
+aa_weighted_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
                          'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
 add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
 
@@ -52,6 +52,7 @@ class SequenceProfile:
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
         self.fragment_map = {}
         self.fragment_profile = {}
+        self.fragment_pssm_file = None
         self.interface_data_file = None
         self.alpha = {}
 
@@ -153,6 +154,14 @@ class SequenceProfile:
             null, evolution, fragments = True, False, False
             self.add_evolutionary_profile(null=null, **kwargs)
 
+        if evolution:  # add evolutionary information to the SequenceProfile
+            self.add_evolutionary_profile(out_path=out_path, **kwargs)
+            self.verify_profile()
+            # TODO currently using self.structure.reference_sequence which could be ATOM, could be SEQRES.
+            #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequnce
+            #  processing
+            # Todo currently using favor_fragments as mechanism if fragments exist, this is overloaded and not intended
+
         if fragments:  # add fragment information to the SequenceProfile
             # if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
             #     if entities:
@@ -181,13 +190,6 @@ class SequenceProfile:
             self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
             self.find_alpha()
 
-        if evolution:  # add evolutionary information to the SequenceProfile
-            self.add_evolutionary_profile(out_path=out_path, **kwargs)
-            self.verify_profile()
-            # TODO currently using self.structure.reference_sequence which could be ATOM, could be SEQRES.
-            #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequnce
-            #  processing
-            # Todo currently using favor_fragments as mechanism if fragments exist, this is overloaded and not intended
         self.calculate_design_profile(boltzmann=True, favor_fragments=fragments)
 
     def verify_profile(self):
@@ -302,18 +304,18 @@ class SequenceProfile:
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa_list, dtype=int)
+        self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa, dtype=int)
         structure_sequence = self.structure_sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
             # line_data = line.strip().split()
             # if len(line_data) == 44:
             #     residue_number = int(line_data[0])
             #     self.evolutionary_profile[residue_number] = deepcopy(aa_counts_dict)
-            # for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[residue_number], 22):
+            # for i, aa in enumerate(alph_3_aa, 22):  # pose_dict[residue_number], 22):
             #     Get normalized counts for pose_dict
                 # self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts_dict)
-            # for i, aa in enumerate(alph_3_aa_list, 2):
+            # for i, aa in enumerate(alph_3_aa, 2):
             #     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
             self.evolutionary_profile[residue_number]['type'] = structure_sequence[idx]
             self.evolutionary_profile[residue_number]['info'] = 0.0
@@ -358,11 +360,11 @@ class SequenceProfile:
             if len(line_data) == 44:
                 residue_number = int(line_data[0])
                 self.evolutionary_profile[residue_number] = deepcopy(aa_counts_dict)
-                for i, aa in enumerate(alph_3_aa_list, 22):  # pose_dict[residue_number], 22):
+                for i, aa in enumerate(alph_3_aa, 22):  # pose_dict[residue_number], 22):
                     # Get normalized counts for pose_dict
                     self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
                 self.evolutionary_profile[residue_number]['lod'] = {}
-                for i, aa in enumerate(alph_3_aa_list, 2):
+                for i, aa in enumerate(alph_3_aa, 2):
                     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
                 self.evolutionary_profile[residue_number]['type'] = line_data[1]
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
@@ -423,8 +425,8 @@ class SequenceProfile:
                     if null_background:
                         # use the provided null background from the profile search
                         background = line.strip().split()
-                        null_bg = {i: {} for i in alph_3_aa_list}
-                        for i, aa in enumerate(alph_3_aa_list, 1):
+                        null_bg = {i: {} for i in alph_3_aa}
+                        for i, aa in enumerate(alph_3_aa, 1):
                             null_bg[aa] = to_freq(background[i])
 
                 if len(line.split()) == 23:
@@ -447,13 +449,11 @@ class SequenceProfile:
         Sets
             self.evolutionary_profile (dict): Using the list of input PSSMs, make a concatenated PSSM
         """
-        # combined_pssm = {}
         new_key = 1
-        for i in range(len(pssms)):
-            for old_key in sorted(pssms[i].keys()):
-                self.evolutionary_profile[new_key] = pssms[i][old_key]
+        for profile in pssms:
+            for position_profile in profile.values():
+                self.evolutionary_profile[new_key] = position_profile
                 new_key += 1
-        # return combined_pssm
 
     def combine_fragment_profile(self, fragment_profiles):
         """Combine a list of fragment profiles incrementing the residue number in each additional fragment profile
@@ -464,9 +464,9 @@ class SequenceProfile:
             self.fragment_profile (dict): To a concatenated fragment profile from the input fragment profiles
         """
         new_key = 1
-        for i in range(len(fragment_profiles)):
-            for old_key in sorted(fragment_profiles[i].keys()):
-                self.fragment_profile[new_key] = fragment_profiles[i][old_key]
+        for profile in fragment_profiles:
+            for position_profile in profile.values():
+                self.fragment_profile[new_key] = position_profile
                 new_key += 1
 
     def combine_profile(self, profiles):
@@ -478,9 +478,9 @@ class SequenceProfile:
             self.profile (dict): Using the list of input DSSMs, make a concatenated DSSM
         """
         new_key = 1
-        for i in range(len(profiles)):
-            for old_key in sorted(profiles[i].keys()):
-                self.profile[new_key] = profiles[i][old_key]
+        for profile in profiles:
+            for position_profile in profile.values():
+                self.profile[new_key] = position_profile
                 new_key += 1
 
     def write_fasta_file(self, sequence, name=None, out_path=os.getcwd()):
@@ -504,11 +504,16 @@ class SequenceProfile:
     # fragments
     # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
     def add_fragment_profile(self):  # , fragment_source=None, alignment_type=None):
+        """From self.fragment_map, add the fragment profile to the SequenceProfile
+
+        Sets:
+            self.fragment_profile
+        """
         # v now done at the pose_level
         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
         if self.fragment_map:
             self.generate_fragment_profile()
-            self.simplify_fragment_profile()  # =False added for issm pickling and analyze_output
+            self.simplify_fragment_profile(keep_extras=True)
         else:
             if self.fragment_queries:  # Todo refactor this to Pose
                 for query_pair, fragments in self.fragment_queries.items():
@@ -572,7 +577,7 @@ class SequenceProfile:
             (dict): {1: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
                      2: {}, ...}
         To a fragment_profile with format:
-            (dict): {1: {-2: {O: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, 1: {}}, -1: {}, ... },
+            (dict): {1: {-2: {0: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, 1: {}}, -1: {}, ... },
                      2: {}, ...}
         """
         self.log.debug('Generating Fragment Profile from Map')
@@ -619,15 +624,14 @@ class SequenceProfile:
             keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
         """
         # self.log.debug(self.fragment_profile.items())
+        sequence = self.reference_sequence
         no_design = []
         for residue, index_d in self.fragment_profile.items():
-            total_fragment_weight = 0
-            total_fragment_observations = 0
+            total_fragment_weight, total_fragment_observations = 0, 0
             for index, observation_d in index_d.items():
                 if observation_d:
                     # sum the weight for each fragment observation
-                    total_obs_weight = 0.0
-                    total_obs_x_match_weight = 0.0
+                    total_obs_weight, total_obs_x_match_weight = 0.0, 0.0
                     # total_match_weight = 0.0
                     for observation, fragment_frequencies in observation_d.items():
                         if fragment_frequencies:
@@ -638,7 +642,7 @@ class SequenceProfile:
                     # Check if weights are associated with observations, if not side chain isn't significant!
                     if total_obs_weight > 0:
                         total_fragment_weight += total_obs_weight
-                        obs_aa_dict = deepcopy(aa_weight_counts_dict)  # {'A': 0, 'C': 0, ..., 'stats': [0, 1]}
+                        obs_aa_dict = deepcopy(aa_weighted_counts)  # {'A': 0, 'C': 0, ..., 'stats': [0, 1]}
                         obs_aa_dict['stats'][1] = total_obs_weight
                         for obs in self.fragment_profile[residue][index]:
                             total_fragment_observations += 1
@@ -660,25 +664,28 @@ class SequenceProfile:
                         self.fragment_profile[residue][index] = {}
 
             if total_fragment_weight > 0:
-                res_aa_dict = deepcopy(aa_weight_counts_dict)
+                res_aa_dict = deepcopy(aa_weighted_counts)
                 res_aa_dict['stats'][1] = total_fragment_weight  # this is over all indices and observations
                 res_aa_dict['stats'][0] = total_fragment_observations  # this is over all indices and observations
+                res_aa_dict['type'] = sequence[residue - 1]  # offset to zero index
                 for index in self.fragment_profile[residue]:
                     if self.fragment_profile[residue][index]:
                         index_weight = self.fragment_profile[residue][index]['stats'][1]  # total_obs_weight
                         for aa in self.fragment_profile[residue][index]:
-                            if aa not in ['stats', 'match']:
-                                # Add all occurrences to summed frequencies list
+                            if aa not in ['stats', 'match']:  # Add all occurrences to summed frequencies list
                                 res_aa_dict[aa] += self.fragment_profile[residue][index][aa] * (
                                             index_weight / total_fragment_weight)
                 self.fragment_profile[residue] = res_aa_dict
-            else:
-                # Add to list for removal from the design dict
+            else:  # Add to list for removal from the profile
                 no_design.append(residue)
 
         if keep_extras:
-            for residue in no_design:
-                self.fragment_profile[residue] = aa_weight_counts_dict
+            if self.evolutionary_profile:  # if not an empty dictionary
+                for residue in no_design:
+                    self.fragment_profile[residue] = self.evolutionary_profile.get(residue)  # TODO, aa_weighted_counts)
+            else:
+                for residue in no_design:
+                    self.fragment_profile[residue] = aa_weighted_counts
         else:  # remove missing residues from dictionary
             for residue in no_design:
                 self.fragment_profile.pop(residue)
@@ -705,18 +712,34 @@ class SequenceProfile:
             raise DesignError('%s: No fragment database connected! Cannot calculate optimal fragment contribution '
                               'without this.' % self.find_alpha.__name__)
         assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.find_alpha.__name__
-        alignment_type_to_idx = {'mapped': 0, 'paired': 1}
+        alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
         fragment_stats = self.frag_db.statistics
         for entry in self.fragment_profile:
+            # can't use the match count as the fragment index may have no useful residue information
+            # count = len([1 for obs in self.fragment_map[entry][index] for index in self.fragment_map[entry]]) or 1
+            # instead use number of fragments with SC interactions count from the frequency map
+            count = self.fragment_profile[entry].get('stats', (None,))[0]
+            if not count:  # if the data is missing 'stats' or the 'stats'[0] is 0
+                continue  # move on, this isn't a fragment observation or we have no observed fragments
             # match score is bounded between 1 and 0.2
-            # match_sum = sum([self.fragment_map[entry][index][obs]['match'] for index in self.fragment_map[entry]
             match_sum = sum(obs['match'] for index_values in self.fragment_map[entry].values() for obs in index_values)
+            # if count == 0:
+            #     # ensure that match modifier is 0 so self.alpha[entry] is 0, as there is no fragment information here!
+            #     count = match_sum * 5  # makes the match average = 0.5
+
+            match_average = match_sum / float(count)
+            # find the match modifier which spans from 0 to 1
+            if match_average < match_score_average:
+                match_modifier = ((match_average - bounded_floor) / (match_score_average - bounded_floor))
+            else:
+                match_modifier = 1  # match_score_average / match_score_average  # 1 is the maximum bound
+
+            # find the total contribution from a typical fragment of this type
             contribution_total = sum(fragment_stats[self.frag_db.get_cluster_id(obs['cluster'], index=2)][0]
                                      [alignment_type_to_idx[obs['chain']]]
                                      for index_values in self.fragment_map[entry].values() for obs in index_values)
-
             # contribution_total = 0.0
             # for index in self.fragment_map[entry]:
             #     # for obs in self.fragment_map[entry][index]['cluster']: # WAS
@@ -727,21 +750,6 @@ class SequenceProfile:
             #
             #         # from the fragment statistics grab the average index weight for the observed chain alignment type
             #         contribution_total += fragment_stats[cluster_id][0][alignment_type_to_idx[obs['chain']]]
-
-            # can't use the match count as the fragment index may have no useful residue information
-            # count = len([1 for obs in self.fragment_map[entry][index] for index in self.fragment_map[entry]]) or 1
-            # instead use # of fragments with SC interactions count from the frequency map
-            count = self.fragment_profile[entry]['stats'][0]
-            if count == 0:
-                # ensure that match modifier is 0 so self.alpha[entry] is 0, as there is no fragment information here!
-                count = match_sum * 5  # makes the match average = 0.5
-
-            match_average = match_sum / float(count)
-            # find the match modifier which spans from 0 to 1
-            if match_average < match_score_average:
-                match_modifier = ((match_average - bounded_floor) / (match_score_average - bounded_floor))
-            else:
-                match_modifier = match_score_average / match_score_average  # 1 is the maximum bound
 
             # get the average contribution of each fragment type
             stats_average = contribution_total / count
@@ -782,10 +790,10 @@ class SequenceProfile:
         # copy the evol profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
-        for entry in self.alpha:  # alpha[entry] will be 0 if the fragment_profile is empty
+        for entry, weight in self.alpha.items():  # weight will be 0 if the fragment_profile is empty
             for aa in IUPACData.protein_letters:
-                self.profile[entry][aa] = (self.alpha[entry] * self.fragment_profile[entry][aa]) + \
-                                          ((1 - self.alpha[entry]) * self.profile[entry][aa])
+                self.profile[entry][aa] = \
+                    (weight * self.fragment_profile[entry][aa]) + ((1 - weight) * self.profile[entry][aa])
             self.log.info('Entity %s, Residue %d: Combined evolutionary and fragment profile: %.0f%% fragment'
                           % (self.name, entry, self.alpha[entry] * 100))
 
@@ -797,7 +805,7 @@ class SequenceProfile:
             database_background_aa_frequencies = self.frag_db.get_db_aa_frequencies()
 
             null_residue = get_lod(database_background_aa_frequencies, database_background_aa_frequencies)
-            null_residue = {aa: float(null_residue[aa]) for aa in null_residue}
+            null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
 
             for entry in self.profile:
                 self.profile[entry]['lod'] = null_residue  # Caution all reference same object
@@ -808,7 +816,7 @@ class SequenceProfile:
                 partition, max_lod = 0, 0.0
                 for aa in self.profile[entry]['lod']:
                     if boltzmann:  # boltzmann probability distribution scaling, lod = z[i]/Z, Z = sum(exp(score[i]/kT))
-                        self.profile[entry]['lod'][aa] = math.exp(self.profile[entry]['lod'][aa] / boltzman_energy)
+                        self.profile[entry]['lod'][aa] = exp(self.profile[entry]['lod'][aa] / boltzman_energy)
                         partition += self.profile[entry]['lod'][aa]
                     # linear scaling, remove any lod penalty
                     elif self.profile[entry]['lod'][aa] < 0:
@@ -1056,7 +1064,7 @@ class SequenceProfile:
         lods = {aa: None for aa in aa_freq}
         for aa in aa_freq:
             if aa not in ['stats', 'match']:
-                lods[aa] = float((2.0 * math.log2(aa_freq[aa] / background[aa])))  # + 0.0
+                lods[aa] = float((2.0 * log2(aa_freq[aa] / background[aa])))  # + 0.0
                 if aa_freq[aa] == 0 or lods[aa] < -9:
                     lods[aa] = -9
                 if round_lod:
@@ -1080,7 +1088,7 @@ class SequenceProfile:
             return None
 
         # find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
-        lod_freq, counts_freq = False, False
+        # lod_freq, counts_freq = False, False
         separation1, separation2 = 3, 3
         # first_key = next(iter(pssm_dict.keys()))
         if type(pssm_dict[next(iter(pssm_dict.keys()))]['lod']['A']) == float:
@@ -1089,36 +1097,39 @@ class SequenceProfile:
         # if type(pssm_dict[first_key]['A']) == float:
         #     counts_freq = True
 
-        header = '\n\n            %s%s%s\n' % ((' ' * separation1).join(alph_3_aa_list), ' ' * separation1,
-                                               (' ' * separation2).join(alph_3_aa_list))
+        header = '\n\n            %s%s%s\n' % ((' ' * separation1).join(alph_3_aa), ' ' * separation1,
+                                               (' ' * separation2).join(alph_3_aa))
         # footer = ''
         out_file = os.path.join(out_path, name)
         with open(out_file, 'w') as f:
             f.write(header)
-            for residue_number in pssm_dict:
-                aa_type = pssm_dict[residue_number]['type']
-                lod_string = ''
-                if isinstance(pssm_dict[residue_number]['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
-                    for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
-                        lod_string += '{:>4.2f} '.format(pssm_dict[residue_number]['lod'][aa])
+            for residue_number, profile in pssm_dict.items():
+                aa_type = profile['type']
+                # lod_string = ''
+                if isinstance(profile['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
+                    # for aa in alph_3_aa:  # ensures alpha_3_aa_list for PSSM format
+                    #     lod_string += '{:>4.2f} '.format(profile['lod'][aa])
+                    lod_string = '%s ' % ' '.join('{:>4.2f}'.format(profile['lod'][aa]) for aa in alph_3_aa)
                 else:
-                    for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
-                        lod_string += '{:>3d} '.format(pssm_dict[residue_number]['lod'][aa])
-                counts_string = ''
-                if isinstance(pssm_dict[residue_number]['A'], float):  # counts_freq: # relevant for freq calculations
-                    for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
-                        counts_string += '{:>3.0f} '.format(math.floor(pssm_dict[residue_number][aa] * 100))
+                    # for aa in alph_3_aa:  # ensures alpha_3_aa_list for PSSM format
+                    #     lod_string += '{:>3d} '.format(profile['lod'][aa])
+                    lod_string = '%s ' % ' '.join('{:>3d}'.format(profile['lod'][aa]) for aa in alph_3_aa)
+                # counts_string = ''
+                if isinstance(profile['A'], float):  # counts_freq: # relevant for freq calculations
+                    # for aa in alph_3_aa:  # ensures alpha_3_aa_list for PSSM format
+                    #     counts_string += '{:>3.0f} '.format(floor(profile[aa] * 100))
+                    counts_string = '%s ' % ' '.join('{:>3.0f}'.format(floor(profile[aa] * 100)) for aa in alph_3_aa)
                 else:
-                    for aa in alph_3_aa_list:  # ensures alpha_3_aa_list for PSSM format
-                        counts_string += '{:>3d} '.format(pssm_dict[residue_number][aa])
-                info = pssm_dict[residue_number]['info']
-                weight = pssm_dict[residue_number]['weight']
+                    # for aa in alph_3_aa:  # ensures alpha_3_aa_list for PSSM format
+                    #     counts_string += '{:>3d} '.format(profile[aa])
+                    counts_string = '%s ' % ' '.join('{:>3d}'.format(profile[aa]) for aa in alph_3_aa)
+                info = profile.get('info', 0.0)
+                weight = profile.get('weight', 0.0)
                 # line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
                 #                                                                counts_string, round(info, 4),
                 #                                                                round(weight, 4))
-                f.write('{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
-                                                                               counts_string, round(info, 4),
-                                                                               round(weight, 4)))
+                f.write('{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'
+                        .format(residue_number, aa_type, lod_string, counts_string, round(info, 4), round(weight, 4)))
             # f.write(footer)
 
         return out_file
@@ -1249,7 +1260,7 @@ def return_cluster_id_string(cluster_rep, index_number=3):
 
 def parameterize_frag_length(length):
     """Generate fragment length range parameters for use in fragment functions"""
-    _range = math.floor(length / 2)
+    _range = floor(length / 2)
     if length % 2 == 1:
         return 0 - _range, 0 + _range + index_offset
     else:
@@ -1448,7 +1459,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
                     total_obs_weight += design_cluster_dict[res][index][obs]['stats'][1]
                 if total_obs_weight > 0:
                     total_residue_weight += total_obs_weight
-                    obs_aa_dict = deepcopy(aa_weight_counts_dict)
+                    obs_aa_dict = deepcopy(aa_weighted_counts)
                     obs_aa_dict['stats'][1] = total_obs_weight
                     for obs in design_cluster_dict[res][index]:
                         num_frag_weights_observed += 1
@@ -1464,7 +1475,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
                     design_cluster_dict[res][index] = dict()
 
         if total_residue_weight > 0:
-            res_aa_dict = deepcopy(aa_weight_counts_dict)
+            res_aa_dict = deepcopy(aa_weighted_counts)
             res_aa_dict['stats'][1] = total_residue_weight
             res_aa_dict['stats'][0] = num_frag_weights_observed
             for index in design_cluster_dict[res]:
@@ -1482,7 +1493,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
     # Remove missing residues from dictionary
     if keep_extras:
         for res in no_design:
-            design_cluster_dict[res] = aa_weight_counts_dict
+            design_cluster_dict[res] = aa_weighted_counts
     else:
         for res in no_design:
             design_cluster_dict.pop(res)
@@ -1571,11 +1582,11 @@ def parse_pssm(file):
         if len(line_data) == 44:
             residue_number = int(line_data[0])
             pose_dict[residue_number] = deepcopy(aa_counts_dict)
-            for i, aa in enumerate(alph_3_aa_list, 22):
+            for i, aa in enumerate(alph_3_aa, 22):
                 # Get normalized counts for pose_dict
                 pose_dict[residue_number][aa] = (int(line_data[i]) / 100.0)
             pose_dict[residue_number]['lod'] = {}
-            for i, aa in enumerate(alph_3_aa_list, 2):
+            for i, aa in enumerate(alph_3_aa, 2):
                 pose_dict[residue_number]['lod'][aa] = line_data[i]
             pose_dict[residue_number]['type'] = line_data[1]
             pose_dict[residue_number]['info'] = float(line_data[42])
@@ -1600,7 +1611,7 @@ def get_lod(aa_freq_dict, bg_dict, round_lod=True):
         if aa_freq_dict[a] == 0:
             lods[a] = -9
         elif a != 'stats':
-            lods[a] = float((2.0 * math.log2(aa_freq_dict[a]/bg_dict[a])))  # + 0.0
+            lods[a] = float((2.0 * log2(aa_freq_dict[a]/bg_dict[a])))  # + 0.0
             if lods[a] < -9:
                 lods[a] = -9
             if round_lod:
@@ -1641,8 +1652,8 @@ def parse_hhblits_pssm(file, null_background=True):
                 if null_background:
                     # use the provided null background from the profile search
                     background = line.strip().split()
-                    null_bg = {i: {} for i in alph_3_aa_list}
-                    for i, aa in enumerate(alph_3_aa_list, 1):
+                    null_bg = {i: {} for i in alph_3_aa}
+                    for i, aa in enumerate(alph_3_aa, 1):
                         null_bg[aa] = to_freq(background[i])
 
             if len(line.split()) == 23:
@@ -1680,8 +1691,8 @@ def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
     if type(pssm_dict[0]['A']) == float:
         counts_freq = True
 
-    header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in alph_3_aa_list) \
-             + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in alph_3_aa_list) + '\n'
+    header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in alph_3_aa) \
+             + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in alph_3_aa) + '\n'
     footer = ''
     out_file = os.path.join(outpath, name)  # + '.pssm'
     with open(out_file, 'w') as f:
@@ -1690,17 +1701,17 @@ def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
             aa_type = pssm_dict[res]['type']
             lod_string = ''
             if lod_freq:
-                for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                for aa in alph_3_aa:  # ensure alpha_3_aa_list for PSSM format
                     lod_string += '{:>4.2f} '.format(pssm_dict[res]['lod'][aa])
             else:
-                for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                for aa in alph_3_aa:  # ensure alpha_3_aa_list for PSSM format
                     lod_string += '{:>3d} '.format(pssm_dict[res]['lod'][aa])
             counts_string = ''
             if counts_freq:
-                for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
-                    counts_string += '{:>3.0f} '.format(math.floor(pssm_dict[res][aa] * 100))
+                for aa in alph_3_aa:  # ensure alpha_3_aa_list for PSSM format
+                    counts_string += '{:>3.0f} '.format(floor(pssm_dict[res][aa] * 100))
             else:
-                for aa in alph_3_aa_list:  # ensure alpha_3_aa_list for PSSM format
+                for aa in alph_3_aa:  # ensure alpha_3_aa_list for PSSM format
                     counts_string += '{:>3d} '.format(pssm_dict[res][aa])
             info = pssm_dict[res]['info']
             weight = pssm_dict[res]['weight']
@@ -1781,7 +1792,7 @@ def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=T
             for aa in pssm[entry]['lod']:
                 # for use with a boltzman probability weighting, Z = sum(exp(score / kT))
                 if boltzmann:
-                    pssm[entry]['lod'][aa] = math.exp(pssm[entry]['lod'][aa] / boltzman_energy)
+                    pssm[entry]['lod'][aa] = exp(pssm[entry]['lod'][aa] / boltzman_energy)
                     partition += pssm[entry]['lod'][aa]
                 # remove any lod penalty
                 elif pssm[entry]['lod'][aa] < 0:
@@ -1853,7 +1864,7 @@ def consensus_sequence(pssm):
     for residue in pssm:
         max_lod = 0
         max_res = pssm[residue]['type']
-        for aa in alph_3_aa_list:
+        for aa in alph_3_aa:
             if pssm[residue]['lod'][aa] > max_lod:
                 max_lod = pssm[residue]['lod'][aa]
                 max_res = aa
@@ -1943,10 +1954,10 @@ def distribution_divergence(freq, bgd_freq, lambda_=0.5):
         if r == 0:
             continue
         if q != 0:
-            prob2 = (q * math.log(q / r, 2))
+            prob2 = (q * log(q / r, 2))
             sum_prob2 += prob2
         if p != 0:
-            prob1 = (p * math.log(p / r, 2))
+            prob1 = (p * log(p / r, 2))
             sum_prob1 += prob1
 
     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
