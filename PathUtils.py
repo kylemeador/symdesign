@@ -44,6 +44,7 @@ asu = 'asu.pdb'
 # asu = 'central_asu.pdb'
 clean_asu = 'clean_asu.pdb'
 pssm = 'evolutionary.pssm'  # was 'asu_pose.pssm' 1/25/21
+fssm = 'fragment.pssm'
 dssm = 'design.pssm'
 assembly = 'assembly.pdb'
 frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
