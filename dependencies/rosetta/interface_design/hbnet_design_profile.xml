@@ -325,7 +325,7 @@
 		<Add mover_name="hbnet"/>
   		<Add mover_name="hbnet_corepack"/>
   		<Add mover_name="hbnet_trim_design_pool"/>
-  		<Add mover_name="finalize_interace_packing"/>
+  		<Add mover_name="finalize_interface_packing"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
 
