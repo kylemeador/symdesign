@@ -1064,11 +1064,14 @@ class SequenceProfile:
         lods = {aa: None for aa in aa_freq}
         for aa in aa_freq:
             if aa not in ['stats', 'match', 'lod']:
-                lods[aa] = float((2.0 * log2(aa_freq[aa] / background[aa])))  # + 0.0
-                if aa_freq[aa] == 0 or lods[aa] < -9:
+                if aa_freq[aa] == 0:
                     lods[aa] = -9
-                if round_lod:
-                    lods[aa] = round(lods[aa])
+                else:
+                    lods[aa] = float((2.0 * log2(aa_freq[aa] / background[aa])))  # + 0.0
+                    if lods[aa] < -9:
+                        lods[aa] = -9
+                    elif round_lod:
+                        lods[aa] = round(lods[aa])
 
         return lods
 
