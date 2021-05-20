@@ -1521,6 +1521,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.query_fragments:
             self.info['fragments'] = True
             self.make_path(self.frags)
+        else:
+            self.get_fragment_metrics()
         self.make_path(self.data)
         self.pose.interface_design(design_dir=self,
                                    evolution=self.evolution, symmetry=self.design_symmetry,
