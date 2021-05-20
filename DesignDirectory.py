@@ -912,6 +912,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      ('dist', dist), ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         design_profile = self.info.get('design_profile')
         variables.extend([('design_profile', design_profile)] if design_profile else [])
+        fragment_profile = self.info.get('fragment_profile')
+        variables.extend([('fragment_profile', fragment_profile)] if fragment_profile else [])
 
         if not symmetry_protocol:
             symmetry_protocol = self.symmetry_protocol
@@ -1222,6 +1224,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # DESIGN: Prepare command and flags file
         # flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
         evolutionary_profile = self.info.get('design_profile')
+        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + \
             ['-in:file:pssm', evolutionary_profile, '-use_occurrence_data'] if evolutionary_profile else [] + \
             ['-in:file:s', self.refined_pdb, '-in:file:native', self.refine_pdb, '@%s' % flags,
@@ -1543,19 +1546,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df (pandas.DataFrame): DataFrame containing the average values from the input design directory
         """
         # Get design information including: interface residues, SSM's, and wild_type/design files
-        profile_dict = {}
+        profile_background = {}
         design_profile = self.info.get('design_profile')
         evolutionary_profile = self.info.get('evolutionary_profile')
-        fragment_profile = self.info.get('fragment_profile')
+        fragment_data = self.info.get('fragment_data')
         if design_profile:
-            profile_dict['design'] = parse_pssm(design_profile)
-        if evolutionary_profile:
-            profile_dict['evolution'] = parse_pssm(evolutionary_profile)
-        if fragment_profile:
-            profile_dict['fragment'] = unpickle(fragment_profile)
-            issm_residues = list(set(profile_dict['fragment'].keys()))
+            profile_background['design'] = parse_pssm(design_profile)
+        if evolutionary_profile:  # lost accuracy ^ and v with round operation during write
+            profile_background['evolution'] = parse_pssm(evolutionary_profile)
+        if fragment_data:
+            profile_background['fragment'] = unpickle(fragment_data)
+            # issm_residues = set(profile_background['fragment'].keys())
         else:
-            issm_residues = []
+            # issm_residues = set()
             self.log.info('Design has no fragment information')
         frag_db_ = self.info.get('fragment_database')
         if frag_db_:
@@ -1694,11 +1697,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Calculate amino acid observation percent from residue dict and background SSM's
             observation_d = {profile: {design: mutation_conserved(residue_info, background)
                                        for design, residue_info in residue_info.items()}
-                             for profile, background in profile_dict.items()}
+                             for profile, background in profile_background.items()}
 
-            if 'fragment' in profile_dict:
-                # Keep residues in observed fragment if fragment information available for them
-                observation_d['fragment'] = remove_interior_keys(observation_d['fragment'], issm_residues, keep=True)
+            # if profile_background.get('fragment'):
+            #     # Keep residues in observed fragment if fragment information available for them
+            #     observation_d['fragment'] = remove_interior_keys(observation_d['fragment'], issm_residues, keep=True)
 
             # Add observation information into the residue dictionary
             for design, info in residue_info.items():
@@ -1729,7 +1732,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
             interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residues)
             assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
-            other_pose_metrics['percent_fragment'] = len(issm_residues) / len(interface_residues)
+            other_pose_metrics['percent_fragment'] = self.fragment_residues_total / len(interface_residues)
             other_pose_metrics['total_interface_residues'] = len(interface_residues)
             if interface_residues != design_residues:
                 self.log.info('Residues %s are located in the interior' %
@@ -1826,9 +1829,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             pose_alignment = multi_chain_alignment(all_design_sequences)
             mutation_frequencies = filter_dictionary_keys(pose_alignment['counts'], interface_residues)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
-            #                                              both mut_freq and profile_dict[profile] are one-indexed
+            #                                              both mut_freq and profile_background[profile] are one-indexed
             divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
-                          for profile, background in profile_dict.items()}
+                          for profile, background in profile_background.items()}
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
@@ -1845,7 +1848,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # designs_by_protocol[protocol] = protocol_s.index[protocol_s == protocol].tolist()
                 # All of this is DONE FOR WHOLE POSE ABOVE, PULLED BY PROTOCOL instead of this extra work
                 # Get per design observed background metric by protocol
-                # for profile in profile_dict:
+                # for profile in profile_background:
                 #     stats_by_protocol[protocol]['observed_%s' % profile] = per_res_metric(
                 #         {design: pose_observed_bkd[profile][design] for design in designs_by_protocol[protocol]})
 
@@ -1868,7 +1871,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                             for chain, design_seqs in all_design_sequences.items()})
                 protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['counts'], interface_residues)
                 protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
-                                     for profile, bkgnd in profile_dict.items()}  # both prot_freq and bkgnd are 1-idx
+                                     for profile, bkgnd in profile_background.items()}  # ^ both are 1-idx
                 if interface_bkgd:
                     protocol_res_dict['divergence_interface'] = jensen_shannon_divergence(protocol_mutation_freq,
                                                                                           interface_bkgd)
