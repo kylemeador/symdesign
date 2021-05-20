@@ -804,14 +804,14 @@ class SequenceProfile:
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
             database_background_aa_frequencies = self.frag_db.get_db_aa_frequencies()
 
-            null_residue = get_lod(database_background_aa_frequencies, database_background_aa_frequencies)
+            null_residue = self.get_lod(database_background_aa_frequencies, database_background_aa_frequencies)
             null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
 
             for entry in self.profile:
                 self.profile[entry]['lod'] = null_residue  # Caution all reference same object
-            for entry in self.fragment_profile:
-                self.profile[entry]['lod'] = get_lod(self.fragment_profile[entry],
-                                                     database_background_aa_frequencies, round_lod=False)
+            for entry in self.alpha:  # self.fragment_profile:
+                self.profile[entry]['lod'] = self.get_lod(self.fragment_profile[entry],
+                                                          database_background_aa_frequencies, round_lod=False)
                 # get the sum for the partition function
                 partition, max_lod = 0, 0.0
                 for aa in self.profile[entry]['lod']:
@@ -1063,7 +1063,7 @@ class SequenceProfile:
         """
         lods = {aa: None for aa in aa_freq}
         for aa in aa_freq:
-            if aa not in ['stats', 'match']:
+            if aa not in ['stats', 'match', 'lod']:
                 lods[aa] = float((2.0 * log2(aa_freq[aa] / background[aa])))  # + 0.0
                 if aa_freq[aa] == 0 or lods[aa] < -9:
                     lods[aa] = -9
