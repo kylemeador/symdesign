@@ -1061,7 +1061,8 @@ class SequenceProfile:
         Returns:
              (dict): {'A': 2, 'C': -9, 'D': -1, ...}
         """
-        lods = {aa: None for aa in aa_freq}
+        # lods = {aa: None for aa in aa_freq}
+        lods = {}
         for aa in aa_freq:
             if aa not in ['stats', 'match', 'lod', 'type']:
                 if aa_freq[aa] == 0:
