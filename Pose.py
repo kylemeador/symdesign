@@ -1574,11 +1574,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
             self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
-            # self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
-            self.interface_data_file = pickle_object(self.fragment_profile, frag_db + PUtils.frag_profile,
-                                                     out_path=design_dir.data)
+            self.fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=design_dir.data)
+            design_dir.info['fragment_profile'] = self.fragment_pssm_file
             design_dir.info['fragment_database'] = frag_db
-            design_dir.info['fragment_profile'] = self.interface_data_file
+            # self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
+            # this dictionary is removed of all entries that are not fragment populated.
+            clean_fragment_profile = dict(item for item in self.fragment_profile.items()
+                                          if item[1].get('stats', (None,))[0])  # must be a fragment observation
+            self.interface_data_file = pickle_object(clean_fragment_profile, '%s_fragment_profile' % frag_db,
+                                                     out_path=design_dir.data)
+            design_dir.info['fragment_data'] = self.interface_data_file
 
         if evolution:  # set pose.evolutionary_profile by combining entity evo profile into single profile
             self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
