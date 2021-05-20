@@ -20,10 +20,10 @@ from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, Des
 logger = start_log(name=__name__)
 index_offset = 1
 alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-aa_counts_dict = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0,
+aa_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0,
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
 aa_weighted_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
-                         'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
+                      'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
 add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
 
 
@@ -310,11 +310,11 @@ class SequenceProfile:
             # line_data = line.strip().split()
             # if len(line_data) == 44:
             #     residue_number = int(line_data[0])
-            #     self.evolutionary_profile[residue_number] = deepcopy(aa_counts_dict)
+            #     self.evolutionary_profile[residue_number] = deepcopy(aa_counts)
             # for i, aa in enumerate(alph_3_aa, 22):  # pose_dict[residue_number], 22):
             #     Get normalized counts for pose_dict
                 # self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
-            self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts_dict)
+            self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
             # for i, aa in enumerate(alph_3_aa, 2):
             #     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
             self.evolutionary_profile[residue_number]['type'] = structure_sequence[idx]
@@ -359,7 +359,7 @@ class SequenceProfile:
             line_data = line.strip().split()
             if len(line_data) == 44:
                 residue_number = int(line_data[0])
-                self.evolutionary_profile[residue_number] = deepcopy(aa_counts_dict)
+                self.evolutionary_profile[residue_number] = copy(aa_counts)
                 for i, aa in enumerate(alph_3_aa, 22):  # pose_dict[residue_number], 22):
                     # Get normalized counts for pose_dict
                     self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
@@ -624,6 +624,7 @@ class SequenceProfile:
             keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
         """
         # self.log.debug(self.fragment_profile.items())
+        database_bkgnd_aa_freq = self.frag_db.get_db_aa_frequencies()
         sequence = self.reference_sequence
         no_design = []
         for residue, index_d in self.fragment_profile.items():
@@ -664,10 +665,7 @@ class SequenceProfile:
                         self.fragment_profile[residue][index] = {}
 
             if total_fragment_weight > 0:
-                res_aa_dict = deepcopy(aa_weighted_counts)
-                res_aa_dict['stats'][1] = total_fragment_weight  # this is over all indices and observations
-                res_aa_dict['stats'][0] = total_fragment_observations  # this is over all indices and observations
-                res_aa_dict['type'] = sequence[residue - 1]  # offset to zero index
+                res_aa_dict = copy(aa_counts)
                 for index in self.fragment_profile[residue]:
                     if self.fragment_profile[residue][index]:
                         index_weight = self.fragment_profile[residue][index]['stats'][1]  # total_obs_weight
@@ -675,6 +673,9 @@ class SequenceProfile:
                             if aa not in ['stats', 'match']:  # Add all occurrences to summed frequencies list
                                 res_aa_dict[aa] += self.fragment_profile[residue][index][aa] * (
                                             index_weight / total_fragment_weight)
+                res_aa_dict['lod'] = self.get_lod(res_aa_dict, database_bkgnd_aa_freq)
+                res_aa_dict['stats'] = [total_fragment_observations, total_fragment_weight]  # over all idx and obs
+                res_aa_dict['type'] = sequence[residue - 1]  # offset to zero index
                 self.fragment_profile[residue] = res_aa_dict
             else:  # Add to list for removal from the profile
                 no_design.append(residue)
@@ -802,16 +803,16 @@ class SequenceProfile:
             # Used to weight fragments higher in design
             boltzman_energy = 1
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
-            database_background_aa_frequencies = self.frag_db.get_db_aa_frequencies()
+            database_bkgnd_aa_freq = self.frag_db.get_db_aa_frequencies()
 
-            null_residue = self.get_lod(database_background_aa_frequencies, database_background_aa_frequencies)
+            null_residue = self.get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq)
             null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
 
             for entry in self.profile:
                 self.profile[entry]['lod'] = null_residue  # Caution all reference same object
             for entry in self.alpha:  # self.fragment_profile:
-                self.profile[entry]['lod'] = self.get_lod(self.fragment_profile[entry],
-                                                          database_background_aa_frequencies, round_lod=False)
+                self.profile[entry]['lod'] = \
+                    self.get_lod(self.fragment_profile[entry], database_bkgnd_aa_freq, round_lod=False)
                 # get the sum for the partition function
                 partition, max_lod = 0, 0.0
                 for aa in self.profile[entry]['lod']:
@@ -1585,7 +1586,7 @@ def parse_pssm(file):
         line_data = line.strip().split()
         if len(line_data) == 44:
             residue_number = int(line_data[0])
-            pose_dict[residue_number] = deepcopy(aa_counts_dict)
+            pose_dict[residue_number] = copy(aa_counts)
             for i, aa in enumerate(alph_3_aa, 22):
                 # Get normalized counts for pose_dict
                 pose_dict[residue_number][aa] = (int(line_data[i]) / 100.0)
