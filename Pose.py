@@ -1541,7 +1541,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                         raise DesignError('Not able to solve fragment/residue membership with more than 2 Entities!')
                     self.log.debug('Fragment data found in Nanohedra docking. Solving fragment membership for '
                                    'Entity\'s: %s by PDB numbering correspondence'
-                                   % tuple(entity.name for entity in self.entities))
+                                   % ','.join(entity.name for entity in self.entities))
                     self.add_fragment_query(entity1=self.entities[0], entity2=self.entities[1], query=fragment_source,
                                             pdb_numbering=True)
                 else:  # assuming the input is in Pose numbering!
