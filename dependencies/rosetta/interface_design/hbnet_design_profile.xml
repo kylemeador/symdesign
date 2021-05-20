@@ -228,8 +228,7 @@
 			<SELECT>
 				<AndSelector>
 					<TopNByProperty n="50" order="descending">
-						<FilterReporter filter="shape_complementarity_hbnet_core"/>
-						<FilterReporter filter="shape_complementarity_hbnet_core"/>
+						<FilterReporter filter="read_sc_hbnet_core"/>
 					</TopNByProperty>
 					<TopNByProperty n="50" order="ascending">
 						<FilterReporter filter="interaction_energy_filter"/>
@@ -307,7 +306,6 @@
 	<FILTERS>
 		<Time name="time"/>
 		<ReadPoseExtraScoreFilter name="read_sc_hbnet_core" term_name="sc_hbnet_core" threshold="-1"/>
-
 <!--		<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.65" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
 		<ShapeComplementarity name="shape_complementarity_core" min_sc="0.70" min_interface="0" residue_selector1="core_interface1_sym" residue_selector2="core_interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.65" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
