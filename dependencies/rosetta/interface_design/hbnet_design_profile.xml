@@ -226,7 +226,7 @@
 			<SELECT>
 				<AndSelector>
 					<TopNByProperty n="50" order="descending">
-						<FilterReporter filter="shape_complementarity_hbnet_core"/> # Does this work to call report_sm?
+						<FilterReporter filter="shape_complementarity_hbnet_core"/>
 					</TopNByProperty>
 					<TopNByProperty n="50" order="ascending">
 						<FilterReporter filter="interaction_energy_filter"/>
@@ -303,6 +303,7 @@
 
 	<FILTERS>
 		<Time name="time"/>
+		<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.65" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		<ShapeComplementarity name="shape_complementarity_core" min_sc="0.70" min_interface="0" residue_selector1="core_interface1_sym" residue_selector2="core_interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.65" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
