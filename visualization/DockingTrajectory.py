@@ -1,6 +1,7 @@
 import argparse
 import os
 from glob import glob
+from itertools import chain
 
 import DesignDirectory
 import PathUtils as PUtils
@@ -34,15 +35,14 @@ def merge_pose_pdbs(des_dir, frags=True):
     new_pdb = PDB(atoms=[oligomers[oligomer].atoms for oligomer in oligomers])
 
     if frags:
-        # frag_pdbs = os.listdir(des_dir.frags)
         frag_pdbs = glob(os.path.join(des_dir.frags, '*.pdb'))
-        frags_d = {}
-        for i, frags in enumerate(frag_pdbs):
-            frags_d[i] = PDB(file=frags)
-            frags_d[i].reorder_chains(exclude_chains=taken_chains)
-            taken_chains += frags_d[i].chain_id_list
-        for frags in frags_d:
-            new_pdb.read_atom_list(frags_d[frags].atoms)
+        frags = []
+        for frags in frag_pdbs:
+            frag_pdb = PDB.from_file(frags)
+            frag_pdb.reorder_chains(exclude_chains=taken_chains)
+            taken_chains += frag_pdb.chain_id_list
+            frags.append(frag_pdb)
+        new_pdb = PDB.from_atoms(chain.from_iterable(pdb.atoms for pdb in frags))
 
     return new_pdb
 

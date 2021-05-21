@@ -49,8 +49,8 @@ class PDB(Structure):
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
-        self.bb_coords = []  # Todo DEPRECIATE
-        self.cb_coords = []  # Todo DEPRECIATE
+        # self.bb_coords = []
+        # self.cb_coords = []
         self.chain_id_list = []  # unique chain IDs in PDB Todo refactor
         self.chains = []
         self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
@@ -287,8 +287,8 @@ class PDB(Structure):
         self.entity_d = pdb.entity_d
         self.name = pdb.name
         self.secondary_structure = pdb.secondary_structure
-        self.cb_coords = pdb.cb_coords
-        self.bb_coords = pdb.bb_coords
+        # self.cb_coords = pdb.cb_coords
+        # self.bb_coords = pdb.bb_coords
 
     def readfile(self, filepath, lazy=False, **kwargs):  # name=None,
         """Reads .pdb file and feeds PDB instance"""
@@ -469,31 +469,31 @@ class PDB(Structure):
                         self.reference_sequence[chain][i] = '-'
             self.reference_sequence[chain] = ''.join(self.reference_sequence[chain])
 
-    def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):  # TODO DEPRECIATE
-        """Reads a python list of Atoms and feeds PDB instance updating chain info"""
-        if store_cb_and_bb_coords:
-            chain_ids = []
-            for atom in atom_list:
-                self.atoms.append(atom)
-                if atom.is_backbone():
-                    [x, y, z] = [atom.x, atom.y, atom.z]
-                    self.bb_coords.append([x, y, z])
-                if atom.is_CB(InclGlyCA=False):
-                    [x, y, z] = [atom.x, atom.y, atom.z]
-                    self.cb_coords.append([x, y, z])
-                if atom.chain not in chain_ids:
-                    chain_ids.append(atom.chain)
-            self.chain_id_list += chain_ids
-        else:
-            chain_ids = []
-            for atom in atom_list:
-                self.atoms.append(atom)
-                if atom.chain not in chain_ids:
-                    chain_ids.append(atom.chain)
-            self.chain_id_list += chain_ids
-        self.renumber_atoms()
-        self.get_chain_sequences()
-        # self.update_entities()  # get entity information from the PDB
+    # def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):
+    #     """Reads a python list of Atoms and feeds PDB instance updating chain info"""
+    #     if store_cb_and_bb_coords:
+    #         chain_ids = []
+    #         for atom in atom_list:
+    #             self.atoms.append(atom)
+    #             if atom.is_backbone():
+    #                 [x, y, z] = [atom.x, atom.y, atom.z]
+    #                 self.bb_coords.append([x, y, z])
+    #             if atom.is_CB(InclGlyCA=False):
+    #                 [x, y, z] = [atom.x, atom.y, atom.z]
+    #                 self.cb_coords.append([x, y, z])
+    #             if atom.chain not in chain_ids:
+    #                 chain_ids.append(atom.chain)
+    #         self.chain_id_list += chain_ids
+    #     else:
+    #         chain_ids = []
+    #         for atom in atom_list:
+    #             self.atoms.append(atom)
+    #             if atom.chain not in chain_ids:
+    #                 chain_ids.append(atom.chain)
+    #         self.chain_id_list += chain_ids
+    #     self.renumber_atoms()
+    #     self.get_chain_sequences()
+    #     # self.update_entities()  # get entity information from the PDB
 
     # def retrieve_chain_ids(self):  # KM added 2/3/20 to deal with updating chain names after rename_chain(s) functions
     #     # creates a list of unique chain IDs in PDB and feeds it into chain_id_list maintaining order

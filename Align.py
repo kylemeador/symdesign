@@ -1602,16 +1602,13 @@ class HelixFusion:
                                     pdb_oligomer.apply(rot, tx)
                                     pdb_oligomer.rename_chains(target_protein.chain_id_list)
 
-                                    PDB_OUT = PDB()
-                                    PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
+                                    out_pdb = PDB.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
 
-                                    out_path = design_directory + "/" + os.path.basename(self.target_protein_path)[0:4] + "_" + oligomer_id + "_" + str(i) + ".pdb"
-                                    outfile = open(out_path, "w")
-                                    for atom in PDB_OUT.all_atoms:
-                                        outfile.write(str(atom))
-                                    outfile.close()
+                                    out_path = os.path.join(design_directory,
+                                                            "%s_%s_%d.pdb" % (os.path.basename(self.target_protein_path)[0:4], oligomer_id, i))
+                                    out_pdb.write(out_path=out_path)
 
-        print("Done")
+        print('Done')
 
 
 def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
