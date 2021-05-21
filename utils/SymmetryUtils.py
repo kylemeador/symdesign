@@ -21,11 +21,10 @@ pg_cryst1_fmt_dict = {'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': '
                       'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
 pg_cryst1_to_hm_notation = {'P 3': 'p3', 'P 3 2 1': 'p321', 'P 6 2 2': 'p622', 'P 4': 'p4', 'P 2 2 2': 'p222',
                             'P 4 2 2': 'p422', 'P 4 21 2': 'p4212', 'P 6': 'p6', 'P 3 1 2': 'p312', 'C 2 2 2': 'c222'}
-zvalue_dict = {'P 2 3': 12, 'P 42 2 2': 8, 'P 3 2 1': 6, 'P 63 2 2': 12, 'P 3 1 2': 12, 'P 6 2 2': 12, 'F 2 3': 48,
-               'F 2 2 2': 16, 'P 62 2 2': 12, 'I 4 2 2': 16, 'I 21 3': 24, 'R 3 2': 6, 'P 4 21 2': 8, 'I 4 3 2': 48,
-               'P 41 3 2': 24, 'I 41 3 2': 48, 'P 3': 3, 'P 6': 6, 'I 41 2 2': 16, 'P 4': 4, 'C 2 2 2': 8,
-               'P 2 2 2': 4, 'P 21 3': 12, 'F 41 3 2': 96, 'P 4 2 2': 8, 'P 4 3 2': 24, 'F 4 3 2': 96,
-               'P 42 3 2': 24}
+sg_zvalues = {'P23': 12, 'P4222': 8, 'P321': 6, 'P6322': 12, 'P312': 12, 'P622': 12, 'F23': 48, 'F222': 16, 'P6222': 12,
+              'I422': 16, 'I213': 24, 'R32': 6, 'P4212': 8, 'I432': 48, 'P4132': 24, 'I4132': 48, 'P3': 3, 'P6': 6,
+              'I4122': 16, 'P4': 4, 'C222': 8, 'P222': 4, 'P213': 12, 'F4132': 96, 'P422': 8, 'P432': 24, 'F432': 96,
+              'P4232': 24}
 valid_subunit_number = {'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10, 'D6': 12,
                         'T': 12, 'O': 24, 'I': 60}
 
@@ -89,24 +88,27 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
     return uc_dimensions
 
 
-def generate_cryst1_record(dimensions, spacegroup):
-    # dimensions is a python list containing a, b, c (Angstroms) alpha, beta, gamma (degrees)
+def generate_cryst1_record(dimensions, space_group):
+    """Format the CRYST1 record from specified unit cell dimensions and space group for a .pdb file
 
-    if spacegroup in sg_cryst1_fmt_dict:
-        fmt_spacegroup = sg_cryst1_fmt_dict[spacegroup]
-        zvalue = zvalue_dict[fmt_spacegroup]
-    elif spacegroup in pg_cryst1_fmt_dict:
-        fmt_spacegroup = pg_cryst1_fmt_dict[spacegroup]
-        zvalue = zvalue_dict[fmt_spacegroup]
+    Args:
+        dimensions (union[list, tuple]): Containing a, b, c (Angstroms) alpha, beta, gamma (degrees)
+        space_group (str): The space group of interest in compact format
+    Returns:
+        (str): The CRYST1 record
+    """
+    if space_group in sg_cryst1_fmt_dict:
+        fmt_sg = sg_cryst1_fmt_dict[space_group]
+    elif space_group in pg_cryst1_fmt_dict:
+        fmt_sg = pg_cryst1_fmt_dict[space_group]
         dimensions[2] = 1.0
-        dimensions[3] = 90.0
-        dimensions[4] = 90.0
+        dimensions[3] = 90.0  # Todo this hard coding should be wrong for hexagonal plane groups
+        dimensions[4] = 90.0  #  also here
     else:
-        raise ValueError("SPACEGROUP NOT SUPPORTED")
+        raise ValueError('SPACEGROUP NOT SUPPORTED')
 
-    return "CRYST1{box[0]:9.3f}{box[1]:9.3f}{box[2]:9.3f}""{ang[0]:7.2f}{ang[1]:7.2f}{ang[2]:7.2f} "\
-           "{spacegroup:<11s}{zvalue:4d}\n".format(box=dimensions[:3], ang=dimensions[3:], spacegroup=fmt_spacegroup,
-                                                   zvalue=zvalue)
+    return 'CRYST1{dim[0]:9.3f}{dim[1]:9.3f}{dim[2]:9.3f}{dim[3]:7.2f}{dim[4]:7.2f}{dim[5]:7.2f} {sg:<11s}{z:4d}\n'\
+        .format(dim=dimensions, sg=fmt_sg, z=sg_zvalues[space_group])
 
 
 def cart_to_frac(cart_coords, dimensions):
@@ -379,7 +381,7 @@ def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
 #     return all_surrounding_unit_cells
 
 
-def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):
+def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):  # unused
     """Return the expanded material from the input ASU, symmetry specification, and unit cell dimensions
 
     Args:
@@ -395,9 +397,9 @@ def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):
         expand_matrices = get_ptgrp_sym_op(symmetry.upper())
         return get_expanded_ptgrp_pdb(asu, expand_matrices)
     else:
-        if symmetry in pg_cryst1_fmt_dict.values():
+        if symmetry in pg_cryst1_fmt_dict:
             dimension = 2
-        elif symmetry in sg_cryst1_fmt_dict.values():
+        elif symmetry in sg_cryst1_fmt_dict:
             dimension = 3
         else:
             return None

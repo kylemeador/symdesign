@@ -6,16 +6,16 @@
 <!--		</ScoreFunction>-->
 <!--		<ScoreFunction name="2015_pure" weights="ref2015"/>-->
 		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%"/>
-		<ScoreFunction name="2015_nano_cst" weights="ref2015" patch="%%sym_score_patch%%">
+		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano_cst" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
 		</ScoreFunction>
 		# patched, with res_type weights for FSP use
-		<ScoreFunction name="2015_nano_cst_fsp" weights="ref2015" patch="%%sym_score_patch%%">
+		<ScoreFunction name="2015_nano_cst_fsp" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
 			<Reweight scoretype="res_type_constraint" weight="0.5"/> # patch doesn't work here
 		</ScoreFunction>
-		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%solvent_sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -70,7 +70,7 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues_sym"/>
 		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano"/>
+		<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano" custom_type="" force_rescore="false"/>
 		# used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
 		# find the per residue energy of residues in a residue_selector
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
@@ -96,6 +96,7 @@
 <!--		<RigidBodyTransMover name="translate_asu" jump="1" distance="100.0" x="0.0" y="0.0" z="0.0"/>-->
 		<SavePoseMover name="save_nanohedra" restore_pose="0" reference_name="nanohedra"/>
 		<SavePoseMover name="restore_nanohedra" restore_pose="1" reference_name="nanohedra"/>
+		<DeleteRegionMover name="remove_non_interface" residue_selector="not_interface_sym"/>
 		# process mertics that are defined in the SimpleMetrics header above
 		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_polar_sasa" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_complex" override="false"/>
@@ -134,6 +135,7 @@
 		# this is for the nanohedra state to figure out the surface area of specific regions in the interface such as the extra ASU interface region
 		<TotalSasa name="interface_area_all_nano_hydrophobic" threshold="10" hydrophobic="1" polar="0" task_operations="init,vrt,non_int_no_repack"/>
 		<TotalSasa name="interface_area_all_nano_polar" threshold="10" hydrophobic="0" polar="1" task_operations="init,vrt,non_int_no_repack"/>
+		<Holes name="interface_holes" threshold="2" residue_selector="tot_interface_sym" normalize_per_atom="true" exclude_bb_atoms="false" confidence="0"/>
 		# TODO test for RMSD and buns_nano on more than 2 chains
 		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
 		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
@@ -151,6 +153,7 @@
 		#  ASUextraction
 <!--		<Report name="R_interface_area_all_asu_hydrophobic"	filter="interface_area_all_asu_hydrophobic"/>-->
 <!--		<Report name="R_interface_area_all_asu_polar" 		filter="interface_area_all_asu_polar"/>-->
+		<Report name="R_interface_holes" 			filter="interface_holes"/>
 		<Report name="R_buns_complex" 				filter="buns_complex"/>
 		<Report name="R_buns_complex_ignore" 		filter="buns_complex_ignore"/>
 		<Report name="R_buns_complex_sym" 			filter="buns_complex_sym"/>
@@ -221,6 +224,9 @@
 
 	<PROTOCOLS>
 		<Add mover_name="save_nanohedra"/>
+<!--		<Add mover_name="remove_non_interface"/>-->
+<!--		<Add filter_name="R_interface_holes"/>-->
+<!--		<Add mover_name="restore_nanohedra"/>-->
 		## ASU analysis
 		<Add mover_name="extract_asu"/>
 <!--		<Add filter_name="R_interface_area_all_asu_hydrophobic" report_at_end="false"/>-->

@@ -242,13 +242,13 @@ def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_desi
     ss_res_info_dict_1 = {}
     pdb_oligomer_1 = PDB.from_file(original_oligomer_1_pdb_path)
     ch_id_oligomer_1 = pdb_oligomer_1.get_chain_id_list()[0]
-    ss_asg_oligomer_1 = pdb_oligomer_1.get_secondary_structure(chain_id=ch_id_oligomer_1)
+    ss_asg_oligomer_1 = pdb_oligomer_1.chain(ch_id_oligomer_1).get_secondary_structure()
     ss_num_1 = 0
     prev_ss_type_1 = None
-    for res_num_1, ss_type_1 in ss_asg_oligomer_1:
+    for res, ss_type_1 in zip(pdb_oligomer_1.residues, ss_asg_oligomer_1):
         if prev_ss_type_1 != ss_type_1:
             ss_num_1 += 1
-        ss_res_info_dict_1[res_num_1] = (ss_type_1, ss_num_1)
+        ss_res_info_dict_1[res.number_pdb] = (ss_type_1, ss_num_1)
         prev_ss_type_1 = ss_type_1
 
     # for each residue in the first chain of oligomer 2
@@ -257,13 +257,13 @@ def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_desi
     ss_res_info_dict_2 = {}
     pdb_oligomer_2 = PDB.from_file(original_oligomer_2_pdb_path)
     ch_id_oligomer_2 = pdb_oligomer_2.get_chain_id_list()[0]
-    ss_asg_oligomer_2 = pdb_oligomer_2.get_secondary_structure(chain_id=ch_id_oligomer_2)
+    ss_asg_oligomer_2 = pdb_oligomer_2.chain(ch_id_oligomer_2).get_secondary_structure()
     ss_num_2 = 0
     prev_ss_type_2 = None
-    for res_num_2, ss_type_2 in ss_asg_oligomer_2:
+    for res, ss_type_2 in zip(pdb_oligomer_2.residues, ss_asg_oligomer_2):
         if prev_ss_type_2 != ss_type_2:
             ss_num_2 += 1
-        ss_res_info_dict_2[res_num_2] = (ss_type_2, ss_num_2)
+        ss_res_info_dict_2[res.number_pdb] = (ss_type_2, ss_num_2)
         prev_ss_type_2 = ss_type_2
 
     # for all docked poses get central residue numbers of matched surface fragments from frag_match_info_file.txt files

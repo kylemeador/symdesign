@@ -1,3 +1,5 @@
+import os
+import os
 import subprocess
 from copy import copy  # , deepcopy
 from collections.abc import Iterable
@@ -9,16 +11,14 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
 from Bio.SeqUtils import IUPACData
 
-from PathUtils import free_sasa_exe_path
+from PathUtils import free_sasa_exe_path, stride_exe_path
 from SymDesignUtils import start_log, null_log, DesignError
 from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
-
-
-# globals
 from classes.SymEntry import identity_matrix, get_rot_matrices, RotRangeDict, flip_x_matrix, get_degen_rotmatrices
 from utils.GeneralUtils import transform_coordinate_sets
 
+# globals
 logger = start_log(name=__name__)
 
 
@@ -911,51 +911,102 @@ class Structure(StructureBase):
         # return sum([sasa for residue_number, sasa in zip(self.sasa_residues, self.sasa) if residue_number in numbers])
         return sum([residue.sasa for residue in self.residues if residue.number in numbers])
 
-    # def stride(self, chain=None):
-    #     # REM  -------------------- Secondary structure summary -------------------  XXXX
-    #     # REM                .         .         .         .         .               XXXX
-    #     # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
-    #     # STR       HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH  HHHHHHHHHHHHHHHHH               XXXX
-    #     # REM                                                                        XXXX
-    #     # SEQ  51   LIEESQN                                              57          XXXX
-    #     # STR       HHHHHH                                                           XXXX
-    #     # REM                                                                        XXXX
-    #     # LOC  AlphaHelix   ILE     3 A      ALA     33 A                            XXXX
-    #     # LOC  AlphaHelix   TRP    41 A      GLN     63 A                            XXXX
-    #     # REM                                                                        XXXX
-    #     # REM  --------------- Detailed secondary structure assignment-------------  XXXX
-    #     # REM                                                                        XXXX
-    #     # REM  |---Residue---|    |--Structure--|   |-Phi-|   |-Psi-|  |-Area-|      XXXX
-    #     # ASG  ILE A    3    1    H    AlphaHelix    360.00    -29.07     180.4      XXXX
-    #     # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
-    #     # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
-    #
-    #     # try:
-    #         # with open(os.devnull, 'w') as devnull:
-    #     stride_cmd = [stride_exe_path, '%s' % self.filepath]
-    #     #   -rId1Id2..  Read only chains Id1, Id2 ...
-    #     #   -cId1Id2..  Process only Chains Id1, Id2 ...
-    #     if chain:
-    #         stride_cmd.append('-c%s' % chain_id)
-    #
-    #     p = subprocess.Popen(stride_cmd, stderr=subprocess.DEVNULL)
-    #     out, err = p.communicate()
-    #     out_lines = out.decode('utf-8').split('\n')
-    #     # except:
-    #     #     stride_out = None
-    #
-    #     # if stride_out is not None:
-    #     #     lines = stride_out.split('\n')
-    #
-    #     for line in out_lines:
-    #         if line[0:3] == 'ASG' and line[10:15].strip().isdigit():   # Todo sort out chain issues
-    #             self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
-    #     self.secondary_structure = [residue.secondary_structure for residue in self.get_residues()]
-    #     # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
-    #     #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
-    #
+    def stride(self, to_file=None):
+        """Use Stride to calculate the secondary structure of a PDB.
+
+        Keyword Args
+            to_file=None (str): The location of a file to save the Stride output
+        Sets:
+            Residue.secondary_structure
+        """
+        # REM  -------------------- Secondary structure summary -------------------  XXXX
+        # REM                .         .         .         .         .               XXXX
+        # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
+        # STR       HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH  HHHHHHHHHHHHHHHHH               XXXX
+        # REM                                                                        XXXX
+        # SEQ  51   LIEESQN                                              57          XXXX
+        # STR       HHHHHH                                                           XXXX
+        # REM                                                                        XXXX
+        # LOC  AlphaHelix   ILE     3 A      ALA     33 A                            XXXX
+        # LOC  AlphaHelix   TRP    41 A      GLN     63 A                            XXXX
+        # REM                                                                        XXXX
+        # REM  --------------- Detailed secondary structure assignment-------------  XXXX
+        # REM                                                                        XXXX
+        # REM  |---Residue---|    |--Structure--|   |-Phi-|   |-Psi-|  |-Area-|      XXXX
+        # ASG  ILE A    3    1    H    AlphaHelix    360.00    -29.07     180.4      XXXX
+        # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
+        # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
+
+        # ASG    Detailed secondary structure assignment
+        #    Format:  6-8  Residue name
+        #       10-10 Protein chain identifier
+        #       12-15 PDB	residue	number
+        #       17-20 Ordinal residue number
+        #       25-25 One	letter secondary structure code	**)
+        #       27-39 Full secondary structure name
+        #       43-49 Phi	angle
+        #       53-59 Psi	angle
+        #       65-69 Residue solvent accessible area
+        #
+        #   -rId1Id2..  Read only Chains Id1, Id2 ...
+        #   -cId1Id2..  Process only Chains Id1, Id2 ...
+        # if chain:
+        #     stride_cmd = [stride_exe_path, current_structure_file]
+        #     stride_cmd.append('-c%s' % chain)
+
+        current_struc_file = self.write(out_path='stride_input-%s-%d.pdb' % (self.name, random() * 100000))
+        p = subprocess.Popen([stride_exe_path, current_struc_file], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        out, err = p.communicate()
+        os.system('rm %s' % current_struc_file)
+
+        if out:
+            if to_file:
+                with open(to_file, 'wb') as f:
+                    f.write(out)
+            stride_output = out.decode('utf-8').split('\n')
+        else:
+            self.log.warning('%s: No secondary structure assignment found with Stride' % self.name)
+            return None
+        # except:
+        #     stride_out = None
+
+        # if stride_out is not None:
+        #     lines = stride_out.split('\n')
+        residue_idx = 0
+        residues = self.residues
+        for line in stride_output:
+            # residue_idx = int(line[10:15])
+            if line[0:3] == 'ASG':
+                # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
+                # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
+                # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
+                residues[residue_idx].secondary_structure = line[24:25]
+                residue_idx += 1
+        self.secondary_structure = ''.join(residue.secondary_structure for residue in residues)
+
+    def parse_stride(self, stride_file):
+        """From a Stride file, parse information for residue level secondary structure assignment
+
+        Sets:
+            self.secondary_structure
+        """
+        with open(stride_file, 'r') as f:
+            stride_output = f.readlines()
+
+        # residue_idx = 0
+        # residues = self.residues
+        for line in stride_output:
+            # residue_idx = int(line[10:15])
+            if line[0:3] == 'ASG':
+                # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
+                # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
+                self.residue(int(line[10:15].strip()), pdb=True).secondary_structure = line[24:25]
+                # residues[residue_idx].secondary_structure = line[24:25]
+                # residue_idx += 1
+        self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
+
     def is_n_term_helical(self, window=5):
-        """Using assigned secondary structure, probe for a helical N-termini using a sequence segment of 'window' residues
+        """Using assigned secondary structure, probe for a helical N-termini using a segment of 'window' residues
 
         Keyword Args:
             window=5 (int): The segment size to search
@@ -974,7 +1025,7 @@ class Structure(StructureBase):
             return False
 
     def is_c_term_helical(self, window=5):
-        """Using assigned secondary structure, probe for a helical C-termini using a sequence segment of 'window' residues
+        """Using assigned secondary structure, probe for a helical C-termini using a segment of 'window' residues
 
         Keyword Args:
             window=5 (int): The segment size to search
@@ -1008,7 +1059,10 @@ class Structure(StructureBase):
         if secondary_structure:
             self.secondary_structure = secondary_structure
         else:
-            self.secondary_structure = [residue.secondary_structure for residue in self.residues]
+            if self.residues[0].secondary_structure:
+                self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
+            else:
+                self.stride()
 
     def terminal_residue_orientation_from_reference(self, termini='n', reference=None):
         """From an Entity, find the orientation of the termini from the origin (default) or from a reference point
@@ -1159,6 +1213,16 @@ class Structure(StructureBase):
         #     structure.chain_id_list = [structure.residues[0].chain]
 
         return fragments
+
+    # def read_secondary_structure(self, filename=None, source='stride'):
+    #     if source == 'stride':
+    #         secondary_structure = self.parse_stride(filename)
+    #     elif source == 'dssp':
+    #         secondary_structure = None
+    #     else:
+    #         raise DesignError('Must pass a source to %s' % Structure.read_secondary_structure.__name__)
+    #
+    #     return secondary_structure
 
     # def copy_structures(self):
     #     # super().copy_structures([self.chains])
@@ -2041,6 +2105,9 @@ class MonoFragment:
         new_structure.guide_coords = new_coords
 
         return new_structure
+
+    def replace_coords(self, new_coords):  # makes compatible with pose symmetry operations. Same as @coords.setter
+        self.guide_coords = new_coords
 
     def get_ghost_fragments(self, intfrag_cluster_rep, kdtree_oligomer_backbone, intfrag_cluster_info, clash_dist=2.2):
         """Find all the GhostFragments associated with the MonoFragment that don't clash with the original structure

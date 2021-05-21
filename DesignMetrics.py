@@ -487,12 +487,12 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interf
                                  'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
                                  'interface_energy_2_unbound',
                                  ]
-
+protocol_specific_columns = ['HBNet_NumUnsatHpol', 'HBNet_Saturation', 'HBNet_Score']
 # Some of these are unneeded now, but hanging around in case renaming occurred
 unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_total',
                'int_area_ex_asu_hydrophobic', 'int_area_ex_asu_polar', 'int_area_ex_asu_total',
                'int_energy_context_asu', 'int_energy_context_unbound',
-               'coordinate_constraint', 'int_energy_res_summary_asu', 'int_energy_res_summary_unbound',
+               'int_energy_res_summary_asu', 'int_energy_res_summary_unbound',
                'interaction_energy', 'interaction_energy_asu', 'interaction_energy_oligomerA',
                'interaction_energy_oligomerB', 'interaction_energy_unbound', 'res_type_constraint', 'time', 'REU',
                'full_stability_complex', 'full_stability_oligomer', 'fsp_total_stability',
@@ -509,6 +509,8 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                'decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
                'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
                # 'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'buns_total',
+               'angle_constraint', 'atom_pair_constraint', 'chainbreak', 'coordinate_constraint', 'dihedral_constraint',
+               'metalbinding_constraint', 'rmsd'
                ]
 # remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unbound']
 #                'full_stability_oligomer_A', 'full_stability_oligomer_B']
@@ -583,7 +585,8 @@ residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0
                     'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
                              'hydrophobic': {'complex': 0., 'unbound': 0.}},
                     'type': None, 'core': 0, 'rim': 0, 'support': 0, 'interior': 0, 'hbond': 0}  # , 'hot_spot': 0}
-fragment_metric_template = {'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
+fragment_metric_template = {'center_residues': set(), 'total_residues': set(),
+                            'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
                             'number_fragment_residues_total': 0, 'number_fragment_residues_center': 0,
                             'number_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
                             'percent_fragment_coil': 0.0}
@@ -611,10 +614,7 @@ def read_scores(file, key='decoy'):
                 for protocol in protocols:
                     if protocol in entry:  # ensure that the new scores has a protocol before removing the old one.
                         for rm_protocol in protocols:
-                            try:
-                                score_dict[design].pop(rm_protocol)
-                            except KeyError:
-                                pass
+                            score_dict[design].pop(rm_protocol, None)
                 score_dict[design].update(entry)
 
     return score_dict
@@ -971,25 +971,28 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
     return total_residue_dict
 
 
-def mutation_conserved(residue_info, background):
+def mutation_conserved(residue_info, bkgnd):
     """Process residue mutations compared to evolutionary background. Returns 1 if residue is observed in background
 
     Both residue_dict and background must be same index
     Args:
         residue_info (dict): {15: {'type': 'T', ...}, ...}
-        background (dict): {0: {'A': 0, 'R': 0, ...}, ...}
+        bkgnd (dict): {0: {'A': 0, 'R': 0, ...}, ...}
     Returns:
         conservation_dict (dict): {15: 1, 21: 0, 25: 1, ...}
     """
-    conservation_dict = {}
-    for residue, info in residue_info.items():
-        residue_background = background.get(residue)
-        if residue_background and residue_background[info['type']] > 0:
-            conservation_dict[residue] = 1
-        else:
-            conservation_dict[residue] = 0
-
-    return conservation_dict
+    return {res: 1 if bkgnd[res][info['type']] > 0 else 0 for res, info in residue_info.items() if res in bkgnd}
+    # conservation_dict = {}
+    # for residue, info in residue_info.items():
+    #     residue_background = background.get(residue, None)
+    #     if not residue_background:
+    #         continue
+    #     if residue_background[info['type']] > 0:
+    #         conservation_dict[residue] = 1
+    #     else:
+    #         conservation_dict[residue] = 0
+    #
+    # return conservation_dict
 
 
 def per_res_metric(sequence_metrics, key=None):
@@ -1279,8 +1282,8 @@ def calculate_match_metrics(fragment_matches):
         fragment_matches (list[dict]): [{'mapped': entity1_resnum, 'match': score_term, 'paired': entity2_resnum,
                                          'culster': cluster_id}, ...]
     Returns:
-        (dict): {'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
-                            'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
+        (dict): {'mapped': {'center': {'residues': (set[int]), 'score': (float), 'number': (int)},
+                            'total': {'residues': (set[int]), 'score': (float), 'number': (int)},
                             'match_scores': {residue number(int): (list[score (float)]), ...},
                             'index_count': {index (int): count (int), ...},
                             'multiple_ratio': (float)}
@@ -1293,6 +1296,7 @@ def calculate_match_metrics(fragment_matches):
         # central_residues_with_fragment_overlap, multiple_frag_ratio, total_fragment_content
     """
     if not fragment_matches:
+        # raise DesignError('No fragment matches were passed! Can\'t calculate match metrics')
         return None
 
     fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
@@ -1457,13 +1461,16 @@ def format_fragment_metrics(metrics, null=False):
     """For a set of fragment metrics, return the formatted total fragment metrics
 
     Returns:
-        (dict): {nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
+        (dict): {center_residues, total_residues,
+                 nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
                  number_fragment_residues_center, number_fragments, percent_fragment_helix, percent_fragment_strand,
                  percent_fragment_coil}
     """
     if null:
         return fragment_metric_template
-    return {'nanohedra_score': metrics['total']['total']['score'],
+    return {'center_residues': metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']),
+            'total_residues': metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']),
+            'nanohedra_score': metrics['total']['total']['score'],
             'nanohedra_score_center': metrics['total']['center']['score'],
             'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
             'number_fragment_residues_total': metrics['total']['total']['number'],

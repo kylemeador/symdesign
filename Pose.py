@@ -15,7 +15,7 @@ from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_ov
     start_log, null_log, possible_symmetries, match_score_from_z_value, split_interface_pairs
 from classes.SymEntry import get_rot_matrices, RotRangeDict, get_degen_rotmatrices, SymEntry, flip_x_matrix
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
-from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, zvalue_dict
+from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues
 from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
@@ -211,10 +211,12 @@ class SymmetricModel(Model):
                 self.uc_dimensions = uc_dimensions
                 self.symmetry = ''.join(symmetry.split())
 
-            if symmetry in pg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra PG's
+            if symmetry in pg_cryst1_fmt_dict:  # not available yet for non-Nanohedra PG's
                 self.dimension = 2
-            elif symmetry in sg_cryst1_fmt_dict.values():  # not available yet for non-Nanohedra SG's
+                self.symmetry = symmetry
+            elif symmetry in sg_cryst1_fmt_dict:  # not available yet for non-Nanohedra SG's
                 self.dimension = 3
+                self.symmetry = symmetry
             elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
                 self.symmetry = possible_symmetries[symmetry]
                 self.symmetry_point_group = possible_symmetries[symmetry]
@@ -347,7 +349,7 @@ class SymmetricModel(Model):
     def get_unit_cell_coords(self, return_side_chains=True):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell"""
         # self.models = [self.asu]
-        self.number_of_models = zvalue_dict[self.symmetry]
+        self.number_of_models = sg_zvalues[self.symmetry]
         if return_side_chains:  # get different function calls depending on the return type  # todo
             # get_pdb_coords = getattr(PDB, 'coords')
             self.coords_type = 'all'
@@ -390,7 +392,7 @@ class SymmetricModel(Model):
         surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
                                    for y_shift in [0, 1, -1] for z_shift in z_shifts]
         self.model_coords = Coords(self.frac_to_cart(surrounding_frac_coords))
-        self.number_of_models = zvalue_dict[self.symmetry] * uc_number
+        self.number_of_models = sg_zvalues[self.symmetry] * uc_number
 
     def return_assembly_symmetry_mates(self, **kwargs):
         """Return all symmetry mates in self.models (list[Structure]). Chain names will match the ASU"""
@@ -417,8 +419,8 @@ class SymmetricModel(Model):
         #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
 
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms!
-        if not surrounding_uc and self.symmetry in zvalue_dict:
-            number_of_models = zvalue_dict[self.symmetry]  # set to the uc only
+        if not surrounding_uc and self.symmetry in sg_zvalues:
+            number_of_models = sg_zvalues[self.symmetry]  # set to the uc only
         else:
             number_of_models = self.number_of_models
 
@@ -436,10 +438,17 @@ class SymmetricModel(Model):
         """
         template_atom_coords = self.asu.residues[0].ca_coords
         template_atom_index = self.asu.residues[0].ca_index
-        for model_number in range(self.number_of_models):
-            if (template_atom_coords ==
-                    self.model_coords[(model_number * len(self.coords)) + template_atom_index]).all():
-                return model_number
+        # print(template_atom_index)
+        # print(template_atom_coords)
+        coords_length = len(self.coords)
+        for model_num in range(self.number_of_models):
+            # print(self.model_coords[(model_num * coords_length) + template_atom_index])
+            # print(template_atom_coords ==
+            #         self.model_coords[(model_num * coords_length) + template_atom_index])
+            if np.allclose(template_atom_coords, self.model_coords[(model_num * coords_length) + template_atom_index]):
+            # if (template_atom_coords ==
+            #         self.model_coords[(model_num * coords_length) + template_atom_index]).all():
+                return model_num
 
         self.log.error('%s is FAILING' % self.find_asu_equivalent_symmetry_model.__name__)
 
@@ -543,9 +552,12 @@ class SymmetricModel(Model):
         asu_frac_coords = self.cart_to_frac(coords)
         coords_length = len(coords)
         model_coords = np.empty((coords_length * self.number_of_models, 3), dtype=float)
-        for idx, (rot, tx) in enumerate(self.expand_matrices):
+        # Todo pickled operators don't have identity, so we should add the asu.
+        model_coords[:coords_length] = asu_frac_coords
+        for idx, (rot, tx) in enumerate(self.expand_matrices, 1):  # since no identity, start idx at 1
             rt_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + tx
             model_coords[idx * coords_length: (idx + 1) * coords_length] = rt_asu_frac_coords
+
         if fractional:
             return model_coords
         else:
@@ -555,10 +567,10 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
             # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'coords')
+            pdb_coords = pdb.coords
         else:
             # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+            pdb_coords = pdb.get_backbone_and_cb_coords()
 
         # # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
         # asu_cart_coords = extract_pdb_coords(pdb)
@@ -571,13 +583,13 @@ class SymmetricModel(Model):
         #     sym_frac_coords.extend(tr_asu_frac_coords)
         #     # tr_asu_cart_coords = self.frac_to_cart(tr_asu_frac_coords)
         # sym_cart_coords = self.frac_to_cart(sym_frac_coords)
-        pdb_coords = extract_pdb_coords(pdb)
+        # pdb_coords = extract_pdb_coords(pdb)
         sym_cart_coords = self.return_unit_cell_coords(pdb_coords)
 
         coords_length = len(pdb_coords)
         sym_mates = []
         # for coord_set in sym_cart_coords:
-        for model in self.number_of_models:
+        for model in range(self.number_of_models):
             symmetry_mate_pdb = copy.copy(pdb)
             symmetry_mate_pdb.replace_coords(sym_cart_coords[model * coords_length: (model + 1) * coords_length])
             sym_mates.append(symmetry_mate_pdb)
@@ -588,10 +600,10 @@ class SymmetricModel(Model):
         """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
         if return_side_chains:  # get different function calls depending on the return type
             # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            extract_pdb_coords = getattr(PDB, 'coords')
+            pdb_coords = pdb.coords
         else:
             # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            extract_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+            pdb_coords = pdb.get_backbone_and_cb_coords()
 
         if self.dimension == 3:
             z_shifts, uc_number = [0, 1, -1], 9
@@ -600,7 +612,7 @@ class SymmetricModel(Model):
         else:
             return None
 
-        pdb_coords = extract_pdb_coords(pdb)
+        # pdb_coords = extract_pdb_coords(pdb)
         uc_frac_coords = self.return_unit_cell_coords(pdb_coords, fractional=True)
         surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
                                    for y_shift in [0, 1, -1] for z_shift in z_shifts]
@@ -611,13 +623,13 @@ class SymmetricModel(Model):
         sym_mates = []
         for coord_set in surrounding_cart_coords:
             # for model in self.number_of_models:
-            for model in zvalue_dict[self.symmetry]:
+            for model in range(sg_zvalues[self.symmetry]):
                 symmetry_mate_pdb = copy.copy(pdb)
                 symmetry_mate_pdb.replace_coords(coord_set[(model * coords_length): ((model + 1) * coords_length)])
                 sym_mates.append(symmetry_mate_pdb)
 
-        assert len(sym_mates) == uc_number * zvalue_dict[self.symmetry], \
-            'Number of models %d is incorrect! Should be %d' % (len(sym_mates), uc_number * zvalue_dict[self.symmetry])
+        assert len(sym_mates) == uc_number * sg_zvalues[self.symmetry], \
+            'Number of models %d is incorrect! Should be %d' % (len(sym_mates), uc_number * sg_zvalues[self.symmetry])
         return sym_mates
 
     def assign_entities_to_sub_symmetry(self):
@@ -670,7 +682,7 @@ class SymmetricModel(Model):
                 #  (i.e. subtracted) at the required steps such as from coms_group1/2 in return_symmetric_coords
                 #  (generated using self.expand_matrices) and/or the entity_com as this is set up within a
                 #  cartesian expand matrix environment is going to yield wrong results on the expand matrix indexing
-                assert self.number_of_models == zvalue_dict[self.symmetry], 'Cannot have more models than a single UC!'
+                assert self.number_of_models == sg_zvalues[self.symmetry], 'Cannot have more models than a single UC!'
                 expand_matrices = self.get_ptgrp_sym_op(self.symmetry_point_group)
             else:
                 expand_matrices = self.expand_matrices
@@ -678,7 +690,6 @@ class SymmetricModel(Model):
             # This is typically centered at the origin for the symmetric assembly... NEED rigourous testing.
             # Maybe this route of generation is too flawed for layer/space? Nanohedra framework gives a comprehensive
             # handle on all these issues though
-
         # find the approximate scalar translation of the asu center of mass from the reference symmetry origin
         approx_entity_com_reference = np.linalg.norm(all_entities_com - ext_tx)
         approx_entity_z_tx = [0., 0., approx_entity_com_reference]
@@ -880,8 +891,8 @@ class SymmetricModel(Model):
 
     @staticmethod
     def get_sg_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS')):
-        sg_op_filepath = os.path.join(expand_matrix_dir, sym_type + '.pickle')
-        with open(sg_op_filepath, "rb") as sg_op_file:
+        sg_op_filepath = os.path.join(expand_matrix_dir, '%s.pickle' % sym_type)
+        with open(sg_op_filepath, 'rb') as sg_op_file:
             sg_sym_op = pickle.load(sg_op_file)
 
         return sg_sym_op
@@ -905,7 +916,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.required_indices = set()
         self.required_residues = None
         self.interface_residues = {}
-        self.interface_split = {}  # {1: '23A,45A,46A,...' , 2: '234B,236B,239B,...'}
+        self.split_interface_residues = {}  # {1: '23A,45A,46A,...' , 2: '234B,236B,239B,...'}
+        self.split_interface_ss_type = {}  # {1: [0,1,2] , 2: [9,13,19]]}
+        self.ss_index_array = []
+        self.ss_type_array = []
         # self.handle_flags(**kwargs)
         # self.ignore_clashes = False
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
@@ -1363,6 +1377,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         #     self.log.debug('At interface Entity %s | Entity %s\tMISSING interface residues'
         #                    % (entity1.name, entity2.name))
         #     return None
+        # Todo make so that the residue objects support fragments instead of converting back
         surface_frags1 = entity1.get_fragments([residue.number for residue in entity1_residues],
                                                representatives=self.frag_db.reps)
         surface_frags2 = entity2.get_fragments([residue.number for residue in entity2_residues],
@@ -1381,7 +1396,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
-            surface_frags2 = list(iter_chain.from_iterable(surface_frags2_nested))
+            # surface_frags2 = list(iter_chain.from_iterable(surface_frags2_nested))
+            surface_frags2 = []
+            for frag_mates in surface_frags2_nested:
+                surface_frags2.extend(frag_mates)
             self.log.debug('Entity 2 Symmetry expanded fragment count: %d' % len(surface_frags2))
 
         entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
@@ -1410,7 +1428,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """Locate the interface residues for the designable entities and split into two interfaces
 
         Sets:
-            self.interface_split (dict): Residue/Entity id of each residue at the interface identified by interface id
+            self.split_interface_residues (dict): Residue/Entity id of each residue at the interface identified by interface id
             as split by topology
         """
         self.log.debug('Find and split interface using active_entities: %s' %
@@ -1421,6 +1439,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.check_interface_topology()
 
     def check_interface_topology(self):
+        """From each pair of entities that share an interface, split the identified residues into two distinct groups.
+        If an interface can't be composed into two distinct groups, raise a DesignError
+        """
         first, second = 0, 1
         interface_residue_d = {first: {}, second: {}, 'self': [False, False]}
         terminate = False
@@ -1523,20 +1544,65 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
                               ' for more information.')
 
-        self.interface_split = {key + 1: [(res.number, entity.chain_id) for entity, residues in entity_residues.items()
-                                          for res in residues]
-                                for key, entity_residues in interface_residue_d.items() if key != 'self'}
-        self.interface_split = {number: ','.join('%d%s' % residue_entity
-                                                 for residue_entity in sorted(residue_entities, key=lambda tup: tup[0]))
-                                for number, residue_entities in self.interface_split.items()}
-        # self.interface_split = \
-        #     {interface_number + 1: ','.join('%d%s' % (residue.number, entity.chain_id)
-        #                                     for entity, residues in entity_residues.items() for residue in residues)
-        #      for interface_number, entity_residues in interface_residue_d.items() if interface_number != 'self'}
-        self.log.debug('The interface is split as: %s' % self.interface_split)
-        if self.interface_split[1] == '':
+        for key, entity_residues in interface_residue_d.items():
+            if key == 'self':
+                continue
+            all_residues = [(residue, entity) for entity, residues in entity_residues.items() for residue in residues]
+            self.split_interface_residues[key + 1] = sorted(all_residues, key=lambda res, ent: res.number)
+
+        # self.split_interface_residues = \
+        #     {key + 1: [(residue, entity) for entity, residues in entity_residues.items() for residue in residues]
+        #      for key, entity_residues in interface_residue_d.items() if key != 'self'}
+        # self.split_interface_residues = {number: sorted(residue_entities, key=lambda tup: tup[0].number)
+        #                                  for number, residue_entities in self.split_interface_residues.items()}
+        #
+        # self.split_interface_residues = {number: ','.join('%d%s' % residue_entity
+        #                                 for residue_entity in sorted(residue_entities, key=lambda tup: tup[0].number))
+        #                                  for number, residue_entities in self.split_interface_residues.items()}
+        if self.split_interface_residues[1] == '':
             raise DesignError('Interface was unable to be split because no residues were found on one side of the'
                               ' interface!')
+        else:
+            self.log.debug('The interface is split as:\n\tinterface 1: %s'
+                           % '\n\tinterface 2: '.join(','.join('%d%s' % (res.number, ent.chain_id)
+                                                               for res, ent in residues_entities)
+                                                      for residues_entities in self.split_interface_residues.values()))
+
+    def interface_secondary_structure(self, source_db=None, source_dir=None):
+        """From a split interface, curate the secondary structure topology for each
+
+        Keyword Args:
+            source_db=None (Database): A Database object connected to secondary structure db
+            source_dir=None (str): The location of the directory containing Stride files
+        """
+        pose_secondary_structure = ''
+        for entity in self.active_entities:
+            if not entity.secondary_structure:
+                if source_db:  # Todo
+                    raise DesignError('Secondary structure from DB functionality has not been built')
+                    entity.fill_secondary_structure(secondary_structure=source_db.get_secondary_structure(entity.name))
+                elif source_dir:
+                    entity.parse_stride(os.path.join(source_dir, '%s.stride' % entity.name))
+                else:
+                    entity.get_secondary_structure()
+            pose_secondary_structure += entity.secondary_structure
+
+        # increment a secondary structure index which changes with every secondary structure transition
+        # simultaneously, map the secondary structure type to an array of pose length (offset for residue number)
+        self.ss_index_array.clear(), self.ss_type_array.clear()  # clear any information if it exists
+        self.ss_type_array.append([pose_secondary_structure[0]])
+        ss_increment_index = 0
+        self.ss_index_array.append(ss_increment_index)
+        for prior_idx, ss_type in enumerate(pose_secondary_structure[1:], 0):
+            if ss_type != pose_secondary_structure[prior_idx]:
+                self.ss_type_array.append(ss_type)
+                ss_increment_index += 1
+            self.ss_index_array.append(ss_increment_index)
+
+        for number, residues_entities in self.split_interface_residues.items():
+            self.split_interface_ss_type[number] = []
+            for residue, entity in residues_entities:
+                self.split_interface_ss_type[number].append(self.ss_index_array[residue.number - 1])
 
     def interface_design(self, design_dir=None, symmetry=None, evolution=True,
                          fragments=True, query_fragments=False, write_fragments=True, fragments_exist=False,
@@ -1618,7 +1684,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                         raise DesignError('Not able to solve fragment/residue membership with more than 2 Entities!')
                     self.log.debug('Fragment data found in Nanohedra docking. Solving fragment membership for '
                                    'Entity\'s: %s by PDB numbering correspondence'
-                                   % tuple(entity.name for entity in self.entities))
+                                   % ','.join(entity.name for entity in self.entities))
                     self.add_fragment_query(entity1=self.entities[0], entity2=self.entities[1], query=fragment_source,
                                             pdb_numbering=True)
                 else:  # assuming the input is in Pose numbering!
@@ -1651,11 +1717,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
             self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
-            # self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
-            self.interface_data_file = pickle_object(self.fragment_profile, frag_db + PUtils.frag_profile,
-                                                     out_path=design_dir.data)
+            self.fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=design_dir.data)
+            design_dir.info['fragment_profile'] = self.fragment_pssm_file
             design_dir.info['fragment_database'] = frag_db
-            design_dir.info['fragment_profile'] = self.interface_data_file
+            # self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
+            # this dictionary is removed of all entries that are not fragment populated.
+            clean_fragment_profile = dict(item for item in self.fragment_profile.items()
+                                          if item[1].get('stats', (None,))[0])  # must be a fragment observation
+            self.interface_data_file = pickle_object(clean_fragment_profile, '%s_fragment_profile' % frag_db,
+                                                     out_path=design_dir.data)
+            design_dir.info['fragment_data'] = self.interface_data_file
 
         if evolution:  # set pose.evolutionary_profile by combining entity evo profile into single profile
             self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
@@ -1670,6 +1741,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # -------------------------------------------------------------------------
         # self.solve_consensus()  # Todo
         # -------------------------------------------------------------------------
+
+    def return_fragment_observations(self):
+        """Return the fragment observations identified on the pose regardless of Entity binding
+
+        Returns:
+            (list[dict]): [{'mapped': int, 'paired': int, 'cluster': str, 'match': float}, ...]
+        """
+        observations = []
+        for query_pair, fragment_matches in self.fragment_queries.items():
+            observations.extend(fragment_matches)
+
+        # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
+        return observations
 
     def return_fragment_metrics(self, fragments=None, by_interface=False, entity1=None, entity2=None, by_entity=False):
         """From self.fragment_queries, return the specified fragment metrics. By default returns the entire Pose
@@ -1695,69 +1779,80 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             return format_fragment_metrics(calculate_match_metrics(fragments))
 
         # self.calculate_fragment_query_metrics()  # populates self.fragment_metrics
-        for query_pair, fragment_matches in self.fragment_queries.items():
-            self.fragment_metrics[query_pair] = calculate_match_metrics(fragment_matches)
+        if not self.fragment_metrics:
+            for query_pair, fragment_matches in self.fragment_queries.items():
+                self.fragment_metrics[query_pair] = calculate_match_metrics(fragment_matches)
 
         if by_interface:
-            if not entity1 and not entity2:
+            if entity1 and entity2:
+                for query_pair, metrics in self.fragment_metrics.items():
+                    if not metrics:
+                        continue
+                    if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
+                        return format_fragment_metrics(metrics)
+                self.log.info('Couldn\'t locate query metrics for Entity pair %s, %s' % (entity1.name, entity2.name))
+            else:
                 self.log.error('%s: entity1 or entity1 can\'t be None!' % self.return_fragment_metrics.__name__)
-                return None
 
-            for query_pair, metrics in self.fragment_metrics.items():
-                # if entity1 in query_pair and entity2 in query_pair:
-                if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
-                    return format_fragment_metrics(metrics)
-            self.log.info('Couldn\'t locate query metrics for Entity pair %s, %s' % (entity1.name, entity2.name))
-            return None
-
+            return fragment_metric_template
         elif by_entity:
-            return_d = {}
+            metric_d = {}
             for query_pair, metrics in self.fragment_metrics.items():
+                if not metrics:
+                    continue
                 for idx, entity in enumerate(query_pair):
-                    if entity not in return_d:
-                        return_d[entity] = fragment_metric_template
+                    if entity not in metric_d:
+                        metric_d[entity] = fragment_metric_template
 
                     align_type = SequenceProfile.idx_to_alignment_type[idx]
-                    return_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
-                    return_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
-                    return_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
-                    return_d[entity]['number_fragment_residues_total'] += metrics[align_type]['total']['number']
-                    return_d[entity]['number_fragment_residues_center'] += metrics[align_type]['center']['number']
-                    return_d[entity]['number_fragments'] += metrics['total']['observations']
-                    return_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
-                    return_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
-                    return_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
+                    metric_d[entity]['center_residues'].union(metrics[align_type]['center']['residues'])
+                    metric_d[entity]['total_residues'].union(metrics[align_type]['total']['residues'])
+                    metric_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
+                    metric_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
+                    metric_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
+                    metric_d[entity]['number_fragment_residues_total'] += metrics[align_type]['total']['number']
+                    metric_d[entity]['number_fragment_residues_center'] += metrics[align_type]['center']['number']
+                    metric_d[entity]['number_fragments'] += metrics['total']['observations']
+                    metric_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
+                    metric_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
+                    metric_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
                                                                   metrics[align_type]['index_count'][4] +
                                                                   metrics[align_type]['index_count'][5])
-            for entity in return_d:
-                return_d[entity]['percent_fragment_helix'] /= return_d[entity]['number_fragments']
-                return_d[entity]['percent_fragment_strand'] /= return_d[entity]['number_fragments']
-                return_d[entity]['percent_fragment_coil'] /= return_d[entity]['number_fragments']
+            for entity in metric_d:
+                metric_d[entity]['percent_fragment_helix'] /= metric_d[entity]['number_fragments']
+                metric_d[entity]['percent_fragment_strand'] /= metric_d[entity]['number_fragments']
+                metric_d[entity]['percent_fragment_coil'] /= metric_d[entity]['number_fragments']
 
-            return return_d
-
+            return metric_d
         else:
-            return_d = fragment_metric_template
+            metric_d = fragment_metric_template
             for query_pair, metrics in self.fragment_metrics.items():
-                return_d['nanohedra_score'] += metrics['total']['total']['score']
-                return_d['nanohedra_score_center'] += metrics['total']['center']['score']
-                return_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
-                return_d['number_fragment_residues_total'] += metrics['total']['total']['number']
-                return_d['number_fragment_residues_center'] += metrics['total']['center']['number']
-                return_d['number_fragments'] += metrics['total']['observations']
-                return_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
-                return_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
-                return_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
+                if not metrics:
+                    continue
+                metric_d['center_residues'].union(
+                    metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']))
+                metric_d['total_residues'].union(
+                    metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']))
+                metric_d['nanohedra_score'] += metrics['total']['total']['score']
+                metric_d['nanohedra_score_center'] += metrics['total']['center']['score']
+                metric_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
+                metric_d['number_fragment_residues_total'] += metrics['total']['total']['number']
+                metric_d['number_fragment_residues_center'] += metrics['total']['center']['number']
+                metric_d['number_fragments'] += metrics['total']['observations']
+                metric_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
+                metric_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
+                metric_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
                                                       metrics['total']['index_count'][4] +
                                                       metrics['total']['index_count'][5])
             try:
-                return_d['percent_fragment_helix'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-                return_d['percent_fragment_strand'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
-                return_d['percent_fragment_coil'] /= (return_d['number_fragments'] * 2)  # account for 2x observations
+                metric_d['percent_fragment_helix'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
+                metric_d['percent_fragment_strand'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
+                metric_d['percent_fragment_coil'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
             except ZeroDivisionError:
-                pass
+                metric_d['percent_fragment_helix'], metric_d['percent_fragment_strand'], \
+                    metric_d['percent_fragment_coil'] = 0, 0, 0
 
-            return return_d
+            return metric_d
 
     # def calculate_fragment_query_metrics(self):
     #     """From the profile's fragment queries, calculate and store the query metrics per query"""
@@ -2085,7 +2180,7 @@ def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
 def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2, fragdb=None,
                                        euler_lookup=None, max_z_value=2):
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
-    """From a Structure Entity, score the interface between them according to Nanohedra's fragment matching"""
+    """From two Structure's, score the interface between them according to Nanohedra's fragment matching"""
     if not fragdb:
         fragdb = FragmentDB()
         fragdb.get_monofrag_cluster_rep_dict()

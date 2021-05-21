@@ -44,6 +44,7 @@ asu = 'asu.pdb'
 # asu = 'central_asu.pdb'
 clean_asu = 'clean_asu.pdb'
 pssm = 'evolutionary.pssm'  # was 'asu_pose.pssm' 1/25/21
+fssm = 'fragment.pssm'
 dssm = 'design.pssm'
 assembly = 'assembly.pdb'
 frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
@@ -153,6 +154,8 @@ intfrag_cluster_info_dirpath = os.path.join(fragment_db, "IJK_ClusteredInterface
 
 # External Program Dependencies
 make_symmdef = os.path.join(rosetta, 'source/src/apps/public/symmetry/make_symmdef_file.pl')
+# Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
+dalphaball = os.path.join(rosetta, 'source/external/DAlpahBall/DAlphaBall.gcc')
 alignmentdb = os.path.join(dependency_dir, 'ncbi_databases/uniref90')
 # alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
 # TODO set up hh-suite in source or elsewhere on system and dynamically modify config file

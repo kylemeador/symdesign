@@ -23,7 +23,6 @@ from Bio.SeqRecord import SeqRecord
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from Pose import fetch_pdb_file
 from Query.PDB import input_string, bool_d, invalid_string
 from utils.CmdLineArgParseUtils import query_mode
 from utils.PDBUtils import orient_pdb_file
@@ -35,6 +34,7 @@ from CommandDistributer import distribute, hhblits_memory_threshold, update_stat
 from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, relax_flags
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB
+from Pose import fetch_pdb_file
 from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map, \
     group_compositions
 from ProteinExpression import find_expression_tags, find_all_matching_pdb_expression_tags, add_expression_tag
@@ -461,20 +461,19 @@ def terminate(module, designs, location=None, results=None, output=True):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
-                        PUtils.nano: [PUtils.nano], 'custom_script': [args.script] if getattr(args, 'script', None) else [],
+                        PUtils.nano: [PUtils.nano],
+                        'custom_script': [os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]],
                         'interface_metrics': ['interface_metrics'],  # 'nanohedra_initialization': PUtils.stage[1]
                         }
         if module in module_files:
             if len(success) > 0:
-                all_commands = {stage: [] for stage in module_files[module]}
-                for design in success:
-                    for stage in all_commands:
-                        all_commands[stage].append(os.path.join(design.scripts, '%s.sh' % stage))
-
+                all_commands = {stage: [os.path.join(design.scripts, '%s.sh' % stage) for design in success]
+                                for stage in module_files[module]}
                 command_files = {stage: SDUtils.write_commands(commands, out_path=program_root,
                                                                name='%s_%s_%s' % (stage, location_name, timestamp))
                                  for stage, commands in all_commands.items()}
-                sbatch_files = {stage: distribute(stage=stage, directory=program_root, file=command_file)
+                sbatch_files = {stage: distribute(stage=(stage if module != 'custom_script' else PUtils.stage[2]),
+                                                  directory=program_root, file=command_file)  # sbatch template ^
                                 for stage, command_file in command_files.items()}
                 logger.critical(
                     'Ensure the created SBATCH script(s) are correct. Specifically, check that the job array and any'
@@ -606,6 +605,11 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_fragments = subparsers.add_parser(PUtils.generate_fragments,
                                              help='Generate fragment overlap for poses of interest.')
+    # parser_design.add_argument('-i', '--fragment_database', type=str,
+    #                            help='Database to match fragments for interface specific scoring matrices. One of %s'
+    #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
+    #                                                   list(PUtils.frag_directory.keys())[0]),
+    #                            default=list(PUtils.frag_directory.keys())[0])
     # ---------------------------------------------------
     parser_cluster = subparsers.add_parser(PUtils.cluster_poses,
                                            help='Cluster all designs by their spatial similarity. This can remove '
@@ -626,10 +630,6 @@ if __name__ == '__main__':
     #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
     #                                                   list(PUtils.frag_directory.keys())[0]),
     #                            default=list(PUtils.frag_directory.keys())[0])
-    # parser_design.add_argument('-x', '--suspend', action='store_true',
-    #                            help='Should Rosetta design trajectory be suspended?\nDefault=False')
-    # parser_design.add_argument('-p', '--mpi', action='store_true',
-    #                            help='Should job be set up for cluster submission?\nDefault=False')
     # ---------------------------------------------------
     parser_interface_metrics = \
         subparsers.add_parser('interface_metrics',
@@ -656,14 +656,17 @@ if __name__ == '__main__':
                                                'consensus_pdb', 'consensus_design_pdb'])
     parser_custom_script.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
     parser_custom_script.add_argument('script', type=os.path.abspath, help='The location of the custom script')
-    parser_custom_script.add_argument('--suffix', action='store_true',
-                                      help='Append to each output file (decoy in .sc and .pdb) the script name '
-                                           '(i.e. \'_SCRIPT\') to identify this protocol. No extension will be used')
+    parser_custom_script.add_argument('--suffix', type=str, metavar='SUFFIX',
+                                      help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
+                                           '\'decoy_SUFFIX\') to identify this protocol. No extension will be included')
     parser_custom_script.add_argument('-v', '--variables', type=str, nargs='*',
                                       help='Additional variables that should be populated in the script. Provide a list'
-                                           ' of such variables with the format \'varible1=value varible2=value\'. Where'
-                                           ' %%variable1%% is a RosettaScripts variable and value is either a known '
-                                           'value or an attribute available to the Pose object. For variables that must'
+                                           ' of such variables with the format \'variable1=value variable2=value\'. '
+                                           'Where variable1 is a RosettaScripts %%%%variable1%%%% and value is a' 
+                                           # ' either a'  # Todo
+                                           ' known value'
+                                           # ' or an attribute available to the Pose object'
+                                           '. For variables that must'
                                            ' be calculated on the fly for each design, please modify the Pose.py class '
                                            'to produce a method that can generate an attribute with the specified name')
     # ---------------------------------------------------
@@ -847,6 +850,9 @@ if __name__ == '__main__':
             raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
                                       '\n\t%s\nCorrect your flags and try again'
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
+    if queried_flags.get('sym_entry'):
+        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
+
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
                        'interface_metrics', 'custom_script', 'rename_chains', 'status']:
@@ -869,6 +875,8 @@ if __name__ == '__main__':
                 initialize = False
     else:  # ['distribute', 'query', 'guide', 'flags', 'residue_selector']
         initialize, construct_pose = False, False
+        if args.module == 'query':
+            args.directory = True
 
     if not args.guide and args.module not in ['distribute', 'query', 'guide', 'flags', 'residue_selector']:
         options_table = SDUtils.pretty_format_table(queried_flags.items())
@@ -1177,7 +1185,7 @@ if __name__ == '__main__':
 
     if queried_flags.get(Flags.generate_frags, None) or args.module == PUtils.generate_fragments:
         interface_type = 'biological_interfaces'  # Todo parameterize
-        logger.info('Initializing FragmentDatabase from %s\n' % interface_type)
+        logger.info('Initializing %s FragmentDatabase\n' % interface_type)
         fragment_db = FragmentDatabase(source='directory', location=interface_type, init_db=True)
         euler_lookup = EulerLookup()
         for design in design_directories:
@@ -1312,7 +1320,7 @@ if __name__ == '__main__':
         # else:
         #     logger.error('No \'%s\' commands were written!' % PUtils.nano)
     # ---------------------------------------------------
-    elif args.module == PUtils.generate_fragments:  # -i fragment_library, -p mpi, -x suspend
+    elif args.module == PUtils.generate_fragments:  # -i fragment_library
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
@@ -1353,7 +1361,7 @@ if __name__ == '__main__':
         terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
-    elif args.module == PUtils.interface_design:  # -i fragment_library, -p mpi, -x suspend
+    elif args.module == PUtils.interface_design:  # -i fragment_library
         # if args.mpi:  # Todo implement
         #     # extras = ' mpi %d' % CommmandDistributer.mpi
         #     logger.info(

@@ -306,7 +306,7 @@ def filter_dictionary_keys(dictionary, keys, remove=False):
     """
     if remove:
         for key in keys:
-            dictionary.pop(key)
+            dictionary.pop(key, None)
 
         return dictionary
     else:
@@ -327,10 +327,7 @@ def remove_interior_keys(dictionary, keys, keep=False):
     if not keep:
         for entry in dictionary:
             for key in keys:
-                try:
-                    dictionary[entry].pop(key)
-                except KeyError:
-                    pass
+                dictionary[entry].pop(key, None)
 
         return dictionary
     else:
@@ -541,11 +538,17 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
 
 
 def write_commands(command_list, name='all_commands', out_path=os.getcwd()):
-    if len(command_list) > 1:
-        extension = '.cmds'
-    else:
-        extension = '.cmd'
-    file = os.path.join(out_path, name + extension)
+    """Write a list of commands out to a file
+
+    Args:
+        command_list (iterable): An iterable with the commands as values
+    Keyword Args:
+        name='all_commands' (str): The name of the file. Will be appended with '.cmd(s)'
+        out_path=os.getcwd(): The directory where the file will be written
+    Returns:
+        (str): The filename of the new file
+    """
+    file = os.path.join(out_path, '%s.cmds' % name if len(command_list) > 1 else '%s.cmd' % name)
     with open(file, 'w') as f:
         f.write('%s\n' % '\n'.join(command for command in command_list))
 
@@ -1021,9 +1024,14 @@ class DesignError(Exception):
 ######################
 
 
-def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2):
+def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2.0):
     """Calculate the overlap between two sets of coordinates given a reference rmsd
 
+    Keyword Args:
+        coords1=None (numpy.ndarray): The first set of coordinates
+        coords2=None (numpy.ndarray): The second set of coordinates
+        coords_rmsd_reference=None (numpy.ndarray): The reference RMSD to compared each pair of coordinates against
+        max_z_value=2.0 (float): The z-score deviation threshold of the overlap to be considered a match
     Returns:
         (numpy.ndarray): The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value
     """

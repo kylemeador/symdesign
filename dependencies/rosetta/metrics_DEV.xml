@@ -4,11 +4,11 @@
 <!--		<ScoreFunction name="2015" weights="ref2015">-->
 <!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value%%"/>-->
 <!--		</ScoreFunction>-->
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%"/>
-		<ScoreFunction name="2015_nano_cst" weights="ref2015" patch="%%sym_score_patch%%">
+		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano_cst" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
 		</ScoreFunction>
-		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%solvent_sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -19,9 +19,9 @@
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
 		# combined group of all identified interface residues
-<!--		<Or name="tot_interface" selectors="interface1,interface2"/>-->
+		<Or name="tot_interface" selectors="interface1,interface2"/>
 <!--		<Or name="tot_interface_sym" selectors="interface1_sym,interface2_sym"/>-->
-		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
+		# select all residues lower than energy 10 involved in sidechain hydrogen bonding
 		<HBond name="hbond_residues_sym" residue_selector="interface%%interface%%" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano_cst"/>
 <!--		<SymmetricalResidue name="hbond_residues" selector="hbond_residues_asu" />-->
 		# all residues
@@ -104,10 +104,12 @@
 		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_ignore" residue_selector="interface%%interface%%" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
 		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_sym" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
 		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_sym_ignore" residue_selector="interface%%interface%%_sym" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
+<!--		<Holes name="interface_holes" threshold="2" residue_selector="tot_interface" normalize_per_atom="true" exclude_bb_atoms="false" confidence="0"/>-->
 		<Report name="R_buns_%%interface%%_unbound" 					filter="buns_%%interface%%_unbound"/>
 		<Report name="R_buns_%%interface%%_unbound_ignore" 				filter="buns_%%interface%%_unbound_ignore"/>
 		<Report name="R_buns_%%interface%%_unbound_sym" 				filter="buns_%%interface%%_unbound_sym"/>
 		<Report name="R_buns_%%interface%%_unbound_sym_ignore" 			filter="buns_%%interface%%_unbound_sym_ignore"/>
+		# holes score only around h-bond networks
 	</FILTERS>
 
 	<PROTOCOLS>
