@@ -70,6 +70,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # design_symmetry/data/pdbs/oriented (P432/Data/PDBs/oriented)
         self.refine_dir = None
         # design_symmetry/data/pdbs/refined (P432/Data/PDBs/refined)
+        self.stride_dir = None
+        # design_symmetry/data/pdbs/stride (P432/Data/PDBs/refined)
         self.sequences = None
         # design_symmetry/sequences (P432/Sequence_Info)
         # design_symmetry/data/sequences (P432/Data/Sequence_Info)
@@ -138,8 +140,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # self.fragment_cluster_residue_d = {}
         self.fragment_observations = []
-        self.interface_residues = {'interface1': None, 'interface2': None}
+        self.interface_residue_ids = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
+        self.interface_ss_topology = {}
+        # {1: 'HHLH', 2: 'HSH'}
+        self.interface_ss_fragment_topology = {}
+        # {1: 'HHH', 2: 'HH'}
 
         self.center_residue_numbers = []  # TODO MOVE Metrics
         self.total_residue_numbers = []  # TODO MOVE Metrics
@@ -555,6 +561,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
         self.refine_dir = os.path.join(self.pdbs, 'refined')
+        self.stride_dir = os.path.join(self.pdbs, 'stride')
         self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
         self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
 
@@ -718,6 +725,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.warning('%s: No interface residues were found. Is there an interface in your design?'
                              % self.source)
             self.percent_residues_fragment_total, self.percent_residues_fragment_center = 0.0, 0.0
+
+        # Todo move outside of fragment_metrics? keep the fragment topology however
+        self.pose.interface_secondary_structure(source_dir=self.stride_dir)
+        for number, elements in self.pose.split_interface_ss_elements.items():
+            fragment_elements = set()
+            for residue, element in zip(self.pose.split_interface_residues[number], elements):
+                if residue in self.center_residue_numbers:
+                    fragment_elements.add(element)
+            self.interface_ss_fragment_topology[number] = [self.pose.ss_type_array[self.pose.ss_index_array[element]]
+                                                           for element in fragment_elements]
+            self.interface_ss_topology[number] = [self.pose.ss_type_array[self.pose.ss_index_array[element]]
+                                                  for element in set(elements)]
 
     # @staticmethod
     # @handle_errors(errors=(FileNotFoundError, ))
@@ -922,7 +941,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
         out_of_bound_residue = list(chain_breaks.values())[-1] + 50
         variables.extend([(interface, residues) if residues else (interface, out_of_bound_residue)
-                          for interface, residues in self.interface_residues.items()])
+                          for interface, residues in self.interface_residue_ids.items()])
 
         # assign any additional designable residues
         if self.pose.required_residues:
@@ -1159,7 +1178,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # flag_variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
         #                   ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
         #                   ('symmetry', protocol), ('sdf', sym_def_file), ('dist', dist),
-        #                   required, *self.interface_residues.items(),  # interface1 or interface2 variable
+        #                   required, *self.interface_residue_ids.items(),  # interface1 or interface2 variable
         #                   ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         # design_profile = self.info.get('design_profile')
         # flag_variables.extend([('design_profile', design_profile)] if design_profile else [])
@@ -1233,7 +1252,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        # all_chains = [entity.chain_id for entity in self.pose.entities]  # pose.interface_residues}  # ['A', 'B', 'C']
+        # all_chains = [entity.chain_id for entity in self.pose.entities]  # pose.interface_residue_ids}  # ['A', 'B', 'C']
         # # add symmetry definition files and set metrics up for oligomeric symmetry
         # if self.nano:
         #     design_variables.extend([('sdf%s' % chain, self.sdfs[name])
@@ -1490,7 +1509,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def identify_interface(self):
         """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
-        entities. Sets the interface_residues to map each interface to the corresponding residues."""
+        entities. Sets the interface_residue_ids to map each interface to the corresponding residues."""
         if not self.pose:
             self.load_pose()
         if self.pose.symmetry:
@@ -1500,9 +1519,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.pose.write(out_path=self.assembly)
                 self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
         self.pose.find_and_split_interface()
-        self.interface_residues = \
-            {'interface%d' % interface: residues for interface, residues in self.pose.interface_split.items()}
-        interface1, interface2 = self.interface_residues.get('interface1'), self.interface_residues.get('interface2')
+        for number, residues_entities in self.pose.split_interface_residues.items():
+            self.interface_residue_ids['interface%d' % number] = \
+                ','.join('%d%s' % (res.number, ent.chain_id) for res, ent in residues_entities)
+        interface1, interface2 = \
+            self.interface_residue_ids.get('interface1', None), self.interface_residue_ids.get('interface2', None)
         if interface1 and interface2:
             self.info['design_residues'] = '%s,%s' % (interface1, interface2)
             self.log.info('Interface Residues:\n\t%s'

@@ -870,7 +870,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.required_indices = set()
         self.required_residues = None
         self.interface_residues = {}
-        self.interface_split = {}  # {1: '23A,45A,46A,...' , 2: '234B,236B,239B,...'}
+        self.split_interface_residues = {}  # {1: '23A,45A,46A,...' , 2: '234B,236B,239B,...'}
+        self.split_interface_ss_type = {}  # {1: [0,1,2] , 2: [9,13,19]]}
+        self.ss_index_array = []
+        self.ss_type_array = []
         # self.handle_flags(**kwargs)
         # self.ignore_clashes = False
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
@@ -1283,6 +1286,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         #     self.log.debug('At interface Entity %s | Entity %s\tMISSING interface residues'
         #                    % (entity1.name, entity2.name))
         #     return None
+        # Todo make so that the residue objects support fragments instead of converting back
         surface_frags1 = entity1.get_fragments([residue.number for residue in entity1_residues],
                                                representatives=self.frag_db.reps)
         surface_frags2 = entity2.get_fragments([residue.number for residue in entity2_residues],
@@ -1333,7 +1337,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """Locate the interface residues for the designable entities and split into two interfaces
 
         Sets:
-            self.interface_split (dict): Residue/Entity id of each residue at the interface identified by interface id
+            self.split_interface_residues (dict): Residue/Entity id of each residue at the interface identified by interface id
             as split by topology
         """
         self.log.debug('Find and split interface using active_entities: %s' %
@@ -1344,6 +1348,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.check_interface_topology()
 
     def check_interface_topology(self):
+        """From each pair of entities that share an interface, split the identified residues into two distinct groups.
+        If an interface can't be composed into two distinct groups, raise a DesignError
+        """
         first, second = 0, 1
         interface_residue_d = {first: {}, second: {}, 'self': [False, False]}
         terminate = False
@@ -1446,20 +1453,65 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
                               ' for more information.')
 
-        self.interface_split = {key + 1: [(res.number, entity.chain_id) for entity, residues in entity_residues.items()
-                                          for res in residues]
-                                for key, entity_residues in interface_residue_d.items() if key != 'self'}
-        self.interface_split = {number: ','.join('%d%s' % residue_entity
-                                                 for residue_entity in sorted(residue_entities, key=lambda tup: tup[0]))
-                                for number, residue_entities in self.interface_split.items()}
-        # self.interface_split = \
-        #     {interface_number + 1: ','.join('%d%s' % (residue.number, entity.chain_id)
-        #                                     for entity, residues in entity_residues.items() for residue in residues)
-        #      for interface_number, entity_residues in interface_residue_d.items() if interface_number != 'self'}
-        self.log.debug('The interface is split as: %s' % self.interface_split)
-        if self.interface_split[1] == '':
+        for key, entity_residues in interface_residue_d.items():
+            if key == 'self':
+                continue
+            all_residues = [(residue, entity) for entity, residues in entity_residues.items() for residue in residues]
+            self.split_interface_residues[key + 1] = sorted(all_residues, key=lambda res, ent: res.number)
+
+        # self.split_interface_residues = \
+        #     {key + 1: [(residue, entity) for entity, residues in entity_residues.items() for residue in residues]
+        #      for key, entity_residues in interface_residue_d.items() if key != 'self'}
+        # self.split_interface_residues = {number: sorted(residue_entities, key=lambda tup: tup[0].number)
+        #                                  for number, residue_entities in self.split_interface_residues.items()}
+        #
+        # self.split_interface_residues = {number: ','.join('%d%s' % residue_entity
+        #                                 for residue_entity in sorted(residue_entities, key=lambda tup: tup[0].number))
+        #                                  for number, residue_entities in self.split_interface_residues.items()}
+        if self.split_interface_residues[1] == '':
             raise DesignError('Interface was unable to be split because no residues were found on one side of the'
                               ' interface!')
+        else:
+            self.log.debug('The interface is split as:\n\tinterface 1: %s'
+                           % '\n\tinterface 2: '.join(','.join('%d%s' % (res.number, ent.chain_id)
+                                                               for res, ent in residues_entities)
+                                                      for residues_entities in self.split_interface_residues.values()))
+
+    def interface_secondary_structure(self, source_db=None, source_dir=None):
+        """From a split interface, curate the secondary structure topology for each
+
+        Keyword Args:
+            source_db=None (Database): A Database object connected to secondary structure db
+            source_dir=None (str): The location of the directory containing Stride files
+        """
+        pose_secondary_structure = ''
+        for entity in self.active_entities:
+            if not entity.secondary_structure:
+                if source_db:  # Todo
+                    raise DesignError('Secondary structure from DB functionality has not been built')
+                    entity.fill_secondary_structure(secondary_structure=source_db.get_secondary_structure(entity.name))
+                elif source_dir:
+                    entity.parse_stride(os.path.join(source_dir, '%s.stride' % entity.name))
+                else:
+                    entity.get_secondary_structure()
+            pose_secondary_structure += entity.secondary_structure
+
+        # increment a secondary structure index which changes with every secondary structure transition
+        # simultaneously, map the secondary structure type to an array of pose length (offset for residue number)
+        self.ss_index_array.clear(), self.ss_type_array.clear()  # clear any information if it exists
+        self.ss_type_array.append([pose_secondary_structure[0]])
+        ss_increment_index = 0
+        self.ss_index_array.append(ss_increment_index)
+        for prior_idx, ss_type in enumerate(pose_secondary_structure[1:], 0):
+            if ss_type != pose_secondary_structure[prior_idx]:
+                self.ss_type_array.append(ss_type)
+                ss_increment_index += 1
+            self.ss_index_array.append(ss_increment_index)
+
+        for number, residues_entities in self.split_interface_residues.items():
+            self.split_interface_ss_type[number] = []
+            for residue, entity in residues_entities:
+                self.split_interface_ss_type[number].append(self.ss_index_array[residue.number - 1])
 
     def interface_design(self, design_dir=None, symmetry=None, evolution=True,
                          fragments=True, query_fragments=False, write_fragments=True, fragments_exist=False,
