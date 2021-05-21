@@ -407,31 +407,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                    'percent_residues_fragment_total': self.percent_residues_fragment_total,
                    'percent_residues_fragment_center': self.percent_residues_fragment_center}
         if self.sym_entry:
+            metrics['design_dimension'] = self.design_dimension
             # if self.pose:  # Todo
             if self.oligomers:
                 # Todo test
-                # for oligomer in self.oligomers:
-                #     oligomer.get_secondary_structure()
-                metrics.update(
-                    {'design_dimension': self.design_dimension,
-                     'component_1_symmetry': self.sym_entry.get_group1_sym(),
-                     # TODO clean oligomers[].entities mechanism
-                     'component_1_name': self.oligomers[0].entities[0].name,
-                     'component_1_number_of_residues': self.oligomers[0].entities[0].number_of_residues,
-                     'component_2_symmetry': self.sym_entry.get_group2_sym(),
-                     'component_2_name': self.oligomers[1].entities[0].name,
-                     'component_2_number_of_residues': self.oligomers[1].entities[0].number_of_residues,
-                     'component_1_max_radius': self.oligomers[0].entities[0].furthest_point_from_reference(),
-                     'component_2_max_radius': self.oligomers[1].entities[0].furthest_point_from_reference(),
-                     # 'component_1_n_terminal_helix': self.oligomers[0].entities[0].is_n_term_helical(),
-                     # 'component_1_c_terminal_helix': self.oligomers[0].entities[0].is_c_term_helical(),
-                     'component_1_n_terminal_orientation': self.oligomers[0].entities[0].terminal_residue_orientation_from_reference(),
-                     'component_1_c_terminal_orientation': self.oligomers[0].entities[0].terminal_residue_orientation_from_reference(termini='c'),
-                     # 'component_2_n_terminal_helix': self.oligomers[1].entities[0].is_n_term_helical(),
-                     # 'component_2_c_terminal_helix': self.oligomers[1].entities[0].is_c_term_helical(),
-                     'component_2_n_terminal_orientation': self.oligomers[1].entities[0].terminal_residue_orientation_from_reference(),
-                     'component_2_c_terminal_orientation': self.oligomers[1].entities[0].terminal_residue_orientation_from_reference(termini='c'),
-                     })
+                for idx, oligomer in self.oligomers:
+                    # oligomer.get_secondary_structure()
+                    metrics.update(
+                        {'component_%d_symmetry' % idx: getattr(self.sym_entry, 'group%d' % idx),
+                         'component_%d_name' % idx: oligomer.name,
+                         'component_%d_number_of_residues' % idx: oligomer.number_of_residues,
+                         'component_%d_max_radius' % idx: oligomer.furthest_point_from_reference(),
+                         'component_%d_n_terminal_helix' % idx: oligomer.is_n_term_helical(),
+                         'component_%d_c_terminal_helix' % idx: oligomer.is_c_term_helical(),
+                         'component_%d_n_terminal_orientation' % idx: oligomer.terminal_residue_orientation_from_reference(),
+                         'component_%d_c_terminal_orientation' % idx: oligomer.terminal_residue_orientation_from_reference(termini='c')
+                         })
 
         return metrics
 
@@ -692,7 +683,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.all_residue_score = frag_metrics['nanohedra_score']
         self.center_residue_score = frag_metrics['nanohedra_score_center']
         self.fragment_residues_total = frag_metrics['number_fragment_residues_total']
-        # can be more than interface_residues because each fragment may have members not in the interface
+        # ^ can be more than self.total_interface_residues because each fragment may have members not in the interface
         self.central_residues_with_fragment_overlap = frag_metrics['number_fragment_residues_center']
         self.multiple_frag_ratio = frag_metrics['multiple_fragment_ratio']
         self.helical_fragment_content = frag_metrics['percent_fragment_helix']
