@@ -195,7 +195,7 @@
 					</MoveMapFactory>
 				</MOVE_MAP_FACTORIES>
 
-				<IMPORT filters="time"/> # movers="design_block" shape_complementarity
+<!--				<IMPORT filters="time"/> # movers="design_block" shape_complementarity-->
 
 				<MOVERS>
 					# the main routine to perform metropolis criteria monte carlo
@@ -228,7 +228,7 @@
 <!--					<Add mover_name="design_block"/>-->
 					<Add mover_name="hbnet_core_design"/> # packing should reach ideal levels here
 					<Add filter_name="shape_complementarity_hbnet_core"/> # if not, throw away, move on
-					<Add filter_name="time"/>
+<!--					<Add filter_name="time"/>-->
 					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # if not, throw away, move on
 					<Add mover_name="dump_pdb"/>
 				</PROTOCOLS>
