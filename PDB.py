@@ -1003,92 +1003,89 @@ class PDB(Structure):
         else:
             return None
 
-    def stride(self, chain=None):
-        """Use Stride to calculate the secondary structure of a PDB.
+    # def stride(self, chain=None):
+    #     """Use Stride to calculate the secondary structure of a PDB.
+    #
+    #     Sets:
+    #         Residue.secondary_structure
+    #     """
+    #     # REM  -------------------- Secondary structure summary -------------------  XXXX
+    #     # REM                .         .         .         .         .               XXXX
+    #     # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
+    #     # STR       HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH  HHHHHHHHHHHHHHHHH               XXXX
+    #     # REM                                                                        XXXX
+    #     # SEQ  51   LIEESQN                                              57          XXXX
+    #     # STR       HHHHHH                                                           XXXX
+    #     # REM                                                                        XXXX
+    #     # LOC  AlphaHelix   ILE     3 A      ALA     33 A                            XXXX
+    #     # LOC  AlphaHelix   TRP    41 A      GLN     63 A                            XXXX
+    #     # REM                                                                        XXXX
+    #     # REM  --------------- Detailed secondary structure assignment-------------  XXXX
+    #     # REM                                                                        XXXX
+    #     # REM  |---Residue---|    |--Structure--|   |-Phi-|   |-Psi-|  |-Area-|      XXXX
+    #     # ASG  ILE A    3    1    H    AlphaHelix    360.00    -29.07     180.4      XXXX
+    #     # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
+    #     # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
+    #
+    #     # ASG    Detailed secondary structure assignment
+    #     #    Format:  6-8  Residue name
+    #     #       10-10 Protein chain identifier
+    #     #       12-15 PDB	residue	number
+    #     #       17-20 Ordinal residue number
+    #     #       25-25 One	letter secondary structure code	**)
+    #     #       27-39 Full secondary structure name
+    #     #       43-49 Phi	angle
+    #     #       53-59 Psi	angle
+    #     #       65-69 Residue solvent accessible area
+    #
+    #     current_pdb_file = self.write(out_path='stride_input-%s-%d.pdb' % (self.name, random() * 100000))
+    #     stride_cmd = [stride_exe_path, current_pdb_file]
+    #     #   -rId1Id2..  Read only Chains Id1, Id2 ...
+    #     #   -cId1Id2..  Process only Chains Id1, Id2 ...
+    #     if chain:
+    #         stride_cmd.append('-c%s' % chain)
+    #
+    #     p = subprocess.Popen(stride_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    #     out, err = p.communicate()
+    #     if out:
+    #         out_lines = out.decode('utf-8').split('\n')
+    #     else:
+    #         self.log.warning('%s: No secondary structure assignment found with Stride' % self.name)
+    #         return None
+    #     # except:
+    #     #     stride_out = None
+    #
+    #     # if stride_out is not None:
+    #     #     lines = stride_out.split('\n')
+    #     os.system('rm %s' % current_pdb_file)
+    #
+    #     residue_idx = 0
+    #     # print(out_lines)
+    #     residues = self.residues
+    #     for line in out_lines:
+    #         # residue_idx = int(line[10:15])
+    #         if line[0:3] == 'ASG':
+    #             # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
+    #             # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
+    #             # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
+    #             residues[residue_idx].secondary_structure = line[24:25]
+    #             residue_idx += 1
+    #     self.secondary_structure = [residue.secondary_structure for residue in self.residues]  # Todo make index access
+    #     # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
+    #     #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
 
-        Must be run with the self.filepath attribute.
-        Todo Entities/chains could have this, but don't currently
+    # def get_secondary_structure(self, chain=None):  # wrapper for stride, could change program eventually
+    #     self.stride()
 
-        Sets:
-            Residue.secondary_structure
-        """
-        # REM  -------------------- Secondary structure summary -------------------  XXXX
-        # REM                .         .         .         .         .               XXXX
-        # SEQ  1    IVQQQNNLLRAIEAQQHLLQLTVWGIKQLQAGGWMEWDREINNYTSLIHS   50          XXXX
-        # STR       HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH  HHHHHHHHHHHHHHHHH               XXXX
-        # REM                                                                        XXXX
-        # SEQ  51   LIEESQN                                              57          XXXX
-        # STR       HHHHHH                                                           XXXX
-        # REM                                                                        XXXX
-        # LOC  AlphaHelix   ILE     3 A      ALA     33 A                            XXXX
-        # LOC  AlphaHelix   TRP    41 A      GLN     63 A                            XXXX
-        # REM                                                                        XXXX
-        # REM  --------------- Detailed secondary structure assignment-------------  XXXX
-        # REM                                                                        XXXX
-        # REM  |---Residue---|    |--Structure--|   |-Phi-|   |-Psi-|  |-Area-|      XXXX
-        # ASG  ILE A    3    1    H    AlphaHelix    360.00    -29.07     180.4      XXXX
-        # ASG  VAL A    4    2    H    AlphaHelix    -64.02    -45.93      99.8      XXXX
-        # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
-
-        # ASG    Detailed secondary structure assignment
-        #    Format:  6-8  Residue name
-        #       10-10 Protein chain identifier
-        #       12-15 PDB	residue	number
-        #       17-20 Ordinal residue number
-        #       25-25 One	letter secondary structure code	**)
-        #       27-39 Full secondary structure name
-        #       43-49 Phi	angle
-        #       53-59 Psi	angle
-        #       65-69 Residue solvent accessible area
-
-        current_pdb_file = self.write(out_path='stride_input-%s-%d.pdb' % (self.name, random() * 100000))
-        stride_cmd = [stride_exe_path, current_pdb_file]
-        #   -rId1Id2..  Read only Chains Id1, Id2 ...
-        #   -cId1Id2..  Process only Chains Id1, Id2 ...
-        if chain:
-            stride_cmd.append('-c%s' % chain)
-
-        p = subprocess.Popen(stride_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        out, err = p.communicate()
-        if out:
-            out_lines = out.decode('utf-8').split('\n')
-        else:
-            self.log.warning('%s: No secondary structure assignment found with Stride' % self.name)
-            return None
-        # except:
-        #     stride_out = None
-
-        # if stride_out is not None:
-        #     lines = stride_out.split('\n')
-        os.system('rm %s' % current_pdb_file)
-
-        residue_idx = 0
-        # print(out_lines)
-        residues = self.residues
-        for line in out_lines:
-            # residue_idx = int(line[10:15])
-            if line[0:3] == 'ASG':
-                # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
-                # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
-                # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
-                residues[residue_idx].secondary_structure = line[24:25]
-                residue_idx += 1
-        self.secondary_structure = [residue.secondary_structure for residue in self.residues]  # Todo make index access
-        # self.secondary_structure = {int(line[10:15].strip()): line[24:25] for line in out_lines
-        #                             if line[0:3] == 'ASG' and line[10:15].strip().isdigit()}
-
-    def get_secondary_structure(self, chain=None):
-        self.stride(chain=chain)
-
-    def get_secondary_structure_chain(self, chain=None):
-        if self.secondary_structure:
-            return self.chain(chain).get_secondary_structure()
-        else:
-            self.fill_secondary_structure()
-            if list(filter(None, self.secondary_structure)):  # check if there is at least 1 secondary struc assignment
-                return self.chain(chain).get_secondary_structure()
-            else:
-                return None
+    # def get_secondary_structure_chain(self, chain=None):
+    #     if self.secondary_structure:
+    #         return self.chain(chain).get_secondary_structure()
+    #     else:
+    #         self.fill_secondary_structure()
+    #         if list(filter(None, self.secondary_structure)):  # check if there is at least 1 secondary struc assignment
+    #             return self.chain(chain).get_secondary_structure()
+    #         else:
+    #             return None
 
     # def get_surface_helix_cb_indices(self, probe_radius=1.4, sasa_thresh=1):
     #     # only works for monomers or homo-complexes
