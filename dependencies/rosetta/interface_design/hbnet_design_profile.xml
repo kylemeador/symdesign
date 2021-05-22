@@ -60,7 +60,15 @@
 
 	<SIMPLE_METRICS>
 		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		<SelectedResidueCountMetric name="M_core_residue_count" residue_selector="" />
+		# Todo make cache use true!
+		<ResidueSummaryMetric name="M_interface_residue_mean_energy" custom_type="" metric="M_int_energy_per_res" action="mean"/> # action_value="(real)" epsilon="0.0001" use_cached_data="true" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)"
 		<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano" custom_type="" force_rescore="false"/>
+		<CalculatorMetric name="M_interaction_energy_density_metric" equation="E / Number" custom_type="filter_core_pack">
+			<Var name="E" reported="M_interaction_energy"/> #  metric="M_interaction_energy"
+			<Var name="Number" reported="M_core_residue_count"/>
+		</CalculatorMetric>
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
@@ -109,13 +117,14 @@
 		# using -ex1-ex2 might need threshold=-0.75
 		# need to ensure a scorefunction with csts "on"
 		# may not need required_residues which gets pulled from design around total. start_selector would prevent much downside though
-		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="10000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="0"/>
-        <MultiplePoseMover name="hbnet_corepack" max_input_poses="2"> # scale to 1000 after tests
+		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="1000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="0"/>
+        <MultiplePoseMover name="hbnet_corepack" max_input_poses="1"> # scale to 1000 after tests
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>
 					# patched version, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
+					<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
 					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
 				</SCOREFXNS>
 
@@ -131,6 +140,7 @@
 					<SymmetricalResidue name="interface2_sym" selector="interface2" />
 					# combined group of all identified interface residues
 					<Or name="tot_interface" selectors="interface1,interface2"/>
+					<SymmetricalResidue name="tot_interface_sym" selector="interface2" />
 					# the negation of all interface residues
 					<Not name="not_interface" selector="tot_interface"/>
 					# other residues that may be designable
@@ -144,13 +154,19 @@
 					# Automatically detect all HBNet residues. CRITICAL for HBNet operation
 					<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
 					<SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues" />
-					<Neighborhood name="hbnet_neighbors" selector="hbnet_residues_sym" include_focus_in_subset="false" distance="8"/> # Cb neighbors
+					<Neighborhood name="hbnet_neighbors" selector="hbnet_residues" include_focus_in_subset="false" distance="8"/> # Cb neighbors
+					<SymmetricalResidue name="hbnet_neighbors_sym" selector="hbnet_neighbors" />
 					<Or name="hbnet_neighbors_or_core" selectors="hbnet_neighbors,core_residues"/>
+					<Or name="hbnet_neighbors_or_core_sym" selectors="hbnet_neighbors_sym,core_residues_sym"/>
 					<Not name="not_hbnet_or_core_neighbors" selector="hbnet_neighbors_or_core"/>
 					<And name="hbnet_interface_neighbors" selectors="hbnet_neighbors,tot_interface"/>
+					<And name="hbnet_interface_neighbors_sym" selectors="hbnet_neighbors_sym,tot_interface_sym"/>
 					<Or name="hbnet_interface_neighbors_or_core" selectors="hbnet_interface_neighbors,core_residues"/>
-					<SymmetricalResidue name="hbnet_interface_neighbors_or_core_sym" selector="hbnet_interface_neighbors_or_core"/>
-					<Not name="not_hbnet_interface_neighbors_or_core" selector="hbnet_interface_neighbors_or_core"/>
+					<Or name="hbnet_interface_neighbors_or_core_sym" selectors="hbnet_interface_neighbors_sym,core_residues_sym"/>
+<!--					<SymmetricalResidue name="hbnet_interface_neighbors_or_core_sym" selector="hbnet_interface_neighbors_or_core"/>-->
+					<Or name="hbnet_or_interface_neighbors_or_core" selectors="hbnet_residues,hbnet_interface_neighbors_or_core"/>
+					<Or name="hbnet_or_interface_neighbors_or_core_sym" selectors="hbnet_residues_sym,hbnet_interface_neighbors_or_core_sym"/>
+					<Not name="not_hbnet_interface_neighbors_or_core_sym" selector="hbnet_interface_neighbors_or_core_sym"/>
 					<And name="hbnet_corepack_interface1" selectors="hbnet_interface_neighbors_or_core_sym,interface1_sym"/>
 					<And name="hbnet_corepack_interface2" selectors="hbnet_interface_neighbors_or_core_sym,interface2_sym"/>
 				</RESIDUE_SELECTORS>
@@ -196,9 +212,20 @@
 					</MoveMapFactory>
 				</MOVE_MAP_FACTORIES>
 
+				<SIMPLE_METRICS>
+					<SelectedResidueCountMetric name="M_core_design_residue_count" residue_selector="hbnet_or_interface_neighbors_or_core"/>
+					# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
+					<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano" custom_type="" force_rescore="false"/>
+					<CalculatorMetric name="M_interaction_energy_density_metric" equation="E / Number" custom_type="filter_core_pack">
+						<Var name="E" reported="M_interaction_energy"/> #  metric="M_interaction_energy"
+						<Var name="Number" reported="M_core_design_residue_count"/>
+					</CalculatorMetric>
+				</SIMPLE_METRICS>
 <!--				<IMPORT filters="time"/> # movers="design_block" shape_complementarity-->
-				<FILTERS>
-					<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.65" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+				<FILTERS>  # TODO change min_sc to ~0.65 or 0.7
+					<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.6" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+					<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+					<SimpleMetricFilter name="core_design_residue_count" metric="M_core_design_residue_count" comparison_type="gt" cutoff="10" confidence="1"/> #  use_cached_data="true" epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
 				</FILTERS>
 
 				<MOVERS>
@@ -219,7 +246,11 @@
 <!--&lt;!&ndash;						<Add mover_name="rotamer_trials_min_mover"/>&ndash;&gt;-->
 <!--					</ParsedProtocol>-->
 <!--					<LoopOver name="design_loop" iterations="4" mover_name="design_block"/>-->
+					<RunSimpleMetrics name="run_core_design_metrics" metrics="M_interaction_energy" prefix="" suffix="" override="false"/> # M_core_design_residue_count
+					<RunSimpleMetrics name="run_core_design_average_residue_energy" metrics="M_interaction_energy_density_metric" prefix="" suffix="" override="false"/>
 					<FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_hbnet_core" report_as="sc_hbnet_core" filter_name="shape_complementarity_hbnet_core"/>
+					<FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density_filter" report_as="ie_density_hbnet_core" filter_name="interaction_energy_density_filter"/>
+					<FilterReportAsPoseExtraScoresMover name="RP_core_design_residue_count" report_as="residue_count_hbnet_core" filter_name="core_design_residue_count"/>
 					<DumpPdb name="dump_pdb" fname="hbnet_interface_neighbors_and_core_packing.pdb" scorefxn="2015_nano_cst" tag_time="1"/>
 				</MOVERS>
 
@@ -227,14 +258,19 @@
 <!--					<Add mover_name="restore_core_pack"/>-->
 <!--					<Add mover_name="design_block"/>-->
 					<Add mover_name="hbnet_core_design"/> # packing should reach ideal levels here
-					<Add filter_name="shape_complementarity_hbnet_core"/> # if not, throw away, move on
+<!--					<Add filter_name="shape_complementarity_hbnet_core" report_at_end="false"/> # if not, throw away, move on-->
 <!--					<Add filter_name="time"/>-->
-					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # if not, throw away, move on
+					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # if not, throw away, move on. THIS SHOULD FILTER although it is saved to pose
+					<Add mover_name="run_core_design_metrics"/>
+					<Add mover_name="RP_core_design_residue_count"/> # calculation above may be redundant when done here TESTING
+<!--					<Add mover_name="run_core_design_average_residue_energy"/>-->
+					<Add mover_name="RP_interaction_energy_density_filter"/>
 					<Add mover_name="dump_pdb"/>
 				</PROTOCOLS>
 
 			</ROSETTASCRIPTS>
         </MultiplePoseMover>
+
 		<MultiplePoseMover name="hbnet_trim_design_pool" max_input_poses="1000">
 			<SELECT>
 				<AndSelector>
@@ -242,22 +278,33 @@
 						<FilterReporter filter="read_sc_hbnet_core"/>
 					</TopNByProperty>
 					<TopNByProperty n="50" order="ascending">
-						<FilterReporter filter="interaction_energy_filter"/>
+						<FilterReporter filter="read_interaction_energy_density_filter"/>
 					</TopNByProperty>
 				</AndSelector>
 			</SELECT>
 		</MultiplePoseMover>
+
 		<MultiplePoseMover name="finalize_interface_packing" max_input_poses="50">
 			<SELECT>
 				<AndSelector>
 					<TopNByProperty n="20" order="descending">
-						<FilterReporter filter="shape_complementarity"/> # per residue energy metric?
+						<FilterReporter filter="read_interface_residue_count"/>
 					</TopNByProperty>
 				</AndSelector>
 			</SELECT>
 
 			<ROSETTASCRIPTS>
 				<RESIDUE_SELECTORS>
+					<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					<SymmetricalResidue name="core_residues_sym" selector="core_residues" />
+					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+<!--					<SymmetricalResidue name="interface1_sym" selector="interface1" />-->
+					# same, but for residues from chain "B"
+					<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+<!--					<SymmetricalResidue name="interface2_sym" selector="interface2" />-->
+					# combined group of all identified interface residues
+					<Or name="tot_interface" selectors="interface1,interface2"/>
 					<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
 					<SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues" />
 					<Neighborhood name="hbnet_neighbors" selector="hbnet_residues_sym" include_focus_in_subset="false" distance="8"/> # Cb neighbors
@@ -320,10 +367,17 @@
 	<FILTERS>
 		<Time name="time"/>
 		<ReadPoseExtraScoreFilter name="read_sc_hbnet_core" term_name="sc_hbnet_core" threshold="-1"/>
+		<ReadPoseExtraScoreFilter name="read_interaction_energy_density_filter" term_name="ie_density_hbnet_core" threshold="-1"/>
+		<ReadPoseExtraScoreFilter name="read_interface_residue_count" term_name="residue_count_hbnet_core" threshold="-1"/>
 <!--		<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.65" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
 		<ShapeComplementarity name="shape_complementarity_core" min_sc="0.70" min_interface="0" residue_selector1="core_interface1_sym" residue_selector2="core_interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.65" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+<!--		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+		<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+<!--		<CalculatorFilter name="interaction_energy_density_filter" equation="E / IA" threshold="(&real 0)" >-->
+<!--		  <Var name="E" filter="interaction_energy_filter"/>-->
+<!--		  <Var name="IA" filter="interface_area"/>-->
+<!--		</CalculatorFilter>-->
 	</FILTERS>
 
 	<PROTOCOLS>
