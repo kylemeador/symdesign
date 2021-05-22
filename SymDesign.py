@@ -29,7 +29,7 @@ from utils.PDBUtils import orient_pdb_file
 from Query import Flags
 from classes.SymEntry import SymEntry
 from classes.EulerLookup import EulerLookup
-from interface_analysis.Database import FragmentDatabase
+from interface_analysis.Database import FragmentDatabase, Database
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status, script_cmd, rosetta_flags
 from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, relax_flags
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
@@ -942,6 +942,12 @@ if __name__ == '__main__':
                     design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
 
         master_outdir = next(iter(design_directories))  # from collect_designs? (when not from file) or multiple dirs
+        master_db = Database(master_outdir.orient_dir, master_outdir.orient_asu_dir, master_outdir.refine_dir,
+                             master_outdir.stride_dir, master_outdir.sequences, master_outdir.profiles, sql=None,
+                             log=logger)
+        for design in design_directories:
+            design.link_master_database(master_db)
+
         master_outdir.make_path(master_outdir.protein_data)
         master_outdir.make_path(master_outdir.pdbs)
         if queried_flags['nanohedra_output']:
@@ -983,8 +989,11 @@ if __name__ == '__main__':
                                 continue
                             # extract the asu from the oriented file for symmetric refinement
                             oriented_pdb = PDB.from_file(orient_file, log=None)
-                            oriented_pdb.entities[0].write(out_path=os.path.join(master_outdir.orient_asu_dir,
-                                                                                 '%s.pdb' % oriented_pdb.name))
+                            oriented_asu = oriented_pdb.entities[0]
+                            oriented_asu.stride(to_file=os.path.join(master_outdir.stride_dir,
+                                                                     '%s.stride' % oriented_asu.name))
+                            oriented_asu.write(out_path=os.path.join(master_outdir.orient_asu_dir,
+                                                                     '%s.pdb' % oriented_asu.name))
                         else:
                             logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
                                            'downloading it from the PDB. Attempting to copy from %s job data source'
@@ -1251,11 +1260,10 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
-            zipped_args = zip(design_directories, repeat(queried_flags.get('increment_chains', False)))
-            results = SDUtils.mp_starmap(DesignDirectory.expand_asu, zipped_args, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.expand_asu, design_directories, threads=threads)
         else:
             for design_dir in design_directories:
-                results.append(design_dir.expand_asu(increment_chains=queried_flags.get('increment_chains', False)))
+                results.append(design_dir.expand_asu())
 
         terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
