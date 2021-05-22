@@ -624,6 +624,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.make_path(self.refine_dir)
         # self.make_path(self.sdf_dir)
 
+    def link_master_database(self, database):
+        """Connect the design to the master Database object to fetch shared resources"""
+        self.database = database
+
     @handle_design_errors(errors=(DesignError, ))
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
@@ -980,8 +984,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Get ASU distance parameters
         if self.design_dimension:  # when greater than 0
             max_com_dist = 0
-            for oligomer in self.oligomers:  # Todo modernize once change load pose to oligomer agnostic
-                com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
+            for entity in self.pose.entities:
+                com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - entity.center_of_mass)
                 # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
                 if com_dist > max_com_dist:
                     max_com_dist = com_dist
@@ -1206,9 +1210,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
         #                       ' an ASU it may be missing crucial interface contacts. Is this what you want?')
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-
-        if self.nano:  # Todo may need to do this for non Nanohedra inputs
-            self.log.info('Input Oligomers: %s' % ', '.join(oligomer.name for oligomer in self.oligomers))
+        self.log.info('Input Entities: %s' % ', '.join(entity.name for entity in self.pose.entities))
 
         # chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
         # self.log.info('Found the following chain breaks in the ASU:\n\t%s'
@@ -1399,36 +1401,56 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Retrieve oligomeric files from either the design directory, the oriented directory, or the refined directory
         and load them for further processing
 
+        Keyword Args:
+            master_db=None (Database): The Database object which stores relevant files
+            refined=False (bool): Whether or not to use the refined oligomeric directory
+            oriented=False (bool): Whether or not to use the oriented oligomeric directory
         Sets:
             self.oligomers (list[PDB])
         """
-        if refined:  # prioritize the refined version
-            path = self.refine_dir
-            for oligomer in self.oligomer_names:
-                if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
-                    oriented = True  # fall back to the oriented version
-                    self.log.debug('Couldn\'t find oligomers in the refined directory')
-                    break
-        if oriented:
-            path = self.orient_dir
-            for oligomer in self.oligomer_names:
-                if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
-                    path = self.path
-                    self.log.debug('Couldn\'t find oligomers in the oriented directory')
+        if self.database:
+            # refined, oriented = False, False
+            if refined:
+                source = 'refined'
+            elif oriented:
+                source = 'oriented'
+            self.oligomers.clear()
+            for oligomer_name in self.oligomer_names:
+                self.oligomers.append(self.database.retrieve_data(from_source=source, name=oligomer_name))
 
-        if not refined and not oriented:
-            path = self.path
+        else:
+            if refined:  # prioritize the refined version
+                path = self.refine_dir
+                for oligomer in self.oligomer_names:
+                    if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
+                        oriented = True  # fall back to the oriented version
+                        self.log.debug('Couldn\'t find oligomers in the refined directory')
+                        break
+            if oriented:
+                path = self.orient_dir
+                for oligomer in self.oligomer_names:
+                    if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
+                        path = self.path
+                        self.log.debug('Couldn\'t find oligomers in the oriented directory')
 
-        idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
-        self.oligomers, oligomer_files = [], []  # for every call we should reset the list
-        for idx, name in enumerate(self.oligomer_names, 1):
-            oligomer_files.extend(glob(os.path.join(path, '%s*.pdb*' % name)))  # first * is for DesignDirectory
-        assert len(oligomer_files) == idx, \
-            'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
-            % (idx, len(oligomer_files), os.path.join(path, '*.pdb*'), oligomer_files)
-        for file in oligomer_files:
-            self.oligomers.append(PDB.from_file(file, name=os.path.basename(file).split(os.sep)[0], log=self.log))
+            if not refined and not oriented:
+                path = self.path
+
+            idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
+            oligomer_files = []
+            for idx, name in enumerate(self.oligomer_names, 1):
+                oligomer_files.extend(glob(os.path.join(path, '%s*.pdb*' % name)))  # first * is for DesignDirectory
+            assert len(oligomer_files) == idx, \
+                'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
+                % (idx, len(oligomer_files), os.path.join(path, '*.pdb*'), oligomer_files)
+
+            self.oligomers.clear()  # for every call we should reset the list
+            for file in oligomer_files:
+                self.oligomers.append(PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
+                                                    log=self.log))
         self.log.debug('%d matching oligomers found' % len(self.oligomers))
+        assert len(self.oligomers) == len(self.oligomer_names), \
+            'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.oligomer_names))
 
     def load_pose(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
@@ -1472,26 +1494,32 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # # BOTH OF THESE PRODUCE THE SAME FILE WITH THE OLIGOMER TRANSFORMED
             # # SOMETHING IS HAPPENING WHEN THE POSE IS INITIALIZED CAUSING IT TO REVERT TO A NON TRANSFORMED VERSION?!
 
-            self.pose = Pose.from_pdb(self.oligomers[0], sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
+            asu = PDB.from_entities(chain.from_iterable([oligomer.entities for oligomer in self.oligomers]),
+                                    cryst_record=self.cryst_record, log=self.log)
+            self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                       ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-            #                         self.fragment_observations
-            for oligomer in self.oligomers[1:]:
-                self.pose.add_pdb(oligomer)
-            self.pose.asu = self.pose.pdb  # set the asu
-            # or Todo Test
-            # asu = self.pose.get_contacting_asu()
+            # This mechanism doesn't work as the entities attached chains are not handled correctly
+            # self.pose = Pose.from_pdb(self.oligomers[0], sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
+            #                           design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
+            #                           ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
+            # #                         self.fragment_observations
+            # for oligomer in self.oligomers[1:]:
+            #     self.pose.add_pdb(oligomer)
+            # self.pose.asu = self.pose.pdb  # set the asu
+            # # or Todo Test
+            # # asu = self.pose.get_contacting_asu()
         else:
             self.pose = Pose.from_asu_file(self.source, sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
                                            design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                            ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-            if self.pose_transformation:
-                for idx, entity in enumerate(self.pose.entities, 1):
-                    entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
-            else:
-                # may switch this whole function to align the assembly identified by the asu entities PDB code after
-                # download from PDB API
-                self.pose.assign_entities_to_sub_symmetry()  # Todo debugggererer
+        if self.pose_transformation:
+            for idx, entity in enumerate(self.pose.entities, 1):
+                entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
+        else:
+            # may switch this whole function to align the assembly identified by the asu entities PDB code after
+            # download from PDB API
+            self.pose.assign_entities_to_sub_symmetry()  # Todo debugggererer
 
         self.pose.generate_symmetric_assembly()
         # Save renumbered PDB to clean_asu.pdb
