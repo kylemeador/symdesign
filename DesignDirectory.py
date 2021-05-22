@@ -1073,7 +1073,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
-        main_cmd += ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % flags, '-out:file:score_only',
+        main_cmd += ['-in:file:l', pdb_list, '-in:file:native', self.refined_pdb, '@%s' % flags, '-out:file:score_only',
                      self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
         if self.mpi:
             main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
@@ -1177,7 +1177,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
         else:
             self.sym_def_file = 'null'
-            self.symmetry_protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
+            self.symmetry_protocol = 'asymmetric'
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
 
@@ -1219,7 +1219,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # # Get ASU distance parameters
         # if self.design_dimension:  # when greater than 0
         #     max_com_dist = 0
-        #     for oligomer in self.oligomers:  # Todo modernize once change load pose to oligomer agnostic
+        #     for oligomer in self.oligomers:
         #         com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - oligomer.center_of_mass)
         #         # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
         #         if com_dist > max_com_dist:
@@ -1262,13 +1262,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         shell_scripts = []
         # RELAX: Prepare command
-        relax_cmd = main_cmd + relax_flags + ['@%s' % flags, '-in:file:native', self.refine_pdb] + \
-            ['-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
-        refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
+        # refine_cmd = relax_cmd + ['-in:file:s', self.refine_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[1]]
         if self.consensus:
             if self.design_with_fragments:
-                consensus_cmd = relax_cmd + \
-                                ['-in:file:s', self.consensus_pdb, '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
+                consensus_cmd = main_cmd + relax_flags + \
+                    ['@%s' % flags, '-in:file:s', self.consensus_pdb, '-in:file:native', self.refined_pdb,
+                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[5]),
+                     '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
                 if self.script:
                     shell_scripts.append(write_shell_script(subprocess.list2cmdline(consensus_cmd),
                                                             name=PUtils.stage[5], out_path=self.scripts,
@@ -1276,48 +1276,46 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 else:
                     self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
                     consensus_process = subprocess.Popen(consensus_cmd)
-                    # Wait for Rosetta Consensus command to complete
                     consensus_process.communicate()
             else:
                 self.log.critical('Cannot run consensus design without fragment info and none was found.'
                                   ' Did you mean to design with -generate_fragments False? You will need to run with'
                                   '\'True\' if you want to use fragments')
 
-        # Mutate all design positions to Ala before the Refinement
-        # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
-        # mutated_pdb = copy.copy(self.pose.pdb)  # this method is implemented, incompatible with downstream use!
-        # Have to use the self.pose.pdb as the Residue objects in entity_residues are from self.pose.pdb and not copy()!
-        for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
-            if interface_residue_sets[0]:  # check that there are residues present
-                for idx, interface_residue_set in enumerate(interface_residue_sets):
-                    self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
-                    for residue in interface_residue_set:
-                        self.log.debug('Mutating %d%s' % (residue.number, residue.type))
-                        if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
-                            self.pose.pdb.mutate_residue(residue=residue, to='A')
-
-        self.pose.pdb.write(out_path=self.refine_pdb)
-        self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
-
-        # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
-        if self.script:
-            self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
-            shell_scripts.append(write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
-                                                    out_path=self.scripts, status_wrap=self.serialized_info))
-        else:
-            self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
-            refine_process = subprocess.Popen(refine_cmd)
-            # Wait for Rosetta Refine command to complete
-            refine_process.communicate()
+        # # Mutate all design positions to Ala before the Refinement
+        # # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
+        # # mutated_pdb = copy.copy(self.pose.pdb)  # this method is implemented, incompatible with downstream use!
+        # # Have to use the self.pose.pdb as the Residue objects in entity_residues are from self.pose.pdb and not copy()!
+        # for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
+        #     if interface_residue_sets[0]:  # check that there are residues present
+        #         for idx, interface_residue_set in enumerate(interface_residue_sets):
+        #             self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
+        #             for residue in interface_residue_set:
+        #                 self.log.debug('Mutating %d%s' % (residue.number, residue.type))
+        #                 if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+        #                     self.pose.pdb.mutate_residue(residue=residue, to='A')
+        #
+        # self.pose.pdb.write(out_path=self.refine_pdb)
+        # self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
+        #
+        # # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
+        # if self.script:
+        #     self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
+        #     shell_scripts.append(write_shell_script(subprocess.list2cmdline(refine_cmd), name=PUtils.stage[1],
+        #                                             out_path=self.scripts, status_wrap=self.serialized_info))
+        # else:
+        #     self.log.info('Refine Command: %s' % subprocess.list2cmdline(refine_cmd))
+        #     refine_process = subprocess.Popen(refine_cmd)
+        #     # Wait for Rosetta Refine command to complete
+        #     refine_process.communicate()
 
         # DESIGN: Prepare command and flags file
         # flags_design = self.prepare_rosetta_flags(design_variables, PUtils.stage[2], out_path=self.scripts)
         evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        design_cmd = main_cmd + \
-            ['-in:file:pssm', evolutionary_profile, '-use_occurrence_data'] if evolutionary_profile else [] + \
-            ['-in:file:s', self.refined_pdb, '-in:file:native', self.refine_pdb, '@%s' % flags,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, PUtils.stage[2] + '.xml'),  # '-holes:dalphaball'
+        design_cmd = main_cmd + ['-in:file:pssm', evolutionary_profile] if evolutionary_profile else [] + \
+            ['-in:file:s', self.refined_pdb, '-in:file:native', self.refined_pdb, '@%s' % flags,
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[2]),
              '-out:suffix', '_%s' % PUtils.stage[2], '-nstruct', str(self.number_of_trajectories)]
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
@@ -1329,10 +1327,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #                              for chain, name in zip(all_chains, list(self.sdfs.keys()))])  # REQUIRES py3.6
         # flags_metric = self.prepare_rosetta_flags(refine_variables, PUtils.stage[3], out_path=self.scripts)
 
-        pdb_list = os.path.join(self.scripts, 'design_files.txt')
-        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
+        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list]
         metric_cmd = main_cmd + \
-            ['-in:file:l', pdb_list, '-in:file:native', self.refine_pdb, '@%s' % flags,
+            ['-in:file:l', self.pdb_list, '-in:file:native', self.refined_pdb, '@%s' % flags,
              '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[3])]
 
@@ -1551,40 +1548,29 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #  needs to be oriented and refined
             # assign designable residues to interface1/interface2 variables, not necessary for non complex PDB jobs
             self.identify_interface()
-            if self.consensus:
-                # TODO implement pose.consensus here
-                if self.design_with_fragments:
-                    stage = PUtils.stage[5]
-                    refine_pdb = self.consensus_pdb
-                else:
-                    raise DesignError(
-                        'Cannot run consensus design without fragment info and none was found. Did you mean '
-                        'to design without -generate_fragments? You will need to include the flag if you want'
-                        ' to use fragments')
-            else:
-                # Mutate all design positions to Ala before the Refinement
-                # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
-                # mutated_pdb = copy.copy(self.pose.pdb)  # copy method implemented, but incompatible!
-                # Have to use self.pose.pdb as Residue objects in entity_residues are from self.pose.pdb and not copy()!
-                for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
-                    if interface_residue_sets[0]:  # check that there are residues present
-                        for idx, interface_residue_set in enumerate(interface_residue_sets):
-                            self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
-                            for residue in interface_residue_set:
-                                self.log.debug('Mutating %d%s' % (residue.number, residue.type))
-                                if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
-                                    self.pose.pdb.mutate_residue(residue=residue, to='A')
+            # Mutate all design positions to Ala before the Refinement
+            # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
+            # mutated_pdb = copy.copy(self.pose.pdb)  # copy method implemented, but incompatible!
+            # Have to use self.pose.pdb as Residue objects in entity_residues are from self.pose.pdb and not copy()!
+            for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
+                if interface_residue_sets[0]:  # check that there are residues present
+                    for idx, interface_residue_set in enumerate(interface_residue_sets):
+                        self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
+                        for residue in interface_residue_set:
+                            self.log.debug('Mutating %d%s' % (residue.number, residue.type))
+                            if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+                                self.pose.pdb.mutate_residue(residue=residue, to='A')
 
-                self.pose.pdb.write(out_path=self.refine_pdb)
-                refine_pdb = self.refine_pdb
-                self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
+            self.pose.pdb.write(out_path=self.refine_pdb)
+            refine_pdb = self.refine_pdb
+            self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
         else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
             flags = os.path.join(self.refine_dir, 'refine_flags')
             flag_dir = self.refine_dir
             pdb_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
             # out_put_pdb_path = os.path.join(self.refine_dir, '%s.pdb' % self.pose.name)
             refine_pdb = self.source
-            additional_flags = ['-no_scorefile', 'true']  # -run:no_scorefile? Todo Test
+            additional_flags = ['-no_scorefile', 'true']
 
         if force_flags or not os.path.exists(flags):  # Generate a new flags file
             self.prepare_symmetry_for_rosetta()
@@ -1592,20 +1578,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.make_path(flag_dir)
             flags = self.prepare_rosetta_flags(pdb_path=pdb_path, out_path=flag_dir)
 
-        # RELAX: Prepare command Todo remove in:file:native as it shouldn't be necessary without metrics
-        relax_cmd += relax_flags + ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [] + \
-            additional_flags + ['@%s' % flags, '-in:file:native', self.source, '-in:file:s', refine_pdb,
-                                '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
-                                '-parser:script_vars', 'switch=%s' % stage]
+        # RELAX: Prepare command
+        relax_cmd += relax_flags + additional_flags + \
+            ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [] + \
+            ['@%s' % flags, '-in:file:s', refine_pdb,
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
+             '-parser:script_vars', 'switch=%s' % stage]
         self.log.info('%s Command: %s' % (stage.title(), subprocess.list2cmdline(relax_cmd)))
 
-        # Create executable/Run FastRelax on Clean ASU/Consensus ASU with RosettaScripts
+        # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.script:
             write_shell_script(subprocess.list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
                                status_wrap=self.serialized_info)
         else:
             relax_process = subprocess.Popen(relax_cmd)
-            # Wait for Rosetta Consensus command to complete
             relax_process.communicate()
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
