@@ -1,9 +1,11 @@
 import os
 import math
+from glob import glob
 
 from PDB import PDB
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
+from Structure import parse_stride
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log
 from utils.MysqlPython import Mysql
 
@@ -13,6 +15,90 @@ from utils.MysqlPython import Mysql
 # https://new.rosettacommons.org/docs/latest/rosetta_basics/options/Database-options
 logger = start_log(name=__name__)
 index_offset = 1
+
+
+class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
+    def __init__(self, orient, orient_asu, refine, stride, sequences, hhblits_profiles, sql=None, log=logger):
+        if sql:
+            raise DesignError('SQL set up has not been completed!')
+
+        self.log = log
+        self.orient = DataStore(location=orient, extension='.pdb*', sql=sql, log=log)
+        self.orient_asu = DataStore(location=orient_asu, extension='.pdb', sql=sql, log=log)
+        self.refine = DataStore(location=refine, extension='.pdb', sql=sql, log=log)
+        self.stride = DataStore(location=stride, extension='.stride', sql=sql, log=log)
+        self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
+        self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
+
+    def retrieve_data(self, from_source=None, name=None):
+        """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
+        file. Raise an error if source or file/SQL doesn't exist
+
+        Keyword Args:
+
+        Returns:
+            (object): The object requested will depend on the source
+        """
+        object_db = getattr(self, from_source, None)
+        if not object_db:
+            raise DesignError('There is no source named %s found in the Design Database. Possible sources are: %s'
+                              % (from_source, ', '.join(self.__dict__)))
+
+        data = getattr(object_db, name, None)
+        if not data:
+            object_db.name = object_db.get_data(name, log=None)
+            data = object_db.name  # store the new data as an attribute
+
+        return data
+
+    def retrieve_file(self, from_source=None, name=None):
+        """Retrieve the specified file on disk for subsequent parsing"""
+        object_db = getattr(self, from_source, None)
+        if not object_db:
+            raise DesignError('There is no source named %s found in the Design Database' % from_source)
+
+        return object_db.location(name)
+
+
+class DataStore:
+    def __init__(self, location=None, extension='.txt', sql=None, log=logger):
+        self._location = location
+        self.extension = extension
+        self.sql = sql
+        self.log = log
+
+        if '.pdb' in extension:
+            self.load_file = PDB.from_file
+        elif extension == 'fasta':
+            self.load_file = 'load from fasta'  # Todo
+        elif extension == '.stride':
+            self.load_file = parse_stride
+        elif extension in ['.hmm', '.pssm']:
+            self.load_file = 'load from pssm'  # Todo
+        else:  # '.txt' read the file and return the lines
+            self.load_file = self.read_file
+
+    def location(self, name):
+        """Returns the actual location by combining the requested name with the stored ._location"""
+        path = os.path.join(self._location, '%s.%s' % (name, self.extension))
+        file_location = glob(path)
+        if len(file_location) > 1:
+            self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, file_location[0]))
+
+        return file_location[0]
+
+    def get_data(self, filename, **kwargs):
+        if self.sql:
+            dummy = True
+        else:
+            return self.load_file(self.location(filename), **kwargs)
+
+    @staticmethod
+    def read_file(file, **kwargs):
+        with open(file, 'r') as f:
+            lines = f.readlines()
+
+        return lines
 
 
 class ClusterInfoFile:

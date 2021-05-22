@@ -1578,9 +1578,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         pose_secondary_structure = ''
         for entity in self.active_entities:
             if not entity.secondary_structure:
-                if source_db:  # Todo
-                    raise DesignError('Secondary structure from DB functionality has not been built')
-                    entity.fill_secondary_structure(secondary_structure=source_db.get_secondary_structure(entity.name))
+                if source_db:
+                    # raise DesignError('Secondary structure from DB functionality has not been built')
+                    entity.fill_secondary_structure(secondary_structure=source_db.retrieve_data(from_source='stride',
+                                                                                                name=entity.name))
                 elif source_dir:
                     entity.parse_stride(os.path.join(source_dir, '%s.stride' % entity.name))
                 else:
