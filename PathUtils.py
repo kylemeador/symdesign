@@ -55,6 +55,7 @@ pose_file = 'docked_pose_info_file.txt'
 frag_profile = '_fragment_profile'
 protein_data = 'ProteinData'
 sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
+# profiles = 'profiles'
 design_directory = 'Designs'
 
 data = 'data'
@@ -168,7 +169,7 @@ symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
 sym_weights = 'ref2015_sym.wts_patch'
 solvent_weights = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
-protocol = {-1: 'null', 0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
+protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 # Cluster Dependencies and Multiprocessing
 sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
