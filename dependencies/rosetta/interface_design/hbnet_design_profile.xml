@@ -20,6 +20,7 @@
 		<SymmetricalResidue name="interface2_sym" selector="interface2" />
 		# combined group of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
+		<SymmetricalResidue name="tot_interface_sym" selector="tot_interface"/>
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
 		# other residues that may be designable
@@ -131,7 +132,7 @@
 				<RESIDUE_SELECTORS>
 					<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 					<SymmetricalResidue name="core_residues_sym" selector="core_residues"/>
-					<Neighborhood name="core_neighbors" selector="core_residues_sym" include_focus_in_subset="false" distance="8"/> # Cb neighbors
+					<Neighborhood name="core_neighbors_sym" selector="core_residues_sym" include_focus_in_subset="false" distance="8"/> # Cb neighbors
 					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 					<SymmetricalResidue name="interface1_sym" selector="interface1" />
@@ -140,7 +141,7 @@
 					<SymmetricalResidue name="interface2_sym" selector="interface2" />
 					# combined group of all identified interface residues
 					<Or name="tot_interface" selectors="interface1,interface2"/>
-					<SymmetricalResidue name="tot_interface_sym" selector="interface2" />
+					<SymmetricalResidue name="tot_interface_sym" selector="tot_interface" />
 					# the negation of all interface residues
 					<Not name="not_interface" selector="tot_interface"/>
 					# other residues that may be designable
