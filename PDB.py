@@ -53,23 +53,23 @@ class PDB(Structure):
         # self.cb_coords = []
         self.chain_id_list = []  # unique chain IDs in PDB Todo refactor
         self.chains = []
-        self.cryst = None  # {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        self.cryst_record = None
+        self.cryst = kwargs.get('cryst', None)  # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
+        self.cryst_record = kwargs.get('cryst_record', None)
         self.dbref = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
-        self.design = False  # assume not a design unless explicitly found to be a design
+        self.design = kwargs.get('design', False)  # assume not a design unless explicitly found to be a design
         self.entities = []
         self.entity_d = {}  # {1: {'chains': [Chain objs], 'seq': 'GHIPLF...', 'representative': 'A'}
         # ^ ZERO-indexed for recap project!!!
-        self.filepath = None  # PDB filepath if instance is read from PDB file
+        self.filepath = file  # PDB filepath if instance is read from PDB file
         self.header = []
-        self.reference_aa = None
-        self.resolution = None
+        self.reference_aa = None  # object for reference residue coordinates
+        self.resolution = kwargs.get('resolution', None)
         self.rotation_d = {}
         self.reference_sequence = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.sasa_chain = []
         # self.sasa_residues = []
         # self.sasa = []
-        self.space_group = None
+        self.space_group = kwargs.get('space_group', None)
         # self.structure_containers.extend([self.chains, self.entities])
         self.structure_containers.extend(['chains', 'entities'])
         self.uc_dimensions = []
@@ -292,14 +292,13 @@ class PDB(Structure):
 
     def readfile(self, filepath, lazy=False, **kwargs):  # name=None,
         """Reads .pdb file and feeds PDB instance"""
-        self.filepath = filepath
+        with open(self.filepath, 'r') as f:
+            pdb_lines = f.readlines()
+
         if not self.name:
             formatted_filename = os.path.splitext(os.path.basename(filepath))[0].replace('pdb', '')
             underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
             self.name = formatted_filename[:underscore_idx]
-
-        with open(self.filepath, 'r') as f:
-            pdb_lines = f.readlines()
 
         chain_ids = []
         seq_res_lines = []
