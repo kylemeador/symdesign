@@ -196,7 +196,7 @@
 			<!--		# restrict all non-interface residues to no repacking and no design-->
 			<!--		<OperateOnResidueSubset name="non_int_no_repack" selector="not_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>-->
 					<OperateOnResidueSubset name="hbnet_rtr" selector="hbnet_residues"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
-					<OperateOnResidueSubset name="design_hbnet_interface_neighbors_and_core" selector="not_hbnet_interface_neighbors_or_core"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+					<OperateOnResidueSubset name="design_hbnet_interface_neighbors_and_core" selector="not_hbnet_interface_neighbors_or_core_sym"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 					# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
 					<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 					# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
