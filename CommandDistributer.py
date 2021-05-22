@@ -39,7 +39,8 @@ rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
      # '-overwrite',
      '-linmem_ig 10', '-out:file:scorefile_format json', '-output_only_asymmetric_unit true', '-no_chainend_ter true',
      '-write_seqres_records true', '-output_pose_energies_table false', '-output_pose_cache_data false',
-     '-holes::dalphaball %s' % PUtils.dalphaball if os.path.exists(PUtils.dalphaball) else '',
+     '-holes:dalphaball %s' % PUtils.dalphaball if os.path.exists(PUtils.dalphaball) else '',
+     '-use_occurrence_data',  # Todo integrate into xml with Rosetta Source update
      '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB VirtualNTerm '
      'VirtualDNAPhosphate CTermConnect sc_orbitals pro_hydroxylated_case1 N_acetylated C_methylamidated cys_acetylated'
      'pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated tyr_phosphorylated tyr_diiodinated tyr_sulfated'
