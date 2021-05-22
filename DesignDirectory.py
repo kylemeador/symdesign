@@ -1,10 +1,10 @@
 import os
 import copy
-import math
+from math import ceil, sqrt
 import shutil
 import subprocess
 from glob import glob
-from itertools import combinations, repeat
+from itertools import combinations, repeat, chain
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -66,6 +66,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.construct_pose = construct_pose
 
         self.project_designs = None
+        self.database = None
         self.protein_data = None
         # design_symmetry/data (P432/Data)
         self.pdbs = None
@@ -78,9 +79,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # design_symmetry/data/pdbs/refined (P432/Data/PDBs/refined)
         self.stride_dir = None
         # design_symmetry/data/pdbs/stride (P432/Data/PDBs/refined)
+        self.sequence_info = None
+        # design_symmetry/sequence_info (P432/SequenceInfo)
         self.sequences = None
-        # design_symmetry/sequences (P432/Sequence_Info)
-        # design_symmetry/data/sequences (P432/Data/Sequence_Info)
+        # design_symmetry/sequence_info/sequences (P432/SequenceInfo/sequences)
+        self.profiles = None
+        # design_symmetry/sequence_info/profiles (P432/SequenceInfo/profiles)
         self.all_scores = None
         # design_symmetry/all_scores (P432/All_Scores)
         self.trajectories = None
@@ -129,6 +133,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_consensus.pdb
         self.consensus_design_pdb = None
         # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/designs/clean_asu_for_consensus.pdb
+        self.pdb_list = None
 
         self.sdf_dir = None
         # path/to/directory/sdf/
@@ -136,7 +141,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sym_def_file = None
         self.symmetry_protocol = None
         self.oligomer_names = []
-        self.oligomers = None
+        self.oligomers = []
 
         # todo integrate these flags with SymEntry and pass to Pose
         # self.sym_entry_number = None
@@ -191,6 +196,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.script = True
         self.mpi = False
         self.output_assembly = False
+        self.increment_chains = kwargs.get('increment_chains', False)
         self.ignore_clashes = False
         # Analysis flags
         self.analysis = False
@@ -602,7 +608,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.refine_dir = os.path.join(self.pdbs, 'refined')
         self.stride_dir = os.path.join(self.pdbs, 'stride')
         # self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
-        self.sequences = os.path.join(self.protein_data, PUtils.sequence_info)
+        self.sequence_info = os.path.join(self.protein_data, PUtils.sequence_info)
+        self.sequences = os.path.join(self.sequence_info, 'sequences')
+        self.profiles = os.path.join(self.sequence_info, 'profiles')
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO db integration
         self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
@@ -652,11 +660,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             except IndexError:  # glob found no files
                 self.source = None
         self.assembly = os.path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
-        self.refine_pdb = os.path.join(self.path, '%s_for_refine.pdb' % os.path.splitext(PUtils.clean_asu)[0])
-        self.consensus_pdb = os.path.join(self.path, '%s_for_consensus.pdb' % os.path.splitext(PUtils.clean_asu)[0])
+        self.refine_pdb = '%s_for_refine.pdb' % os.path.splitext(self.asu)[0]
+        self.consensus_pdb = '%s_for_consensus.pdb' % os.path.splitext(self.asu)[0]
         self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
         self.serialized_info = os.path.join(self.data, 'info.pkl')
+        self.pdb_list = os.path.join(self.scripts, 'design_files.txt')
 
         if os.path.exists(self.serialized_info):  # Pose has already been processed. We can assume files are available
             self.info = unpickle(self.serialized_info)
@@ -976,7 +985,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
                 if com_dist > max_com_dist:
                     max_com_dist = com_dist
-            dist = round(math.sqrt(math.ceil(max_com_dist)), 0)
+            dist = round(sqrt(ceil(max_com_dist)), 0)
             self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
         else:
             dist = 0
@@ -1620,7 +1629,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   '--ignore_clashes')
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def expand_asu(self, increment_chains=False):
+    def expand_asu(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, and self.log objects then expand the design given the provided symmetry operators and write to a
         file
@@ -1633,9 +1642,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.symmetric_assembly_is_clash()
             if self.output_assembly:  # True by default when expand_asu module is used
                 self.pose.get_assembly_symmetry_mates()
-                self.pose.write(out_path=self.assembly, increment_chains=increment_chains)
+                self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
                 self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
-        # self.pickle_info()
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
@@ -1664,14 +1672,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def identify_interface(self):
         """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
         entities. Sets the interface_residue_ids to map each interface to the corresponding residues."""
-        if not self.pose:
-            self.load_pose()
-        if self.pose.symmetry:
-            self.symmetric_assembly_is_clash()
-            if self.output_assembly:
-                self.pose.get_assembly_symmetry_mates()
-                self.pose.write(out_path=self.assembly)
-                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+        # if not self.pose:
+        #     self.load_pose()
+        # if self.pose.symmetry:
+        #     self.symmetric_assembly_is_clash()
+        #     if self.output_assembly:
+        #         self.pose.get_assembly_symmetry_mates()
+        #         self.pose.write(out_path=self.assembly)
+        #         self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+        self.expand_asu()
         self.pose.find_and_split_interface()
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.interface_residue_ids['interface%d' % number] = \
@@ -1970,7 +1979,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
-            assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'  # TODO consensus only?
+            # TODO v consensus only?
+            assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
 
             # Get total design statistics for every sequence in the pose and every protocol specifically
             protocol_groups = scores_df.groupby(groups)
@@ -2074,10 +2084,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.warning('Can\'t measure protocol significance, only one protocol of interest!')
             else:
                 # Test significance between all combinations of protocols
-                # using 'mean' as source of combinations which excludes Consensus
-                # sig_df = protocol_stats_s['mean']
-                # sig_df = protocol_stats_s[0]
-                # sig_df = trajectory_df.loc[unique_protocols, significance_columns]
                 for prot1, prot2 in combinations(sorted(protocols_of_interest), 2):
                     select_df = trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2],
                                                   significance_columns]
@@ -2085,7 +2091,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     difference_s = trajectory_df.loc[prot1, :].sub(trajectory_df.loc[prot2, :])
                     pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
                                                                     group1_size=len(designs_by_protocol[prot1]))
-                # self.log.debug(pvalue_df)
                 pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
                 trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
