@@ -2531,3 +2531,15 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
         return rmsd, q, a_translate, c
     else:
         return rmsd, aa_rotate, a_translate, c
+
+
+def parse_stride(stride_file):
+    """From a Stride file, parse information for residue level secondary structure assignment
+
+    Sets:
+        self.secondary_structure
+    """
+    with open(stride_file, 'r') as f:
+        stride_output = f.readlines()
+
+    return ''.join(line[24:25] for line in stride_output if line[0:3] == 'ASG')
