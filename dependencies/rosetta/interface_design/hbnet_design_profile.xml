@@ -122,7 +122,6 @@
         <MultiplePoseMover name="hbnet_corepack" max_input_poses="1"> # scale to 1000 after tests
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
-
 				<SCOREFXNS>
 					# patched version, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
 					<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
@@ -207,6 +206,7 @@
 <!--					<SeqprofConsensus chain_num="1" name="pssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle-->
 <!--					<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle-->
 				</TASKOPERATIONS>
+
 				<MOVE_MAP_FACTORIES>
 					<MoveMapFactory name="hbnet_interface_neighbors_or_core_map" bb="0" chi="1">
 						<Backbone residue_selector="hbnet_interface_neighbors_or_core" enable="true"/>
@@ -222,7 +222,9 @@
 <!--						<Var name="Number" reported="M_core_design_residue_count"/>-->
 <!--					</CalculatorMetric>--> # Todo not supported in my release
 				</SIMPLE_METRICS>
+
 <!--				<IMPORT filters="time"/> # movers="design_block" shape_complementarity-->
+
 				<FILTERS>  # TODO change min_sc to ~0.65 or 0.7
 					<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.6" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 <!--					<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
@@ -274,7 +276,6 @@
 					<Add mover_name="RP_interaction_energy_density_filter"/>
 					<Add mover_name="dump_pdb"/>
 				</PROTOCOLS>
-
 			</ROSETTASCRIPTS>
         </MultiplePoseMover>
 
@@ -301,7 +302,6 @@
 			</SELECT>
 
 			<ROSETTASCRIPTS>
-
 				<SCOREFXNS>
 					# patched version, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
 					<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
@@ -319,6 +319,9 @@
 <!--					<SymmetricalResidue name="interface2_sym" selector="interface2" />-->
 					# combined group of all identified interface residues
 					<Or name="tot_interface" selectors="interface1,interface2"/>
+					<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					# all designable residues
+					<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
 					<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
 					<SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues" />
 					<Neighborhood name="hbnet_neighbors" selector="hbnet_residues_sym" include_focus_in_subset="false" distance="8"/> # Cb neighbors
@@ -348,6 +351,11 @@
 					<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 				</TASKOPERATIONS>
 
+				<MOVE_MAP_FACTORIES>
+					<MoveMapFactory name="design_map" bb="0" chi="1">
+						<Backbone residue_selector="all_designable" enable="true"/>
+					</MoveMapFactory>
+				</MOVE_MAP_FACTORIES>
 <!--				<IMPORT movers="" filters=""/>-->
 
 				<MOVERS>
@@ -373,7 +381,6 @@
 <!--					<Add mover_name="design_loop"/>-->
 					<Add mover_name="int_design"/>
 				</PROTOCOLS>
-
 			</ROSETTASCRIPTS>
 		</MultiplePoseMover>
 	</MOVERS>
