@@ -110,7 +110,7 @@
 		# need to ensure a scorefunction with csts "on"
 		# may not need required_residues which gets pulled from design around total. start_selector would prevent much downside though
 		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="100000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="0"/>
-        <MultiplePoseMover name="hbnet_corepack" max_input_poses="10"> # scale to 1000 after tests
+        <MultiplePoseMover name="hbnet_corepack" max_input_poses="2"> # scale to 1000 after tests
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
 
@@ -149,9 +149,10 @@
 					<Not name="not_hbnet_or_core_neighbors" selector="hbnet_neighbors_or_core"/>
 					<And name="hbnet_interface_neighbors" selectors="hbnet_neighbors,tot_interface"/>
 					<Or name="hbnet_interface_neighbors_or_core" selectors="hbnet_interface_neighbors,core_residues"/>
+					<SymmetricalResidue name="hbnet_interface_neighbors_or_core_sym" selectors="hbnet_interface_neighbors_or_core"/>
 					<Not name="not_hbnet_interface_neighbors_or_core" selector="hbnet_interface_neighbors_or_core"/>
-					<And name="hbnet_corepack_interface1" selectors="hbnet_interface_neighbors_or_core,interface1_sym"/>
-					<And name="hbnet_corepack_interface2" selectors="hbnet_interface_neighbors_or_core,interface2_sym"/>
+					<And name="hbnet_corepack_interface1" selectors="hbnet_interface_neighbors_or_core_sym,interface1_sym"/>
+					<And name="hbnet_corepack_interface2" selectors="hbnet_interface_neighbors_or_core_sym,interface2_sym"/>
 				</RESIDUE_SELECTORS>
 
 				<TASKOPERATIONS>
