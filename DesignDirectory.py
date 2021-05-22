@@ -374,14 +374,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @property
     def score(self):
         try:
-            if self.center_residue_score and self.central_residues_with_fragment_overlap:
-                return self.center_residue_score / self.central_residues_with_fragment_overlap
-            else:
-                self.get_fragment_metrics()
-                if self.center_residue_score is not None and self.central_residues_with_fragment_overlap is not None:
-                    return self.center_residue_score / self.central_residues_with_fragment_overlap
-                else:
-                    return None
+            self.get_fragment_metrics()
+            return self.center_residue_score / self.central_residues_with_fragment_overlap
         except ZeroDivisionError:
             self.log.error('No fragment information found! Fragment scoring unavailable.')
             return 0.0
@@ -403,43 +397,70 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      'percent_fragment_coil': , 'number_of_fragments': , 'total_interface_residues': ,
                      'percent_residues_fragment_total': , 'percent_residues_fragment_center': }
         """
-        score = self.score  # inherently calls self.get_fragment_metrics(). Returns None if this fails
-        if score is None:  # can be 0.0
-            return {}
+        self.get_fragment_metrics()
+        metrics = {
+            'nanohedra_score': self.all_residue_score,
+            'nanohedra_score_normalized': self.all_residue_score / self.fragment_residues_total
+            if self.fragment_residues_total else 0.0,
+            'nanohedra_score_center': self.center_residue_score,
+            'nanohedra_score_center_normalized': self.center_residue_score / self.central_residues_with_fragment_overlap
+            if self.central_residues_with_fragment_overlap else 0.0,
+            'number_fragment_residues_total': self.fragment_residues_total,
+            'number_fragment_residues_center': self.central_residues_with_fragment_overlap,
+            'multiple_fragment_ratio': self.multiple_frag_ratio,
+            'percent_fragment_helix': self.helical_fragment_content,
+            'percent_fragment_strand': self.strand_fragment_content,
+            'percent_fragment_coil': self.coil_fragment_content,
+            'number_of_fragments': self.number_of_fragments,
+            'total_interface_residues': self.total_interface_residues,
+            'total_non_fragment_interface_residues': self.total_non_fragment_interface_residues,
+            'percent_residues_fragment_total': self.percent_residues_fragment_total,
+            'percent_residues_fragment_center': self.percent_residues_fragment_center}
 
-        metrics = {'nanohedra_score_normalized':
-                   self.all_residue_score / self.fragment_residues_total if self.fragment_residues_total else 0.0,
-                   'nanohedra_score_center_normalized': score,
-                   'nanohedra_score': self.all_residue_score,
-                   'nanohedra_score_center': self.center_residue_score,
-                   'number_fragment_residues_total': self.fragment_residues_total,
-                   'number_fragment_residues_center': self.central_residues_with_fragment_overlap,
-                   'multiple_fragment_ratio': self.multiple_frag_ratio,
-                   'percent_fragment_helix': self.helical_fragment_content,
-                   'percent_fragment_strand': self.strand_fragment_content,
-                   'percent_fragment_coil': self.coil_fragment_content,
-                   'number_of_fragments': self.number_of_fragments,
-                   'total_interface_residues': self.total_interface_residues,
-                   'total_non_fragment_interface_residues': self.total_non_fragment_interface_residues,
-                   'percent_residues_fragment_total': self.percent_residues_fragment_total,
-                   'percent_residues_fragment_center': self.percent_residues_fragment_center}
+        # pose.secondary_structure attributes are set in the get_fragment_metrics() call
+        for number, elements in self.pose.split_interface_ss_elements.items():
+            self.interface_ss_topology[number] = ''.join(self.pose.ss_type_array[self.pose.ss_index_array[element]]
+                                                         for element in set(elements))
+        for number, topology in self.interface_ss_topology.items():
+            metrics['interface_secondary_structure_topology_%d' % number] = topology
+            metrics['interface_secondary_structure_fragment_topology_%d' % number] = \
+                self.interface_ss_fragment_topology.get(number, '-')
+
         if self.sym_entry:
             metrics['design_dimension'] = self.design_dimension
             # if self.pose:  # Todo
             if self.oligomers:
                 # Todo test
-                for idx, oligomer in self.oligomers:
-                    # oligomer.get_secondary_structure()
-                    metrics.update(
-                        {'component_%d_symmetry' % idx: getattr(self.sym_entry, 'group%d' % idx),
-                         'component_%d_name' % idx: oligomer.name,
-                         'component_%d_number_of_residues' % idx: oligomer.number_of_residues,
-                         'component_%d_max_radius' % idx: oligomer.furthest_point_from_reference(),
-                         'component_%d_n_terminal_helix' % idx: oligomer.is_n_term_helical(),
-                         'component_%d_c_terminal_helix' % idx: oligomer.is_c_term_helical(),
-                         'component_%d_n_terminal_orientation' % idx: oligomer.terminal_residue_orientation_from_reference(),
-                         'component_%d_c_terminal_orientation' % idx: oligomer.terminal_residue_orientation_from_reference(termini='c')
-                         })
+                for idx, oligomer in enumerate(self.oligomers, 1):
+                    if len(oligomer.entities) > 1:
+                        metrics['component_%d_symmetry' % idx] = getattr(self.sym_entry, 'group%d' % idx)
+                        for ent_idx, entity in enumerate(oligomer.entities, 1):
+                            metrics.update({
+                                'component_%d_entity_%d_name' % (idx, ent_idx): entity.name,
+                                'component_%d_entity_%d_number_of_residues' % idx: entity.number_of_residues,
+                                'component_%d_entity_%d_max_radius' % idx: entity.furthest_point_from_reference(),
+                                'component_%d_entity_%d_n_terminal_helix' % idx: entity.is_n_term_helical(),
+                                'component_%d_entity_%d_c_terminal_helix' % idx: entity.is_c_term_helical(),
+                                'component_%d_entity_%d_n_terminal_orientation' % idx:
+                                    entity.terminal_residue_orientation_from_reference(),
+                                'component_%d_entity_%d_c_terminal_orientation' % idx:
+                                    entity.terminal_residue_orientation_from_reference(termini='c')
+                            })
+                    else:
+                        metrics.update({
+                            'component_%d_symmetry' % idx: getattr(self.sym_entry, 'group%d' % idx),
+                            'component_%d_name' % idx: oligomer.name,
+                            'component_%d_number_of_residues' % idx: oligomer.number_of_residues,
+                            'component_%d_max_radius' % idx: oligomer.furthest_point_from_reference(),
+                            'component_%d_n_terminal_helix' % idx: oligomer.is_n_term_helical(),
+                            'component_%d_c_terminal_helix' % idx: oligomer.is_c_term_helical(),
+                            'component_%d_n_terminal_orientation' % idx:
+                                oligomer.terminal_residue_orientation_from_reference(),
+                            'component_%d_c_terminal_orientation' % idx:
+                                oligomer.terminal_residue_orientation_from_reference(termini='c')
+                            })
+        else:
+            metrics['design_dimension'] = 'asymmetric'
 
         return metrics
 
@@ -765,19 +786,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         except ZeroDivisionError:
             self.log.warning('%s: No interface residues were found. Is there an interface in your design?'
                              % self.source)
-            self.percent_residues_fragment_total, self.percent_residues_fragment_center = 0.0, 0.0
+            self.percent_residues_fragment_center, self.percent_residues_fragment_total = 0.0, 0.0
 
-        # Todo move outside of fragment_metrics? keep the fragment topology however
-        self.pose.interface_secondary_structure(source_dir=self.stride_dir)
+        self.pose.interface_secondary_structure(source_db=self.database, source_dir=self.stride_dir)
         for number, elements in self.pose.split_interface_ss_elements.items():
             fragment_elements = set()
             for residue, element in zip(self.pose.split_interface_residues[number], elements):
                 if residue in self.center_residue_numbers:
                     fragment_elements.add(element)
-            self.interface_ss_fragment_topology[number] = [self.pose.ss_type_array[self.pose.ss_index_array[element]]
-                                                           for element in fragment_elements]
-            self.interface_ss_topology[number] = [self.pose.ss_type_array[self.pose.ss_index_array[element]]
-                                                  for element in set(elements)]
+            self.interface_ss_fragment_topology[number] = \
+                ''.join(self.pose.ss_type_array[self.pose.ss_index_array[element]] for element in fragment_elements)
 
     # @staticmethod
     # @handle_errors(errors=(FileNotFoundError, ))
@@ -1487,9 +1505,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @handle_design_errors(errors=(DesignError,))
     def rename_chains(self):
-        """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
-        self.symmetry is used to specify the orientation
-        """
+        """Standardize the chain names in incremental order found in the design source file"""
         pdb = PDB.from_file(self.source, log=self.log)
         pdb.reorder_chains()
         pdb.write(out_path=self.asu)
@@ -1506,6 +1522,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             path = self.orient_dir
             self.make_path(self.orient_dir)
+
         return oriented_pdb.write(out_path=path)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
