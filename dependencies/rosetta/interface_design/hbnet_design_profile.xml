@@ -119,7 +119,7 @@
 		# need to ensure a scorefunction with csts "on"
 		# may not need required_residues which gets pulled from design around total. start_selector would prevent much downside though
 		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="1000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="0"/>
-        <MultiplePoseMover name="hbnet_corepack" max_input_poses="1"> # scale to 1000 after tests
+        <MultiplePoseMover name="hbnet_corepack" max_input_poses="2"> # scale to 1000 after tests
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
 				<SCOREFXNS>
@@ -229,7 +229,7 @@
 					<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.6" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 <!--					<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
 					<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
-					<SimpleMetricFilter name="core_design_residue_count" metric="M_core_design_residue_count" comparison_type="gt" cutoff="10" confidence="1"/> #  use_cached_data="true" epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+					<SimpleMetricFilter name="core_design_residue_count" metric="M_core_design_residue_count" comparison_type="gt" cutoff="10" confidence="1"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
 					<CalculatorFilter name="interaction_energy_density_filter" equation="E / Number"> # threshold="(real 0)"
 						<Var name="E" filter="interaction_energy_filter"/>
 						<Var name="Number" filter="core_design_residue_count"/>
@@ -269,9 +269,9 @@
 <!--					<Add filter_name="shape_complementarity_hbnet_core" report_at_end="false"/> # if not, throw away, move on-->
 <!--					<Add filter_name="time"/>-->
 					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # if not, throw away, move on. THIS SHOULD FILTER although it is saved to pose
-					<Add mover_name="run_core_design_metrics"/>
+<!--					<Add mover_name="run_core_design_metrics"/>-->
 					<Add mover_name="RP_core_design_residue_count"/> # calculation above may be redundant when done here TESTING
-					<Add filter_name="interaction_energy_filter"/>
+<!--					<Add filter_name="interaction_energy_filter"/>-->
 <!--					<Add mover_name="run_core_design_average_residue_energy"/>-->
 					<Add mover_name="RP_interaction_energy_density_filter"/>
 					<Add mover_name="dump_pdb"/>
@@ -409,7 +409,7 @@
 <!--		<Add mover_name="save_core_pack"/>-->
 		<Add mover_name="design_start"/>
 		# Might be unnecessary with the mechanism of FastDesign
-<!--		<Add mover_name="interface_core_design"/> # packing should reach ideal interior levels here-->
+		<Add mover_name="interface_core_design"/> # packing should reach ideal interior levels here
 <!--		<Add filter_name="shape_complementarity_core"/> # if not, throw away this pose and move on-->
 		<Add mover_name="hbnet"/>
 		<Add filter_name="time"/>
