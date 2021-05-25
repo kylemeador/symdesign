@@ -419,21 +419,23 @@ def residue_interaction_graph(pdb, distance=8, gly_ca=True):  # Todo PDB.py
     return query
 
 
-# def split_interface_pairs(interface_pairs):
-#     if interface_pairs:
-#         residues1, residues2 = zip(*interface_pairs)
-#         return sorted(set(residues1), key=lambda residue: residue.number), \
-#             sorted(set(residues2), key=lambda residue: residue.number)
-#     else:
-#         return [], []
-
-# for residue numbers
 def split_interface_pairs(interface_pairs):
+    """Used to split Residue pairs and sort by Residue.number"""
     if interface_pairs:
         residues1, residues2 = zip(*interface_pairs)
-        return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
+        return sorted(set(residues1), key=lambda residue: residue.number), \
+            sorted(set(residues2), key=lambda residue: residue.number)
     else:
         return [], []
+
+
+# def split_interface_pairs(interface_pairs):
+#     """Used to split residue number pairs and sort"""
+#     if interface_pairs:
+#         residues1, residues2 = zip(*interface_pairs)
+#         return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
+#     else:
+#         return [], []
 
 
 #################
