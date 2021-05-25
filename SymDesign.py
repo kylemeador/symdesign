@@ -840,6 +840,8 @@ if __name__ == '__main__':
     queried_flags.update(default_flags)
     queried_flags.update(Flags.process_residue_selector_flags(queried_flags))
     # We have to ensure that if the user has provided it, the symmetry is correct
+    if queried_flags.get('sym_entry'):
+        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
     if queried_flags['symmetry']:
         if queried_flags['symmetry'] in SDUtils.possible_symmetries:
             queried_flags['sym_entry'] = SDUtils.parse_symmetry_to_sym_entry(queried_flags['symmetry'])
@@ -850,8 +852,6 @@ if __name__ == '__main__':
             raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
                                       '\n\t%s\nCorrect your flags and try again'
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
-    if queried_flags.get('sym_entry'):
-        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
 
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
@@ -945,6 +945,8 @@ if __name__ == '__main__':
         master_db = Database(master_outdir.orient_dir, master_outdir.orient_asu_dir, master_outdir.refine_dir,
                              master_outdir.stride_dir, master_outdir.sequences, master_outdir.profiles, sql=None,
                              log=logger)
+        logger.info('Loading all resources in the current Database found in \'%s\'' % master_outdir.protein_data)
+        master_db.load_all_data()
         for design in design_directories:
             design.link_master_database(master_db)
 
@@ -954,6 +956,7 @@ if __name__ == '__main__':
             # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
             master_outdir.make_path(master_outdir.orient_dir)
             master_outdir.make_path(master_outdir.orient_asu_dir)
+            master_outdir.make_path(master_outdir.stride_dir)
             # orient_directory = master_outdir.orient_dir
             orient_asu_directory = master_outdir.orient_asu_dir
             args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
@@ -1028,8 +1031,8 @@ if __name__ == '__main__':
                     symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
                     sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
                     for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
-                        base_pdb_code = os.path.splitext(orient_asu_file)[0]
-                        if base_pdb_code in required_oligomers and base_pdb_code not in refine_files:
+                        base_pdb_code = os.path.splitext(orient_asu_file)[0]  # os.path.basename()
+                        if base_pdb_code in required_oligomers and orient_asu_file not in refine_files:
                             oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file), symmetry))
                 set_oligomers_to_refine = set(oligomers_to_refine)
                 while set_oligomers_to_refine:  # If no files found unrefined, we should proceed
@@ -1195,7 +1198,7 @@ if __name__ == '__main__':
     if queried_flags.get(Flags.generate_frags, None) or args.module == PUtils.generate_fragments:
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing %s FragmentDatabase\n' % interface_type)
-        fragment_db = FragmentDatabase(source='directory', location=interface_type, init_db=True)
+        fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.frag_db
         euler_lookup = EulerLookup()
         for design in design_directories:
             design.connect_db(frag_db=fragment_db)
