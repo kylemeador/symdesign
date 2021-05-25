@@ -238,7 +238,7 @@ class FragmentDB:
 
 
 class FragmentDatabase(FragmentDB):
-    def __init__(self, source='directory', location=None, length=5, init_db=False):
+    def __init__(self, source='biological_interfaces', length=5, init_db=False, sql=False):
         super().__init__()  # FragmentDB
         # self.monofrag_representatives_path = monofrag_representatives_path
         # self.cluster_representatives_path
@@ -247,10 +247,7 @@ class FragmentDatabase(FragmentDB):
         # self.paired_frags = None
         # self.info = None
         self.source = source
-        if location:
-            self.location = frag_directory[location]  # location
-        else:
-            self.location = None
+        self.location = frag_directory.get(source, None)
         self.statistics = {}
         # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
@@ -258,10 +255,10 @@ class FragmentDatabase(FragmentDB):
         self.cluster_info = {}
         self.fragdb = None
 
-        if self.source == 'DB':
+        if sql:
             self.start_mysql_connection()
             self.db = True
-        elif self.source == 'directory':
+        else:  # self.source == 'directory':
             # Todo initialize as local directory
             self.db = False
             if init_db:
@@ -269,8 +266,8 @@ class FragmentDatabase(FragmentDB):
                 self.get_monofrag_cluster_rep_dict()
                 self.get_intfrag_cluster_rep_dict()
                 self.get_intfrag_cluster_info_dict()
-        else:
-            self.db = False
+        # else:
+        #     self.db = False
 
         self.get_db_statistics()
         self.parameterize_frag_length(length)
@@ -289,9 +286,15 @@ class FragmentDatabase(FragmentDB):
             logger.warning('No SQL DB connected yet!')  # Todo
             raise DesignError('Can\'t connect to MySQL database yet')
         else:
-            for file in os.listdir(self.location):
-                if 'statistics.pkl' in file:
-                    self.statistics = unpickle(os.path.join(self.location, file))
+            stats_file = glob(os.path.join(self.location, 'statistics.pkl'))
+            if len(stats_file) == 1:
+                self.statistics = unpickle(stats_file[0])
+            else:
+                raise DesignError('There were too many statistics.pkl files found from the fragment database source!')
+            # for file in os.listdir(self.location):
+            #     if 'statistics.pkl' in file:
+            #         self.statistics = unpickle(os.path.join(self.location, file))
+            #         return
 
     def get_db_aa_frequencies(self):
         """Retrieve database specific interface background AA frequencies
