@@ -45,6 +45,7 @@ class Structure(StructureBase):
         self._atom_indices = None
         self._residues = None
         self._residue_indices = None
+        self._coords_residue_index = None
         self.name = name
         self.secondary_structure = None
         self.sasa = None
@@ -129,6 +130,9 @@ class Structure(StructureBase):
         self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
+        # self.store_coordinate_index_residue_map()
+        self.coords_indexed_residues = [(res_idx, res_atom_idx) for res_idx, residue in enumerate(self.residues)
+                                        for res_atom_idx in residue.range]
 
     @property
     def atom_indices(self):  # In Residue too
@@ -199,6 +203,24 @@ class Structure(StructureBase):
             self._residues = residues
         else:
             self._residues = Residues(residues)
+
+    # def store_coordinate_index_residue_map(self):
+    #     self.coords_residue_index = [(residue, res_idx) for residue in self.residues for res_idx in residue.range]
+
+    @property
+    def coords_indexed_residues(self):
+        """Returns a map of the Residues and Residue atom_indices for each Coord in the Structure
+
+        Returns:
+            (list[tuple[Residue, int]]): Indexed by the by the Residue position in the corresponding .coords attribute
+        """
+        return [(self._residues.residues[res_idx], res_atom_idx)
+                for res_idx, res_atom_idx in self._coords_residue_index[self.atom_indices].tolist()]
+
+    @coords_indexed_residues.setter
+    def coords_indexed_residues(self, index_pairs):
+        """Create a map of the coordinate indices to the Residue and Residue atom index"""
+        self._coords_residue_index = np.array(index_pairs)
 
     @property
     def number_of_residues(self):
@@ -353,14 +375,14 @@ class Structure(StructureBase):
             (list[Residue])
         """
         if indices:
-            atoms = self._atoms.atoms[indices]
+            return [residue for residue, atom_index in self._coords_indexed_residues[indices].tolist()]
         else:
-            atoms = self.atoms
-        residue_numbers = [atom.residue_number for atom in atoms if atom.is_CB()]  # Todo update on atom info removal
-        if residue_numbers:
-            return self.get_residues(numbers=residue_numbers)
-        else:
-            return None
+            return self.residues
+        # residue_numbers = set(atom.residue_number for atom in atoms)
+        # if residue_numbers:
+        #     return self.get_residues(numbers=residue_numbers)
+        # else:
+        #     return None
 
     def get_backbone_indices(self):
         """Return backbone Atom indices from the Structure
@@ -798,6 +820,8 @@ class Structure(StructureBase):
         """
         # all_atom_tree = KDTree(self.coords)  # slower 134 msec/loop
         all_atom_tree = BallTree(self.coords)  # faster 131 msec/loop
+        all_atoms = self.atoms
+        coords_indexed_residues = self.coords_indexed_residues
         # all_atom_tree = NearestNeighbors(algorithm='brute', radius=distance)  # slowest 267 msec/loop
         # all_atom_tree.fit(self.coords)
         # residue_query = all_atom_tree.radius_neighbors(residue.backbone_and_cb_coords,  # distance,
@@ -829,29 +853,37 @@ class Structure(StructureBase):
             # clashes = set(all_contacts) - set(residue_indices_and_bonded_c_and_n)
             clashes = all_contacts - set(residue_indices_and_bonded_c_and_n)
             if any(clashes):
-                # print(
-                #     'Residue indices: %s\nFound clashes at indices: %s' % (residue_indices_and_bonded_c_and_n, clashes))
-                # self.log.info('Residue indices: %s\nFound clashes at indices: %s' % (residue_indices_and_bonded_c_and_n, clashes))
-                for clash_idx in clashes:
-                    if self.atoms[clash_idx].is_backbone() or self.atoms[clash_idx].is_CB():
-                        backbone_clashes.append((residue, self.atoms[clash_idx], clash_idx))
-                    else:
-                        side_chain_clashes.append((residue, self.atoms[clash_idx], clash_idx))
+                # self.log.info('Residue indices: %s\nFound clashes at indices: %s'
+                #               % (residue_indices_and_bonded_c_and_n, clashes))
+                for clashing_atom_idx in clashes:
+                    atom = all_atoms[clashing_atom_idx]
+                    other_residue, atom_idx = coords_indexed_residues[clashing_atom_idx]
+                    if atom.is_backbone() or atom.is_CB():
+                        # backbone_clashes.append((residue, atom, clashing_atom_idx))
+                        backbone_clashes.append((residue, other_residue, atom_idx))
+                    elif 'H' not in atom.type:
+                        # side_chain_clashes.append((residue, atom, clashing_atom_idx))
+                        side_chain_clashes.append((residue, other_residue, atom_idx))
 
-        if side_chain_clashes:
-            self.log.warning('%s contains %d side-chain clashes at the following Residues!\n\t%s'
-                             % (self.name, len(side_chain_clashes),
-                                '\n\t'.join('Residue %d: %s' % (residue.number, atom)
-                                            % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(self.coords[idx]))
-                                            for residue, atom, idx in side_chain_clashes)))
         if backbone_clashes:
-            self.log.critical('%s contains %d backbone clashes at the following Residues!\n\t%s'
-                              % (self.name, len(backbone_clashes),
-                                 '\n\t'.join('Residue %d: %s' % (residue.number, atom)
-                                             % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(self.coords[idx]))
-                                             for residue, atom, idx in backbone_clashes)))
+            bb_info = '\n\t'.join('Residue %5d: %s' % (residue.number, str(other).split('\n')[atom_idx])
+                                  for residue, other, atom_idx in backbone_clashes)
+            self.log.critical('%s contains %d backbone clashes from the following Residues to the corresponding Atom:'
+                              '\n\t%s' % (self.name, len(backbone_clashes), bb_info))
+            if side_chain_clashes:
+                self.log.warning('Additional side_chain clashes were identified but are being silenced by importance')
             return True
         else:
+            if side_chain_clashes:
+                sc_info = '\n\t'.join('Residue %5d: %s' % (residue.number, str(other).split('\n')[atom_idx])
+                                      for residue, other, atom_idx in side_chain_clashes)
+                self.log.warning(
+                    '%s contains %d side-chain clashes from the following Residues to the corresponding Atom:'
+                    '\n\t%s' % (self.name, len(side_chain_clashes), sc_info))
+            #                                                 str(other.atoms[atom_idx])
+            #                                                 % (other.atom_indices[atom_idx], *other.residue_string(),
+            #                                                    '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(other.coords[atom_idx])))))
+            #                                              for residue, other, atom_idx in side_chain_clashes)))
             return False
 
     def get_sasa(self, probe_radius=1.4):  # , sasa_thresh=0):
@@ -1153,8 +1185,9 @@ class Structure(StructureBase):
         # '%d, %d, %d' % tuple(element.tolist())
         # '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
         # atom_atrings = '\n'.join(str(atom) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-        return '\n'.join(atom.__str__(**kwargs) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
-                         for atom, coord in zip(self.atoms, self.coords.tolist()))
+        return '\n'.join(residue.__str__(**kwargs) for residue in self.residues)
+        # return '\n'.join(atom.__str__(**kwargs) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
+        #                  for atom, coord in zip(self.atoms, self.coords.tolist()))
 
     def write(self, out_path=None, file_handle=None, header=None, **kwargs):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle
@@ -1549,6 +1582,10 @@ class Residue:
         self._atom_indices = list(range(index, index + self.number_of_atoms))
 
     @property
+    def range(self):
+        return list(range(self.number_of_atoms))
+
+    @property
     def atom_indices(self):  # in structure too
         """Returns: (list[int])"""
         return self._atom_indices
@@ -1557,7 +1594,10 @@ class Residue:
     def atom_indices(self, indices):  # in structure too
         """Set the Structure atom indices to a list of integers"""
         self._atom_indices = indices
-        self._start_index = indices[0]
+        try:
+            self._start_index = indices[0]
+        except (TypeError, IndexError):
+            raise IndexError('The Residue wasn\'t passed any atom_indices which are required for creation!')
 
     @property
     def atoms(self):
@@ -1604,6 +1644,10 @@ class Residue:
         self.backbone_indices = [getattr(self, index, None) for index in ['_n', '_ca', '_c', '_o']]
         self.backbone_and_cb_indices = getattr(self, '_cb', None)
         self.sidechain_indices = side_chain
+        self.number_pdb = atom.pdb_residue_number
+        self.number = atom.residue_number
+        self.type = atom.residue_type
+        self.chain = atom.chain
     # # This is the setter for all atom properties available above
     # def set_atoms_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all atoms in the Residue"""
@@ -1822,32 +1866,51 @@ class Residue:
         self._o = index
 
     @property
-    def number(self):  # Todo make property of residue
-        try:
-            return self.ca.residue_number
-        except AttributeError:
-            return self.n.residue_number
+    def number(self):
+        return self._number
+        # try:
+        #     return self.ca.residue_number
+        # except AttributeError:
+        #     return self.n.residue_number
+
+    @number.setter
+    def number(self, number):
+        self._number = number
 
     @property
-    def number_pdb(self):  # Todo make property of residue
-        try:
-            return self.ca.pdb_residue_number
-        except AttributeError:
-            return self.n.pdb_residue_number
+    def number_pdb(self):
+        return self._number_pdb
+
+    @number_pdb.setter
+    def number_pdb(self, number_pdb):
+        self._number_pdb = number_pdb
+        # try:
+        #     return self.ca.pdb_residue_number
+        # except AttributeError:
+        #     return self.n.pdb_residue_number
 
     @property
-    def chain(self):  # Todo make property of residue
-        try:
-            return self.ca.chain
-        except AttributeError:
-            return self.n.chain
+    def chain(self):
+        return self._chain
+        # try:
+        #     return self.ca.chain
+        # except AttributeError:
+        #     return self.n.chain
+    @chain.setter
+    def chain(self, chain):
+        self._chain = chain
 
     @property
-    def type(self):  # Todo make property of residue
-        try:
-            return self.ca.residue_type
-        except AttributeError:
-            return self.n.chain
+    def type(self):
+        return self._type
+        # try:
+        #     return self.ca.residue_type
+        # except AttributeError:
+        #     return self.n.chain
+
+    @type.setter
+    def type(self, _type):
+        self._type = _type
 
     @property
     def secondary_structure(self):
@@ -1913,12 +1976,8 @@ class Residue:
                 return True
         return False
 
-    @staticmethod
-    def get_residue(number, chain, residue_type, residuelist):  # UNUSED
-        for residue in residuelist:
-            if residue.number == number and residue.chain == chain and residue.type == residue_type:
-                return residue
-        return None
+    def residue_string(self):
+        return format(self.type, '3s'), self.chain, format(self.number, '4d')
 
     def __key(self):
         return self._start_index, self.number_of_atoms, self.type  # self.ca  # Uses CA atom.
@@ -1928,12 +1987,13 @@ class Residue:
             return self.__key() == other.__key()
         return NotImplemented
 
-    def __str__(self, pdb=False, chain=None, **kwargs):  # type=None, number=None, **kwargs
-        residue_strings = '{:3s}'.format(self.type), (chain or self.chain), \
-                          '{:4d}'.format(getattr(self, 'number%s' % ('_pdb' if pdb else '')))
-        return '\n'.join(str(atom) % ('{:5d}'.format(idx + 1), *residue_strings,
-                                      '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
-                         for atom, idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
+    def __str__(self, pdb=False, chain=None, atom_offset=0, **kwargs):  # type=None, number=None, **kwargs
+        residue_str = format(self.type, '3s'), (chain or self.chain), \
+                      format(getattr(self, 'number%s' % ('_pdb' if pdb else '')), '4d')
+        offset = 1 + atom_offset
+        return '\n'.join(str(self._atoms.atoms[idx])
+                         % (format(idx + offset, '5d'), *residue_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
+                         for idx, coord in zip(self._atom_indices, self.coords.tolist()))
 
     def __hash__(self):
         return hash(self.__key())
@@ -2319,12 +2379,15 @@ class Atom:
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
         # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
         # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        # return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        # Todo ^ For future implement in residue writes
-        return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-               .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, (chain or self.chain),
-                       getattr(self, '%sresidue_number' % ('pdb_' if pdb else '')), self.code_for_insertion,
-                       self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
+        return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+            .format('ATOM', self.type, self.alt_location, self.code_for_insertion, self.occ, self.temp_fact,
+                    self.element_symbol, self.atom_charge)
+        # ^ For future implement in residue writes
+        # v old atom writes
+        # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        #        .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, (chain or self.chain),
+        #                getattr(self, '%sresidue_number' % ('pdb_' if pdb else '')), self.code_for_insertion,
+        #                self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
 
     def __eq__(self, other):
         return (self.number == other.number and self.chain == other.chain and self.type == other.type and
