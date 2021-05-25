@@ -584,7 +584,7 @@ if __name__ == '__main__':
         pickle_object(uniprot_unknown_bio_interfaces, uniprot_unknown_bio_interface_file_name,
                       out_path=current_interface_file_path)
     if write_to_db:
-        fragdb = FragmentDatabase(source='DB')
+        fragdb = FragmentDatabase(sql=True)
         # fragdb.start_mysql_connection()
         table_name = 'pdb_interfaces'
         columns = ('pdb', 'pisa_interface_number', 'interface_type', 'ch1', 'ch2', 'ch1_rot_id', 'ch1_tx',
