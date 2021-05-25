@@ -779,9 +779,11 @@ class Structure(StructureBase):
             (Structure): A transformed copy of the original object
         """
         if rotation is not None:  # required for np.ndarray or None checks
-            new_coords = np.matmul(self.coords, np.transpose(rotation))
+            # new_coords = np.matmul(self.coords, np.transpose(rotation))  # returns arrays with improper indices
+            new_coords = np.matmul(self._coords.coords, np.transpose(rotation))
         else:
-            new_coords = self.coords
+            # new_coords = self.coords  # returns arrays with improper indices
+            new_coords = self._coords.coords
 
         if translation is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation)
@@ -2189,15 +2191,14 @@ class MonoFragment:
         ghost_fragments = []
         for j_type, j_dictionary in intfrag_cluster_rep[self.i_type].items():
             for k_type, (frag_pdb, frag_mapped_chain, frag_paired_chain) in j_dictionary.items():
-                aligned_ghost_frag_pdb = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
-                ghost_frag_bb_coords = aligned_ghost_frag_pdb.chain(frag_paired_chain).get_backbone_coords()
+                aligned_ghost_frag = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
+                ghost_frag_bb_coords = aligned_ghost_frag.chain(frag_paired_chain).get_backbone_coords()
                 # Only keep ghost fragments that don't clash with oligomer backbone
                 cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(ghost_frag_bb_coords, [clash_dist])
 
                 if cb_clash_count[0] == 0:
                     rmsd = intfrag_cluster_info[self.i_type][j_type][k_type].get_rmsd()
-                    ghost_fragments.append(GhostFragment(aligned_ghost_frag_pdb, self.i_type, j_type, k_type, rmsd,
-                                                         self))
+                    ghost_fragments.append(GhostFragment(aligned_ghost_frag, self.i_type, j_type, k_type, rmsd, self))
 
         return ghost_fragments
 
