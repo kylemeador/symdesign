@@ -18,19 +18,33 @@ index_offset = 1
 
 
 class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
-    def __init__(self, orient, orient_asu, refine, stride, sequences, hhblits_profiles, sql=None, log=logger):
+    def __init__(self, oriented, oriented_asu, refined, stride, sequences, hhblits_profiles, sql=None, log=logger):
         if sql:
             raise DesignError('SQL set up has not been completed!')
 
         self.log = log
-        self.orient = DataStore(location=orient, extension='.pdb*', sql=sql, log=log)
-        self.orient_asu = DataStore(location=orient_asu, extension='.pdb', sql=sql, log=log)
-        self.refine = DataStore(location=refine, extension='.pdb', sql=sql, log=log)
+        self.oriented = DataStore(location=oriented, extension='.pdb*', sql=sql, log=log)
+        self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=sql, log=log)
+        self.refined = DataStore(location=refined, extension='.pdb', sql=sql, log=log)
         self.stride = DataStore(location=stride, extension='.stride', sql=sql, log=log)
         self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
         self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
 
-    def retrieve_data(self, from_source=None, name=None):
+    def load_all_data(self):
+        """For every resource, acquire all existing data in memory"""
+        for source in [self.oriented, self.oriented_asu, self.refined, self.stride, self.sequences,
+                       self.hhblits_profiles]:
+            source.get_all_data()
+
+    def source(self, name):
+        """Return on of the various DataStores supported by the Database"""
+        try:
+            return getattr(self, name)
+        except AttributeError:
+            raise AttributeError('There is no Database source named \'%s\' found. Possible sources are: %s'
+                                 % (name, ', '.join(self.__dict__)))
+
+    def retrieve_data(self, source=None, name=None):
         """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
         file. Raise an error if source or file/SQL doesn't exist
 
@@ -39,11 +53,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         Returns:
             (object): The object requested will depend on the source
         """
-        object_db = getattr(self, from_source, None)
-        if not object_db:
-            raise DesignError('There is no source named %s found in the Design Database. Possible sources are: %s'
-                              % (from_source, ', '.join(self.__dict__)))
-
+        object_db = self.source(source)
         data = getattr(object_db, name, None)
         if not data:
             object_db.name = object_db.get_data(name, log=None)
@@ -62,14 +72,14 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
 class DataStore:
     def __init__(self, location=None, extension='.txt', sql=None, log=logger):
-        self._location = location
+        self.location = location
         self.extension = extension
         self.sql = sql
         self.log = log
 
         if '.pdb' in extension:
             self.load_file = PDB.from_file
-        elif extension == 'fasta':
+        elif extension == '.fasta':
             self.load_file = 'load from fasta'  # Todo
         elif extension == '.stride':
             self.load_file = parse_stride
@@ -78,20 +88,41 @@ class DataStore:
         else:  # '.txt' read the file and return the lines
             self.load_file = self.read_file
 
-    def location(self, name):
-        """Returns the actual location by combining the requested name with the stored ._location"""
-        path = os.path.join(self._location, '%s.%s' % (name, self.extension))
+    def store(self, name):
+        """Return the path of the storage location given an entity name"""
+        return os.path.join(self.location, '%s%s' % (name, self.extension))
+
+    def locate_file(self, name):
+        """Returns the actual location by combining the requested name with the stored .location"""
+        path = os.path.join(self.location, '%s%s' % (name, self.extension))
         file_location = glob(path)
-        if len(file_location) > 1:
-            self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, file_location[0]))
+        if file_location:
+            if len(file_location) > 1:
+                self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, file_location[0]))
 
-        return file_location[0]
+            return file_location[0]
+        else:
+            self.log.error('No files found for \'%s\'' % path)
 
-    def get_data(self, filename, **kwargs):
+    def get_data(self, name, **kwargs):
+        """Return the data located in a particular entry specified by name"""
         if self.sql:
             dummy = True
         else:
-            return self.load_file(self.location(filename), **kwargs)
+            file = self.locate_file(name)
+            if file:
+                return self.load_file(file, **kwargs)
+            else:
+                return
+
+    def get_all_data(self, **kwargs):
+        """Return all data located in the particular DataStore storage location"""
+        if self.sql:
+            dummy = True
+        else:
+            for file in glob(os.path.join(self.location, '*.%s' % self.extension)):
+                data = self.load_file(file)
+                setattr(self, os.path.splitext(os.path.basename(file))[0], data)
 
     @staticmethod
     def read_file(file, **kwargs):
