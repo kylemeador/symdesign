@@ -1051,45 +1051,21 @@ class Structure(StructureBase):
                 # residue_idx += 1
         self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
 
-    def is_n_term_helical(self, window=5):
-        """Using assigned secondary structure, probe for a helical N-termini using a segment of 'window' residues
-
-        Keyword Args:
-            window=5 (int): The segment size to search
-        Returns:
-            (bool): Whether the termini has a stretch of helical residues with length of the window
-        """
-        # if self.secondary_structure and len(self.secondary_structure) >= 2 * window:
-            # for idx, residue_secondary_structure in enumerate(self.secondary_structure):
-            # for idx, residue in enumerate(self.residues[:window * 2]):
-            #     temp_window = ''.join(self.secondary_structure[idx + j] for j in range(window))
-            #     # res_number = self.secondary_structure[0 + i:5 + i][0][0]
-        n_term_window = [residue.secondary_structure for residue in self.residues[:window * 2]]
-        if 'H' * window in n_term_window:
-            return True
-        else:
-            return False
-
-    def is_c_term_helical(self, window=5):
+    def is_termini_helical(self, termini='n', window=5):
         """Using assigned secondary structure, probe for a helical C-termini using a segment of 'window' residues
 
         Keyword Args:
+            termini='n' (str): The segment size to search
             window=5 (int): The segment size to search
         Returns:
-            (bool): Whether the termini has a stretch of helical residues with length of the window
+            (int): Whether the termini has a stretch of helical residues with length of the window (1) or not (0)
         """
-        # if self.secondary_structure and len(self.secondary_structure) >= 2 * window:
-        #     # for i in range(5):
-        #     # for idx, residue_secondary_structure in enumerate(reversed(self.secondary_structure)):
-        #     for idx, residue in enumerate(reversed(self.residues)):
-        #         # reverse_ss_asg = self.secondary_structure[::-1]
-        #         temp_window = ''.join(self.secondary_structure[idx + j] for j in range(-window + 1, 1))
-        #         # res_number = reverse_ss_asg[0+i:5+i][4][0]
-        c_term_window = [residue.secondary_structure for residue in list(reversed(self.residues))[:window * 2]]
-        if 'H' * window in c_term_window:
-            return True
+        residues = list(reversed(self.residues)) if termini.lower() == 'c' else self.residues
+        term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
+        if 'H' * window in term_window:
+            return 1  # True
         else:
-            return False
+            return 0  # False
 
     def get_secondary_structure(self):
         if self.secondary_structure:
@@ -1104,6 +1080,12 @@ class Structure(StructureBase):
     def fill_secondary_structure(self, secondary_structure=None):
         if secondary_structure:
             self.secondary_structure = secondary_structure
+            if len(self.secondary_structure) == self.number_of_residues:
+                for idx, residue in enumerate(self.residues):
+                    residue.secondary_structure = secondary_structure[idx]
+            else:
+                raise DesignError('The length of the passed secondary_structure (%d) is not equal to the number of '
+                                  'residues (%d)' % (len(self.secondary_structure), self.number_of_residues))
         else:
             if self.residues[0].secondary_structure:
                 self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
