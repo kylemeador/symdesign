@@ -42,7 +42,7 @@ def merge_pose_pdbs(des_dir, frags=True):
             frag_pdb.reorder_chains(exclude_chains=taken_chains)
             taken_chains += frag_pdb.chain_id_list
             frags.append(frag_pdb)
-        new_pdb = PDB.from_atoms(chain.from_iterable(pdb.atoms for pdb in frags))
+        new_pdb = PDB.from_atoms(list(chain.from_iterable(pdb.atoms for pdb in frags)))
 
     return new_pdb
 
