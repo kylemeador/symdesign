@@ -27,6 +27,7 @@ class StructureBase:
         chains, entities, seqres, multimodel, lazy, solve_discrepancy
     """
     def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, lazy=None, solve_discrepancy=None,
+                 sequence=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
                  **kwargs):
         super().__init__(**kwargs)
 
@@ -36,6 +37,8 @@ class Structure(StructureBase):
     Must pass atoms, residues, residue_indices, or coords to use most methods without issues
     to initialize
     """
+    available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # 'abcdefghijklmnopqrstuvwyz0123456789~!@#$%^&*()-+={}[]|:;<>?'
+
     def __init__(self, atoms=None, residues=None, residue_indices=None, name=None, coords=None, log=None, **kwargs):
         self._coords = None
         self._atoms = None
@@ -92,7 +95,7 @@ class Structure(StructureBase):
     def from_residues(cls, residues=None, coords=None, **kwargs):
         return cls(residues=residues, coords=coords, **kwargs)
 
-    @property
+    @property  # Todo these do nothing and could be removed
     def name(self):
         """Returns: (str)"""
         return self._name
@@ -121,7 +124,8 @@ class Structure(StructureBase):
                                                     % (self.name, len(self.atoms), len(self.coords))
 
     def set_coords(self, coords):
-        """Set the Atoms Coords for the Structure. Updates all Residues with the Coords object accordingly"""
+        """Set the coordinates for the Structure as a Coord object. Updates all Residues with the Coords object and
+        maps Coords index to the Residue, atom_index pair"""
         self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
@@ -204,8 +208,8 @@ class Structure(StructureBase):
     @property
     def center_of_mass(self):
         """Returns: (Numpy.ndarray)"""
-        divisor = 1 / self.number_of_atoms
-        return np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
+        structure_length = self.number_of_atoms
+        return np.matmul(np.full(structure_length, 1 / structure_length), self.coords)
         # try:
         #     return self._center_of_mass
         # except AttributeError:
@@ -288,7 +292,7 @@ class Structure(StructureBase):
         """Update attributes specified by keyword args for all member containers"""
         for structure_type in self.structure_containers:
             structure = getattr(self, structure_type)
-            print('Updating %s attributes %s' % (structure, kwargs))
+            # print('Updating %s attributes %s' % (structure, kwargs))
             self.set_structure_attributes(structure, **kwargs)
         # # self.set_structure_attributes(self.atoms, **kwargs)
         # for kwarg, value in kwargs.items():
@@ -306,7 +310,6 @@ class Structure(StructureBase):
         for residue in self.get_residues(numbers=numbers, **kwargs):
             for kwarg, value in kwargs.items():
                 setattr(residue, kwarg, value)
-            # residue.set_atoms_attributes(**kwargs)
 
     @staticmethod
     def set_structure_attributes(structure, **kwargs):
@@ -387,16 +390,14 @@ class Structure(StructureBase):
         Returns:
             (list[int])
         """
-        # return [residue.ca.index for residue in self.residues]
         return [residue.ca_index for residue in self.residues if residue.ca_index]
 
-    def get_cb_indices(self):  # , InclGlyCA=True):
+    def get_cb_indices(self):
         """Return CB Atom indices from the Structure. Inherently gets glycine CA's
 
         Returns:
             (list[int])
         """
-        # return [residue.cb.index for residue in self.residues]
         return [residue.cb_index for residue in self.residues if residue.cb_index]
 
     def get_helix_cb_indices(self):
@@ -459,11 +460,22 @@ class Structure(StructureBase):
                 return atom
         return None
 
+    def renumber_structure(self):
+        """Change the Atom and Residue numbering for the Structure"""
+        self.renumber_atoms()
+        self.renumber_residues()
+        self.log.debug('%s was formatted in Pose numbering (residues now 1 to %d)'
+                       % (self.name, self.number_of_residues))
+
     def renumber_atoms(self):
         """Renumber all atom entries one-indexed according to list order"""
-        atoms = self.atoms
-        for idx, atom in enumerate(atoms, 1):
-            atoms[idx - 1].number = idx
+        for idx, atom in enumerate(self.atoms, 1):
+            atom.number = idx
+
+    def renumber_residues(self):
+        """Starts numbering Residues at 1 and number sequentially until last Residue"""
+        for idx, residue in enumerate(self.residues, 1):
+            residue.number = idx
 
     def reindex_atoms(self, start_at=0, offset=None):
         """Reindex all Atom objects to the current index in the self.atoms attribute"""
@@ -519,7 +531,7 @@ class Structure(StructureBase):
         residues = self.residues
         residues.extend(residue_list)
         self.set_residues(residues)
-        # Todo need to add the residues to coords
+        # Todo need to add the residue coords to coords
 
     # update_structure():
     #  self.reindex_atoms() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->
@@ -545,8 +557,8 @@ class Structure(StructureBase):
         # ensure last residue is added after iteration is complete
         new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords))
         #                           index=residue_idx,
-        self.residues = new_residues
         self.residue_indices = list(range(len(new_residues)))
+        self.residues = new_residues
 
     def residue(self, residue_number, pdb=False):
         """Retrieve the Residue specified
@@ -623,23 +635,23 @@ class Structure(StructureBase):
                 return residue.number_pdb
         return None
 
-    def renumber_residues(self):
-        """Starts numbering Residues at 1 and number sequentially until last Residue"""
-        atoms = self.atoms
-        last_atom_index = len(atoms)
-        idx = 0  # offset , 1
-        for i, residue in enumerate(self.residues, 1):
-            # current_res_num = self.atoms[idx].residue_number
-            # try:
-            current_res_num = residue.number
-            # except AttributeError:
-            #     print('\n'.join(str(atom) for atom in residue.atoms))
-            while atoms[idx].residue_number == current_res_num:  # Todo remove once residue_number is Residue.attribute
-                atoms[idx].residue_number = i  # + offset
-                idx += 1
-                if idx == last_atom_index:
-                    break
-        # self.renumber_atoms()  # should be unnecessary
+    # def renumber_residues(self):
+    #     """Starts numbering Residues at 1 and number sequentially until last Residue"""
+    #     atoms = self.atoms
+    #     last_atom_index = len(atoms)
+    #     idx = 0  # offset , 1
+    #     for i, residue in enumerate(self.residues, 1):
+    #         # current_res_num = self.atoms[idx].residue_number
+    #         # try:
+    #         current_res_num = residue.number
+    #         # except AttributeError:
+    #         #     print('\n'.join(str(atom) for atom in residue.atoms))
+    #         while atoms[idx].residue_number == current_res_num:
+    #             atoms[idx].residue_number = i  # + offset
+    #             idx += 1
+    #             if idx == last_atom_index:
+    #                 break
+    #     # self.renumber_atoms()  # should be unnecessary
 
     def mutate_residue(self, residue=None, number=None, to='ALA', **kwargs):
         """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format
@@ -731,10 +743,10 @@ class Structure(StructureBase):
         self.replace_coords(new_coords)
 
     def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
-        """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space
+        """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
 
-        Transformation proceeds by matrix multiplication with the order of operations as: rotation, translation,
-        rotation2, translation2
+        Transformation proceeds by matrix multiplication with the order of operations as:
+        rotation, translation, rotation2, translation2
 
         Keyword Args:
             rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
@@ -742,7 +754,7 @@ class Structure(StructureBase):
             rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
             translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
         Returns:
-            (Structure)
+            (Structure): A transformed copy of the original object
         """
         if rotation is not None:  # required for np.ndarray or None checks
             new_coords = np.matmul(self.coords, np.transpose(rotation))
@@ -984,7 +996,7 @@ class Structure(StructureBase):
                 residue_idx += 1
         self.secondary_structure = ''.join(residue.secondary_structure for residue in residues)
 
-    def parse_stride(self, stride_file):
+    def parse_stride(self, stride_file, **kwargs):
         """From a Stride file, parse information for residue level secondary structure assignment
 
         Sets:
@@ -1109,11 +1121,11 @@ class Structure(StructureBase):
         else:
             return -1  # termini is closer to the reference
 
-    def furthest_point_from_reference(self, reference=None):  # Todo move to entity
-        """From an Entity, find the furthest coordinate from the origin (default) or from a reference.
+    def furthest_point_from_reference(self, reference=None):
+        """From an Structure, find the furthest coordinate from the origin (default) or from a reference.
 
         Keyword Args:
-            reference=[0,0,0] (numpy.ndarray): The reference where the point should be measured from. Default is origin
+            reference=None (numpy.ndarray): The reference where the point should be measured from. Default is origin
         Returns:
             (float): The distance from the reference point to the furthest point
         """
@@ -1122,11 +1134,11 @@ class Structure(StructureBase):
         else:
             return np.max(np.linalg.norm(self.coords, axis=1))
 
-    def closest_point_to_reference(self, reference=None):  # Todo move to entity
-        """From an Entity, find the furthest coordinate from the origin (default) or from a reference.
+    def closest_point_to_reference(self, reference=None):
+        """From an Structure, find the furthest coordinate from the origin (default) or from a reference.
 
         Keyword Args:
-            reference=[0,0,0] (numpy.ndarray): The reference where the point should be measured from. Default is origin
+            reference=None (numpy.ndarray): The reference where the point should be measured from. Default is origin
         Returns:
             (float): The distance from the reference point to the furthest point
         """
@@ -1144,16 +1156,15 @@ class Structure(StructureBase):
         return '\n'.join(atom.__str__(**kwargs) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
                          for atom, coord in zip(self.atoms, self.coords.tolist()))
 
-    def write(self, out_path=None, header=None, file_handle=None, **kwargs):
-        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-        one was written
+    def write(self, out_path=None, file_handle=None, header=None, **kwargs):
+        """Write Structure Atoms to a file specified by out_path or with a passed file_handle
 
         Keyword Args:
             out_path=None (str):
-            header=None (str):
             file_handle=None (FileObject) #todo:
+            header=None (str):
         Returns:
-            (str): The name of the written file
+            (str): The name of the written file if out_path is used
         """
         def write_header(location):
             if header and isinstance(header, Iterable):
@@ -1182,7 +1193,7 @@ class Structure(StructureBase):
             (list[MonoFragment]): The MonoFragments found on the Structure
         """
         if not residue_numbers:
-            return None
+            return []
 
         # residues = self.residues
         # ca_stretches = [[residues[idx + i].ca for i in range(-2, 3)] for idx, residue in enumerate(residues)]
@@ -1193,7 +1204,7 @@ class Structure(StructureBase):
 
         fragments = []
         for residue_number in residue_numbers:
-            frag_residue_numbers = [residue_number + i for i in range(-2, 3)]  # Todo parameterize
+            frag_residue_numbers = [residue_number + i for i in range(-2, 3)]  # Todo parameterize range
             ca_count = 0
             frag_residues = self.get_residues(numbers=frag_residue_numbers)
             for residue in frag_residues:
@@ -1224,21 +1235,12 @@ class Structure(StructureBase):
     #
     #     return secondary_structure
 
-    # def copy_structures(self):
-    #     # super().copy_structures([self.chains])
-    #     super().copy_structures(self.structure_containers)
-
-    def copy_structures(self):  # this is hybrid of above and below
+    def copy_structures(self):
+        """Copy all member Structures that residue in Structure containers"""
         for structure_type in self.structure_containers:
             structure = getattr(self, structure_type)
             for idx, instance in enumerate(structure):
                 structure[idx] = copy(instance)
-
-    # @staticmethod
-    # def copy_structures(structures):
-    #     for structure in structures:
-    #         for idx, instance in enumerate(structure):
-    #             structure[idx] = copy(instance)
 
     def __key(self):
         return (self.name, *self._residue_indices)
@@ -1249,7 +1251,7 @@ class Structure(StructureBase):
         other.__dict__ = self.__dict__.copy()
         for attr, value in other.__dict__.items():
             other.__dict__[attr] = copy(value)
-        other.set_structure_attributes(other.residues, coords=other._coords)
+        other.set_residues_attributes(_coords=other._coords)  # , _atoms=other._atoms)
 
         return other
 
@@ -1271,11 +1273,11 @@ class Chain(Structure):
         # log=log
 
     @property
-    def sequence(self):  # Todo if the chain is mutated, this mechanism will cause errors
+    def sequence(self):  # Todo if the chain is mutated, this mechanism will cause errors, must clear the sequence if so
         try:
             return self._sequence
         except AttributeError:
-            self.sequence = self.get_structure_sequence()
+            self._sequence = self.get_structure_sequence()
             return self._sequence
 
     @sequence.setter
@@ -1315,7 +1317,7 @@ class Entity(Chain, SequenceProfile):
         chains=None (list): A list of all Chain objects that match the Entity
         uniprot_id=None (str): The unique UniProtID for the Entity
         sequence=None (str): The sequence for the Entity
-        name=None (str): The name for the Entity. Typically PDB.name is used to make PDB compatible form
+        name=None (str): The name for the Entity. Typically PDB.name is used to make a PDB compatible form
         PDB EntryID_EntityID
     """
     def __init__(self, representative=None, chains=None, sequence=None, uniprot_id=None, **kwargs):
@@ -1424,13 +1426,13 @@ class Entity(Chain, SequenceProfile):
         # if transform:
         #     translation, rotation, ext_translation, setting_rotation
         origin = np.array([0., 0., 0.])
-        if not rotation:
+        if rotation is None:
             rotation = identity_matrix
-        if not translation:
+        if translation is None:
             translation = origin
-        if not rotation2:
+        if rotation2 is None:
             rotation2 = identity_matrix
-        if not translation2:
+        if translation2 is None:
             translation2 = origin
 
         if 'D' in sym:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
@@ -1443,7 +1445,6 @@ class Entity(Chain, SequenceProfile):
             rotation_matrices = get_rot_matrices(RotRangeDict[sym], 'z', 360)
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
         inv_rotation = np.linalg.inv(rotation)
-
         inv_setting = np.linalg.inv(rotation2)
         # entity_inv = entity.return_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
         # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
@@ -1498,7 +1499,7 @@ class Residues:
         self.residues = np.array(residues)
 
     def reindex_residues(self, start_at=0, offset=None):
-        # indices according to new Atoms/Coords index
+        """Set each member Residue indices according to incremental Atoms/Coords index"""
         if start_at:
             if start_at < self.residues.shape[0]:  # not 0 and in the Residues index range
                 if offset:
@@ -2067,17 +2068,17 @@ class MonoFragment:
     # def structure(self, structure):
     #     self._structure = structure
 
-    def get_central_res_num(self):  # Todo rename to residue_number?
-        return self.central_residue.number
-
-    def get_central_res_chain_id(self):  # Todo rename to chain?
-        return self.central_residue.chain
+    # def residue_number(self):
+    #     return self.central_residue.number
+    #
+    # def chain(self):
+    #     return self.central_residue.chain
 
     def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
-        """Make a deepcopy of the Structure object with the coordinates transformed in cartesian space.
+        """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
 
-        Transformation proceeds by matrix multiplication with the order of operations as: rotation, translation,
-        rotation2, translation2
+        Transformation proceeds by matrix multiplication with the order of operations as:
+        rotation, translation, rotation2, translation2
 
         Keyword Args:
             rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
@@ -2085,7 +2086,7 @@ class MonoFragment:
             rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
             translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
         Returns:
-            (Structure)
+            (Structure): A transformed copy of the original object
         """
         if rotation is not None:  # required for np.ndarray or None checks
             new_coords = np.matmul(self.guide_coords, np.transpose(rotation))
@@ -2152,8 +2153,8 @@ class Atoms:
         other = self.__class__.__new__(self.__class__)
         # other.__dict__ = self.__dict__.copy()
         other.atoms = self.atoms.copy()
-        for idx, atom in enumerate(other.atoms):
-            other.atoms[idx] = copy(atom)
+        # for idx, atom in enumerate(other.atoms):
+        #     other.atoms[idx] = copy(atom)
 
         return other
 
@@ -2227,7 +2228,7 @@ class Atom:
 
     # def distance(self, atom, intra=False):
     #     """returns distance (type float) between current instance of Atom and another instance of Atom"""
-    #     if self.chain == atom.chain and not intra:  # todo depreciate
+    #     if self.chain == atom.chain and not intra:
     #         # self.log.error('Atoms Are In The Same Chain')
     #         return None
     #     else:
@@ -2533,7 +2534,7 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
         return rmsd, aa_rotate, a_translate, c
 
 
-def parse_stride(stride_file):
+def parse_stride(stride_file, **kwargs):
     """From a Stride file, parse information for residue level secondary structure assignment
 
     Sets:
