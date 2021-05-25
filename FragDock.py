@@ -246,7 +246,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         asu.uc_dimensions = uc_dimensions
         asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.get_result_design_sym(), ignore_clashes=True,
-                                           surrounding_uc=output_surrounding_uc, log=log)
+                                           surrounding_uc=output_surrounding_uc, log=log)  # ^ ignores ASU clashes
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
 
