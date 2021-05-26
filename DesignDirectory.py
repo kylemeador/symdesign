@@ -443,39 +443,24 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         if self.sym_entry:
             metrics['design_dimension'] = self.design_dimension
-            # if self.pose:  # Todo
-            if self.oligomers:
-                # Todo test
-                for idx, oligomer in enumerate(self.oligomers, 1):
-                    if len(oligomer.entities) > 1:
-                        metrics['component_%d_symmetry' % idx] = getattr(self.sym_entry, 'group%d' % idx)
-                        for ent_idx, entity in enumerate(oligomer.entities, 1):
-                            metrics.update({
-                                'component_%d_entity_%d_name' % (idx, ent_idx): entity.name,
-                                'component_%d_entity_%d_number_of_residues' % idx: entity.number_of_residues,
-                                'component_%d_entity_%d_max_radius' % idx: entity.furthest_point_from_reference(),
-                                'component_%d_entity_%d_n_terminal_helix' % idx: entity.is_n_term_helical(),
-                                'component_%d_entity_%d_c_terminal_helix' % idx: entity.is_c_term_helical(),
-                                'component_%d_entity_%d_n_terminal_orientation' % idx:
-                                    entity.terminal_residue_orientation_from_reference(),
-                                'component_%d_entity_%d_c_terminal_orientation' % idx:
-                                    entity.terminal_residue_orientation_from_reference(termini='c')
-                            })
-                    else:
-                        metrics.update({
-                            'component_%d_symmetry' % idx: getattr(self.sym_entry, 'group%d' % idx),
-                            'component_%d_name' % idx: oligomer.name,
-                            'component_%d_number_of_residues' % idx: oligomer.number_of_residues,
-                            'component_%d_max_radius' % idx: oligomer.furthest_point_from_reference(),
-                            'component_%d_n_terminal_helix' % idx: oligomer.is_n_term_helical(),
-                            'component_%d_c_terminal_helix' % idx: oligomer.is_c_term_helical(),
-                            'component_%d_n_terminal_orientation' % idx:
-                                oligomer.terminal_residue_orientation_from_reference(),
-                            'component_%d_c_terminal_orientation' % idx:
-                                oligomer.terminal_residue_orientation_from_reference(termini='c')
-                            })
+            for group_idx, name in enumerate(self.oligomer_names, 1):
+                metrics['symmetry_group_%d' % group_idx] = getattr(self.sym_entry, 'group%d' % group_idx)
         else:
             metrics['design_dimension'] = 'asymmetric'
+
+        for ent_idx, entity in enumerate(self.pose.entities, 1):
+            if entity.is_oligomeric:
+                metrics['entity_%d_symmetry' % ent_idx] = entity.symmetry
+            metrics.update({'entity_%d_name' % ent_idx: entity.name,
+                            'entity_%d_number_of_residues' % ent_idx: entity.number_of_residues,
+                            'entity_%d_max_radius' % ent_idx: entity.furthest_point_from_reference(),
+                            'entity_%d_n_terminal_helix' % ent_idx: entity.is_termini_helical(),
+                            'entity_%d_c_terminal_helix' % ent_idx: entity.is_termini_helical(termini='c'),
+                            'entity_%d_n_terminal_orientation' % ent_idx:
+                                entity.terminal_residue_orientation_from_reference(),
+                            'entity_%d_c_terminal_orientation' % ent_idx:
+                                entity.terminal_residue_orientation_from_reference(termini='c')
+                            })
 
         return metrics
 
@@ -726,23 +711,30 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def get_fragment_metrics(self):
         """Set/get fragment metrics for all fragment observations in the design"""
         self.log.debug('Starting fragment metric collection')
-        if self.info.get('fragments', None):  # check if fragment generation has been attempted
-            if not self.fragment_observations:
-                if os.path.exists(self.frag_file):
-                    self.gather_fragment_info()
-                    # frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
-                    frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
-                else:
-                    # no fragments were found in file and might not be present, set frag_metrics empty
-                    frag_metrics = fragment_metric_template
-            else:
-                self.log.debug('No fragment observations found on file, getting fragment info from Pose')
-                frag_metrics = self.pose.return_fragment_metrics()
-        else:  # could attempt to generate fragment observations... now just raise an error
-            raise DesignError('Fragment observations have not been generated for this Design! Have you run %s on it?'
-                              % PUtils.generate_fragments)
-            # self.log.warning('There are no fragment observations for this Design! Have you run %s on it yet?'
-            #                  % PUtils.generate_fragments)
+        # if self.info.get('fragments', None):
+        if self.fragment_observations:  # check if fragment generation has been populated somewhere
+            # frag_metrics = self.pose.return_fragment_metrics(fragments=self.info.get('fragments'))
+            frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+        elif self.pose.fragment_queries:
+            self.log.debug('Fragment observations found in Pose. Adding to the Design state')
+            self.fragment_observations = self.pose.return_fragment_observations()
+            self.info['fragments'] = self.fragment_observations
+            frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+        elif os.path.exists(self.frag_file):  # try to pull them from disk
+            self.gather_fragment_info()
+            # frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
+            frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+        # no fragments were attempted but returned nothing, set frag_metrics empty
+        elif self.fragment_observations == list():
+            frag_metrics = fragment_metric_template
+        elif self.fragment_observations is None:
+            # raise DesignError('Fragment observations have not been generated for this Design! Have you run %s on it?'
+            #                   % PUtils.generate_fragments)
+            self.log.warning('There are no fragment observations for this Design! Returning null values... '
+                             'Have you run %s on it yet?' % PUtils.generate_fragments)
+            frag_metrics = fragment_metric_template
+        else:
+            raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
             # self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet?
             #                  ' Trying %s now...'
             #                  % (self.path, PUtils.generate_fragments, PUtils.generate_fragments))
@@ -1690,22 +1682,29 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         self.identify_interface()
         if self.query_fragments:
-            self.info['fragments'] = True
             self.make_path(self.frags)
-        elif self.design_with_fragments:
-            self.get_fragment_metrics()
+            # self.info['fragments'] = True
+        elif self.fragment_observations or self.fragment_observations == list():
+            pass  # fragment generation was run (maybe succeeded)
+        elif self.design_with_fragments and not self.fragment_observations and os.path.exists(self.frag_file):
+            self.gather_fragment_info()
+        else:
+            raise DesignError('Fragments were specified during design, but observations have not been yet been '
+                              'generated for this Design! Try with the flag --query_fragments or run %s'
+                              % PUtils.generate_fragments)
         self.make_path(self.data)
-        self.pose.interface_design(design_dir=self,
-                                   evolution=self.evolution, symmetry=self.design_symmetry,
-                                   fragments=self.design_with_fragments, write_fragments=self.write_frags,
-                                   query_fragments=self.query_fragments)
-        # TODO add symmetry or oligomer data to self.info. Right now in self.sym_entry
-        self.set_symmetry(**self.pose.return_symmetry_parameters())
-        self.log.debug('DesignDirectory Symmetry: %s' % self.return_symmetry_parameters())
+        self.pose.interface_design(evolution=self.evolution, fragments=self.design_with_fragments,
+                                   query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
+                                   write_fragments=self.write_frags, des_dir=self)  # Todo frag_db=self.frag_db_SOURCE
         self.make_path(self.designs)
         self.make_path(self.scores)
         self.prepare_rosetta_interface_design()
-        # self.pickle_info()
+        self.info['fragments'] = self.pose.return_fragment_observations()
+        self.info['design_profile'] = self.pose.design_pssm_file
+        self.info['evolutionary_profile'] = self.pose.pssm_file
+        self.info['fragment_data'] = self.pose.interface_data_file
+        self.info['fragment_profile'] = self.pose.fragment_pssm_file
+        self.info['fragment_database'] = self.pose.frag_db
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=False):
