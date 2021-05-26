@@ -868,7 +868,7 @@ class Structure(StructureBase):
                         side_chain_clashes.append((residue, other_residue, atom_idx))
 
         if backbone_clashes:
-            bb_info = '\n\t'.join('Residue %5d: %s' % (residue.number, str(other).split('\n')[atom_idx])
+            bb_info = '\n\t'.join('Residue %4d: %s' % (residue.number, str(other).split('\n')[atom_idx])
                                   for residue, other, atom_idx in backbone_clashes)
             self.log.critical('%s contains %d backbone clashes from the following Residues to the corresponding Atom:'
                               '\n\t%s' % (self.name, len(backbone_clashes), bb_info))
