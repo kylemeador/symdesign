@@ -1310,6 +1310,7 @@ class PDB(Structure):
         for entity_name, info in self.entity_d.items():
             chains = info.get('chains')  # v make Chain objects (if they are names)
             info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in chains]
+            info['chains'] = [chain for chain in info['chains'] if chain]
             info['representative'] = info['chains'][0]
             accession = self.dbref.get(info['representative'].chain_id, None)
             info['accession'] = accession['accession'] if accession else accession
