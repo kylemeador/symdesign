@@ -8,6 +8,7 @@ from math import sqrt, cos, sin
 # from operator import itemgetter
 
 import numpy as np
+# from numba import njit, jit
 from sklearn.neighbors import BallTree
 # import requests
 
@@ -2241,6 +2242,7 @@ def get_fragments(pdb, chain_res_info, fragment_length=5):  # Todo depreciate
     return interface_frags
 
 
+# @njit
 def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2, fragdb=None,
                                        euler_lookup=None, max_z_value=2):
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
