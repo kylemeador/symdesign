@@ -201,7 +201,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Analysis flags
         self.analysis = False
         self.skip_logging = False
-        self.copy_nanohedra = False                # no construction specific flags
+        self.copy_nanohedra = False  # no construction specific flags
+        self.nanohedra_root = None
 
         self.set_flags(**kwargs)  # has to be set before set_up_design_directory
         # if not self.sym_entry:
@@ -257,20 +258,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             else:  # if self.construct_pose:
                 self.info['nanohedra'] = True
                 path_components = self.source_path.split(os.sep)
-                nanohedra_root = path_components[-5]
+                self.nanohedra_root = '/%s' % '/'.join(path_components[:-5])
                 # design_symmetry (P432)
                 # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
                 #     .replace(os.sep, '-')
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
-                self.project_designs = os.path.join(self.projects, '%s_%s' % (nanohedra_root, PUtils.design_directory))
+                self.project_designs = os.path.join(self.projects, '%s_%s' % (path_components[-5],
+                                                                              PUtils.design_directory))
                 # make the newly required files
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
                 # copy the master log
                 if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
-                    shutil.copy(os.path.join(nanohedra_root, PUtils.master_log), self.project_designs)
+                    shutil.copy(os.path.join(self.nanohedra_root, PUtils.master_log), self.project_designs)
 
                 self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
@@ -2520,12 +2522,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             os.makedirs(path)
 
     def __str__(self):
-        if self.program_root:
-            # TODO integrate with designDB?
-            return self.path.replace(self.program_root + os.sep, '').replace(os.sep, '-')
+        if self.nano:
+            return self.source_path.replace(self.nanohedra_root, '').replace(os.sep, '-')
         else:
-            # When is this relevant?
-            return self.path.replace(os.sep, '-')[1:]
+            # TODO integrate with designDB?
+            return self.path.replace(self.projects + os.sep, '').replace(os.sep, '-')
 
 
 def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
