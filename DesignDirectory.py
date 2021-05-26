@@ -1697,7 +1697,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         information between Entities. Aware of symmetry and design_selectors in fragment generation
         file
         """
-        self.load_pose()
         if not self.frag_db:
             self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
                              'requested. Each design is loading a separate instance. To maximize efficiency, pass --%s'
@@ -1717,7 +1716,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def identify_interface(self):
         """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
         entities. Sets the interface_residue_ids to map each interface to the corresponding residues."""
-        self.expand_asu()
+        # self.expand_asu()  # can't use this as it is a stand in for SymDesign call which needs to catch Errors!
+        if not self.pose:
+            self.load_pose()
+        if self.pose.symmetry:
+            self.symmetric_assembly_is_clash()
+            if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
+                self.pose.get_assembly_symmetry_mates()
+                self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
+                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
         self.pose.find_and_split_interface()
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.interface_residue_ids['interface%d' % number] = \
@@ -1796,10 +1803,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Gather miscellaneous pose specific metrics
         # ensure oligomers are present and if so, their metrics are pulled out. Happens when pose is scored.
         # self.load_pose()  # given scope of new metrics, using below instead due to interface residue requirement
+        self.identify_interface()
         if self.query_fragments:
-            self.generate_interface_fragments()  # inherently identifies the interface
-        else:
-            self.identify_interface()
+            # self.generate_interface_fragments()  # inherently identifies the interface
+            self.make_path(self.frags, condition=self.write_frags)
+            self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
         other_pose_metrics = self.pose_metrics()
         if not other_pose_metrics:
             raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
