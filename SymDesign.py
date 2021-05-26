@@ -783,7 +783,8 @@ if __name__ == '__main__':
         # Root logger logs to stream with level 'warning'
         SDUtils.start_log(level=3, set_logger_level=True)
         # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
-        SDUtils.start_log(handler=2, location=os.path.join(os.getcwd(), __name__.lower()), set_logger_level=True)
+        SDUtils.start_log(handler=2, set_logger_level=True,
+                          location=os.path.join(os.getcwd(), os.path.basename(__file__).split('.')[0].lower()))
         # SymDesign main logs to stream with level info
         logger = SDUtils.start_log(name=os.path.basename(__file__).split('.')[0], propagate=False)
         # All Designs will log to specific file with level info unless -skip_logging is passed
@@ -1095,11 +1096,11 @@ if __name__ == '__main__':
 
         if design_directories:
             # setup_design_directories(design_directories)
-            if args.multi_processing:
-                SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
-            else:
-                for design in design_directories:
-                    design.set_up_design_directory()
+            # if args.multi_processing:
+            #     SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
+            # else:
+            for design in design_directories:
+                design.set_up_design_directory()
         else:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s?'
