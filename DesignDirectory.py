@@ -49,7 +49,6 @@ relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
-
     def __init__(self, design_path, nano=False, construct_pose=False, pose_id=None, dock=False, root=None,
                  **kwargs):  # project=None,
         if pose_id:  # Todo may not be compatible P432
@@ -258,7 +257,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             else:  # if self.construct_pose:
                 self.info['nanohedra'] = True
                 path_components = self.source_path.split(os.sep)
-                self.nanohedra_root = '/%s' % '/'.join(path_components[:-5])
+                self.nanohedra_root = '/'.join(path_components[:-5])
                 # design_symmetry (P432)
                 # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
                 #     .replace(os.sep, '-')
@@ -2523,6 +2522,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def __str__(self):
         if self.nano:
+            print(self.nanohedra_root)
             return self.source_path.replace(self.nanohedra_root, '').replace(os.sep, '-')
         else:
             # TODO integrate with designDB?
