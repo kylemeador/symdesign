@@ -280,7 +280,7 @@ class Structure(StructureBase):
         # index_mask = [atom.index for atom in self.atoms if atom.is_CA()]
         return self._coords.coords[self.get_ca_indices()]
 
-    def get_cb_coords(self):  # , InclGlyCA=True):
+    def get_cb_coords(self):
         """Return a view of the Coords from the Structure with CB atom coordinates
 
         Returns:
@@ -415,12 +415,12 @@ class Structure(StructureBase):
         return [residue.ca_index for residue in self.residues if residue.ca_index]
 
     def get_cb_indices(self):
-        """Return CB Atom indices from the Structure. Inherently gets glycine CA's
+        """Return CB Atom indices from the Structure. Inherently gets glycine Ca's and Ca's of Residues missing Cb
 
         Returns:
             (list[int])
         """
-        return [residue.cb_index for residue in self.residues if residue.cb_index]
+        return [residue.cb_index if residue.cb_index else residue.ca_index for residue in self.residues]
 
     def get_helix_cb_indices(self):
         """Only works on secondary structure assigned structures!
@@ -1364,11 +1364,11 @@ class Entity(Chain, SequenceProfile):
             chain_ids = []
             for idx, chain in enumerate(chains):  # one of these is the representative, but we can treat it the same
                 if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
-                    rmsd, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
+                    _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
                     self.chain_ops.append(dict(rotation=rot, translation=tx))
                     chain_ids.append(chain.name)
                 else:
-                    self.log.warning('The Chain %s passed to %s do not have the same number of residues'
+                    self.log.warning('The Chain %s passed to %s doesn\'t have the same number of residues'
                                      % (chain.name, self.name))
             self.chain_ids = chain_ids
             # self.chain_ids = [chain.name for chain in chains]
