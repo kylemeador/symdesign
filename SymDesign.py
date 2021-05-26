@@ -777,13 +777,13 @@ if __name__ == '__main__':
     timestamp = time.strftime('%y-%m-%d-%H%M%S')
     if args.debug:
         # Root logs to stream with level debug
-        logger = SDUtils.start_log(level=1)
+        logger = SDUtils.start_log(level=1, set_logger_level=True)
         logger.debug('Debug mode. Verbose output')
     else:
-        # Root logs to stream with level warning
-        SDUtils.start_log(level=3)
-        # Set root logger to log all logs to single file with info level, stream from above still emits at warning
-        SDUtils.start_log(handler=2, location=os.path.join(os.getcwd(), PUtils.program_name))
+        # Root logger logs to stream with level 'warning'
+        SDUtils.start_log(level=3, set_logger_level=True)
+        # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
+        SDUtils.start_log(handler=2, location=os.path.join(os.getcwd(), __name__.lower()), set_logger_level=True)
         # SymDesign main logs to stream with level info
         logger = SDUtils.start_log(name=os.path.basename(__file__).split('.')[0], propagate=False)
         # All Designs will log to specific file with level info unless -skip_logging is passed
