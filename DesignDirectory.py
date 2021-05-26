@@ -1512,10 +1512,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.pose.asu = self.pose.pdb  # set the asu
             # asu = self.pose.get_contacting_asu()
         else:
-            self.pose = Pose.from_asu_file(self.source, entity_names=self.entity_names,
-                                           sym_entry=self.sym_entry, source_db=self.database,
-                                           design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
-                                           ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
+            asu = PDB.from_file(self.source, entity_names=self.entity_names, log=self.log)
+            self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
+                                      design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
+                                      ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
             if not self.entity_names:
                 self.entity_names = [entity.name for entity in self.pose.entities]
                 self.info['entity_names'] = self.entity_names
