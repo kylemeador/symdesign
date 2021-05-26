@@ -257,7 +257,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             else:  # if self.construct_pose:
                 self.info['nanohedra'] = True
                 path_components = self.source_path.split(os.sep)
-                self.nanohedra_root = '/'.join(path_components[:-5])
+                self.nanohedra_root = '/'.join(path_components[:-4])  # path_components[-5]
                 # design_symmetry (P432)
                 # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
                 #     .replace(os.sep, '-')
@@ -2522,7 +2522,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def __str__(self):
         if self.nano:
-            return self.source_path.replace(self.nanohedra_root, '').replace(os.sep, '-')
+            return self.source_path.replace(self.nanohedra_root + os.sep, '').replace(os.sep, '-')
         else:
             # TODO integrate with designDB?
             return self.path.replace(self.projects + os.sep, '').replace(os.sep, '-')
