@@ -1107,8 +1107,10 @@ if __name__ == '__main__':
 
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
         if not args.debug and not queried_flags['skip_logging']:
-            logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
-                        % design_directories[0].log.handlers[0].baseFilename)
+            example_log = getattr(design_directories[0].log.handlers[0], 'baseFilename', None)
+            if example_log:
+                logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
+                            % example_log)
 
     elif args.module == PUtils.nano:  # Todo consolidate this operation with above and nano orient
         # Getting PDB1 and PDB2 File paths
