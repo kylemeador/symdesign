@@ -14,7 +14,7 @@ from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
-    start_log, null_log, possible_symmetries, match_score_from_z_value, split_interface_pairs
+    start_log, null_log, possible_symmetries, match_score_from_z_value, split_interface_pairs, dictionary_lookup
 from classes.SymEntry import get_rot_matrices, RotRangeDict, get_degen_rotmatrices, SymEntry, flip_x_matrix
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues
@@ -2001,7 +2001,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.query_interface_for_fragments(*entity_pair)
 
         if write_fragments:
-            write_fragment_pairs(self.fragment_pairs, out_path=out_path)
+            self.write_fragment_pairs(self.fragment_pairs, out_path=out_path)
             frag_file = os.path.join(out_path, PUtils.frag_text_file)
             if os.path.exists(frag_file):
                 os.system('rm %s' % frag_file)  # ensure old file is removed before new write
@@ -2009,6 +2009,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
                                            overlap_error=z_value_from_match_score(match),
                                            match_number=match_count, out_path=out_path)
+
+    def write_fragment_pairs(self, ghostfrag_surffrag_pairs, out_path=os.getcwd()):
+        for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
+            fragment, _, _ = dictionary_lookup(self.frag_db.paired_frags, interface_ghost_frag.get_ijk())
+            trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_fragment.transformation)
+            trnsfmd_fragment.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_match_%d.pdb'
+                                                         % (*interface_ghost_frag.get_ijk(), idx)))
+            # interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_overlap_match_%d.pdb'
+            #                                                            % (*interface_ghost_frag.get_ijk(), idx)))
 
     def return_symmetry_parameters(self):
         """Return the symmetry parameters from a SymmetricModel
@@ -2256,10 +2265,10 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
         euler_lookup = EulerLookup()
 
     # logger.debug('Starting Ghost Frag Lookup')
-    kdtree_oligomer1_backbone = BallTree(entity1_coords)
+    oligomer1_bb_tree = BallTree(entity1_coords)
     interface_ghost_frags1 = []
     for frag1 in interface_frags1:
-        ghostfrags = frag1.get_ghost_fragments(fragdb.paired_frags, kdtree_oligomer1_backbone, fragdb.info)
+        ghostfrags = frag1.get_ghost_fragments(fragdb.indexed_ghosts, oligomer1_bb_tree)
         if ghostfrags:
             interface_ghost_frags1.extend(ghostfrags)
     logger.debug('Finished Ghost Frag Lookup')
@@ -2279,13 +2288,13 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
     surface_type_i_array = np.array([interface_frags2[idx].i_type for idx in overlapping_surf_indices.tolist()])
     ghost_type_j_array = np.array([interface_ghost_frags1[idx].j_type for idx in overlapping_ghost_indices.tolist()])
     ij_type_match = np.where(surface_type_i_array == ghost_type_j_array, True, False)
-    logger.debug('Found %d overlapping fragments in the same i/j type' % len(ij_type_match))
 
     passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
     passing_ghost_coords = interface_ghostfrag_guide_coords[passing_ghost_indices]
 
     passing_surf_indices = overlapping_surf_indices[ij_type_match]
     passing_surf_coords = interface_surf_frag_guide_coords[passing_surf_indices]
+    logger.debug('Found %d overlapping fragments in the same i/j type' % len(passing_ghost_indices))
     # precalculate the reference_rmsds for each ghost fragment
     reference_rmsds = np.array([interface_ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
     reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
@@ -2294,8 +2303,8 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
     all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
                                              max_z_value=max_z_value)
     # logger.debug('Finished calculating fragment overlaps')
-    logger.debug('Found %d overlapping fragments under the %s threshold' % (len(all_fragment_overlap), max_z_value))
     passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
+    logger.debug('Found %d overlapping fragments under the %f threshold' % (len(passing_overlap_indices), max_z_value))
 
     interface_ghostfrags = [interface_ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
     interface_monofrags2 = [interface_frags2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
@@ -2324,12 +2333,6 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
 
     return fragment_matches
-
-
-def write_fragment_pairs(ghostfrag_surffrag_pairs, out_path=os.getcwd()):
-    for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
-        interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_overlap_match_%d.pdb'
-                                                                   % (*interface_ghost_frag.get_ijk(), idx)))
 
 
 def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):

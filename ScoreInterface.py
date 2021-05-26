@@ -128,6 +128,7 @@ if __name__ == '__main__':
         results = mp_starmap(Pose.score_interface, zipped_args, threads=args.threads)
         interface_d = {pose.name: result.values() for pose, result in zip(interface_poses, results)}
     else:
+        raise RuntimeError('This functionality is currently broken')
         interface_d = {calculate_interface_score(interface_pdb) for interface_pdb in interface_pdbs}
 
     interface_df = pd.DataFrame(interface_d)

@@ -2,11 +2,13 @@ import os
 import math
 from glob import glob
 
+import numpy as np
+
 from PDB import PDB
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
 from Structure import parse_stride
-from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log
+from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
 from utils.MysqlPython import Mysql
 
 
@@ -191,6 +193,7 @@ class FragmentDB:
         self.cluster_info_path = intfrag_cluster_info_dirpath
         self.reps = None
         self.paired_frags = None
+        self.indexed_ghosts = {}
         self.info = None
 
     def get_monofrag_cluster_rep_dict(self):
@@ -218,6 +221,8 @@ class FragmentDB:
                         (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_mapped_chain, ijk_cluster_rep_partner_chain)
 
         self.paired_frags = ijk_cluster_representatives
+        if self.info:
+            self.index_ghosts()
 
     def get_intfrag_cluster_info_dict(self):
         intfrag_cluster_info_dict = {}
@@ -235,6 +240,22 @@ class FragmentDB:
                         ClusterInfoFile(os.path.join(root, file))
 
         self.info = intfrag_cluster_info_dict
+        if self.paired_frags:
+            self.index_ghosts()
+
+    def index_ghosts(self):
+        """From the fragment database, precompute all required data into arrays to populate Ghost Fragments"""
+        for i_type in self.paired_frags:
+            stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).get_backbone_coords()
+                                          for j_dict in self.paired_frags[i_type].values()
+                                          for frag_pdb, _, frag_paired_chain in j_dict.values()])
+            stacked_guide_coords = np.array([frag_pdb.chain('9').coords for j_dict in self.paired_frags[i_type].values()
+                                             for frag_pdb, _, _ in j_dict.values()])
+            ijk_types = \
+                np.array([(i_type, j_type, k_type) for j_type, j_dict in self.paired_frags[i_type].items()
+                          for k_type in j_dict])
+            rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
+            self.indexed_ghosts[i_type] = (stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array)
 
 
 class FragmentDatabase(FragmentDB):
