@@ -193,16 +193,17 @@ def sdf_lookup(symmetry=None):
 #####################
 
 
-def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True, format_log=True):
+def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True, format_log=True,
+              set_logger_level=False):
     """Create a logger to handle program messages
 
     Keyword Args:
-        name='' (str): The name of the logger
+        name='' (str): The name of the logger. By default the root logger is returned
         handler=1 (int): Whether to handle to stream (1-default) or a file (2)
         level=2 (int): What level of messages to emit (1-debug, 2-info (default), 3-warning, 4-error, 5-critical)
         location=os.getcwd() (str): If a FileHandler is used (handler=2) where should file be written?
             .log is appended to file
-        propagate=True (bool): Whether to pass messages to parent level loggers
+        propagate=True (bool): Whether to propagate messages to parent loggers (such as root or parent.current_logger)
     Returns:
         (logging.Logger): Logger object to handle messages
     """
@@ -211,7 +212,8 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True,
     log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
 
     _logger = logging.getLogger(name)
-    _logger.setLevel(log_level[level])
+    if set_logger_level:
+        _logger.setLevel(log_level[level])
     if not propagate:
         _logger.propagate = False
     # lh = log_handler[handler]
