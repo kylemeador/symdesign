@@ -143,42 +143,24 @@ class SequenceProfile:
         """
         if null or not evolution and not fragments:
             null, evolution, fragments = True, False, False
-            self.add_evolutionary_profile(null=null, **kwargs)
+            # self.add_evolutionary_profile(null=null, **kwargs)
 
         if evolution:  # add evolutionary information to the SequenceProfile
-            self.add_evolutionary_profile(out_path=out_path, **kwargs)
+            if not self.evolutionary_profile:
+                self.add_evolutionary_profile(out_path=out_path, **kwargs)
             self.verify_profile()
-            # TODO currently using self.structure.reference_sequence which could be ATOM, could be SEQRES.
-            #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequnce
-            #  processing
-            # Todo currently using favor_fragments as mechanism if fragments exist, this is overloaded and not intended
+        else:
+            self.null_pssm()
 
         if fragments:  # add fragment information to the SequenceProfile
-            # if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
-            #     if entities:
-            #         self.add_fragment_query(entity1=entities[0], entity2=entities[1], query=fragment_observations,
-            #                                 pdb_numbering=pdb_numbering)
-            #         # if pdb_numbering:  # Renumber to Pose residue numbering
-            #         #     fragment_source = self.renumber_fragments_to_pose(fragment_source)
-            #         #     for idx, fragment in enumerate(fragment_source):
-            #         #         fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-            #         #         fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-            #         #         fragment_source[idx] = fragment
-            #         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
-            #     else:
-            #         self.log.error('%s: Argument \'entities\' (tuple) is required if fragment_observations are provided'
-            #                        % self.add_profile.__name__)
-            #         return None
-
             if self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
                 self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
                                                    for fragments in idx_d.values() for fragment in fragments])
             else:
                 raise DesignError('Fragments were specified but have not been added to the SequenceProfile! '
                                   'The Pose/Entity must call assign_fragments() with fragment information')
-
             # process fragment profile from self.fragment_map or self.fragment_query
-            self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
+            self.add_fragment_profile()
             self.find_alpha()
 
         self.calculate_design_profile(boltzmann=True, favor_fragments=fragments)
@@ -214,7 +196,8 @@ class SequenceProfile:
             else:
                 success = True
 
-    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', force=False, null=False):
+    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', file=None, force=False):
+        #                        null=False
         """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
         homologous protein sequences (evolutionary)
 
@@ -224,19 +207,23 @@ class SequenceProfile:
         Sets:
             self.evolutionary_profile
         """
-        if null:
-            self.null_pssm()
-            return None
-
+        # if null:
+        #     self.null_pssm()
+        #     return
         if profile_source not in ['hhblits', 'psiblast']:
             raise DesignError('%s: Profile generation only possible from \'hhblits\' or \'psiblast\', not %s'
                               % (self.add_evolutionary_profile.__name__, profile_source))
-
-        if force:
+        if file:
+            self.pssm_file = file
+            if profile_source == 'psiblast':
+                self.parse_psiblast_pssm()
+            else:
+                self.parse_hhblits_pssm()
+            return
+        elif force:
             self.sequence_file = None
             self.pssm_file = None
-        else:
-            # Check to see if the files of interest already exist
+        else:  # Check to see if the files of interest already exist Todo consolidate with Database
             temp_file = os.path.join(out_path, '%s.hold' % self.name)
             out_put_file_search = glob(os.path.join(out_path, '%s.*' % self.name))
             if not out_put_file_search:  # found nothing -> []
@@ -298,16 +285,7 @@ class SequenceProfile:
         self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa, dtype=int)
         structure_sequence = self.structure_sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
-            # line_data = line.strip().split()
-            # if len(line_data) == 44:
-            #     residue_number = int(line_data[0])
-            #     self.evolutionary_profile[residue_number] = deepcopy(aa_counts)
-            # for i, aa in enumerate(alph_3_aa, 22):  # pose_dict[residue_number], 22):
-            #     Get normalized counts for pose_dict
-                # self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
-            # for i, aa in enumerate(alph_3_aa, 2):
-            #     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
             self.evolutionary_profile[residue_number]['type'] = structure_sequence[idx]
             self.evolutionary_profile[residue_number]['info'] = 0.0
             self.evolutionary_profile[residue_number]['weight'] = 0.0
@@ -383,6 +361,8 @@ class SequenceProfile:
     def parse_hhblits_pssm(self, null_background=True):
         """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
+        Keyword Args:
+            null_background=True (bool): Whether to use the null background for the specific protein
         Sets:
             self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
@@ -1619,7 +1599,17 @@ def get_lod(aa_freq_dict, bg_dict, round_lod=True):
 
 @handle_errors(errors=(FileNotFoundError,))
 def parse_hhblits_pssm(file, null_background=True):
-    # Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
+    """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
+
+    Args:
+        file (str): The file to parse, typically with the extension '.hmm'
+    Keyword Args:
+        null_background=True (bool): Whether to use the null background for the specific protein
+    Returns:
+        (dict): Dictionary containing residue indexed profile information
+        Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                 'weight': 0.00}, {...}}
+    """
     dummy = 0.00
     null_bg = {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228, 'I': 0.0534,
                'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401, 'R': 0.0599, 'S': 0.0791,
@@ -1654,17 +1644,15 @@ def parse_hhblits_pssm(file, null_background=True):
 
             if len(line.split()) == 23:
                 items = line.strip().split()
-                resi = int(items[1]) - index_offset  # make zero index so dict starts at 0
-                pose_dict[resi] = {}
+                residue_number = int(items[1])
+                pose_dict[residue_number] = {}
                 for i, aa in enumerate(IUPACData.protein_letters, 2):
-                    pose_dict[resi][aa] = to_freq(items[i])
-                pose_dict[resi]['lod'] = get_lod(pose_dict[resi], null_bg)
-                pose_dict[resi]['type'] = items[0]
-                pose_dict[resi]['info'] = dummy
-                pose_dict[resi]['weight'] = dummy
+                    pose_dict[residue_number][aa] = to_freq(items[i])
+                pose_dict[residue_number]['lod'] = get_lod(pose_dict[residue_number], null_bg)
+                pose_dict[residue_number]['type'] = items[0]
+                pose_dict[residue_number]['info'] = dummy
+                pose_dict[residue_number]['weight'] = dummy
 
-    # Output: {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-    # 'weight': 0.00}, {...}}
     return pose_dict
 
 

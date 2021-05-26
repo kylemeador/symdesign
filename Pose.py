@@ -1630,7 +1630,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                                                for res, ent in residues_entities)
                                                       for residues_entities in self.split_interface_residues.values()))
 
-    def interface_secondary_structure(self):  # , source_db=None, source_dir=None):
+    def interface_secondary_structure(self):
         """From a split interface, curate the secondary structure topology for each
 
         Keyword Args:
@@ -1641,7 +1641,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         for entity in self.active_entities:
             if not entity.secondary_structure:
                 if self.source_db:
-                    parsed_secondary_structure = self.source_db.retrieve_data(source='stride', name=entity.name)
+                    parsed_secondary_structure = self.source_db.stride.retrieve_data(name=entity.name)
                     if parsed_secondary_structure:
                         entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
                     else:
@@ -1771,6 +1771,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 entity.add_profile(null=True)
             else:
                 if self.source_db:
+                    self.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=self.name)
                     sequence_path = self.source_db.sequences.location
                 else:
                     sequence_path = des_dir.sequences
