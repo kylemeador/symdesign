@@ -4,7 +4,7 @@ from math import ceil, sqrt
 import shutil
 import subprocess
 from glob import glob
-from itertools import combinations, repeat, chain
+from itertools import combinations, repeat,  # chain as iter_chain
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,8 +17,8 @@ from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError, \
-    match_score_from_z_value, handle_design_errors, pickle_object, remove_interior_keys, filter_dictionary_keys, \
-    all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym
+    match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, \
+    all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym, pretty_format_table
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
@@ -153,7 +153,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.transform_d = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
 
         # self.fragment_cluster_residue_d = {}
-        self.fragment_observations = []
+        self.fragment_observations = None
         self.interface_residue_ids = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self.interface_ss_topology = {}
@@ -211,6 +211,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # check to be sure it's not actually one
         #     if ('DEGEN', 'ROT', 'tx') in self.path:
         #         self.nano = True
+        self.cryst_record = None
+
         if self.nano:
             # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
             if not os.path.exists(self.source_path):
@@ -375,7 +377,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @property
     def number_of_fragments(self):
-        return len(self.fragment_observations)
+        return len(self.fragment_observations) if self.fragment_observations else 0
 
     @property
     def score(self):
@@ -489,8 +491,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not self.transform_d:
             self.gather_pose_metrics()
             self.info['pose_transformation'] = self.transform_d
+            self.log.debug('Using transformation parameters:\n\t%s'
+                           % '\n\t'.join(pretty_format_table(self.transform_d.items())))
 
-        self.log.debug('Using transformation parameters: %s' % self.transform_d)
         return self.transform_d
 
     # def pdb_input_parameters(self):
@@ -545,20 +548,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.skip_logging = skip_logging
         self.debug = debug
         self.copy_nanohedra = copy_nanohedra
-
-    def set_symmetry(self, uc_dimensions=None, expand_matrices=None, **kwargs):  # Todo depreciate
-        """{symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
-
-        (str)
-        (int)
-        (list)
-        (list[tuple[list[list], list]])
-        """
-        # self.sym_entry_number = sym_entry_number
-        # self.design_symmetry = symmetry
-        # self.design_dimension = dimension
-        self.uc_dimensions = uc_dimensions
-        self.expand_matrices = expand_matrices
 
     def return_symmetry_parameters(self):
         return dict(symmetry=self.design_symmetry, design_dimension=self.design_dimension,
@@ -675,8 +664,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.info = unpickle(self.serialized_info)
             self._info = self.info.copy()  # create a copy of the state upon initialization
             if self.info.get('nanohedra'):
-                self.oligomer_names = self.info.get('oligomer_names')
-                self.transform_d = self.info.get('pose_transformation')
+                self.oligomer_names = self.info.get('oligomer_names', list())
+                self.transform_d = self.info.get('pose_transformation', dict())
+            self.fragment_observations = self.info.get('fragments', None)
+
             # if 'design' in self.info and self.info['design']:  # Todo, respond to the state
             #     dummy = True
 
@@ -693,11 +684,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def get_wildtype_file(self):
         """Retrieve the wild-type file name from Design Directory"""
         wt_file = glob(self.asu)
-        assert len(wt_file) == 1, '%s: More than one matching file found with %s' % (self.path, PUtils.asu)
+        assert len(wt_file) == 1, '%s: More than one matching file found with %s' % self.asu
+
         return wt_file[0]
-        # for file in os.listdir(self.composition):
-        #     if file.endswith(PUtils.asu):
-        #         return os.path.join(self.composition, file)
 
     def get_designs(self):  # design_type=PUtils.interface_design
         """Return the paths of all design files in a DesignDirectory"""
@@ -751,16 +740,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                  ' Trying %s now...'
             #                  % (self.path, PUtils.generate_fragments, PUtils.generate_fragments))
             # self.generate_interface_fragments()
-            # if self.info.get('fragments', None):
-            #     if self.fragment_observations:
-            #         frag_metrics = return_fragment_interface_metrics(
-            #             calculate_match_metrics(self.fragment_observations))
-            #     else:
-            #         # no fragments were found. set frag_metrics empty
-            #         frag_metrics = return_fragment_interface_metrics(None, null=True)
-            # else:
-            #     raise DesignError('Something is wrong in Design logic. This error shouldn\'t be reached.')
-            #     # return None
 
         self.center_residue_numbers = frag_metrics['center_residues']
         self.total_residue_numbers = frag_metrics['total_residues']
@@ -881,7 +860,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Gather observed fragment metrics from fragment matching output"""
         fragment_observations = set()
         with open(self.frag_file, 'r') as f:
-            self.info['fragments'] = True  # inform the design state that fragments have been produced for this design
             lines = f.readlines()
             for line in lines:
                 if line[:6] == 'z-val:':
@@ -903,13 +881,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     #                                    'cluster': cluster_id, 'match': match_score})
                 # "mean rmsd: %s\n" % str(cluster_rmsd))
                 # "aligned rep: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
-                elif line[:23] == 'central res pair freqs:':
-                    # pair_freq = list(eval(line[22:].strip()))
-                    pair_freq = None
-                    # self.fragment_cluster_freq_d[cluster_id] = pair_freq
-                    # self.fragment_cluster_residue_d[cluster_id]['freq'] = pair_freq
+                # elif line[:23] == 'central res pair freqs:':
+                #     # pair_freq = list(eval(line[22:].strip()))
+                #     pair_freq = None
+                #     # self.fragment_cluster_freq_d[cluster_id] = pair_freq
+                #     # self.fragment_cluster_residue_d[cluster_id]['freq'] = pair_freq
         self.fragment_observations = [dict(zip(('mapped', 'paired', 'cluster', 'match'), frag_obs))
                                       for frag_obs in fragment_observations]
+        self.info['fragments'] = self.fragment_observations  # inform the design state that fragments have been produced
 
     @handle_errors(errors=(FileNotFoundError,))
     def gather_pose_metrics(self):
@@ -950,7 +929,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 elif 'Nanohedra Score:' in line:  # res_lev_sum_score
                     self.all_residue_score = float(line[16:].rstrip())
                 elif 'CRYST1 RECORD:' in line:
-                    self.cryst_record = line[15:].strip()
+                    cryst_record = line[15:].strip()
+                    self.cryst_record = None if cryst_record == 'None' else cryst_record
                 elif line[:31] == 'Canonical Orientation PDB1 Path':
                     self.canonical_pdb1 = line[:31].strip()
                 elif line[:31] == 'Canonical Orientation PDB2 Path':
@@ -1177,7 +1157,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 else:
                     raise ValueError('The symmetry %s is unavailable at this time!')
             else:  # layer or space
-                self.sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
+                self.sym_def_file = sdf_lookup()  # currently grabbing dummy.sym
             self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
         else:
             self.sym_def_file = 'null'
@@ -1383,8 +1363,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def transform_oligomers_to_pose(self, refined=True, oriented=False, **kwargs):
         """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
-        refined source directory if the oligomers exist there, if they don't, the oriented directory will be used as the
-        source if it exists. Finally, the DesignDirectory will be used as a back up
+        master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
+        exists. Finally, the DesignDirectory will be used as a back up
 
         Keyword Args:
             refined=True (bool): Whether to use the refined pdb from the refined pdb source directory
@@ -1398,8 +1378,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.log.debug('Oligomers were transformed to the found docking parameters')
 
     def get_oligomers(self, refined=False, oriented=False):
-        """Retrieve oligomeric files from either the design directory, the oriented directory, or the refined directory
-        and load them for further processing
+        """Retrieve oligomeric files from either the design Database, the oriented directory, or the refined directory,
+        or the design directory, and load them into job for further processing
 
         Keyword Args:
             master_db=None (Database): The Database object which stores relevant files
@@ -1478,7 +1458,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # else:
             #     self.get_oligomers()
 
-            # unnecessary with a transform_d stored in the design state
+            # # unnecessary with a transform_d stored in the design state
             # # write out oligomers to the designdirectory
             # for oligomer in self.oligomers:
             #     oligomer.write(out_path=os.path.join(self.path, 'TSFMD_%s' % os.path.basename(oligomer.filepath)))
@@ -1507,8 +1487,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # for oligomer in self.oligomers[1:]:
             #     self.pose.add_pdb(oligomer)
             # self.pose.asu = self.pose.pdb  # set the asu
-            # # or Todo Test
-            # # asu = self.pose.get_contacting_asu()
+            # asu = self.pose.get_contacting_asu()
         else:
             self.pose = Pose.from_asu_file(self.source, sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
                                            design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
@@ -1529,13 +1508,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             new_asu = self.pose.get_contacting_asu()
             new_asu.write(out_path=self.asu, header=self.cryst_record)
             self.log.info('Cleaned PDB: \'%s\'' % self.asu)
-        # if self.pose.symmetry:
-        #     if self.pose.symmetric_assembly_is_clash():
-        #         raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered')
-        #     if self.output_assembly:
-        #         self.pose.get_assembly_symmetry_mates()
-        #         self.pose.write(out_path=self.assembly)
-        #         self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
 
     @handle_design_errors(errors=(DesignError,))
     def rename_chains(self):
@@ -1669,8 +1641,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.make_path(self.frags)
         if not self.frag_db:
             self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
-                             'requested. Each design will load a separate instance which takes time and memory. To '
-                             'maximize efficiency, pass the flag -%s' % Flags.generate_frags)
+                             'requested. Each design is loading a separate instance. To maximize efficiency, pass --%s'
+                             % Flags.generate_frags)
         self.identify_interface()
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=True)  # Todo parameterize write
         # if self.fragment_observations:
@@ -1680,20 +1652,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.fragment_observations = []
         # for observation in self.pose.fragment_queries.values():
         #     self.fragment_observations.extend(observation)
-        self.info['fragments'] = True
+        self.info['fragments'] = self.pose.return_fragment_observations()
         # self.pickle_info()
 
     def identify_interface(self):
         """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
         entities. Sets the interface_residue_ids to map each interface to the corresponding residues."""
-        # if not self.pose:
-        #     self.load_pose()
-        # if self.pose.symmetry:
-        #     self.symmetric_assembly_is_clash()
-        #     if self.output_assembly:
-        #         self.pose.get_assembly_symmetry_mates()
-        #         self.pose.write(out_path=self.assembly)
-        #         self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
         self.expand_asu()
         self.pose.find_and_split_interface()
         for number, residues_entities in self.pose.split_interface_residues.items():
@@ -1708,7 +1672,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             self.info['design_residues'] = None
             self.log.info('No Interface Residues Found')
-        # self.pickle_info()
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
@@ -1762,34 +1725,34 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # issm_residues = set()
             self.log.info('Design has no fragment information')
         frag_db_ = self.info.get('fragment_database')
-        if frag_db_:
-            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[frag_db_])
-        else:
-            interface_bkgd = {}
+        interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[frag_db_]) if frag_db_ else {}
 
         # Gather miscellaneous pose specific metrics
         # ensure oligomers are present and if so, their metrics are pulled out. Happens when pose is scored.
-        self.load_pose()
-        other_pose_metrics = self.pose_metrics()  # these are initialized with DesignDirectory init
+        # self.load_pose()  # given scope of new metrics, using below instead due to interface residue requirement
+        self.identify_interface()
+        other_pose_metrics = self.pose_metrics()
         if not other_pose_metrics:
-            raise DesignError('Scoring this design encountered problems. Check the log (%s) for any errors which may '
-                              'have caused this and fix' % self.log.handlers[0].baseFilename)
+            raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
+            # raise DesignError('Scoring this design encountered major problems. Check the log (%s) for any errors which
+            #                   'may have caused this and fix' % self.log.handlers[0].baseFilename)
 
         # Todo fold these into Model and attack these metrics from a Pose object
         #  This will get rid of the self.log
         wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
         self.log.debug('Reordering wild-type chains')
-        wt_pdb.reorder_chains()
+        wt_pdb.reorder_chains()  # ensure chain ordering is A then B to match output from interface_design
 
         design_residues = self.info.get('design_residues', None)
-        if design_residues:
-            # 'design_residues' coming in as 234B (residue_number|chain), remove residue chain, change type
-            design_residues = set(int(residue.translate(digit_translate_table))
-                                  for residue in design_residues.split(','))
-        else:  # This should never happen as we catch at other_pose_metrics...
-            raise DesignError('No residues were marked for design. Have you run %s or %s?'
-                              % (PUtils.generate_fragments, PUtils.interface_design))
+        if design_residues == list():  # we should always get an empty list if we have got to this point
+            raise DesignError('No residues were found with your design criteria... Your flags may be to stringent or '
+                              'incorrect. Check input files for interface existance')
+        elif design_residues is None:  # this should only happen if something is really failing in pose initialization
+            raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
+        # 'design_residues' coming in as 234B (residue_number|chain), remove chain from residue, change type to int
+        design_residues = set(int(residue.translate(digit_translate_table)) for residue in design_residues.split(','))
         self.log.debug('Found design residues: %s' % design_residues)
+
         int_b_factor = sum(wt_pdb.residue(residue).get_ave_b_factor() for residue in design_residues)
         other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(design_residues), 2)
 
