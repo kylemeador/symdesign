@@ -582,8 +582,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             propagate = True
             handler = 2
-        self.log = start_log(name=str(self), handler=handler, level=level, location=os.path.join(self.path, self.name),
-                             propagate=propagate)
+        if self.nano and not self.construct_pose:
+            self.log = start_log(name=str(self), handler=1, level=level, propagate=propagate)
+        else:
+            self.log = start_log(name=str(self), handler=handler, level=level,
+                                 location=os.path.join(self.path, self.name), propagate=propagate)
 
     def connect_db(self, frag_db=None, design_db=None, score_db=None):
         if frag_db and isinstance(frag_db, FragmentDatabase):
