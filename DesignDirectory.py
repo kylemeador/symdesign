@@ -511,7 +511,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return int(number_steps1), int(number_steps2)
 
     def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None, sym_entry=None, debug=False,
-                  design_with_fragments=True, generate_fragments=True, write_fragments=True,
+                  design_with_fragments=True, generate_fragments=False, write_fragments=True,
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
                   number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False, copy_nanohedra=False,
                   **kwargs):
@@ -1472,6 +1472,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     self.pose.asu = self.pose.pdb  # set the asu
         #     self.pose.generate_symmetric_assembly()
         # else:
+        if self.pose:
+            return
         if not self.source or not os.path.exists(self.source):
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             # raise DesignError('No source file was found for this design! Cannot initialize pose without a source')
@@ -1768,7 +1770,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Gather miscellaneous pose specific metrics
         # ensure oligomers are present and if so, their metrics are pulled out. Happens when pose is scored.
         # self.load_pose()  # given scope of new metrics, using below instead due to interface residue requirement
-        self.identify_interface()
+        if self.query_fragments:
+            self.generate_interface_fragments()  # inherently identifies the interface
+        else:
+            self.identify_interface()
         other_pose_metrics = self.pose_metrics()
         if not other_pose_metrics:
             raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
