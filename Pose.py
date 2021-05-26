@@ -1668,10 +1668,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             for residue, entity in residues_entities:
                 self.split_interface_ss_elements[number].append(self.ss_index_array[residue.number - 1])
 
-    def interface_design(self, design_dir=None, symmetry=None, evolution=True,
-                         fragments=True, query_fragments=False, write_fragments=True, fragments_exist=False,
-                         frag_db='biological_interfaces',  # mask=None, output_assembly=False,
-                         ):  # Todo initialize without DesignDirectory
+        self.log.debug('Found interface secondary structure: %s' % self.split_interface_ss_elements)
+
+    def interface_design(self, evolution=True, fragments=True, query_fragments=False, fragment_source=None,
+                         write_fragments=True, frag_db='biological_interfaces', des_dir=None):  # Todo deprec. des_dir
         """Take the provided PDB, and use the ASU to compute calculations relevant to interface design.
 
         This process identifies the ASU (if one is not explicitly provided, enables Pose symmetry,
@@ -1679,10 +1679,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Sets:
             design_dir.info['fragments'] to True is fragments are queried
         """
-        if not design_dir:  # Todo
-            dummy = True
-            return None
-
         # Ensure ASU. This should be done on loading from PDB file with Pose.from_asu()/Pose.from_pdb()
         # save self.asu to design_dir.asu now that we have cleaned any chain issues and renumbered residues
         # self.pdb.write(out_path=design_dir.asu)
@@ -1717,44 +1713,43 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.log.debug('Entities: %s' % ', '.join(entity.name for entity in self.entities))
         self.log.debug('Active Entities: %s' % ', '.join(entity.name for entity in self.active_entities))
         # self.log.debug('Designable Residues: %s' % ', '.join(entity.name for entity in self.design_selector_indices))
-        self.log.info('Symmetry is: %s' % symmetry)  # Todo resolve duplication with below self.symmetry
-        if symmetry and isinstance(symmetry, dict):  # Todo with crysts. Not sure about the dict. Also done on __init__
-            self.set_symmetry(**symmetry)
+        # self.log.info('Symmetry is: %s' % symmetry)
+        # if symmetry and isinstance(symmetry, dict):
+        #     self.set_symmetry(**symmetry)
 
         # we get interface residues for the designable entities as well as interface_topology at DesignDirectory level
         if fragments:
             if query_fragments:  # search for new fragment information
-                self.generate_interface_fragments(out_path=design_dir.frags, write_fragments=write_fragments)
+                self.generate_interface_fragments(out_path=des_dir.frags, write_fragments=write_fragments)
             else:  # No fragment query, add existing fragment information to the pose
                 if not self.frag_db:
-                    self.connect_fragment_database(init=False)  # location='biological_interfaces' inherent in call
+                    self.connect_fragment_database(source=frag_db, init=False)  # no need to initialize
                     # Attach an existing FragmentDB to the Pose
                     self.attach_fragment_database(db=self.frag_db)
                     for entity in self.entities:
                         entity.attach_fragment_database(db=self.frag_db)
 
-                fragment_source = design_dir.fragment_observations
-                if not fragment_source:
-                    raise DesignError('%s: Fragments were set for design but there were none found in the Design '
-                                      'Directory! Fix your input flags if this is not what you expected or generate '
-                                      'them with \'%s %s\''
-                                      % (str(design_dir), PUtils.program_command, PUtils.generate_fragments))
+                if fragment_source is None:
+                    raise DesignError('Fragments were set for design but there were none found! Try including '
+                                      '--query_fragments in your input flags and rerun this command or generate '
+                                      'them separately with \'%s %s\''
+                                      % (PUtils.program_command, PUtils.generate_fragments))
 
                 # Must provide des_dir.fragment_observations then specify whether the Entity in question is from the
                 # mapped or paired chain (entity1 is mapped, entity2 is paired from Nanohedra). Then, need to renumber
                 # fragments to Pose residue numbering when added to fragment queries
-                if design_dir.nano:  # Todo depreciate this check as Nanohedra outputs will be in Pose Numbering
-                    if len(self.entities) > 2:  # Todo compatible with > 2 entities
-                        raise DesignError('Not able to solve fragment/residue membership with more than 2 Entities!')
-                    self.log.debug('Fragment data found in Nanohedra docking. Solving fragment membership for '
-                                   'Entity\'s: %s by PDB numbering correspondence'
-                                   % ','.join(entity.name for entity in self.entities))
-                    self.add_fragment_query(entity1=self.entities[0], entity2=self.entities[1], query=fragment_source,
-                                            pdb_numbering=True)
-                else:  # assuming the input is in Pose numbering!
-                    self.log.debug('Fragment data found from prior query. Solving query index by Pose numbering/Entity '
-                                   'matching')
-                    self.add_fragment_query(query=fragment_source)
+                # if design_dir.nano:  # Todo depreciate this check as Nanohedra outputs will be in Pose Numbering
+                #     if len(self.entities) > 2:  # Todo compatible with > 2 entities
+                #         raise DesignError('Not able to solve fragment/residue membership with more than 2 Entities!')
+                #     self.log.debug('Fragment data found in Nanohedra docking. Solving fragment membership for '
+                #                    'Entity\'s: %s by PDB numbering correspondence'
+                #                    % ','.join(entity.name for entity in self.entities))
+                #     self.add_fragment_query(entity1=self.entities[0], entity2=self.entities[1], query=fragment_source,
+                #                             pdb_numbering=True)
+                # else:  # assuming the input is in Pose numbering!
+                self.log.debug('Fragment data found from prior query. Solving query index by Pose numbering/Entity '
+                               'matching')
+                self.add_fragment_query(query=fragment_source)
 
             for query_pair, fragment_info in self.fragment_queries.items():
                 self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
@@ -1774,36 +1769,41 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             if entity not in self.active_entities:  # we shouldn't design, add a null profile instead
                 entity.add_profile(null=True)
             else:
-                entity.add_profile(evolution=evolution, fragments=fragments, out_path=design_dir.sequences)
+                if self.source_db:
+                    sequence_path = self.source_db.sequences.location
+                else:
+                    sequence_path = des_dir.sequences
+                entity.add_profile(evolution=evolution, fragments=fragments, out_path=sequence_path)
 
         # Update DesignDirectory with design information # Todo include in DesignDirectory initialization by args?
         # This info is pulled out in AnalyzeOutput from Rosetta currently
 
         if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
             self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
-            self.fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=design_dir.data)
-            design_dir.info['fragment_profile'] = self.fragment_pssm_file
-            design_dir.info['fragment_database'] = frag_db
+            self.fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=des_dir.data)
+            # design_dir.info['fragment_profile'] = self.fragment_pssm_file
+            # design_dir.info['fragment_database'] = frag_db
             # self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
             # this dictionary is removed of all entries that are not fragment populated.
             clean_fragment_profile = dict(item for item in self.fragment_profile.items()
                                           if item[1].get('stats', (None,))[0])  # must be a fragment observation
-            self.interface_data_file = pickle_object(clean_fragment_profile, '%s_fragment_profile' % frag_db,
-                                                     out_path=design_dir.data)
-            design_dir.info['fragment_data'] = self.interface_data_file
+            self.interface_data_file = \
+                pickle_object(clean_fragment_profile, '%s_fragment_profile' % self.frag_db.source,
+                              out_path=des_dir.data)
+            # design_dir.info['fragment_data'] = self.interface_data_file
 
         if evolution:  # set pose.evolutionary_profile by combining entity evo profile into single profile
             self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
             # self.log.debug('Position Specific Scoring Matrix: %s' % str(self.evolutionary_profile))
-            self.pssm_file = self.write_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=design_dir.data)
-            design_dir.info['evolutionary_profile'] = self.pssm_file
+            self.pssm_file = self.write_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=des_dir.data)
+            # design_dir.info['evolutionary_profile'] = self.pssm_file
 
         self.combine_profile([entity.profile for entity in self.entities])
         # self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
-        self.design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=design_dir.data)
-        design_dir.info['design_profile'] = self.design_pssm_file
+        self.design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=des_dir.data)
+        # design_dir.info['design_profile'] = self.design_pssm_file
         # -------------------------------------------------------------------------
-        # self.solve_consensus()  # Todo
+        # self.solve_consensus()
         # -------------------------------------------------------------------------
 
     def return_fragment_observations(self):
@@ -1970,12 +1970,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                   'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
                                   ' modifications' % self.add_fragment_query.__name__)
 
-    def connect_fragment_database(self, location=None, init=False, **kwargs):  # Todo Clean up
+    def connect_fragment_database(self, source=None, init=False, **kwargs):  # Todo Clean up
         """Generate a new connection. Initialize the representative library by passing init=True"""
-        if not location:  # Todo fix once multiple are available
-            location = 'biological_interfaces'
-        self.frag_db = FragmentDatabase(location=location, init_db=init)
-        #                               source=source, location=location, init_db=init_db)
+        if not source:  # Todo fix once multiple are available
+            source = 'biological_interfaces'
+        self.frag_db = FragmentDatabase(source=source, init_db=init)
+        #                               source=source, init_db=init_db)
 
     def generate_interface_fragments(self, write_fragments=True, out_path=None, new_db=False):
         """Using the attached fragment database, generate interface fragments between the Pose interfaces
@@ -1986,7 +1986,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             new_db=False (bool): Whether a fragment database should be initialized for the interface fragment search
         """
         if not self.frag_db:  # There is no fragment database connected
-            # Connect to a new DB, Todo parameterize which one should be used with location=
+            # Connect to a new DB, Todo parameterize which one should be used with source=
             self.connect_fragment_database(init=True)  # default init=False, we need an initiated one to generate frags
 
         if not self.interface_residues:
@@ -2002,8 +2002,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if write_fragments:
             write_fragment_pairs(self.fragment_pairs, out_path=out_path)
             frag_file = os.path.join(out_path, PUtils.frag_text_file)
-            if frag_file:
-                os.system('rm %s' % frag_file)  # ensure old file is removed before
+            if os.path.exists(frag_file):
+                os.system('rm %s' % frag_file)  # ensure old file is removed before new write
             for match_count, (ghost_frag, surface_frag, match) in enumerate(self.fragment_pairs, 1):
                 write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
                                            overlap_error=z_value_from_match_score(match),
