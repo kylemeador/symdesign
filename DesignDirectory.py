@@ -140,6 +140,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sym_def_file = None
         self.symmetry_protocol = None
         self.entity_names = []
+        self.oligomer_names = []
         self.oligomers = []
 
         # todo integrate these flags with SymEntry and pass to Pose
@@ -275,8 +276,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
-                self.entity_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
-                self.info['entity_names'] = self.entity_names
+                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+                self.info['oligomer_names'] = self.oligomer_names
 
                 self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
                 self.name = self.pose_id
@@ -315,7 +316,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #
             #     self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
             #     # design_symmetry/building_blocks (P432/4ftd_5tch)
-            #     self.entity_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+            #     self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
             #     self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
             #     self.name = self.pose_id
             #     self.path = os.path.join(self.project_designs, self.name)
@@ -325,7 +326,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #     # self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
             #     # self.composition = os.path.join(self.program_root, path_components[-4])
             #     # self.project_designs = os.path.join(self.composition, path_components[-2])
-            #     # self.entity_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+            #     # self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
             #     # design_symmetry/building_blocks (P432/4ftd_5tch)
             #     # self.source = os.path.join(self.source_path, PUtils.asu)
             #     # self.set_up_design_directory()
@@ -684,8 +685,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.info = unpickle(self.serialized_info)
             self._info = self.info.copy()  # create a copy of the state upon initialization
             if self.info.get('nanohedra'):
-                self.entity_names = self.info.get('entity_names', list())
+                self.oligomer_names = self.info.get('oligomer_names', list())
                 self.transform_d = self.info.get('pose_transformation', dict())
+            self.entity_names = self.info.get('entity_names', list())
             self.fragment_observations = self.info.get('fragments', None)
 
             # if 'design' in self.info and self.info['design']:  # Todo, respond to the state
@@ -1429,7 +1431,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('There is no source to fall back on if not oriented or refined. Please pass either')
 
             self.oligomers.clear()
-            for name in self.entity_names:
+            for name in self.oligomer_names:
                 oligomer = None
                 while not oligomer:
                     oligomer = self.database.retrieve_data(source=source_preference[source_idx], name=name)
@@ -1451,14 +1453,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:  # Todo consolidate this with above as far as iterative mechanism
             if refined:  # prioritize the refined version
                 path = self.refine_dir
-                for name in self.entity_names:
+                for name in self.oligomer_names:
                     if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % name))[0]):
                         oriented = True  # fall back to the oriented version
                         self.log.debug('Couldn\'t find oligomers in the refined directory')
                         break
             if oriented:
                 path = self.orient_dir
-                for name in self.entity_names:
+                for name in self.oligomer_names:
                     if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % name))[0]):
                         path = self.path
                         self.log.debug('Couldn\'t find oligomers in the oriented directory')
@@ -1468,7 +1470,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
             oligomer_files = []
-            for idx, name in enumerate(self.entity_names, 1):
+            for idx, name in enumerate(self.oligomer_names, 1):
                 oligomer_files.extend(glob(os.path.join(path, '%s*.pdb*' % name)))  # first * is for DesignDirectory
             assert len(oligomer_files) == idx, \
                 'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
@@ -1479,8 +1481,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.oligomers.append(PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
                                                     log=self.log))
         self.log.debug('%d matching oligomers found' % len(self.oligomers))
-        assert len(self.oligomers) == len(self.entity_names), \
-            'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.entity_names))
+        assert len(self.oligomers) == len(self.oligomer_names), \
+            'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.oligomer_names))
 
     def load_pose(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
@@ -1543,11 +1545,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.pose.asu = self.pose.pdb  # set the asu
             # asu = self.pose.get_contacting_asu()
         else:
-            asu = PDB.from_file(self.source, entity_names=self.entity_names, log=self.log)
+            asu = PDB.from_file(self.source, entity_names=self.entity_names, log=self.log)  # pass names if available
             self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                       ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-            if not self.entity_names:
+            if not self.entity_names:  # store the entity names if they were never generated
                 self.entity_names = [entity.name for entity in self.pose.entities]
                 self.info['entity_names'] = self.entity_names
         if self.pose_transformation:
@@ -1786,24 +1788,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         Returns:
             scores_df (pandas.DataFrame): DataFrame containing the average values from the input design directory
         """
-        # Get design information including: interface residues, SSM's, and wild_type/design files
-        profile_background = {}
-        design_profile = self.info.get('design_profile')
-        evolutionary_profile = self.info.get('evolutionary_profile')
-        fragment_data = self.info.get('fragment_data')
-        if design_profile:
-            profile_background['design'] = parse_pssm(design_profile)
-        if evolutionary_profile:  # lost accuracy ^ and v with round operation during write
-            profile_background['evolution'] = parse_pssm(evolutionary_profile)
-        if fragment_data:
-            profile_background['fragment'] = unpickle(fragment_data)
-            # issm_residues = set(profile_background['fragment'].keys())
-        else:
-            # issm_residues = set()
-            self.log.info('Design has no fragment information')
-        frag_db_ = self.info.get('fragment_database')
-        interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[frag_db_]) if frag_db_ else {}
-
         # Gather miscellaneous pose specific metrics
         # ensure oligomers are present and if so, their metrics are pulled out. Happens when pose is scored.
         # self.load_pose()  # given scope of new metrics, using below instead due to interface residue requirement
@@ -1928,8 +1912,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-            # all_mutations = keys_from_trajectory_number(
-            #     generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences))
             all_mutations = generate_multiple_mutations(wt_pdb.atom_sequences, pdb_sequences)
             all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
             cleaned_mutations = simplify_mutation_dict(all_mutations_no_chains)
@@ -1939,6 +1921,24 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # residue_info = residue_processing(all_design_scores, cleaned_mutations, per_res_columns,
             #                                   hbonds=interface_hbonds)
             #                                   offset=offset_dict)
+
+            # Get design information including: interface residues, SSM's, and wild_type/design files
+            profile_background = {}
+            design_profile = self.info.get('design_profile')
+            evolutionary_profile = self.info.get('evolutionary_profile')
+            fragment_data = self.info.get('fragment_data')
+            if design_profile:
+                profile_background['design'] = parse_pssm(design_profile)
+            if evolutionary_profile:  # lost accuracy ^ and v with round operation during write
+                profile_background['evolution'] = parse_pssm(evolutionary_profile)
+            if fragment_data:
+                profile_background['fragment'] = unpickle(fragment_data)
+                # issm_residues = set(profile_background['fragment'].keys())
+            else:
+                # issm_residues = set()
+                self.log.info('Design has no fragment information')
+            frag_db_ = self.info.get('fragment_database')
+            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[frag_db_]) if frag_db_ else {}
 
             # Calculate amino acid observation percent from residue dict and background SSM's
             observation_d = {profile: {design: mutation_conserved(residue_info, background)
