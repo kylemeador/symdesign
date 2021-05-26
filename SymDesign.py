@@ -975,8 +975,8 @@ if __name__ == '__main__':
                     logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
                                 % (symmetry, master_outdir.orient_dir, ', '.join(required_entities)))
                     for oligomer in required_entities:
-                        if oligomer in orient_files:
-                            continue
+                        # if oligomer in orient_files:
+                        #     continue
                         biological_assemblies = qsbio_confirmed.get(oligomer)
                         if biological_assemblies:  # v first assembly in list
                             assembly = biological_assemblies[0]
