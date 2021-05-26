@@ -2437,9 +2437,10 @@ def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
 
 def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
     """Given two PDBs, return the unique chain and interacting residue lists"""
-    # Get the interface residues
-    pdb1_cb_coords, pdb1_cb_indices = pdb1.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
-    pdb2_cb_coords, pdb2_cb_indices = pdb2.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
+    pdb1_cb_coords = pdb1.get_cb_coords()
+    pdb1_cb_indices = pdb1.get_cb_indices()
+    pdb2_cb_coords = pdb2.get_cb_coords()
+    pdb2_cb_indices = pdb2.get_cb_indices()
 
     pdb1_cb_kdtree = BallTree(np.array(pdb1_cb_coords))
 
