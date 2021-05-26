@@ -1,16 +1,20 @@
 import numpy as np
+# from numba import njit
+# from numba.experimental import jitclass
 
 from SymDesignUtils import start_log
 from PathUtils import binary_lookup_table_path
 logger = start_log(name=__name__, format_log=False)
 
 
+# @jitclass
 class EulerLookup:
     def __init__(self, scale=3.0):
         self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
         self.scale = scale
 
     @staticmethod
+    # @njit
     def get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a):
         """Convert rotation matrix to euler angles in the form of an integer triplet (integer values are degrees
         divided by 10; these become indices for a lookup table)
@@ -36,6 +40,7 @@ class EulerLookup:
 
         return eulint1, eulint2, eulint3
 
+    # @njit
     def get_eulint_from_guides(self, guide_ats):
         """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
         orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
@@ -50,6 +55,7 @@ class EulerLookup:
 
         return self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
 
+    # @njit
     def check_lookup_table(self, guide_coords1, guide_coords2):
         """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
         overlap

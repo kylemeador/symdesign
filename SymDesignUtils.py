@@ -13,6 +13,7 @@ from json import loads, dumps
 from collections import defaultdict
 
 import numpy as np
+# from numba import njit
 from sklearn.neighbors import BallTree
 from Bio import SeqIO
 from Bio.PDB import PDBParser, Superimposer
@@ -1033,6 +1034,7 @@ class DesignError(Exception):
 ######################
 
 
+# @njit
 def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2.0):
     """Calculate the overlap between two sets of coordinates given a reference rmsd
 
@@ -1051,6 +1053,7 @@ def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, ma
     return np.where(z_values < max_z_value, z_values, False)
 
 
+# @njit mean doesn't take arguments
 def rmsd(coords1=None, coords2=None):
     """Calculate the RMSD over sets of coordinates in two numpy.arrays. The first axis (0) contains instances of
     coordinate sets, the second axis (1) contains a set of coordinates, and the third axis (2) contains the x, y, z
@@ -1072,6 +1075,7 @@ def z_value_from_match_score(match_score):
     return math.sqrt((1 / match_score) - 1)
 
 
+# @njit
 def match_score_from_z_value(z_value):
     """Return the match score from a fragment z-value. Bounded between 0 and 1"""
     return 1 / (1 + (z_value ** 2))
