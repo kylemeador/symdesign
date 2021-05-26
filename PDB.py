@@ -1252,9 +1252,9 @@ class PDB(Structure):
                 self.api_entry = get_pdb_info_by_entry(self.name)
                 if self.api_entry:
                     return True
-                self.log.info('PDB code \'%s\' was not found with the PDB API.' % self.name)
+                self.log.debug('PDB code \'%s\' was not found with the PDB API.' % self.name)
         else:
-            self.log.info('PDB code \'%s\' is not of the required format and will not be found with the PDB API.'
+            self.log.debug('PDB code \'%s\' is not of the required format and will not be found with the PDB API.'
                           % self.name)
         return False
         # if not self.api_entry and self.name and len(self.name) == 4:
@@ -1386,7 +1386,7 @@ class PDB(Structure):
             if new_entity:  # no existing entity matches, add new entity
                 entity_count += 1
                 self.entity_d[entity_count] = {'chains': [chain], 'seq': chain.sequence}
-        self.log.info('Entities were generated from ATOM records.')
+        self.log.debug('Entities were generated from ATOM records.')
 
     def get_entity_info_from_api(self):  # , pdb_code=None):  UNUSED
         """Query the PDB API for the PDB entry_ID to find the corresponding Entity information"""

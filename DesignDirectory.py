@@ -1429,7 +1429,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             elif oriented:
                 source_idx = 1
             else:
-                raise DesignError('There is no source to fall back on if not oriented or refined. Please pass either')
+                self.log.warning('Falling back on the oligomer in the Design source which is may not be refined. This '
+                                 'will lead to issues in sequence design if the design is not refined first...')
+                # raise DesignError('There is no source to fall back on if not oriented or refined. Please pass either')
 
             self.oligomers.clear()
             for name in self.oligomer_names:
