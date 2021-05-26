@@ -85,12 +85,10 @@ def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
         try:
             pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True)
             log.info('Oriented: %s' % pdb_filename)
-
             return oriented_file_path
         except (ValueError, RuntimeError) as err:
             log.error(str(err))
-
-        return None
+        return
     else:
         log.error('The specified symmetry is not a valid orient input!')
 
