@@ -30,10 +30,9 @@ class PDB(Structure):
     """
     def __init__(self, file=None, atoms=None, residues=None, chains=None, entities=None, coords=None, metadata=None,
                  log=False, **kwargs):
-        # in structure
         # if log is None:
         #     log = null_log
-        # else pass the log that was passed to the PDB to Structure or let structure start a log if log still is False
+        # let structure start a log if log is False
         super().__init__(log=log, **kwargs)
         # self.atoms = Atoms()  # from Structure
         # self.center_of_mass = None  # from Structure
@@ -439,7 +438,7 @@ class PDB(Structure):
 
         if entities and not lazy:
             # create Entities from Chain.Residues
-            self.create_entities()
+            self.create_entities(**kwargs)
         self.get_chain_sequences()  # Todo maybe depreciate in favor of entities?
 
         # if self.design:  # Todo maybe??
@@ -1278,12 +1277,13 @@ class PDB(Structure):
                 return entity
         return None
 
-    def create_entities(self, query_by_sequence=True, **kwargs):
+    def create_entities(self, query_by_sequence=True, entity_names=None, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during
         parsing. First search the PDB API if a PDB entry_id is attached to instance, next from Atoms in instance
 
         Keyword Args:
             query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
+            entity_names (list): Names explicitly passed for the Entity instances. Length must equal number of entities
         """
         self.retrieve_pdb_info_from_api()  # sets api_entry
         if not self.entity_d and self.api_entry:  # self.api_entry = {1: {'A', 'B'}, ...}
@@ -1291,10 +1291,17 @@ class PDB(Structure):
                 {ent_number: {'chains': chains} for ent_number, chains in self.api_entry.get('entity').items()}
         else:  # still nothing, then API didn't work for pdb_name so we solve by file information
             self.get_entity_info_from_atoms()
-            if query_by_sequence:
+            if entity_names:
+                for idx, entity_number in enumerate(list(self.entity_d.keys())):  # make a copy as update occurs w/ iter
+                    try:
+                        self.entity_d[entity_names[idx]] = self.entity_d.pop(entity_number)
+                    except IndexError:
+                        raise IndexError('The number of indices in entity_names must equal %d' % len(self.entity_d))
+            elif query_by_sequence:
                 for entity_number, atom_info in list(self.entity_d.items()):  # make a copy as update occurs with iter
                     pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
                     if pdb_api_name:
+                        pdb_api_name = pdb_api_name.lower()
                         self.entity_d[pdb_api_name] = self.entity_d.pop(entity_number)
                         self.log.info('Entity %d now named \'%s\', as found by PDB API sequence search'
                                       % (entity_number, pdb_api_name))
@@ -1310,7 +1317,7 @@ class PDB(Structure):
 
         # self.update_entity_accession_id()  # only useful if retrieve_pdb_info_from_api() is called
         for entity_name, info in self.entity_d.items():  # generated from a PDB API sequence search v
-            entity_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name.lower()
+            entity_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name
             self.entities.append(
                 Entity.from_representative(representative=info['representative'], name=entity_name, log=self.log,
                                            chains=info['chains'], uniprot_id=info['accession']))
