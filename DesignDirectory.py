@@ -4,7 +4,7 @@ from math import ceil, sqrt
 import shutil
 import subprocess
 from glob import glob
-from itertools import combinations, repeat,  # chain as iter_chain
+from itertools import combinations, repeat  # chain as iter_chain
 
 import matplotlib.pyplot as plt
 import numpy as np
