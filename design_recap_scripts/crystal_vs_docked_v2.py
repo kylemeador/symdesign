@@ -47,9 +47,9 @@ def reference_vs_docked_irmsd(ref_pdb1, ref_pdb2, ref1_chain_id_residue_d, ref2_
         design_directory.get_oligomers()
     except AssertionError:
         return str(design_directory), None
-    # docked_pdb1 = design_directory.oligomers[design_directory.oligomer_names[0]]
+    # docked_pdb1 = design_directory.oligomers[design_directory.entity_names[0]]
     docked_pdb1 = design_directory.oligomers[0]
-    # docked_pdb2 = design_directory.oligomers[design_directory.oligomer_names[1]]
+    # docked_pdb2 = design_directory.oligomers[design_directory.entity_names[1]]
     docked_pdb2 = design_directory.oligomers[1]
     # # standardize oligomer chain lengths such that every 'symmetry related' subunit in an oligomer has the same number
     # # of CA atoms and only contains residues (based on residue number) that are present in all 'symmetry related'
