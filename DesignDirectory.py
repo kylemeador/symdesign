@@ -584,7 +584,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             propagate = True
             handler = 2
         if self.nano and not self.construct_pose:
-            self.log = start_log(name=str(self), handler=1, level=level, propagate=propagate)
+            # self.log = start_log(name=str(self), handler=handler, level=level, propagate=propagate)
+            self.log = start_log(name=str(self), handler=3, propagate=True)
         else:
             self.log = start_log(name=str(self), handler=handler, level=level,
                                  location=os.path.join(self.path, self.name), propagate=propagate)
