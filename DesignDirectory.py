@@ -636,7 +636,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_design_errors(errors=(DesignError, ))
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
-        self.make_path(self.path)
+        self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
         # if not os.path.exists(self.path):
         #     raise DesignError('Path does not exist!\n\t%s' % self.path)
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
@@ -646,7 +646,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.frags = os.path.join(self.path, PUtils.frag_dir)
         self.data = os.path.join(self.path, PUtils.data)
         self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
-        if self.construct_pose:
+        if self.nano:
             # self.source = self.asu
             self.pose_file = os.path.join(self.source_path, PUtils.pose_file)
             self.frag_file = os.path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
@@ -654,7 +654,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if os.path.exists(self.frags):  # only present if a copy or generate fragments command is issued
                     raise DesignError('The directory %s already exists! Can\'t complete set up without an overwrite!')
                 shutil.copytree(self.source_path, self.path)
-            else:
+            elif self.construct_pose:
                 shutil.copy(self.pose_file, self.path)
                 shutil.copy(self.frag_file, self.path)
         else:
