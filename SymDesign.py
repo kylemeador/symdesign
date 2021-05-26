@@ -908,7 +908,7 @@ if __name__ == '__main__':
             if queried_flags['design_range']:
                 low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
                 high_range = int((int(queried_flags['design_range'].split('-')[1]) / 100.0) * len(all_poses))
-                logger.info('Selecting Designs within range: %d-%d' % (low_range, high_range))
+                logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
             else:
                 low_range, high_range = None, None
             if all_poses:
@@ -930,7 +930,7 @@ if __name__ == '__main__':
             if queried_flags['design_range']:
                 low_range = int((int(queried_flags['design_range'].split('-')[0]) / 100.0) * len(all_poses))
                 high_range = int((int(queried_flags['design_range'].split('-')[1]) / 100.0) * len(all_poses))
-                logger.info('Selecting Designs within range: %d-%d' % (low_range, high_range))
+                logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
             else:
                 low_range, high_range = 0, -1
             if all_poses:
