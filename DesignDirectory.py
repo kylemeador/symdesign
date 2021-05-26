@@ -201,7 +201,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Analysis flags
         self.analysis = False
         self.skip_logging = False
-        self.copy_nanohedra = False
+        self.copy_nanohedra = False                # no construction specific flags
+
         self.set_flags(**kwargs)  # has to be set before set_up_design_directory
         # if not self.sym_entry:
         #     self.sym_entry = SymEntry(sym_entry)
@@ -253,7 +254,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_dirs[k].append(bb_dir)
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-            elif self.construct_pose:
+            else:  # if self.construct_pose:
                 self.info['nanohedra'] = True
                 path_components = self.source_path.split(os.sep)
                 nanohedra_root = path_components[-5]
@@ -280,6 +281,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.name = self.pose_id
                 self.path = os.path.join(self.project_designs, self.name)
 
+                if not self.construct_pose:  # no construction specific flags
+                    self.write_frags = False
                 # self.set_up_design_directory()
                 # shutil.copy(self.pose_file, self.path)
                 # shutil.copy(self.frag_file, self.path)
@@ -289,22 +292,42 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self.nano_master_log = os.path.join(self.project_designs, PUtils.master_log)
                 # ^ /program_root/projects/project_designs/design<- self.path /design.pdb
             # else:  # if self.directory_type in [PUtils.interface_design, 'filter', 'analysis']:
-            else:
-                # May have issues with the number of open log files
-                # if self.directory_type == 'filter':
-                #     self.skip_logging = True
-                # else:
-                #     self.skip_logging = True
-                path_components = self.source_path.split(os.sep)
-                self.program_root = self.source_path[:self.source_path.find(path_components[-4]) - 1]
-                # design_symmetry (P432)
-                # self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
-                self.composition = os.path.join(self.program_root, path_components[-4])
-                self.project_designs = os.path.join(self.composition, path_components[-2])
-                self.entity_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
-                # design_symmetry/building_blocks (P432/4ftd_5tch)
-                self.source = os.path.join(self.source_path, PUtils.asu)
-                # self.set_up_design_directory()
+            # else:
+            #     # May have issues with the number of open log files
+            #     # if self.directory_type == 'filter':
+            #     #     self.skip_logging = True
+            #     # else:
+            #     #     self.skip_logging = True
+            #     path_components = self.source_path.split(os.sep)
+            #     nanohedra_root = path_components[-5]
+            #     path_components = self.source_path.split(os.sep)
+            #     self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
+            #     self.projects = os.path.join(self.program_root, PUtils.projects)
+            #     self.project_designs = os.path.join(self.projects, '%s_%s' % (nanohedra_root, PUtils.design_directory))
+            #     # make the newly required files
+            #     self.make_path(self.program_root)
+            #     self.make_path(self.projects)
+            #     self.make_path(self.project_designs)
+            #     # copy the master log
+            #     if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
+            #         shutil.copy(os.path.join(nanohedra_root, PUtils.master_log), self.project_designs)
+            #
+            #     self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
+            #     # design_symmetry/building_blocks (P432/4ftd_5tch)
+            #     self.entity_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+            #     self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
+            #     self.name = self.pose_id
+            #     self.path = os.path.join(self.project_designs, self.name)
+            #
+            #     # self.program_root = self.source_path[:self.source_path.find(path_components[-4]) - 1]
+            #     # design_symmetry (P432)
+            #     # self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
+            #     # self.composition = os.path.join(self.program_root, path_components[-4])
+            #     # self.project_designs = os.path.join(self.composition, path_components[-2])
+            #     # self.entity_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+            #     # design_symmetry/building_blocks (P432/4ftd_5tch)
+            #     # self.source = os.path.join(self.source_path, PUtils.asu)
+            #     # self.set_up_design_directory()
             # else:
             #     raise DesignError('%s: %s is not an available directory_type. Choose from %s...\n'
             #                       % (DesignDirectory.__name__, self.directory_type, ','.join(design_directory_modes)))
@@ -677,7 +700,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def get_wildtype_file(self):
         """Retrieve the wild-type file name from Design Directory"""
         wt_file = glob(self.asu)
-        assert len(wt_file) == 1, '%s: More than one matching file found with %s' % self.asu
+        assert len(wt_file) == 1, 'More than one matching file found during search %s' % self.asu
 
         return wt_file[0]
 
@@ -940,6 +963,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""
+        if self.nano and not self.construct_pose:
+            return
         self.make_path(self.data)
         if self.info != self._info:  # if the state has changed from the original version
             pickle_object(self.info, self.serialized_info, out_path='')
@@ -1536,6 +1561,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.pose.generate_symmetric_assembly()  # call is redundant with input asu's
         # Save renumbered PDB to clean_asu.pdb
         if not os.path.exists(self.asu):
+            if self.nano and not self.construct_pose:
+                return
             # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily most contacting
             # self.pose.pdb.write(out_path=self.asu)
             new_asu = self.pose.get_contacting_asu()
@@ -1659,7 +1686,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.load_pose()
         if self.pose.symmetry:
             self.symmetric_assembly_is_clash()
-            if self.output_assembly:  # True by default when expand_asu module is used
+            if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
                 self.pose.get_assembly_symmetry_mates()
                 self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
                 self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
@@ -1671,13 +1698,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         file
         """
         self.load_pose()
-        self.make_path(self.frags)
         if not self.frag_db:
             self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
                              'requested. Each design is loading a separate instance. To maximize efficiency, pass --%s'
                              % Flags.generate_frags)
         self.identify_interface()
-        self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=True)  # Todo parameterize write
+        self.make_path(self.frags, condition=self.write_frags)
+        self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
         # if self.fragment_observations:
         #     self.log.warning('There are fragments already associated with this pose. They are being overwritten with '
         #                      'newly found fragments')
@@ -1686,7 +1713,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # for observation in self.pose.fragment_queries.values():
         #     self.fragment_observations.extend(observation)
         self.info['fragments'] = self.pose.return_fragment_observations()
-        # self.pickle_info()
 
     def identify_interface(self):
         """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
@@ -1782,7 +1808,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Todo fold these into Model and attack these metrics from a Pose object
         #  This will get rid of the self.log
-        wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
+        # wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
+        wt_pdb = self.pose.pdb
         self.log.debug('Reordering wild-type chains')
         wt_pdb.reorder_chains()  # ensure chain ordering is A then B to match output from interface_design
 
