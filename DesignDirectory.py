@@ -2522,7 +2522,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def __str__(self):
         if self.nano:
-            print(self.nanohedra_root)
             return self.source_path.replace(self.nanohedra_root, '').replace(os.sep, '-')
         else:
             # TODO integrate with designDB?
