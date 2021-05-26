@@ -308,9 +308,10 @@ class PDB(Structure):
             pdb_lines = f.readlines()
 
         if not self.name:
-            formatted_filename = os.path.splitext(os.path.basename(self.filepath))[0].replace('pdb', '')
-            underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
-            self.name = formatted_filename[:underscore_idx]
+            # formatted_filename = os.path.splitext(os.path.basename(self.filepath))[0].replace('pdb', '')
+            # underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
+            # self.name = formatted_filename[:underscore_idx]
+            self.name = os.path.splitext(os.path.basename(self.filepath))[0].replace('pdb', '').lower()
 
         seq_res_lines = []
         multimodel, start_of_new_model = False, False
@@ -1237,19 +1238,25 @@ class PDB(Structure):
                     continue
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
 
-    def retrieve_pdb_info_from_api(self, pdb_code=None):  # Todo doesn't really need pdb_code currently. When would it?
-        if not pdb_code:
-            pdb_code = self.name
+    def retrieve_pdb_info_from_api(self):  # pdb_code=None
+        """Query the PDB API for information on the PDB code found as the PDB object .name attribute
 
-        if len(pdb_code) == 4:
+        Returns:
+            (dict): {'entity': {1: {'A', 'B'}, ...},
+                     'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+                     'res': resolution,
+                     'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+                     }
+        """
+        if len(self.name) == 4:
             if not self.api_entry:
-                self.api_entry = get_pdb_info_by_entry(pdb_code)
+                self.api_entry = get_pdb_info_by_entry(self.name)
                 if self.api_entry:
                     return True
-                self.log.info('PDB code \'%s\' was not found with the PDB API.' % pdb_code)
+                self.log.info('PDB code \'%s\' was not found with the PDB API.' % self.name)
         else:
             self.log.info('PDB code \'%s\' is not of the required format and will not be found with the PDB API.'
-                          % pdb_code)
+                          % self.name)
         return False
         # if not self.api_entry and self.name and len(self.name) == 4:
         #     self.api_entry = get_pdb_info_by_entry(self.name)
@@ -1271,49 +1278,39 @@ class PDB(Structure):
                 return entity
         return None
 
-    def create_entities(self):
+    def create_entities(self, query_by_sequence=True, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during
         parsing. First search the PDB API if a PDB entry_id is attached to instance, next from Atoms in instance
 
         Keyword Args:
-            entity_names=None (list): The list of names for each Entity is names are provided, otherwise, Entity names
-            will increment from order identified in ATOM records
-            pdb_code=None (str): The four character code specifying the entry ID from the PDB
+            query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
         """
-        # if not self.entity_d:  # we didn't find information from the PDB file
-        #     if not self.design:  # this is analogous to above
-        #         self.get_entity_info_from_api()  # pdb_code=pdb_code)
-        if not self.entity_d:  # no information in PDB file  # # API didn't work for pdb_name
+        self.retrieve_pdb_info_from_api()  # sets api_entry
+        if not self.entity_d and self.api_entry:  # self.api_entry = {1: {'A', 'B'}, ...}
+            self.entity_d = \
+                {ent_number: {'chains': chains} for ent_number, chains in self.api_entry.get('entity').items()}
+        else:  # still nothing, then API didn't work for pdb_name so we solve by file information
             self.get_entity_info_from_atoms()
-            for entity, atom_info in list(self.entity_d.items()):
-                pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
-                if pdb_api_name:
-                    self.entity_d[pdb_api_name] = self.entity_d.pop(entity)
-                    self.log.info('Found Entity \'%s\' by PDB API sequence search' % pdb_api_name)
-        else:
-            for entity, info in self.entity_d.items():
-                self.log.debug('Found chains %s' % ', '.join(info['chains']))
-                # make chain names Chain objects
-                info['chains'] = [self.chain(chain_id) for chain_id in info['chains']]
-                info['chains'] = [chain for chain in info['chains'] if chain]
+            if query_by_sequence:
+                for entity_number, atom_info in list(self.entity_d.items()):  # make a copy as update occurs with iter
+                    pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
+                    if pdb_api_name:
+                        self.entity_d[pdb_api_name] = self.entity_d.pop(entity_number)
+                        self.log.info('Entity %d now named \'%s\', as found by PDB API sequence search'
+                                      % (entity_number, pdb_api_name))
 
-        # self.update_entity_d()
-        # For each Entity, gather the sequence of the chain representative
-        # Todo choose the most symmetrically average chain if Entity is symmetric!
-        for entity, info in self.entity_d.items():
-            if info.get('chains'):
-                info['representative'] = info.get('chains')[0]
-            else:
-                raise DesignError('The Entity %s is missing chain information!' % entity)
-            info['seq'] = info['representative'].sequence
+        # For each Entity, get the chain representative Todo choose most symmetrically average if Entity is symmetric
+        for entity_name, info in self.entity_d.items():
+            chains = info.get('chains')  # v make Chain objects (if they are names)
+            info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in chains]
+            info['representative'] = info['chains'][0]
+            accession = self.dbref.get(info['representative'].chain_id, None)
+            info['accession'] = accession['accession'] if accession else accession
+            # info['seq'] = info['representative'].sequence
 
-        self.update_entity_accession_id()
-
-        for entity, info in self.entity_d.items():
-            if isinstance(entity, int):
-                entity_name = '%s_%d' % (self.name, entity)
-            else:  # entity.split('_')) == 2:  # we have an name generated from a PDB API sequence search
-                entity_name = entity
+        # self.update_entity_accession_id()  # only useful if retrieve_pdb_info_from_api() is called
+        for entity_name, info in self.entity_d.items():  # generated from a PDB API sequence search v
+            entity_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name.lower()
             self.entities.append(
                 Entity.from_representative(representative=info['representative'], name=entity_name, log=self.log,
                                            chains=info['chains'], uniprot_id=info['accession']))
@@ -1383,11 +1380,10 @@ class PDB(Structure):
                 self.entity_d[entity_count] = {'chains': [chain], 'seq': chain.sequence}
         self.log.info('Entities were generated from ATOM records.')
 
-    def get_entity_info_from_api(self, pdb_code=None):
+    def get_entity_info_from_api(self):  # , pdb_code=None):  UNUSED
         """Query the PDB API for the PDB entry_ID to find the corresponding Entity information"""
-        if self.retrieve_pdb_info_from_api(pdb_code=pdb_code):
-            self.entity_d = {entity: {'chains': self.api_entry['entity'][entity]} for entity in
-                             self.api_entry['entity']}
+        if self.retrieve_pdb_info_from_api():  # pdb_code=pdb_code):
+            self.entity_d = {ent: {'chains': self.api_entry['entity'][ent]} for ent in self.api_entry['entity']}
 
     # def update_entity_representatives(self):
     #     """For each Entity, gather the chain representative by choosing the first chain in the file
@@ -1401,23 +1397,23 @@ class PDB(Structure):
     #     for entity, info in self.entity_d.items():
     #         info['seq'] = info['representative'].sequence
 
-    def update_entity_accession_id(self):
-        """Create a map (dictionary) between identified entities (not yet Entity objs) and their accession code
-        If entities from psuedo generation, then may not.
-        """
-        # dbref will not be generated unless specified by call to API or from .pdb file
-        if not self.dbref:  # check if from .pdb file
-            if not self.api_entry:  # check if from API
-                for entity, info in self.entity_d.items():
-                    info['accession'] = None
-                return None
-            else:
-                self.dbref = self.api_entry['dbref']
-
-        for entity, info in self.entity_d.items():
-            info['accession'] = self.dbref[info['representative'].name]['accession']
-        # self.entity_accession_map = {entity: self.dbref[self.entity_d[entity]['representative']]['accession']
-        #                              for entity in self.entity_d}
+    # def update_entity_accession_id(self):  # UNUSED
+    #     """Create a map (dictionary) between identified entities (not yet Entity objs) and their accession code
+    #     If entities from psuedo generation, then may not.
+    #     """
+    #     # dbref will not be generated unless specified by call to API or from .pdb file
+    #     if not self.dbref:  # check if from .pdb file
+    #         if not self.api_entry:  # check if from API
+    #             for info in self.entity_d.values():
+    #                 info['accession'] = None
+    #             return
+    #         else:
+    #             self.dbref = self.api_entry['dbref']
+    #
+    #     for info in self.entity_d.values():
+    #         info['accession'] = self.dbref.get(info['representative'].chain_id)['accession']
+    #     # self.entity_accession_map = {entity: self.dbref[self.entity_d[entity]['representative']]['accession']
+    #     #                              for entity in self.entity_d}
 
     def entity_from_chain(self, chain_id):
         """Return the entity associated with a particular chain id"""

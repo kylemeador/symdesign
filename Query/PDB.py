@@ -569,7 +569,7 @@ def get_pdb_info_by_entry(entry):
         entry_json = entry_request.json()
     else:
         # print('%s not found in the PDB!' % entry)
-        return None
+        return
     # The following information is returned. This can connect the entity ID to the chain
 
     # All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
@@ -622,8 +622,8 @@ def get_pdb_info_by_entry(entry):
             struct_d = {}
             resolution = None
     else:
-        print('Entry has no \'experimental_method\' keyword')
-        return None
+        logger.warning('Entry has no \'experimental_method\' keyword')
+        return
 
     entity_chain_d, ref_d, db_d = {}, {}, {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
