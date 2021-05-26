@@ -1389,17 +1389,36 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         Sets:
             self.oligomers (list[PDB])
         """
+        source_preference = ['refined', 'oriented', 'design']
         if self.database:
-            # refined, oriented = False, False
             if refined:
-                source = 'refined'
+                source_idx = 0
             elif oriented:
-                source = 'oriented'
+                source_idx = 1
+            else:
+                raise DesignError('There is no source to fall back on if not oriented or refined. Please pass either')
+
             self.oligomers.clear()
             for oligomer_name in self.oligomer_names:
-                self.oligomers.append(self.database.retrieve_data(from_source=source, name=oligomer_name))
-
-        else:
+                oligomer = None
+                while not oligomer:
+                    oligomer = self.database.retrieve_data(source=source_preference[source_idx], name=oligomer_name)
+                    if oligomer:
+                        self.oligomers.append(oligomer)
+                        self.log.debug('Found oligomer file at %s, loaded into job' % source_preference[source_idx])
+                    else:
+                        self.log.error('Couldn\'t locate the oligomer %s at the specified source %s'
+                                       % (oligomer_name, source_preference[source_idx]))
+                        source_idx += 1
+                        self.log.error('Falling back to source %s' % source_preference[source_idx])
+                        if source_preference[source_idx] == 'design':
+                            file = glob(os.path.join(self.path, '%s*.pdb*' % oligomer_name))
+                            if file and len(file) == 1:
+                                self.oligomers.append(PDB.from_file(file[0], log=self.log,
+                                                                    name=os.path.splitext(os.path.basename(file))[0],))
+                            else:
+                                raise DesignError('Couldn\'t located the specified oligomer %s' % oligomer_name)
+        else:  # Todo consolidate this with above as far as iterative mechanism
             if refined:  # prioritize the refined version
                 path = self.refine_dir
                 for oligomer in self.oligomer_names:
@@ -1472,12 +1491,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #         for entity in oligomer.entities:
             #             for chain in entity.chains:
             #                 chain.write(file_handle=f)
-            # # BOTH OF THESE PRODUCE THE SAME FILE WITH THE OLIGOMER TRANSFORMED
-            # # SOMETHING IS HAPPENING WHEN THE POSE IS INITIALIZED CAUSING IT TO REVERT TO A NON TRANSFORMED VERSION?!
+            entities = []
+            for oligomer in self.oligomers:
+                entities.extend(oligomer.entities)
 
-            asu = PDB.from_entities(chain.from_iterable([oligomer.entities for oligomer in self.oligomers]),
-                                    cryst_record=self.cryst_record, log=self.log)
-            self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
+            # list(iter_chain.from_iterable([oligomer.entities for oligomer in self.oligomers]))
+            asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log)
+            # asu.write(out_path=os.path.join(self.path, 'ENT_ASU.pdb'))  # This looks great
+            self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                       ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
             # This mechanism doesn't work as the entities attached chains are not handled correctly
@@ -1490,21 +1511,25 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.pose.asu = self.pose.pdb  # set the asu
             # asu = self.pose.get_contacting_asu()
         else:
-            self.pose = Pose.from_asu_file(self.source, sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
+            self.pose = Pose.from_asu_file(self.source, sym_entry=self.sym_entry, source_db=self.database,
                                            design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                            ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
         if self.pose_transformation:
             for idx, entity in enumerate(self.pose.entities, 1):
+                # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
                 entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
+                # # write out new oligomers to the DesignDirectory TODO add flag to include these
+                # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
+                # entity.write_oligomer(out_path=out_path)
         else:
             # may switch this whole function to align the assembly identified by the asu entities PDB code after
             # download from PDB API
             self.pose.assign_entities_to_sub_symmetry()  # Todo debugggererer
 
-        self.pose.generate_symmetric_assembly()
+        # self.pose.generate_symmetric_assembly()  # call is redundant with input asu's
         # Save renumbered PDB to clean_asu.pdb
         if not os.path.exists(self.asu):
-            # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily the most contacting
+            # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily most contacting
             # self.pose.pdb.write(out_path=self.asu)
             new_asu = self.pose.get_contacting_asu()
             new_asu.write(out_path=self.asu, header=self.cryst_record)
