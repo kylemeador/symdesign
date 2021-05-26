@@ -442,7 +442,7 @@ def group_compositions(design_directories):
     compositions = {}
     for design in design_directories:
         # design.gather_pose_metrics()
-        oligomer_names = tuple(design.oligomer_names)
+        oligomer_names = tuple(design.entity_names)
         if compositions.get(oligomer_names, None):
             compositions[oligomer_names].append(design)
         else:

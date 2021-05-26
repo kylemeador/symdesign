@@ -2,7 +2,7 @@ import os
 import logging
 import math
 import multiprocessing as mp
-import operator
+from operator import getitem
 import string
 import pickle
 import subprocess
@@ -85,8 +85,15 @@ def parse_symmetry_to_sym_entry(symmetry_string):
 
 
 def dictionary_lookup(dictionary, items):
-    """Return the values of a dictionary for the item pairs nested within"""
-    return reduce(operator.getitem, items, dictionary)
+    """Return the values of a dictionary for the item pairs nested within
+
+    Args:
+        dictionary (dict): The dictionary to search
+        items (tuple): The tuple of keys to search for
+    Returns:
+        (any): The value specified by dictionary keys
+    """
+    return reduce(getitem, items, dictionary)
 
 
 def set_dictionary_by_path(root, items, value):

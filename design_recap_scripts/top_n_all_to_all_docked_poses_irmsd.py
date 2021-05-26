@@ -702,9 +702,9 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     reference_chains_and_residues_d = {}
     for i, des_dir in enumerate(design_directories):
         des_dir.get_oligomers()
-        # docked_pdb1 = des_dir.oligomers[des_dir.oligomer_names[0]]
+        # docked_pdb1 = des_dir.oligomers[des_dir.entity_names[0]]
         docked_pdb1 = des_dir.oligomers[0]
-        # docked_pdb2 = des_dir.oligomers[des_dir.oligomer_names[1]]
+        # docked_pdb2 = des_dir.oligomers[des_dir.entity_names[1]]
         docked_pdb2 = des_dir.oligomers[1]
         reference_chains_and_residues_d[str(des_dir)] = interface_chains_and_resnums(docked_pdb1, docked_pdb2,
                                                                                      cb_distance=9.0)
@@ -715,8 +715,8 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
 
     # For debuggin multiprocessing hang
     # for des_dir in design_directories:
-        des_dir.oligomers[des_dir.oligomer_names[0]] = standardize_intra_oligomer_chain_lengths(docked_pdb1)
-        des_dir.oligomers[des_dir.oligomer_names[1]] = standardize_intra_oligomer_chain_lengths(docked_pdb2)
+        des_dir.oligomers[des_dir.entity_names[0]] = standardize_intra_oligomer_chain_lengths(docked_pdb1)
+        des_dir.oligomers[des_dir.entity_names[1]] = standardize_intra_oligomer_chain_lengths(docked_pdb2)
     # standardized_pdbs1, standardized_pdbs2 = {}, {}
     # for i in range(n):
     #     ref_pose_id, ref_pose_pdb1_filepath, ref_pose_pdb2_filepath = docked_pdb1_pdb2_filepaths[i]
@@ -736,10 +736,10 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     # irmsds = []  # , directory_pairs = [], []
     # for pair in combinations(design_directories, 2):
     #     try:
-    #         irmsds.append(map_align_interface_chains_km(pair[1].oligomers[pair[1].oligomer_names[0]],
-    #                                                     pair[1].oligomers[pair[1].oligomer_names[1]],
-    #                                                     pair[0].oligomers[pair[0].oligomer_names[0]],
-    #                                                     pair[0].oligomers[pair[0].oligomer_names[1]], str(pair[0]),
+    #         irmsds.append(map_align_interface_chains_km(pair[1].oligomers[pair[1].entity_names[0]],
+    #                                                     pair[1].oligomers[pair[1].entity_names[1]],
+    #                                                     pair[0].oligomers[pair[0].entity_names[0]],
+    #                                                     pair[0].oligomers[pair[0].entity_names[1]], str(pair[0]),
     #                                                     str(pair[1]),
     #                                                     *reference_chains_and_residues_d[str(pair[0])]))
     #     except (Bio.PDB.PDBExceptions.PDBException, Exception):
@@ -754,8 +754,8 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     # MULTIPROCESSING
     zipped_args = []  # , directory_pairs = [], []
     for i, pair in enumerate(combinations(design_directories, 2)):
-        zipped_args.append((pair[1].oligomers[pair[1].oligomer_names[0]], pair[1].oligomers[pair[1].oligomer_names[1]],
-                            pair[0].oligomers[pair[0].oligomer_names[0]], pair[0].oligomers[pair[0].oligomer_names[1]],
+        zipped_args.append((pair[1].oligomers[pair[1].entity_names[0]], pair[1].oligomers[pair[1].entity_names[1]],
+                            pair[0].oligomers[pair[0].entity_names[0]], pair[0].oligomers[pair[0].entity_names[1]],
                             str(pair[0]), str(pair[1]), i, *reference_chains_and_residues_d[str(pair[0])]))
         # directory_pairs.append((str(pair[0]), str(pair[1])))
 

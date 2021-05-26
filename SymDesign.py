@@ -963,17 +963,17 @@ if __name__ == '__main__':
             if args.orient:
                 logger.info('The required files for %s designs are being collected and oriented if necessary'
                             % PUtils.nano)
-                required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
-                required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
+                required_entities1 = set(design.entity_names[0] for design in design_directories)
+                required_entities2 = set(design.entity_names[1] for design in design_directories)
                 orient_files = [os.path.splitext(file)[0] for file in os.listdir(master_outdir.orient_dir)]
                 qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
                 orient_log = SDUtils.start_log(name='orient', handler=2,
                                                location=os.path.join(master_outdir.orient_dir, PUtils.orient_log_file))
-                for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
+                for idx, required_entities in enumerate([required_entities1, required_entities2], 1):
                     symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
                     logger.info('Orienting PDB files to %s with %s symmetry: %s'
-                                % (master_outdir.orient_dir, symmetry, ', '.join(required_oligomers)))
-                    for oligomer in required_oligomers:
+                                % (master_outdir.orient_dir, symmetry, ', '.join(required_entities)))
+                    for oligomer in required_entities:
                         if oligomer in orient_files:
                             continue
                         biological_assemblies = qsbio_confirmed.get(oligomer)
@@ -1004,12 +1004,12 @@ if __name__ == '__main__':
                             raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
                                                       'canonical_pdb1/2 attribute of DesignDirectory to pull the'
                                                       'pdb file source.')
-                # required_oriented_files = required_oligomers1.union(required_oligomers2)
+                # required_oriented_files = required_entities1.union(required_entities2)
                 # missing_oriented_files = required_oriented_files.difference(os.listdir(orient_directory))
                 # if missing_oriented_files:
-                #     for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
+                #     for idx, required_entities in enumerate([required_entities1, required_entities2], 1):
                 #         symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
-                #         for oligomer in required_oligomers:
+                #         for oligomer in required_entities:
                 #             if oligomer in missing_oriented_files:
                 #                 biological_assemblies = qsbio_confirmed.get(oligomer)
                 #                 pdb = PDB.from_file(fetch_pdb_file('%s_%d' % (oligomer, biological_assemblies[0])),
@@ -1024,15 +1024,15 @@ if __name__ == '__main__':
                 # refine_directory = master_outdir.refine_dir
                 oriented_asu_files = os.listdir(orient_asu_directory)
                 refine_files = os.listdir(master_outdir.refine_dir)
-                required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
-                required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
+                required_entities1 = set(design.entity_names[0] for design in design_directories)
+                required_entities2 = set(design.entity_names[1] for design in design_directories)
                 oligomers_to_refine, sym_def_files = [], {}
-                for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
+                for idx, required_entities in enumerate([required_entities1, required_entities2], 1):
                     symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
                     sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
                     for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
                         base_pdb_code = os.path.splitext(orient_asu_file)[0]  # os.path.basename()
-                        if base_pdb_code in required_oligomers and orient_asu_file not in refine_files:
+                        if base_pdb_code in required_entities and orient_asu_file not in refine_files:
                             oligomers_to_refine.append((os.path.join(orient_asu_directory, orient_asu_file), symmetry))
                 set_oligomers_to_refine = set(oligomers_to_refine)
                 while set_oligomers_to_refine:  # If no files found unrefined, we should proceed
@@ -1386,6 +1386,7 @@ if __name__ == '__main__':
                                 '(the backbone of -design_with_evolution)! Please allocate the job to a computer with'
                                 'more memory or the process will fail. Otherwise, select -design_with_evolution False')
             master_outdir.make_path(master_outdir.sequences)
+            master_outdir.make_path(master_outdir.profiles)
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads=threads)

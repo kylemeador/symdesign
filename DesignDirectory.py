@@ -140,7 +140,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sdfs = {}
         self.sym_def_file = None
         self.symmetry_protocol = None
-        self.oligomer_names = []
+        self.entity_names = []
         self.oligomers = []
 
         # todo integrate these flags with SymEntry and pass to Pose
@@ -273,8 +273,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
-                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
-                self.info['oligomer_names'] = self.oligomer_names  # Todo ensure all routes of contruction pickle this!
+                self.entity_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+                self.info['entity_names'] = self.entity_names
 
                 self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
                 self.name = self.pose_id
@@ -301,7 +301,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
                 self.composition = os.path.join(self.program_root, path_components[-4])
                 self.project_designs = os.path.join(self.composition, path_components[-2])
-                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+                self.entity_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.source = os.path.join(self.source_path, PUtils.asu)
                 # self.set_up_design_directory()
@@ -443,7 +443,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         if self.sym_entry:
             metrics['design_dimension'] = self.design_dimension
-            for group_idx, name in enumerate(self.oligomer_names, 1):
+            # Todo must clarify symmetry separation if non-nanohedra
+            for group_idx, name in enumerate(self.entity_names, 1):
                 metrics['symmetry_group_%d' % group_idx] = getattr(self.sym_entry, 'group%d' % group_idx)
         else:
             metrics['design_dimension'] = 'asymmetric'
@@ -656,7 +657,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.info = unpickle(self.serialized_info)
             self._info = self.info.copy()  # create a copy of the state upon initialization
             if self.info.get('nanohedra'):
-                self.oligomer_names = self.info.get('oligomer_names', list())
+                self.entity_names = self.info.get('entity_names', list())
                 self.transform_d = self.info.get('pose_transformation', dict())
             self.fragment_observations = self.info.get('fragments', None)
 
@@ -876,7 +877,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     residue_number2 = int(oligomer2_info[1])
                 elif line[:3] == 'id:':
                     cluster_id = map(str.strip, line[3:].strip().split('_'), 'ijk')
-                    # use with self.oligomer_names to get mapped and paired oligomer id
+                    # use with self.entity_names to get mapped and paired oligomer id
                     fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
                     # self.fragment_observations.append({'mapped': residue_number1, 'paired': residue_number2,
                     #                                    'cluster': cluster_id, 'match': match_score})
@@ -1399,37 +1400,37 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('There is no source to fall back on if not oriented or refined. Please pass either')
 
             self.oligomers.clear()
-            for oligomer_name in self.oligomer_names:
+            for name in self.entity_names:
                 oligomer = None
                 while not oligomer:
-                    oligomer = self.database.retrieve_data(source=source_preference[source_idx], name=oligomer_name)
+                    oligomer = self.database.retrieve_data(source=source_preference[source_idx], name=name)
                     if oligomer:
                         self.oligomers.append(oligomer)
                         self.log.debug('Found oligomer file at %s, loaded into job' % source_preference[source_idx])
                     else:
                         self.log.error('Couldn\'t locate the oligomer %s at the specified source %s'
-                                       % (oligomer_name, source_preference[source_idx]))
+                                       % (name, source_preference[source_idx]))
                         source_idx += 1
                         self.log.error('Falling back to source %s' % source_preference[source_idx])
                         if source_preference[source_idx] == 'design':
-                            file = glob(os.path.join(self.path, '%s*.pdb*' % oligomer_name))
+                            file = glob(os.path.join(self.path, '%s*.pdb*' % name))
                             if file and len(file) == 1:
                                 self.oligomers.append(PDB.from_file(file[0], log=self.log,
                                                                     name=os.path.splitext(os.path.basename(file))[0],))
                             else:
-                                raise DesignError('Couldn\'t located the specified oligomer %s' % oligomer_name)
+                                raise DesignError('Couldn\'t located the specified oligomer %s' % name)
         else:  # Todo consolidate this with above as far as iterative mechanism
             if refined:  # prioritize the refined version
                 path = self.refine_dir
-                for oligomer in self.oligomer_names:
-                    if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
+                for name in self.entity_names:
+                    if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % name))[0]):
                         oriented = True  # fall back to the oriented version
                         self.log.debug('Couldn\'t find oligomers in the refined directory')
                         break
             if oriented:
                 path = self.orient_dir
-                for oligomer in self.oligomer_names:
-                    if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % oligomer))[0]):
+                for name in self.entity_names:
+                    if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % name))[0]):
                         path = self.path
                         self.log.debug('Couldn\'t find oligomers in the oriented directory')
 
@@ -1438,7 +1439,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
             oligomer_files = []
-            for idx, name in enumerate(self.oligomer_names, 1):
+            for idx, name in enumerate(self.entity_names, 1):
                 oligomer_files.extend(glob(os.path.join(path, '%s*.pdb*' % name)))  # first * is for DesignDirectory
             assert len(oligomer_files) == idx, \
                 'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
@@ -1449,8 +1450,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.oligomers.append(PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
                                                     log=self.log))
         self.log.debug('%d matching oligomers found' % len(self.oligomers))
-        assert len(self.oligomers) == len(self.oligomer_names), \
-            'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.oligomer_names))
+        assert len(self.oligomers) == len(self.entity_names), \
+            'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.entity_names))
 
     def load_pose(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
@@ -1511,9 +1512,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.pose.asu = self.pose.pdb  # set the asu
             # asu = self.pose.get_contacting_asu()
         else:
-            self.pose = Pose.from_asu_file(self.source, sym_entry=self.sym_entry, source_db=self.database,
+            self.pose = Pose.from_asu_file(self.source, entity_names=self.entity_names,
+                                           sym_entry=self.sym_entry, source_db=self.database,
                                            design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                            ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
+            if not self.entity_names:
+                self.entity_names = [entity.name for entity in self.pose.entities]
+                self.info['entity_names'] = self.entity_names
         if self.pose_transformation:
             for idx, entity in enumerate(self.pose.entities, 1):
                 # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
