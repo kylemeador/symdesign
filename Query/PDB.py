@@ -644,7 +644,7 @@ def get_pdb_info_by_entity(entity_id):
     Args:
         entity_id (str):
     Returns:
-        (dict):
+        (dict): {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
     entity_json = query_entity_id(entity_id)
     # For all method types the following keys are available:
