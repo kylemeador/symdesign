@@ -1,8 +1,8 @@
 import os
-import os
 import subprocess
 from copy import copy  # , deepcopy
 from collections.abc import Iterable
+from itertools import repeat
 from random import random, randint
 
 import numpy as np
@@ -28,7 +28,7 @@ class StructureBase:
     """
     def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, lazy=None, solve_discrepancy=None,
                  sequence=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
-                 **kwargs):
+                 query_by_sequence=True, entity_names=None, **kwargs):
         super().__init__(**kwargs)
 
 
@@ -2118,20 +2118,20 @@ class Residue:
 
 
 class GhostFragment:
-    def __init__(self, structure, i_type, j_type, k_type, ijk_rmsd, aligned_fragment):
+    def __init__(self, guide_coords, i_type, j_type, k_type, ijk_rmsd, aligned_fragment):  # structure
         #        aligned_chain_residue_tuple, guide_coords=None):
-        self.structure = structure
+        # self.structure = structure
+        # if not guide_coords:
+        self.guide_coords = guide_coords
+        # self.guide_coords = self.structure.chain('9').coords
+        # else:
+        #     self.guide_coords = guide_coords
         self.i_type = i_type
         self.j_type = j_type
         self.k_type = k_type
         self.rmsd = ijk_rmsd
         self.aligned_fragment = aligned_fragment
         # self.aligned_surf_frag_central_res_tup = aligned_chain_residue_tuple
-
-        # if not guide_coords:
-        self.guide_coords = self.structure.chain('9').coords
-        # else:
-        #     self.guide_coords = guide_coords
 
     def get_ijk(self):
         """Return the fragments corresponding cluster index information
@@ -2142,9 +2142,10 @@ class GhostFragment:
         return self.i_type, self.j_type, self.k_type
 
     def get_aligned_fragment(self):
-        """Return the fragment information the GhostFragment instance is aligned to
+        """
         Returns:
-            (tuple[str,int]): aligned chain, aligned residue_number"""
+            (Structure): The fragment the GhostFragment instance is aligned to
+        """
         return self.aligned_fragment
 
     def get_aligned_chain_and_residue(self):
@@ -2166,13 +2167,13 @@ class GhostFragment:
     def get_rmsd(self):
         return self.rmsd
 
-    @property
-    def structure(self):
-        return self._structure
-
-    @structure.setter
-    def structure(self, structure):
-        self._structure = structure
+    # @property
+    # def structure(self):
+    #     return self._structure
+    #
+    # @structure.setter
+    # def structure(self, structure):
+    #     self._structure = structure
 
     def get_guide_coords(self):
         return self.guide_coords
@@ -2195,11 +2196,11 @@ class MonoFragment:
                 rmsd, rot, tx, rescale = superposition3d(frag_ca_coords, cluster_rep.get_ca_coords())
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     self.i_type = cluster_type
-                    min_rmsd, self.rot, self.tx = rmsd, rot, tx
+                    min_rmsd, self.rotation, self.translation = rmsd, rot, tx
 
             if self.i_type:
                 guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
-                self.guide_coords = np.matmul(guide_coords, np.transpose(self.rot)) + self.tx
+                self.guide_coords = np.matmul(guide_coords, np.transpose(self.rotation)) + self.translation
 
     # @classmethod
     # def from_residue(cls):
@@ -2214,6 +2215,10 @@ class MonoFragment:
     #                   central_res_chain_id=None):
     #     return cls(residues=residues, fragment_type=fragment_type, guide_coords=guide_coords,
     #                central_res_num=central_res_num, central_res_chain_id=central_res_chain_id)
+
+    @property
+    def transformation(self):
+        return dict(rotation=self.rotation, translation=self.translation)
 
     @property
     def coords(self):  # this makes compatible with pose symmetry operations
@@ -2288,35 +2293,33 @@ class MonoFragment:
     def replace_coords(self, new_coords):  # makes compatible with pose symmetry operations. Same as @coords.setter
         self.guide_coords = new_coords
 
-    def get_ghost_fragments(self, intfrag_cluster_rep, kdtree_oligomer_backbone, intfrag_cluster_info, clash_dist=2.2):
+    def get_ghost_fragments(self, indexed_ghost_fragments, bb_balltree, clash_dist=2.2):
         """Find all the GhostFragments associated with the MonoFragment that don't clash with the original structure
         backbone
 
         Args:
-            intfrag_cluster_rep (dict): The paired fragment database to match to the MonoFragment instance
-            kdtree_oligomer_backbone (sklearn.neighbors.KDTree): The backbone of the structure to assign fragments to
-            intfrag_cluster_info (dict): The paired fragment database info
+            indexed_ghost_fragments (dict): The paired fragment database to match to the MonoFragment instance
+            bb_balltree (sklearn.neighbors.BallTree): The backbone of the structure to assign fragments to
         Keyword Args:
             clash_dist=2.2 (float): The distance to check for backbone clashes
         Returns:
             (list[GhostFragment])
         """
-        if self.i_type not in intfrag_cluster_rep:
+        if self.i_type not in indexed_ghost_fragments:
             return []
 
-        ghost_fragments = []
-        for j_type, j_dictionary in intfrag_cluster_rep[self.i_type].items():
-            for k_type, (frag_pdb, frag_mapped_chain, frag_paired_chain) in j_dictionary.items():
-                aligned_ghost_frag = frag_pdb.return_transformed_copy(rotation=self.rot, translation=self.tx)
-                ghost_frag_bb_coords = aligned_ghost_frag.chain(frag_paired_chain).get_backbone_coords()
-                # Only keep ghost fragments that don't clash with oligomer backbone
-                cb_clash_count = kdtree_oligomer_backbone.two_point_correlation(ghost_frag_bb_coords, [clash_dist])
+        stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = indexed_ghost_fragments[self.i_type]
+        transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, **self.transformation)
+        transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
+        neighbors = bb_balltree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)  # queries on a np.view
+        neighbor_counts = np.array([neighbor.size for neighbor in neighbors])
+        # reshape to original size then query for existence of any neighbors for each fragment individually
+        viable_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
+        ghost_frag_info = \
+            zip(transformed_guide_coords[~viable_indices].tolist(), *zip(*ijk_types[~viable_indices].tolist()),
+                rmsd_array[~viable_indices].tolist(), repeat(self))
 
-                if cb_clash_count[0] == 0:
-                    rmsd = intfrag_cluster_info[self.i_type][j_type][k_type].get_rmsd()
-                    ghost_fragments.append(GhostFragment(aligned_ghost_frag, self.i_type, j_type, k_type, rmsd, self))
-
-        return ghost_fragments
+        return [GhostFragment(*info) for info in ghost_frag_info]
 
 
 class Atoms:

@@ -480,8 +480,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
     complete_ghost_frags = []
     for frag in surf_frags_1:
-        complete_ghost_frags.extend(frag.get_ghost_fragments(ijk_frag_db.paired_frags, oligomer1_backbone_cb_tree,
-                                                             ijk_frag_db.info))
+        complete_ghost_frags.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, oligomer1_backbone_cb_tree))
 
     # calculate the initial match type by finding the predominant surface type
     # log.debug('Length of surface_frags1: %d' % len(surf_frags_1))
