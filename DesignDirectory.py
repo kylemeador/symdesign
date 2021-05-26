@@ -427,12 +427,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # pose.secondary_structure attributes are set in the get_fragment_metrics() call
         for number, elements in self.pose.split_interface_ss_elements.items():
-            self.interface_ss_topology[number] = ''.join(self.pose.ss_type_array[self.pose.ss_index_array[element]]
-                                                         for element in set(elements))
+            self.interface_ss_topology[number] = ''.join(self.pose.ss_type_array[element] for element in set(elements))
+        total_fragment_elements, total_interface_elements = '', ''
         for number, topology in self.interface_ss_topology.items():
             metrics['interface_secondary_structure_topology_%d' % number] = topology
+            total_interface_elements += topology
             metrics['interface_secondary_structure_fragment_topology_%d' % number] = \
                 self.interface_ss_fragment_topology.get(number, '-')
+            total_fragment_elements += self.interface_ss_fragment_topology.get(number, '')
+
+        metrics['interface_secondary_structure_fragment_topology'] = total_fragment_elements
+        metrics['interface_secondary_structure_fragment_count'] = len(total_fragment_elements)
+        metrics['interface_secondary_structure_topology'] = total_interface_elements
+        metrics['interface_secondary_structure_count'] = len(total_interface_elements)
 
         if self.sym_entry:
             metrics['design_dimension'] = self.design_dimension
@@ -780,14 +787,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                              % self.source)
             self.percent_residues_fragment_center, self.percent_residues_fragment_total = 0.0, 0.0
 
-        self.pose.interface_secondary_structure(source_db=self.database, source_dir=self.stride_dir)
+        if not self.pose.ss_index_array or not self.pose.ss_type_array:
+            self.pose.interface_secondary_structure()  # source_db=self.database, source_dir=self.stride_dir)
         for number, elements in self.pose.split_interface_ss_elements.items():
             fragment_elements = set()
-            for residue, element in zip(self.pose.split_interface_residues[number], elements):
-                if residue in self.center_residue_numbers:
+            # residues, entities = self.pose.split_interface_residues[number]
+            for residue, entity, element in zip(*zip(*self.pose.split_interface_residues[number]), elements):
+                if residue.number in self.center_residue_numbers:
                     fragment_elements.add(element)
             self.interface_ss_fragment_topology[number] = \
-                ''.join(self.pose.ss_type_array[self.pose.ss_index_array[element]] for element in fragment_elements)
+                ''.join(self.pose.ss_type_array[element] for element in fragment_elements)
 
     # @staticmethod
     # @handle_errors(errors=(FileNotFoundError, ))
