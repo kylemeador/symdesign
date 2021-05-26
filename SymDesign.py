@@ -944,13 +944,10 @@ if __name__ == '__main__':
                     design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
 
         master_directory = next(iter(design_directories))  # from collect_designs? (when not from file) or multiple dirs
+        logger.info('Loading all resources in the current Database found in \'%s\'' % master_directory.protein_data)
         master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
                              master_directory.stride_dir, master_directory.sequences, master_directory.profiles,
                              sql=None, log=logger)
-        logger.info('Loading all resources in the current Database found in \'%s\'' % master_directory.protein_data)
-        master_db.load_all_data()
-        for design in design_directories:
-            design.link_master_database(master_db)
 
         master_directory.make_path(master_directory.protein_data)
         master_directory.make_path(master_directory.pdbs)
@@ -1080,11 +1077,13 @@ if __name__ == '__main__':
             # nanohedra_initialization = True
 
         if design_directories:
-            # setup_design_directories(design_directories)
-            # if args.multi_processing:
-            #     SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
-            # else:
+            if args.multi_processing:  # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
+                master_db.load_all_data()
+                # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
+                # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, threads=threads)
+            # else:  # for now just do in series
             for design in design_directories:
+                design.link_master_database(master_db)
                 design.set_up_design_directory()
         else:
             raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '

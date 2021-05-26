@@ -7,8 +7,9 @@ import numpy as np
 from PDB import PDB
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
+from SequenceProfile import parse_hhblits_pssm  # parse_pssm
 from Structure import parse_stride
-from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
+from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup, read_fasta_file
 from utils.MysqlPython import Mysql
 
 
@@ -34,9 +35,11 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
     def load_all_data(self):
         """For every resource, acquire all existing data in memory"""
-        for source in [self.oriented, self.oriented_asu, self.refined, self.stride, self.sequences,
-                       self.hhblits_profiles]:
+        #              self.oriented_asu, self.sequences,
+        for source in [self.stride, self.hhblits_profiles, self.oriented, self.refined]:
             source.get_all_data()
+        # self.log.debug('The data in the Database is: %s'
+        #                % '\n'.join(str(store.__dict__) for store in self.__dict__.values()))
 
     def source(self, name):
         """Return on of the various DataStores supported by the Database"""
@@ -58,7 +61,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         object_db = self.source(source)
         data = getattr(object_db, name, None)
         if not data:
-            object_db.name = object_db.get_data(name, log=None)
+            object_db.name = object_db.load_data(name, log=None)
             data = object_db.name  # store the new data as an attribute
 
         return data
@@ -82,11 +85,11 @@ class DataStore:
         if '.pdb' in extension:
             self.load_file = PDB.from_file
         elif extension == '.fasta':
-            self.load_file = 'load from fasta'  # Todo
+            self.load_file = read_fasta_file
         elif extension == '.stride':
             self.load_file = parse_stride
-        elif extension in ['.hmm', '.pssm']:
-            self.load_file = 'load from pssm'  # Todo
+        elif extension == '.hmm':  # in ['.hmm', '.pssm']:
+            self.load_file = parse_hhblits_pssm  # parse_pssm
         else:  # '.txt' read the file and return the lines
             self.load_file = self.read_file
 
@@ -106,7 +109,26 @@ class DataStore:
         else:
             self.log.error('No files found for \'%s\'' % path)
 
-    def get_data(self, name, **kwargs):
+    def retrieve_data(self, name=None):
+        """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
+        file. Raise an error if source or file/SQL doesn't exist
+
+        Keyword Args:
+            name=None (str): The name of the data to be retrieved. Will be found with location and extension attributes
+        Returns:
+            (any[object, None]): If the data is available, the object requested will be returned, else None
+        """
+        data = getattr(self, name, None)
+        if data:
+            self.log.debug('File was retrieved from DataStore')
+        else:
+            setattr(self, name, self.load_data(name, log=None))
+            data = getattr(self, name)  # store the new data as an attribute
+            self.log.debug('File was loaded fresh')
+
+        return data
+
+    def load_data(self, name, **kwargs):
         """Return the data located in a particular entry specified by name"""
         if self.sql:
             dummy = True
@@ -114,15 +136,14 @@ class DataStore:
             file = self.locate_file(name)
             if file:
                 return self.load_file(file, **kwargs)
-            else:
-                return
+        return
 
     def get_all_data(self, **kwargs):
         """Return all data located in the particular DataStore storage location"""
         if self.sql:
             dummy = True
         else:
-            for file in glob(os.path.join(self.location, '*.%s' % self.extension)):
+            for file in glob(os.path.join(self.location, '*%s' % self.extension)):
                 data = self.load_file(file)
                 setattr(self, os.path.splitext(os.path.basename(file))[0], data)
 

@@ -705,7 +705,7 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
-def read_fasta_file(file_name):
+def read_fasta_file(file_name, **kwargs):
     """Returns an iterator of SeqRecords. Ex. [record1, record2, ...]"""
     return SeqIO.parse(file_name, 'fasta')
 
