@@ -971,8 +971,8 @@ if __name__ == '__main__':
                                                location=os.path.join(master_outdir.orient_dir, PUtils.orient_log_file))
                 for idx, required_entities in enumerate([required_entities1, required_entities2], 1):
                     symmetry = getattr(master_outdir.sym_entry, 'group%d' % idx)
-                    logger.info('Orienting PDB files to %s with %s symmetry: %s'
-                                % (master_outdir.orient_dir, symmetry, ', '.join(required_entities)))
+                    logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
+                                % (symmetry, master_outdir.orient_dir, ', '.join(required_entities)))
                     for oligomer in required_entities:
                         if oligomer in orient_files:
                             continue
@@ -1018,8 +1018,7 @@ if __name__ == '__main__':
             if args.refine:
                 # later if sequence design is attempted, ensure all of these are present in the self.refine_dir
                 logger.info('The required files for %s based designs are being refined into the Rosetta '
-                            'Scorefunction for proper sequence design structural initiation.'
-                            % PUtils.nano)
+                            'Scorefunction for optimized sequence design' % PUtils.nano)
                 master_outdir.make_path(master_outdir.refine_dir)
                 # refine_directory = master_outdir.refine_dir
                 oriented_asu_files = os.listdir(orient_asu_directory)
