@@ -112,18 +112,6 @@ def retrieve_entity_id_by_sequence(sequence):
         (str): '1ABC_1'
     """
     return find_matching_entities_by_sequence(sequence=sequence)[0]
-    # matching_entity_ids = find_matching_entities_by_sequence(sequence=sequence)
-    # entity_json = None
-    # idx = 0
-    # while idx < 5:  # lets only give this 5 attempts. If it isn't in the top five, the sequence is likely engineered
-    #     while not entity_json:
-    #         entity_json = query_entity_id(matching_entity_ids[idx])
-    #         idx += 1
-    #     # if entity_json:
-    #     try:
-    #         return entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
-    #     except KeyError:  # if no uniprot_id
-    #         entity_json = None
 
 
 def find_matching_entities_by_sequence(sequence=None, return_type='polymer_entity', **kwargs):
@@ -564,12 +552,14 @@ def get_pdb_info_by_entry(entry):
     # url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
     # ex. chain
     # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
-    entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
-    if entry_request.status_code == 200:
-        entry_json = entry_request.json()
-    else:
-        # print('%s not found in the PDB!' % entry)
+    entry_json = connection_exception_handler('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
+    if not entry_json:
         return
+    # entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
+    # if entry_request.status_code == 200:
+    #     entry_json = entry_request.json()
+    # else:
+    #     return
     # The following information is returned. This can connect the entity ID to the chain
 
     # All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
@@ -628,8 +618,7 @@ def get_pdb_info_by_entry(entry):
     entity_chain_d, ref_d, db_d = {}, {}, {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
     for i in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
-        entity_id = '%s_%d' % (entry, i)
-        entity_ref_d = get_pdb_info_by_entity(entity_id)
+        entity_ref_d = get_pdb_info_by_entity('%s_%d' % (entry, i))
         ref_d.update(entity_ref_d)
         entity_chain_d[i] = list(entity_ref_d.keys())  # these are the chains
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}
@@ -696,22 +685,60 @@ def get_pdb_info_by_entity(entity_id):
             ref_d = {chain: None for chain in chains}
         return ref_d
     else:
-        # print('%s not found in the PDB!' % entity_id)
         return {}
 
 
+def connection_exception_handler(url, max_attempts=5):
+    """Wrap requests GET commands in an exception handler which attempts to aquire the data multiple times if the
+    connection is refused due to a high volume of requests
+
+    Args:
+        url (str): The url to GET information from
+    Keyword Args:
+        max_attempts=5 (int): The number of queries that should be attempts without successful return
+    Returns:
+        (union[dict, None]): The json formatted response to the url GET or None
+    """
+    iteration = 1
+    while True:
+        try:
+            query_response = requests.get(url)
+            if query_response.status_code == 200:
+                return query_response.json()
+            elif query_response.status_code == 204:
+                logger.warning('No response was returned. Your query likely found no matches!')
+                break
+            else:
+                logger.debug('Your query returned an unrecognized status code (%d)' % query_response.status_code)
+                time.sleep(1)
+                iteration += 1
+        except requests.exceptions.ConnectionError:
+            logger.debug('Requests ran into a connection error. Sleeping, then retrying')
+            time.sleep(1)
+            iteration += 1
+
+        if iteration > max_attempts:
+            raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
+                              'Offending request %s' % getattr(query_response, 'url'))
+    return
+
+
 def query_entity_id(entity_id):
-    """Returns the JSON object for the entity_id requested. where entity_id format is PDBentryID_entityID. If the query
-     fails, returns None"""  # Todo change data retrieval to POST
-    entity_id_split = entity_id.split('_')
-    entry = entity_id_split[0]
-    _id = entity_id_split[1]
-    entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry, _id))
-    if entity.status_code == 200:
-        return entity.json()
-    else:
-        # print('%s entity request failed!' % entity_id)
-        return None
+    """Fetches the JSON object for the entity_id from the PDB API
+     
+    Args:
+        entity_id (str): The entity_id with the format PDBentryID_entityID. Ex: 1abc_1
+    Returns:
+        (union[dict, None])
+    """  # Todo change data retrieval to POST
+    # entry, _id = entity_id.split('_')
+    return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % entity_id.split('_'))
+    # entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry, _id))
+    # if entity.status_code == 200:
+    #     return entity.json()
+    # else:
+    #     # print('%s entity request failed!' % entity_id)
+    #     return
 
 
 def get_sequence_by_entity_id(entity_id):
@@ -720,7 +747,7 @@ def get_sequence_by_entity_id(entity_id):
         (str)
     """
     entity_json = query_entity_id(entity_id)
-    return entity_json['entity_poly']['pdbx_seq_one_letter_code']
+    return entity_json.get('entity_poly')['pdbx_seq_one_letter_code']
 
 
 def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True, force_update=False):
