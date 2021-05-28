@@ -732,7 +732,8 @@ def query_entity_id(entity_id):
         (union[dict, None])
     """  # Todo change data retrieval to POST
     # entry, _id = entity_id.split('_')
-    return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % entity_id.split('_'))
+    return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s'
+                                        % tuple(entity_id.split('_')))
     # entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry, _id))
     # if entity.status_code == 200:
     #     return entity.json()
