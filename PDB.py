@@ -1291,7 +1291,6 @@ class PDB(Structure):
                 {ent_number: {'chains': chains} for ent_number, chains in self.api_entry.get('entity').items()}
         else:  # still nothing, then API didn't work for pdb_name so we solve by file information
             self.get_entity_info_from_atoms()
-            print('here')
             if entity_names:
                 for idx, entity_number in enumerate(list(self.entity_d.keys())):  # make a copy as update occurs w/ iter
                     try:
