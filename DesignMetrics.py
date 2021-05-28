@@ -506,7 +506,7 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                # 'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_bound',
                # 'solvation_energy_1_unbound', 'solvation_energy_2_unbound', 'solvation_energy_unbound',
                'hbonds_res_selection_asu', 'hbonds_res_selection_unbound',
-               'decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
+               'decoy', 'final_sequence', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
                'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
                # 'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'buns_total',
                'angle_constraint', 'atom_pair_constraint', 'chainbreak', 'coordinate_constraint', 'dihedral_constraint',
