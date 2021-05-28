@@ -649,8 +649,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
         self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
-        # if not os.path.exists(self.path):
-        #     raise DesignError('Path does not exist!\n\t%s' % self.path)
         self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.scores_file = os.path.join(self.scores, PUtils.scores_file)
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
@@ -669,6 +667,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             elif self.construct_pose:
                 shutil.copy(self.pose_file, self.path)
                 shutil.copy(self.frag_file, self.path)
+                self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
@@ -1414,10 +1413,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.pose_transformation:
             self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
                               for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
+            self.log.debug('Oligomers were transformed to the found docking parameters')
         else:
             raise DesignError('The design could not be transformed as it is missing the required transformation '
                               'parameters. Were they generated properly?')
-        self.log.debug('Oligomers were transformed to the found docking parameters')
 
     def get_oligomers(self, refined=False, oriented=False):
         """Retrieve oligomeric files from either the design Database, the oriented directory, or the refined directory,
