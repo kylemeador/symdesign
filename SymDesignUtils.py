@@ -193,7 +193,7 @@ def sdf_lookup(symmetry=None):
 #####################
 
 
-def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True, format_log=True,
+def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True, format_log=True, no_log_name=False,
               set_logger_level=False):
     """Create a logger to handle program messages
 
@@ -231,7 +231,10 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True,
     _logger.addHandler(lh)
 
     if format_log:
-        log_format = logging.Formatter('[%(name)s]-%(levelname)s: %(message)s')
+        if no_log_name:
+            log_format = logging.Formatter('%(levelname)s: %(message)s')
+        else:
+            log_format = logging.Formatter('[%(name)s]-%(levelname)s: %(message)s')
         lh.setFormatter(log_format)
 
     return _logger
