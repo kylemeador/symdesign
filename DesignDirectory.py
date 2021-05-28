@@ -655,9 +655,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.scripts = os.path.join(self.path, PUtils.scripts)
         self.frags = os.path.join(self.path, PUtils.frag_dir)
         self.data = os.path.join(self.path, PUtils.data)
+        self.serialized_info = os.path.join(self.data, 'info.pkl')
         self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
+        if not self.source and os.path.exists(self.asu):
+            self.source = self.asu
+        else:
+            try:
+                self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
+            except IndexError:  # glob found no files
+                self.source = None
+        self.assembly = os.path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
+        self.refine_pdb = '%s_for_refine.pdb' % os.path.splitext(self.asu)[0]
+        self.consensus_pdb = '%s_for_consensus.pdb' % os.path.splitext(self.asu)[0]
+        self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
+        self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
+        self.pdb_list = os.path.join(self.scripts, 'design_files.txt')
         if self.nano:
-            # self.source = self.asu
             self.pose_file = os.path.join(self.source_path, PUtils.pose_file)
             self.frag_file = os.path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
             if self.copy_nanohedra:  # copy nanohedra output directory to the design directory
@@ -672,33 +685,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
-
-        if not self.source and os.path.exists(self.asu):
-            self.source = self.asu
-        else:
-            try:
-                self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
-            except IndexError:  # glob found no files
-                self.source = None
-        self.assembly = os.path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
-        self.refine_pdb = '%s_for_refine.pdb' % os.path.splitext(self.asu)[0]
-        self.consensus_pdb = '%s_for_consensus.pdb' % os.path.splitext(self.asu)[0]
-        self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
-        self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
-        self.serialized_info = os.path.join(self.data, 'info.pkl')
-        self.pdb_list = os.path.join(self.scripts, 'design_files.txt')
-
-        if os.path.exists(self.serialized_info):  # Pose has already been processed. We can assume files are available
-            self.info = unpickle(self.serialized_info)
-            self._info = self.info.copy()  # create a copy of the state upon initialization
-            if self.info.get('nanohedra'):
-                self.oligomer_names = self.info.get('oligomer_names', list())
-                self.transform_d = self.info.get('pose_transformation', dict())
-            self.entity_names = self.info.get('entity_names', list())
-            self.fragment_observations = self.info.get('fragments', None)
-
-            # if 'design' in self.info and self.info['design']:  # Todo, respond to the state
-            #     dummy = True
+            if os.path.exists(self.serialized_info):  # Pose has already been processed, gather state data
+                self.info = unpickle(self.serialized_info)
+                self._info = self.info.copy()  # create a copy of the state upon initialization
+                if self.info.get('nanohedra'):
+                    self.oligomer_names = self.info.get('oligomer_names', list())
+                    self.transform_d = self.info.get('pose_transformation', dict())
+                self.entity_names = self.info.get('entity_names', list())
+                self.fragment_observations = self.info.get('fragments', None)
 
         self.start_log()
         # if os.path.exists(self.frag_file):
