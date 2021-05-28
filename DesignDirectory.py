@@ -49,12 +49,11 @@ relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
-    def __init__(self, design_path, nano=False, construct_pose=False, pose_id=None, dock=False, root=None,
+    def __init__(self, design_path, nano=False, pose_id=None, root=None, construct_pose=False, dock=False,
                  **kwargs):  # project=None,
         self.nano = nano
         if pose_id:
-            # self.program_root = os.path.abspath(root)
-            self.directory_string_to_path(os.path.abspath(root), pose_id)
+            self.directory_string_to_path(root, design_path)
             self.source_path = self.path
         else:
             self.source_path = os.path.abspath(design_path)
@@ -377,8 +376,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return cls(design_path, project=project, **kwargs)
 
     @classmethod
-    def from_pose_id(cls, pose_id=None, root=None, **kwargs):
-        return cls(None, pose_id=pose_id, root=root, **kwargs)
+    def from_pose_id(cls, design_path, root=None, **kwargs):
+        return cls(design_path, pose_id=True, root=root, **kwargs)
 
     @property
     def design_symmetry(self):
