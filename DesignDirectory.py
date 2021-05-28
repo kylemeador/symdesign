@@ -51,11 +51,13 @@ relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
     def __init__(self, design_path, nano=False, construct_pose=False, pose_id=None, dock=False, root=None,
                  **kwargs):  # project=None,
-        if pose_id:  # Todo may not be compatible P432
-            self.program_root = os.path.abspath(root)
-            self.directory_string_to_path(pose_id)
+        self.nano = nano
+        if pose_id:
+            # self.program_root = os.path.abspath(root)
+            self.directory_string_to_path(os.path.abspath(root), pose_id)
             self.source_path = self.path
-        self.source_path = os.path.abspath(design_path)
+        else:
+            self.source_path = os.path.abspath(design_path)
         self.source = None
         self.name = os.path.splitext(os.path.basename(self.source_path))[0]  # works for all directory and file cases
         self.log = None
@@ -600,12 +602,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if score_db and isinstance(score_db, FragmentDatabase):  # Todo ScoreDatabase
             self.score_db = score_db
 
-    def directory_string_to_path(self, pose_id):
+    def directory_string_to_path(self, root, pose_id):
         """Set the DesignDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
          path separators"""
-        assert self.program_root, 'No program_root attribute set! Cannot create a path from a pose_id without a ' \
-                                  'program_root!'
-        self.path = os.path.join(self.program_root, pose_id.replace('_Designs-', '_Designs%s' % os.sep))
+        assert root, 'No program directory attribute set! Cannot create a path from a pose_id without a root directory!' \
+                     ' Pass both -f with the pose_id\'s and -d with the specified directory'
+        # assert self.program_root, 'No program_root attribute set! Cannot create a path from a pose_id without a ' \
+        #                           'program_root!'
+        if self.nano:
+            self.path = os.path.join(root, pose_id.replace('-', os.sep))
+        else:
+            self.path = os.path.join(root, pose_id.replace('_Designs-', '_Designs%s' % os.sep))
         # .replace('Projects-', 'Projects%s' % os.sep)  .replace('-', os.sep))
 
     def link_master_directory(self):
