@@ -723,12 +723,13 @@ class SequenceProfile:
         # copy the evol profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
+        self.log.info('At Entity %s, combined evolutionary and fragment profile (Design Profile) with:\n\t%s'
+                      % (self.name, '\n\t'.join('Residue %4d: %d%% fragment weight' %
+                                                (entry, weight * 100) for entry, weight in self.alpha.items())))
         for entry, weight in self.alpha.items():  # weight will be 0 if the fragment_profile is empty
             for aa in IUPACData.protein_letters:
                 self.profile[entry][aa] = \
                     (weight * self.fragment_profile[entry][aa]) + ((1 - weight) * self.profile[entry][aa])
-            self.log.info('Entity %s, Residue %d: Combined evolutionary and fragment profile: %.0f%% fragment'
-                          % (self.name, entry, self.alpha[entry] * 100))
 
         if favor_fragments:
             # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
@@ -742,7 +743,7 @@ class SequenceProfile:
 
             for entry in self.profile:
                 self.profile[entry]['lod'] = null_residue  # Caution all reference same object
-            for entry in self.alpha:  # self.fragment_profile:
+            for entry, weight in self.alpha.items():  # self.fragment_profile:
                 self.profile[entry]['lod'] = \
                     self.get_lod(self.fragment_profile[entry], database_bkgnd_aa_freq, round_lod=False)
                 # get the sum for the partition function
@@ -758,7 +759,7 @@ class SequenceProfile:
                     if self.profile[entry]['lod'][aa] > max_lod:
                         max_lod = self.profile[entry]['lod'][aa]
                 # takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
-                modified_entry_alpha = (self.alpha[entry] / alpha) * favor_seqprofile_score_modifier
+                modified_entry_alpha = (weight / alpha) * favor_seqprofile_score_modifier
                 if boltzmann:
                     modifier = partition
                     modified_entry_alpha /= (max_lod / partition)
@@ -769,8 +770,7 @@ class SequenceProfile:
                 for aa in self.evolutionary_profile[entry]['lod']:
                     self.profile[entry]['lod'][aa] /= modifier  # get percent total (boltzman) or percent max (linear)
                     self.profile[entry]['lod'][aa] *= modified_entry_alpha  # scale by score modifier
-                self.log.info('Residue %d Fragment lod ratio generated with alpha=%f'
-                              % (entry + index_offset, self.alpha[entry] / alpha))
+                # self.log.debug('Residue %4d Fragment lod ratio generated with alpha=%f' % (entry, weight / alpha))
 
     def solve_consensus(self, fragment_source=None, alignment_type=None):
         # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
