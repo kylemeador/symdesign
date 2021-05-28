@@ -665,9 +665,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     raise DesignError('The directory %s already exists! Can\'t complete set up without an overwrite!')
                 shutil.copytree(self.source_path, self.path)
             elif self.construct_pose:
-                shutil.copy(self.pose_file, self.path)
-                shutil.copy(self.frag_file, self.path)
-                self.pickle_info()  # save this info on the first copy so that we don't have to construct again
+                if not os.path.exists(os.path.join(self.path, PUtils.pose_file)):
+                    shutil.copy(self.pose_file, self.path)
+                    shutil.copy(self.frag_file, self.path)
+                    self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
