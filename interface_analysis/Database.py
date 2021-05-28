@@ -72,7 +72,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         if not object_db:
             raise DesignError('There is no source named %s found in the Design Database' % from_source)
 
-        return object_db.location(name)
+        return object_db.retrieve_file(name)
 
 
 class DataStore:
@@ -97,7 +97,7 @@ class DataStore:
         """Return the path of the storage location given an entity name"""
         return os.path.join(self.location, '%s%s' % (name, self.extension))
 
-    def locate_file(self, name):
+    def retrieve_file(self, name):
         """Returns the actual location by combining the requested name with the stored .location"""
         path = os.path.join(self.location, '%s%s' % (name, self.extension))
         file_location = glob(path)
@@ -133,7 +133,7 @@ class DataStore:
         if self.sql:
             dummy = True
         else:
-            file = self.locate_file(name)
+            file = self.retrieve_file(name)
             if file:
                 return self.load_file(file, **kwargs)
         return
