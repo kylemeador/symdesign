@@ -62,7 +62,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.name = os.path.splitext(os.path.basename(self.source_path))[0]  # works for all directory and file cases
         self.log = None
         self.debug = False
-        self.nano = nano
         self.dock = dock
         self.construct_pose = construct_pose
 
@@ -1396,8 +1395,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 header = False
             pose_s.to_csv(out_path, mode='a', header=header)
 
-        write_shell_script('', name=PUtils.interface_design, out_path=self.scripts,
-                           additional=['bash %s' % design_script for design_script in shell_scripts])
+        # write_shell_script('', name=PUtils.interface_design, out_path=self.scripts,
+        #                    additional=['bash %s' % design_script for design_script in shell_scripts])
         self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
         # write_commands(shell_scripts, name=PUtils.interface_design, out_path=self.scripts)
 
