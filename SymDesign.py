@@ -903,49 +903,43 @@ if __name__ == '__main__':
         threads = 1
         logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
 
-    # elif queried_flags['directory_type'] in [PUtils.interface_design, PUtils.select_designs, PUtils.analysis,
-    #                                          PUtils.cluster_poses, 'sequence_selection']:
-    if initialize:
-        # Set up DesignDirectories
-        if queried_flags['nanohedra_output']:
+    if initialize:  # Set up DesignDirectories
+        nano = queried_flags.get('nanohedra_output', None)
+        if nano:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
-            if queried_flags['design_range']:
-                low, high = queried_flags['design_range'].split('-')
-                low_range, high_range = int((float(low) / 100) * len(all_poses)), int((float(high) / 100) * len(all_poses))
-                logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
-            else:
-                low_range, high_range = None, None
-            if all_poses:
-                if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
-                    base_directory = args.directory
-                    queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
-                    design_directories = [DesignDirectory.from_pose_id(pose_id=pose, nano=True, root=args.directory,
-                                                                       construct_pose=construct_pose, **queried_flags)
-                                          for pose in all_poses[low_range:high_range]]
-                else:
-                    base_directory = '/%s' % os.path.join(*all_poses[0].split(os.sep)[:-4])
-                    queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
-                    design_directories = [DesignDirectory.from_nanohedra(pose, construct_pose=construct_pose,
-                                                                         **queried_flags)
-                                          for pose in all_poses[low_range:high_range]]
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           project=args.project, single=args.single)
-            if queried_flags['design_range']:
-                low, high = queried_flags['design_range'].split('-')
-                low_range, high_range = int((float(low) / 100) * len(all_poses)), int((float(high) / 100) * len(all_poses))
-                logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
-            else:
-                low_range, high_range = 0, -1
-            if all_poses:
-                if all_poses[0].count('/') == 0:  # assume we have received pose-IDs and process accordingly
-                    design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=args.directory,
-                                                                       **queried_flags)
-                                          for pose in all_poses[low_range:high_range]]
-                else:
-                    design_directories = [DesignDirectory.from_file(pose, **queried_flags) for pose in all_poses]
+        if queried_flags['design_range']:
+            low, high = queried_flags['design_range'].split('-')  # Todo make input fail safe
+            low_range, high_range = int((float(low) / 100) * len(all_poses)), int((float(high) / 100) * len(all_poses))
+            logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
+        else:
+            low_range, high_range = None, None
 
-        master_directory = next(iter(design_directories))  # from collect_designs? (when not from file) or multiple dirs
+        if all_poses:
+            if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
+                if nano:
+                    queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(args.directory)
+                design_directories = [DesignDirectory.from_pose_id(pose, nano=nano, root=args.directory,
+                                                                   construct_pose=construct_pose, **queried_flags)
+                                      for pose in all_poses[low_range:high_range]]
+            elif nano:
+                base_directory = '/%s' % os.path.join(*all_poses[0].split(os.sep)[:-4])
+                queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
+                design_directories = [DesignDirectory.from_nanohedra(pose, construct_pose=construct_pose,
+                                                                     **queried_flags)
+                                      for pose in all_poses[low_range:high_range]]
+            else:
+                design_directories = [DesignDirectory.from_file(pose, **queried_flags)
+                                      for pose in all_poses[low_range:high_range]]
+        if not design_directories:
+            raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
+                                      'location. Are you sure you want to run with -%s %s?'
+                                      % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
+        # Todo could make after collect_designs? Pass to all design_directories
+        #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
+        master_directory = next(iter(design_directories))
         logger.info('Loading all resources in the current Database found in \'%s\'' % master_directory.protein_data)
         master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
                              master_directory.stride_dir, master_directory.sequences, master_directory.profiles,
@@ -1078,19 +1072,14 @@ if __name__ == '__main__':
             # nanohedra_initialization = False
             # nanohedra_initialization = True
 
-        if design_directories:
-            if args.multi_processing:  # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
-                master_db.load_all_data()
-                # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
-                # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, threads=threads)
-            # else:  # for now just do in series
-            for design in design_directories:
-                design.link_master_database(master_db)
-                design.set_up_design_directory()
-        else:
-            raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
-                                      'location. Are you sure you want to run with -%s %s?'
-                                      % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
+        if args.multi_processing:  # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
+            master_db.load_all_data()
+            # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
+            # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, threads=threads)
+        # else:  # for now just do in series
+        for design in design_directories:
+            design.link_master_database(master_db)
+            design.set_up_design_directory()
 
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
         if not args.debug and not queried_flags['skip_logging']:
