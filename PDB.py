@@ -200,6 +200,8 @@ class PDB(Structure):
                 # self.chain_id_list = [chain.name for chain in chains]
                 if not kwargs.get('lazy', False):  # Todo change lazy to pose
                     self.renumber_structure()
+            else:
+                raise DesignError('The PDB object could not be initialized due to missing/malformed arguments')
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
 
