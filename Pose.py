@@ -1771,7 +1771,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 entity.add_profile(null=True)
             else:
                 if self.source_db:
-                    self.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    entity.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=entity.name)
                     sequence_path = self.source_db.sequences.location
                 else:
                     sequence_path = des_dir.sequences
