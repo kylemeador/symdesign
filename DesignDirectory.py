@@ -257,7 +257,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
             else:  # if self.construct_pose:
-                self.info['nanohedra'] = True
                 path_components = self.source_path.split(os.sep)
                 self.nanohedra_root = '/'.join(path_components[:-4])  # path_components[-5]
                 # design_symmetry (P432)
@@ -278,7 +277,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
-                self.info['oligomer_names'] = self.oligomer_names
 
                 self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
                 self.name = self.pose_id
@@ -681,6 +679,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if not os.path.exists(os.path.join(self.path, PUtils.pose_file)):
                     shutil.copy(self.pose_file, self.path)
                     shutil.copy(self.frag_file, self.path)
+                    self.info['nanohedra'] = True
+                    self.info['oligomer_names'] = self.oligomer_names
+                    # self.info['entity_names'] = self.oligomer_names # provided in load_pose
                     self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
@@ -695,14 +696,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.fragment_observations = self.info.get('fragments', None)
 
         self.start_log()
-        # if os.path.exists(self.frag_file):
-        # if self.info['fragments']:
-        # self.gather_fragment_info()
-        # self.get_fragment_metrics(from_file=True)
-        # if os.path.exists(self.pose_file) and not self.nano:
-        #     self.gather_pose_metrics()
-        #     self.composition = '_'.join(self.pose_id.split('_')[:2])
-        #     self.info['composition'] = self.composition
 
     def get_wildtype_file(self):
         """Retrieve the wild-type file name from Design Directory"""
