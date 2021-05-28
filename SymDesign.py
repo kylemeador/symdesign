@@ -915,7 +915,7 @@ if __name__ == '__main__':
             low_range, high_range = int((float(low) / 100) * len(all_poses)), int((float(high) / 100) * len(all_poses))
             logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
         else:
-            low_range, high_range = None, None
+            low, high, low_range, high_range = None, None, None, None
 
         if all_poses:
             if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
