@@ -102,7 +102,7 @@ class PDB(Structure):
                     # self.coords = coords
                 self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
                 self.process_pdb(residues=residues, coords=coords, **kwargs)
-            elif isinstance(chains, list):  # Todo overloaded, may not function properly without process_pdb
+            elif isinstance(chains, list) and chains:  # Todo overloaded, move to process_pdb
                 atoms, residues = [], []
                 for chain in chains:
                     atoms.extend(chain.atoms)
@@ -140,7 +140,7 @@ class PDB(Structure):
                     self.renumber_structure()
                     # self.create_entities()  # TODO with process_pdb
 
-            elif isinstance(entities, list):  # Todo overloaded, may not function properly without process_pdb
+            elif isinstance(entities, list) and entities:  # Todo overloaded, move to process_pdb
                 # there was a strange error when this function was passed three entities, 2 and 3 were the same,
                 # however, when clashes were checked, 2 was clashing with itself as it was referencing residues from 3,
                 # while 3 was clashing with itself as it was referencing residues fom 2. watch out
