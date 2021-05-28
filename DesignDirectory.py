@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
+from Structure import Structure
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, \
     all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym, pretty_format_table
@@ -579,15 +580,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         if self.debug:
             handler, level = 1, 1
-            propagate = False
+            propagate, no_log_name = False, False
         else:
-            propagate = True
+            propagate, no_log_name = True, True
             handler = 2
         if self.nano and not self.construct_pose:
             # self.log = start_log(name=str(self), handler=handler, level=level, propagate=propagate)
-            self.log = start_log(name=str(self), handler=3, propagate=True)
+            self.log = start_log(name=str(self), handler=3, propagate=True, no_log_name=no_log_name)
         else:
-            self.log = start_log(name=str(self), handler=handler, level=level,
+            self.log = start_log(name=str(self), handler=handler, level=level, no_log_name=no_log_name,
                                  location=os.path.join(self.path, self.name), propagate=propagate)
 
     def connect_db(self, frag_db=None, design_db=None, score_db=None):
@@ -1445,9 +1446,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 oligomer = None
                 while not oligomer:
                     oligomer = self.database.retrieve_data(source=source_preference[source_idx], name=name)
-                    if oligomer:
+                    if isinstance(oligomer, Structure):
+                        self.log.info('Found oligomer file at %s and loaded into job' % source_preference[source_idx])
                         self.oligomers.append(oligomer)
-                        self.log.debug('Found oligomer file at %s, loaded into job' % source_preference[source_idx])
                     else:
                         self.log.error('Couldn\'t locate the oligomer %s at the specified source %s'
                                        % (name, source_preference[source_idx]))
@@ -1457,7 +1458,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                             file = glob(os.path.join(self.path, '%s*.pdb*' % name))
                             if file and len(file) == 1:
                                 self.oligomers.append(PDB.from_file(file[0], log=self.log,
-                                                                    name=os.path.splitext(os.path.basename(file))[0],))
+                                                                    name=os.path.splitext(os.path.basename(file))[0]))
                             else:
                                 raise DesignError('Couldn\'t located the specified oligomer %s' % name)
         else:  # Todo consolidate this with above as far as iterative mechanism
@@ -1518,6 +1519,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not self.source or not os.path.exists(self.source):
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             # raise DesignError('No source file was found for this design! Cannot initialize pose without a source')
+            self.log.info('No source file found. Fetching source from Database and transforming to Pose')
             self.transform_oligomers_to_pose()
             # else:
             #     self.get_oligomers()
