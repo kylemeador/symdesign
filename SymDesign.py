@@ -911,8 +911,8 @@ if __name__ == '__main__':
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           project=args.project, single=args.single)
         if queried_flags['design_range']:
-            low, high = queried_flags['design_range'].split('-')  # Todo make input fail safe
-            low_range, high_range = int((float(low) / 100) * len(all_poses)), int((float(high) / 100) * len(all_poses))
+            low, high = map(float, queried_flags['design_range'].split('-'))  # Todo make input fail safe
+            low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
             logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
         else:
             low, high, low_range, high_range = None, None, None, None
