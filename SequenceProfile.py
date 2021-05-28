@@ -28,19 +28,12 @@ add_fragment_profile_instructions = 'To add fragment information, call Pose.gene
 
 
 class SequenceProfile:
+    """Contains the sequence information for a Structural unit. Should always be subclassed by an object like an Entity,
+    basically any structure object with a .reference_sequence attribute could be used"""
     idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
 
-    def __init__(self, structure=None, log=None, **kwargs):
-        super().__init__(**kwargs)  # log=log,
-        # if log:
-        #     self.log = log
-        # else:
-        #     print('SequenceProfile starting log')
-        #     self.log = start_log()
-
-        # self.sequence = None
-        # self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
-        # self.structure_sequence = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.sequence_source = None
         self.sequence_file = None
         self.pssm_file = None
@@ -56,38 +49,20 @@ class SequenceProfile:
         self.interface_data_file = None
         self.alpha = {}
 
-        # if structure:
-        self.structure = structure
-
     @classmethod
     def from_structure(cls, structure=None):
         return cls(structure=structure)
 
     @property
-    def name(self):
-        return self.structure.name
-
-    @name.setter
-    def name(self, name):
-        self.structure.name = name
-
-    @property
     def profile_length(self):
-        # Todo in future, this wouldn't handle profile size modifications. Same issue as Structure number_of properties
-        try:
-            return self._profile_length
-        except AttributeError:
-            self.profile_length = self.structure.number_of_residues
-            return self._profile_length
-
-    @profile_length.setter
-    def profile_length(self, length):
-        self._profile_length = length
+        # return self.structure.number_of_residues
+        return self.number_of_residues
 
     @property
     def entity_offset(self):
         """Return the starting index for the Entitiy based on pose numbering of the residues"""
-        return self.structure.residues[0].number - 1
+        # return self.structure.residues[0].number - 1
+        return self.residues[0].number - 1
 
     # @entity_offset.setter
     # def entity_offset(self, offset):
@@ -98,7 +73,8 @@ class SequenceProfile:
 
     @property
     def structure_sequence(self):
-        return self.structure.get_structure_sequence()
+        # return self.structure.get_structure_sequence()
+        return self.get_structure_sequence()
 
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
@@ -185,7 +161,7 @@ class SequenceProfile:
 
             if not rerun:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
-                for idx, residue in enumerate(self.structure.residues, 1):
+                for idx, residue in enumerate(self.residues, 1):
                     profile_res_type = self.evolutionary_profile[idx]['type']
                     pose_res_type = IUPACData.protein_letters_3to1[residue.type.title()]
                     if profile_res_type != pose_res_type:
@@ -206,7 +182,6 @@ class SequenceProfile:
                 success = True
 
     def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', file=None, force=False):
-        #                        null=False
         """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
         homologous protein sequences (evolutionary)
 
@@ -216,67 +191,45 @@ class SequenceProfile:
         Sets:
             self.evolutionary_profile
         """
-        # if null:
-        #     self.null_pssm()
-        #     return
         if profile_source not in ['hhblits', 'psiblast']:
             raise DesignError('%s: Profile generation only possible from \'hhblits\' or \'psiblast\', not %s'
                               % (self.add_evolutionary_profile.__name__, profile_source))
         if file:
             self.pssm_file = file
-            if profile_source == 'psiblast':
-                self.parse_psiblast_pssm()
-            else:
-                self.parse_hhblits_pssm()
-            return
-        elif force:
-            self.sequence_file = None
-            self.pssm_file = None
-        else:  # Check to see if the files of interest already exist Todo consolidate with Database
+        else:  # Check to see if the files of interest already exist
+            # Extract/Format Sequence Information. SEQRES is prioritized if available
+            if not self.sequence_file:  # not made/provided before add_evolutionary_profile, make new one at out_path
+                self.write_fasta_file(self.reference_sequence, name=self.name, out_path=out_path)
+            elif not os.path.exists(self.sequence_file) or force:
+                self.log.debug('%s Sequence=%s' % (self.name, self.reference_sequence))
+                self.write_fasta_file(self.reference_sequence, name=self.sequence_file, out_path='')
+                self.log.debug('%s fasta file: %s' % (self.name, self.sequence_file))
+
             temp_file = os.path.join(out_path, '%s.hold' % self.name)
-            out_put_file_search = glob(os.path.join(out_path, '%s.*' % self.name))
-            if not out_put_file_search:  # found nothing -> []
-                with open(temp_file, 'w') as f:
-                    self.log.info('Fetching \'%s\' sequence data.\n' % self.name)
-            else:
-                for seq_file in out_put_file_search:
-                    if seq_file == os.path.join(out_path, '%s.hold' % self.name):
-                        self.log.info('Waiting for \'%s\' profile generation...' % self.name)
-                        while not os.path.exists(os.path.join(out_path, '%s.hmm' % self.name)):
-                            if int(time.time()) - int(os.path.getmtime(temp_file)) > 1800:  # > 30 minutes have passed
-                                os.remove(temp_file)
-                                raise DesignError('%s: Generation of the profile for %s took longer than the time '
-                                                  'limit. Job killed!'
-                                                  % (self.add_evolutionary_profile.__name__, self.name))
-                            time.sleep(20)
-                    elif seq_file == os.path.join(out_path, '%s.hmm' % self.name):
-                        self.pssm_file = os.path.join(out_path, seq_file)
-                        self.log.info('%s PSSM Files=%s' % (self.name, self.pssm_file))
-                        break
-                    elif seq_file == os.path.join(out_path, '%s.fasta' % self.name):
-                        self.sequence_file = seq_file
-                        self.log.info('%s fasta file: %s' % (self.name, self.sequence_file))
-                    elif seq_file == os.path.join(out_path, '%s.hhr' % self.name):
-                        pass
+            self.pssm_file = os.path.join(out_path, '%s.hmm' % self.name)
+            if not os.path.exists(self.pssm_file) or force:
+                if not os.path.exists(temp_file):  # No work on this pssm file has been initiated
+                    # Create blocking file to prevent excess work
+                    with open(temp_file, 'w') as f:
+                        self.log.info('Fetching \'%s\' sequence data.\n' % self.name)
+                    self.log.debug('%s Evolutionary Profile not yet created.' % self.name)
+                    if profile_source == 'psiblast':
+                        self.log.info('Generating PSSM Evolutionary Profile for %s' % self.name)
+                        self.psiblast(out_path=out_path)
                     else:
-                        self.log.debug('Found the file \'%s\' which was not expected in %s' % (seq_file, out_path))
-                        #     with open(temp_file, 'w') as f:
-                        #         f.write('Started fetching data. Process will resume once data is gathered\n')
-
-        if not self.sequence_file:
-            # Extract/Format Sequence Information. This will be SEQRES if available
-            self.log.debug('%s Sequence=%s' % (self.name, self.structure.reference_sequence))
-            self.write_fasta_file(self.structure.reference_sequence, name='%s' % self.name, out_path=out_path)
-            self.log.debug('%s fasta file: %s' % (self.name, self.sequence_file))
-
-        if not self.pssm_file:
-            # Make PSSM of sequence
-            self.log.debug('%s PSSM File not yet created.' % self.name)
-            self.log.info('Generating PSSM file for %s' % self.name)
-            if profile_source == 'psiblast':
-                self.psiblast(out_path=out_path)
-            else:
-                self.hhblits(out_path=out_path)
+                        self.log.info('Generating HHM Evolutionary Profile for %s' % self.name)
+                        self.hhblits(out_path=out_path)
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                else:  # Block is in place, another process is working
+                    self.log.info('Waiting for \'%s\' profile generation...' % self.name)
+                    while not os.path.exists(self.pssm_file):
+                        if int(time.time()) - int(os.path.getmtime(temp_file)) > 1800:  # > 30 minutes have passed
+                            os.remove(temp_file)
+                            raise DesignError('%s: Generation of the profile for %s took longer than the time '
+                                              'limit. Job killed!'
+                                              % (self.add_evolutionary_profile.__name__, self.name))
+                        time.sleep(20)
 
         if profile_source == 'psiblast':
             self.parse_psiblast_pssm()
@@ -393,6 +346,7 @@ class SequenceProfile:
         with open(self.pssm_file, 'r') as f:
             lines = f.readlines()
 
+        self.evolutionary_profile = {}
         read = False
         for line in lines:
             if not read:
@@ -496,7 +450,7 @@ class SequenceProfile:
             if self.fragment_queries:  # Todo refactor this to Pose
                 for query_pair, fragments in self.fragment_queries.items():
                     for query_idx, entity in enumerate(query_pair):
-                        if entity.name == self.structure.name:
+                        if entity.name == self.name:
                             # add to fragment map
                             self.assign_fragments(fragments=fragments,
                                                   alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
@@ -532,8 +486,6 @@ class SequenceProfile:
         for fragment in fragments:
             residue_number = fragment[alignment_type] - self.entity_offset
             for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
-                if residue_number + j <= 0 or residue_number > self.profile_length:
-                    continue
                 self.fragment_map[residue_number + j][j].append({'chain': alignment_type,
                                                                  'cluster': fragment['cluster'],
                                                                  'match': fragment['match']})
@@ -841,7 +793,7 @@ class SequenceProfile:
                                for cluster in fragment_source}  # orange mapped to cluster tag
         frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
 
-        frag_residue_object_d = residue_number_to_object(self.structure, frag_cluster_residue_d)
+        frag_residue_object_d = residue_number_to_object(self, frag_cluster_residue_d)
 
         # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
         # # TODO all_frags

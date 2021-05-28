@@ -1763,19 +1763,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
         for entity in self.entities:
             # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
-            # Todo check this assumption...
-            #  DesignDirectory.path was removed from evol as the input oligomers should be perfectly symmetric so the tx
-            #  won't matter for each entity. right?
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
             if entity not in self.active_entities:  # we shouldn't design, add a null profile instead
                 entity.add_profile(null=True)
             else:
                 if self.source_db:
+                    entity.sequence_file = self.source_db.sequences.retrieve_data(name=entity.name)
                     entity.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    sequence_path = self.source_db.hhblits_profiles.location
+                    profiles_path = self.source_db.hhblits_profiles.location
                 else:
-                    sequence_path = des_dir.profiles
-                entity.add_profile(evolution=evolution, fragments=fragments, out_path=sequence_path)
+                    profiles_path = des_dir.profiles
+                if not entity.sequence_file:
+                    entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=des_dir.sequences)
+                entity.add_profile(evolution=evolution, fragments=fragments, out_path=profiles_path)
 
         # Update DesignDirectory with design information # Todo include in DesignDirectory initialization by args?
         # This info is pulled out in AnalyzeOutput from Rosetta currently
