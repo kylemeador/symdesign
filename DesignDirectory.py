@@ -796,7 +796,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 design_residues = design_residues.split(',')
                 break
 
-        self.total_interface_residues = len(design_residues)
+        self.total_interface_residues = len(set(design_residues))
         try:
             self.total_non_fragment_interface_residues = \
                 max(self.total_interface_residues - self.central_residues_with_fragment_overlap, 0)
