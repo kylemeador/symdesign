@@ -123,8 +123,8 @@ class DataStore:
             self.log.debug('File was retrieved from DataStore')
         else:
             setattr(self, name, self.load_data(name, log=None))
+            self.log.debug('File was loaded fresh')  # not necessarily successfully though
             data = getattr(self, name)  # store the new data as an attribute
-            self.log.debug('File was loaded fresh')
 
         return data
 
