@@ -1229,8 +1229,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
         #                       ' an ASU it may be missing crucial interface contacts. Is this what you want?')
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        self.log.info('Input Entities: %s' % ', '.join(entity.name for entity in self.pose.entities))
-
         # chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
         # self.log.info('Found the following chain breaks in the ASU:\n\t%s'
         #               % ('\n\t'.join('\tEntity %s, Chain %s Residue %d' % (entity.name, entity.chain_id, residue_number)
@@ -1561,9 +1559,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                       ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-            if not self.entity_names:  # store the entity names if they were never generated
-                self.entity_names = [entity.name for entity in self.pose.entities]
-                self.info['entity_names'] = self.entity_names
+        if not self.entity_names:  # store the entity names if they were never generated
+            self.entity_names = [entity.name for entity in self.pose.entities]
+            self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
+            self.info['entity_names'] = self.entity_names
+
         if self.pose_transformation:
             for idx, entity in enumerate(self.pose.entities, 1):
                 # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
