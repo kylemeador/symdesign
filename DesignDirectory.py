@@ -1407,8 +1407,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.get_oligomers(refined=refined, oriented=oriented)
         # for oligomer in self.oligomers:
         #     oligomer.write(out_path=os.path.join(self.path, 'not_tsfmd_%s' % os.path.basename(oligomer.filepath)))
-        self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
-                          for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
+        if self.pose_transformation:
+            self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
+                              for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
+        else:
+            raise DesignError('The design could not be transformed as it is missing the required transformation '
+                              'parameters. Were they generated properly?')
         self.log.debug('Oligomers were transformed to the found docking parameters')
 
     def get_oligomers(self, refined=False, oriented=False):
@@ -2438,11 +2442,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # all_design_sequences = SDUtils.unpickle(sequences_pickle[0])
             # {chain: {name: sequence, ...}, ...}
             all_design_sequences = unpickle(self.design_sequences)
-            chains = list(all_design_sequences.keys())
-            concatenated_sequences = [''.join([all_design_sequences[chain][design] for chain in chains])
-                                      for design in designs]
-            self.log.debug(chains)
-            self.log.debug(concatenated_sequences)
+            concatenated_sequences = [''.join([all_design_sequences[chain][design]
+                                               for chain in all_design_sequences.keys()]) for design in designs]
+            self.log.debug('The final concatenated sequences are:\n%s' % concatenated_sequences)
 
             # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)
             # Using concatenated sequences makes the values very similar and inflated as most residues are the same

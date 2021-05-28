@@ -425,6 +425,8 @@ def terminate(module, designs, location=None, results=None, output=True):
             location_name = os.path.basename(master_directory.project_designs)
         else:
             location_name = os.path.splitext(os.path.basename(location))[0]
+        if low_range and high_range:
+            timestamp = '%s-%f-%f' % (timestamp, low_range, high_range)
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
         # program_root = design_directories[0].program_root
