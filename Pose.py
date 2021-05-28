@@ -1772,9 +1772,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             else:
                 if self.source_db:
                     entity.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    sequence_path = self.source_db.sequences.location
+                    sequence_path = self.source_db.hhblits_profiles.location
                 else:
-                    sequence_path = des_dir.sequences
+                    sequence_path = des_dir.profiles
                 entity.add_profile(evolution=evolution, fragments=fragments, out_path=sequence_path)
 
         # Update DesignDirectory with design information # Todo include in DesignDirectory initialization by args?
