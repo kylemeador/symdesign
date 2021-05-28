@@ -909,7 +909,7 @@ if __name__ == '__main__':
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
             if queried_flags['design_range']:
                 low, high = queried_flags['design_range'].split('-')
-                low_range, high_range = int((int(low) / 100.0) * len(all_poses)), int((int(high) / 100.0) * len(all_poses))
+                low_range, high_range = int((float(low) / 100) * len(all_poses)), int((float(high) / 100) * len(all_poses))
                 logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
             else:
                 low_range, high_range = None, None
@@ -931,7 +931,7 @@ if __name__ == '__main__':
                                                           project=args.project, single=args.single)
             if queried_flags['design_range']:
                 low, high = queried_flags['design_range'].split('-')
-                low_range, high_range = int((int(low) / 100.0) * len(all_poses)), int((int(high) / 100.0) * len(all_poses))
+                low_range, high_range = int((float(low) / 100) * len(all_poses)), int((float(high) / 100) * len(all_poses))
                 logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
             else:
                 low_range, high_range = 0, -1
