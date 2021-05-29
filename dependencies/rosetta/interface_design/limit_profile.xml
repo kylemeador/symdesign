@@ -2,9 +2,9 @@
 
 	<SCOREFXNS>
 		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano_cst" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%">
-			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
-		</ScoreFunction>
+		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
+<!--		</ScoreFunction>-->
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -42,7 +42,8 @@
 		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
 		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/> # %%interface1%%,%%interface2%%
 		# only use residues included in the in:file:pssm. options specify how to treat the profile and which rotamers to include for design
-		<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/>
+		<SeqprofConsensus chain_num="1" name="pssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 	</TASKOPERATIONS>
 
 	<MOVE_MAP_FACTORIES>
@@ -55,7 +56,7 @@
 		# set all interface residues to GLY, leave everything else untouched
 		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
 		# the main routine to perform metropolis criteria monte carlo
-		<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+		<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,des_around_total,pssm_cutoff1,pssm_cutoff2" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 		# sample all rotamers to find minimum
 		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>
 		# minimize all residues in design_map (move map)
