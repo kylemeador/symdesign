@@ -75,7 +75,6 @@
 			<CoordinateConstraintGenerator name="coord_cst_gen" native="true" residue_selector="full_pose" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false"/> # bounded_width="0". sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
 
-
 		# set all interface residues to GLY, leave everything else untouched
 		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_hbnet_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
 		# the main routine to perform metropolis criteria monte carlo
