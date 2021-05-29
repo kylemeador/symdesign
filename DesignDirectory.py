@@ -572,10 +572,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if not os.path.exists(os.path.join(self.path, PUtils.pose_file)):
                     shutil.copy(self.pose_file, self.path)
                     shutil.copy(self.frag_file, self.path)
-                    self.info['nanohedra'] = True
-                    self.info['oligomer_names'] = self.oligomer_names
-                    # self.info['entity_names'] = self.oligomer_names # provided in load_pose
-                    self.pickle_info()  # save this info on the first copy so that we don't have to construct again
+                self.info['nanohedra'] = True
+                self.info['oligomer_names'] = self.oligomer_names
+                self.info['entity_names'] = self.oligomer_names  # Todo remove after T33
+                self.entity_names = self.oligomer_names
+                self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
