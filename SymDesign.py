@@ -421,6 +421,7 @@ def terminate(module, designs, location=None, results=None, output=True):
     if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
         master_directory = next(iter(designs))
         program_root = master_directory.program_root
+        job_paths = master_directory.job_paths
         if not location:
             location_name = os.path.basename(master_directory.project_designs)
         else:
@@ -433,7 +434,7 @@ def terminate(module, designs, location=None, results=None, output=True):
         if args.output_design_file:
             designs_file = args.output_design_file
         else:
-            designs_file = os.path.join(program_root, '%s_%s_%s_pose.paths' % (module, location_name, timestamp))
+            designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % (module, location_name, timestamp))
 
         with open(designs_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design.path for design in success))
@@ -470,13 +471,14 @@ def terminate(module, designs, location=None, results=None, output=True):
                         }
         if module in module_files:
             if len(success) > 0:
+                sbatch_scripts = master_directory.sbatch_scripts
                 all_commands = {stage: [os.path.join(design.scripts, '%s.sh' % stage) for design in success]
                                 for stage in module_files[module]}
-                command_files = {stage: SDUtils.write_commands(commands, out_path=program_root,
+                command_files = {stage: SDUtils.write_commands(commands, out_path=job_paths,
                                                                name='%s_%s_%s' % (stage, location_name, timestamp))
                                  for stage, commands in all_commands.items()}
                 sbatch_files = {stage: distribute(stage=(stage if module != 'custom_script' else PUtils.stage[2]),
-                                                  directory=program_root, file=command_file)  # sbatch template ^
+                                                  directory=sbatch_scripts, file=command_file)  # ^ for sbatch template
                                 for stage, command_file in command_files.items()}
                 logger.critical(
                     'Ensure the created SBATCH script(s) are correct. Specifically, check that the job array and any'
@@ -947,6 +949,11 @@ if __name__ == '__main__':
 
         master_directory.make_path(master_directory.protein_data)
         master_directory.make_path(master_directory.pdbs)
+        master_directory.make_path(master_directory.sequence_info)
+        master_directory.make_path(master_directory.sequences)
+        master_directory.make_path(master_directory.profiles)
+        master_directory.make_path(master_directory.job_paths)
+        master_directory.make_path(master_directory.sbatch_scripts)
         if queried_flags['nanohedra_output']:
             # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
             stride_dir = master_directory.stride_dir
