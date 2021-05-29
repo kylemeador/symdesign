@@ -112,7 +112,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.evolution = False
         self.query_fragments = False
         self.write_frags = True
-        self.scout = False
+        self.scout = kwargs.get('scout', False)
         self.pre_refine = True
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
