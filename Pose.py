@@ -976,10 +976,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if asu and isinstance(asu, Structure):
             self.asu = asu
-            self.pdb = self.asu
         elif asu_file:
-            self.asu = PDB.from_file(asu_file, log=self.log)  # **kwargs
-            self.pdb = self.asu
+            self.asu = PDB.from_file(asu_file, log=self.log)  # **kwargs todo create kwarg collector to protect object
         elif pdb and isinstance(pdb, Structure):
             self.pdb = pdb
         elif pdb_file:
@@ -1024,6 +1022,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     @asu.setter
     def asu(self, asu):
         self._asu = asu
+        self.pdb = asu
 
     @property
     def pdb(self):
