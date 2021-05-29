@@ -464,7 +464,7 @@ def terminate(module, designs, location=None, results=None, output=True):
                 if save:
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
-        module_files = {PUtils.interface_design: [PUtils.stage[1], PUtils.stage[2], PUtils.stage[3]],
+        module_files = {PUtils.interface_design: [PUtils.stage[12] if args.scout else PUtils.stage[2]],
                         PUtils.nano: [PUtils.nano],
                         'custom_script': [os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]],
                         'interface_metrics': ['interface_metrics'],  # 'nanohedra_initialization': PUtils.stage[1]
@@ -630,6 +630,8 @@ if __name__ == '__main__':
                                                'constraints in Rosetta. Constrain using evolutionary profiles of '
                                                'homologous sequences and/or fragment profiles extracted from the PDB or'
                                                ' neither.')
+    parser_design.add_argument('-s', '--scout', action='store_true',
+                               help='Whether to set up a low resolution scouting protocol to survey designability.')
     # parser_design.add_argument('-i', '--fragment_database', type=str,
     #                            help='Database to match fragments for interface specific scoring matrices. One of %s'
     #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
@@ -1356,7 +1358,7 @@ if __name__ == '__main__':
         terminate(args.module, design_directories, location=location, results=results)
 
     # ---------------------------------------------------
-    elif args.module == PUtils.interface_design:  # -i fragment_library
+    elif args.module == PUtils.interface_design:  # -i fragment_library, -s scout
         # if args.mpi:  # Todo implement
         #     # extras = ' mpi %d' % CommmandDistributer.mpi
         #     logger.info(
