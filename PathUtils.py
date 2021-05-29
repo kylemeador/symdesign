@@ -33,9 +33,6 @@ stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_d
            stage[8]: {'path': '', 'len': None}, stage[9]: {'path': '', 'len': None},
            stage[10]: {'path': '', 'len': None}, stage[11]: {'path': '', 'len': None}}
 rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at config
-sbatch = 'sbatch'
-sb_flag = '#SBATCH --'
-# sbatch = '_sbatch.sh'
 temp = 'temp.hold'
 pose_prefix = 'tx_'
 # master_log = 'master_log.txt'  # v0
@@ -170,21 +167,6 @@ sym_weights = 'ref2015_sym.wts_patch'
 solvent_weights = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
-
-# Cluster Dependencies and Multiprocessing
-sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
-                    stage[2]: os.path.join(sbatch_template_dir, stage[2]),
-                    stage[3]: os.path.join(sbatch_template_dir, stage[2]),
-                    stage[4]: os.path.join(sbatch_template_dir, stage[1]),
-                    stage[5]: os.path.join(sbatch_template_dir, stage[1]),
-                    nano: os.path.join(sbatch_template_dir, nano),
-                    stage[6]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[7]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[8]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[9]: os.path.join(sbatch_template_dir, stage[6]),
-                    'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
-                    'interface_metrics': os.path.join(sbatch_template_dir, stage[2])
-                    }
 
 
 def help(module):  # command is SymDesign.py

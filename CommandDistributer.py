@@ -8,7 +8,8 @@ import signal
 import subprocess
 from itertools import repeat
 
-import PathUtils as PUtils
+from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
+    program_name
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors
 
 # Globals
@@ -20,6 +21,8 @@ num_thread_per_process = 2
 hhblits_threads = 1
 hhblits_memory_threshold = 10000000000
 reference_average_residue_weight = 3  # for REF2015
+sbatch = 'sbatch'
+sb_flag = '#SBATCH --'
 run_cmds = {'default': '',
             'python': '',
             'cxx11thread': '',
@@ -32,14 +35,14 @@ extras_flags = {'default': [],
                 'mpi': [],
                 'cxx11threadmpi': ['-multithreading:total_threads ' + str(num_thread_per_process)]}
 # Todo modify .linuxgccrelease depending on os
-script_cmd = [os.path.join(PUtils.rosetta, 'source/bin/rosetta_scripts.%s.linuxgccrelease' % PUtils.rosetta_extras),
-              '-database', os.path.join(PUtils.rosetta, 'database')]
-rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
+script_cmd = [os.path.join(rosetta, 'source/bin/rosetta_scripts.%s.linuxgccrelease' % rosetta_extras),
+              '-database', os.path.join(rosetta, 'database')]
+rosetta_flags = extras_flags[rosetta_extras] + \
     ['-ex1', '-ex2', '-extrachi_cutoff 5', '-ignore_unrecognized_res', '-ignore_zero_occupancy false',
      # '-overwrite',
      '-linmem_ig 10', '-out:file:scorefile_format json', '-output_only_asymmetric_unit true', '-no_chainend_ter true',
      '-write_seqres_records true', '-output_pose_energies_table false', '-output_pose_cache_data false',
-     '-holes:dalphaball %s' % PUtils.dalphaball if os.path.exists(PUtils.dalphaball) else '',
+     '-holes:dalphaball %s' % dalphaball if os.path.exists(dalphaball) else '',
      '-use_occurrence_data',  # Todo integrate into xml with Rosetta Source update
      '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB VirtualNTerm '
      'VirtualDNAPhosphate CTermConnect sc_orbitals pro_hydroxylated_case1 N_acetylated C_methylamidated cys_acetylated'
@@ -49,10 +52,25 @@ rosetta_flags = extras_flags[PUtils.rosetta_extras] + \
 
 # Those jobs having a scale of 2 utilize two threads. Therefore two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
-process_scale = {PUtils.stage[1]: 2, PUtils.stage[2]: 2, PUtils.stage[3]: 2, PUtils.stage[5]: 2, PUtils.nano: 1,
-                 PUtils.stage[6]: 1, PUtils.stage[7]: 1, PUtils.stage[8]: 1, PUtils.stage[9]: 1, PUtils.stage[10]: 1,
-                 PUtils.stage[11]: 1, 'metrics_bound': 2, 'interface_metrics': 2
+process_scale = {stage[1]: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
+                 stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
+                 stage[11]: 1, stage[12]: 2, 'metrics_bound': 2, 'interface_metrics': 2
                  }
+# Cluster Dependencies and Multiprocessing
+sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
+                    stage[2]: os.path.join(sbatch_template_dir, stage[2]),
+                    stage[12]: os.path.join(sbatch_template_dir, stage[2]),
+                    stage[3]: os.path.join(sbatch_template_dir, stage[2]),
+                    stage[4]: os.path.join(sbatch_template_dir, stage[1]),
+                    stage[5]: os.path.join(sbatch_template_dir, stage[1]),
+                    nano: os.path.join(sbatch_template_dir, nano),
+                    stage[6]: os.path.join(sbatch_template_dir, stage[6]),
+                    stage[7]: os.path.join(sbatch_template_dir, stage[6]),
+                    stage[8]: os.path.join(sbatch_template_dir, stage[6]),
+                    stage[9]: os.path.join(sbatch_template_dir, stage[6]),
+                    'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
+                    'interface_metrics': os.path.join(sbatch_template_dir, stage[2])
+                    }
 
 
 class GracefulKiller:
@@ -126,14 +144,14 @@ def run(cmd, log_file_name, program=None, srun=None):
         return False
 
 
-def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, failure_file=None, max_jobs=80,
+def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, failure_file=None, max_jobs=80,
                number_of_commands=None, **kwargs):
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Keyword Args:
-        stage=None (str): The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs
-        directory=os.getcwd() (str): Where to write out the sbatch script
         file=None (str): The location of the file which contains your commands to distribute through an sbatch array
+        out_path=os.getcwd() (str): Where to write out the sbatch script
+        scale=None (str): The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs
         success_file=None (str): What file to write the successful jobs to for job organization
         failure_file=None (str): What file to write the failed jobs to for job organization
         max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once
@@ -141,7 +159,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
     Returns:
         (str): The name of the sbatch script that was written
     """
-    if not stage:
+    if not scale:
         # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
         #                      Could add a hyperthreading=True parameter to remove process scale
         #     command_divisor = process_scale
@@ -153,7 +171,7 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
         script_present = '-c'
     elif file:
         # here using collect directories get the commands from the provided file
-        _commands, location = collect_designs(files=[file], directory=directory)
+        _commands, location = collect_designs(files=[file], directory=out_path)
         # Automatically detect if the commands file has executable scripts or errors
         script_present = None
         for idx, _command in enumerate(_commands):
@@ -178,26 +196,26 @@ def distribute(stage=None, directory=os.getcwd(), file=None, success_file=None, 
     # Create success and failures files
     name = os.path.basename(os.path.splitext(file)[0])
     if not success_file:
-        success_file = os.path.join(directory, '%s_%s_success.log' % (name, PUtils.sbatch))
+        success_file = os.path.join(out_path, '%s_%s_success.log' % (name, sbatch))
     if not failure_file:
-        failure_file = os.path.join(directory, '%s_%s_failures.log' % (name, PUtils.sbatch))
-    output = os.path.join(directory, 'sbatch_output')
+        failure_file = os.path.join(out_path, '%s_%s_failures.log' % (name, sbatch))
+    output = os.path.join(out_path, 'sbatch_output')
     if not os.path.exists(output):
         os.mkdir(output)
 
     # Make sbatch file from template, array details, and command distribution script
-    filename = os.path.join(directory, '%s_%s.sh' % (name, PUtils.sbatch))
+    filename = os.path.join(out_path, '%s_%s.sh' % (name, sbatch))
     with open(filename, 'w') as new_f:
         # Todo check for mpi flag and set up sbatch accordingly. Must include a multiplier for the number of CPU's
         # grab and write sbatch template
-        with open(PUtils.sbatch_templates[stage]) as template_f:
+        with open(sbatch_templates[scale]) as template_f:
             new_f.write(''.join(template_f.readlines()))
         out = 'output=%s/%s' % (output, '%A_%a.out')
-        new_f.write('%s%s\n' % (PUtils.sb_flag, out))
-        array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[stage] + 0.5), max_jobs)
-        new_f.write('%s%s\n' % (PUtils.sb_flag, array))
+        new_f.write('%s%s\n' % (sb_flag, out))
+        array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[scale] + 0.5), max_jobs)
+        new_f.write('%s%s\n' % (sb_flag, array))
         new_f.write('\npython %s --stage %s distribute --success_file %s --failure_file %s --command_file %s %s\n' %
-                    (PUtils.cmd_dist, stage, success_file, failure_file, file, (script_present or '')))
+                    (cmd_dist, scale, success_file, failure_file, file, (script_present or '')))
 
     return filename
 
@@ -224,7 +242,7 @@ def update_status(serialized_info, stage, mode='check'):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='%s\nGather commands set up by %s and distribute to computational '
                                                  'nodes for Rosetta processing.'
-                                                 % (os.path.basename(__file__), PUtils.program_name))
+                                                 % (os.path.basename(__file__), program_name))
     parser.add_argument('--stage', choices=tuple(process_scale.keys()),
                         help='The stage of design to be distributed. Each stage has optimal computing requirements to'
                              ' maximally utilize computers . One of %s' % ', '.join(list(process_scale.keys())))
@@ -232,7 +250,7 @@ if __name__ == '__main__':
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags. To get '
                                             'help on a SubModule such as specific commands and flags enter: \n%s\n\nAny'
-                                            'SubModule help can be accessed in this way' % PUtils.submodule_help)
+                                            'SubModule help can be accessed in this way' % submodule_help)
     # ---------------------------------------------------
     parser_distirbute = subparsers.add_parser('distribute', help='Submit a job to SLURM for processing')
     # TODO combine with command file as 1 arg
