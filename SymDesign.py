@@ -477,8 +477,9 @@ def terminate(module, designs, location=None, results=None, output=True):
                 command_files = {stage: SDUtils.write_commands(commands, out_path=job_paths,
                                                                name='%s_%s_%s' % (stage, location_name, timestamp))
                                  for stage, commands in all_commands.items()}
-                sbatch_files = {stage: distribute(stage=(stage if module != 'custom_script' else PUtils.stage[2]),
-                                                  directory=sbatch_scripts, file=command_file)  # ^ for sbatch template
+                sbatch_files = {stage: distribute(file=command_file, out_path=sbatch_scripts,
+                                                  scale=(stage if module != 'custom_script' else PUtils.stage[2]))
+                                # ^ for sbatch template
                                 for stage, command_file in command_files.items()}
                 logger.critical(
                     'Ensure the created SBATCH script(s) are correct. Specifically, check that the job array and any'
@@ -1058,8 +1059,8 @@ if __name__ == '__main__':
                         SDUtils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds],
                                                name='refine_oligomers_%s' % timestamp, out_path=refine_dir)
                     refine_sbatch = \
-                        distribute(file=commands_file, directory=master_directory.program_root, stage='refine',
-                                   number_of_commands=len(refine_cmds), max_jobs=int(len(refine_cmds) / 2 + 0.5))
+                        distribute(file=commands_file, out_path=master_directory.program_root, scale='refine',
+                                   max_jobs=int(len(refine_cmds) / 2 + 0.5), number_of_commands=len(refine_cmds))
                     print('\n' * 3)
                     logger.info('The located designs require preprocessing before design related modules can be'
                                 ' used. Please follow the instructions below to refine your input files')
