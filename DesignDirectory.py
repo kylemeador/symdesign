@@ -82,8 +82,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.residues = None  # program_root/AllScores/str(self)_Residues.csv
         self.design_sequences = None  # program_root/AllScores/str(self)_Sequences.pkl
         # DesignDirectory path attributes
-        self.scores = None  # /program_root/Projects/project_Designs/design/scores
-        self.scores_file = None  # /program_root/Projects/project_Designs/design/scores/.sc
+        # self.scores = None  # /program_root/Projects/project_Designs/design/scores
+        self.scores_file = None  # /program_root/Projects/project_Designs/design/data/name.sc
         self.designs = None  # /program_root/Projects/project_Designs/design/designs
         self.scripts = None  # /program_root/Projects/project_Designs/design/scripts
         self.frags = None  # /program_root/Projects/project_Designs/design/matching_fragments
@@ -541,12 +541,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
         self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
-        self.scores = os.path.join(self.path, PUtils.scores_outdir)
-        self.scores_file = os.path.join(self.scores, PUtils.scores_file)
+        # self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
         self.scripts = os.path.join(self.path, PUtils.scripts)
         self.frags = os.path.join(self.path, PUtils.frag_dir)
         self.data = os.path.join(self.path, PUtils.data)
+        self.scores_file = os.path.join(self.data, '%s.sc' % self.name)
         self.serialized_info = os.path.join(self.data, 'info.pkl')
         self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
         if not self.source and os.path.exists(self.asu):
@@ -938,8 +938,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if pdb_path:
             flags.extend(['-out:path:pdb %s' % pdb_path, '-scorefile %s' % self.scores_file])
         else:
-            flags.extend(['-out:path:pdb %s' % self.designs, '-out:path:score %s' % self.scores,  # TODO necessary?
-                          '-scorefile %s' % self.scores_file])
+            flags.extend(['-out:path:pdb %s' % self.designs, '-scorefile %s' % self.scores_file])
         flags.append('-parser:script_vars %s' % ' '.join('%s=%s' % tuple(map(str, var_val)) for var_val in variables))
 
         out_file = os.path.join(out_path, 'flags')
@@ -1245,8 +1244,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             oriented=false (bool): Whether to use the oriented pdb from the oriented pdb source directory
         """
         self.get_oligomers(refined=refined, oriented=oriented)
-        # for oligomer in self.oligomers:
-        #     oligomer.write(out_path=os.path.join(self.path, 'not_tsfmd_%s' % os.path.basename(oligomer.filepath)))
         if self.pose_transformation:
             self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
                               for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
@@ -1273,6 +1270,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             elif oriented:
                 source_idx = 1
             else:
+                source_idx = 2
                 self.log.warning('Falling back on oligomers present in the Design source which may not be refined. This'
                                  ' will lead to issues in sequence design if the structure is not refined first...')
 
@@ -1599,7 +1597,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                    query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
                                    write_fragments=self.write_frags, des_dir=self)  # Todo frag_db=self.frag_db_SOURCE
         self.make_path(self.designs)
-        self.make_path(self.scores)
+        # self.make_path(self.scores)
         if self.scout:
             self.scout_interface()
         else:
