@@ -107,7 +107,7 @@ class DataStore:
 
             return file_location[0]
         else:
-            self.log.error('No files found for \'%s\'' % path)
+            self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
 
     def retrieve_data(self, name=None):
         """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
