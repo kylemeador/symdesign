@@ -1108,7 +1108,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # DESIGN: Prepare command and flags file
         evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        scout_cmd = main_cmd + ['-in:file:pssm', evolutionary_profile] if evolutionary_profile else [] + \
+        scout_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
             ['-in:file:s', self.refined_pdb, '@%s' % flags, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[12]),
              '-out:suffix', '_%s' % PUtils.stage[12]]
@@ -1182,7 +1182,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # DESIGN: Prepare command and flags file
         evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        design_cmd = main_cmd + ['-in:file:pssm', evolutionary_profile] if evolutionary_profile else [] + \
+        design_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
             ['-in:file:s', self.refined_pdb, '@%s' % flags,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[2]),
              '-out:suffix', '_%s' % PUtils.stage[2], '-nstruct', str(self.number_of_trajectories)]
