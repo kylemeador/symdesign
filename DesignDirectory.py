@@ -1370,8 +1370,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                       ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
             # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() with entities...
-        else:
-            asu = PDB.from_file(self.source, entity_names=self.entity_names, log=self.log)  # pass names if available
+        else:    # ,                            pass names if available v
+            asu = PDB.from_file(self.source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
             self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                       ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
