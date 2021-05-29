@@ -58,142 +58,62 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.source_path = self.path
         else:
             self.source_path = os.path.abspath(design_path)
+        self.name = os.path.splitext(os.path.basename(self.source_path))[0]
         self.source = None
-        self.name = os.path.splitext(os.path.basename(self.source_path))[0]  # works for all directory and file cases
         self.log = None
         self.debug = False
         self.dock = dock
         self.construct_pose = construct_pose
-
-        self.project_designs = None
+        # MasterDirectory path attributes
         self.database = None
-        self.protein_data = None
-        # design_symmetry/data (P432/Data)
-        self.pdbs = None
-        # design_symmetry/data/pdbs (P432/Data/PDBs)
-        self.orient_dir = None
-        # design_symmetry/data/pdbs/oriented (P432/Data/PDBs/oriented)
-        self.orient_asu_dir = None
-        # design_symmetry/data/pdbs/oriented (P432/Data/PDBs/oriented_asu)
-        self.refine_dir = None
-        # design_symmetry/data/pdbs/refined (P432/Data/PDBs/refined)
-        self.stride_dir = None
-        # design_symmetry/data/pdbs/stride (P432/Data/PDBs/refined)
-        self.sequence_info = None
-        # design_symmetry/sequence_info (P432/SequenceInfo)
-        self.sequences = None
-        # design_symmetry/sequence_info/sequences (P432/SequenceInfo/sequences)
-        self.profiles = None
-        # design_symmetry/sequence_info/profiles (P432/SequenceInfo/profiles)
-        self.all_scores = None
-        # design_symmetry/all_scores (P432/All_Scores)
-        self.trajectories = None
-        # design_symmetry/all_scores/str(self)_Trajectories.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Trajectories.csv)
-        self.residues = None
-        # design_symmetry/all_scores/str(self)_Residues.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Residues.csv)
-        self.design_sequences = None
-        # design_symmetry/all_scores/str(self)_Residues.csv (P432/All_Scores/4ftd_5tch-DEGEN1_2-ROT_1-tx_2_Sequences.pkl)
-
-        self.composition = None
-        # design_symmetry/building_blocks (4ftd_5tch)
-        self.scores = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scores (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scores)
-        self.scores_file = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scores
-        #  (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scores/all_scores.sc)
-        self.designs = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/designs (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/designs)
-        self.scripts = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/scripts (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/scripts)
-        self.frags = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/matching_fragment_representatives
-        #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
-        self.frag_file = None
-        self.pose_file = None
-        self.data = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/data)
-        self.serialized_info = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/data/stats.pkl
-        #   (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/matching_fragment_representatives)
-        self.info = {}
-        self._info = {}  # internal state info
-
-        self.pose = None  # contains the design's Pose object
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/asu.pdb (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2/asu.pdb)
-        self.asu = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu.pdb
-        self.assembly = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/assembly.pdb
+        self.protein_data = None  # program_root/Data
+        self.pdbs = None  # program_root/Data/PDBs
+        self.orient_dir = None  # program_root/Data/PDBs/oriented
+        self.orient_asu_dir = None  # program_root/Data/PDBs/oriented_asu
+        self.refine_dir = None  # program_root/Data/PDBs/refined)
+        self.stride_dir = None  # program_root/Data/PDBs/stride
+        self.sequence_info = None  # program_root/SequenceInfo
+        self.sequences = None  # program_root/SequenceInfo/sequences
+        self.profiles = None  # program_root/SequenceInfo/profiles
+        self.all_scores = None  # program_root/AllScores
+        self.job_paths = None  # program_root/JobPaths
+        self.sbatch_scripts = None  # program_root/Scripts
+        self.trajectories = None  # program_root/AllScores/str(self)_Trajectories.csv
+        self.residues = None  # program_root/AllScores/str(self)_Residues.csv
+        self.design_sequences = None  # program_root/AllScores/str(self)_Sequences.pkl
+        # DesignDirectory path attributes
+        self.scores = None  # /program_root/Projects/project_Designs/design/scores
+        self.scores_file = None  # /program_root/Projects/project_Designs/design/scores/.sc
+        self.designs = None  # /program_root/Projects/project_Designs/design/designs
+        self.scripts = None  # /program_root/Projects/project_Designs/design/scripts
+        self.frags = None  # /program_root/Projects/project_Designs/design/matching_fragments
+        self.frag_file = None  # /program_root/Projects/project_Designs/design/
+        self.pose_file = None  # /program_root/Projects/project_Designs/design/
+        self.data = None  # /program_root/Projects/project_Designs/design/data
+        self.serialized_info = None  # /program_root/Projects/project_Designs/design/data/info.pkl
+        self.asu = None  # /program_root/Projects/project_Designs/design/design_name_clean_asu.pdb
+        self.assembly = None  # /program_root/Projects/project_Designs/design/design_name_assembly.pdb
         self.refine_pdb = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
-        self.refined_pdb = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/designs/clean_asu_for_refine.pdb
-        self.consensus = None  # Whether to run consensus or not
-        self.consensus_pdb = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_consensus.pdb
-        self.consensus_design_pdb = None
-        # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/designs/clean_asu_for_consensus.pdb
-        self.pdb_list = None
-
-        self.sdf_dir = None
-        # path/to/directory/sdf/
-        self.sdfs = {}
-        self.sym_def_file = None
-        self.symmetry_protocol = None
-        self.entity_names = []
-        self.oligomer_names = []
-        self.oligomers = []
-
-        # todo integrate these flags with SymEntry and pass to Pose
-        # self.sym_entry_number = None
-        # self.design_symmetry = None
-        # self.design_dimension = None
+        # program_root/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
+        self.refined_pdb = None  # /program_root/Projects/project_Designs/design/design_name_refined.pdb
+        self.consensus_pdb = None  # /program_root/Projects/project_Designs/design/design_name_for_consensus.pdb
+        self.consensus_design_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_for_consensus.pdb
+        self.pdb_list = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
+        # Symmetry attributes Todo fully integrate with SymEntry
         self.sym_entry = None
         self.uc_dimensions = None
         self.expand_matrices = None
         self.transform_d = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
-
-        # self.fragment_cluster_residue_d = {}
-        self.fragment_observations = None
-        self.interface_residue_ids = {}
-        # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
-        self.interface_ss_topology = {}
-        # {1: 'HHLH', 2: 'HSH'}
-        self.interface_ss_fragment_topology = {}
-        # {1: 'HHH', 2: 'HH'}
-
-        self.center_residue_numbers = []  # TODO MOVE Metrics
-        self.total_residue_numbers = []  # TODO MOVE Metrics
-        self.all_residue_score = None  # TODO MOVE Metrics
-        self.center_residue_score = None  # TODO MOVE Metrics
-        self.high_quality_int_residues_matched = None  # TODO MOVE Metrics
-        self.central_residues_with_fragment_overlap = None  # TODO MOVE Metrics
-        self.fragment_residues_total = None  # TODO MOVE Metrics
-        self.percent_overlapping_fragment = None  # TODO MOVE Metrics
-        self.multiple_frag_ratio = None  # TODO MOVE Metrics
-        # self.fragment_content_d = None
-        self.helical_fragment_content = None  # TODO MOVE Metrics
-        self.strand_fragment_content = None  # TODO MOVE Metrics
-        self.coil_fragment_content = None  # TODO MOVE Metrics
-        self.ave_z = None  # TODO MOVE Metrics
-        self.total_interface_residues = None  # TODO MOVE Metrics
-        self.total_non_fragment_interface_residues = None  # TODO MOVE Metrics
-        self.percent_residues_fragment_total = None  # TODO MOVE Metrics
-        self.percent_residues_fragment_center = None  # TODO MOVE Metrics
-
+        self.cryst_record = None
         # Design flags
         self.number_of_trajectories = None
-        self.design_selector = None
-        self.evolution = False
+        self.consensus = None  # Whether to run consensus or not
         self.design_with_fragments = False
+        self.evolution = False
         self.query_fragments = False
         self.write_frags = True
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
-        self.euler_lookup = None
-        self.frag_db = None
-        self.design_db = None
-        self.score_db = None
         self.script = True
         self.mpi = False
         self.output_assembly = False
@@ -205,19 +125,50 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.copy_nanohedra = False  # no construction specific flags
         self.nanohedra_root = None
 
+        self.composition = None  # building_blocks (4ftd_5tch)
+        self.design_db = None
+        self.design_selector = None
+        self.entity_names = []
+        self.euler_lookup = None
+        self.fragment_observations = None
+        self.frag_db = None
+        self.info = {}  # internal state info
+        self._info = {}  # internal state info at load time
+        self.oligomer_names = []
+        self.oligomers = []
+        self.pose = None  # contains the design's Pose object
+        self.pose_id = None
+        self.sdf_dir = None  # path/to/directory/sdf/
+        self.sdfs = {}
+        self.sym_def_file = None
+        self.symmetry_protocol = None
+        self.score_db = None
+        # Metric attributes TODO MOVE Metrics
+        self.interface_residue_ids = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
+        self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
+        self.interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
+        self.center_residue_numbers = []
+        self.total_residue_numbers = []
+        self.all_residue_score = None
+        self.center_residue_score = None
+        self.high_quality_int_residues_matched = None
+        self.central_residues_with_fragment_overlap = None
+        self.fragment_residues_total = None
+        self.percent_overlapping_fragment = None
+        self.multiple_frag_ratio = None
+        self.helical_fragment_content = None
+        self.strand_fragment_content = None
+        self.coil_fragment_content = None
+        self.ave_z = None
+        self.total_interface_residues = None
+        self.total_non_fragment_interface_residues = None
+        self.percent_residues_fragment_total = None
+        self.percent_residues_fragment_center = None
+
         self.set_flags(**kwargs)  # has to be set before set_up_design_directory
-        # if not self.sym_entry:
-        #     self.sym_entry = SymEntry(sym_entry)
-            # self.design_symmetry = self.sym_entry.get_result_design_sym()
-            # self.design_dimension = self.sym_entry.get_design_dim()
-        # if not self.nano:
-        # check to be sure it's not actually one
-        #     if ('DEGEN', 'ROT', 'tx') in self.path:
-        #         self.nano = True
-        self.cryst_record = None
 
         if self.nano:
-            # design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2
+            # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
             if not os.path.exists(self.source_path):
                 raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
             # v used in dock_dir set up
@@ -226,13 +177,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             self.canonical_pdb1 = None  # canonical pdb orientation
             self.canonical_pdb2 = None
-            # self.pdb_dir1_path = None
-            # self.pdb_dir2_path = None
             self.rot_step_deg1 = None  # TODO
             self.rot_step_deg2 = None  # TODO
-            self.cryst_record = None
-            self.pose_id = None
-            # self.fragment_cluster_freq_d = {}
 
             if self.dock:
                 # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
@@ -284,61 +230,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 if not self.construct_pose:  # no construction specific flags
                     self.write_frags = False
-                # self.set_up_design_directory()
-                # shutil.copy(self.pose_file, self.path)
-                # shutil.copy(self.frag_file, self.path)
-                # populate the transformation dictionary
-                # self.gather_pose_metrics()  # is this necessary yet?
-                # self.source = self.asu
-                # self.nano_master_log = os.path.join(self.project_designs, PUtils.master_log)
-                # ^ /program_root/projects/project_designs/design<- self.path /design.pdb
-            # else:  # if self.directory_type in [PUtils.interface_design, 'filter', 'analysis']:
-            # else:
-            #     # May have issues with the number of open log files
-            #     # if self.directory_type == 'filter':
-            #     #     self.skip_logging = True
-            #     # else:
-            #     #     self.skip_logging = True
-            #     path_components = self.source_path.split(os.sep)
-            #     nanohedra_root = path_components[-5]
-            #     path_components = self.source_path.split(os.sep)
-            #     self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
-            #     self.projects = os.path.join(self.program_root, PUtils.projects)
-            #     self.project_designs = os.path.join(self.projects, '%s_%s' % (nanohedra_root, PUtils.design_directory))
-            #     # make the newly required files
-            #     self.make_path(self.program_root)
-            #     self.make_path(self.projects)
-            #     self.make_path(self.project_designs)
-            #     # copy the master log
-            #     if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
-            #         shutil.copy(os.path.join(nanohedra_root, PUtils.master_log), self.project_designs)
-            #
-            #     self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
-            #     # design_symmetry/building_blocks (P432/4ftd_5tch)
-            #     self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
-            #     self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
-            #     self.name = self.pose_id
-            #     self.path = os.path.join(self.project_designs, self.name)
-            #
-            #     # self.program_root = self.source_path[:self.source_path.find(path_components[-4]) - 1]
-            #     # design_symmetry (P432)
-            #     # self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
-            #     # self.composition = os.path.join(self.program_root, path_components[-4])
-            #     # self.project_designs = os.path.join(self.composition, path_components[-2])
-            #     # self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
-            #     # design_symmetry/building_blocks (P432/4ftd_5tch)
-            #     # self.source = os.path.join(self.source_path, PUtils.asu)
-            #     # self.set_up_design_directory()
-            # else:
-            #     raise DesignError('%s: %s is not an available directory_type. Choose from %s...\n'
-            #                       % (DesignDirectory.__name__, self.directory_type, ','.join(design_directory_modes)))
-
-            # if not os.path.exists(self.nano_master_log):
-            #     raise DesignError('%s: No %s found for this directory! Cannot perform material design without it.\n'
-            #                       'Ensure you have the file \'%s\' located properly before trying this Design!'
-            #                       % (self.__str__(), PUtils.master_log, self.nano_master_log))
-            # self.gather_docking_metrics()
-
         else:
             if '.pdb' in self.source_path:  # set up /program_root/projects/project/design
                 self.source = self.source_path
@@ -539,7 +430,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
                   number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False, copy_nanohedra=False,
                   **kwargs):
-        # self.design_symmetry = symmetry
         self.sym_entry = sym_entry
         if not sym_entry and sym_entry_number:
             # self.sym_entry_number = sym_entry_number
@@ -626,6 +516,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sequence_info = os.path.join(self.protein_data, PUtils.sequence_info)
         self.sequences = os.path.join(self.sequence_info, 'sequences')
         self.profiles = os.path.join(self.sequence_info, 'profiles')
+        self.job_paths = os.path.join(self.program_root, 'JobPaths')
+        self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO db integration
         self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
@@ -1488,19 +1380,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         Handles clash testing and writing the assembly if those options are True
         """
-        # if self.nano:
-        #     self.get_oligomers()
-        #     if not self.oligomers:
-        #         raise DesignError('No oligomers were found for this design! Cannot initialize pose without oligomers')
-        #     self.pose = Pose.from_pdb(self.oligomers[0], symmetry=self.design_symmetry, log=self.log,
-        #                               design_selector=self.design_selector, frag_db=self.frag_db,
-        #                               ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-        #     #                         self.fragment_observations
-        #     for oligomer in self.oligomers[1:]:
-        #         self.pose.add_pdb(oligomer)
-        #     self.pose.asu = self.pose.pdb  # set the asu
-        #     self.pose.generate_symmetric_assembly()
-        # else:
         if self.pose:
             return
         if not self.source or not os.path.exists(self.source):
@@ -1534,14 +1413,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                       ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-            # This mechanism doesn't work as the entities attached chains are not handled correctly
-            # self.pose = Pose.from_pdb(self.oligomers[0], sym_entry=self.sym_entry,  # symmetry=self.design_symmetry,
-            #                           design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
-            #                           ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-            # #                         self.fragment_observations
-            # for oligomer in self.oligomers[1:]:
-            #     self.pose.add_pdb(oligomer)
-            # self.pose.asu = self.pose.pdb  # set the asu
             # asu = self.pose.get_contacting_asu()
         else:
             asu = PDB.from_file(self.source, entity_names=self.entity_names, log=self.log)  # pass names if available
