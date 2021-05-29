@@ -46,7 +46,7 @@ class Model:  # (PDB)
         else:  # When log is explicitly passed as False, use the module logger
             self.log = logger
 
-        if pdb:
+        if pdb and isinstance(pdb, Structure):
             self.pdb = pdb
         if models and isinstance(models, list):
             self.models = models
@@ -54,6 +54,16 @@ class Model:  # (PDB)
             self.models = []
 
         self.number_of_models = len(self.models)
+
+    @property
+    def pdb(self):
+        return self._pdb
+
+    @pdb.setter
+    def pdb(self, pdb):
+        self._pdb = pdb
+        # set up coordinate information
+        self.coords = pdb._coords
 
     @property
     def number_of_atoms(self):
@@ -147,7 +157,8 @@ class SymmetricModel(Model):
     def __init__(self, asu=None, **kwargs):  # coords_type=None, symmetry=None, dimension=None,
         #        uc_dimensions=None, expand_matrices=None, pdb=None, models=None, log=None, number_of_models=None,
         super().__init__(**kwargs)  # log=log,
-        self.asu = asu  # the pose specific asu
+        if asu and isinstance(asu, Structure):
+            self.asu = asu  # the pose specific asu
         # self.pdb = pdb
         # self.models = []
         # self.number_of_models = number_of_models
@@ -185,6 +196,15 @@ class SymmetricModel(Model):
         assert symmetry, 'Currently, can\'t initialize a symmetric model without the symmetry! Pass symmetry during ' \
                          'Class initialization. Or add a scout symmetry Class method to SymmetricModel.'
         return cls(models=assembly, **symmetry)
+
+    @property
+    def asu(self):
+        return self._asu
+
+    @asu.setter
+    def asu(self, asu):
+        self._asu = asu
+        self.pdb = asu
 
     @property
     def symmetric_center_of_mass(self):
@@ -947,9 +967,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
-    def __init__(self, asu=None, asu_file=None, pdb=None, pdb_file=None, **kwargs):
-        #        symmetry=None, log=None,
-        super().__init__(**kwargs)  # log=None,
+    def __init__(self, asu_file=None, pdb_file=None, **kwargs):  # asu=None, pdb=None,
         # the member pdbs which make up the pose. todo, combine with self.models?
         # self.pdbs = []
         self.pdbs_d = {}
@@ -973,13 +991,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.design_selector = kwargs.get('design_selector', {})
         # else:
         #     self.design_selector = {}
-
-        if asu and isinstance(asu, Structure):
-            self.asu = asu
-        elif asu_file:
+        super().__init__(**kwargs)
+        # if asu and isinstance(asu, Structure):
+        #     self.asu = asu
+        if asu_file:
             self.asu = PDB.from_file(asu_file, log=self.log)  # **kwargs todo create kwarg collector to protect object
-        elif pdb and isinstance(pdb, Structure):
-            self.pdb = pdb
+        # elif pdb and isinstance(pdb, Structure):
+        #     self.pdb = pdb
         elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
 
@@ -1000,45 +1018,43 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if an ASU is present
 
     @classmethod
-    def from_pdb(cls, pdb, **kwargs):  # symmetry=None,
-        return cls(pdb=pdb, **kwargs)  # symmetry=None,
+    def from_pdb(cls, pdb, **kwargs):
+        return cls(pdb=pdb, **kwargs)
 
     @classmethod
-    def from_pdb_file(cls, pdb_file, **kwargs):  # symmetry=None,
-        return cls(pdb_file=pdb_file, **kwargs)  # symmetry=None,
+    def from_pdb_file(cls, pdb_file, **kwargs):
+        return cls(pdb_file=pdb_file, **kwargs)
 
     @classmethod
-    def from_asu(cls, asu, **kwargs):  # symmetry=None,
-        return cls(asu=asu, **kwargs)  # symmetry=None,
+    def from_asu(cls, asu, **kwargs):
+        return cls(asu=asu, **kwargs)
 
     @classmethod
-    def from_asu_file(cls, asu_file, **kwargs):  # symmetry=None,
-        return cls(asu_file=asu_file, **kwargs)  # symmetry=None,
+    def from_asu_file(cls, asu_file, **kwargs):
+        return cls(asu_file=asu_file, **kwargs)
 
-    @property
-    def asu(self):
-        return self._asu
+    # @property
+    # def asu(self):
+    #     return self._asu
+    #
+    # @asu.setter
+    # def asu(self, asu):
+    #     self._asu = asu
+    #     self.pdb = asu
 
-    @asu.setter
-    def asu(self, asu):
-        self._asu = asu
-        self.pdb = asu
+    # @property
+    # def pdb(self):
+    #     return self._pdb
 
-    @property
-    def pdb(self):
-        return self._pdb
-
-    @pdb.setter
+    @Model.pdb.setter
     def pdb(self, pdb):
+        super().pdb = pdb
+        # self._pdb = pdb
+        # self.coords = pdb._coords
         self.log.debug('Adding PDB \'%s\' to Pose' % pdb.name)
-        self._pdb = pdb
         if not self.ignore_clashes:
             if pdb.is_clash():
                 raise DesignError('%s contains Backbone clashes as is not being considered further!' % self.name)
-        # # add structure to the SequenceProfile
-        # self.structure = pdb
-        # set up coordinate information for SymmetricModel
-        self.coords = pdb._coords
         self.pdbs_d[pdb.name] = pdb
         self.create_design_selector()  # **self.design_selector)
 
