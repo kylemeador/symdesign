@@ -1608,6 +1608,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.info['fragment_data'] = self.pose.interface_data_file
         self.info['fragment_profile'] = self.pose.fragment_pssm_file
         self.info['fragment_database'] = self.pose.frag_db
+        self.pickle_info()
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=False):
