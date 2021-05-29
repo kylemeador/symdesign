@@ -25,15 +25,15 @@
 	<RESIDUE_SELECTORS>
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<SymmetricalResidue name="interface1_sym" selector="interface1" />
+		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
 		<Neighborhood name="interface1_sym_neighbor" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
 		<Or name="interface_or_neighbors1_sym" selectors="interface1_sym,interface1_sym_neighbor"/>
 		# same, but for residues from interface 2
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<SymmetricalResidue name="interface2_sym" selector="interface2" />
+		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
 		<Neighborhood name="interface2_sym_neighbor" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
 		<Or name="interface_or_neighbors2_sym" selectors="interface2_sym,interface2_sym_neighbor"/>
-		# combined group of all identified interface residues
+		# combined groups of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
@@ -91,6 +91,8 @@
 <!--		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>-->
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>
 		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
+		<SelectedResidueCountMetric name="M_core_design_residue_count" residue_selector="hbnet_or_interface_neighbors_or_core"/>
+		<SequenceMetric name="M_sequence" custom_type="" residue_selector="full_pose"/>
 	</SIMPLE_METRICS>
 
 	<MOVERS>
@@ -107,10 +109,11 @@
 		<RunSimpleMetrics name="run_metrics_cst" metrics="M_int_energy_cst_per_res" prefix="" suffix="_cst" override="false"/>
 		<RunSimpleMetrics name="run_metrics_fsp" metrics="M_int_energy_fsp_per_res" prefix="" suffix="_fsp" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex" metrics="M_int_hbonds_res_selector,M_interaction_energy,M_int_energy_per_res,M_int_energy_total,M_solvation_energy,M_rmsd" prefix="" suffix="_complex" override="false"/>
+		<RunSimpleMetrics name="run_metrics_sequence" metrics="M_sequence" prefix="final" suffix="" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_complex" override="false"/>
-		# M_sequence,M_hbond_count,M_sasa,M_sasa_per_res,M_sasa_hydrophobic_per_res,M_sasa_polar_per_res,M_sasa_summary_hydrophobic,M_sasa_summary_polar,M_sasa_summary_total,M_tot_int_energy,M_int_hbonds
+		# M_hbond_count,M_sasa,M_sasa_per_res,M_sasa_hydrophobic_per_res,M_sasa_polar_per_res,M_sasa_summary_hydrophobic,M_sasa_summary_polar,M_sasa_summary_total,M_tot_int_energy,M_int_hbonds
 	</MOVERS>
 
 	<FILTERS>
@@ -138,6 +141,12 @@
 		# this is for the nanohedra state to figure out the surface area of specific regions in the interface such as the extra ASU interface region
 		<TotalSasa name="interface_area_all_nano_hydrophobic" threshold="10" hydrophobic="1" polar="0" task_operations="init,vrt,non_int_no_repack"/>
 		<TotalSasa name="interface_area_all_nano_polar" threshold="10" hydrophobic="0" polar="1" task_operations="init,vrt,non_int_no_repack"/>
+		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+        <SimpleMetricFilter name="core_design_residue_count" metric="M_core_design_residue_count" comparison_type="gt" cutoff="10" confidence="1"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+        <CalculatorFilter name="interaction_energy_density_filter" equation="E / Number"> # threshold="(real 0)"
+            <Var name="E" filter="interaction_energy_filter"/>
+            <Var name="Number" filter="core_design_residue_count"/>
+        </CalculatorFilter>
 		# TODO test for RMSD and buns_nano on more than 2 chains
 		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
 		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
@@ -159,13 +168,14 @@
 			<!-- <Report name="R_int_energy_context_unbound"		filter="int_energy_context_unbound"/> -->
 		#  Nanohedra
 <!--		<Report name="R_full_stability_complex"			filter="full_stability_complex"/>-->
-		<Report name="R_favor_residue_energy" 		filter="favor_residue_energy"/>
+		<Report name="R_favor_residue_energy" 				filter="favor_residue_energy"/>
 <!--		<Report name="R_fsp_total_stability" 			filter="fsp_total_stability"/>-->
-		<Report name="R_coordinate_constraint" 		filter="coordinate_constraint"/>
+		<Report name="R_coordinate_constraint" 				filter="coordinate_constraint"/>
 <!--		<Report name="R_int_energy_context_complex"		filter="int_energy_context_complex"/>-->
-		<Report name="R_shape_complementarity" 		filter="shape_complementarity"/>
-		<Report name="R_contact_count" 				filter="contact_count"/>
-		<Report name="R_buns_complex" 					filter="buns_complex"/>
+		<Report name="R_shape_complementarity" 				filter="shape_complementarity"/>
+		<Report name="R_contact_count" 						filter="contact_count"/>
+		<Report name="R_buns_complex" 						filter="buns_complex"/>
+		<Report name="R_interaction_energy_density_filter"  filter="interaction_energy_density_filter"/>
 <!--		<Report name="R_buns_hpol" 					filter="buns_hpol"/>-->
 <!--		<Report name="R_buns_nano" 						filter="buns_nano"/>-->
 <!--		<Report name="R_buns_nano_hpol" 				filter="buns_nano_hpol"/>-->
@@ -243,12 +253,14 @@
 <!--		<Add filter_name="R_int_energy_context_complex"/>-->
 		<Add filter_name="R_shape_complementarity"/>
 		<Add filter_name="R_contact_count"/>
+		<Add filter_name="R_interaction_energy_density_filter"/>
 		<Add mover_name="run_metrics_hydrophobic_sasa"/>
 		<Add mover_name="run_metrics_polar_sasa"/>
 		<Add mover_name="run_metrics_sasa"/>
 		<Add mover_name="run_metrics_fsp"/>
 		<Add mover_name="run_metrics_cst"/>
 		<Add mover_name="run_metrics_complex"/>
+		<Add mover_name="run_metrics_sequence"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_hydrophobic"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_polar"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_total"/>
