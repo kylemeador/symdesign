@@ -1048,10 +1048,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     @Model.pdb.setter
     def pdb(self, pdb):
-        super().pdb = pdb
-        # self._pdb = pdb
-        # self.coords = pdb._coords
         self.log.debug('Adding PDB \'%s\' to Pose' % pdb.name)
+        # super(Model, self).pdb = pdb
+        self._pdb = pdb
+        self.coords = pdb._coords
         if not self.ignore_clashes:
             if pdb.is_clash():
                 raise DesignError('%s contains Backbone clashes as is not being considered further!' % self.name)
