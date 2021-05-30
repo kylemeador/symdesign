@@ -1592,16 +1592,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                    write_fragments=self.write_frags, des_dir=self)  # Todo frag_db=self.frag_db_SOURCE
         self.make_path(self.designs)
         # self.make_path(self.scores)
-        if self.scout:
-            self.scout_interface()
-        else:
-            self.prepare_rosetta_interface_design()
         self.info['fragments'] = self.pose.return_fragment_observations()
         self.info['design_profile'] = self.pose.design_pssm_file
         self.info['evolutionary_profile'] = self.pose.pssm_file
         self.info['fragment_data'] = self.pose.interface_data_file
         self.info['fragment_profile'] = self.pose.fragment_pssm_file
         self.info['fragment_database'] = self.pose.frag_db
+        if self.scout:
+            self.scout_interface()
+        else:
+            self.prepare_rosetta_interface_design()
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
