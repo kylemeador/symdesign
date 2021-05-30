@@ -28,11 +28,10 @@ def find_list_indices(reference_cmds, query_ids):
     return idxs_sorted
 
 
-def filter_by_indices(array, _iterator, zero=True):
-    offset = 1
-    if zero:
-        offset = 0
-    return [_iterator[idx - offset] for idx in array]
+def filter_by_indices(index_array, _iterable, zero=True):
+    """Return the indices from an iterable that match a specified input index array"""
+    offset = 0 if zero else 1
+    return [_iterable[idx - offset] for idx in index_array]
 
 
 def array_map(array, cont=False):
@@ -97,7 +96,7 @@ def link_pair(pair, force=False):
 
 def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
     """Returns an array for each of the errors encountered. All=True returns the set"""
-    matching_jobs = glob('%s%s*%s*' % (output_dir, os.sep, job_id))
+    matching_jobs = glob(os.path.join(output_dir, '*%s*' % job_id))
     potential_errors = [job if os.path.getsize(job) > 0 else None for i, job in enumerate(matching_jobs)]
     print(','.join(str(i) for i, potential_error in enumerate(potential_errors) if potential_error))
     parsed_errors = list(map(error_type, potential_errors))
@@ -149,7 +148,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='\nControl all SLURM input/output including:\n')
     # ---------------------------------------------------
     parser.add_argument('-d', '--directory', type=str, help='Directory where Job output is located. Default=CWD')
-    parser.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
+    parser.add_argument('-f', '--file', type=str, help='Path to file where commands for the SBATCH array are located',
                         default=None, required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
@@ -161,34 +160,40 @@ if __name__ == '__main__':
                                             'SubModule help can be accessed in this way' % 'SPACE FILLER')
     # ---------------------------------------------------
     parser_fail = subparsers.add_parser('fail', help='Find job failures')
-    parser_fail.add_argument('-a', '--array', action='store_true', help='Whether the failures should be returned as an '
-                                                                        'array')
+    # parser_fail.add_argument('-a', '--array', action='store_true',
+    #                          help='Whether the failures should be returned as an array')
     # parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
     #                          default=None, required=True)
     parser_fail.add_argument('-j', '--job_id', type=str, help='What is the JobID provided by SLURM upon execution?',
                              required=True)
-    parser_fail.add_argument('-m', '--mode', type=str, choices=['memory', 'other'],
-                             help='What type of failure should be located')
-    parser_fail.add_argument('-s', '--script', type=str, help='What is the Script used to creat the job_id?')
+    # parser_fail.add_argument('-m', '--mode', type=str, choices=['memory', 'other'],
+    #                          help='What type of failure should be located')
+    parser_fail.add_argument('-s', '--script', type=str,
+                             help='What is the Script used to create the job_id? Will be used for automatically making '
+                                  'a new sbatch.sh Script')
     # parser_fail.add_argument('-r', '--return_array', action='store_true', help='Whether the failures should be returned'
     #                                                                            ' as an array')
 
     # ---------------------------------------------------
-    parser_fail = subparsers.add_parser('filter', help='Find job failures')
+    parser_fail = subparsers.add_parser('filter', help='Whether to filter the commands in the input --file by ID\'s '
+                                                       'specified in --query')
     # parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
     #                          default=None, required=True)
-    parser_fail.add_argument('-e', '--exclude', action='store_true')
-    parser_fail.add_argument('-r', '--running', action='store_true')
+    parser_fail.add_argument('-e', '--exclude', action='store_true',
+                             help='Whether to exclude the ID\'s specified in --query')
+    # parser_fail.add_argument('-r', '--running', action='store_true',
+    #                          help='Whether to exclude the ID\'s specified in --query')
     parser_fail.add_argument('-q', '--query',  type=str, help='File with the query ID\'s for reference commands',
                              required=True)
     # ---------------------------------------------------
-    parser_link = subparsers.add_parser('link', help='Find job failures')
-    parser_link.add_argument('-F', '--force', action='store_true')
+    # parser_link = subparsers.add_parser('link',
+    #                                     help='Whether to link docking files from one docking trajectory with another')
+    # parser_link.add_argument('-F', '--force', action='store_true')
 
     args, additional_flags = parser.parse_known_args()
-    if args.sub_module == 'fail':  # -a array, -j job_id, -m mode, -s script
+    if args.sub_module == 'fail':  # -j job_id, -s script # -a array, -m mode,
         # do array
-        memory, failure, other = job_array_failed(args.job_id)  # , output_dir=args.directory)
+        memory, failure, other = job_array_failed(args.job_id, output_dir=args.directory)
         print('Memory error size:', len(memory))
         print('Failure error size:', len(failure))
         print('Other error size:', len(other))
@@ -202,14 +207,14 @@ if __name__ == '__main__':
                 print('Memory failures may require you to rerun with a higher memory. It is suggested to edit the above'
                       ' script to include ~10-20% more memory')
         else:
-            commands = SDUtils.to_iterable(args.file)
-            print('There are a total of commmands:', len(commands))
+            reference_commands = SDUtils.to_iterable(args.file)
+            print('There are a total of commands:', len(reference_commands))
         # if args.array:
 
         # else:
-            restart_memory = [commands[idx] for idx in memory]
-            restart_failure = [commands[idx] for idx in failure]
-            restart_other = [commands[idx] for idx in other]
+            restart_memory = [reference_commands[idx] for idx in memory]
+            restart_failure = [reference_commands[idx] for idx in failure]
+            restart_other = [reference_commands[idx] for idx in other]
             SDUtils.io_save(restart_memory, filename='%s_%s' % (args.file, 'memory_failures'))
             SDUtils.io_save(restart_failure, filename='%s_%s' % (args.file, 'other_failures'))
             SDUtils.io_save(restart_other, filename='%s_%s' % (args.file, 'other_output'))
@@ -225,26 +230,27 @@ if __name__ == '__main__':
         # job_array = concat_job_to_array(job_id, array_ids)
         # status_array = [scancel(job) for job in job_array]
     elif args.sub_module == 'filter':  # -e exclude, -r running, -q query
-        reference_l = SDUtils.to_iterable(args.file)
+        reference_commands = SDUtils.to_iterable(args.file)
         query_ids = SDUtils.to_iterable(args.query)
 
-        array = find_list_indices(reference_l, query_ids)
-        filtered_reference_l = filter_by_indices(array, reference_l)
+        index_array = find_list_indices(reference_commands, query_ids)
+        filtered_reference_commands = filter_by_indices(index_array, reference_commands)
         if args.exclude:
-            modified_reference = list(set(reference_l) - set(filtered_reference_l))
-            SDUtils.io_save(modified_reference, filename=args.file + '_excluded_%s' % os.path.basename(args.query))
+            modified_reference = list(set(reference_commands) - set(filtered_reference_commands))
+            SDUtils.io_save(modified_reference, filename='%s_excluded_%s' % (args.file, os.path.basename(args.query)))
         else:
-            SDUtils.io_save(filtered_reference_l, filename=args.file + '_filtered_%s' % os.path.basename(args.query))
+            SDUtils.io_save(filtered_reference_commands,
+                            filename='%s_filtered_%s' % (args.file, os.path.basename(args.query)))
     elif args.sub_module == 'link':
         output_dir = os.path.join(os.getcwd(), args.directory)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        reference_l = SDUtils.to_iterable(args.file)
-        link_names = map(os.path.basename, reference_l)
+        reference_commands = SDUtils.to_iterable(args.file)
+        link_names = map(os.path.basename, reference_commands)
         link_name_dirs = list(map(os.path.join, repeat(output_dir), link_names))
 
-        for pair in zip(reference_l, link_name_dirs):
+        for pair in zip(reference_commands, link_name_dirs):
             link_pair(pair, force=args.force)
 
             # if args.running:

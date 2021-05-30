@@ -576,6 +576,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['oligomer_names'] = self.oligomer_names
                 self.entity_names = ['%s_1' % name for name in self.oligomer_names]
                 self.info['entity_names'] = self.entity_names  # Todo remove after T33
+                self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
                 self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
