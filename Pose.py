@@ -1439,6 +1439,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         entity1_residues, entity2_residues = self.interface_residues.get((entity1, entity2))
         if not entity1_residues or not entity2_residues:
+            self.log.debug('At Entity %s | Entity %s interface, NO residues found')
             return
         if entity1 == entity2 and entity1.is_oligomeric:
             # surface_frags1.extend(surface_frags2)
