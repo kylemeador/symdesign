@@ -7,6 +7,8 @@ from itertools import repeat
 
 import SymDesignUtils as SDUtils
 
+logger = SDUtils.start_log()
+
 
 def find_list_indices(reference_cmds, query_ids):
     """Search for ID's present in supplied list in a reference list and return the indices of the reference list where
@@ -23,7 +25,7 @@ def find_list_indices(reference_cmds, query_ids):
                 idxs.append(i)
                 break
     idxs_sorted = sorted(idxs)
-    print(','.join(str(i + 1) for i in idxs_sorted))
+    logger.info(','.join(str(i + 1) for i in idxs_sorted))
 
     return idxs_sorted
 
@@ -64,21 +66,20 @@ def scancel(job_id):
     # return status
 
 
-def error_type(job_file):
+def classify_slurm_error_type(job_file):
     if job_file:
-        fail_p = subprocess.Popen(['grep', '\"DUE TO NODE\"', job_file],  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        fail = fail_p.communicate()
-        mem_p = subprocess.Popen(['grep', '\"slurmstepd: error: Exceeded job memory limit\"', job_file],
+        mem_p = subprocess.Popen(['grep', 'slurmstepd: error: Exceeded job memory limit', job_file],
                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         mem = mem_p.communicate()
-
+        fail_p = subprocess.Popen(['grep', 'DUE TO NODE', job_file],  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        fail = fail_p.communicate()
         if mem != '':
             return 'memory'
         elif fail != '':
             return 'failure'
         else:
             return 'other'
-    return None
+    return
 
 
 def link_pair(pair, force=False):
@@ -94,21 +95,29 @@ def link_pair(pair, force=False):
     os.symlink(*pair)  # , target_is_directory=True)
 
 
-def job_array_failed(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
+def investigate_job_array_failure(job_id, output_dir=os.path.join(os.getcwd(), 'output')):
     """Returns an array for each of the errors encountered. All=True returns the set"""
-    matching_jobs = glob(os.path.join(output_dir, '*%s*' % job_id))
-    potential_errors = [job if os.path.getsize(job) > 0 else None for i, job in enumerate(matching_jobs)]
-    print(','.join(str(i) for i, potential_error in enumerate(potential_errors) if potential_error))
-    parsed_errors = list(map(error_type, potential_errors))
-    sorted_array_jobs = {job_file: int(os.path.splitext(job_file.split('_')[-1])[0]) for job_file in matching_jobs}
+    job_output_files = glob(os.path.join(output_dir, '*%s*' % job_id))
+    if not job_output_files:
+        raise RuntimeError('Found no files with %s glob. Did you provide the correct arguments? See --help'
+                           % os.path.join(output_dir, '*%s*' % job_id))
+    potential_errors = [job_file if os.path.getsize(job_file) > 0 else None for job_file in job_output_files]
+    logger.info('Found array ids from job %s with SBATCH output:\n\t%s'
+                % (job_id, ','.join(str(i) for i, potential_error in enumerate(potential_errors) if potential_error)))
+    parsed_errors = list(map(classify_slurm_error_type, potential_errors))
+    job_file_array_id_d = \
+        {job_file: int(os.path.splitext(job_file.split('_')[-1])[0]) for job_file in job_output_files}
     # generate a dictionary of the job_file to array_id
-    # for job in matching_jobs:
+    # for job in job_output_files:
     #     array_id = os.path.splitext(job.split('_')[-1])[0]
-    #     sorted_array_jobs[array] = job
-    memory_array = [sorted_array_jobs[matching_jobs[i]] for i, error in enumerate(parsed_errors) if error == 'memory']
-    failure_array = [sorted_array_jobs[matching_jobs[i]] for i, error in enumerate(parsed_errors) if error == 'failure']
-    other_array = [sorted_array_jobs[matching_jobs[i]] for i, error in enumerate(parsed_errors) if error == 'other']
-    print(memory_array)
+    #     job_file_array_id_d[array] = job
+    memory_array = \
+        sorted(job_file_array_id_d[job_output_files[i]] for i, error in enumerate(parsed_errors) if error == 'memory')
+    failure_array = \
+        sorted(job_file_array_id_d[job_output_files[i]] for i, error in enumerate(parsed_errors) if error == 'failure')
+    other_array = \
+        sorted(job_file_array_id_d[job_output_files[i]] for i, error in enumerate(parsed_errors) if error == 'other')
+    logger.info('Jobs with error due to memory:\n\t%s' % memory_array)
 
     return memory_array, failure_array, other_array
 
@@ -193,22 +202,22 @@ if __name__ == '__main__':
     args, additional_flags = parser.parse_known_args()
     if args.sub_module == 'fail':  # -j job_id, -s script # -a array, -m mode,
         # do array
-        memory, failure, other = job_array_failed(args.job_id, output_dir=args.directory)
-        print('Memory error size:', len(memory))
-        print('Failure error size:', len(failure))
-        print('Other error size:', len(other))
+        memory, failure, other = investigate_job_array_failure(args.job_id, output_dir=args.directory)
+        logger.info('Memory error size:', len(memory))
+        logger.info('Failure error size:', len(failure))
+        logger.info('Other error size:', len(other))
         all_array = sorted(set(memory + failure + other))
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
             args.file = parse_script(args.script)
             script_with_new_array = change_script_array(args.script, all_array)
-            print('\n\nRun new script with:\nsbatch %s' % script_with_new_array)
+            logger.info('\n\nRun new script with:\nsbatch %s' % script_with_new_array)
             if len(memory) > 0:
-                print('Memory failures may require you to rerun with a higher memory. It is suggested to edit the above'
+                logger.info('Memory failures may require you to rerun with a higher memory. It is suggested to edit the above'
                       ' script to include ~10-20% more memory')
         else:
             reference_commands = SDUtils.to_iterable(args.file)
-            print('There are a total of commands:', len(reference_commands))
+            logger.info('There are a total of commands:', len(reference_commands))
         # if args.array:
 
         # else:
