@@ -117,7 +117,6 @@ def investigate_job_array_failure(job_id, output_dir=os.path.join(os.getcwd(), '
         sorted(job_file_array_id_d[job_output_files[i]] for i, error in enumerate(parsed_errors) if error == 'failure')
     other_array = \
         sorted(job_file_array_id_d[job_output_files[i]] for i, error in enumerate(parsed_errors) if error == 'other')
-    logger.info('Jobs with error due to memory:\n\t%s' % memory_array)
 
     return memory_array, failure_array, other_array
 
@@ -168,7 +167,8 @@ if __name__ == '__main__':
                                             'help on a SubModule such as specific commands and flags enter:\n%s\n\nAny'
                                             'SubModule help can be accessed in this way' % 'SPACE FILLER')
     # ---------------------------------------------------
-    parser_fail = subparsers.add_parser('fail', help='Find job failures')
+    parser_fail = subparsers.add_parser('fail',
+                                        help='Find job failures. By default only prints Job Array ID\'s to stdout')
     # parser_fail.add_argument('-a', '--array', action='store_true',
     #                          help='Whether the failures should be returned as an array')
     # parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
@@ -204,9 +204,12 @@ if __name__ == '__main__':
         # do array
         memory, failure, other = investigate_job_array_failure(args.job_id, output_dir=args.directory)
         logger.info('Memory error size: %d' % len(memory))
-        logger.info('Failure error size: %d' % len(failure))
+        logger.info('Node Failure error size: %d' % len(failure))
         logger.info('Other error size: %d' % len(other))
         all_array = sorted(set(memory + failure + other))
+        logger.info('Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, memory)))
+        logger.info('Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, failure)))
+        logger.info('Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, other)))
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
             args.file = parse_script(args.script)
