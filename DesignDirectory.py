@@ -96,6 +96,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.refine_pdb = None
         # program_root/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
         self.refined_pdb = None  # /program_root/Projects/project_Designs/design/design_name_refined.pdb
+        self.scouted_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_scouted.pdb
         self.consensus_pdb = None  # /program_root/Projects/project_Designs/design/design_name_for_consensus.pdb
         self.consensus_design_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_for_consensus.pdb
         self.pdb_list = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
@@ -586,8 +587,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.interface_residue_ids = self.info.get('interface_residues', {})
         if self.pre_refine:
             self.refined_pdb = self.asu
+            self.scouted_pdb = '%s_scout.pdb' \
+                               % os.path.join(self.designs, os.path.basename(os.path.splitext(self.refined_pdb)[0]))
         else:
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
+            self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
 
         self.start_log()
 
@@ -1100,7 +1104,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         metric_cmd = main_cmd + \
-            ['-in:file:s', self.refined_pdb, '@%s' % flags, '-out:file:score_only', self.scores_file,
+            ['-in:file:s', self.scouted_pdb, '@%s' % flags, '-out:file:score_only', self.scores_file,
              '-no_nstruct_label', 'true', '-parser:protocol',
              os.path.join(PUtils.rosetta_scripts, 'metrics_scripts', 'metrics_scout_unbound.xml')]
         metric_cmds = [metric_cmd + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
