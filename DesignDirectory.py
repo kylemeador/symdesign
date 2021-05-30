@@ -584,12 +584,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if os.path.exists(self.serialized_info):  # Pose has already been processed, gather state data
                 self.info = unpickle(self.serialized_info)
                 self._info = self.info.copy()  # create a copy of the state upon initialization
-                if self.info.get('nanohedra'):
-                    self.oligomer_names = self.info.get('oligomer_names', list())
-                    self.transform_d = self.info.get('pose_transformation', dict())
-                self.pre_refine = self.info.get('pre_refine', False)
+                # if self.info.get('nanohedra'):
+                self.transform_d = self.info.get('pose_transformation', dict())
+                self.oligomer_names = self.info.get('oligomer_names', list())
                 self.entity_names = self.info.get('entity_names', list())
+                self.pre_refine = self.info.get('pre_refine', False)
                 self.fragment_observations = self.info.get('fragments', None)
+                self.interface_residue_ids = self.info.get('interface_residues', {})
         if self.pre_refine:
             self.refined_pdb = self.asu
         else:
@@ -941,6 +942,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             flags.extend(['-out:path:pdb %s' % pdb_path, '-scorefile %s' % self.scores_file])
         else:
             flags.extend(['-out:path:pdb %s' % self.designs, '-scorefile %s' % self.scores_file])
+        flags.append('-in:file:native %s' % self.refined_pdb)
         flags.append('-parser:script_vars %s' % ' '.join('%s=%s' % tuple(map(str, var_val)) for var_val in variables))
 
         out_file = os.path.join(out_path, 'flags')
@@ -1570,6 +1572,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.interface_residue_ids.get('interface1', None), self.interface_residue_ids.get('interface2', None)
         if interface1 and interface2:
             self.info['design_residues'] = '%s,%s' % (interface1, interface2)
+            self.info['interface_residues'] = self.interface_residue_ids
             self.log.info('Interface Residues:\n\t%s'
                           % '\n\t'.join('interface%d: %s' % info for info in enumerate([interface1, interface2], 1)))
         else:
