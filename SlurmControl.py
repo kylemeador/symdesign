@@ -70,12 +70,12 @@ def classify_slurm_error_type(job_file):
     if job_file:
         mem_p = subprocess.Popen(['grep', 'slurmstepd: error: Exceeded job memory limit', job_file],
                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        out_mem, out_err = mem_p.communicate()
+        mem_out, mem_err = mem_p.communicate()
         fail_p = subprocess.Popen(['grep', 'DUE TO NODE', job_file],  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        out_fail, out_fail = fail_p.communicate()
-        if out_mem.decode() != '':
+        fail_out, fail_err = fail_p.communicate()
+        if mem_out.decode() != '':
             return 'memory'
-        elif out_fail.decode() != '':
+        elif fail_out.decode() != '':
             return 'failure'
         else:
             return 'other'
