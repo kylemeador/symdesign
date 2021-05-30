@@ -74,7 +74,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Extract information from SymDock Output
     des_dir.gather_docking_metrics()
-    des_dir.gather_pose_metrics()
+    des_dir.retrieve_pose_metrics_from_file()
     pdb_codes = str(os.path.basename(des_dir.composition)).split('_')
     # cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir)
 

@@ -644,6 +644,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['fragments'] = self.fragment_observations
                 frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
             elif os.path.exists(self.frag_file):  # try to pull them from disk
+                self.log.debug('Fragment observations found on disk. Adding to the Design state')
                 self.retrieve_fragment_info_from_file()
                 # frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
                 frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)

@@ -120,10 +120,10 @@ class DataStore:
         """
         data = getattr(self, name, None)
         if data:
-            self.log.debug('File was retrieved from DataStore')
+            self.log.debug('Info %s%s was retrieved from DataStore' % (name, self.extension))
         else:
             setattr(self, name, self.load_data(name, log=None))
-            self.log.debug('File was loaded fresh')  # not necessarily successfully though
+            self.log.debug('Database file %s%s was loaded fresh' % (name, self.extension))  # not necessarily successful
             data = getattr(self, name)  # store the new data as an attribute
 
         return data
