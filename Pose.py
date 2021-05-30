@@ -272,7 +272,7 @@ class SymmetricModel(Model):
             # Todo numpy expand_matrices
         if self.asu and generate_assembly:
             self.generate_symmetric_assembly()  # **kwargs
-            if generate_symmetry_mates:
+            if generate_symmetry_mates:  # todo combine duplication with below
                 self.get_assembly_symmetry_mates()
 
     def generate_symmetric_assembly(self, return_side_chains=True, surrounding_uc=False, generate_symmetry_mates=False,
@@ -1524,7 +1524,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         first, second = 0, 1
         interface_residue_d = {first: {}, second: {}, 'self': [False, False]}
         terminate = False
-        self.log.debug('Pose contains interface residues: %s' % self.interface_residues)
+        # self.log.debug('Pose contains interface residues: %s' % self.interface_residues)
         for entity_pair, entity_residues in self.interface_residues.items():
             if not entity_residues:
                 continue
