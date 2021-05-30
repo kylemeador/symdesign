@@ -132,7 +132,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.design_selector = None
         self.entity_names = []
         self.euler_lookup = None
-        self.fragment_observations = None
+        self.fragment_observations = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
         self.frag_db = None
         self.info = {}  # internal state info
         self._info = {}  # internal state info at load time
@@ -382,13 +382,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return metrics
 
-    # @property
-    # def fragment_observations(self):
-    #     """Returns:
-    #         (dict): {'1_2_24': [(78, 87, ...), ...], ...}
-    #     """
-    #     return self._fragment_observations
-
     @property
     def pose_transformation(self):
         """Provide the transformation parameters for the design in question
@@ -399,7 +392,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      2: {}}
         """
         if not self.transform_d:
-            self.gather_pose_metrics()
+            self.retrieve_pose_metrics_from_file()
             self.info['pose_transformation'] = self.transform_d
             self.log.debug('Using transformation parameters:\n\t%s'
                            % '\n\t'.join(pretty_format_table(self.transform_d.items())))
@@ -640,30 +633,29 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.fragment_observations:  # check if fragment generation has been populated somewhere
             # frag_metrics = self.pose.return_fragment_metrics(fragments=self.info.get('fragments'))
             frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
-        elif self.pose.fragment_queries:
-            self.log.debug('Fragment observations found in Pose. Adding to the Design state')
-            self.fragment_observations = self.pose.return_fragment_observations()
-            self.info['fragments'] = self.fragment_observations
-            frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
-        elif os.path.exists(self.frag_file):  # try to pull them from disk
-            self.gather_fragment_info()
-            # frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
-            frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
-        # no fragments were attempted but returned nothing, set frag_metrics empty
-        elif self.fragment_observations == list():
-            frag_metrics = fragment_metric_template
-        elif self.fragment_observations is None:
-            # raise DesignError('Fragment observations have not been generated for this Design! Have you run %s on it?'
-            #                   % PUtils.generate_fragments)
-            self.log.warning('There are no fragment observations for this Design! Returning null values... '
-                             'Have you run %s on it yet?' % PUtils.generate_fragments)
-            frag_metrics = fragment_metric_template
         else:
-            raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
-            # self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet?
-            #                  ' Trying %s now...'
-            #                  % (self.path, PUtils.generate_fragments, PUtils.generate_fragments))
-            # self.generate_interface_fragments()
+            if self.pose.fragment_queries:
+                self.log.debug('Fragment observations found in Pose. Adding to the Design state')
+                self.fragment_observations = self.pose.return_fragment_observations()
+                self.info['fragments'] = self.fragment_observations
+                frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+            elif os.path.exists(self.frag_file):  # try to pull them from disk
+                self.retrieve_fragment_info_from_file()
+                # frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
+                frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+            # fragments were attempted, but returned nothing, set frag_metrics to the template (empty)
+            elif self.fragment_observations == list():
+                frag_metrics = fragment_metric_template
+            elif self.fragment_observations is None:
+                self.log.warning('There are no fragment observations for this Design! Returning null values... '
+                                 'Have you run %s on it yet?' % PUtils.generate_fragments)
+                frag_metrics = fragment_metric_template
+                # self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet?
+                #                  ' Trying %s now...' % (self.path, PUtils.generate_fragments, generate_fragments))
+                # self.generate_interface_fragments()
+            else:
+                raise DesignError('Design hit a snag that shouldn\'t have happened. Please report to the developers')
+            self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
         self.center_residue_numbers = frag_metrics['center_residues']
         self.total_residue_numbers = frag_metrics['total_residues']
@@ -676,7 +668,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.helical_fragment_content = frag_metrics['percent_fragment_helix']
         self.strand_fragment_content = frag_metrics['percent_fragment_strand']
         self.coil_fragment_content = frag_metrics['percent_fragment_coil']
-        # self.number_of_fragments = frag_metrics['number_fragments']  # Now @property self.number_of_fragments
 
         # Todo limit design_residues by the SASA accessible residues
         while True:
@@ -782,7 +773,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #     return sym_entry
 
     @handle_errors(errors=(FileNotFoundError,))
-    def gather_fragment_info(self):
+    def retrieve_fragment_info_from_file(self):
         """Gather observed fragment metrics from fragment matching output"""
         fragment_observations = set()
         with open(self.frag_file, 'r') as f:
@@ -793,31 +784,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     match_score = match_score_from_z_value(float(line[6:].strip()))
                 elif line[:21] == 'oligomer1 ch, resnum:':
                     oligomer1_info = line[21:].strip().split(',')
-                    chain1 = oligomer1_info[0]  # doesn't matter when all subunits are symmetric
+                    # chain1 = oligomer1_info[0]  # doesn't matter when all subunits are symmetric
                     residue_number1 = int(oligomer1_info[1])
                 elif line[:21] == 'oligomer2 ch, resnum:':
                     oligomer2_info = line[21:].strip().split(',')
-                    chain2 = oligomer2_info[0]  # doesn't matter when all subunits are symmetric
+                    # chain2 = oligomer2_info[0]  # doesn't matter when all subunits are symmetric
                     residue_number2 = int(oligomer2_info[1])
                 elif line[:3] == 'id:':
                     cluster_id = map(str.strip, line[3:].strip().split('_'), 'ijk')
                     # use with self.entity_names to get mapped and paired oligomer id
                     fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
-                    # self.fragment_observations.append({'mapped': residue_number1, 'paired': residue_number2,
-                    #                                    'cluster': cluster_id, 'match': match_score})
-                # "mean rmsd: %s\n" % str(cluster_rmsd))
-                # "aligned rep: int_frag_%s_%s.pdb\n" % (cluster_id, str(match_count)))
-                # elif line[:23] == 'central res pair freqs:':
-                #     # pair_freq = list(eval(line[22:].strip()))
-                #     pair_freq = None
-                #     # self.fragment_cluster_freq_d[cluster_id] = pair_freq
-                #     # self.fragment_cluster_residue_d[cluster_id]['freq'] = pair_freq
         self.fragment_observations = [dict(zip(('mapped', 'paired', 'cluster', 'match'), frag_obs))
                                       for frag_obs in fragment_observations]
         self.info['fragments'] = self.fragment_observations  # inform the design state that fragments have been produced
 
     @handle_errors(errors=(FileNotFoundError,))
-    def gather_pose_metrics(self):
+    def retrieve_pose_metrics_from_file(self):
         """Gather information for the docked Pose from Nanohedra output. Includes coarse fragment metrics"""
         with open(self.pose_file, 'r') as f:
             for line in f.readlines():
@@ -1529,6 +1511,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.pose.get_assembly_symmetry_mates()
                 self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
                 self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+        self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
@@ -1551,6 +1534,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # for observation in self.pose.fragment_queries.values():
         #     self.fragment_observations.extend(observation)
         self.info['fragments'] = self.pose.return_fragment_observations()
+        self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     def identify_interface(self):
         """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
@@ -1590,9 +1574,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.make_path(self.frags)
             # self.info['fragments'] = True
         elif self.fragment_observations or self.fragment_observations == list():
-            pass  # fragment generation was run (maybe succeeded)
+            pass  # fragment generation was run and maybe succeeded. If not ^
         elif self.design_with_fragments and not self.fragment_observations and os.path.exists(self.frag_file):
-            self.gather_fragment_info()
+            self.retrieve_fragment_info_from_file()
         else:
             raise DesignError('Fragments were specified during design, but observations have not been yet been '
                               'generated for this Design! Try with the flag --query_fragments or run %s'
@@ -1613,7 +1597,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.info['fragment_data'] = self.pose.interface_data_file
         self.info['fragment_profile'] = self.pose.fragment_pssm_file
         self.info['fragment_database'] = self.pose.frag_db
-        self.pickle_info()
+        self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=False):
