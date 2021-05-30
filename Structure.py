@@ -1201,15 +1201,16 @@ class Structure(StructureBase):
 
             return out_path
 
-    def get_fragments(self, residue_numbers=None, representatives=None, fragment_length=5):
+    def get_fragments(self, residues=None, residue_numbers=None, representatives=None, fragment_length=5):
         """From the Structure, find Residues with a matching fragment type as identified in a fragment library
 
         Keyword Args:
+            residues=None (list): The specific Residues to search for
             residue_numbers=None (list): The specific residue numbers to search for
         Returns:
             (list[MonoFragment]): The MonoFragments found on the Structure
         """
-        if not residue_numbers:
+        if not residues and not residue_numbers:
             return []
 
         # residues = self.residues
