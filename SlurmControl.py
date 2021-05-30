@@ -70,12 +70,12 @@ def classify_slurm_error_type(job_file):
     if job_file:
         mem_p = subprocess.Popen(['grep', 'slurmstepd: error: Exceeded job memory limit', job_file],
                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        mem = mem_p.communicate()
+        out_mem, out_err = mem_p.communicate()
         fail_p = subprocess.Popen(['grep', 'DUE TO NODE', job_file],  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        fail = fail_p.communicate()
-        if mem != '':
+        out_fail, out_fail = fail_p.communicate()
+        if out_mem.decode() != '':
             return 'memory'
-        elif fail != '':
+        elif out_fail.decode() != '':
             return 'failure'
         else:
             return 'other'
@@ -103,7 +103,7 @@ def investigate_job_array_failure(job_id, output_dir=os.path.join(os.getcwd(), '
                            % os.path.join(output_dir, '*%s*' % job_id))
     potential_errors = [job_file if os.path.getsize(job_file) > 0 else None for job_file in job_output_files]
     logger.info('Found array ids from job %s with SBATCH output:\n\t%s'
-                % (job_id, ','.join(str(i) for i, potential_error in enumerate(potential_errors) if potential_error)))
+                % (job_id, ','.join(str(i) for i, error in enumerate(potential_errors, 1) if error)))
     parsed_errors = list(map(classify_slurm_error_type, potential_errors))
     job_file_array_id_d = \
         {job_file: int(os.path.splitext(job_file.split('_')[-1])[0]) for job_file in job_output_files}
@@ -203,9 +203,9 @@ if __name__ == '__main__':
     if args.sub_module == 'fail':  # -j job_id, -s script # -a array, -m mode,
         # do array
         memory, failure, other = investigate_job_array_failure(args.job_id, output_dir=args.directory)
-        logger.info('Memory error size:', len(memory))
-        logger.info('Failure error size:', len(failure))
-        logger.info('Other error size:', len(other))
+        logger.info('Memory error size: %d' % len(memory))
+        logger.info('Failure error size: %d' % len(failure))
+        logger.info('Other error size: %d' % len(other))
         all_array = sorted(set(memory + failure + other))
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
