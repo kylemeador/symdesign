@@ -464,11 +464,11 @@ def terminate(module, designs, location=None, results=None, output=True):
                 if save:
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
-        module_files = {PUtils.interface_design: [PUtils.stage[12] if args.scout else PUtils.stage[2]],
-                        PUtils.nano: [PUtils.nano],
-                        'custom_script': [os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]],
-                        'interface_metrics': ['interface_metrics'],  # 'nanohedra_initialization': PUtils.stage[1]
-                        }
+        module_files = \
+            {PUtils.interface_design: [PUtils.stage[12] if getattr(args, 'scout', None) else PUtils.stage[2]],
+             PUtils.nano: [PUtils.nano], 'interface_metrics': ['interface_metrics'],
+             'custom_script': [os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]]}
+        # 'nanohedra_initialization': PUtils.stage[1]
         if module in module_files:
             if len(success) > 0:
                 sbatch_scripts = master_directory.sbatch_scripts
