@@ -385,6 +385,14 @@ def format_additional_flags(flags):
     return final_flags
 
 
+def catch_and_clean_exceptions():
+    try:
+        symdesign()
+    except Exception as ex:
+        master_directory = next(iter(designs))
+        raise ex
+
+
 def terminate(module, designs, location=None, results=None, output=True):
     """Format designs passing output parameters and report program exceptions
 
