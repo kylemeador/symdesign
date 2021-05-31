@@ -77,10 +77,10 @@
 		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="polar_sasa"/>
 		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>
 		# summarize the energy metrics from above
-		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
-		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum"/>
-		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum"/>
-		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum"/>
+		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
+		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_complex"/> # cache_prefix=""
+		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_complex"/> # cache_prefix=""
+		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="true" cache_suffix="_total_complex"/> # cache_prefix=""
 <!--		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>-->
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>
 		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
