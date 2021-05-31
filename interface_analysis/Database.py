@@ -167,28 +167,27 @@ class ClusterInfoFile:
         self.load_info()
 
     def load_info(self):
-        infofile = open(self.infofile_path, "r")
-        info_lines = infofile.readlines()
-        infofile.close()
+        with open(self.infofile_path, "r") as f:
+            info_lines = f.readlines()
+
         is_res_freq_line = False
         for line in info_lines:
-
             if line.startswith("CLUSTER NAME:"):
                 self.name = line.split()[2]
-            if line.startswith("CLUSTER SIZE:"):
+            elif line.startswith("CLUSTER SIZE:"):
                 self.size = int(line.split()[2])
-            if line.startswith("CLUSTER RMSD:"):
+            elif line.startswith("CLUSTER RMSD:"):
                 self.rmsd = float(line.split()[2])
-            if line.startswith("CLUSTER REPRESENTATIVE NAME:"):
+            elif line.startswith("CLUSTER REPRESENTATIVE NAME:"):
                 self.representative_filename = line.split()[3]
 
-            if line.startswith("CENTRAL RESIDUE PAIR COUNT:"):
+            elif line.startswith("CENTRAL RESIDUE PAIR COUNT:"):
                 is_res_freq_line = False
-            if is_res_freq_line:
+            elif is_res_freq_line:
                 res_pair_type = (line.split()[0][0], line.split()[0][1])
                 res_pair_freq = float(line.split()[1])
                 self.central_residue_pair_freqs.append((res_pair_type, res_pair_freq))
-            if line.startswith("CENTRAL RESIDUE PAIR FREQUENCY:"):
+            elif line.startswith("CENTRAL RESIDUE PAIR FREQUENCY:"):
                 is_res_freq_line = True
 
     def get_name(self):
@@ -236,10 +235,10 @@ class FragmentDB:
                 for file in files:
                     ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), solve_discrepancy=False,
                                                              lazy=True, log=None)
-                    ijk_cluster_rep_mapped_chain = file[file.find('mappedchain') + 12:file.find('mappedchain') + 13]
+                    # ijk_cluster_rep_mapped_chain = file[file.find('mappedchain') + 12:file.find('mappedchain') + 13]
                     ijk_cluster_rep_partner_chain = file[file.find('partnerchain') + 13:file.find('partnerchain') + 14]
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type][k_cluster_type] = \
-                        (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_mapped_chain, ijk_cluster_rep_partner_chain)
+                        (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
 
         self.paired_frags = ijk_cluster_representatives
         if self.info:
@@ -269,9 +268,9 @@ class FragmentDB:
         for i_type in self.paired_frags:
             stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).get_backbone_coords()
                                           for j_dict in self.paired_frags[i_type].values()
-                                          for frag_pdb, _, frag_paired_chain in j_dict.values()])
+                                          for frag_pdb, frag_paired_chain in j_dict.values()])
             stacked_guide_coords = np.array([frag_pdb.chain('9').coords for j_dict in self.paired_frags[i_type].values()
-                                             for frag_pdb, _, _ in j_dict.values()])
+                                             for frag_pdb, _, in j_dict.values()])
             ijk_types = \
                 np.array([(i_type, j_type, k_type) for j_type, j_dict in self.paired_frags[i_type].items()
                           for k_type in j_dict])
@@ -308,8 +307,6 @@ class FragmentDatabase(FragmentDB):
                 self.get_monofrag_cluster_rep_dict()
                 self.get_intfrag_cluster_rep_dict()
                 self.get_intfrag_cluster_info_dict()
-        # else:
-        #     self.db = False
 
         self.get_db_statistics()
         self.parameterize_frag_length(length)

@@ -2030,7 +2030,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def write_fragment_pairs(self, ghostfrag_surffrag_pairs, out_path=os.getcwd()):
         for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
-            fragment, _, _ = dictionary_lookup(self.frag_db.paired_frags, interface_ghost_frag.get_ijk())
+            fragment, _ = dictionary_lookup(self.frag_db.paired_frags, interface_ghost_frag.get_ijk())
             trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_fragment.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_match_%d.pdb'
                                                          % (*interface_ghost_frag.get_ijk(), idx)))
