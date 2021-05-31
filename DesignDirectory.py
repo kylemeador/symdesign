@@ -897,8 +897,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             constraint_percent, free_percent = 0, 1
 
         variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
-                     ('solvent_sym_score_patch', PUtils.solvent_weights), ('cst_value_sym', (cst_value / 2)),
-                     ('dist', dist), ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+                     ('solvent_sym_score_patch', PUtils.solvent_weights), ('dist', dist), ('repack', 'yes'),
+                     ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         design_profile = self.info.get('design_profile')
         variables.extend([('design_profile', design_profile)] if design_profile else [])
         fragment_profile = self.info.get('fragment_profile')
@@ -1077,67 +1077,68 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.sym_def_file = sdf_lookup()  # currently grabbing dummy.sym
             self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
         else:
-            self.sym_def_file = 'null'
+            self.sym_def_file = sdf_lookup()  # currently grabbing dummy.sym
             self.symmetry_protocol = 'asymmetric'
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
 
-    def scout_interface(self):
-        """For the basic process of sequence design between two halves of an interface, write the necessary files for
-        refinement (FastRelax), redesign (FastDesign), and metrics collection (Filters & SimpleMetrics)
-
-        Stores job variables in a [stage]_flags file and the command in a [stage].sh file. Sets up dependencies based
-        on the DesignDirectory
-        """
-        # Set up the command base (rosetta bin and database paths)
-        main_cmd = copy.copy(script_cmd)
-        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        self.prepare_symmetry_for_rosetta()
-        self.get_fragment_metrics()
-        self.make_path(self.scripts)
-        flags = self.prepare_rosetta_flags(out_path=self.scripts)
-
-        # DESIGN: Prepare command and flags file
-        evolutionary_profile = self.info.get('design_profile')
-        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        scout_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
-            ['-in:file:s', self.refined_pdb, '@%s' % flags, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[12]),
-             '-out:suffix', '_%s' % PUtils.stage[12]]
-
-        # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
-        metric_cmd = main_cmd + \
-            ['-in:file:s', self.scouted_pdb, '@%s' % flags, '-out:file:score_only', self.scores_file,
-             '-no_nstruct_label', 'true', '-parser:protocol',
-             os.path.join(PUtils.rosetta_scripts, 'metrics_scripts', 'metrics_scout_unbound.xml')]
-        metric_cmds = [metric_cmd + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
-
-        # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
-        self.log.info('Design Command: %s' % subprocess.list2cmdline(scout_cmd))
-        for idx, metric_cmd in enumerate(metric_cmds, 1):
-            self.log.info('Metrics Command %d: %s' % (idx, subprocess.list2cmdline(metric_cmd)))
-        if self.script:
-            write_shell_script(subprocess.list2cmdline(scout_cmd), name=PUtils.stage[12], out_path=self.scripts,
-                               additional=[subprocess.list2cmdline(command) for command in metric_cmds])
-        else:
-            scout_process = subprocess.Popen(scout_cmd)
-            # Wait for Rosetta Design command to complete
-            scout_process.communicate()
-            for metric_cmd in metric_cmds:
-                metrics_process = subprocess.Popen(metric_cmd)
-                metrics_process.communicate()
-
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if not self.script:
-            pose_s = self.design_analysis()
-            out_path = os.path.join(self.all_scores, PUtils.analysis_file % ('All', ''))
-            if not os.path.exists(out_path):
-                header = True
-            else:
-                header = False
-            pose_s.to_csv(out_path, mode='a', header=header)
-
-        self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
+    # def scout_interface(self):
+    #     """For the basic process of sequence design between two halves of an interface, write the necessary files for
+    #     refinement (FastRelax), redesign (FastDesign), and metrics collection (Filters & SimpleMetrics)
+    #
+    #     Stores job variables in a [stage]_flags file and the command in a [stage].sh file. Sets up dependencies based
+    #     on the DesignDirectory
+    #     """
+    #     # Set up the command base (rosetta bin and database paths)
+    #     main_cmd = copy.copy(script_cmd)
+    #     main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
+    #     self.prepare_symmetry_for_rosetta()
+    #     self.get_fragment_metrics()
+    #     self.make_path(self.scripts)
+    #     flags = self.prepare_rosetta_flags(out_path=self.scripts)
+    #
+    #     # DESIGN: Prepare command and flags file
+    #     evolutionary_profile = self.info.get('design_profile')
+    #     # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
+    #     scout_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
+    #         [
+    #          '-in:file:s', self.refined_pdb, '@%s' % flags,
+    #          '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[12]),
+    #          '-out:suffix', '_%s' % PUtils.stage[12], '-no_nstruct_label', 'true']
+    #
+    #     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
+    #     metric_cmd = main_cmd + \
+    #         ['-in:file:s', self.scouted_pdb,
+    #          '@%s' % flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol',
+    #          os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
+    #     metric_cmds = [metric_cmd + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
+    #
+    #     # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
+    #     self.log.info('Design Command: %s' % subprocess.list2cmdline(scout_cmd))
+    #     for idx, metric_cmd in enumerate(metric_cmds, 1):
+    #         self.log.info('Metrics Command %d: %s' % (idx, subprocess.list2cmdline(metric_cmd)))
+    #     if self.script:
+    #         write_shell_script(subprocess.list2cmdline(scout_cmd), name=PUtils.stage[12], out_path=self.scripts,
+    #                            additional=[subprocess.list2cmdline(command) for command in metric_cmds])
+    #     else:
+    #         scout_process = subprocess.Popen(scout_cmd)
+    #         # Wait for Rosetta Design command to complete
+    #         scout_process.communicate()
+    #         for metric_cmd in metric_cmds:
+    #             metrics_process = subprocess.Popen(metric_cmd)
+    #             metrics_process.communicate()
+    #
+    #     # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+    #     if not self.script:
+    #         pose_s = self.design_analysis()
+    #         out_path = os.path.join(self.all_scores, PUtils.analysis_file % ('All', ''))
+    #         if not os.path.exists(out_path):
+    #             header = True
+    #         else:
+    #             header = False
+    #         pose_s.to_csv(out_path, mode='a', header=header)
+    #
+    #     self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
 
     def prepare_rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
@@ -1147,6 +1148,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         on the DesignDirectory
         """
         # Set up the command base (rosetta bin and database paths)
+        if self.scout:
+            protocol = PUtils.stage[12]
+            generate_files_cmd = []
+            nstruct_instruct = ['-no_nstruct_label', 'true']
+            metrics_pdb = ['-in:file:s', self.scouted_pdb]
+            metrics_flags = 'repack=no'
+        else:
+            protocol = PUtils.stage[2]
+            generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list]
+            nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
+            metrics_pdb = ['-in:file:l', self.pdb_list]
+            metrics_flags = ''
+
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         self.prepare_symmetry_for_rosetta()
@@ -1154,7 +1168,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.make_path(self.scripts)
         flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
-        if self.consensus:
+        if self.consensus:  # Todo add a sbatch generator to the symdesign main
             if self.design_with_fragments:
                 consensus_cmd = main_cmd + relax_flags + \
                     ['@%s' % flags, '-in:file:s', self.consensus_pdb, '-in:file:native', self.refined_pdb,
@@ -1175,19 +1189,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
-            ['-in:file:s', self.refined_pdb, '@%s' % flags,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[2]),
-             '-out:suffix', '_%s' % PUtils.stage[2], '-nstruct', str(self.number_of_trajectories)]
+            ['-in:file:s', self.refined_pdb, '@%s' % flags, '-out:suffix', '_%s' % protocol,
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)] + nstruct_instruct
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list]
-        metric_cmd = main_cmd + \
-            ['-in:file:l', self.pdb_list, '@%s' % flags,
-             '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[3])]
+        metric_cmd = main_cmd + metrics_pdb + \
+            ['@%s' % flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol',
+             os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
-        if self.mpi:
+        if self.mpi and not self.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
             metric_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + metric_cmd
             self.script = True
@@ -1207,7 +1218,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             metric_cmds.append(_metric_cmd)
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.script:
-            write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2], out_path=self.scripts,
+            write_shell_script(subprocess.list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[subprocess.list2cmdline(generate_files_cmd)] +
                                [subprocess.list2cmdline(command) for command in metric_cmds])
             #                  status_wrap=self.serialized_info,
@@ -1229,10 +1240,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 header = False
             pose_s.to_csv(out_path, mode='a', header=header)
 
-        # write_shell_script('', name=PUtils.interface_design, out_path=self.scripts,
-        #                    additional=['bash %s' % design_script for design_script in shell_scripts])
         self.info['status'] = {PUtils.stage[stage]: False for stage in [1, 2, 3, 4, 5]}  # change active stage
-        # write_commands(shell_scripts, name=PUtils.interface_design, out_path=self.scripts)
 
     def transform_oligomers_to_pose(self, refined=True, oriented=False, **kwargs):
         """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
@@ -1608,10 +1616,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.info['fragment_data'] = self.pose.interface_data_file
         self.info['fragment_profile'] = self.pose.fragment_pssm_file
         self.info['fragment_database'] = self.pose.frag_db
-        if self.scout:
-            self.scout_interface()
-        else:
-            self.prepare_rosetta_interface_design()
+        # if self.scout:
+        #     self.scout_interface()
+        # else:
+        self.prepare_rosetta_interface_design()
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
