@@ -1,5 +1,6 @@
 import os
 import copy
+import re
 from math import ceil, sqrt
 import shutil
 import subprocess
@@ -24,12 +25,12 @@ from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
 from Pose import Pose
-from DesignMetrics import columns_to_rename, read_scores, keys_from_trajectory_number, join_columns, groups, \
-    necessary_metrics, columns_to_new_column, delta_pairs, summation_pairs, unnecessary, rosetta_terms, \
+from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, \
+    necessary_metrics, columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, \
     dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
     interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, \
     protocols_of_interest, df_permutation_test, calc_relative_sa, clean_up_intermediate_columns, \
-    master_metrics, fragment_metric_template, protocol_specific_columns
+    master_metrics, fragment_metric_template, protocol_specific_columns  # summation_pairs, keys_from_trajectory_number,
 from SequenceProfile import parse_pssm, generate_multiple_mutations, get_db_aa_frequencies, simplify_mutation_dict, \
     make_mutations_chain_agnostic, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, multi_chain_alignment  # , format_mutations, generate_sequences
@@ -1720,13 +1721,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
             protocol_s = scores_df[groups]
-            protocol_s.replace({'combo_profile': 'design_profile'}, inplace=True)  # ensure proper profile name
+            # protocol_s.replace({'combo_profile': 'design_profile'}, inplace=True)  # ensure proper profile name
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
             remove_columns = rosetta_terms + hbonds_columns + per_res_columns + unnecessary + [groups]
             scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
-            self.log.debug('Score columns present: %s' % scores_df.columns.tolist())
+            scores_columns = scores_df.columns.to_list()
+            self.log.debug('Score columns present: %s' % scores_columns)
             # Replace empty strings with numpy.notanumber (np.nan) and convert remaining to float
             scores_df.replace('', np.nan, inplace=True)
             scores_df.fillna(dict(zip(protocol_specific_columns, repeat(0))), inplace=True)
@@ -1825,6 +1827,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Calculate new metrics from combinations of other metrics
             scores_df['total_interface_residues'] = len(interface_residues)
+            # sum columns using tuple [0] + [1]
+            summation_pairs = \
+                {'buns_unbound': list(filter(re.compile('buns_.*_unbound').match, scores_columns)),
+                 'interface_energy_bound': list(filter(re.compile('interface_energy_.*_bound').match, scores_columns)),
+                 'interface_energy_unbound':
+                     list(filter(re.compile('interface_energy_.*_unbound').match, scores_columns)),
+                 'sasa_hydrophobic_bound': list(filter(re.compile('sasa_hydrophobic_.*_bound').match, scores_columns)),
+                 'sasa_polar_bound': list(filter(re.compile('sasa_polar_.*_bound').match, scores_columns)),
+                 'sasa_total_bound': list(filter(re.compile('sasa_total_.*_bound').match, scores_columns)),
+                 'solvation_energy_bound': list(filter(re.compile('solvation_energy_.*_bound').match, scores_columns)),
+                 'solvation_energy_unbound':
+                     list(filter(re.compile('solvation_energy_.*_unbound').match, scores_columns))
+                 # 'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
+                 # 'buns_heavy_total': ('buns_asu', 'buns_nano'),
+                 }
             scores_df = columns_to_new_column(scores_df, summation_pairs)
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
