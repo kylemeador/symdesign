@@ -54,6 +54,7 @@
 	</MOVE_MAP_FACTORIES>
 	
 	<MOVERS>
+		<AddJobPairData name="job_info" key="protocol" value="favor_profile" value_type="string"/>
 		# This mover is unique for the favor protocol
 		<FavorSequenceProfile name="fsp" pssm="%%design_profile%%" scaling="none" scorefxns="2015_nano_cst_fsp" weight="1"/>
 		# set all interface residues to GLY, leave everything else untouched
@@ -80,6 +81,7 @@
 		<Add mover_name="fsp"/>
 		<Add mover_name="design_start"/>
 		<Add mover_name="design_loop"/>
+		<Add mover_name="job_info"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>

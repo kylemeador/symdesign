@@ -12,6 +12,7 @@
 	</FILTERS>
 
 	<MOVERS>
+		<AddJobPairData name="job_info" key="protocol" value="refine" value_type="string"/>
 		# Generates symmetry for the system in question using %%sdf%% or %%dist%%
 		<SetupForSymmetry name="point_group" definition="%%sdf%%"/>
 		<MakeLayerMover name="layer" contact_dist="%%dist%%"/>
@@ -44,6 +45,7 @@
 		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry_switch"/>
 		<Add mover_name="refine"/>
+		<Add mover_name="job_info"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
 

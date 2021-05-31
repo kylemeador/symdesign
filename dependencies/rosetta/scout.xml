@@ -108,12 +108,12 @@
     </FILTERS>
 
     <MOVERS>
+        <AddJobPairData name="job_info" key="protocol" value="scout" value_type="string"/>
         # generates symmetry for the system in question using %%sdf%% or %%dist%%
 		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
 		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
 		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
         <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
-        <SwitchMover name="scout_switch" movers="null" selected="null"/>
 		# set all interface residues to GLY, leave everything else untouched
 		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
         # the main routine to perform metropolis criteria monte carlo. init specifies -ex1,-ex2 should be used
@@ -156,6 +156,7 @@
         <Add mover_name="rim_design"/>
         <Add mover_name="rotamer_trials_min_mover"/>
 		<Add mover_name="measure_interface_bound"/>
+		<Add mover_name="job_info"/>
 <!--        <Add mover_name="design_block"/>-->
 <!--					<Add mover_name="run_core_design_metrics"/>-->
 <!--        <Add mover_name="RP_core_design_residue_count"/>-->
