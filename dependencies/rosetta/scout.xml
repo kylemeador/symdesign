@@ -48,8 +48,8 @@
         <SymmetricalResidue name="core_interface1_sym" selector="core_interface1"/>
         <And name="core_interface2" selectors="core_residues,interface2"/>
         <SymmetricalResidue name="core_interface2_sym" selector="core_interface2"/>
-        <Not name="not_core_interface1" selectors="core_interface1"/>
-        <Not name="not_core_interface2" selectors="core_interface2"/>
+        <Not name="not_core_interface1" selector="core_interface1"/>
+        <Not name="not_core_interface2" selector="core_interface2"/>
         <And name="rim_interface1" selectors="not_core_interface1,interface1"/>
         <And name="rim_interface2" selectors="not_core_interface2,interface2"/>
         <Or name="rim_residues" selectors="rim_interface1,rim_interface2"/>
@@ -58,6 +58,7 @@
     <TASKOPERATIONS>
         # standard task operation to pull in commandline options importantly -ex1, -ex2
         <InitializeFromCommandline name="init"/>
+        <ExtraRotamersGeneric name="ex1" ex1="1" extrachi_cutoff="0"/> # ex2="0" ex3="0" ex4="0" ex1aro="0" ex2aro="0" ex1aro_exposed="0" ex2aro_exposed="0" ex1_sample_level="7" ex2_sample_level="7" ex3_sample_level="7" ex4_sample_level="7" ex1aro_sample_level="7" ex2aro_sample_level="7" ex1aro_exposed_sample_level="7" ex2aro_exposed_sample_level="7" exdna_sample_level="7"
         # restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
         <RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
         # standard operation to restrict all residues to repacking
@@ -84,7 +85,7 @@
     </MOVE_MAP_FACTORIES>
 
     <SIMPLE_METRICS>
-        <SelectedResidueCountMetric name="M_core_design_residue_count" residue_selector="hbnet_or_interface_neighbors_or_core"/>
+        <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
         # calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
         <InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano" custom_type="" force_rescore="false"/>
 <!--					<CalculatorMetric name="M_interaction_energy_density_metric" equation="E / Number" custom_type="filter_core_pack">-->
@@ -99,10 +100,10 @@
         <ShapeComplementarity name="shape_complementarity_core" min_sc="0.1" min_interface="0" residue_selector1="core_interface1_sym" residue_selector2="core_interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 <!--					<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
         <SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
-        <SimpleMetricFilter name="core_design_residue_count" metric="M_core_design_residue_count" comparison_type="gt" cutoff="10" confidence="1"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+        <SimpleMetricFilter name="interface_residue_count" metric="M_interface_residue_count" comparison_type="gt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
         <CalculatorFilter name="interaction_energy_density_filter" equation="E / Number"> # threshold="(real 0)"
             <Var name="E" filter="interaction_energy_filter"/>
-            <Var name="Number" filter="core_design_residue_count"/>
+            <Var name="Number" filter="interface_residue_count"/>
         </CalculatorFilter>
         <Report name="R_shape_complementarity_core"  filter="shape_complementarity_core"/>
     </FILTERS>
@@ -118,7 +119,7 @@
 		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
         # the main routine to perform metropolis criteria monte carlo. init specifies -ex1,-ex2 should be used
         <FastDesign name="core_design" task_operations="init,vrt,fssm_cutoff1,fssm_cutoff2,des_around_total,rim_no_pack" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
-        <FastDesign name="rim_design" task_operations="vrt,evolution_cutoff1,evolution_cutoff2,des_around_total,core_no_pack" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+        <FastDesign name="rim_design" task_operations="ex1,vrt,evolution_cutoff1,evolution_cutoff2,des_around_total,core_no_pack" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 <!--        <FastDesign name="int_design" task_operations="vrt,design_cutoff1,design_cutoff2,des_around_total" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
         # sample all rotamers to find minimum
         <SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/>
@@ -141,7 +142,7 @@
 <!--        <RunSimpleMetrics name="run_core_design_average_residue_energy" metrics="M_interaction_energy_density_metric" prefix="" suffix="" override="false"/>-->
         <FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_core" report_as="sc_hbnet_core" filter_name="shape_complementarity_core"/>
         <FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density_filter" report_as="ie_density_hbnet_core" filter_name="interaction_energy_density_filter"/>
-        <FilterReportAsPoseExtraScoresMover name="RP_core_design_residue_count" report_as="residue_count_hbnet_core" filter_name="core_design_residue_count"/>
+<!--        <FilterReportAsPoseExtraScoresMover name="RP_core_design_residue_count" report_as="residue_count_hbnet_core" filter_name="core_design_residue_count"/>-->
 <!--        <DumpPdb name="dump_pdb" fname="hbnet_interface_neighbors_and_core_packing.pdb" scorefxn="2015_nano_cst" tag_time="1"/>-->
         <Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
     </MOVERS>

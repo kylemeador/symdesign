@@ -36,6 +36,7 @@
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
 		<HBond name="hbond_residues_sym" residue_selector="tot_interface_sym" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano"/>
 <!--		<SymmetricalResidue name="hbond_residues" selector="hbond_residues_asu" />-->
+		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 
 	<TASKOPERATIONS>
@@ -83,7 +84,7 @@
 <!--		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>-->
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>
 		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
-		<SelectedResidueCountMetric name="M_core_design_residue_count" residue_selector="hbnet_or_interface_neighbors_or_core"/>
+        <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
 		<SequenceMetric name="M_sequence" custom_type="" residue_selector="full_pose"/>
 	</SIMPLE_METRICS>
 
@@ -101,7 +102,7 @@
 		<RunSimpleMetrics name="run_metrics_cst" metrics="M_int_energy_cst_per_res" prefix="" suffix="_cst" override="false"/>
 		<RunSimpleMetrics name="run_metrics_fsp" metrics="M_int_energy_fsp_per_res" prefix="" suffix="_fsp" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex" metrics="M_int_hbonds_res_selector,M_interaction_energy,M_int_energy_per_res,M_int_energy_total,M_solvation_energy,M_rmsd" prefix="" suffix="_complex" override="false"/>
-		<RunSimpleMetrics name="run_metrics_sequence" metrics="M_sequence" prefix="final" suffix="" override="false"/>
+		<RunSimpleMetrics name="run_metrics_sequence" metrics="M_sequence" prefix="final_" suffix="" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_complex" override="false"/>
@@ -134,10 +135,10 @@
 		<TotalSasa name="interface_area_all_nano_hydrophobic" threshold="10" hydrophobic="1" polar="0" task_operations="init,vrt,non_int_no_repack"/>
 		<TotalSasa name="interface_area_all_nano_polar" threshold="10" hydrophobic="0" polar="1" task_operations="init,vrt,non_int_no_repack"/>
 		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
-        <SimpleMetricFilter name="core_design_residue_count" metric="M_core_design_residue_count" comparison_type="gt" cutoff="10" confidence="1"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+        <SimpleMetricFilter name="interface_residue_count" metric="M_interface_residue_count" comparison_type="gt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
         <CalculatorFilter name="interaction_energy_density_filter" equation="E / Number"> # threshold="(real 0)"
             <Var name="E" filter="interaction_energy_filter"/>
-            <Var name="Number" filter="core_design_residue_count"/>
+            <Var name="Number" filter="interface_residue_count"/>
         </CalculatorFilter>
 		# TODO test for RMSD and buns_nano on more than 2 chains
 		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
@@ -245,7 +246,6 @@
 <!--		<Add filter_name="R_int_energy_context_complex"/>-->
 		<Add filter_name="R_shape_complementarity"/>
 		<Add filter_name="R_contact_count"/>
-		<Add filter_name="R_interaction_energy_density_filter"/>
 		<Add mover_name="run_metrics_hydrophobic_sasa"/>
 		<Add mover_name="run_metrics_polar_sasa"/>
 		<Add mover_name="run_metrics_sasa"/>
@@ -256,6 +256,7 @@
 		<Add mover_name="run_metrics_complex_sum_sasa_hydrophobic"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_polar"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_total"/>
+		<Add filter_name="R_interaction_energy_density_filter"/>
 <!--		<Add filter_name="R_buns_nano"/>-->
 <!--		<Add filter_name="R_buns_nano_hpol"/>-->
 <!--		<Add filter_name="R_interface_area_asu_total"/>-->
