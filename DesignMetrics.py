@@ -114,24 +114,6 @@ master_metrics = {'average_fragment_z_score':
                   'interface_area_polar':
                       {'description': 'Total polar interface buried surface area',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  # 'interface_area_hydrophobic_1_unbound':
-                  #     {'description': 'Sum of each interface residue\'s hydrophobic area for interface1',
-                  #      'direction': 'min', 'function': 'rank', 'filter': True},
-                  # 'interface_area_hydrophobic_2_unbound':
-                  #     {'description': 'Sum of each interface residue\'s hydrophobic area for interface2',
-                  #      'direction': 'min', 'function': 'rank', 'filter': True},
-                  # 'interface_area_polar_1_unbound':
-                  #     {'description': 'Sum of each interface residue\'s polar area for interface1',
-                  #      'direction': 'max', 'function': 'rank', 'filter': True},
-                  # 'interface_area_polar_2_unbound':
-                  #     {'description': 'Sum of each interface residue\'s polar area for interface2',
-                  #      'direction': 'max', 'function': 'rank', 'filter': True},
-                  # 'interface_area_total_1_unbound':
-                  #     {'description': 'Sum of each interface residue\'s total area for interface1',
-                  #      'direction': 'max', 'function': 'rank', 'filter': True},
-                  # 'interface_area_total_2_unbound':
-                  #     {'description': 'Sum of each interface residue\'s total area for interface2',
-                  #      'direction': 'max', 'function': 'rank', 'filter': True},
                   'interface_area_total':
                       {'description': 'Total interface buried surface area',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -400,22 +382,29 @@ nanohedra_metrics = ['nanohedra_score_normalized', 'nanohedra_score_center_norma
                      'total_non_fragment_interface_residues', 'percent_residues_fragment_total',
                      'percent_residues_fragment_center']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
-necessary_metrics = {'buns_complex', 'buns_1_unbound', 'buns_2_unbound', 'contact_count', 'coordinate_constraint',
+necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
-                     'hbonds_res_selection_2_bound', 'interface_connectivity_1', 'interface_connectivity_2',
-                     'interface_separation', 'interface_energy_1_bound', 'interface_energy_2_bound',
-                     'interface_energy_1_unbound', 'interface_energy_2_unbound', 'interface_energy_complex',
+                     'interface_connectivity_1',
+                     'interface_separation', 'interface_energy_1_bound',
+                     'interface_energy_1_unbound',  'interface_energy_complex',
                      'interaction_energy_complex', groups, 'rosetta_reference_energy', 'shape_complementarity',
                      'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
-                     'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
-                     'sasa_total_1_bound', 'sasa_total_2_bound', 'solvation_energy_complex', 'solvation_energy_1_bound',
-                     'solvation_energy_2_bound', 'solvation_energy_1_unbound', 'solvation_energy_2_unbound'}
+                     'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound',
+                     'sasa_total_1_bound', 'solvation_energy_complex', 'solvation_energy_1_bound',
+                     'solvation_energy_1_unbound'
+                     }
+#                      'buns_2_unbound',
+#                      'hbonds_res_selection_2_bound', 'interface_connectivity_2',
+#                      'interface_energy_2_bound', 'interface_energy_2_unbound',
+#                      'sasa_hydrophobic_2_bound', 'sasa_polar_2_bound', 'sasa_total_2_bound',
+#                      'solvation_energy_2_bound', 'solvation_energy_2_unbound',
+#                      }
 #                    'rmsd'
 #                      'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'number_hbonds', 'total_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments', 'interface_b_factor_per_res',
-
+# unused, just a placeholder for the metrics in population
 final_metrics = {'interface_buried_hbonds', 'contact_count', 'core', 'coordinate_constraint',
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
                  'divergence_interface_per_residue', 'favor_residue_energy',
@@ -448,31 +437,31 @@ final_metrics = {'interface_buried_hbonds', 'contact_count', 'core', 'coordinate
 #                   'fsp_total_stability', 'full_stability_complex',
 
 columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation',
-                     'relax_switch': groups, 'no_constraint_switch': groups, 'limit_to_profile_switch': groups,
-                     'combo_profile_switch': groups, 'design_profile_switch': groups,
-                     'favor_profile_switch': groups, 'consensus_design_switch': groups,
-                     'interface_energy_res_summary_complex': 'interface_energy_complex',
-                     'interface_energy_res_summary_1_bound': 'interface_energy_1_bound',
-                     'interface_energy_res_summary_2_bound': 'interface_energy_2_bound',
-                     'interface_energy_res_summary_1_unbound': 'interface_energy_1_unbound',
-                     'interface_energy_res_summary_2_unbound': 'interface_energy_2_unbound',
-                     'sasa_res_summary_hydrophobic_complex': 'sasa_hydrophobic_complex',
-                     'sasa_res_summary_polar_complex': 'sasa_polar_complex',
-                     'sasa_res_summary_total_complex': 'sasa_total_complex',
-                     'sasa_res_summary_hydrophobic_1_bound': 'sasa_hydrophobic_1_bound',
-                     'sasa_res_summary_polar_1_bound': 'sasa_polar_1_bound',
-                     'sasa_res_summary_total_1_bound': 'sasa_total_1_bound',
-                     'sasa_res_summary_hydrophobic_2_bound': 'sasa_hydrophobic_2_bound',
-                     'sasa_res_summary_polar_2_bound': 'sasa_polar_2_bound',
-                     'sasa_res_summary_total_2_bound': 'sasa_total_2_bound',
-                     'solvation_total_energy_complex': 'solvation_energy_complex',
-                     'solvation_total_energy_1_bound': 'solvation_energy_1_bound',
-                     'solvation_total_energy_2_bound': 'solvation_energy_2_bound',
-                     'solvation_total_energy_1_unbound': 'solvation_energy_1_unbound',
-                     'solvation_total_energy_2_unbound': 'solvation_energy_2_unbound',
-                     'R_int_connectivity_1': 'interface_connectivity_1',
-                     'R_int_connectivity_2': 'interface_connectivity_2',
                      'ref': 'rosetta_reference_energy',
+                     # 'relax_switch': groups, 'no_constraint_switch': groups, 'limit_to_profile_switch': groups,
+                     # 'combo_profile_switch': groups, 'design_profile_switch': groups,
+                     # 'favor_profile_switch': groups, 'consensus_design_switch': groups,
+                     # 'interface_energy_res_summary_complex': 'interface_energy_complex',
+                     # 'interface_energy_res_summary_1_bound': 'interface_energy_1_bound',
+                     # 'interface_energy_res_summary_2_bound': 'interface_energy_2_bound',
+                     # 'interface_energy_res_summary_1_unbound': 'interface_energy_1_unbound',
+                     # 'interface_energy_res_summary_2_unbound': 'interface_energy_2_unbound',
+                     # 'sasa_res_summary_hydrophobic_complex': 'sasa_hydrophobic_complex',
+                     # 'sasa_res_summary_polar_complex': 'sasa_polar_complex',
+                     # 'sasa_res_summary_total_complex': 'sasa_total_complex',
+                     # 'sasa_res_summary_hydrophobic_1_bound': 'sasa_hydrophobic_1_bound',
+                     # 'sasa_res_summary_polar_1_bound': 'sasa_polar_1_bound',
+                     # 'sasa_res_summary_total_1_bound': 'sasa_total_1_bound',
+                     # 'sasa_res_summary_hydrophobic_2_bound': 'sasa_hydrophobic_2_bound',
+                     # 'sasa_res_summary_polar_2_bound': 'sasa_polar_2_bound',
+                     # 'sasa_res_summary_total_2_bound': 'sasa_total_2_bound',
+                     # 'solvation_total_energy_complex': 'solvation_energy_complex',
+                     # 'solvation_total_energy_1_bound': 'solvation_energy_1_bound',
+                     # 'solvation_total_energy_2_bound': 'solvation_energy_2_bound',
+                     # 'solvation_total_energy_1_unbound': 'solvation_energy_1_unbound',
+                     # 'solvation_total_energy_2_unbound': 'solvation_energy_2_unbound',
+                     # 'R_int_connectivity_1': 'interface_connectivity_1',
+                     # 'R_int_connectivity_2': 'interface_connectivity_2',
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
@@ -518,18 +507,6 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 # columns_to_remove = ['decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
 #                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 
-# sum columns using tuple [0] + [1]
-summation_pairs = {'buns_unbound': ('buns_1_unbound', 'buns_2_unbound'),
-                   'interface_energy_bound': ('interface_energy_1_bound', 'interface_energy_2_bound'),
-                   'interface_energy_unbound': ('interface_energy_1_unbound', 'interface_energy_2_unbound'),
-                   'sasa_hydrophobic_bound': ('sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound'),
-                   'sasa_polar_bound': ('sasa_polar_1_bound', 'sasa_polar_2_bound'),
-                   'sasa_total_bound': ('sasa_total_1_bound', 'sasa_total_2_bound'),
-                   'solvation_energy_bound': ('solvation_energy_1_bound', 'solvation_energy_2_bound'),
-                   'solvation_energy_unbound': ('solvation_energy_1_unbound', 'solvation_energy_2_unbound')
-                   # 'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
-                   # 'buns_heavy_total': ('buns_asu', 'buns_nano'),
-                   }
 # subtract columns using tuple [0] - [1] to make delta column
 delta_pairs = {'interface_buried_hbonds': ('buns_complex', 'buns_unbound'),
                'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
@@ -636,23 +613,30 @@ def join_columns(x):
 
 
 def columns_to_new_column(df, column_dict, mode='add'):
-    """Find new column values by taking an operation of one column on another
+    """Set new column value by taking an operation of one column on another
 
+    Can perform summation and subtraction if a set of columns is provided
     Args:
         df (pandas.DataFrame): Dataframe where the columns are located
         column_dict (dict[mapping[str,tuple]]): Keys are new column names, values are tuple of existing columns where
-        value[0] mode(operation) value[1] = key
+        value[0] mode(operation) value[1] = df[key]
     Keyword Args:
         mode='add' (str) = What operator to use?
             Viable options are included in module operator, but could be 'sub', 'mul', 'truediv', etc.
     Returns:
-        df (pandas.DataFrame): Dataframe with new column values
+        (pandas.DataFrame): Dataframe with new column values
     """
-    for column, pair in column_dict.items():
+    for new_column, column_set in column_dict.items():
         try:
-            df[column] = operator.attrgetter(mode)(operator)(df[pair[0]], df[pair[1]])
+            df[new_column] = operator.attrgetter(mode)(operator)(df[column_set[0]], df[column_set[1]])
         except KeyError:
             pass
+        if len(column_set) > 2 and mode in ['add', 'sub']:  # >2 values in set, perform repeated operations Ex: SUM, SUB
+            for iteration in enumerate(column_set[2:], 2):  # perform an iteration for every N-2 items in the column_set
+                try:
+                    df[new_column] = operator.attrgetter(mode)(operator)(df[new_column], df[column_set[iteration]])
+                except KeyError:
+                    pass
 
     return df
 
@@ -672,7 +656,7 @@ def hbond_processing(score_dict, columns, offset=None):
         columns (list): ['hbonds_res_selection_complex', 'hbonds_res_selection_1_unbound',
             'hbonds_res_selection_2_unbound']
     Keyword Args:
-        offset=None (dict): {'A': 0, 'B': 102}
+        offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
     Returns:
         hbond_dict (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     """
@@ -700,43 +684,48 @@ def hbond_processing(score_dict, columns, offset=None):
     return hbond_dict
 
 
-def dirty_hbond_processing(score_dict, offset=None):  # columns
+def dirty_hbond_processing(score_data, offset=None):  # columns
     """Process Hydrogen bond Metrics from Rosetta score dictionary
 
     if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
     Args:
-        score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
+        score_data (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...',
                             'hbonds_res_selection_1_bound': '26A'}, ...}
     Keyword Args:
-        offset=None (dict): {'A': 0, 'B': 102} The amount to offset each chain by
+        offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
     Returns:
-        hbond_dict (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
+        (dict[mapping[str, set]]): {'0001': [34, 54, 67, 68, 106, 178], ...}
     """
     hbond_dict = {}
     res_offset = 0
-    for entry, data in score_dict.items():
-        entry_dict = {}
+    for entry, data in score_data.items():
+        unbound_bonds, complex_bonds = set(), set()
+        # hbonds_entry = []
         # for column in columns:
-        for column in data:
+        for column, value in data.items():
             if column.startswith('hbonds_res_selection'):
-                hbonds = data[column].split(',')
+                hbonds = value.split(',')
                 meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
                 # ensure there are hbonds present
-                if hbonds[0] == '' and len(hbonds) == 1:
-                    hbonds = set()
-                else:
-                    if meta_data[-1] == 'bound' and offset:  # 'oligomer'
-                        # find offset according to chain
-                        res_offset = offset[meta_data[-2]]
-                    for i in range(len(hbonds)):
-                        hbonds[i] = res_offset + int(hbonds[i][:-1])  # remove chain ID off last index of string
-                entry_dict[meta_data[3]] = set(hbonds)
-        if len(entry_dict) == 3:
-            hbond_dict[entry] = list(entry_dict['complex'].difference(entry_dict['1']).difference(entry_dict['2']))
-            #                                                         entry_dict['A']).difference(entry_dict['B'])
-        else:
-            hbond_dict[entry] = list()
+                # if hbonds[0] == '' and len(hbonds) == 1:
+                parsed_hbonds = set()
+                # else:
+                if meta_data[-1] == 'bound' and offset:  # find offset according to chain
+                    res_offset = offset[meta_data[-2]]
+                for i in range(len(hbonds)):
+                    # hbonds[i] = res_offset + int(hbonds[i][:-1])  # remove chain ID off last index of string
+                    parsed_hbonds.add(res_offset + int(hbonds[i][:-1]))  # remove chain ID off last index of string
+                if meta_data[3] == 'complex':
+                    complex_bonds = parsed_hbonds
+                else:  # from another state
+                    unbound_bonds.union(parsed_hbonds)
+        if complex_bonds:  # 'complex', '1', '2'
+            hbond_dict[entry] = complex_bonds.difference(unbound_bonds)
+            # hbond_dict[entry] = [hbonds_entry['complex'].difference(hbonds_entry['1']).difference(hbonds_entry['2']))]
+            #                                                         hbonds_entry['A']).difference(hbonds_entry['B'])
+        else:  # no hbonds were found in the complex
+            hbond_dict[entry] = set()
             # logger.error('%s: Missing hbonds_res_selection_ data for %s. Hbonds inaccurate!' % (pose, entry))
 
     return hbond_dict
@@ -806,7 +795,7 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
         columns (list): ['per_res_energy_complex_5', 'per_res_sasa_polar_1_unbound_5', 
             'per_res_energy_1_unbound_5', ...]
     Keyword Args:
-        offset=None (dict): {'A': 0, 'B': 102} Whether to offset the residue numbers during processing
+        offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
@@ -887,7 +876,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
         mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
                            '0001': {mutation_index: {}, ...}, ...}
     Keyword Args:
-        offset=None (dict): {'A': 0, 'B': 102}
+        offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 22.29,
