@@ -2,10 +2,12 @@
 
 	<SCOREFXNS>
 		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
-		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015" weights="ref2015"/>
+<!--		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>-->
 <!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
 <!--		</ScoreFunction>-->
 		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+		<ScoreFunction name="2015_solvation" weights="ref2015"/>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -25,7 +27,7 @@
 		<Or name="interface_and_neighbors" selectors="entity_interface_residues,entity_residue_neighbors"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
 		<Not name="residues_not_at_interface" selector="interface_and_neighbors"/>
-		<HBond name="hbond_residues" residue_selector="entity_interface_residues" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano"/>
+		<HBond name="hbond_residues" residue_selector="entity_interface_residues" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>
 		# all residues
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
