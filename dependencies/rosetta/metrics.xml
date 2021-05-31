@@ -19,8 +19,8 @@
 <!--		<Or name="tot_interface" selectors="interface1,interface2"/>-->
 <!--		<Or name="tot_interface_sym" selectors="interface1_sym,interface2_sym"/>-->
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
-		<HBond name="hbond_residues_sym" residue_selector="interface%%interface%%" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano_cst"/>
-<!--		<SymmetricalResidue name="hbond_residues" selector="hbond_residues_asu" />-->
+		<HBond name="hbond_residues" residue_selector="interface%%interface%%" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano"/>
+<!--		<SymmetricalResidue name="hbond_residues_sym" selector="hbond_residues"/>-->
 		# all residues
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
@@ -36,7 +36,7 @@
 
 	<SIMPLE_METRICS>
 		# gather the residues involved in a residue selector
-		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues_sym"/>
+		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues"/>
 		# find the per residue energy of residues in a residue_selector
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		# gather the per residue SASA of a residue selection
