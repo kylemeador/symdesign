@@ -45,9 +45,10 @@
 		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="all_sasa"/>
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
-		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum"/>
-		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix
-		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum"/>
+		<ResidueSummaryMetric name="M_int_energy_total_unbound" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%interface%%_unbound"/>
+		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_%%interface%%_unbound"/>
+		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_%%interface%%_unbound"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix
+		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum" use_cached_data="true" cache_suffix="_total_%%interface%%_unbound"/>
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano_solvation"/>
 	</SIMPLE_METRICS>
 
@@ -74,7 +75,7 @@
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_%%interface%%_bound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_%%interface%%_bound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_%%interface%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%interface%%_unbound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total_unbound,M_solvation_energy" prefix="" suffix="_%%interface%%_unbound" override="false"/>
 		<!-- <RunSimpleMetrics name="run_metrics_hydrophobic_sasa_unbound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_unbound" override="false"/>  -->
 			<!-- <RunSimpleMetrics name="run_metrics_polar_sasa_unbound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_unbound" override="false"/>  -->
 			<!-- <RunSimpleMetrics name="run_metrics_sasa_unbound" metrics="M_sasa_per_res" prefix="" suffix="_total_unbound" override="false"/>  -->
