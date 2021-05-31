@@ -14,13 +14,13 @@
 	<MOVERS>
 		<AddJobPairData name="job_info" key="protocol" value="refine" value_type="string"/>
 		# Generates symmetry for the system in question using %%sdf%% or %%dist%%
-		<SetupForSymmetry name="point_group" definition="%%sdf%%"/>
+		<SetupForSymmetry name="point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
 		<MakeLayerMover name="layer" contact_dist="%%dist%%"/>
 		<MakeLatticeMover name="lattice" contact_dist="%%dist%%"/>
 		<FastRelax name="sym_refine" disable_design="true" scorefxn="2015_nano_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>
 		<FastRelax name="asymmetric_refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>
 		# Symmetry selector and switch reporting
-		<FilterReportAsPoseExtraScoresMover name="sym_false" report_as="sym_status" filter_name="false_filter"/>
+		<FilterReportAsPoseExtraScoresMover name="asymmetric" report_as="sym_status" filter_name="false_filter"/>
 		<FilterReportAsPoseExtraScoresMover name="sym_true" report_as="sym_status" filter_name="true_filter"/>
 		<ParsedProtocol name="make_point_group">
 			<Add mover_name="sym_true"/>
@@ -34,9 +34,9 @@
 			<Add mover_name="sym_true"/>
 			<Add mover_name="lattice"/>
 		</ParsedProtocol>
-		<ParsedProtocol name="asymmetric">
-			<Add mover_name="sym_false"/>
-		</ParsedProtocol>
+<!--		<ParsedProtocol name="asymmetric">-->
+<!--		<Add mover_name="asymmetric"/>-->
+<!--		</ParsedProtocol>-->
 		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>
 		<If name="refine" filter_name="read_sym" true_mover_name="sym_refine" false_mover_name="asymmetric_refine" />
 	</MOVERS>
