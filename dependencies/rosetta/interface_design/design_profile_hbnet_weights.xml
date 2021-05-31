@@ -3,7 +3,7 @@
 	<SCOREFXNS>
 		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
 		<ScoreFunction name="2015_nano_hbnet_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%">
-			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
+<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
 			<Reweight scoretype="hbnet" weight="0.5" />
 			<Reweight scoretype="buried_unsatisfied_penalty" weight="0.5" />
 		</ScoreFunction>
