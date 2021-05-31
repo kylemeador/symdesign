@@ -87,6 +87,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.scores_file = None  # /program_root/Projects/project_Designs/design/data/name.sc
         self.designs = None  # /program_root/Projects/project_Designs/design/designs
         self.scripts = None  # /program_root/Projects/project_Designs/design/scripts
+        # self.sdf_dir = None  # path/to/directory/sdf/
         self.frags = None  # /program_root/Projects/project_Designs/design/matching_fragments
         self.frag_file = None  # /program_root/Projects/project_Designs/design/
         self.pose_file = None  # /program_root/Projects/project_Designs/design/
@@ -142,8 +143,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.oligomers = []
         self.pose = None  # contains the design's Pose object
         self.pose_id = None
-        self.sdf_dir = None  # path/to/directory/sdf/
-        self.sdfs = {}
+        # self.sdfs = {}
         self.sym_def_file = None
         self.symmetry_protocol = None
         self.score_db = None
@@ -1068,8 +1068,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if self.design_symmetry in ['T', 'O', 'I']:
                     self.sym_def_file = sdf_lookup(self.sym_entry_number)
                 elif self.design_symmetry in valid_subunit_number.keys():  # todo standardize oriented versions of these
-                    self.make_path(self.sdf_dir)
-                    self.sym_def_file = self.pose.pdb.make_sdf(out_path=self.sdf_dir)
+                    # self.make_path(self.sdf_dir)
+                    self.make_path(self.data)
+                    self.sym_def_file = self.pose.pdb.make_sdf(out_path=self.data)
                 else:
                     raise ValueError('The symmetry %s is unavailable at this time!')
             else:  # layer or space
@@ -1191,12 +1192,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             metric_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + metric_cmd
             self.script = True
 
-        metric_cmds = [metric_cmd + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
-
-        # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
         self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
-        for idx, metric_cmd in enumerate(metric_cmds, 1):
-            self.log.info('Metrics Command %d: %s' % (idx, subprocess.list2cmdline(metric_cmd)))
+        metric_cmds = []
+        for idx, entity in enumerate(self.pose.entities, 1):
+            if entity not in self.pose.active_entities:
+                continue
+            if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
+            else:
+                entity_sdf = ''
+            _metric_cmd = metric_cmd + ['-parser:script_vars', metrics_flags, 'entity=%d' % idx, entity_sdf,
+                                        'symmetry=%s' % 'make_point_group' if entity.is_oligomeric else 'asymmetric']
+            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, subprocess.list2cmdline(_metric_cmd)))
+            metric_cmds.append(_metric_cmd)
+        # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.script:
             write_shell_script(subprocess.list2cmdline(design_cmd), name=PUtils.stage[2], out_path=self.scripts,
                                additional=[subprocess.list2cmdline(generate_files_cmd)] +
