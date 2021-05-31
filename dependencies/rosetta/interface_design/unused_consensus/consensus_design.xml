@@ -2,8 +2,8 @@
 
 	<SCOREFXNS>
 		# patched version, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%">
-			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
+		<ScoreFunction name="2015_nano" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%">
+<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
 			<Reweight scoretype="res_type_constraint" weight="0.5"/> # patch doesn't work here
 		</ScoreFunction>
 	</SCOREFXNS>

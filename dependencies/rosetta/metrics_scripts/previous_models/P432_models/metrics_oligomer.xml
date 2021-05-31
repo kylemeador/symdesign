@@ -4,8 +4,8 @@
 		<ScoreFunction name="2015" weights="ref2015">
 			<Reweight scoretype="coordinate_constraint" weight="%%cst_value%%"/>
 		</ScoreFunction>
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%sym_score_patch%%">
-			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
+		<ScoreFunction name="2015_nano" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%">
+<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
 		</ScoreFunction>
 	</SCOREFXNS>
 
