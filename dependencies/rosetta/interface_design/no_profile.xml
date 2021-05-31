@@ -50,6 +50,7 @@
 	</MOVE_MAP_FACTORIES>
 
 	<MOVERS>
+		<AddJobPairData name="job_info" key="protocol" value="no_constraint" value_type="string"/>
 		# set all interface residues to GLY, leave everything else untouched
 		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
 		# the main routine to perform metropolis criteria monte carlo
@@ -73,6 +74,7 @@
 	<PROTOCOLS>
 		<Add mover_name="design_start"/>
 		<Add mover_name="design_loop"/>
+		<Add mover_name="job_info"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>

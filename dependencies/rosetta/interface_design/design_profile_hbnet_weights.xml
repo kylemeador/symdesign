@@ -66,6 +66,7 @@
 	</MOVE_MAP_FACTORIES>
 	
 	<MOVERS>
+		<AddJobPairData name="job_info" key="protocol" value="design_profile_hbnet_weights" value_type="string"/>
 		# generates symmetry for the system in question using %%sdf%% or %%dist%%
 		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
 		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
@@ -107,6 +108,7 @@
 <!--		<Add mover_name="measure_interface_bound"/>-->
 		<Add mover_name="design_start"/>
 		<Add mover_name="design_loop"/>
+		<Add mover_name="job_info"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
 

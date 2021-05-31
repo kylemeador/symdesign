@@ -82,6 +82,7 @@
 	</MOVE_MAP_FACTORIES>
 
 	<MOVERS>
+		<AddJobPairData name="job_info" key="protocol" value="hbnet_design_profile" value_type="string"/>
 		# generates symmetry for the system in question using %%sdf%% or %%dist%%
 		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
 		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
@@ -416,6 +417,7 @@
   		<Add mover_name="hbnet_corepack"/>
   		<Add mover_name="hbnet_trim_design_pool"/>
   		<Add mover_name="finalize_interface_packing"/>
+		<Add mover_name="job_info"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
 
