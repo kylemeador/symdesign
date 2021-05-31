@@ -27,6 +27,9 @@
 		<Or name="interface_or_neighbors2_sym" selectors="interface2_sym,interface2_sym_neighbor"/>
 		# combined groups of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
+<!--		<And name="symmetric_self_interface_residues" selectors="interface1,interface2"/>-->
+<!--		<Not name="not_symmetric_self_interface_residues" selector="symmetric_self_interface_residues"/>-->
+<!--		<SymmetricalResidue name="symmetric_self_interface_residues_sym" selector="symmetric_self_interface_residues"/>-->
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
 		<Or name="tot_interface_sym" selectors="interface1_sym,interface2_sym"/>
