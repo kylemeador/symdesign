@@ -926,12 +926,13 @@ if __name__ == '__main__':
         if queried_flags['design_range']:
             low, high = map(float, queried_flags['design_range'].split('-'))
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
+            if low_range < 0 or high_range > len(all_poses):
+                raise SDUtils.DesignError('The input --design_range is outside of the acceptable bounds [0-%d]'
+                                          % len(all_poses))
             logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
         else:
             low, high, low_range, high_range = None, None, None, None
-        if low_range < 0 or high_range > len(all_poses):
-            raise SDUtils.DesignError('The input --design_range is outside of the acceptable bounds [0-%d]'
-                                      % len(all_poses))
+
         if all_poses:
             if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
                 if nano:
