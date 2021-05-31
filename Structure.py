@@ -11,7 +11,7 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
 from Bio.SeqUtils import IUPACData
 
-from PathUtils import free_sasa_exe_path, stride_exe_path
+from PathUtils import free_sasa_exe_path, stride_exe_path, make_symmdef, scout_symmdef
 from SymDesignUtils import start_log, null_log, DesignError
 from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
@@ -1356,6 +1356,9 @@ class Entity(Chain, SequenceProfile):
         # Sets up whether Entity has full control over it's member Chain attributes
         self.is_oligomeric = False
         self.symmetry = None
+        self.rotation_d = {}
+        self.max_symmetry = None
+        self.dihedral_chain = None
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices, **kwargs)
         self._chains = []
         self.chain_ops = []
@@ -1615,6 +1618,207 @@ class Entity(Chain, SequenceProfile):
                 self.write(out_path=out_path, header=header)
 
             return out_path
+
+    def scout_symmetry(self, **kwargs):
+        """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file"""
+        struct_file = self.find_chain_symmetry(**kwargs)
+        self.find_max_chain_symmetry()
+
+        return struct_file
+
+    def find_chain_symmetry(self, struct_file=None):
+        """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
+
+        Keyword Args:
+            struct_file=None (str): The location of the input .pdb file
+        Requirements - all chains are the same length
+        This script translates the PDB center of mass to the origin then uses quaternion geometry to solve for the
+        rotations which superimpose chains provided by -i onto a designated chain (usually A). It returns the order of
+        the rotation as well as the axis along which the rotation must take place. The axis of the rotation only needs
+        to be translated to the center of mass to recapitulate the specific symmetry operation.
+
+        perl symdesign/dependencies/rosetta/sdf/scout_symmdef_file.pl -p 1ho1_tx_4.pdb -i B C D E F G H
+        >B:3-fold axis: -0.00800197 -0.01160998 0.99990058
+        >C:3-fold axis: 0.00000136 -0.00000509 1.00000000
+
+        Returns:
+            (str): The name of the file written for symmetry definition file creation
+        """
+        if not struct_file:
+            struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
+
+        # todo initiate this process in house using superposition3D for every chain
+        scout_cmd = ['perl', scout_symmdef, '-p', struct_file, '-a', self.chain_ids[0], '-i'] + self.chain_ids[1:]
+        self.log.info(subprocess.list2cmdline(scout_cmd))
+        p = subprocess.Popen(scout_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        out, err = p.communicate()
+
+        for line in out.decode('utf-8').strip().split('\n'):
+            # chain = line[0]  # grabs the first character
+            chain, symmetry, axis = line.split(':')
+            self.rotation_d[chain] = \
+                {'sym': int(symmetry[:6].rstrip('-fold')), 'axis': np.array(list(map(float, axis.strip().split())))}
+            # the returned axis in this representation emanates from the origin as Structure has been translated there
+
+        return struct_file
+
+    def find_max_chain_symmetry(self):
+        """Find the highest order symmetry in the Structure
+
+        Sets:
+            self.max_symmetry (str)
+        """
+        max_sym, max_chain = 0, None
+        for chain, data in self.rotation_d.items():
+            if data['sym'] > max_sym:
+                max_sym = data['sym']
+                max_chain = chain
+
+        self.max_symmetry = max_chain
+
+    def is_dihedral(self):
+        """Report whether a structure is dihedral or not
+
+        Sets:
+            self.dihedral_chain (str): The name of the chain that is dihedral
+        Returns:
+            (bool): True if the Structure is dihedral, False if not
+        """
+        if not self.max_symmetry:
+            self.scout_symmetry()
+        # ensure if the structure is dihedral a selected dihedral_chain is orthogonal to the maximum symmetry axis
+        max_symmetry_data = self.rotation_d[self.max_symmetry]
+        if len(self.chain_ids) / max_symmetry_data['sym'] == 2:
+            for chain, data in self.rotation_d.items():
+                if data['sym'] == 2:
+                    if np.dot(self.rotation_d[self.max_symmetry]['axis'], data['axis']) < 0.01:
+                        self.dihedral_chain = chain
+
+                        return True
+        elif 1 < len(self.chain_ids) / max_symmetry_data['sym'] < 2:
+            self.log.critical('The symmetry of %s is malformed! Highest symmetry (%d-fold) is less than 2x greater than'
+                              ' the number (%d) of chains' % (self.name, max_symmetry_data['sym'], len(self.chain_ids)))
+
+        return False
+
+    def make_sdf(self, struct_file=None, out_path=os.getcwd(), **kwargs):
+        """Use the make_symmdef_file.pl script from Rosetta to make a symmetry definition file on the Structure
+
+        perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb.pdb -i B -q
+
+        Keyword Args:
+            struct_file=None (str): The location of the input .pdb file
+            out_path=os.getcwd() (str): The location the symmetry definition file should be written
+            # dihedral=False (bool): Whether the assembly is in dihedral symmetry
+            # modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
+            # energy=2 (int): Scalar to modify the Rosetta energy by
+        Returns:
+            (str): Symmetry definition filename
+        """
+        out_file = os.path.join(out_path, '%s.sdf' % self.name)
+        if os.path.exists(out_file):
+            return out_file
+
+        struct_file = self.scout_symmetry(struct_file=struct_file)
+        dihedral = self.is_dihedral()
+        if dihedral:  # dihedral_chain will be set
+            chains = '%s %s' % (self.max_symmetry, self.dihedral_chain)
+        else:
+            chains = self.max_symmetry
+
+        # if not struct_file:
+        #     struct_file = self.write(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
+        sdf_cmd = ['perl', make_symmdef, '-p', struct_file, '-a', self.chain_ids[0], '-i', chains, '-q']
+        self.log.info('Creating symmetry definition file: %s' % subprocess.list2cmdline(sdf_cmd))
+        # with open(out_file, 'w') as file:
+        p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        out, err = p.communicate()
+        assert p.returncode == 0, 'Symmetry definition file creation failed for %s' % self.name
+        if os.path.exists(struct_file):
+            os.system('rm %s' % struct_file)
+
+        self.format_sdf(out.decode('utf-8').split('\n'), to_file=out_file, dihedral=dihedral, **kwargs)
+        #               modify_sym_energy=False, energy=2)
+
+        return out_file
+
+    def format_sdf(self, lines, to_file=None, out_path=os.getcwd(), dihedral=False, modify_sym_energy=False, energy=2):
+        """Ensure proper sdf formatting before proceeding
+
+        Keyword Args:
+            to_file=None (str): The name of the symmetry definition file
+            out_path=os.getcwd() (str): The location the symmetry definition file should be written
+            dihedral=False (bool): Whether the assembly is in dihedral symmetry
+            modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
+            energy=2 (int): Scalar to modify the Rosetta energy by
+        Returns:
+            (str): The location the symmetry definition file was written
+        """
+        subunits, virtuals, jumps_com, jumps_subunit, trunk = [], [], [], [], []
+        for idx, line in enumerate(lines, 1):
+            if line.startswith('xyz'):
+                virtual = line.split()[1]
+                if virtual.endswith('_base'):
+                    subunits.append(virtual)
+                else:
+                    virtuals.append(virtual.lstrip('VRT'))
+                # last_vrt = line + 1
+            elif line.startswith('connect_virtual'):
+                jump = line.split()[1].lstrip('JUMP')
+                if jump.endswith('_to_com'):
+                    jumps_com.append(jump[:-7])
+                elif jump.endswith('_to_subunit'):
+                    jumps_subunit.append(jump[:-11])
+                else:
+                    trunk.append(jump)
+                last_jump = idx  # index of lines where the VRTs and connect_virtuals end. The "last jump"
+
+        assert set(trunk) - set(virtuals) == set(), 'Symmetry Definition File VRTS are malformed'
+        assert len(self.chain_ids) == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
+
+        if dihedral:  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
+            virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
+        else:
+            if '' in virtuals:
+                virtuals.remove('')
+
+        jumps_com_to_add = set(virtuals) - set(jumps_com)
+        count = 0
+        if jumps_com_to_add != set():
+            for jump_com in jumps_com_to_add:
+                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_com VRT%s VRT%s_base\n'
+                             % (jump_com, jump_com, jump_com))
+                count += 1
+            lines[-2] = lines[-2].strip() + (len(jumps_com_to_add) * ' JUMP%s_to_subunit') \
+                        % tuple(jump_subunit for jump_subunit in jumps_com_to_add)
+            lines[-2] += '\n'
+
+        jumps_subunit_to_add = set(virtuals) - set(jumps_subunit)
+        if jumps_subunit_to_add != set():
+            for jump_subunit in jumps_subunit_to_add:
+                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_subunit VRT%s_base SUBUNIT\n'
+                             % (jump_subunit, jump_subunit))
+                count += 1
+            lines[-1] = lines[-1].strip() + (len(jumps_subunit_to_add) * ' JUMP%s_to_subunit') \
+                % tuple(jump_subunit for jump_subunit in jumps_subunit_to_add)
+            lines[-1] += '\n'
+        if modify_sym_energy:
+            # new energy should equal the energy multiplier times the scoring subunit plus additional complex subunits
+            # where complex subunits = num_subunits - 1
+            # new_energy = 'E = %d*%s + ' % (energy, subunits[0])  # assumes subunits are read in alphanumerical order
+            # new_energy += ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:]))
+            lines[1] = '%s\n' % 'E = %d*%s + %s' \
+                % (energy, subunits[0], ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:])))
+
+        if not to_file:
+            to_file = os.path.join(out_path, '%s.sdf' % self.name)
+
+        with open(to_file, 'w') as f:
+            f.write('%s\n' % '\n'.join(lines))
+        if count != 0:
+            self.log.info('Symmetry Definition File was missing %d lines, so a fix was attempted. '
+                          'Modelling may be affected' % count)
+        return to_file
 
     # def update_attributes(self, **kwargs):
     #     """Update attributes specified by keyword args for all member containers"""
