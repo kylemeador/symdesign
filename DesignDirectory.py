@@ -1600,9 +1600,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             pass  # fragment generation was run and maybe succeeded. If not ^
         elif self.design_with_fragments and not self.fragment_observations and os.path.exists(self.frag_file):
             self.retrieve_fragment_info_from_file()
+        elif not self.design_with_fragments:
+            pass
         else:
             raise DesignError('Fragments were specified during design, but observations have not been yet been '
-                              'generated for this Design! Try with the flag --query_fragments or run %s'
+                              'generated for this Design! Try with the flag --generate_fragments or run %s'
                               % PUtils.generate_fragments)
         self.make_path(self.data)
         self.pose.interface_design(evolution=self.evolution, fragments=self.design_with_fragments,
