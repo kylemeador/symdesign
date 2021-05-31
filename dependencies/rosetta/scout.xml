@@ -149,7 +149,7 @@
 
     <PROTOCOLS>
         <Add mover_name="symmetry_switch"/>
-        <Add mover_name="scout_switch"/>
+<!--        <Add mover_name="scout_switch"/>-->
         <Add mover_name="design_start"/>
         <Add mover_name="core_design"/>
 <!--        <Add mover_name="RP_shape_complementarity_core"/> # save info to pose-->
