@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 from PathUtils import frag_text_file, master_log
-from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log
+from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
     transform_coordinate_sets, get_rotation_step, write_docking_parameters
@@ -356,16 +356,16 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
                                                           % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
 
-            interface_ghost_frag_cluster_res_freq_list = ijk_frag_db.info[int_ghost_frag.i_type][int_ghost_frag.j_type][
-                int_ghost_frag.k_type].get_central_residue_pair_freqs()
+            ghost_frag_central_freqs = \
+                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.get_ijk()).central_residue_pair_freqs
             # write out associated match information to frag_info_file
             write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
                                        overlap_error=z_value, match_number=frag_idx + 1,
-                                       central_frequencies=interface_ghost_frag_cluster_res_freq_list,
+                                       central_frequencies=ghost_frag_central_freqs,
                                        out_path=matching_fragments_dir, pose_id=pose_id)
 
             # Keep track of residue pair frequencies and match information
-            res_pair_freq_info_list.append(FragMatchInfo(interface_ghost_frag_cluster_res_freq_list,
+            res_pair_freq_info_list.append(FragMatchInfo(ghost_frag_central_freqs,
                                                          surf_frag_chain1, surf_frag_central_res_num1,
                                                          surf_frag_chain2, surf_frag_central_res_num2, z_value))
 
