@@ -157,30 +157,29 @@ class DataStore:
 
 class ClusterInfoFile:
     def __init__(self, infofile_path):
-        self.infofile_path = infofile_path
-        self.name = None
+        # self.infofile_path = infofile_path
+        self.name = os.path.splitext(os.path.basename(infofile_path))[0]
         self.size = None
         self.rmsd = None
         self.representative_filename = None
         self.central_residue_pair_freqs = []
-        self.central_residue_pair_counts = []
-        self.load_info()
+        # self.central_residue_pair_counts = []
+        # self.load_info()
 
-    def load_info(self):
-        with open(self.infofile_path, "r") as f:
+    # def load_info(self):
+        with open(infofile_path, 'r') as f:
             info_lines = f.readlines()
 
         is_res_freq_line = False
         for line in info_lines:
-            if line.startswith("CLUSTER NAME:"):
-                self.name = line.split()[2]
-            elif line.startswith("CLUSTER SIZE:"):
+            # if line.startswith("CLUSTER NAME:"):
+            #     self.name = line.split()[2]
+            if line.startswith("CLUSTER SIZE:"):
                 self.size = int(line.split()[2])
             elif line.startswith("CLUSTER RMSD:"):
                 self.rmsd = float(line.split()[2])
             elif line.startswith("CLUSTER REPRESENTATIVE NAME:"):
                 self.representative_filename = line.split()[3]
-
             elif line.startswith("CENTRAL RESIDUE PAIR COUNT:"):
                 is_res_freq_line = False
             elif is_res_freq_line:
@@ -274,6 +273,7 @@ class FragmentDB:
             ijk_types = \
                 np.array([(i_type, j_type, k_type) for j_type, j_dict in self.paired_frags[i_type].items()
                           for k_type in j_dict])
+            # rmsd_array = np.array([self.info.cluster(type_set).rmsd for type_set in ijk_types])  # Todo
             rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
             self.indexed_ghosts[i_type] = (stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array)
 
@@ -288,7 +288,7 @@ class FragmentDatabase(FragmentDB):
         # self.paired_frags = None
         # self.info = None
         self.source = source
-        self.location = frag_directory.get(source, None)
+        self.location = frag_directory.get(source, None)  # Todo make dynamic upon unpickle and not loaded
         self.statistics = {}
         # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
@@ -307,6 +307,7 @@ class FragmentDatabase(FragmentDB):
                 self.get_monofrag_cluster_rep_dict()
                 self.get_intfrag_cluster_rep_dict()
                 self.get_intfrag_cluster_info_dict()
+                # self.get_cluster_info()
 
         self.get_db_statistics()
         self.parameterize_frag_length(length)

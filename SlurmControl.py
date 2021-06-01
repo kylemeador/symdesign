@@ -220,7 +220,7 @@ if __name__ == '__main__':
                       ' script to include ~10-20% more memory')
         else:
             reference_commands = SDUtils.to_iterable(args.file)
-            logger.info('There are a total of commands:', len(reference_commands))
+            logger.info('There are %d total commands' % len(reference_commands))
         # if args.array:
 
         # else:
