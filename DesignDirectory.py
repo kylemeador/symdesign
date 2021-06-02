@@ -583,8 +583,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.transform_d = self.info.get('pose_transformation', dict())
                 self.oligomer_names = self.info.get('oligomer_names', list())
                 self.entity_names = self.info.get('entity_names', list())
+                self.info['fragment_database'] = getattr(self.info.get('fragment_database'), 'source', 'biological_interfaces')
                 self.pickle_info()  # save this info on the first copy so that we don't have to construct again
-                # self.info['fragment_database'] = getattr(self.info.get('fragment_database'), 'source', 'biological_interfaces')
                 # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
                 self.interface_residue_ids = self.info.get('interface_residues', {})
