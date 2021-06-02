@@ -570,9 +570,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['nanohedra'] = True
                 self.info['oligomer_names'] = self.oligomer_names
                 self.entity_names = ['%s_1' % name for name in self.oligomer_names]
-                self.info['entity_names'] = self.entity_names  # Todo remove after T33
-                self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
-                self.pickle_info()  # save this info on the first copy so that we don't have to construct again
+                # self.info['entity_names'] = self.entity_names  # Todo remove after T33
+                # self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
+                # self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
@@ -583,7 +583,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.transform_d = self.info.get('pose_transformation', dict())
                 self.oligomer_names = self.info.get('oligomer_names', list())
                 self.entity_names = self.info.get('entity_names', list())
-                self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
+                self.info['fragment_database'] = getattr(self.info.get('fragment_database'), 'source', 'biological_interfaces')
+                # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
                 self.interface_residue_ids = self.info.get('interface_residues', {})
         if self.pre_refine:
@@ -1617,7 +1618,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.info['evolutionary_profile'] = self.pose.pssm_file
         self.info['fragment_data'] = self.pose.interface_data_file
         self.info['fragment_profile'] = self.pose.fragment_pssm_file
-        self.info['fragment_database'] = self.pose.frag_db
+        self.info['fragment_database'] = self.pose.frag_db.source
         # if self.scout:
         #     self.scout_interface()
         # else:
