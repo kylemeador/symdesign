@@ -536,6 +536,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
         self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
+        self.start_log()
         # self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
         self.scripts = os.path.join(self.path, PUtils.scripts)
@@ -595,8 +596,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
-
-        self.start_log()
 
     def get_wildtype_file(self):
         """Retrieve the wild-type file name from Design Directory"""
