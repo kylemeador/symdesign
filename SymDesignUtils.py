@@ -278,9 +278,11 @@ def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name:
         file_name = '%s.pkl' % file_name
-
-    with open(file_name, 'rb') as serial_f:
-        new_object = pickle.load(serial_f)
+    try:
+        with open(file_name, 'rb') as serial_f:
+            new_object = pickle.load(serial_f)
+    except EOFError as ex:
+        raise DesignError('The object serialized at location %s couldn\'t be accessed. No data present!' % file_name)
 
     return new_object
 
