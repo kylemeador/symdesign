@@ -139,8 +139,10 @@ class SequenceProfile:
 
         if fragments:  # add fragment information to the SequenceProfile
             if self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
-                self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
-                                                   for fragments in idx_d.values() for fragment in fragments])
+                retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
+                                      for fragments in idx_d.values() for fragment in fragments
+                                      if fragment['cluster'] not in self.frag_db.cluster_info]
+                self.frag_db.get_cluster_info(ids=retrieve_fragments)
             else:
                 raise DesignError('Fragments were specified but have not been added to the SequenceProfile! '
                                   'The Pose/Entity must call assign_fragments() with fragment information')
