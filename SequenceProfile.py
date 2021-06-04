@@ -2575,51 +2575,97 @@ def pdb_to_pose_num(reference):
     return offset
 
 
-def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
+def generate_multiple_mutations(reference, sequences, pose_num=True):
     """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
 
     Args:
-        reference (dict[mapping[str, str]]): {chain: sequence, ...}
-        pdb_sequences (dict[mapping[str, dict[mapping[str, str]]): {pdb_code: {chain: sequence, ...}, ...}
+        reference (dict[mapping[str, str]]): {chain: sequence, ...} The reference sequence to compare sequences to
+        sequences (dict[mapping[str, dict[mapping[str, str]]): {pdb_code: {chain: sequence, ...}, ...}
     Keyword Args:
         pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
         second Entity as Entity1 last residue + 1
     Returns:
         (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
+    # add reference sequence mutations
+    mutations = {'reference': {chain: {sequence_idx: {'from': aa, 'to': aa}
+                                       for sequence_idx, aa in enumerate(ref_sequence, 1)}
+                               for chain, ref_sequence in reference.items()}}
     #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
     # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
     #                    for chain, sequence in chain_sequences.items()}
     #              for pdb, chain_sequences in pdb_sequences.items()}
     try:
-        mutations = {}
-        for pdb, chain_sequences in pdb_sequences.items():
-            mutations[pdb] = {}
+        for name, chain_sequences in sequences.items():
+            mutations[name] = {}
             for chain, sequence in chain_sequences.items():
-                mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
+                mutations[name][chain] = generate_mutations(sequence, reference[chain], offset=False)
     except KeyError:
         raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
                           'reference' % chain)
-
-    # add reference sequence mutations
-    mutations['reference'] = {chain: {sequence_idx: {'from': aa, 'to': aa}
-                                      for sequence_idx, aa in enumerate(ref_sequence, 1)}
-                              for chain, ref_sequence in reference.items()}
-
     if pose_num:
-        pose_mutations = {}
         offset_dict = pdb_to_pose_num(reference)
-        for chain, offset in offset_dict.items():
-            for pdb_code in mutations:
-                if pdb_code not in pose_mutations:
-                    pose_mutations[pdb_code] = {}
-                pose_mutations[pdb_code][chain] = {}
-                for mutation_idx in mutations[pdb_code][chain]:
-                    pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
-        mutations = pose_mutations
-
+        # pose_mutations = {}
+        # for chain, offset in offset_dict.items():
+        #     for pdb_code in mutations:
+        #         if pdb_code not in pose_mutations:
+        #             pose_mutations[pdb_code] = {}
+        #         pose_mutations[pdb_code][chain] = {}
+        #         for mutation_idx in mutations[pdb_code][chain]:
+        #             pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
+        # mutations = pose_mutations
+        mutations = {name: {chain: {idx + offset: mutation for idx, mutation in chain_mutations[chain].iems()}
+                            for chain, offset in offset_dict.items()} for name, chain_mutations in mutations.items()}
     return mutations
 
+
+def generate_mutations_from_reference(reference, sequences):  # , pose_num=True):
+    """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
+
+    Args:
+        reference (str): The reference sequence to compare sequences to
+        sequences (dict[mapping[str, str]]): {pdb_code: sequence, ...}
+    Keyword Args:
+        # pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
+        second Entity as Entity1 last residue + 1
+    Returns:
+        (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+    """
+    # mutations = {'reference': {chain: {sequence_idx: {'from': aa, 'to': aa}
+    #                                    for sequence_idx, aa in enumerate(ref_sequence, 1)}
+    #                            for chain, ref_sequence in reference.items()}}
+    #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
+    # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
+    #                    for chain, sequence in chain_sequences.items()}
+    #              for pdb, chain_sequences in pdb_sequences.items()}
+    mutations = {name: generate_mutations(sequence, reference, offset=False) for name, sequence in sequences.items()}
+    # try:
+    #     for pdb, chain_sequences in sequences.items():
+    #         mutations[pdb] = {}
+    #         for chain, sequence in chain_sequences.items():
+    #             mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
+    # except KeyError:
+    #     raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
+    #                       'reference' % chain)
+    # add reference sequence mutations
+    mutations['reference'] = {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
+
+    # if pose_num:
+    #     offset_dict = pdb_to_pose_num(reference)
+    #     # pose_mutations = {}
+    #     # for chain, offset in offset_dict.items():
+    #     #     for pdb_code in mutations:
+    #     #         if pdb_code not in pose_mutations:
+    #     #             pose_mutations[pdb_code] = {}
+    #     #         pose_mutations[pdb_code][chain] = {}
+    #     #         for mutation_idx in mutations[pdb_code][chain]:
+    #     #             pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
+    #     # mutations = pose_mutations
+    #     mutations = {pdb_code: {chain: {idx + offset: mutation for idx, mutation in chain_mutations[chain].iems()}
+    #                             for chain, offset in offset_dict.items()}
+    #                  for pdb_code, chain_mutations in mutations.items()}
+
+    return mutations
 
 # def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
 #     """Extracts amino acid sequence from either ATOM or SEQRES record of PDB object
