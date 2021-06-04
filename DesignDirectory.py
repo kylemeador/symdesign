@@ -1907,14 +1907,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             other_pose_metrics['observations'] = len(scores_df)
             if scores_df.get('repacking') is not None:
-                # set bound_activation = NaN where repacking is 0. Currently is -1 for True (Rosetta Filter quirk...)
-                print('Before')
-                print(scores_df['interface_bound_activation_energy'])
+                # set interface_bound_activation_energy = NaN where repacking is 0
+                # Currently is -1 for True (Rosetta Filter quirk...)
                 scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = \
                     np.nan
                 scores_df.drop('repacking', axis=1, inplace=True)
-                print('After')
-                print(scores_df['interface_bound_activation_energy'])
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
@@ -1941,7 +1938,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             protocol_stats[stats_metrics.index('mean')]['observations'] = protocol_groups.size()
             protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
             pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
-            stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s])  # dropna removes metrics with missing stat
+            stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
             # change statistic names for all df that are not groupby means for the output trajectory.csv
             for idx, stat in enumerate(stats_metrics):
                 if stat != 'mean':
