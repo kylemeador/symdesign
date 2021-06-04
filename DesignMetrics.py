@@ -161,6 +161,10 @@ master_metrics = {'average_fragment_z_score':
                   'interface_separation':
                       {'description': 'Median distance between all atom points on each side of the interface',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'interface_separation_core':
+                      {'description': 'Median distance between all atom points on each side of the interface core '
+                                      'fragment positions',
+                       'direction': 'min', 'function': 'normalize', 'filter': True},
                   'multiple_fragment_ratio':
                       {'description': 'The extent to which fragment observations are connected in the interface. Higher'
                                       ' ratio means multiple fragment observations per residue',
@@ -267,6 +271,10 @@ master_metrics = {'average_fragment_z_score':
                                       'designed states', 'direction': 'min', 'function': 'normalize', 'filter': True},
                   'shape_complementarity':
                       {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'shape_complementarity_core':
+                      {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993 at interface '
+                                      'core fragment positions',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
                   'solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - bound
                       {'description': 'The free energy resulting from hydration of the separated interface surfaces. '
@@ -438,6 +446,7 @@ final_metrics = {'interface_buried_hbonds', 'contact_count', 'core', 'coordinate
 #                   'fsp_total_stability', 'full_stability_complex',
 
 columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation',
+                     'shape_complementarity_core_median_dist': 'interface_core_separation',
                      'ref': 'rosetta_reference_energy',
                      # 'relax_switch': groups, 'no_constraint_switch': groups, 'limit_to_profile_switch': groups,
                      # 'combo_profile_switch': groups, 'design_profile_switch': groups,
