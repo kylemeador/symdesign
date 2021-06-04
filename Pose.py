@@ -36,7 +36,7 @@ class Model:  # (PDB)
     their coordinates perturbed
     """
     def __init__(self, pdb=None, models=None, log=None, **kwargs):
-        super().__init__()  # **kwargs
+        super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
         if log:
@@ -154,8 +154,7 @@ class Model:  # (PDB)
 
 
 class SymmetricModel(Model):
-    def __init__(self, asu=None, **kwargs):  # coords_type=None, symmetry=None, dimension=None,
-        #        uc_dimensions=None, expand_matrices=None, pdb=None, models=None, log=None, number_of_models=None,
+    def __init__(self, asu=None, **kwargs):
         super().__init__(**kwargs)  # log=log,
         if asu and isinstance(asu, Structure):
             self.asu = asu  # the pose specific asu
@@ -174,12 +173,6 @@ class SymmetricModel(Model):
         self.asu_equivalent_model_idx = None
         self.oligomeric_equivalent_model_idxs = {}
 
-        # if log:
-        #     self.log = log
-        # else:
-        #     print('SymmetricModel starting log')
-        #     self.log = start_log()
-
         # if models:
         #     self.models = models
         #     self.number_of_models = len(models)
@@ -188,6 +181,8 @@ class SymmetricModel(Model):
         # if symmetry:
         # if self.asu:
         # kwargs.update({})
+        # symmetry_kwargs = self.asu.symmetry.copy()
+        kwargs.update(self.asu.symmetry.copy())
         self.set_symmetry(**kwargs)
         #    self.set_symmetry(symmetry)
 
@@ -991,7 +986,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.design_selector = kwargs.get('design_selector', {})
         # else:
         #     self.design_selector = {}
-        super().__init__(**kwargs)
         # if asu and isinstance(asu, Structure):
         #     self.asu = asu
         if asu_file:
@@ -1001,9 +995,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
 
+        super().__init__(**kwargs)  # will only generate an assembly if an ASU is present
+        # super().__init__(**kwargs)
+        # self.set_symmetry(**symmetry_kwargs)
+
         frag_db = kwargs.get('frag_db')
-        if frag_db:
-            # Attach existing FragmentDB to the Pose
+        if frag_db:  # Attach existing FragmentDB to the Pose
             self.attach_fragment_database(db=frag_db)
             # self.frag_db = frag_db  # Todo property
             for entity in self.entities:
@@ -1012,10 +1009,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.euler_lookup = kwargs.get('euler_lookup', None)
         # for entity in self.entities:  # No need to attach to entities
         #     entity.euler_lookup = euler_lookup
-
-        symmetry_kwargs = self.pdb.symmetry.copy()
-        symmetry_kwargs.update(kwargs)
-        self.set_symmetry(**symmetry_kwargs)  # this will only generate an assembly if an ASU is present
 
     @classmethod
     def from_pdb(cls, pdb, **kwargs):
