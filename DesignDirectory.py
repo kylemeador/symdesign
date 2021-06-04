@@ -871,7 +871,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             (str): Disk location of the written flags file
         """
         # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
-        chain_breaks = {entity: entity.get_terminal_residue('c').number for entity in self.pose.entities}
+        chain_breaks = {entity: entity.c_terminal_residue.number for entity in self.pose.entities}
         self.log.info('Found the following chain breaks in the ASU:\n\t%s'
                       % ('\n\t'.join('\tEntity %s, Chain %s Residue %d'
                                      % (entity.name, entity.chain_id, residue_number)
@@ -1706,12 +1706,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # chain_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
             # chain_sequences = {chain: keys_from_trajectory_number(named_sequences)
             #                         for chain, named_sequences in chain_sequences.items()}
-            entity_chain_breaks = \
-                [(entity, entity.n_terminal_residue('n').number, entity.n_terminal_residue('c').number)
-                 for entity in self.pose.entities]
-            # entity_chain_breaks = \
-            #     {entity: (entity.get_terminal_residue('n').number, entity.get_terminal_residue('c').number)
-            #      for entity in self.pose.entities}
+            entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
+                                   for entity in self.pose.entities]
             # # chain_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
             # #                         for design, scores in all_design_scores.items()}
             chain_sequences = {entity.chain_id: {design: sequence[n_term - 1:c_term]

@@ -689,34 +689,6 @@ class PDB(Structure):
         axes = [z_axis_a, z_axis_b, z_axis_c, y_axis_a, y_axis_b, y_axis_c, x_axis_a, x_axis_b, x_axis_c]
         self.atoms.extend(axes)
 
-    # def get_terminal_residue(self, termini='c'):
-    #     if termini == "N":
-    #         for atom in self.get_chain_atoms(chain_id):
-    #             if atom.type == "CA":
-    #                 return atom
-    #     elif termini == "C":
-    #         for atom in self.get_chain_atoms(chain_id)[::-1]:
-    #             if atom.type == "CA":
-    #                 return atom
-    #     else:
-    #         print('Select N or C Term')
-    #         return None
-    #
-    # def get_residue_atoms(self, chain_id, residue_numbers):
-    #     if not isinstance(residue_numbers, list):
-    #         residue_numbers = list(residue_numbers)
-    #
-    #     atoms = []
-    #     # for residue in self.residues:
-    #     #     if residue.chain == chain_id and residue.number in residue_numbers:
-    #     #         atoms.extend(residue.atoms)
-    #
-    #     _residues = self.chain(chain_id).get_residues(numbers=residue_numbers)
-    #     for _residue in _residues:
-    #         atoms.extend(_residue.atoms)
-    #
-    #     return atoms
-
     def create_chains(self, solve_discrepancy=True):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues"""
         if solve_discrepancy:
