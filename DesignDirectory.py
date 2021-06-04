@@ -577,6 +577,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
             if os.path.exists(self.serialized_info):  # Pose has already been processed, gather state data
+                print('Found pickled file with size %d' % os.stat(self.serialized_info).st_size)
                 self.info = unpickle(self.serialized_info)
                 self._info = self.info.copy()  # create a copy of the state upon initialization
                 # if self.info.get('nanohedra'):
