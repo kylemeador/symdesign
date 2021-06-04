@@ -1908,8 +1908,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             other_pose_metrics['observations'] = len(scores_df)
             if scores_df.get('repacking') is not None:
                 # set bound_activation = NaN where repacking is 0. Currently is -1 for True (Rosetta Filter quirk...)
+                print('Before')
+                print(scores_df['interface_bound_activation_energy'])
                 scores_df.loc[scores_df[scores_df['repacking'] < 0].index, 'interface_bound_activation_energy'] = np.nan
                 scores_df.drop('repacking', axis=1, inplace=True)
+                print('After')
+                print(scores_df['interface_bound_activation_energy'])
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
