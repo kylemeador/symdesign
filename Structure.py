@@ -20,6 +20,9 @@ from utils.GeneralUtils import transform_coordinate_sets
 
 # globals
 logger = start_log(name=__name__)
+# from table 1, theoretical values of Tien et al. 2013
+gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225, 'G': 104, 'H': 224, 'I': 197,
+            'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174}
 
 
 class StructureBase:
@@ -596,21 +599,25 @@ class Structure(StructureBase):
         for residue in self.residues:
             if getattr(residue, number_source) == residue_number:
                 return residue
-        return None
+        return
 
-    def get_terminal_residue(self, termini='c'):
+    @property
+    def n_terminal_residue(self):
         """Retrieve the Residue from the specified termini
 
         Returns:
             (Residue)
         """
-        if termini.lower() == 'n':
-            return self.residues[0]
-        elif termini.lower() == 'c':
-            return self.residues[-1]
-        else:
-            self.log.error('%s: N or C are only allowed inputs!' % self.get_terminal_residue.__name__)
-            return None
+        return self.residues[0]
+
+    @property
+    def c_terminal_residue(self):
+        """Retrieve the Residue from the specified termini
+
+        Returns:
+            (Residue)
+        """
+        return self.residues[-1]
 
     def get_residue_atoms(self, numbers=None, **kwargs):
         """Return the Atoms contained in the Residue objects matching a set of residue numbers
@@ -633,7 +640,7 @@ class Structure(StructureBase):
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue
-        return None
+        return
 
     def residue_number_from_pdb(self, residue_number):
         """Returns the pose residue number from the queried .pdb number
@@ -644,7 +651,7 @@ class Structure(StructureBase):
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue.number
-        return None
+        return
 
     def residue_number_to_pdb(self, residue_number):
         """Returns the .pdb residue number from the queried pose number
@@ -655,7 +662,7 @@ class Structure(StructureBase):
         for residue in self.residues:
             if residue.number == residue_number:
                 return residue.number_pdb
-        return None
+        return
 
     # def renumber_residues(self):
     #     """Starts numbering Residues at 1 and number sequentially until last Residue"""
@@ -2260,6 +2267,10 @@ class Residue:
     @sasa.setter
     def sasa(self, sasa):
         self._sasa = sasa
+
+    @property
+    def relative_sasa(self):
+        return self._sasa / gxg_sasa[self._type]
 
     @property
     def number_of_atoms(self):

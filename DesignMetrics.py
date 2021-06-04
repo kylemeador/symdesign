@@ -6,6 +6,7 @@ from json import loads
 import numpy as np
 import pandas as pd
 
+from Structure import gxg_sasa
 from SymDesignUtils import start_log, DesignError, index_intersection, handle_errors, \
     pretty_format_table, digit_translate_table
 from Query.PDB import header_string, input_string, confirmation_string, bool_d, invalid_string
@@ -556,8 +557,6 @@ residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
 
 # from table 1, theoretical values of Tien et al. 2013
-gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225, 'G': 104, 'H': 224, 'I': 197,
-            'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174}
 residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.},
                     'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
                              'hydrophobic': {'complex': 0., 'unbound': 0.}},
@@ -641,7 +640,7 @@ def columns_to_new_column(df, column_dict, mode='add'):
     return df
 
 
-def calc_relative_sa(aa, sa):  # TODO SDUtils
+def calc_relative_sa(aa, sa):
     """Calculate relative surface area according to theoretical values of Tien et al. 2013"""
     return round(sa / gxg_sasa[aa], 2)
 
