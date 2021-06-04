@@ -911,9 +911,10 @@ class Structure(StructureBase):
         # SEQ A    9 ASP :    1.30
         # SEQ A   10 PHE :   64.55
         p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius)],
-                             stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+                             stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
-
+        if err.decode('utf-8').split('\n'):
+            self.log.warning(err)
         # self.sasa = [float(line[16:]) for line in out.decode('utf-8').split('\n') if line[:3] == 'SEQ']
         residues = self.residues
         idx = 0
