@@ -1906,11 +1906,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             other_pose_metrics['observations'] = len(scores_df)
-
+            if scores_df.get('repacking'):
+                # set bound_activation = NaN where repacking is 0. Currently is -1 for True (Rosetta Filter quirk...)
+                scores_df.loc[scores_df[scores_df['repacking'] < 0].index, 'interface_bound_activation_energy'] = np.nan
+                scores_df.drop(['repacking'], inplace=True)
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
-            # TODO v consensus only?
+            # TODO v what about when run on consensus only?
             assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
 
             # Get total design statistics for every sequence in the pose and every protocol specifically
@@ -1931,11 +1934,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 protocol_stats.append(getattr(protocol_groups, stat)())
 
             protocol_stats[stats_metrics.index('mean')]['observations'] = protocol_groups.size()
-            protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats],
-                                         keys=stats_metrics)  # .swaplevel(0, 1)
+            protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
             pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
-            stat_s = pd.concat([protocol_stats_s, pose_stats_s])
-            # change statistic names for all df that are not groupby means
+            stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s])  # dropna removes metrics with missing stat
+            # change statistic names for all df that are not groupby means for the output trajectory.csv
             for idx, stat in enumerate(stats_metrics):
                 if stat != 'mean':
                     protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
@@ -2014,7 +2016,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             elif len(protocols_of_interest) == 1:
                 self.log.warning('Can\'t measure protocol significance, only one protocol of interest!')
             else:
-                # Test significance between all combinations of protocols
+                # Test significance between all combinations of protocols by grabbing mean entries per protocol
                 for prot1, prot2 in combinations(sorted(protocols_of_interest), 2):
                     select_df = trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2],
                                                   significance_columns]
