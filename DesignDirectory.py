@@ -1773,7 +1773,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
 
-            all_mutations = generate_mutations_from_reference(self.pose.pdb.atom_sequences, pose_sequences)
+            all_mutations = \
+                generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
             # all_mutations = generate_mutations_from_reference(self.pose.pdb.atom_sequences, pose_sequences)
             # all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
             # cleaned_mutations = simplify_mutation_dict(all_mutations)
