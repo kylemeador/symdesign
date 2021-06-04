@@ -1289,17 +1289,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Returns:
             (list[tuple]): A list of interface residue numbers across the interface
         """
-        # entity2_query = construct_cb_atom_tree(entity1, entity2, distance=distance)
         self.log.debug('Entity %s | Entity %s interface query' % (entity1.name, entity2.name))
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        # entity1_atoms = entity1.get_atoms()  # if passing by Structure
-        entity1_indices = entity1.get_cb_indices()  # InclGlyCA=include_glycine)
-        # print('PDB CB indices: %s' % self.pdb.get_cb_indices())
-        # print('Number of PDB residues: %d' % len(pdb_residues))
-        # print('Entity1 CB indices: %s' % entity1_indices)
-        # entity2_atoms = entity2.get_atoms()  # if passing by Structure
-        entity2_indices = entity2.get_cb_indices()  # InclGlyCA=include_glycine)
-        # print('Entity2 CB indices: %s' % entity2_indices)
+        entity1_indices = entity1.get_cb_indices()
+        entity2_indices = entity2.get_cb_indices()
 
         if self.design_selector_indices:  # subtract the masked atom indices from the entity indices
             before = len(entity1_indices) + len(entity2_indices)
@@ -1311,7 +1304,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if not entity1_indices or not entity2_indices:
             return
 
-        # pdb_atoms = self.pdb.atoms
         coords_length = len(self.coords)
         if self.symmetry:
             sym_string = 'symmetric '
@@ -1319,18 +1311,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # get all symmetric indices
             entity2_indices = [idx + (coords_length * model_number) for model_number in range(self.number_of_models)
                                for idx in entity2_indices]
-            # pdb_atoms = [atom for _ in range(self.number_of_models) for atom in pdb_atoms]
-            # self.log.debug('Number of Atoms in Pose expanded assembly: %s' % len(pdb_atoms))
-            # pdb_residues = [residue for model in range(self.number_of_models) for residue in pdb_residues]
-            # entity2_atoms = [atom for model_number in range(self.number_of_models) for atom in entity2_atoms]
             if entity1 == entity2:
                 # We don't want interactions with the symmetric asu model or intra-oligomeric contacts
-                if entity1.is_oligomeric:  # remove oligomer protomers (has asu)
+                if entity1.is_oligomeric:  # remove oligomeric protomers (contains asu)
                     remove_indices = self.find_intra_oligomeric_symmetry_mate_indices(entity1)
                     self.log.debug('Removing indices from models %s due to detected oligomer'
-                                   % self.oligomeric_equivalent_model_idxs.get(entity1))
-                    self.log.debug('Removing %d indices from symmetric query due to detected oligomer'  # %s'
-                                   % (len(remove_indices)))  # , remove_indices))
+                                   % ','.join(map(str, self.oligomeric_equivalent_model_idxs.get(entity1))))
+                    self.log.debug('Removing %d indices from symmetric query due to detected oligomer'
+                                   % (len(remove_indices)))
                 else:  # remove asu
                     remove_indices = self.find_asu_equivalent_symmetry_mate_indices()
                 self.log.debug('Number of indices before removal of \'self\' indices: %s' % len(entity2_indices))
@@ -1341,7 +1329,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
                              ' detected!')
-            return None
+            return
         else:
             sym_string = ''
             entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
@@ -1354,7 +1342,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # Return residue numbers of identified coordinates
         self.log.info('Querying %d CB residues in Entity %s versus, %d CB residues in %sEntity %s'
                       % (len(entity1_indices), entity1.name, len(entity2_indices), sym_string, entity2.name))
-        # self.log.debug('Entity2 Query size: %d' % entity2_query.size)
         # contacting_pairs = [(pdb_residues[entity1_indices[entity1_idx]],
         #                      pdb_residues[entity2_indices[entity2_idx]])
         #                    for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
@@ -1367,9 +1354,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                              self.coords_indexed_to_residues[entity2_indices[entity2_idx] % coords_length])
                             for entity2_idx, entity1_contacts in enumerate(entity2_query)
                             for entity1_idx in entity1_contacts]
-        if entity1 != entity2:
-            return contacting_pairs
-        else:  # solve symmetric results for asymmetric contacts
+        if entity1 == entity2:  # solve symmetric results for asymmetric contacts
             asymmetric_contacting_pairs, found_pairs = [], []
             for pair1, pair2 in contacting_pairs:
                 # only add to contacting pair if we have never observed either
@@ -1379,6 +1364,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 found_pairs.extend([(pair1, pair2), (pair2, pair1)])
 
             return asymmetric_contacting_pairs
+        else:
+            return contacting_pairs
 
     def find_interface_residues(self, entity1=None, entity2=None, **kwargs):  # distance=8
         """Get unique residues from each pdb across an interface provided by two Entity names
@@ -1392,30 +1379,25 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         entity1_residues, entity2_residues = \
             split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
-        # entity1_residue_numbers, entity2_residue_numbers = \
-        #     split_interface_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
-        # if not entity1_residue_numbers or not entity2_residue_numbers:
+
         if not entity1_residues or not entity2_residues:
             self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
             self.interface_residues[(entity1, entity2)] = ([], [])
-            return None
+            return
         else:
             if entity1 == entity2:
-                # separate the residue numbers so that only one interface gets the numbers?
-                dum = True
-                # for number in entity1_residue_numbers:
-
+                for residue in entity2_residues:  # enitty2 usually has fewer residues, this might be quickest
+                    if residue in entity1_residues:  # interface is dimeric and should only have residues on one side
+                        entity1_residues, entity2_residues = \
+                            sorted(set(entity1_residues).union(entity2_residues), key=lambda res: res.number), []
+                        break
             self.log.info(
                 'At Entity %s | Entity %s interface:\n\t%s found residue numbers: %s\n\t%s found residue numbers: %s'
-                # % (entity1.name, entity2.name, entity1.name, entity1_residue_numbers, entity2.name,
-                #    entity2_residue_numbers))
                 % (entity1.name, entity2.name, entity1.name, ', '.join(str(res.number) for res in entity1_residues),
                    entity2.name, ', '.join(str(res.number) for res in entity2_residues)))
 
         self.interface_residues[(entity1, entity2)] = (entity1_residues, entity2_residues)
-        # self.interface_residues[(entity1, entity2)] = (entity1.get_residues(numbers=entity1_residue_numbers),
-        #                                                entity2.get_residues(numbers=entity2_residue_numbers))
         entities = [entity1, entity2]
         self.log.debug('Added interface_residues: %s' % ['%d%s' % (residue.number, entities[idx].chain_id)
                        for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)])
