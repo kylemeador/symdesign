@@ -1906,7 +1906,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
                 # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             other_pose_metrics['observations'] = len(scores_df)
-            if scores_df.get('repacking'):
+            if scores_df.get('repacking') is not None:
                 # set bound_activation = NaN where repacking is 0. Currently is -1 for True (Rosetta Filter quirk...)
                 scores_df.loc[scores_df[scores_df['repacking'] < 0].index, 'interface_bound_activation_energy'] = np.nan
                 scores_df.drop(['repacking'], inplace=True)
