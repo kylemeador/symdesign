@@ -25,15 +25,14 @@ from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
 from Pose import Pose
-from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, \
-    necessary_metrics, columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, \
-    dirty_hbond_processing, dirty_residue_processing, mutation_conserved, per_res_metric, residue_classificiation, \
-    interface_residue_composition_similarity, division_pairs, stats_metrics, significance_columns, \
-    protocols_of_interest, df_permutation_test, calc_relative_sa, clean_up_intermediate_columns, \
-    master_metrics, fragment_metric_template, protocol_specific_columns  # summation_pairs, keys_from_trajectory_number,
-from SequenceProfile import parse_pssm, generate_multiple_mutations, get_db_aa_frequencies, simplify_mutation_dict, \
-    make_mutations_chain_agnostic, weave_sequence_dict, position_specific_jsd, sequence_difference, \
-    jensen_shannon_divergence, multi_chain_alignment  # , format_mutations, generate_sequences
+from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, necessary_metrics, division_pairs, \
+    columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
+    mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
+    stats_metrics, significance_columns, protocols_of_interest, df_permutation_test, calc_relative_sa, \
+    clean_up_intermediate_columns, master_metrics, fragment_metric_template, protocol_specific_columns
+from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
+    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence,\
+    multi_chain_alignment  # , format_mutations, generate_sequences, make_mutations_chain_agnostic,
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 from utils.SymmetryUtils import valid_subunit_number
@@ -515,7 +514,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.profiles = os.path.join(self.sequence_info, 'profiles')
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
-        self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO db integration
+        self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO ScoreDatabase integration
         self.trajectories = os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
         self.design_sequences = os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
@@ -1101,7 +1100,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #
     #     # DESIGN: Prepare command and flags file
     #     evolutionary_profile = self.info.get('design_profile')
-    #     # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
     #     scout_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
     #         [
     #          '-in:file:s', self.refined_pdb, '@%s' % flags,
@@ -1170,7 +1168,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.make_path(self.scripts)
         flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
-        if self.consensus:  # Todo add a sbatch generator to the symdesign main
+        if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
             if self.design_with_fragments:
                 consensus_cmd = main_cmd + relax_flags + \
                     ['@%s' % flags, '-in:file:s', self.consensus_pdb, '-in:file:native', self.refined_pdb,
@@ -1380,7 +1378,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
                                       design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                       ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-            # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() with entities...
+            # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() making new entities...
         else:    # ,                            pass names if available v
             asu = PDB.from_file(self.source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
             self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
@@ -1611,7 +1609,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.make_path(self.data)
         self.pose.interface_design(evolution=self.evolution, fragments=self.design_with_fragments,
                                    query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
-                                   write_fragments=self.write_frags, des_dir=self)  # Todo frag_db=self.frag_db_SOURCE
+                                   write_fragments=self.write_frags, des_dir=self)  # Todo frag_db=self.frag_db.source
         self.make_path(self.designs)
         # self.make_path(self.scores)
         self.info['fragments'] = self.pose.return_fragment_observations()
@@ -1992,7 +1990,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     divergence_by_protocol[protocol]['%s_per_residue' % divergence] = per_res_metric(sequence_info)
                     # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
                     # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
-                # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO
+                # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
 
             protocol_divergence_s = pd.concat([pd.Series(divergence) for divergence in divergence_by_protocol.values()],
                                               keys=list(zip(repeat('sequence_design'), divergence_by_protocol)))
@@ -2108,9 +2106,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # Process similarity between protocols
                 sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
                                            keys=list(sim_measures.keys()))
-                # Todo test
-                sim_stdev_s = pd.concat(list(sim_stdev.values()),
-                                        keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
+                # # Todo test
+                # sim_stdev_s = pd.concat(list(sim_stdev.values()),
+                #                         keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
                 # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
                 sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
@@ -2187,16 +2185,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 wild_type_residue_info = {}
                 for res_number in residue_info[next(iter(residue_info))].keys():
                     # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
+                    residue = self.pose.pdb.residue(res_number)
                     wild_type_residue_info[res_number] = \
-                        {'type': reference_mutations[res_number], 'core': None, 'rim': None, 'support': None,
+                        {'type': residue.type, 'core': None, 'rim': None, 'support': None,
                          # Todo implement wt energy metric during oligomer refinement?
                          'interior': 0, 'hbond': None, 'energy_delta': None,
-                         'bsa_total': wt_pdb.residue(res_number).sasa, 'bsa_polar': None, 'bsa_hydrophobic': None,
+                         'bsa_total': residue.sasa, 'bsa_polar': None, 'bsa_hydrophobic': None,
                          'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
                          'observed_evolution': None, 'observed_fragment': None}  # 'hot_spot': None}
-                    relative_oligomer_sasa = calc_relative_sa(wild_type_residue_info[res_number]['type'],
-                                                              wild_type_residue_info[res_number]['bsa_total'])
-                    if relative_oligomer_sasa < 0.25:
+                    if residue.relative_sasa < 0.25:
                         wild_type_residue_info[res_number]['interior'] = 1
                     # if res_number in issm_residues and res_number not in residues_no_frags:
                     #     wild_type_residue_info[res_number]['observed_fragment'] = None

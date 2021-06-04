@@ -236,7 +236,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             template_pdb.insert_residue(chain, residue, gapped_residues_d[chain][residue]['from'])
 
     template_pdb.renumber_residues()
-    jump = template_pdb.chain(template_pdb.chain_id_list[0]).get_terminal_residue('c').number
+    jump = template_pdb.chain(template_pdb.chain_id_list[0]).c_terminal_residue.number
     template_residues = template_pdb.residues
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
