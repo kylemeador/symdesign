@@ -344,7 +344,7 @@ class FragmentDatabase(FragmentDB):
         """
         return self.statistics['frequencies']
 
-    def retrieve_cluster_info(self, cluster=None, source=None, index=None):
+    def retrieve_cluster_info(self, cluster=None, source=None, index=None):  # Todo rework this, below func for Database
         """Return information from the fragment information database by cluster_id, information source, and source index
          cluster_info takes the form:
             {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ...,
